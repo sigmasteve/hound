@@ -32,7 +32,11 @@ export function MainScreen({ route, navigation }: Props) {
       <TopNav active={tab} onSelect={setTab} onProfile={() => setTab('settings')} />
       <View style={styles.content}>
         {tab === 'home' && (
-          <HomeScreen onOpenHunt={() => navigation.navigate('Hunt')} onGoTab={setTab} />
+          <HomeScreen
+            onOpenHunt={() => navigation.navigate('Hunt')}
+            onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
+            onGoTab={setTab}
+          />
         )}
         {tab === 'challenges' && (
           <ChallengesScreen

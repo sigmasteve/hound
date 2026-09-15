@@ -12,18 +12,9 @@ import { color, font, TINT_A, TINT_N } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import { botInitials, simulateBotSteps } from '../challenges/botSimulation';
+import { buildBoard } from '../challenges/board';
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
-
-interface BoardRow {
-  userId: string;
-  name: string;
-  initials: string;
-  totalSteps: number;
-  totalDistanceMi: number;
-  isBot: boolean;
-}
 
 // The generic detail view for a real, Supabase-backed challenge of any
 // kind — there's no per-kind template yet (HuntScreen is one specific
@@ -132,27 +123,10 @@ export function ChallengeDetailScreen({
   );
   const endsLabel = new Date(challenge.endsAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
-  const board: BoardRow[] = [
-    ...participants.map((p) => {
-      const entry = leaderboard.find((l) => l.userId === p.userId);
-      return {
-        userId: p.userId,
-        name: p.userId === user?.id ? 'You' : p.name,
-        initials: p.initials,
-        totalSteps: entry?.totalSteps ?? 0,
-        totalDistanceMi: entry?.totalDistanceMi ?? 0,
-        isBot: false,
-      };
-    }),
-    ...bots.map((b) => ({
-      userId: b.id,
-      name: b.name,
-      initials: botInitials(b.name),
-      totalSteps: simulateBotSteps(b.id, b.fitnessLevel, daysElapsed),
-      totalDistanceMi: 0,
-      isBot: true,
-    })),
-  ].sort((a, b) => b.totalSteps - a.totalSteps);
+  const board = buildBoard(participants, leaderboard, bots, daysElapsed).map((row) => ({
+    ...row,
+    name: row.userId === user?.id ? 'You' : row.name,
+  }));
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>

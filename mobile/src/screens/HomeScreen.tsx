@@ -19,11 +19,17 @@ import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { Tag } from '../components/Tag';
 import { text } from '../theme/text';
-import { color, font } from '../theme/tokens';
+import { color, font, TINT_A, TINT_N } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
 import type { HealthSnapshot } from '../health/types';
-import { RACE_BOARD } from '../data/sampleData';
+import { CHALLENGE_TYPES, RACE_BOARD } from '../data/sampleData';
 import type { MainTab } from '../navigation/types';
+import { useAuth } from '../auth/AuthContext';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
+import { buildBoard, type BoardEntry } from '../challenges/board';
+import { ordinal } from '../challenges/present';
+import type { Challenge } from '../challenges/types';
 
 function timeAgo(d: Date | null): string {
   if (!d) return '—';
@@ -33,15 +39,62 @@ function timeAgo(d: Date | null): string {
   return `${Math.round(mins / 60)}h ago`;
 }
 
+interface PrimaryChallenge {
+  challenge: Challenge;
+  board: BoardEntry[];
+}
+
+// The headline sentence + eyebrow for whichever real challenge Home
+// decided to lead with — "Marcus is 7.4 mi behind you" was hand-authored
+// for one specific hardcoded matchup, so a real version has to cover
+// however many kinds of standing a real challenge can actually be in: a
+// two-way mileage gap (hunt), a rank in a bigger field, or nobody having
+// logged anything yet.
+function heroCopy(primary: PrimaryChallenge, userId: string | null): { eyebrow: string; headline: string } {
+  const { challenge, board } = primary;
+  const daysElapsed = Math.min(
+    challenge.durationDays,
+    Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
+  );
+  const kindLabel = CHALLENGE_TYPES.find((t) => t.id === challenge.kind)?.name ?? challenge.kind;
+  const eyebrow = `DAY ${daysElapsed} OF ${challenge.durationDays} · ${kindLabel.toUpperCase()}`;
+
+  const me = userId ? board.find((r) => r.userId === userId) : undefined;
+  const rival = board.find((r) => r.userId !== userId);
+
+  if (challenge.kind === 'hunt' && board.length === 2 && me && rival) {
+    if (me.totalDistanceMi === 0 && rival.totalDistanceMi === 0) {
+      return { eyebrow, headline: `${challenge.name} just started — no miles logged yet.` };
+    }
+    const leadMi = me.totalDistanceMi - rival.totalDistanceMi;
+    const relation = leadMi >= 0 ? 'behind you' : 'ahead of you';
+    return { eyebrow, headline: `${rival.name} is ${Math.abs(leadMi).toFixed(1)} mi ${relation}.` };
+  }
+
+  if (!me || board.every((r) => r.totalSteps === 0)) {
+    return { eyebrow, headline: `${challenge.name} — no one's logged anything yet.` };
+  }
+  const rank = board.findIndex((r) => r.userId === userId) + 1;
+  return { eyebrow, headline: `You're ${ordinal(rank)} of ${board.length} in ${challenge.name}.` };
+}
+
 export function HomeScreen({
   onOpenHunt,
+  onOpenChallenge,
   onGoTab,
 }: {
   onOpenHunt: () => void;
+  onOpenChallenge: (challengeId: string) => void;
   onGoTab: (tab: MainTab) => void;
 }) {
+  const { user } = useAuth();
   const health = useHealthProvider();
   const [snap, setSnap] = useState<HealthSnapshot | null>(null);
+  // null = still on the sample "Marcus" fallback, either because Supabase
+  // isn't configured or there's no real active challenge to headline yet —
+  // same "never break the screen, just fall back" pattern ChallengesScreen
+  // uses for its own list.
+  const [primary, setPrimary] = useState<PrimaryChallenge | null>(null);
 
   const reload = useCallback(() => {
     health.getSnapshot().then(setSnap);
@@ -49,18 +102,49 @@ export function HomeScreen({
 
   useEffect(reload, [reload]);
 
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let cancelled = false;
+    (async () => {
+      const challenges = await supabaseChallengesProvider.listMyChallenges();
+      // Most recent challenge that hasn't ended yet — Home only ever
+      // headlines one, unlike the Challenges list which shows all of them.
+      const active = challenges.find((c) => new Date(c.endsAt).getTime() > Date.now());
+      if (!active) return;
+      const [participants, leaderboard, bots] = await Promise.all([
+        supabaseChallengesProvider.listParticipants(active.id),
+        supabaseChallengesProvider.getLeaderboard(active.id),
+        supabaseChallengesProvider.listBots(active.id),
+      ]);
+      const daysElapsed = Math.min(
+        active.durationDays,
+        Math.max(1, Math.floor((Date.now() - new Date(active.startsAt).getTime()) / 86_400_000) + 1),
+      );
+      const board = buildBoard(participants, leaderboard, bots, daysElapsed);
+      if (!cancelled) setPrimary({ challenge: active, board });
+    })().catch(() => {
+      // Stay on the sample fallback on any failure.
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const hero = primary ? heroCopy(primary, user?.id ?? null) : null;
+  const openPrimary = primary ? () => onOpenChallenge(primary.challenge.id) : onOpenHunt;
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.heroRow}>
         <View style={styles.heroText}>
-          <Text style={text.eyebrow}>TUESDAY · WEEK 3 OF THE HUNT</Text>
-          <Text style={[text.h2, styles.heroTitle]}>Marcus is 7.4 mi behind you.</Text>
+          <Text style={text.eyebrow}>{hero?.eyebrow ?? 'TUESDAY · WEEK 3 OF THE HUNT'}</Text>
+          <Text style={[text.h2, styles.heroTitle]}>{hero?.headline ?? 'Marcus is 7.4 mi behind you.'}</Text>
         </View>
         <Button
-          label="Open the chase"
+          label={primary ? 'View challenge' : 'Open the chase'}
           variant="primary"
           icon={<CrosshairIcon size={15} color={color.accent} />}
-          onPress={onOpenHunt}
+          onPress={openPrimary}
         />
       </View>
 
@@ -77,19 +161,23 @@ export function HomeScreen({
         </Pressable>
       </View>
 
-      <Card style={styles.staleCard} elevated={false}>
-        <View style={styles.staleRow}>
-          <WarningIcon size={18} color={color.amber} weight="fill" />
-          <View style={styles.staleText}>
-            <Text style={styles.staleTitle}>Theo&rsquo;s Pixel hasn&rsquo;t reported since Sunday</Text>
-            <Text style={styles.staleBody}>
-              His step race total is frozen at 41,208. Scores stay provisional until Health Connect
-              catches up.
-            </Text>
+      {/* "Nudge" and friend-staleness detection need a real cross-device
+          integration that doesn't exist yet — this stays sample-only
+          content, not something to fake for a real challenge. */}
+      {!primary && (
+        <Card style={styles.staleCard} elevated={false}>
+          <View style={styles.staleRow}>
+            <WarningIcon size={18} color={color.amber} weight="fill" />
+            <View style={styles.staleText}>
+              <Text style={styles.staleTitle}>Theo&rsquo;s Pixel hasn&rsquo;t reported since Sunday</Text>
+              <Text style={styles.staleBody}>
+                His step race total is frozen at 41,208. Scores stay provisional until Health Connect
+                catches up.
+              </Text>
+            </View>
           </View>
-          <Button label="Nudge Theo" small onPress={() => onGoTab('friends')} />
-        </View>
-      </Card>
+        </Card>
+      )}
 
       <View style={styles.tileGrid}>
         <MetricTile
@@ -129,51 +217,169 @@ export function HomeScreen({
       </View>
 
       <View style={styles.cardsRow}>
-        <Card style={styles.huntCard} elevated={false}>
-          <View style={styles.huntHeader}>
-            <PawPrintIcon size={15} color={color.accent300} weight="fill" />
-            <Text style={styles.huntTitle}>The Hunt · Jordan vs Marcus</Text>
-            <Tag label="day 9 / 21" variant="outline" />
-          </View>
-          <View style={styles.huntTrack}>
-            <View style={styles.huntTrackLine} />
-            <View style={[styles.huntMarker, styles.hunterMarker, { left: '58%' }]}>
-              <SneakerMoveIcon size={14} color={color.neutral200} />
-            </View>
-            <View style={[styles.huntMarker, styles.huntedMarker, { left: '78%' }]}>
-              <SneakerMoveIcon size={14} color={color.accent100} weight="fill" />
-            </View>
-          </View>
-          <View style={styles.huntStatsRow}>
-            <Text style={styles.huntLead}>
-              7.4 mi<Text style={styles.huntLeadSuffix}> lead</Text>
-            </Text>
-            <Text style={styles.huntNote}>Marcus logged 6.1 mi yesterday. Shrinking fast.</Text>
-          </View>
-          <Button label="See the tally" variant="primary" small onPress={onOpenHunt} />
-        </Card>
+        {primary ? (
+          primary.challenge.kind === 'hunt' && primary.board.length === 2 ? (
+            <LiveHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} />
+          ) : (
+            <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} />
+          )
+        ) : (
+          <>
+            <Card style={styles.huntCard} elevated={false}>
+              <View style={styles.huntHeader}>
+                <PawPrintIcon size={15} color={color.accent300} weight="fill" />
+                <Text style={styles.huntTitle}>The Hunt · Jordan vs Marcus</Text>
+                <Tag label="day 9 / 21" variant="outline" />
+              </View>
+              <View style={styles.huntTrack}>
+                <View style={styles.huntTrackLine} />
+                <View style={[styles.huntMarker, styles.hunterMarker, { left: '58%' }]}>
+                  <SneakerMoveIcon size={14} color={color.neutral200} />
+                </View>
+                <View style={[styles.huntMarker, styles.huntedMarker, { left: '78%' }]}>
+                  <SneakerMoveIcon size={14} color={color.accent100} weight="fill" />
+                </View>
+              </View>
+              <View style={styles.huntStatsRow}>
+                <Text style={styles.huntLead}>
+                  7.4 mi<Text style={styles.huntLeadSuffix}> lead</Text>
+                </Text>
+                <Text style={styles.huntNote}>Marcus logged 6.1 mi yesterday. Shrinking fast.</Text>
+              </View>
+              <Button label="See the tally" variant="primary" small onPress={onOpenHunt} />
+            </Card>
 
-        <Card style={styles.raceCard} elevated={false}>
-          <View style={styles.raceHeader}>
-            <TrophyIcon size={15} color={color.accent} />
-            <Text style={styles.raceTitle}>March Step Race</Text>
-            <Text style={styles.raceMeta}>5 friends · 4 days left</Text>
-          </View>
-          {RACE_BOARD.map((row) => (
-            <View key={row.rank} style={styles.raceRow}>
-              <Text style={styles.raceRank}>{row.rank}</Text>
-              <Avatar initials={row.initials} tint={row.tint} size={24} fontSize={10} />
-              <Text style={styles.raceName}>{row.name}</Text>
-              <ProgressBar pct={row.pct} fillColor={row.bar} height={3} trackColor={color.neutral900} />
-              <Text style={[styles.raceSteps, row.highlight && { color: color.accent200 }]}>
-                {row.steps}
-              </Text>
-            </View>
-          ))}
-          <Button label="Full leaderboard" variant="ghost" small onPress={() => onGoTab('challenges')} />
-        </Card>
+            <Card style={styles.raceCard} elevated={false}>
+              <View style={styles.raceHeader}>
+                <TrophyIcon size={15} color={color.accent} />
+                <Text style={styles.raceTitle}>March Step Race</Text>
+                <Text style={styles.raceMeta}>5 friends · 4 days left</Text>
+              </View>
+              {RACE_BOARD.map((row) => (
+                <View key={row.rank} style={styles.raceRow}>
+                  <Text style={styles.raceRank}>{row.rank}</Text>
+                  <Avatar initials={row.initials} tint={row.tint} size={24} fontSize={10} />
+                  <Text style={styles.raceName}>{row.name}</Text>
+                  <ProgressBar pct={row.pct} fillColor={row.bar} height={3} trackColor={color.neutral900} />
+                  <Text style={[styles.raceSteps, row.highlight && { color: color.accent200 }]}>
+                    {row.steps}
+                  </Text>
+                </View>
+              ))}
+              <Button label="Full leaderboard" variant="ghost" small onPress={() => onGoTab('challenges')} />
+            </Card>
+          </>
+        )}
       </View>
     </ScrollView>
+  );
+}
+
+// A real two-way hunt, laid out the same as the sample card: a track with
+// both racers' positions and a lead/behind readout. Positions are a
+// proportional stand-in for "who's ahead by how much" (clamped so the gap
+// stays readable), not a literal distance-to-pixel mapping.
+function LiveHuntCard({
+  primary,
+  userId,
+  onOpen,
+}: {
+  primary: PrimaryChallenge;
+  userId: string | null;
+  onOpen: () => void;
+}) {
+  const { challenge, board } = primary;
+  const me = board.find((r) => r.userId === userId);
+  const rival = board.find((r) => r.userId !== userId);
+  if (!me || !rival) return null;
+
+  const daysElapsed = Math.min(
+    challenge.durationDays,
+    Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
+  );
+  const leadMi = me.totalDistanceMi - rival.totalDistanceMi;
+  const gapPct = Math.min(40, Math.max(4, Math.abs(leadMi) * 2));
+  const meLeft = leadMi >= 0 ? 78 : 78 - gapPct;
+  const rivalLeft = leadMi >= 0 ? 78 - gapPct : 78;
+
+  return (
+    <Card style={styles.huntCard} elevated={false}>
+      <View style={styles.huntHeader}>
+        <PawPrintIcon size={15} color={color.accent300} weight="fill" />
+        <Text style={styles.huntTitle}>{challenge.name}</Text>
+        <Tag label={`day ${daysElapsed} / ${challenge.durationDays}`} variant="outline" />
+      </View>
+      <View style={styles.huntTrack}>
+        <View style={styles.huntTrackLine} />
+        <View style={[styles.huntMarker, styles.hunterMarker, { left: `${rivalLeft}%` }]}>
+          <SneakerMoveIcon size={14} color={color.neutral200} />
+        </View>
+        <View style={[styles.huntMarker, styles.huntedMarker, { left: `${meLeft}%` }]}>
+          <SneakerMoveIcon size={14} color={color.accent100} weight="fill" />
+        </View>
+      </View>
+      <View style={styles.huntStatsRow}>
+        <Text style={styles.huntLead}>
+          {Math.abs(leadMi).toFixed(1)} mi<Text style={styles.huntLeadSuffix}> {leadMi >= 0 ? 'lead' : 'behind'}</Text>
+        </Text>
+        <Text style={styles.huntNote}>
+          {rival.name} has logged {rival.totalDistanceMi.toFixed(1)} mi so far.
+        </Text>
+      </View>
+      <Button label="See the tally" variant="primary" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+// Any real challenge that isn't a clean two-way hunt (a step race, streak,
+// distance pool, or a hunt with a bot added on top of a real rival) — a
+// ranked list scaled to whoever's currently leading, same shape as the
+// sample race card.
+function LiveLeaderboardCard({
+  primary,
+  userId,
+  onOpen,
+}: {
+  primary: PrimaryChallenge;
+  userId: string | null;
+  onOpen: () => void;
+}) {
+  const { challenge, board } = primary;
+  const top = board.slice(0, 4);
+  const maxSteps = Math.max(1, ...board.map((r) => r.totalSteps));
+  const daysLeft = Math.max(0, Math.ceil((new Date(challenge.endsAt).getTime() - Date.now()) / 86_400_000));
+
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+        <Text style={styles.raceMeta}>
+          {board.length} {board.length === 1 ? 'person' : 'people'} · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+        </Text>
+      </View>
+      {top.map((row, i) => {
+        const isMe = row.userId === userId;
+        return (
+          <View key={row.userId} style={styles.raceRow}>
+            <Text style={styles.raceRank}>{i + 1}</Text>
+            <Avatar initials={row.initials} tint={isMe ? TINT_A : TINT_N} size={24} fontSize={10} />
+            <Text style={styles.raceName}>{isMe ? 'You' : row.name}</Text>
+            <ProgressBar
+              pct={(row.totalSteps / maxSteps) * 100}
+              fillColor={isMe ? color.accent200 : '#796cbf'}
+              height={3}
+              trackColor={color.neutral900}
+            />
+            <Text style={[styles.raceSteps, isMe && { color: color.accent200 }]}>
+              {row.totalSteps.toLocaleString()}
+            </Text>
+          </View>
+        );
+      })}
+      {top.length === 0 && <Text style={styles.tileSub}>No one&rsquo;s logged anything yet.</Text>}
+      <Button label="Full leaderboard" variant="ghost" small onPress={onOpen} />
+    </Card>
   );
 }
 

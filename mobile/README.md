@@ -417,12 +417,16 @@ generates the Info.plist entry it says it will."
 
 ## What's not implemented
 
-The Challenges *list* and a real challenge's *detail* screen both read
-real data now (see "The backend (Supabase)"), but the Hunt screen and
-Friends screen still render `src/data/sampleData.ts`'s static content
-unconditionally, and are unrelated to either. The Challenges screen's
-"Priya invited you…" card and "Finished" section are also still static,
-on either data path. HealthKit/Health Connect only ever cover *your own*
+The Challenges *list*, a real challenge's *detail* screen, and the Home
+screen's hero/leaderboard card all read real data now (see "The backend
+(Supabase)"), but the Hunt screen and Friends screen still render
+`src/data/sampleData.ts`'s static content unconditionally, and are
+unrelated to either. The Challenges screen's "Priya invited you…" card
+and "Finished" section, and Home's "Theo's Pixel hasn't reported" card,
+are also still static, on either data path — that one specifically needs
+real cross-device staleness detection that doesn't exist yet, so it (and
+the "Nudge" action that went with it) only shows up alongside the rest of
+the sample content, never next to a real challenge. HealthKit/Health Connect only ever cover *your own*
 metrics regardless; actually syncing a friend's steps *automatically*
 into a shared leaderboard needs `progress_snapshots` rows written from
 their device without them opening the app and typing a number in —
