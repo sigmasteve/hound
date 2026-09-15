@@ -78,6 +78,10 @@ the app at your own:
    Hunted: real scoring and roles" below).
 8. Same thing again with `0005_challenges_delete_policy.sql` — lets a
    challenge's creator delete it from `ChallengeDetailScreen`.
+9. Same thing again with `0006_challenge_highlight.sql` — adds
+   `challenge_participants.highlighted`, so Home can headline a specific
+   challenge instead of always defaulting to the most recently created
+   one (see "Home" below).
 
 ### Bot opponents
 
@@ -252,6 +256,18 @@ RLS policy this needs (`0005_challenges_delete_policy.sql`) — every child
 table (`challenge_participants`, `challenge_bots`, `progress_snapshots`)
 already references `challenges` with `on delete cascade`, so deleting the
 one row removes everyone's participation and progress in it too.
+
+Every real challenge's detail screen also has a "Highlight on Today
+screen" toggle — whichever one a user turns on is what `HomeScreen`
+headlines, instead of always defaulting to whichever challenge was
+created most recently (falling back to that default if nothing's
+highlighted, or if the highlighted one has ended). It lives on
+`challenge_participants.highlighted`
+(`0006_challenge_highlight.sql`) rather than on `challenges` itself,
+since it's a per-participant preference — two people in the same
+challenge can highlight different ones on their own Home screens.
+`setHighlighted()` clears whatever the current user had highlighted
+before turning a new one on, so at most one stays on per user.
 
 ## The auth layer
 

@@ -74,16 +74,28 @@ export function simulateBotSteps(botId: string, fitnessLevel: BotFitnessLevel, d
 // Fractional day count for bot simulation specifically — the integer
 // "Day X of Y" every screen displays always rounds up to a whole day (a
 // challenge started 5 minutes ago still reads "Day 1"), but a bot's
-// steps need the actual fraction of the current day that's elapsed.
-// Clamped to the challenge's duration so a finished challenge's bots
-// stop accumulating.
+// steps need the actual fraction of *today* (real clock time-of-day,
+// midnight to midnight) that's elapsed, the same way a real device's
+// step count works: checking at 5pm shows roughly 5/24 of a day's steps
+// regardless of what time you happened to install the app. This is
+// deliberately NOT "time since the challenge started" — a challenge
+// created at 4:45pm should immediately reflect that it's already 72%
+// through today, not treat 4:45pm as a fresh midnight and restart a
+// rolling 24h window from there. Clamped to the challenge's duration so
+// a finished challenge's bots stop accumulating.
 export function daysElapsedFraction(challenge: Challenge): number {
-  const elapsed = (Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000;
+  const start = new Date(challenge.startsAt);
+  const now = new Date();
+  const startOfCreationDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const fullCalendarDaysElapsed = Math.floor((now.getTime() - startOfCreationDay.getTime()) / 86_400_000);
+  const timeOfDayFraction = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86_400;
+  const elapsed = fullCalendarDaysElapsed + timeOfDayFraction;
   return Math.min(challenge.durationDays, Math.max(0, elapsed));
 }
 
 export function botToParticipant(bot: ChallengeBot): Participant {
-  return { userId: bot.id, name: bot.name, initials: botInitials(bot.name), role: bot.role };
+  // A bot has no Home screen of its own to highlight anything on.
+  return { userId: bot.id, name: bot.name, initials: botInitials(bot.name), role: bot.role, highlighted: false };
 }
 
 export function botToLeaderboardEntry(bot: ChallengeBot, daysElapsed: number): LeaderboardEntry {

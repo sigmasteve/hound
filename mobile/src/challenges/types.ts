@@ -39,6 +39,10 @@ export interface Participant {
   name: string;
   initials: string;
   role: HuntRole | null;
+  // Whether *this* participant has picked this challenge to headline
+  // their own Home screen — per-participant, not per-challenge, so two
+  // people in the same challenge can highlight different ones.
+  highlighted: boolean;
 }
 
 // A bot never signs in and never calls recordProgress() — its steps are
@@ -86,4 +90,12 @@ export interface ChallengesProvider {
   // Only the creator can do this — see 0005_challenges_delete_policy.sql.
   // Cascades to that challenge's participants, bots, and progress.
   deleteChallenge(challengeId: string): Promise<void>;
+  // The current user's own highlighted challenge (see
+  // 0006_challenge_highlight.sql), or null if they haven't highlighted
+  // one. HomeScreen uses this instead of always defaulting to whichever
+  // challenge was created most recently.
+  getHighlightedChallenge(): Promise<Challenge | null>;
+  // Only one challenge can be highlighted per user at a time — setting
+  // `true` clears any other challenge the current user had highlighted.
+  setHighlighted(challengeId: string, highlighted: boolean): Promise<void>;
 }

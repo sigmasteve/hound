@@ -74,7 +74,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     const client = requireClient();
     const { data, error } = await client
       .from('challenge_participants')
-      .select('user_id, role, profiles(name, initials)')
+      .select('user_id, role, highlighted, profiles(name, initials)')
       .eq('challenge_id', challengeId);
     if (error) throw new Error(error.message);
     return (data ?? []).map((row) => {
@@ -84,6 +84,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         name: profile?.name ?? 'Someone',
         initials: profile?.initials ?? '?',
         role: (row.role as HuntRole | null) ?? null,
+        highlighted: row.highlighted,
       };
     });
   },
@@ -204,6 +205,41 @@ export const supabaseChallengesProvider: ChallengesProvider = {
   async deleteChallenge(challengeId: string): Promise<void> {
     const client = requireClient();
     const { error } = await client.from('challenges').delete().eq('id', challengeId);
+    if (error) throw new Error(error.message);
+  },
+
+  async getHighlightedChallenge(): Promise<Challenge | null> {
+    const client = requireClient();
+    const userId = await requireUserId();
+    const { data, error } = await client
+      .from('challenge_participants')
+      .select(`challenges!inner(${CHALLENGE_COLUMNS})`)
+      .eq('user_id', userId)
+      .eq('highlighted', true)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+    return rowToChallenge(data.challenges as unknown as ChallengeRow);
+  },
+
+  async setHighlighted(challengeId: string, highlighted: boolean): Promise<void> {
+    const client = requireClient();
+    const userId = await requireUserId();
+    if (highlighted) {
+      // Only one challenge can be highlighted at a time — clear whatever
+      // this user had highlighted before (if anything) first.
+      const { error: clearError } = await client
+        .from('challenge_participants')
+        .update({ highlighted: false })
+        .eq('user_id', userId)
+        .eq('highlighted', true);
+      if (clearError) throw new Error(clearError.message);
+    }
+    const { error } = await client
+      .from('challenge_participants')
+      .update({ highlighted })
+      .eq('challenge_id', challengeId)
+      .eq('user_id', userId);
     if (error) throw new Error(error.message);
   },
 };

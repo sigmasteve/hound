@@ -129,10 +129,16 @@ export function HomeScreen({
     if (!isSupabaseConfigured) return;
     let cancelled = false;
     (async () => {
-      const challenges = await supabaseChallengesProvider.listMyChallenges();
-      // Most recent challenge that hasn't ended yet — Home only ever
-      // headlines one, unlike the Challenges list which shows all of them.
-      const active = challenges.find((c) => new Date(c.endsAt).getTime() > Date.now());
+      // Whichever challenge the user explicitly highlighted from its own
+      // detail screen (see ChallengeDetailScreen's "Highlight on Today
+      // screen" toggle) wins, as long as it hasn't ended — falling back
+      // to the most recently created still-active one otherwise, same as
+      // before that feature existed.
+      const highlighted = await supabaseChallengesProvider.getHighlightedChallenge();
+      const active =
+        highlighted && new Date(highlighted.endsAt).getTime() > Date.now()
+          ? highlighted
+          : (await supabaseChallengesProvider.listMyChallenges()).find((c) => new Date(c.endsAt).getTime() > Date.now());
       if (!active) return;
       const [participants, leaderboard, bots] = await Promise.all([
         supabaseChallengesProvider.listParticipants(active.id),

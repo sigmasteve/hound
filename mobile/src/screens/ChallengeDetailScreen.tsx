@@ -7,6 +7,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Tag } from '../components/Tag';
 import { TextField } from '../components/TextField';
+import { ToggleRow } from '../components/Selectable';
 import { text } from '../theme/text';
 import { color, font, TINT_A, TINT_N } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
@@ -81,6 +82,19 @@ export function ChallengeDetailScreen({
   }, [load]);
 
   const [deleting, setDeleting] = useState(false);
+  const [togglingHighlight, setTogglingHighlight] = useState(false);
+
+  const toggleHighlight = async (next: boolean) => {
+    setTogglingHighlight(true);
+    try {
+      await supabaseChallengesProvider.setHighlighted(challengeId, next);
+      await load();
+    } catch (e) {
+      Alert.alert('Could not update', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setTogglingHighlight(false);
+    }
+  };
 
   const confirmDelete = () => {
     if (!challenge) return;
@@ -208,6 +222,8 @@ export function ChallengeDetailScreen({
   );
   const endsLabel = new Date(challenge.endsAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
+  const myHighlighted = participants.find((p) => p.userId === user?.id)?.highlighted ?? false;
+
   const scoredByDistance = usesWorkoutDistance(challenge);
   const board = buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), boardSortFor(challenge)).map((row) => ({
     ...row,
@@ -252,6 +268,13 @@ export function ChallengeDetailScreen({
           </View>
         </View>
       </View>
+
+      <ToggleRow
+        label="Highlight on Today screen"
+        note="Feature this challenge on your Home screen"
+        value={myHighlighted}
+        onChange={togglingHighlight ? () => {} : toggleHighlight}
+      />
 
       <Card style={{ gap: 12 }} elevated={false}>
         <View style={styles.leaderboardHeader}>
