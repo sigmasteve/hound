@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   AppleLogoIcon,
   AndroidLogoIcon,
@@ -29,6 +30,7 @@ const TALLY_ICON: Record<string, React.ComponentType<any>> = {
 
 export function HuntScreen({ onBack }: { onBack: () => void }) {
   return (
+    <SafeAreaView edges={['top']} style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={styles.container}>
       <Button label="All challenges" variant="ghost" small icon={<ArrowLeftIcon size={13} color={color.accent} />} onPress={onBack} />
 
@@ -124,6 +126,7 @@ export function HuntScreen({ onBack }: { onBack: () => void }) {
         </View>
       </Card>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

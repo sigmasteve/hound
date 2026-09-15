@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeftIcon, TrophyIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -28,7 +29,15 @@ interface BoardRow {
 // 'hunt'/'steps'/'streak'/'distance' alike: who's in it, who's logged
 // what, and a way to log your own progress. Fetches by id itself rather
 // than taking pre-loaded data as props, so it works from any entry point.
-export function ChallengeDetailScreen({ challengeId, onBack }: { challengeId: string; onBack: () => void }) {
+export function ChallengeDetailScreen({
+  challengeId,
+  onBack,
+  onGoHome,
+}: {
+  challengeId: string;
+  onBack: () => void;
+  onGoHome: () => void;
+}) {
   const { user } = useAuth();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -93,18 +102,20 @@ export function ChallengeDetailScreen({ challengeId, onBack }: { challengeId: st
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centered]}>
+      <SafeAreaView edges={['top']} style={[styles.container, styles.centered]}>
         <ActivityIndicator color={color.accent} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (loadError || !challenge) {
     return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <Button label="All challenges" variant="ghost" small icon={<ArrowLeftIcon size={13} color={color.accent} />} onPress={onBack} />
-        <Text style={styles.loadError}>{loadError ?? 'This challenge could not be found.'}</Text>
-      </ScrollView>
+      <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.container}>
+          <Button label="All challenges" variant="ghost" small icon={<ArrowLeftIcon size={13} color={color.accent} />} onPress={onBack} />
+          <Text style={styles.loadError}>{loadError ?? 'This challenge could not be found.'}</Text>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
@@ -130,13 +141,18 @@ export function ChallengeDetailScreen({ challengeId, onBack }: { challengeId: st
     .sort((a, b) => b.totalSteps - a.totalSteps);
 
   return (
+    <SafeAreaView edges={['top']} style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={styles.container}>
       <Button label="All challenges" variant="ghost" small icon={<ArrowLeftIcon size={13} color={color.accent} />} onPress={onBack} />
 
       <View style={styles.headerRow}>
-        <View style={[styles.headerIcon, { backgroundColor: typeDef?.tint ?? TINT_N }]}>
+        <Pressable
+          style={[styles.headerIcon, { backgroundColor: typeDef?.tint ?? TINT_N }]}
+          onPress={onGoHome}
+          hitSlop={8}
+        >
           <Icon size={22} color={typeDef?.iconColor ?? '#e9e9ed'} weight={challenge.kind === 'hunt' ? 'fill' : 'regular'} />
-        </View>
+        </Pressable>
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={[text.h2, { fontSize: 24 }]}>{challenge.name}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -202,6 +218,7 @@ export function ChallengeDetailScreen({ challengeId, onBack }: { challengeId: st
         />
       </Card>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

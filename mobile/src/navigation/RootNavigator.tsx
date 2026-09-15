@@ -104,6 +104,7 @@ export function RootNavigator() {
                 <ChallengeDetailScreen
                   challengeId={route.params.challengeId}
                   onBack={() => navigation.navigate('Main', { tab: 'challenges' })}
+                  onGoHome={() => navigation.navigate('Main', { tab: 'home' })}
                 />
               )}
             </Stack.Screen>
