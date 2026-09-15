@@ -45,12 +45,33 @@ interface PrimaryChallenge {
   board: BoardEntry[];
 }
 
+// Whether a two-way hunt's lead should read in miles or steps depends on
+// what it's actually scored on (see src/challenges/scoring.ts) — a
+// device_steps hunt has totalDistanceMi stuck at 0 (recordProgress only
+// gets real distance from HealthKit's own snapshot, which a steps-scored
+// sync still writes, but a hunt's *lead* should track whatever it's
+// actually racing on, not just whichever field happens to be nonzero).
+function huntLeadMetric(
+  me: BoardEntry,
+  rival: BoardEntry,
+  challenge: Challenge,
+): { lead: number; unit: 'mi' | 'steps'; meTotal: number; rivalTotal: number } {
+  if (boardSortFor(challenge) === 'distance') {
+    return { lead: me.totalDistanceMi - rival.totalDistanceMi, unit: 'mi', meTotal: me.totalDistanceMi, rivalTotal: rival.totalDistanceMi };
+  }
+  return { lead: me.totalSteps - rival.totalSteps, unit: 'steps', meTotal: me.totalSteps, rivalTotal: rival.totalSteps };
+}
+
+function formatLead(value: number, unit: 'mi' | 'steps'): string {
+  return unit === 'mi' ? `${value.toFixed(1)} mi` : `${Math.round(value).toLocaleString()} steps`;
+}
+
 // The headline sentence + eyebrow for whichever real challenge Home
 // decided to lead with — "Marcus is 7.4 mi behind you" was hand-authored
 // for one specific hardcoded matchup, so a real version has to cover
 // however many kinds of standing a real challenge can actually be in: a
-// two-way mileage gap (hunt), a rank in a bigger field, or nobody having
-// logged anything yet.
+// two-way gap (hunt, in whatever unit it's scored on), a rank in a bigger
+// field, or nobody having logged anything yet.
 function heroCopy(primary: PrimaryChallenge, userId: string | null): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = Math.min(
@@ -64,12 +85,12 @@ function heroCopy(primary: PrimaryChallenge, userId: string | null): { eyebrow: 
   const rival = board.find((r) => r.userId !== userId);
 
   if (challenge.kind === 'hunt' && board.length === 2 && me && rival) {
-    if (me.totalDistanceMi === 0 && rival.totalDistanceMi === 0) {
-      return { eyebrow, headline: `${challenge.name} just started — no miles logged yet.` };
+    const { lead, unit, meTotal, rivalTotal } = huntLeadMetric(me, rival, challenge);
+    if (meTotal === 0 && rivalTotal === 0) {
+      return { eyebrow, headline: `${challenge.name} just started — no ${unit === 'mi' ? 'miles' : 'steps'} logged yet.` };
     }
-    const leadMi = me.totalDistanceMi - rival.totalDistanceMi;
-    const relation = leadMi >= 0 ? 'behind you' : 'ahead of you';
-    return { eyebrow, headline: `${rival.name} is ${Math.abs(leadMi).toFixed(1)} mi ${relation}.` };
+    const relation = lead >= 0 ? 'behind you' : 'ahead of you';
+    return { eyebrow, headline: `${rival.name} is ${formatLead(Math.abs(lead), unit)} ${relation}.` };
   }
 
   if (!me || board.every((r) => r.totalSteps === 0)) {
@@ -298,10 +319,13 @@ function LiveHuntCard({
     challenge.durationDays,
     Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
   );
-  const leadMi = me.totalDistanceMi - rival.totalDistanceMi;
-  const gapPct = Math.min(40, Math.max(4, Math.abs(leadMi) * 2));
-  const meLeft = leadMi >= 0 ? 78 : 78 - gapPct;
-  const rivalLeft = leadMi >= 0 ? 78 - gapPct : 78;
+  const { lead, unit, rivalTotal } = huntLeadMetric(me, rival, challenge);
+  // Same "readable gap, not a literal scale" idea in either unit — 1 mi
+  // moves the marker 2 points, 250 steps moves it 1 point, both clamped
+  // to the same readable range.
+  const gapPct = Math.min(40, Math.max(4, Math.abs(lead) * (unit === 'mi' ? 2 : 1 / 250)));
+  const meLeft = lead >= 0 ? 78 : 78 - gapPct;
+  const rivalLeft = lead >= 0 ? 78 - gapPct : 78;
 
   return (
     <Card style={styles.huntCard} elevated={false}>
@@ -321,10 +345,11 @@ function LiveHuntCard({
       </View>
       <View style={styles.huntStatsRow}>
         <Text style={styles.huntLead}>
-          {Math.abs(leadMi).toFixed(1)} mi<Text style={styles.huntLeadSuffix}> {leadMi >= 0 ? 'lead' : 'behind'}</Text>
+          {formatLead(Math.abs(lead), unit)}
+          <Text style={styles.huntLeadSuffix}> {lead >= 0 ? 'lead' : 'behind'}</Text>
         </Text>
         <Text style={styles.huntNote}>
-          {rival.name} has logged {rival.totalDistanceMi.toFixed(1)} mi so far.
+          {rival.name} has logged {formatLead(rivalTotal, unit)} so far.
         </Text>
       </View>
       <Button label="See the tally" variant="primary" small onPress={onOpen} />
