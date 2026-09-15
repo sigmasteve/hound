@@ -28,6 +28,7 @@ import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { buildBoard, type BoardEntry } from '../challenges/board';
+import { boardSortFor } from '../challenges/scoring';
 import { ordinal } from '../challenges/present';
 import type { Challenge } from '../challenges/types';
 
@@ -120,7 +121,7 @@ export function HomeScreen({
         active.durationDays,
         Math.max(1, Math.floor((Date.now() - new Date(active.startsAt).getTime()) / 86_400_000) + 1),
       );
-      const board = buildBoard(participants, leaderboard, bots, daysElapsed);
+      const board = buildBoard(participants, leaderboard, bots, daysElapsed, boardSortFor(active));
       if (!cancelled) setPrimary({ challenge: active, board });
     })().catch(() => {
       // Stay on the sample fallback on any failure.
@@ -346,7 +347,9 @@ function LiveLeaderboardCard({
 }) {
   const { challenge, board } = primary;
   const top = board.slice(0, 4);
-  const maxSteps = Math.max(1, ...board.map((r) => r.totalSteps));
+  const scoredByDistance = boardSortFor(challenge) === 'distance';
+  const metric = (r: BoardEntry) => (scoredByDistance ? r.totalDistanceMi : r.totalSteps);
+  const maxMetric = Math.max(1, ...board.map(metric));
   const daysLeft = Math.max(0, Math.ceil((new Date(challenge.endsAt).getTime() - Date.now()) / 86_400_000));
 
   return (
@@ -366,13 +369,13 @@ function LiveLeaderboardCard({
             <Avatar initials={row.initials} tint={isMe ? TINT_A : TINT_N} size={24} fontSize={10} />
             <Text style={styles.raceName}>{isMe ? 'You' : row.name}</Text>
             <ProgressBar
-              pct={(row.totalSteps / maxSteps) * 100}
+              pct={(metric(row) / maxMetric) * 100}
               fillColor={isMe ? color.accent200 : '#796cbf'}
               height={3}
               trackColor={color.neutral900}
             />
             <Text style={[styles.raceSteps, isMe && { color: color.accent200 }]}>
-              {row.totalSteps.toLocaleString()}
+              {scoredByDistance ? `${row.totalDistanceMi.toFixed(1)} mi` : row.totalSteps.toLocaleString()}
             </Text>
           </View>
         );

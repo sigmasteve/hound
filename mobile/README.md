@@ -73,6 +73,9 @@ the app at your own:
    including one where 0001 already ran.
 6. Same thing again with `0003_challenge_bots.sql` — adds `challenge_bots`
    (see "Bot opponents" below).
+7. Same thing again with `0004_hunt_scoring_and_roles.sql` — adds
+   `challenges.scoring_method` and `challenge_bots.role` (see "Hunter &
+   Hunted: real scoring and roles" below).
 
 ### Bot opponents
 
@@ -87,6 +90,34 @@ deterministically recomputes its whole trajectory on every read, seeded
 from the bot's own row id and the number of days elapsed, so it shows the
 same numbers on every screen and every reload without a backend to keep
 in sync.
+
+### Hunter & Hunted: real scoring and roles
+
+CreateScreen's "Set the rules" step for a hunt has a real, functional
+"What counts" picker now (it used to be two `RadioPill`s that never did
+anything): **GPS distance from runs & walks**, **any logged workout**, or
+**device step count**, saved as `challenges.scoring_method`. A hunt also
+always has exactly one Hunter and one or more Hunted — "Bring friends"
+step 3 has a "Who's the Hunter?" picker (you, or any bot you've added;
+real friend invites aren't wired to a role, same limitation as
+elsewhere) that sets `challenge_participants.role` /
+`challenge_bots.role` accordingly.
+
+`ChallengeDetailScreen.tsx` reads both back: a hunt scored on
+`device_steps` auto-syncs the same way a `'steps'`-kind challenge does
+(see below). `gps_distance` and `any_workout` instead sum today's
+logged workouts' distance via `useHealthProvider().getRecentWorkouts()`
+— the health abstraction has no true GPS-verified flag, so
+`gps_distance` is approximated as any workout whose name matches
+`/run|walk|jog|hike/i`; a treadmill session or a mislabeled walk can
+still slip through or be excluded incorrectly, a real limitation, not a
+hidden bug. Either way `recordProgress()` is called with `steps: 0` and
+the summed distance, so the leaderboard (`src/challenges/board.ts`'s
+`buildBoard`) sorts by distance instead of steps for these — everyone's
+step count would otherwise read 0 and rank arbitrarily. The head-start
+slider in "Set the rules" is still purely decorative — it was before
+this pass too, and wiring it (delaying when the Hunted's log starts
+counting) is a separate follow-up.
 
 With those two env vars unset (the default — nothing above is required to
 run the app), everything falls back to what it did before: mock auth

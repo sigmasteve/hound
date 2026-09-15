@@ -24,22 +24,40 @@ import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { BOT_FITNESS_LEVELS, BOT_PRESETS, botInitials } from '../challenges/botSimulation';
+import type { HuntRole, ScoringMethod } from '../challenges/types';
+import { useAuth } from '../auth/AuthContext';
+
+const SCORING_METHODS: { id: ScoringMethod; label: string }[] = [
+  { id: 'gps_distance', label: 'GPS distance from runs & walks' },
+  { id: 'any_workout', label: 'Any logged workout' },
+  { id: 'device_steps', label: 'Device step count' },
+];
 
 export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onFinish: () => void }) {
+  const { user } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [draftType, setDraftType] = useState<ChallengeKind>('hunt');
   const [draftName, setDraftName] = useState('The Hunt: Jordan vs Marcus');
   const [headStart, setHeadStart] = useState(2);
   const [length, setLength] = useState<'7' | '21' | '30'>('21');
+  const [scoringMethod, setScoringMethod] = useState<ScoringMethod>('gps_distance');
   const [invited, setInvited] = useState<string[]>(['Marcus R.', 'Dana K.']);
   const [selectedBots, setSelectedBots] = useState<string[]>([]);
+  // 'me' or a BOT_PRESETS id — the one Hunter; every other selected bot
+  // (and the creator, if they're not it) is Hunted. Only meaningful for
+  // draftType === 'hunt'.
+  const [hunterId, setHunterId] = useState<string>('me');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const toggleFriend = (name: string) =>
     setInvited((cur) => (cur.includes(name) ? cur.filter((n) => n !== name) : [...cur, name]));
-  const toggleBot = (id: string) =>
+  const toggleBot = (id: string) => {
     setSelectedBots((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+    // Deselecting the bot currently picked as Hunter would leave hunterId
+    // pointing at someone no longer in the challenge — fall back to "You".
+    setHunterId((cur) => (cur === id ? 'me' : cur));
+  };
 
   const headStartLabel = headStart === 1 ? '1 day' : `${headStart} days`;
 
@@ -57,13 +75,19 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
     setSaveError(null);
     setSaving(true);
     try {
+      const isHunt = draftType === 'hunt';
+      const chosenBots = BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
+      const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
       await supabaseChallengesProvider.createChallenge({
         name: draftName.trim() || 'Untitled challenge',
         kind: draftType,
         durationDays: Number(length),
-        bots: BOT_PRESETS.filter((b) => selectedBots.includes(b.id)).map((b) => ({
+        scoringMethod: isHunt ? scoringMethod : undefined,
+        creatorRole: roleFor('me'),
+        bots: chosenBots.map((b) => ({
           name: b.name,
           fitnessLevel: b.fitnessLevel,
+          role: roleFor(b.id),
         })),
       });
       onFinish();
@@ -159,43 +183,40 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
               />
               <Text style={styles.huntBlockNote}>
                 The hunted logs alone for {headStartLabel}. Then the hunter starts tallying and has to
-                close the gap before the clock runs out.
+                close the gap before the clock runs out. Pick who&rsquo;s hunting whom on the next step
+                — a hunt always has exactly one Hunter, but can have more than one Hunted.
               </Text>
-              <View style={styles.huntPeopleRow}>
-                <View style={styles.huntPerson}>
-                  <Text style={styles.fieldLabel}>Hunted</Text>
-                  <View style={styles.huntPersonPill}>
-                    <Avatar initials="JL" tint={color.accent800} size={22} fontSize={9.5} />
-                    <Text style={styles.huntPersonName}>You</Text>
-                  </View>
-                </View>
-                <View style={styles.huntPerson}>
-                  <Text style={styles.fieldLabel}>Hunter</Text>
-                  <View style={styles.huntPersonPill}>
-                    <Avatar initials="MR" tint={color.neutral800} size={22} fontSize={9.5} />
-                    <Text style={styles.huntPersonName}>Marcus</Text>
-                  </View>
-                </View>
+            </View>
+          )}
+
+          {draftType === 'hunt' && (
+            <View style={{ gap: 8 }}>
+              <Text style={styles.fieldLabel}>What counts</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {SCORING_METHODS.map((m) => (
+                  <RadioPill
+                    key={m.id}
+                    label={m.label}
+                    selected={scoringMethod === m.id}
+                    onPress={() => setScoringMethod(m.id)}
+                  />
+                ))}
               </View>
             </View>
           )}
 
-          <View style={{ gap: 8 }}>
-            <Text style={styles.fieldLabel}>What counts</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              <RadioPill label="GPS distance from runs & walks" selected onPress={() => {}} />
-              <RadioPill label="Any logged workout" selected={false} onPress={() => {}} />
+          {draftType === 'hunt' && (
+            <View style={styles.notice}>
+              <DevicesIcon size={17} color={color.accent300} />
+              <Text style={styles.noticeText}>
+                {scoringMethod === 'device_steps'
+                  ? 'Everyone in this hunt is scored on today’s device step count, synced automatically from their own phone.'
+                  : scoringMethod === 'any_workout'
+                    ? 'Everyone in this hunt is scored on total distance from every logged workout today, GPS or not.'
+                    : 'Everyone in this hunt is scored on GPS distance from today’s runs and walks specifically — a treadmill session or a phone left on a desk won’t count.'}
+              </Text>
             </View>
-          </View>
-
-          <View style={styles.notice}>
-            <DevicesIcon size={17} color={color.accent300} />
-            <Text style={styles.noticeText}>
-              Marcus is on Android. Hound reads his Health Connect sessions and scores both of you on
-              GPS distance so the platforms match. Anyone whose data goes stale is flagged rather than
-              dropped.
-            </Text>
-          </View>
+          )}
         </View>
       )}
 
@@ -262,6 +283,49 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
               </Pressable>
             );
           })}
+
+          {draftType === 'hunt' && (
+            <View style={{ gap: 8, marginTop: 4 }}>
+              <Text style={text.h4}>Who&rsquo;s the Hunter?</Text>
+              <Text style={styles.footNote}>
+                Exactly one Hunter chases everyone else — everyone else is Hunted, however many there
+                are.
+              </Text>
+              <Pressable
+                onPress={() => setHunterId('me')}
+                style={[styles.friendRow, hunterId === 'me' && styles.friendRowOn]}
+              >
+                <Avatar initials={user?.initials ?? 'Y'} tint={color.accent800} size={30} fontSize={11} />
+                <Text style={styles.friendName}>You</Text>
+                {hunterId === 'me' ? (
+                  <CheckCircleIcon size={18} color={color.accent} weight="fill" />
+                ) : (
+                  <CircleIcon size={18} color={color.neutral700} />
+                )}
+              </Pressable>
+              {BOT_PRESETS.filter((b) => selectedBots.includes(b.id)).map((b) => (
+                <Pressable
+                  key={b.id}
+                  onPress={() => setHunterId(b.id)}
+                  style={[styles.friendRow, hunterId === b.id && styles.friendRowOn]}
+                >
+                  <Avatar initials={botInitials(b.name)} tint={color.neutral800} size={30} fontSize={11} />
+                  <Text style={styles.friendName}>{b.name}</Text>
+                  {hunterId === b.id ? (
+                    <CheckCircleIcon size={18} color={color.accent} weight="fill" />
+                  ) : (
+                    <CircleIcon size={18} color={color.neutral700} />
+                  )}
+                </Pressable>
+              ))}
+              {selectedBots.length === 0 && (
+                <Text style={styles.footNote}>
+                  Add a bot above to give this hunt someone else to chase, or be chased by — real
+                  friend invites above aren&rsquo;t wired to a role yet.
+                </Text>
+              )}
+            </View>
+          )}
         </View>
       )}
 
@@ -336,17 +400,6 @@ const styles = StyleSheet.create({
   huntBlockLabel: { fontFamily: font.heading, fontSize: 15, color: color.text },
   huntBlockValue: { fontFamily: font.heading, fontSize: 20, color: color.accent200 },
   huntBlockNote: { fontSize: 12.5, color: 'rgba(233,233,237,0.7)' },
-  huntPeopleRow: { flexDirection: 'row', gap: 10 },
-  huntPerson: { flex: 1, gap: 5 },
-  huntPersonPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(22,24,38,0.5)',
-  },
-  huntPersonName: { fontSize: 13.5, color: color.text },
   notice: {
     flexDirection: 'row',
     gap: 12,

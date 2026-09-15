@@ -1,5 +1,19 @@
 export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance';
 
+// A hunt has exactly one Hunter and one or more Hunted — never set for
+// any other challenge kind.
+export type HuntRole = 'hunter' | 'hunted';
+
+// Only meaningful for kind 'hunt': which real-world signal decides who's
+// ahead. 'device_steps' auto-syncs from useHealthProvider() the same way
+// a 'steps'-kind challenge does; 'gps_distance' and 'any_workout'
+// auto-sync from today's logged workouts (see
+// ChallengeDetailScreen.tsx's syncFromDevice for exactly what
+// distinguishes the two — the health abstraction has no true GPS-verified
+// flag, so 'gps_distance' approximates it as workouts named like a run or
+// walk).
+export type ScoringMethod = 'gps_distance' | 'any_workout' | 'device_steps';
+
 export interface Challenge {
   id: string;
   name: string;
@@ -9,6 +23,7 @@ export interface Challenge {
   startsAt: string;
   endsAt: string;
   dailyGoalSteps: number | null;
+  scoringMethod: ScoringMethod | null;
 }
 
 export interface LeaderboardEntry {
@@ -23,6 +38,7 @@ export interface Participant {
   userId: string;
   name: string;
   initials: string;
+  role: HuntRole | null;
 }
 
 // A bot never signs in and never calls recordProgress() — its steps are
@@ -35,6 +51,7 @@ export interface ChallengeBot {
   challengeId: string;
   name: string;
   fitnessLevel: BotFitnessLevel;
+  role: HuntRole | null;
 }
 
 export interface CreateChallengeInput {
@@ -42,7 +59,12 @@ export interface CreateChallengeInput {
   kind: ChallengeKind;
   durationDays: number;
   dailyGoalSteps?: number;
-  bots?: { name: string; fitnessLevel: BotFitnessLevel }[];
+  scoringMethod?: ScoringMethod;
+  // Only meaningful for kind 'hunt' — the creator's own role. Exactly one
+  // participant across creator + bots should be 'hunter'; the rest that
+  // are assigned a role at all should be 'hunted'.
+  creatorRole?: HuntRole;
+  bots?: { name: string; fitnessLevel: BotFitnessLevel; role?: HuntRole }[];
 }
 
 export interface ChallengesProvider {

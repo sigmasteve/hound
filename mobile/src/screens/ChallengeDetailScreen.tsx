@@ -13,19 +13,20 @@ import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { buildBoard } from '../challenges/board';
+import { boardSortFor, usesDeviceSteps, usesWorkoutDistance } from '../challenges/scoring';
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
 import { useHealthProvider } from '../health/HealthContext';
 
 // The generic detail view for a real, Supabase-backed challenge of any
 // kind — there's no per-kind template yet (HuntScreen is one specific
-// hardcoded storyline, not reusable), so this renders the same for
-// 'hunt'/'streak'/'distance' alike: who's in it, who's logged what, and a
-// way to log your own progress. A 'steps' challenge is the one exception —
-// it has a real, unambiguous device number to draw from (today's step
-// count), so it auto-syncs from HealthKit/Health Connect instead of
-// showing the manual form. Fetches by id itself rather than taking
-// pre-loaded data as props, so it works from any entry point.
+// hardcoded storyline, not reusable), so this renders the same for every
+// kind: who's in it, who's logged what, and a way to log your own
+// progress. A 'steps' challenge, and a 'hunt' scored on device steps or
+// workout distance, are the exceptions — they have a real, unambiguous
+// device number to draw from, so they auto-sync from HealthKit/Health
+// Connect instead of showing the manual form. Fetches by id itself rather
+// than taking pre-loaded data as props, so it works from any entry point.
 export function ChallengeDetailScreen({
   challengeId,
   onBack,
@@ -78,34 +79,52 @@ export function ChallengeDetailScreen({
     load();
   }, [load]);
 
-  // Reads today's real step count and writes it as this challenge's
-  // progress for today — the same upsert-by-day recordProgress() the
-  // manual form uses, just filled in from the device instead of typed in.
+  // Reads a real device number and writes it as this challenge's progress
+  // for today — the same upsert-by-day recordProgress() the manual form
+  // uses, just filled in from the device instead of typed in. Which
+  // number depends on what this challenge is scored on: a plain step
+  // count, or distance summed from today's logged workouts. The health
+  // abstraction has no true GPS-verified flag, so 'gps_distance' is
+  // approximated as workouts whose name reads like a run or walk — a
+  // treadmill session or a phone-in-a-drawer walk would still slip
+  // through if its name happens to match, which is a real limitation,
+  // not a hidden bug.
   const syncFromDevice = useCallback(async () => {
+    if (!challenge) return;
     setDeviceSyncError(null);
     setDeviceSyncing(true);
     try {
-      const snap = await health.getSnapshot();
-      await supabaseChallengesProvider.recordProgress(challengeId, snap.stepsToday, snap.distanceTodayMi);
+      if (usesWorkoutDistance(challenge)) {
+        const workouts = await health.getRecentWorkouts(30);
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const todays = workouts.filter((w) => w.when.toISOString().slice(0, 10) === todayStr);
+        const relevant =
+          challenge.scoringMethod === 'gps_distance' ? todays.filter((w) => /run|walk|jog|hike/i.test(w.name)) : todays;
+        const totalDistanceMi = relevant.reduce((sum, w) => sum + (w.distanceMi ?? 0), 0);
+        await supabaseChallengesProvider.recordProgress(challengeId, 0, totalDistanceMi);
+      } else {
+        const snap = await health.getSnapshot();
+        await supabaseChallengesProvider.recordProgress(challengeId, snap.stepsToday, snap.distanceTodayMi);
+      }
       setDeviceSyncedAt(new Date());
       await load();
     } catch (e) {
-      setDeviceSyncError(e instanceof Error ? e.message : 'Could not sync your steps — try again.');
+      setDeviceSyncError(e instanceof Error ? e.message : 'Could not sync — try again.');
     } finally {
       setDeviceSyncing(false);
     }
-  }, [challengeId, health, load]);
+  }, [challenge, challengeId, health, load]);
 
-  // Auto-sync once whenever a 'steps' challenge finishes loading — keyed
-  // on id/kind (not the whole `challenge` object, which is a fresh
-  // reference every reload) so syncFromDevice's own load() call doesn't
-  // re-trigger this.
+  // Auto-sync once whenever a challenge that draws from the device
+  // finishes loading — keyed on id/kind/scoringMethod (not the whole
+  // `challenge` object, which is a fresh reference every reload) so
+  // syncFromDevice's own load() call doesn't re-trigger this.
   useEffect(() => {
-    if (challenge?.kind === 'steps') {
+    if (challenge && (usesDeviceSteps(challenge) || usesWorkoutDistance(challenge))) {
       syncFromDevice();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [challenge?.id, challenge?.kind]);
+  }, [challenge?.id, challenge?.kind, challenge?.scoringMethod]);
 
   const logProgress = async () => {
     const steps = Number(stepsInput);
@@ -161,7 +180,8 @@ export function ChallengeDetailScreen({
   );
   const endsLabel = new Date(challenge.endsAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
-  const board = buildBoard(participants, leaderboard, bots, daysElapsed).map((row) => ({
+  const scoredByDistance = usesWorkoutDistance(challenge);
+  const board = buildBoard(participants, leaderboard, bots, daysElapsed, boardSortFor(challenge)).map((row) => ({
     ...row,
     name: row.userId === user?.id ? 'You' : row.name,
   }));
@@ -173,6 +193,13 @@ export function ChallengeDetailScreen({
       : deviceSyncedAt
         ? 'Synced just now'
         : 'Not synced yet';
+
+  const syncDescription =
+    challenge.kind === 'hunt' && challenge.scoringMethod === 'gps_distance'
+      ? `Distance from today’s runs and walks auto-syncs from ${health.platformLabel}.`
+      : challenge.kind === 'hunt' && challenge.scoringMethod === 'any_workout'
+        ? `Distance from every workout logged today auto-syncs from ${health.platformLabel}.`
+        : `Steps auto-sync from ${health.platformLabel} — no manual entry needed.`;
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
@@ -207,25 +234,32 @@ export function ChallengeDetailScreen({
           <View key={row.userId} style={styles.boardRow}>
             <Text style={styles.boardRank}>{i + 1}</Text>
             <Avatar initials={row.initials} tint={row.userId === user?.id ? TINT_A : TINT_N} size={30} fontSize={11} />
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
               <Text style={styles.boardName}>{row.name}</Text>
               {row.isBot && <RobotIcon size={13} color="rgba(233,233,237,0.55)" />}
+              {row.role && (
+                <Tag label={row.role === 'hunter' ? 'Hunter' : 'Hunted'} variant={row.role === 'hunter' ? 'accent' : 'neutral'} />
+              )}
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.boardSteps}>{row.totalSteps.toLocaleString()} steps</Text>
-              {row.totalDistanceMi > 0 && <Text style={styles.boardDistance}>{row.totalDistanceMi.toFixed(1)} mi</Text>}
+              {scoredByDistance ? (
+                <Text style={styles.boardSteps}>{row.totalDistanceMi.toFixed(1)} mi</Text>
+              ) : (
+                <>
+                  <Text style={styles.boardSteps}>{row.totalSteps.toLocaleString()} steps</Text>
+                  {row.totalDistanceMi > 0 && <Text style={styles.boardDistance}>{row.totalDistanceMi.toFixed(1)} mi</Text>}
+                </>
+              )}
             </View>
           </View>
         ))}
         {board.length === 0 && <Text style={styles.footNote}>No participants found.</Text>}
       </Card>
 
-      {challenge.kind === 'steps' ? (
+      {usesDeviceSteps(challenge) || usesWorkoutDistance(challenge) ? (
         <Card style={{ gap: 10 }} elevated={false}>
           <Text style={text.h4}>Your progress</Text>
-          <Text style={styles.footNote}>
-            Steps auto-sync from {health.platformLabel} — no manual entry for a step race.
-          </Text>
+          <Text style={styles.footNote}>{syncDescription}</Text>
           <View style={styles.syncRow}>
             <View style={[styles.dot, { backgroundColor: deviceSyncError ? color.amber : color.green }]} />
             <Text style={styles.footNote}>{syncStatusText}</Text>
