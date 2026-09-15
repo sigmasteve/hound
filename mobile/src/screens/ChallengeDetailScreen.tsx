@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeftIcon, TrophyIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, RobotIcon, TrophyIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -12,7 +12,8 @@ import { color, font, TINT_A, TINT_N } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import type { Challenge, Participant, LeaderboardEntry } from '../challenges/types';
+import { botInitials, simulateBotSteps } from '../challenges/botSimulation';
+import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
 
 interface BoardRow {
@@ -21,6 +22,7 @@ interface BoardRow {
   initials: string;
   totalSteps: number;
   totalDistanceMi: number;
+  isBot: boolean;
 }
 
 // The generic detail view for a real, Supabase-backed challenge of any
@@ -42,6 +44,7 @@ export function ChallengeDetailScreen({
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [bots, setBots] = useState<ChallengeBot[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -54,14 +57,16 @@ export function ChallengeDetailScreen({
   const load = useCallback(async () => {
     setLoadError(null);
     try {
-      const [c, p, l] = await Promise.all([
+      const [c, p, l, b] = await Promise.all([
         supabaseChallengesProvider.getChallenge(challengeId),
         supabaseChallengesProvider.listParticipants(challengeId),
         supabaseChallengesProvider.getLeaderboard(challengeId),
+        supabaseChallengesProvider.listBots(challengeId),
       ]);
       setChallenge(c);
       setParticipants(p);
       setLeaderboard(l);
+      setBots(b);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not load this challenge.');
     } finally {
@@ -127,8 +132,8 @@ export function ChallengeDetailScreen({
   );
   const endsLabel = new Date(challenge.endsAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
-  const board: BoardRow[] = participants
-    .map((p) => {
+  const board: BoardRow[] = [
+    ...participants.map((p) => {
       const entry = leaderboard.find((l) => l.userId === p.userId);
       return {
         userId: p.userId,
@@ -136,9 +141,18 @@ export function ChallengeDetailScreen({
         initials: p.initials,
         totalSteps: entry?.totalSteps ?? 0,
         totalDistanceMi: entry?.totalDistanceMi ?? 0,
+        isBot: false,
       };
-    })
-    .sort((a, b) => b.totalSteps - a.totalSteps);
+    }),
+    ...bots.map((b) => ({
+      userId: b.id,
+      name: b.name,
+      initials: botInitials(b.name),
+      totalSteps: simulateBotSteps(b.id, b.fitnessLevel, daysElapsed),
+      totalDistanceMi: 0,
+      isBot: true,
+    })),
+  ].sort((a, b) => b.totalSteps - a.totalSteps);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
@@ -173,7 +187,10 @@ export function ChallengeDetailScreen({
           <View key={row.userId} style={styles.boardRow}>
             <Text style={styles.boardRank}>{i + 1}</Text>
             <Avatar initials={row.initials} tint={row.userId === user?.id ? TINT_A : TINT_N} size={30} fontSize={11} />
-            <Text style={styles.boardName}>{row.name}</Text>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Text style={styles.boardName}>{row.name}</Text>
+              {row.isBot && <RobotIcon size={13} color="rgba(233,233,237,0.55)" />}
+            </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={styles.boardSteps}>{row.totalSteps.toLocaleString()} steps</Text>
               {row.totalDistanceMi > 0 && <Text style={styles.boardDistance}>{row.totalDistanceMi.toFixed(1)} mi</Text>}

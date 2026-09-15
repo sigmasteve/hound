@@ -71,6 +71,22 @@ the app at your own:
    — a follow-up fix for a real bug in 0001's policies (see that file's
    comment for the postmortem). Run both, in order, on every project,
    including one where 0001 already ran.
+6. Same thing again with `0003_challenge_bots.sql` — adds `challenge_bots`
+   (see "Bot opponents" below).
+
+### Bot opponents
+
+Creating a challenge (`CreateScreen`'s "Bring friends" step) offers 4
+preset bots — Casey (Casual), Micah (Active), Reese (Athletic), Blaze
+(Elite) — for when there aren't enough real friends around to make a
+challenge interesting. A bot never signs in and is never a real
+`profiles`/`auth.users` row; it's just a name + fitness level saved to
+`challenge_bots`. Its steps are never written anywhere — there's no job
+simulating a bot one day at a time — instead `src/challenges/botSimulation.ts`
+deterministically recomputes its whole trajectory on every read, seeded
+from the bot's own row id and the number of days elapsed, so it shows the
+same numbers on every screen and every reload without a backend to keep
+in sync.
 
 With those two env vars unset (the default — nothing above is required to
 run the app), everything falls back to what it did before: mock auth

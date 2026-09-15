@@ -42,11 +42,12 @@ export function ChallengesScreen({
       const challenges = await supabaseChallengesProvider.listMyChallenges();
       const cards = await Promise.all(
         challenges.map(async (c) => {
-          const [participants, leaderboard] = await Promise.all([
+          const [participants, leaderboard, bots] = await Promise.all([
             supabaseChallengesProvider.listParticipants(c.id),
             supabaseChallengesProvider.getLeaderboard(c.id),
+            supabaseChallengesProvider.listBots(c.id),
           ]);
-          return toChallengeCard(c, participants, leaderboard, user?.id ?? null);
+          return toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null);
         }),
       );
       if (!cancelled) setLiveCards(cards);

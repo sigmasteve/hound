@@ -10,6 +10,7 @@ import {
   CircleIcon,
   DevicesIcon,
   LinkIcon,
+  RobotIcon,
   XIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
@@ -22,6 +23,7 @@ import { CHALLENGE_TYPES, FRIENDS, type ChallengeKind } from '../data/sampleData
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
+import { BOT_FITNESS_LEVELS, BOT_PRESETS, botInitials } from '../challenges/botSimulation';
 
 export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onFinish: () => void }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -30,11 +32,14 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const [headStart, setHeadStart] = useState(2);
   const [length, setLength] = useState<'7' | '21' | '30'>('21');
   const [invited, setInvited] = useState<string[]>(['Marcus R.', 'Dana K.']);
+  const [selectedBots, setSelectedBots] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const toggleFriend = (name: string) =>
     setInvited((cur) => (cur.includes(name) ? cur.filter((n) => n !== name) : [...cur, name]));
+  const toggleBot = (id: string) =>
+    setSelectedBots((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
 
   const headStartLabel = headStart === 1 ? '1 day' : `${headStart} days`;
 
@@ -56,6 +61,10 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         name: draftName.trim() || 'Untitled challenge',
         kind: draftType,
         durationDays: Number(length),
+        bots: BOT_PRESETS.filter((b) => selectedBots.includes(b.id)).map((b) => ({
+          name: b.name,
+          fitnessLevel: b.fitnessLevel,
+        })),
       });
       onFinish();
     } catch (e) {
@@ -221,6 +230,38 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
             Friends on iPhone connect Apple Health, friends on Android connect Health Connect. Same
             link either way.
           </Text>
+
+          <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>
+          <Text style={styles.footNote}>
+            Not enough friends free to race? Add a bot — it logs a plausible number of steps every
+            day on its own, at whichever pace you pick.
+          </Text>
+          {BOT_PRESETS.map((b) => {
+            const picked = selectedBots.includes(b.id);
+            const level = BOT_FITNESS_LEVELS[b.fitnessLevel];
+            return (
+              <Pressable
+                key={b.id}
+                onPress={() => toggleBot(b.id)}
+                style={[styles.friendRow, picked && styles.friendRowOn]}
+              >
+                <Avatar initials={botInitials(b.name)} tint={color.neutral800} size={30} fontSize={11} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.friendName}>{b.name}</Text>
+                  <Text style={styles.botLevelDesc}>{level.desc}</Text>
+                </View>
+                <View style={styles.platformBadge}>
+                  <RobotIcon size={11} color={color.neutral200} />
+                  <Text style={styles.platformBadgeText}>{level.label}</Text>
+                </View>
+                {picked ? (
+                  <CheckCircleIcon size={18} color={color.accent} weight="fill" />
+                ) : (
+                  <CircleIcon size={18} color={color.neutral700} />
+                )}
+              </Pressable>
+            );
+          })}
         </View>
       )}
 
@@ -325,6 +366,7 @@ const styles = StyleSheet.create({
   },
   friendRowOn: { borderWidth: 1, borderColor: color.accent },
   friendName: { flex: 1, fontSize: 14, color: color.text },
+  botLevelDesc: { fontSize: 11.5, color: 'rgba(233,233,237,0.55)' },
   platformBadge: {
     flexDirection: 'row',
     alignItems: 'center',

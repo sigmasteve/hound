@@ -25,11 +25,24 @@ export interface Participant {
   initials: string;
 }
 
+// A bot never signs in and never calls recordProgress() — its steps are
+// simulated on read from its id and level (see
+// src/challenges/botSimulation.ts), not stored day by day.
+export type BotFitnessLevel = 'casual' | 'active' | 'athletic' | 'elite';
+
+export interface ChallengeBot {
+  id: string;
+  challengeId: string;
+  name: string;
+  fitnessLevel: BotFitnessLevel;
+}
+
 export interface CreateChallengeInput {
   name: string;
   kind: ChallengeKind;
   durationDays: number;
   dailyGoalSteps?: number;
+  bots?: { name: string; fitnessLevel: BotFitnessLevel }[];
 }
 
 export interface ChallengesProvider {
@@ -44,6 +57,7 @@ export interface ChallengesProvider {
   // least its creator) but an empty leaderboard, since nothing calls
   // recordProgress() yet (see README "What's not implemented").
   listParticipants(challengeId: string): Promise<Participant[]>;
+  listBots(challengeId: string): Promise<ChallengeBot[]>;
   getLeaderboard(challengeId: string): Promise<LeaderboardEntry[]>;
   createChallenge(input: CreateChallengeInput): Promise<Challenge>;
   recordProgress(challengeId: string, steps: number, distanceMi: number): Promise<void>;

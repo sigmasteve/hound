@@ -1,5 +1,12 @@
 import { supabase } from '../lib/supabase';
-import type { Challenge, ChallengesProvider, CreateChallengeInput, LeaderboardEntry, Participant } from './types';
+import type {
+  Challenge,
+  ChallengeBot,
+  ChallengesProvider,
+  CreateChallengeInput,
+  LeaderboardEntry,
+  Participant,
+} from './types';
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -71,6 +78,21 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     });
   },
 
+  async listBots(challengeId: string): Promise<ChallengeBot[]> {
+    const client = requireClient();
+    const { data, error } = await client
+      .from('challenge_bots')
+      .select('id, challenge_id, name, fitness_level')
+      .eq('challenge_id', challengeId);
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      challengeId: row.challenge_id,
+      name: row.name,
+      fitnessLevel: row.fitness_level,
+    }));
+  },
+
   async getLeaderboard(challengeId: string): Promise<LeaderboardEntry[]> {
     const client = requireClient();
     // Aggregated client-side rather than via a Postgres view/RPC — the
@@ -103,7 +125,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     return Array.from(totals.values()).sort((a, b) => b.totalSteps - a.totalSteps);
   },
 
-  async createChallenge({ name, kind, durationDays, dailyGoalSteps }: CreateChallengeInput): Promise<Challenge> {
+  async createChallenge({ name, kind, durationDays, dailyGoalSteps, bots }: CreateChallengeInput): Promise<Challenge> {
     const client = requireClient();
     const userId = await requireUserId();
     const startsAt = new Date();
@@ -130,6 +152,13 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       .from('challenge_participants')
       .insert({ challenge_id: data.id, user_id: userId });
     if (joinError) throw new Error(joinError.message);
+
+    if (bots && bots.length > 0) {
+      const { error: botsError } = await client
+        .from('challenge_bots')
+        .insert(bots.map((b) => ({ challenge_id: data.id, name: b.name, fitness_level: b.fitnessLevel })));
+      if (botsError) throw new Error(botsError.message);
+    }
 
     return rowToChallenge(data);
   },
