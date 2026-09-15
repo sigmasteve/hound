@@ -200,4 +200,10 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       );
     if (error) throw new Error(error.message);
   },
+
+  async deleteChallenge(challengeId: string): Promise<void> {
+    const client = requireClient();
+    const { error } = await client.from('challenges').delete().eq('id', challengeId);
+    if (error) throw new Error(error.message);
+  },
 };

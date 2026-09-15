@@ -76,6 +76,8 @@ the app at your own:
 7. Same thing again with `0004_hunt_scoring_and_roles.sql` — adds
    `challenges.scoring_method` and `challenge_bots.role` (see "Hunter &
    Hunted: real scoring and roles" below).
+8. Same thing again with `0005_challenges_delete_policy.sql` — lets a
+   challenge's creator delete it from `ChallengeDetailScreen`.
 
 ### Bot opponents
 
@@ -236,6 +238,16 @@ not-tappable — see its comment in `sampleData.ts`), since they have no
 real row behind them to fetch. The Hunt screen and the two static blocks
 on the Challenges screen (the "Priya invited you…" card, the "Finished"
 section) remain fully static regardless of any of this.
+
+Whoever created a real challenge sees a "Delete challenge" action at the
+bottom of its detail screen — anyone else in it doesn't (there's nothing
+stopping a participant from leaving one they didn't create; that's a
+separate, not-yet-built feature). Confirmed via a native `Alert.alert()`
+before it actually deletes anything. `challenges.delete` is the only new
+RLS policy this needs (`0005_challenges_delete_policy.sql`) — every child
+table (`challenge_participants`, `challenge_bots`, `progress_snapshots`)
+already references `challenges` with `on delete cascade`, so deleting the
+one row removes everyone's participation and progress in it too.
 
 ## The auth layer
 

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeftIcon, ArrowsClockwiseIcon, RobotIcon, TrophyIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, ArrowsClockwiseIcon, RobotIcon, TrashIcon, TrophyIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -78,6 +78,33 @@ export function ChallengeDetailScreen({
   useEffect(() => {
     load();
   }, [load]);
+
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = () => {
+    if (!challenge) return;
+    Alert.alert(
+      'Delete this challenge?',
+      `This removes "${challenge.name}" and everyone's progress in it for good. This can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await supabaseChallengesProvider.deleteChallenge(challengeId);
+              onBack();
+            } catch (e) {
+              Alert.alert('Could not delete', e instanceof Error ? e.message : 'Try again.');
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   // Reads a real device number and writes it as this challenge's progress
   // for today — the same upsert-by-day recordProgress() the manual form
@@ -305,6 +332,13 @@ export function ChallengeDetailScreen({
           />
         </Card>
       )}
+
+      {challenge.createdBy === user?.id && (
+        <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteRow}>
+          <TrashIcon size={14} color={color.amber} />
+          <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete challenge'}</Text>
+        </Pressable>
+      )}
     </ScrollView>
     </SafeAreaView>
   );
@@ -336,4 +370,13 @@ const styles = StyleSheet.create({
   footNote: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
   loadError: { fontSize: 12.5, color: color.amber, textAlign: 'center' },
   successNote: { fontSize: 12.5, color: color.green, textAlign: 'center' },
+  deleteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  deleteLabel: { fontSize: 13, color: color.amber, fontFamily: font.heading },
 });

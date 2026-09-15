@@ -83,4 +83,7 @@ export interface ChallengesProvider {
   getLeaderboard(challengeId: string): Promise<LeaderboardEntry[]>;
   createChallenge(input: CreateChallengeInput): Promise<Challenge>;
   recordProgress(challengeId: string, steps: number, distanceMi: number): Promise<void>;
+  // Only the creator can do this — see 0005_challenges_delete_policy.sql.
+  // Cascades to that challenge's participants, bots, and progress.
+  deleteChallenge(challengeId: string): Promise<void>;
 }
