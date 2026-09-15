@@ -393,6 +393,48 @@ rather not install the native toolchains locally.
   `react-native-health-connect`, diff its new `app.plugin.js` against
   `plugins/withHealthConnect.js` and port any changes.
 
+### EAS Build: internal distribution and TestFlight
+
+HealthKit/Health Connect are real native modules — Expo Go can't run
+them, and neither can the web preview this sandbox used for everything
+else in this README. A real build is the only way to actually see this
+app read real health data on a real device, whether that's an internal
+build you install directly or one submitted to TestFlight. `eas.json`
+defines three profiles (`development`/`preview`/`production`); none of
+the steps below can run in this sandbox — they need your own Expo and
+Apple accounts, so this is written for you to run on your own machine.
+
+1. `npm install -g eas-cli` (or just use `npx eas` — `eas-cli` is already
+   a devDependency here, pinned in `package.json`).
+2. `eas login` — your own Expo account. (If you'd rather not type a
+   password somewhere, an access token from expo.dev → Account settings
+   → Access tokens works too, exported as `EXPO_TOKEN`.)
+3. `eas init` from `mobile/` — links this project to your account and
+   writes an `extra.eas.projectId` into `app.json`. Commit that.
+4. `eas build --platform ios --profile preview` (or `npm run
+   build:ios:preview`) for **internal distribution** — installs directly
+   on registered test devices via a link/QR code, no App Store Connect or
+   Apple review involved. First run prompts you through:
+   - Logging into your Apple ID (Apple Developer Program membership
+     required — HealthKit needs a paid account, not a free one).
+   - Registering test devices (`eas device:create`, or the prompt links
+     you to a page that does it from the device itself).
+   - Generating a provisioning profile with the HealthKit capability —
+     EAS's automatic credentials manager reads `app.json`'s
+     `ios.entitlements` and enables matching capabilities on the App ID
+     it registers. If the App ID already existed from before this
+     project turned HealthKit on, you may need to enable the HealthKit
+     capability on it manually once, in the Apple Developer portal's
+     Certificates, Identifiers & Profiles → Identifiers page.
+5. For **TestFlight**: `eas build --platform ios --profile production`
+   (or `npm run build:ios:production`), then `eas submit --platform ios`
+   (or `npm run submit:ios`) once it finishes. This needs an app record
+   in [App Store Connect](https://appstoreconnect.apple.com) first
+   (bundle ID `app.hound.mobile`, matching `app.json`) — `eas submit`
+   prompts you through picking or creating one. Internal testers (up to
+   100, your own Apple Developer team) don't need Apple's review; external
+   testers do.
+
 ### What this sandbox could and couldn't verify
 
 This app was built in a container with no iOS Simulator, no Android
