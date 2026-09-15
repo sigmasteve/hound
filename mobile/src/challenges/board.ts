@@ -19,6 +19,10 @@ export interface BoardEntry {
 // steps (see ChallengeDetailScreen's syncFromDevice) — everyone's
 // totalSteps is 0 in that case, so ranking by steps would leave the board
 // in an arbitrary order instead of by who's covered the most ground.
+// `daysElapsed` should be daysElapsedFraction(challenge)
+// (src/challenges/botSimulation.ts) so bots accumulate through the
+// current day instead of jumping to a full day's steps the instant it
+// starts.
 export function buildBoard(
   participants: Participant[],
   leaderboard: LeaderboardEntry[],

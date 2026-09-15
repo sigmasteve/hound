@@ -28,6 +28,7 @@ import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { buildBoard, type BoardEntry } from '../challenges/board';
+import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor } from '../challenges/scoring';
 import { ordinal } from '../challenges/present';
 import type { Challenge } from '../challenges/types';
@@ -138,11 +139,7 @@ export function HomeScreen({
         supabaseChallengesProvider.getLeaderboard(active.id),
         supabaseChallengesProvider.listBots(active.id),
       ]);
-      const daysElapsed = Math.min(
-        active.durationDays,
-        Math.max(1, Math.floor((Date.now() - new Date(active.startsAt).getTime()) / 86_400_000) + 1),
-      );
-      const board = buildBoard(participants, leaderboard, bots, daysElapsed, boardSortFor(active));
+      const board = buildBoard(participants, leaderboard, bots, daysElapsedFraction(active), boardSortFor(active));
       if (!cancelled) setPrimary({ challenge: active, board });
     })().catch(() => {
       // Stay on the sample fallback on any failure.

@@ -1,4 +1,4 @@
-import { botToLeaderboardEntry, botToParticipant } from './botSimulation';
+import { botToLeaderboardEntry, botToParticipant, daysElapsedFraction } from './botSimulation';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { TINT_A, TINT_N } from '../theme/tokens';
 import type { Challenge, ChallengeBot, LeaderboardEntry, Participant } from './types';
@@ -29,7 +29,7 @@ export function toChallengeCard(
   // "logged" something (its steps are simulated, not recorded), so it
   // belongs in both the head-count and the leaderboard used for rank.
   const allParticipants = [...participants, ...bots.map(botToParticipant)];
-  const allLeaderboard = [...leaderboard, ...bots.map((b) => botToLeaderboardEntry(b, daysElapsed))];
+  const allLeaderboard = [...leaderboard, ...bots.map((b) => botToLeaderboardEntry(b, daysElapsedFraction(challenge)))];
 
   const peopleCount = allParticipants.length;
   const sub = `Day ${daysElapsed} of ${challenge.durationDays} · ${peopleCount} ${peopleCount === 1 ? 'person' : 'people'}`;

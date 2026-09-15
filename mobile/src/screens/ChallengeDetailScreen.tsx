@@ -13,6 +13,7 @@ import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { buildBoard } from '../challenges/board';
+import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor, usesDeviceSteps, usesWorkoutDistance } from '../challenges/scoring';
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
@@ -208,7 +209,7 @@ export function ChallengeDetailScreen({
   const endsLabel = new Date(challenge.endsAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   const scoredByDistance = usesWorkoutDistance(challenge);
-  const board = buildBoard(participants, leaderboard, bots, daysElapsed, boardSortFor(challenge)).map((row) => ({
+  const board = buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), boardSortFor(challenge)).map((row) => ({
     ...row,
     name: row.userId === user?.id ? 'You' : row.name,
   }));

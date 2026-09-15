@@ -89,9 +89,13 @@ challenge interesting. A bot never signs in and is never a real
 `challenge_bots`. Its steps are never written anywhere — there's no job
 simulating a bot one day at a time — instead `src/challenges/botSimulation.ts`
 deterministically recomputes its whole trajectory on every read, seeded
-from the bot's own row id and the number of days elapsed, so it shows the
-same numbers on every screen and every reload without a backend to keep
-in sync.
+from the bot's own row id and the day number. Every *complete* day counts
+in full; the current, still-in-progress day is scaled by
+`daysElapsedFraction()`'s fraction of a day elapsed, so a bot's steps
+climb through the day the way a real synced count would, rather than
+jumping to a full day's total the instant the day starts — and it still
+shows the same numbers on every screen and every reload (down to the
+minute) without a backend to keep in sync.
 
 ### Hunter & Hunted: real scoring and roles
 
