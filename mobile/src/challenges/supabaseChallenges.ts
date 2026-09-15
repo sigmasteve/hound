@@ -189,14 +189,14 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     return rowToChallenge(data);
   },
 
-  async recordProgress(challengeId: string, steps: number, distanceMi: number): Promise<void> {
+  async recordProgress(challengeId: string, steps: number, distanceMi: number, day?: string): Promise<void> {
     const client = requireClient();
     const userId = await requireUserId();
-    const day = new Date().toISOString().slice(0, 10);
+    const resolvedDay = day ?? new Date().toISOString().slice(0, 10);
     const { error } = await client
       .from('progress_snapshots')
       .upsert(
-        { challenge_id: challengeId, user_id: userId, day, steps, distance_mi: distanceMi },
+        { challenge_id: challengeId, user_id: userId, day: resolvedDay, steps, distance_mi: distanceMi },
         { onConflict: 'challenge_id,user_id,day' },
       );
     if (error) throw new Error(error.message);
