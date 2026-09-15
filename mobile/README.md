@@ -192,11 +192,14 @@ same as `src/health`'s pattern.
 Tapping a real challenge card opens `ChallengeDetailScreen.tsx` — a
 generic detail view (not tied to any one challenge kind, unlike Hunt)
 showing the full participant list ranked by steps, defaulting to 0 for
-anyone who hasn't logged anything, plus a manual "log your progress"
-form that calls `recordProgress()`. That form is the only caller of
-`recordProgress()` anywhere in the app right now — there's no automatic
-sync from HealthKit/Health Connect into a challenge yet (see "What's not
-implemented"), so it's manual entry or nothing. Sample cards never open
+anyone who hasn't logged anything. A `'steps'`-kind challenge is the one
+case with an unambiguous real number to draw from (today's device step
+count), so it auto-syncs from `useHealthProvider()` — once when the
+screen loads and again on demand via its own "Sync now" — straight into
+`recordProgress()`, no typing required; every other kind still uses the
+manual "log your progress" form (there's no automatic sync from
+HealthKit/Health Connect for those yet — see "What's not implemented").
+Sample cards never open
 this screen (`ChallengeCard.target` distinguishes 'hunt' / 'detail' /
 not-tappable — see its comment in `sampleData.ts`), since they have no
 real row behind them to fetch. The Hunt screen and the two static blocks
@@ -427,12 +430,15 @@ are also still static, on either data path — that one specifically needs
 real cross-device staleness detection that doesn't exist yet, so it (and
 the "Nudge" action that went with it) only shows up alongside the rest of
 the sample content, never next to a real challenge. HealthKit/Health Connect only ever cover *your own*
-metrics regardless; actually syncing a friend's steps *automatically*
-into a shared leaderboard needs `progress_snapshots` rows written from
-their device without them opening the app and typing a number in —
-`ChallengeDetailScreen.tsx`'s manual entry form is the only thing calling
-`recordProgress()` today, so every number on a real leaderboard is
-exactly what someone typed in, nothing more.
+metrics regardless — a `'steps'`-kind challenge auto-syncs *your* device
+steps (see "The backend (Supabase)"), but every other kind, and every
+other participant regardless of kind, still needs `progress_snapshots`
+rows written by hand via `ChallengeDetailScreen.tsx`'s manual entry form.
+Actually syncing a friend's steps *automatically* into a shared
+leaderboard needs their own device writing those rows without them
+opening the app and typing a number in, which nothing does yet — every
+non-`'steps'` number on a real leaderboard is exactly what someone typed
+in, nothing more.
 
 Facebook/Apple sign-in is wired to real Supabase OAuth calls but needs
 each provider configured in your Supabase dashboard (and, for Apple,

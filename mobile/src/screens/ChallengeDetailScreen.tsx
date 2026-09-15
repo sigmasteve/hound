@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeftIcon, RobotIcon, TrophyIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, ArrowsClockwiseIcon, RobotIcon, TrophyIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -15,13 +15,17 @@ import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { buildBoard } from '../challenges/board';
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
+import { useHealthProvider } from '../health/HealthContext';
 
 // The generic detail view for a real, Supabase-backed challenge of any
 // kind — there's no per-kind template yet (HuntScreen is one specific
 // hardcoded storyline, not reusable), so this renders the same for
-// 'hunt'/'steps'/'streak'/'distance' alike: who's in it, who's logged
-// what, and a way to log your own progress. Fetches by id itself rather
-// than taking pre-loaded data as props, so it works from any entry point.
+// 'hunt'/'streak'/'distance' alike: who's in it, who's logged what, and a
+// way to log your own progress. A 'steps' challenge is the one exception —
+// it has a real, unambiguous device number to draw from (today's step
+// count), so it auto-syncs from HealthKit/Health Connect instead of
+// showing the manual form. Fetches by id itself rather than taking
+// pre-loaded data as props, so it works from any entry point.
 export function ChallengeDetailScreen({
   challengeId,
   onBack,
@@ -32,6 +36,7 @@ export function ChallengeDetailScreen({
   onGoHome: () => void;
 }) {
   const { user } = useAuth();
+  const health = useHealthProvider();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -44,6 +49,10 @@ export function ChallengeDetailScreen({
   const [logging, setLogging] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
   const [logSuccess, setLogSuccess] = useState(false);
+
+  const [deviceSyncing, setDeviceSyncing] = useState(false);
+  const [deviceSyncedAt, setDeviceSyncedAt] = useState<Date | null>(null);
+  const [deviceSyncError, setDeviceSyncError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -68,6 +77,35 @@ export function ChallengeDetailScreen({
   useEffect(() => {
     load();
   }, [load]);
+
+  // Reads today's real step count and writes it as this challenge's
+  // progress for today — the same upsert-by-day recordProgress() the
+  // manual form uses, just filled in from the device instead of typed in.
+  const syncFromDevice = useCallback(async () => {
+    setDeviceSyncError(null);
+    setDeviceSyncing(true);
+    try {
+      const snap = await health.getSnapshot();
+      await supabaseChallengesProvider.recordProgress(challengeId, snap.stepsToday, snap.distanceTodayMi);
+      setDeviceSyncedAt(new Date());
+      await load();
+    } catch (e) {
+      setDeviceSyncError(e instanceof Error ? e.message : 'Could not sync your steps — try again.');
+    } finally {
+      setDeviceSyncing(false);
+    }
+  }, [challengeId, health, load]);
+
+  // Auto-sync once whenever a 'steps' challenge finishes loading — keyed
+  // on id/kind (not the whole `challenge` object, which is a fresh
+  // reference every reload) so syncFromDevice's own load() call doesn't
+  // re-trigger this.
+  useEffect(() => {
+    if (challenge?.kind === 'steps') {
+      syncFromDevice();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challenge?.id, challenge?.kind]);
 
   const logProgress = async () => {
     const steps = Number(stepsInput);
@@ -128,6 +166,14 @@ export function ChallengeDetailScreen({
     name: row.userId === user?.id ? 'You' : row.name,
   }));
 
+  const syncStatusText = deviceSyncing
+    ? 'Syncing…'
+    : deviceSyncError
+      ? deviceSyncError
+      : deviceSyncedAt
+        ? 'Synced just now'
+        : 'Not synced yet';
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={styles.container}>
@@ -174,40 +220,57 @@ export function ChallengeDetailScreen({
         {board.length === 0 && <Text style={styles.footNote}>No participants found.</Text>}
       </Card>
 
-      <Card style={{ gap: 14 }} elevated={false}>
-        <Text style={text.h4}>Log your progress</Text>
-        <Text style={styles.footNote}>
-          Manual entry for now — Hound doesn&rsquo;t automatically sync your HealthKit/Health Connect
-          steps into a challenge yet.
-        </Text>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <TextField
-            label="Steps today"
-            value={stepsInput}
-            onChangeText={setStepsInput}
-            placeholder="8,432"
-            keyboardType="number-pad"
-            style={{ flex: 1 }}
+      {challenge.kind === 'steps' ? (
+        <Card style={{ gap: 10 }} elevated={false}>
+          <Text style={text.h4}>Your progress</Text>
+          <Text style={styles.footNote}>
+            Steps auto-sync from {health.platformLabel} — no manual entry for a step race.
+          </Text>
+          <View style={styles.syncRow}>
+            <View style={[styles.dot, { backgroundColor: deviceSyncError ? color.amber : color.green }]} />
+            <Text style={styles.footNote}>{syncStatusText}</Text>
+            <Pressable style={styles.syncBtn} onPress={syncFromDevice} disabled={deviceSyncing}>
+              <ArrowsClockwiseIcon size={13} color={color.accent} />
+              <Text style={styles.syncLabel}>Sync now</Text>
+            </Pressable>
+          </View>
+        </Card>
+      ) : (
+        <Card style={{ gap: 14 }} elevated={false}>
+          <Text style={text.h4}>Log your progress</Text>
+          <Text style={styles.footNote}>
+            Manual entry for now — Hound doesn&rsquo;t automatically sync your HealthKit/Health Connect
+            steps into this kind of challenge yet.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TextField
+              label="Steps today"
+              value={stepsInput}
+              onChangeText={setStepsInput}
+              placeholder="8,432"
+              keyboardType="number-pad"
+              style={{ flex: 1 }}
+            />
+            <TextField
+              label="Distance (mi)"
+              value={distanceInput}
+              onChangeText={setDistanceInput}
+              placeholder="optional"
+              keyboardType="decimal-pad"
+              style={{ flex: 1 }}
+            />
+          </View>
+          {logError && <Text style={styles.loadError}>{logError}</Text>}
+          {logSuccess && !logError && <Text style={styles.successNote}>Saved.</Text>}
+          <Button
+            label={logging ? 'Saving…' : 'Save'}
+            variant="primary"
+            block
+            disabled={logging || !stepsInput.trim()}
+            onPress={logProgress}
           />
-          <TextField
-            label="Distance (mi)"
-            value={distanceInput}
-            onChangeText={setDistanceInput}
-            placeholder="optional"
-            keyboardType="decimal-pad"
-            style={{ flex: 1 }}
-          />
-        </View>
-        {logError && <Text style={styles.loadError}>{logError}</Text>}
-        {logSuccess && !logError && <Text style={styles.successNote}>Saved.</Text>}
-        <Button
-          label={logging ? 'Saving…' : 'Save'}
-          variant="primary"
-          block
-          disabled={logging || !stepsInput.trim()}
-          onPress={logProgress}
-        />
-      </Card>
+        </Card>
+      )}
     </ScrollView>
     </SafeAreaView>
   );
@@ -219,6 +282,10 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
   headerIcon: { width: 46, height: 46, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   headerMeta: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
+  syncRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' },
+  syncLabel: { fontSize: 12, color: color.accent, fontFamily: font.heading },
   leaderboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   boardRow: {
     flexDirection: 'row',
