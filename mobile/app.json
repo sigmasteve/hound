@@ -54,7 +54,15 @@
           "iosUrlScheme": "com.googleusercontent.apps.304361422076-1eengk283vh6djddhs582frhiup7ersn"
         }
       ],
-      "expo-dev-client"
+      "expo-dev-client",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "buildReactNativeFromSource": true
+          }
+        }
+      ]
     ]
   }
 }

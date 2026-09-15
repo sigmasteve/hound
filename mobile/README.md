@@ -294,6 +294,22 @@ rather not install the native toolchains locally.
   everything else, but not "granted" from "denied" for *read* types (Apple
   never reports that back to the calling app, for privacy). `iosProvider.ts`
   treats "not determined" as the only meaningful distinct status.
+- If the Simulator fails at launch with `Library not loaded:
+  @rpath/React.framework/React`, referenced from
+  `ExpoModulesWorklets.framework` (a dyld error, not a JS crash — it
+  happens before any app code runs), that's Expo SDK 57's precompiled
+  native module binaries getting out of sync with a from-source React
+  Native build (the same class of bug as expo/expo#49948:
+  `expo-modules-core`'s worklets integration ships a precompiled dynamic
+  framework that expects a precompiled `React.framework` alongside it, but
+  a stale local `Pods`/DerivedData state can end up building React Native
+  itself from source instead, so that framework is never produced).
+  `app.json` now sets `expo-build-properties`'s
+  `ios.buildReactNativeFromSource: true`, which forces every native module
+  to build from source consistently and avoids the mismatch. After pulling
+  this change, do a full clean rebuild once (stale `ios/`/Pods/DerivedData
+  from before this flag won't fix themselves):
+  `rm -rf ios android node_modules && npm install && npx expo prebuild --clean && npx expo run:ios`.
 
 ### Android specifics
 - Needs the Health Connect app. Android 14+ ships it in-box; earlier
