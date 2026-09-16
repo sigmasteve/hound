@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import type {
   Challenge,
   ChallengeBot,
+  ChallengeInvite,
   ChallengesProvider,
   CreateChallengeInput,
   HuntRole,
@@ -36,6 +37,12 @@ interface ChallengeRow {
   ends_at: string;
   daily_goal_steps: number | null;
   scoring_method: Challenge['scoringMethod'];
+}
+
+interface ChallengeInviteRow {
+  id: string;
+  challenges: { id: string; name: string; kind: Challenge['kind']; duration_days: number } | null;
+  inviter: { name: string } | null;
 }
 
 function rowToChallenge(row: ChallengeRow): Challenge {
@@ -251,6 +258,70 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       .update({ highlighted })
       .eq('challenge_id', challengeId)
       .eq('user_id', userId);
+    if (error) throw new Error(error.message);
+  },
+
+  async listMyChallengeInvites(): Promise<ChallengeInvite[]> {
+    const client = requireClient();
+    const userId = await requireUserId();
+    const { data, error } = await client
+      .from('challenge_invites')
+      .select(
+        'id, challenges(id, name, kind, duration_days), ' +
+          'inviter:profiles!challenge_invites_inviter_id_fkey(name)',
+      )
+      .eq('invitee_id', userId);
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as unknown as ChallengeInviteRow[])
+      .filter((row) => row.challenges)
+      .map((row) => ({
+        id: row.id,
+        challengeId: row.challenges!.id,
+        challengeName: row.challenges!.name,
+        challengeKind: row.challenges!.kind,
+        durationDays: row.challenges!.duration_days,
+        inviterName: row.inviter?.name ?? 'Someone',
+      }));
+  },
+
+  async inviteFriendToChallenge(challengeId: string, friendUserId: string): Promise<void> {
+    const client = requireClient();
+    const userId = await requireUserId();
+    const { error } = await client
+      .from('challenge_invites')
+      .insert({ challenge_id: challengeId, inviter_id: userId, invitee_id: friendUserId });
+    if (error) {
+      if (error.code === '23505') throw new Error('Already invited.');
+      throw new Error(error.message);
+    }
+  },
+
+  async acceptChallengeInvite(inviteId: string): Promise<void> {
+    const client = requireClient();
+    const userId = await requireUserId();
+    const { data: invite, error: fetchError } = await client
+      .from('challenge_invites')
+      .select('challenge_id')
+      .eq('id', inviteId)
+      .single();
+    if (fetchError) throw new Error(fetchError.message);
+
+    // Upsert with ignoreDuplicates rather than a plain insert — a retry
+    // after a failed delete below (already joined, invite row still
+    // there) would otherwise hit challenge_participants' own
+    // unique(challenge_id, user_id) constraint as a hard error.
+    const { error: joinError } = await client
+      .from('challenge_participants')
+      .upsert({ challenge_id: invite.challenge_id, user_id: userId }, { onConflict: 'challenge_id,user_id', ignoreDuplicates: true });
+    if (joinError) throw new Error(joinError.message);
+
+    const { error: deleteError } = await client.from('challenge_invites').delete().eq('id', inviteId);
+    if (deleteError) throw new Error(deleteError.message);
+  },
+
+  async declineChallengeInvite(inviteId: string): Promise<void> {
+    const client = requireClient();
+    const { error } = await client.from('challenge_invites').delete().eq('id', inviteId);
     if (error) throw new Error(error.message);
   },
 };

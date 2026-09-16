@@ -58,6 +58,19 @@ export interface ChallengeBot {
   role: HuntRole | null;
 }
 
+// An invite to join an existing challenge — separate from friendships:
+// there's no durable "connected" state to keep once you're a
+// challenge_participants row, unlike a friendship. See
+// 0009_challenge_invites.sql.
+export interface ChallengeInvite {
+  id: string;
+  challengeId: string;
+  challengeName: string;
+  challengeKind: ChallengeKind;
+  durationDays: number;
+  inviterName: string;
+}
+
 export interface CreateChallengeInput {
   name: string;
   kind: ChallengeKind;
@@ -103,4 +116,15 @@ export interface ChallengesProvider {
   // Only one challenge can be highlighted per user at a time — setting
   // `true` clears any other challenge the current user had highlighted.
   setHighlighted(challengeId: string, highlighted: boolean): Promise<void>;
+  // Pending invites addressed to the current user, across every
+  // challenge — ChallengesScreen renders one card per invite.
+  listMyChallengeInvites(): Promise<ChallengeInvite[]>;
+  // Only a current participant of challengeId can call this (see
+  // 0009_challenge_invites.sql's insert policy) — inviting someone
+  // who isn't your friend still works, this doesn't check friendships.
+  inviteFriendToChallenge(challengeId: string, friendUserId: string): Promise<void>;
+  // Joins as a real challenge_participants row and removes the invite —
+  // there's nothing left to represent once you're a participant.
+  acceptChallengeInvite(inviteId: string): Promise<void>;
+  declineChallengeInvite(inviteId: string): Promise<void>;
 }

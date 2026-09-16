@@ -11,11 +11,12 @@ import { Card } from '../components/Card';
 import { Tag } from '../components/Tag';
 import { text } from '../theme/text';
 import { color, font } from '../theme/tokens';
-import { CHALLENGES, type ChallengeCard } from '../data/sampleData';
+import { CHALLENGES, CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { toChallengeCard } from '../challenges/present';
+import type { ChallengeInvite } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
 
 export function ChallengesScreen({
@@ -34,12 +35,38 @@ export function ChallengesScreen({
   // demo content around next to real data. Same "never break the
   // screen, just fall back" philosophy as src/health's mock fallback.
   const [liveCards, setLiveCards] = useState<ChallengeCard[] | null>(null);
+  // Same null-means-fallback convention, for the hardcoded "Priya
+  // invited you…" card — see the render below.
+  const [liveInvites, setLiveInvites] = useState<ChallengeInvite[] | null>(null);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
+
+  const loadChallenges = async (): Promise<void> => {
+    const challenges = await supabaseChallengesProvider.listMyChallenges();
+    const cards = await Promise.all(
+      challenges.map(async (c) => {
+        const [participants, leaderboard, bots] = await Promise.all([
+          supabaseChallengesProvider.listParticipants(c.id),
+          supabaseChallengesProvider.getLeaderboard(c.id),
+          supabaseChallengesProvider.listBots(c.id),
+        ]);
+        return toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null);
+      }),
+    );
+    setLiveCards(cards);
+  };
+
+  const loadInvites = async (): Promise<void> => {
+    setLiveInvites(await supabaseChallengesProvider.listMyChallengeInvites());
+  };
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let cancelled = false;
     (async () => {
-      const challenges = await supabaseChallengesProvider.listMyChallenges();
+      const [challenges, invites] = await Promise.all([
+        supabaseChallengesProvider.listMyChallenges(),
+        supabaseChallengesProvider.listMyChallengeInvites(),
+      ]);
       const cards = await Promise.all(
         challenges.map(async (c) => {
           const [participants, leaderboard, bots] = await Promise.all([
@@ -50,7 +77,10 @@ export function ChallengesScreen({
           return toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null);
         }),
       );
-      if (!cancelled) setLiveCards(cards);
+      if (!cancelled) {
+        setLiveCards(cards);
+        setLiveInvites(invites);
+      }
     })().catch(() => {
       // Stay on the sample fallback on any failure — this screen never
       // shows an error state, it just quietly doesn't upgrade.
@@ -59,6 +89,20 @@ export function ChallengesScreen({
       cancelled = true;
     };
   }, [user?.id]);
+
+  const respondToInvite = async (invite: ChallengeInvite, accept: boolean) => {
+    setRespondingId(invite.id);
+    try {
+      if (accept) await supabaseChallengesProvider.acceptChallengeInvite(invite.id);
+      else await supabaseChallengesProvider.declineChallengeInvite(invite.id);
+      await Promise.all([loadInvites(), accept ? loadChallenges() : Promise.resolve()]);
+    } catch {
+      // No error UI for this yet — a stale invite silently stops
+      // responding rather than crashing; re-opening the tab re-fetches.
+    } finally {
+      setRespondingId(null);
+    }
+  };
 
   const challenges = liveCards ?? CHALLENGES;
 
@@ -69,17 +113,49 @@ export function ChallengesScreen({
         <Button label="New challenge" variant="primary" small icon={<PlusCircleIcon size={14} color={color.accent} />} onPress={onCreate} />
       </View>
 
-      <Card style={styles.inviteCard} elevated={false}>
-        <EnvelopeOpenIcon size={18} color={color.accent300} weight="fill" />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={styles.inviteTitle}>Priya invited you to &ldquo;Sunrise Streak&rdquo;</Text>
-          <Text style={styles.inviteSub}>30 minutes of movement before 9am · 14 days · starts Monday</Text>
-        </View>
-        <View style={{ gap: 6 }}>
-          <Button label="Join" variant="primary" small />
-          <Button label="Decline" small />
-        </View>
-      </Card>
+      {liveInvites === null ? (
+        <Card style={styles.inviteCard} elevated={false}>
+          <EnvelopeOpenIcon size={18} color={color.accent300} weight="fill" />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.inviteTitle}>Priya invited you to &ldquo;Sunrise Streak&rdquo;</Text>
+            <Text style={styles.inviteSub}>30 minutes of movement before 9am · 14 days · starts Monday</Text>
+          </View>
+          <View style={{ gap: 6 }}>
+            <Button label="Join" variant="primary" small />
+            <Button label="Decline" small />
+          </View>
+        </Card>
+      ) : (
+        liveInvites.map((invite) => (
+          <Card key={invite.id} style={styles.inviteCard} elevated={false}>
+            <EnvelopeOpenIcon size={18} color={color.accent300} weight="fill" />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.inviteTitle}>
+                {invite.inviterName} invited you to &ldquo;{invite.challengeName}&rdquo;
+              </Text>
+              <Text style={styles.inviteSub}>
+                {CHALLENGE_TYPES.find((t) => t.id === invite.challengeKind)?.name ?? invite.challengeKind} ·{' '}
+                {invite.durationDays} days
+              </Text>
+            </View>
+            <View style={{ gap: 6 }}>
+              <Button
+                label="Join"
+                variant="primary"
+                small
+                disabled={respondingId === invite.id}
+                onPress={() => respondToInvite(invite, true)}
+              />
+              <Button
+                label="Decline"
+                small
+                disabled={respondingId === invite.id}
+                onPress={() => respondToInvite(invite, false)}
+              />
+            </View>
+          </Card>
+        ))
+      )}
 
       {challenges.map((c) => (
         <ChallengeRow

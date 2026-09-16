@@ -258,6 +258,50 @@ accepted friendship, consumes the pending invite, and a manufactured
 self-invite edge case doesn't break it) — never against a real Supabase
 project or Resend account, which this sandbox can't reach.
 
+### Inviting a friend to a specific challenge
+
+Separate from the friend graph above: ChallengesScreen used to show a
+hardcoded "Priya invited you to 'Sunrise Streak'" card whose Join/Decline
+buttons had no `onPress` at all — not wired to any data, real or sample.
+`challenge_invites` (`0009_challenge_invites.sql`) makes it real: one row
+per `(challenge_id, invitee_id)` — the unique constraint means a person
+can only have one pending invite to a given challenge regardless of who
+sent it, so a second friend inviting them to the same challenge doesn't
+produce a second card.
+
+Deliberately simpler than `friendships`: there's no durable "accepted"
+state to keep. Accepting (`ChallengesProvider.acceptChallengeInvite`)
+just inserts a real `challenge_participants` row (the same table
+`createChallenge()` already writes to for the creator) and deletes the
+invite — once you're a participant there's nothing left for the invite
+to represent. Declining is the same `DELETE`, no state change first.
+Only a current participant of a challenge can invite someone to it
+(`0009`'s insert policy checks `challenge_participants`), and RLS
+required one more addition: 0001's "Participants can view their
+challenges" policy doesn't cover someone who's been invited but hasn't
+joined yet, so `0009` adds a second, independent SELECT policy on
+`challenges` for "you have a pending invite to this one" — an *additional*
+permissive policy rather than editing the existing one, since Postgres
+ORs multiple permissive policies for the same command together, and
+editing challenge_participants' own policies was exactly how
+`0002_fix_challenge_participants_recursion.sql` had to clean up a
+self-referential recursion bug earlier in this project. This new policy
+references a different table (`challenge_invites`), not `challenges`
+itself, so it doesn't reintroduce that class of bug.
+
+`ChallengeDetailScreen.tsx` gained an "Invite a friend" card listing your
+accepted friends (from `src/friends`) who aren't already in the
+challenge — inviting is a self-contained action that doesn't check
+whether they'll actually see it in time, mirroring how `inviteByEmail`
+doesn't wait to find out an email arrived. Verified the same way as
+`friendships` and `pending_invites`: applied 0001 through 0009 against a
+local throwaway Postgres and confirmed directly — a real participant can
+invite someone, a non-participant can't, an invitee can read the
+challenge's name before joining (the new policy's whole reason for
+existing), joining removes the invite and adds a real participant row,
+and an uninvolved third party can neither see nor delete someone else's
+invite. Never verified against a real Supabase project.
+
 With those two env vars unset (the default — nothing above is required to
 run the app), everything falls back to what it did before: mock auth
 (`src/auth/mockAuth.ts`) and static sample data. This is the same
@@ -374,9 +418,12 @@ HealthKit/Health Connect for those yet — see "What's not implemented").
 Sample cards never open
 this screen (`ChallengeCard.target` distinguishes 'hunt' / 'detail' /
 not-tappable — see its comment in `sampleData.ts`), since they have no
-real row behind them to fetch. The Hunt screen and the two static blocks
-on the Challenges screen (the "Priya invited you…" card, the "Finished"
-section) remain fully static regardless of any of this.
+real row behind them to fetch. The Hunt screen and the Challenges
+screen's "Finished" section remain fully static regardless of any of
+this — the "Priya invited you…" card is the exception: it now shows
+real pending challenge invites once Supabase is configured (see
+"Inviting a friend to a specific challenge"), falling back to that exact
+static card otherwise.
 
 Whoever created a real challenge sees a "Delete challenge" action at the
 bottom of its detail screen — anyone else in it doesn't (there's nothing
@@ -657,12 +704,13 @@ generates the Info.plist entry it says it will."
 ## What's not implemented
 
 The Challenges *list*, a real challenge's *detail* screen, the Home
-screen's hero/leaderboard card, and Friends' friend graph all read real
-data now (see "The backend (Supabase)" and "Friends: a real friend
-graph"), but the Hunt screen still renders `src/data/sampleData.ts`'s
-static content unconditionally, unrelated to any of it. The Challenges screen's "Priya invited you…" card
-and "Finished" section, and Home's "Theo's Pixel hasn't reported" card,
-are also still static, on either data path — that one specifically needs
+screen's hero/leaderboard card, Friends' friend graph, and challenge
+invites all read real data now (see "The backend (Supabase)", "Friends:
+a real friend graph", and "Inviting a friend to a specific challenge"),
+but the Hunt screen still renders `src/data/sampleData.ts`'s static
+content unconditionally, unrelated to any of it. The Challenges screen's
+"Finished" section and Home's "Theo's Pixel hasn't reported" card are
+also still static, on either data path — that one specifically needs
 real cross-device staleness detection that doesn't exist yet, so it (and
 the "Nudge" action that went with it) only shows up alongside the rest of
 the sample content, never next to a real challenge. HealthKit/Health Connect only ever cover *your own*

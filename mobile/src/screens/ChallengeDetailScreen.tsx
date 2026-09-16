@@ -17,6 +17,8 @@ import { buildBoard } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor, usesDeviceSteps, usesWorkoutDistance } from '../challenges/scoring';
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
+import { supabaseFriendsProvider } from '../friends/supabaseFriends';
+import type { Friend } from '../friends/types';
 import { useAuth } from '../auth/AuthContext';
 import { useHealthProvider } from '../health/HealthContext';
 
@@ -57,19 +59,29 @@ export function ChallengeDetailScreen({
   const [deviceSyncedAt, setDeviceSyncedAt] = useState<Date | null>(null);
   const [deviceSyncError, setDeviceSyncError] = useState<string | null>(null);
 
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [invitingId, setInvitingId] = useState<string | null>(null);
+  // Friends invited this session but not yet reflected in `friends`
+  // (accepting isn't instant, and this screen has no way to tell a
+  // friend accepted a challenge invite vs. just hasn't yet) — purely a
+  // local "Invited" label flip, not a source of truth.
+  const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
+
   const load = useCallback(async () => {
     setLoadError(null);
     try {
-      const [c, p, l, b] = await Promise.all([
+      const [c, p, l, b, f] = await Promise.all([
         supabaseChallengesProvider.getChallenge(challengeId),
         supabaseChallengesProvider.listParticipants(challengeId),
         supabaseChallengesProvider.getLeaderboard(challengeId),
         supabaseChallengesProvider.listBots(challengeId),
+        supabaseFriendsProvider.listFriends(),
       ]);
       setChallenge(c);
       setParticipants(p);
       setLeaderboard(l);
       setBots(b);
+      setFriends(f);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not load this challenge.');
     } finally {
@@ -93,6 +105,24 @@ export function ChallengeDetailScreen({
       Alert.alert('Could not update', e instanceof Error ? e.message : 'Try again.');
     } finally {
       setTogglingHighlight(false);
+    }
+  };
+
+  const inviteFriend = async (friend: Friend) => {
+    setInvitingId(friend.userId);
+    try {
+      await supabaseChallengesProvider.inviteFriendToChallenge(challengeId, friend.userId);
+      setInvitedIds((cur) => new Set(cur).add(friend.userId));
+    } catch (e) {
+      // "Already invited" isn't really a failure from here — still mark
+      // it, so the button reads the same either way.
+      if (e instanceof Error && e.message === 'Already invited.') {
+        setInvitedIds((cur) => new Set(cur).add(friend.userId));
+      } else {
+        Alert.alert('Could not invite', e instanceof Error ? e.message : 'Try again.');
+      }
+    } finally {
+      setInvitingId(null);
     }
   };
 
@@ -292,6 +322,10 @@ export function ChallengeDetailScreen({
         ? `Distance from every workout logged today auto-syncs from ${health.platformLabel}.`
         : `Steps auto-sync from ${health.platformLabel} — no manual entry needed.`;
 
+  const invitableFriends = friends.filter(
+    (f) => f.status === 'accepted' && !participants.some((p) => p.userId === f.userId),
+  );
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={styles.container}>
@@ -404,6 +438,34 @@ export function ChallengeDetailScreen({
         </Card>
       )}
 
+      <Card style={{ gap: 10 }} elevated={false}>
+        <Text style={text.h4}>Invite a friend</Text>
+        {invitableFriends.length === 0 ? (
+          <Text style={styles.footNote}>
+            {friends.length === 0
+              ? 'Add friends from the Friends tab, then invite them here.'
+              : 'Everyone you’re friends with is already in this challenge.'}
+          </Text>
+        ) : (
+          invitableFriends.map((f) => {
+            const invited = invitedIds.has(f.userId);
+            return (
+              <View key={f.userId} style={styles.inviteFriendRow}>
+                <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
+                <Text style={[styles.friendName, { flex: 1 }]}>{f.name}</Text>
+                <Button
+                  label={invited ? 'Invited' : invitingId === f.userId ? 'Inviting…' : 'Invite'}
+                  variant={invited ? 'ghost' : 'secondary'}
+                  small
+                  disabled={invited || invitingId === f.userId}
+                  onPress={() => inviteFriend(f)}
+                />
+              </View>
+            );
+          })
+        )}
+      </Card>
+
       {challenge.createdBy === user?.id && (
         <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteRow}>
           <TrashIcon size={14} color={color.amber} />
@@ -443,6 +505,8 @@ const styles = StyleSheet.create({
   boardSteps: { fontSize: 14, color: color.text, fontFamily: font.heading },
   boardDistance: { fontSize: 11, color: 'rgba(233,233,237,0.55)' },
   footNote: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
+  inviteFriendRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  friendName: { fontSize: 14, color: color.text, fontFamily: font.body },
   loadError: { fontSize: 12.5, color: color.amber, textAlign: 'center' },
   successNote: { fontSize: 12.5, color: color.green, textAlign: 'center' },
   deleteRow: {
