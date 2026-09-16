@@ -20,12 +20,12 @@
 //
 // Not yet done: a verified sending domain, and a real link for the email
 // to point to — HOUND_SIGNUP_URL below is a placeholder (just the bare
-// hound.app domain) until there's an app to download or a hosted sign-up
-// page. Swap it for whatever that ends up being.
+// houndchallenge.net domain) until there's an app to download or a
+// hosted sign-up page. Swap it for whatever that ends up being.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-const HOUND_SIGNUP_URL = 'https://hound.app';
+const HOUND_SIGNUP_URL = 'https://houndchallenge.net';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Hound <invites@hound.app>',
+        from: 'Hound <invites@houndchallenge.net>',
         to: [email],
         subject: `${inviterName} invited you to Hound`,
         html:
