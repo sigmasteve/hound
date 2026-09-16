@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   CaretRightIcon,
   EnvelopeOpenIcon,
@@ -59,36 +60,37 @@ export function ChallengesScreen({
     setLiveInvites(await supabaseChallengesProvider.listMyChallengeInvites());
   };
 
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    let cancelled = false;
-    (async () => {
-      const [challenges, invites] = await Promise.all([
-        supabaseChallengesProvider.listMyChallenges(),
-        supabaseChallengesProvider.listMyChallengeInvites(),
-      ]);
-      const cards = await Promise.all(
-        challenges.map(async (c) => {
-          const [participants, leaderboard, bots] = await Promise.all([
-            supabaseChallengesProvider.listParticipants(c.id),
-            supabaseChallengesProvider.getLeaderboard(c.id),
-            supabaseChallengesProvider.listBots(c.id),
-          ]);
-          return toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null);
-        }),
-      );
-      if (!cancelled) {
-        setLiveCards(cards);
-        setLiveInvites(invites);
-      }
-    })().catch(() => {
-      // Stay on the sample fallback on any failure — this screen never
-      // shows an error state, it just quietly doesn't upgrade.
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
+  // useFocusEffect, not a plain mount-time useEffect: creating a challenge
+  // pushes Create *on top of* Main in the stack rather than replacing it,
+  // so returning from it (onFinish navigates back to the same, already-
+  // mounted Main/ChallengesScreen instance) never remounts this screen —
+  // a plain useEffect keyed on user?.id would only ever fetch once and
+  // never see the challenge you just created. useFocusEffect instead
+  // refetches every time this screen regains navigation focus (returning
+  // from Create, from a challenge's detail screen, from Hunt, etc.),
+  // which a mount-only effect can't do since nothing else here unmounts
+  // and remounts it in that flow.
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured) return;
+      // Independent try/catch per fetch — these used to be bundled into
+      // one Promise.all, which meant a failure in *either* silently
+      // blocked *both* from ever upgrading past the sample fallback (e.g.
+      // before 0009_challenge_invites.sql has been run against a
+      // project, listMyChallengeInvites() throws and the real challenge
+      // list never showed up either, even though it was fetched
+      // successfully).
+      loadChallenges().catch(() => {
+        // Stay on the sample fallback for challenges on any failure —
+        // this screen never shows an error state, it just quietly
+        // doesn't upgrade.
+      });
+      loadInvites().catch(() => {
+        // Same, independently, for the invite card.
+      });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id]),
+  );
 
   const respondToInvite = async (invite: ChallengeInvite, accept: boolean) => {
     setRespondingId(invite.id);
