@@ -186,17 +186,17 @@ separate rows.
 "Invite by email" (`src/friends/supabaseFriends.ts`'s `inviteByEmail`)
 looks the address up in `profiles` (visible to any signed-in user
 already, via 0001's "Profiles are viewable by any signed-in user"
-policy) and errors clearly if nobody's signed up with it yet — there's
-no email actually sent, this only works for someone who already has a
-Hound account. If that person already invited *you*, sending them an
-invite accepts theirs instead of creating a second pending row for the
-same pair (the unique index would reject it anyway; the app checks
-first so that race resolves as "you're now friends" rather than an
-error). RLS only lets the *recipient* flip a row to `'accepted'`
-(`friendships`'s update policy) — the requester can't befriend someone
-by editing their own pending row. Declining a pending invite and
-unfriending an existing friend are the same `DELETE`, since there's only
-ever one row per pair regardless of status.
+policy). If that person already has a Hound account, this creates a
+`friendships` row same as before — or, if they already invited *you*,
+accepts theirs instead of creating a second pending row for the same
+pair (the unique index would reject it anyway; the app checks first so
+that race resolves as "you're now friends" rather than an error). RLS
+only lets the *recipient* flip a row to `'accepted'` (`friendships`'s
+update policy) — the requester can't befriend someone by editing their
+own pending row. Declining a pending invite and unfriending an existing
+friend are the same `DELETE`, since there's only ever one row per pair
+regardless of status. If nobody's signed up with that email yet, see
+"Inviting someone who isn't on Hound yet" below instead of an error.
 
 **Deliberately still fake:** the old per-friend "Synced 22m ago" /
 "Stale · 2 days" line. That needs each friend's *own* device pushing a
@@ -210,6 +210,53 @@ friend on open is a separate follow-up. The "Challenge" button next to
 each sample friend has no equivalent yet either — jumping from a real
 friend straight into a pre-filled Create flow with them invited isn't
 wired up.
+
+#### Inviting someone who isn't on Hound yet
+
+`inviteByEmail`'s "no matching profile" case (`0008_pending_invites.sql`)
+doesn't just error anymore. It inserts a `pending_invites` row
+(`inviter_id`, `email`) and calls a new Supabase Edge Function,
+`supabase/functions/send-invite-email`, to actually send them a "you've
+been invited" email via [Resend](https://resend.com). The moment that
+email signs up, `handle_new_user()` (redefined in this migration —
+Postgres has no "alter function body", only a full replace) checks
+`pending_invites` for their address and inserts an already-`'accepted'`
+`friendships` row for every match before deleting the consumed
+invite(s) — so accepting the email and becoming friends happen in the
+same step, not two.
+
+This is the first piece of server-side code in this project — everything
+else is client + Postgres/RLS. It has to be: whatever key authorizes
+sending mail through Resend can't live in the client app, the same
+reason no `service_role` key appears anywhere in `src/`. The function
+reads the *caller's* name server-side from their own JWT (forwarded
+automatically by `supabase.functions.invoke()`) rather than trusting a
+client-supplied name, and calling it is best-effort from the app's side
+— a failed send (function not deployed, Resend rejecting the domain,
+whatever) doesn't fail `inviteByEmail()`, because the `pending_invites`
+row is already durably written either way and the friendship still
+completes on signup even if the email itself never arrives.
+
+**Not done, and can't be from inside this sandbox:** actually deploying
+the function or sending a real email. Both need steps only you can do —
+create a [Resend](https://resend.com) account and API key, verify a
+sending domain (until then Resend's API rejects the send with a clear
+error rather than silently dropping it), then:
+
+```
+supabase functions deploy send-invite-email
+supabase secrets set RESEND_API_KEY=re_your_key_here
+```
+
+The email's link (`HOUND_SIGNUP_URL` in the function) is a bare
+`https://hound.app` placeholder — there's no App Store listing or hosted
+sign-up page yet for it to point at, so swap it for whatever that ends
+up being. This was verified the same way as 0007's `friendships` table —
+applying 0001 through 0008 against a local throwaway Postgres and
+exercising the trigger directly (a real sign-up auto-creates the
+accepted friendship, consumes the pending invite, and a manufactured
+self-invite edge case doesn't break it) — never against a real Supabase
+project or Resend account, which this sandbox can't reach.
 
 With those two env vars unset (the default — nothing above is required to
 run the app), everything falls back to what it did before: mock auth
