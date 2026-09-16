@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { touchLastActive } from '../notifications/supabaseNotifications';
 import * as mockAuth from './mockAuth';
 import * as supabaseAuth from './supabaseAuth';
 import type { AuthStatus, AuthUser, SignUpInput } from './types';
@@ -59,6 +60,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.subscription.unsubscribe();
     };
   }, []);
+
+  // Records "used the app today" for send-login-reminders — fires on a
+  // fresh sign-in and on every session restore (a cold app launch with an
+  // already-valid session), which is what a plain mount-time effect on
+  // `user?.id` gives us here since this provider itself only mounts once
+  // per app launch. Never blocks or surfaces an error: a failed write
+  // here shouldn't stop anyone from using the app, it just means today's
+  // reminder job won't see this open.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user) return;
+    touchLastActive(user.id).catch(() => {});
+  }, [user?.id]);
 
   // Every method re-throws whatever the backend rejects with, so screens
   // can show it directly (`err.message`) — this context adds no error

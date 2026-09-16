@@ -68,7 +68,8 @@
             "buildReactNativeFromSource": true
           }
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "extra": {
       "eas": {
