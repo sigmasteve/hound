@@ -9,6 +9,10 @@ import type {
   Participant,
 } from './types';
 
+function localDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
   return supabase;
@@ -192,7 +196,14 @@ export const supabaseChallengesProvider: ChallengesProvider = {
   async recordProgress(challengeId: string, steps: number, distanceMi: number, day?: string): Promise<void> {
     const client = requireClient();
     const userId = await requireUserId();
-    const resolvedDay = day ?? new Date().toISOString().slice(0, 10);
+    // Local calendar day, not `.toISOString().slice(0, 10)` — that's UTC,
+    // and ChallengeDetailScreen's device-sync backfill keys every day by
+    // the *local* calendar (matching HealthKit/Health Connect's own
+    // day-bucketing). A UTC default here would silently write a second,
+    // differently-keyed row for "today" whenever local and UTC dates
+    // differ, and getLeaderboard() sums every row with no dedup by real
+    // calendar day — so the two would double-count the same day's steps.
+    const resolvedDay = day ?? localDateKey(new Date());
     const { error } = await client
       .from('progress_snapshots')
       .upsert(
