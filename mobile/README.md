@@ -602,8 +602,15 @@ defines three profiles (`development`/`preview`/`production`); none of
 the steps below can run in this sandbox — they need your own Expo and
 Apple accounts, so this is written for you to run on your own machine.
 
-1. `npm install -g eas-cli` (or just use `npx eas` — `eas-cli` is already
-   a devDependency here, pinned in `package.json`).
+1. `npm install -g eas-cli`, or just use `npx eas-cli` for every command
+   below (what `npm run build:ios:preview` etc. do internally) —
+   `eas-cli` deliberately isn't a project devDependency. Expo's own
+   `expo-doctor` flags a locally-installed `eas-cli` as a real problem,
+   not a style nit: it pulls its own dependency tree (including a nested
+   `typescript`) into your lockfile, which is exactly what caused a
+   confusing `npm ci` failure on EAS Build earlier in this project's
+   history (two different npm versions disagreed about whether that
+   nested entry needed to be explicit in the lockfile).
 2. `eas login` — your own Expo account. (If you'd rather not type a
    password somewhere, an access token from expo.dev → Account settings
    → Access tokens works too, exported as `EXPO_TOKEN`.)
