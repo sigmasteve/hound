@@ -39,7 +39,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const [draftType, setDraftType] = useState<ChallengeKind>('hunt');
   const [draftName, setDraftName] = useState('The Hunt: Jordan vs Marcus');
   const [headStart, setHeadStart] = useState(2);
-  const [length, setLength] = useState<'7' | '21' | '30'>('21');
+  const [length, setLength] = useState('21');
   const [scoringMethod, setScoringMethod] = useState<ScoringMethod>('gps_distance');
   const [invited, setInvited] = useState<string[]>(['Marcus R.', 'Dana K.']);
   const [selectedBots, setSelectedBots] = useState<string[]>([]);
@@ -60,6 +60,8 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   };
 
   const headStartLabel = headStart === 1 ? '1 day' : `${headStart} days`;
+  const customLength = Number(length) || 1;
+  const customLengthLabel = customLength === 1 ? '1 day' : `${customLength} days`;
 
   const start = async () => {
     // The rest of the app (Challenges list, Hunt screen) still reads the
@@ -162,6 +164,23 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
               ]}
               value={length}
               onChange={setLength}
+            />
+          </View>
+
+          <View style={{ gap: 5 }}>
+            <View style={styles.huntBlockHeader}>
+              <Text style={styles.fieldLabel}>Or pick any length</Text>
+              <Text style={styles.huntBlockValue}>{customLengthLabel}</Text>
+            </View>
+            <Slider
+              minimumValue={1}
+              maximumValue={45}
+              step={1}
+              value={customLength}
+              onValueChange={(v) => setLength(String(Math.round(v)))}
+              minimumTrackTintColor={color.accent}
+              maximumTrackTintColor={color.neutral700}
+              thumbTintColor={color.accent}
             />
           </View>
 
