@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import {
   AndroidLogoIcon,
@@ -101,6 +102,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   };
 
   return (
+    <SafeAreaView edges={['top']} style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={styles.container}>
       <Button label="Cancel" variant="ghost" small icon={<XIcon size={13} color={color.accent} />} onPress={onCancel} />
 
@@ -370,6 +372,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         />
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
