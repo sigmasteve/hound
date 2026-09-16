@@ -249,9 +249,9 @@ supabase secrets set RESEND_API_KEY=re_your_key_here
 ```
 
 The email's link (`HOUND_SIGNUP_URL` in the function) is a bare
-`https://hound.app` placeholder — there's no App Store listing or hosted
-sign-up page yet for it to point at, so swap it for whatever that ends
-up being. This was verified the same way as 0007's `friendships` table —
+`https://houndchallenge.net` placeholder — there's no App Store listing
+or hosted sign-up page yet for it to point at, so swap it for whatever
+that ends up being. This was verified the same way as 0007's `friendships` table —
 applying 0001 through 0008 against a local throwaway Postgres and
 exercising the trigger directly (a real sign-up auto-creates the
 accepted friendship, consumes the pending invite, and a manufactured
