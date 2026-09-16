@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   AppleLogoIcon,
   ArrowsClockwiseIcon,
@@ -113,11 +113,20 @@ export function HomeScreen({
   const { user } = useAuth();
   const health = useHealthProvider();
   const [snap, setSnap] = useState<HealthSnapshot | null>(null);
-  // null = still on the sample "Marcus" fallback, either because Supabase
-  // isn't configured or there's no real active challenge to headline yet —
-  // same "never break the screen, just fall back" pattern ChallengesScreen
-  // uses for its own list.
+  // null = either no real active challenge to headline, or the fetch
+  // below hasn't resolved yet — same "never break the screen, just fall
+  // back" pattern ChallengesScreen uses for its own list. Distinct from
+  // loadingPrimary below: this screen used to show the sample "Marcus"
+  // content immediately and swap it out once the real fetch resolved,
+  // which on a slow connection reads as "the app briefly shows someone
+  // else's fake data" rather than "loading" — loadingPrimary lets the
+  // render below tell those two states apart.
   const [primary, setPrimary] = useState<PrimaryChallenge | null>(null);
+  // Only true when there's actually something async to wait for —
+  // starts false when Supabase isn't configured, since the sample
+  // fallback is the real, permanent content in that case, not a
+  // placeholder for a fetch that's about to happen.
+  const [loadingPrimary, setLoadingPrimary] = useState(isSupabaseConfigured);
 
   const reload = useCallback(() => {
     health.getSnapshot().then(setSnap);
@@ -147,9 +156,13 @@ export function HomeScreen({
       ]);
       const board = buildBoard(participants, leaderboard, bots, daysElapsedFraction(active), boardSortFor(active));
       if (!cancelled) setPrimary({ challenge: active, board });
-    })().catch(() => {
-      // Stay on the sample fallback on any failure.
-    });
+    })()
+      .catch(() => {
+        // Stay on the sample fallback on any failure.
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPrimary(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -157,6 +170,19 @@ export function HomeScreen({
 
   const hero = primary ? heroCopy(primary, user?.id ?? null) : null;
   const openPrimary = primary ? () => onOpenChallenge(primary.challenge.id) : onOpenHunt;
+
+  // While the real fetch above is still in flight, show a spinner instead
+  // of the sample "Marcus" content — that content used to render first and
+  // get swapped out once real data arrived, which on a slow connection
+  // reads as a flash of someone else's fake progress rather than a loading
+  // state.
+  if (loadingPrimary) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator color={color.accent} />
+      </View>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -446,6 +472,7 @@ function MetricTile({
 
 const styles = StyleSheet.create({
   container: { padding: 16, gap: 20, paddingBottom: 48 },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   heroRow: { gap: 14 },
   heroText: { gap: 6 },
   heroTitle: { fontSize: 28 },
