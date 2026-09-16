@@ -121,32 +121,59 @@ export function ChallengeDetailScreen({
     );
   };
 
-  // Reads a real device number and writes it as this challenge's progress
-  // for today — the same upsert-by-day recordProgress() the manual form
-  // uses, just filled in from the device instead of typed in. Which
-  // number depends on what this challenge is scored on: a plain step
-  // count, or distance summed from today's logged workouts. The health
-  // abstraction has no true GPS-verified flag, so 'gps_distance' is
-  // approximated as workouts whose name reads like a run or walk — a
-  // treadmill session or a phone-in-a-drawer walk would still slip
-  // through if its name happens to match, which is a real limitation,
-  // not a hidden bug.
+  // Backfills this challenge's entire progress from real device history —
+  // every calendar day from when it started through today, not just
+  // today — using the same upsert-by-day recordProgress() the manual form
+  // uses, just filled in from the device instead of typed in. Re-running
+  // this on every sync is deliberate and harmless (it's an upsert): it
+  // catches up a challenge someone joined after it started, or picks back
+  // up correctly after a few days of not opening the app, without a
+  // separate "first ever sync" code path. Which number depends on what
+  // this challenge is scored on: a plain step count, or distance summed
+  // from logged workouts. The health abstraction has no true
+  // GPS-verified flag, so 'gps_distance' is approximated as workouts
+  // whose name reads like a run or walk — a treadmill session or a
+  // phone-in-a-drawer walk would still slip through if its name happens
+  // to match, which is a real limitation, not a hidden bug.
   const syncFromDevice = useCallback(async () => {
     if (!challenge) return;
     setDeviceSyncError(null);
     setDeviceSyncing(true);
     try {
+      const since = new Date(challenge.startsAt);
+      const endCap = new Date(challenge.endsAt).toISOString().slice(0, 10);
+      const todayKey = dateKey(new Date());
+
       if (usesWorkoutDistance(challenge)) {
-        const workouts = await health.getRecentWorkouts(30);
-        const todayStr = new Date().toISOString().slice(0, 10);
-        const todays = workouts.filter((w) => w.when.toISOString().slice(0, 10) === todayStr);
+        // Enough of a lookback to plausibly cover the whole challenge —
+        // getRecentWorkouts() takes a count, not a date range, so this
+        // over-fetches slightly and filters client-side instead.
+        const workouts = await health.getRecentWorkouts(200);
+        const inRange = workouts.filter((w) => w.when >= since);
         const relevant =
-          challenge.scoringMethod === 'gps_distance' ? todays.filter((w) => /run|walk|jog|hike/i.test(w.name)) : todays;
-        const totalDistanceMi = relevant.reduce((sum, w) => sum + (w.distanceMi ?? 0), 0);
-        await supabaseChallengesProvider.recordProgress(challengeId, 0, totalDistanceMi);
+          challenge.scoringMethod === 'gps_distance' ? inRange.filter((w) => /run|walk|jog|hike/i.test(w.name)) : inRange;
+
+        const byDay = new Map<string, number>();
+        for (const w of relevant) {
+          const key = dateKey(w.when);
+          if (key > endCap) continue;
+          byDay.set(key, (byDay.get(key) ?? 0) + (w.distanceMi ?? 0));
+        }
+        // Today always gets an explicit (possibly zero) row, same as
+        // before this backfilled past days too — otherwise a day with no
+        // matching workout yet would just never get synced at all.
+        if (!byDay.has(todayKey) && todayKey <= endCap) byDay.set(todayKey, 0);
+
+        await Promise.all(
+          Array.from(byDay.entries()).map(([day, distanceMi]) =>
+            supabaseChallengesProvider.recordProgress(challengeId, 0, distanceMi, day),
+          ),
+        );
       } else {
-        const snap = await health.getSnapshot();
-        await supabaseChallengesProvider.recordProgress(challengeId, snap.stepsToday, snap.distanceTodayMi);
+        const daily = (await health.getDailyStepsSince(since)).filter((d) => d.date <= endCap);
+        await Promise.all(
+          daily.map((d) => supabaseChallengesProvider.recordProgress(challengeId, d.steps, d.distanceMi, d.date)),
+        );
       }
       setDeviceSyncedAt(new Date());
       await load();
@@ -366,6 +393,10 @@ export function ChallengeDetailScreen({
     </ScrollView>
     </SafeAreaView>
   );
+}
+
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 const styles = StyleSheet.create({

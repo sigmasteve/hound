@@ -1,4 +1,4 @@
-import type { DailySteps, HealthAuthStatus, HealthProvider, HealthSnapshot, WorkoutSample } from './types';
+import type { DailySteps, DailyStepsWithDate, HealthAuthStatus, HealthProvider, HealthSnapshot, WorkoutSample } from './types';
 
 // Sample-data provider — used automatically whenever the platform module
 // isn't linked (Expo Go, this dev sandbox, or web), so every screen has
@@ -54,7 +54,36 @@ export const mockProvider: HealthProvider = {
     ];
     return all.slice(0, limit);
   },
+
+  async getDailyStepsSince(since: Date): Promise<DailyStepsWithDate[]> {
+    // Cycles through the same sample counts getWeeklySteps() uses — this
+    // is sample data standing in for a device, so there's no real
+    // steps-to-miles relationship to preserve, just a plausible-looking
+    // one (same rough ratio getSnapshot()'s 8,432 steps / 3.8 mi implies).
+    const counts = [5680, 8090, 3760, 6790, 8810, 3210, 8432];
+    const out: DailyStepsWithDate[] = [];
+    const cursor = dateOnly(since);
+    const today = dateOnly(new Date());
+    let i = 0;
+    while (cursor.getTime() <= today.getTime()) {
+      const steps = counts[i % counts.length];
+      out.push({ date: dateKey(cursor), steps, distanceMi: Math.round((steps / 2200) * 10) / 10 });
+      cursor.setDate(cursor.getDate() + 1);
+      i++;
+    }
+    return out;
+  },
 };
+
+function dateOnly(d: Date): Date {
+  const copy = new Date(d);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 function daysAgo(days: number, hour: number, minute: number): Date {
   const d = new Date();

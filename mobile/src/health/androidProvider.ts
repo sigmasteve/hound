@@ -7,6 +7,7 @@ import {
 } from 'react-native-health-connect';
 import type {
   DailySteps,
+  DailyStepsWithDate,
   HealthAuthStatus,
   HealthProvider,
   HealthSnapshot,
@@ -174,4 +175,42 @@ export const androidHealthProvider: HealthProvider = {
       source: 'Health Connect',
     }));
   },
+
+  async getDailyStepsSince(since: Date): Promise<DailyStepsWithDate[]> {
+    await ensureInitialized();
+    const start = dateOnly(since);
+    const today = dateOnly(new Date());
+    const out: DailyStepsWithDate[] = [];
+
+    for (let cursor = start; cursor.getTime() <= today.getTime(); cursor.setDate(cursor.getDate() + 1)) {
+      const dayStart = cursor.toISOString();
+      const dayEnd = new Date(cursor);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      const filter = { operator: 'between' as const, startTime: dayStart, endTime: dayEnd.toISOString() };
+
+      const [steps, distance] = await Promise.all([
+        orEmpty(readRecords('Steps', { timeRangeFilter: filter })),
+        orEmpty(readRecords('Distance', { timeRangeFilter: filter })),
+      ]);
+      const totalSteps = steps.records.reduce((sum, r) => sum + r.count, 0);
+      const totalDistanceMi = distance.records.reduce((sum, r) => sum + metersToMiles(r.distance.inMeters), 0);
+
+      out.push({
+        date: dateKey(cursor),
+        steps: Math.round(totalSteps),
+        distanceMi: Math.round(totalDistanceMi * 10) / 10,
+      });
+    }
+    return out;
+  },
 };
+
+function dateOnly(d: Date): Date {
+  const copy = new Date(d);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

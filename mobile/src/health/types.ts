@@ -10,6 +10,18 @@ export interface DailySteps {
   steps: number;
 }
 
+// Unlike DailySteps (whose `date` is actually a weekday label like "Wed" —
+// it's built for the Metrics screen's 7-day chart, not real dates), this
+// carries a real ISO 'YYYY-MM-DD' per entry plus that day's distance. Used
+// to backfill a challenge's progress across days the app wasn't open to
+// sync (joining one that started in the past, or missing a few days), not
+// for display.
+export interface DailyStepsWithDate {
+  date: string;
+  steps: number;
+  distanceMi: number;
+}
+
 export interface WorkoutSample {
   id: string;
   name: string;
@@ -44,4 +56,9 @@ export interface HealthProvider {
   getHeartRateSeries(days: number): Promise<number[]>;
   getWeightSeries(days: number): Promise<number[]>;
   getRecentWorkouts(limit: number): Promise<WorkoutSample[]>;
+  // One entry per calendar day from `since` through today (inclusive) —
+  // see DailyStepsWithDate. Only ever asked for a fairly small range in
+  // practice (a challenge's own duration, capped at 30 days by
+  // CreateScreen), not an open-ended history query.
+  getDailyStepsSince(since: Date): Promise<DailyStepsWithDate[]>;
 }
