@@ -154,13 +154,20 @@ count, not a date range, so this over-fetches up to 200 and filters
 client-side to `when >= challenge.startsAt`), bucket the matching workouts
 by day, and sum each day's distance — today always gets an explicit
 (possibly zero) row even with no matching workout yet, so a quiet day
-doesn't look unsynced. Every day is capped at `challenge.endsAt` so a sync
-after a challenge ends doesn't keep writing rows past its last day.
+doesn't look unsynced. Every day — from either path — is clamped to
+`[startDayKey, endCap]` (the challenge's own start and end day, both as
+local-calendar keys, same as `getDailyStepsSince`'s own dates) rather than
+trusting whatever range a provider hands back, so a device quirk can't
+backfill a day before the challenge existed or after it ended. A step-scored
+day outside today with no real device data (0 steps and 0 distance) is
+dropped instead of written as an explicit zero — "nothing recorded" isn't
+the same as "recorded a zero" — except today, which always gets a row so
+the screen doesn't read as unsynced before you've taken a step yet.
 `recordProgress()` grew an optional `day` parameter for this (`'YYYY-MM-DD'`,
-defaulting to today when omitted, same as before) — it upserts on
-`(challenge_id, user_id, day)`, so re-running a full backfill on every
-sync is deliberate and harmless rather than a "first sync only" special
-case.
+defaulting to today's local date when omitted, matching every other day
+key in the app) — it upserts on `(challenge_id, user_id, day)`, so
+re-running a full backfill on every sync is deliberate and harmless rather
+than a "first sync only" special case.
 
 With those two env vars unset (the default — nothing above is required to
 run the app), everything falls back to what it did before: mock auth

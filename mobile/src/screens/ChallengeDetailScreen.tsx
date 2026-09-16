@@ -141,7 +141,12 @@ export function ChallengeDetailScreen({
     setDeviceSyncing(true);
     try {
       const since = new Date(challenge.startsAt);
-      const endCap = new Date(challenge.endsAt).toISOString().slice(0, 10);
+      // Local-calendar day keys throughout — startDayKey/endCap have to
+      // compare against dateKey()'s local dates the same way todayKey
+      // does, or a day just outside the challenge's real range can slip
+      // through (or a real one get excluded) at the UTC/local boundary.
+      const startDayKey = dateKey(since);
+      const endCap = dateKey(new Date(challenge.endsAt));
       const todayKey = dateKey(new Date());
 
       if (usesWorkoutDistance(challenge)) {
@@ -170,7 +175,22 @@ export function ChallengeDetailScreen({
           ),
         );
       } else {
-        const daily = (await health.getDailyStepsSince(since)).filter((d) => d.date <= endCap);
+        // getDailyStepsSince(since) is asked for history back to the
+        // challenge's start, but still gets clamped to
+        // [startDayKey, endCap] here rather than trusted as-is — a
+        // provider can hand back a bucket just outside that range (a
+        // day before the challenge existed, one past its end) and
+        // that's never real progress for it. A past day with no actual
+        // device data (0 steps and 0 distance) is dropped rather than
+        // written as an explicit zero — that's "nothing recorded", not
+        // "recorded a zero" — except today, which always gets a row so
+        // the screen doesn't look unsynced before you've taken a step.
+        const daily = (await health.getDailyStepsSince(since)).filter(
+          (d) =>
+            d.date >= startDayKey &&
+            d.date <= endCap &&
+            (d.date === todayKey || d.steps > 0 || d.distanceMi > 0),
+        );
         await Promise.all(
           daily.map((d) => supabaseChallengesProvider.recordProgress(challengeId, d.steps, d.distanceMi, d.date)),
         );
