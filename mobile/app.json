@@ -13,7 +13,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSHealthShareUsageDescription": "Hound reads your steps, distance, heart rate and weight to score challenges with friends.",
-        "NSHealthUpdateUsageDescription": "Hound does not write to Health, but iOS requires this description to be present."
+        "NSHealthUpdateUsageDescription": "Hound does not write to Health, but iOS requires this description to be present.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,
@@ -30,6 +31,11 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_DISTANCE",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_WEIGHT",
+        "android.permission.health.READ_EXERCISE",
         "android.permission.health.READ_STEPS",
         "android.permission.health.READ_DISTANCE",
         "android.permission.health.READ_HEART_RATE",
@@ -63,6 +69,18 @@
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "844311e3-1bd2-4be3-85b1-a8b9c25196b0"
+      }
+    },
+    "owner": "hound-challenge-team",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/844311e3-1bd2-4be3-85b1-a8b9c25196b0"
+    }
   }
 }
