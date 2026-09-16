@@ -169,6 +169,48 @@ key in the app) — it upserts on `(challenge_id, user_id, day)`, so
 re-running a full backfill on every sync is deliberate and harmless rather
 than a "first sync only" special case.
 
+### Friends: a real friend graph
+
+FriendsScreen used to render `src/data/sampleData.ts`'s `FRIENDS` list
+unconditionally — a fixed cast of five people with invented sync
+statuses ("Synced 22m ago", "Stale · 2 days") that never changed no
+matter what you did. It now follows the same "real data replaces the
+sample list once it loads, falls back to it on any failure or when
+Supabase isn't configured" pattern as ChallengesScreen, backed by a new
+`friendships` table (`0007_friendships.sql`): one row per pair of users,
+`status` `'pending'` or `'accepted'`, with a unique index on
+`(least(requester_id, recipient_id), greatest(...))` so a request and
+its (potential) mirror in the other direction can never both exist as
+separate rows.
+
+"Invite by email" (`src/friends/supabaseFriends.ts`'s `inviteByEmail`)
+looks the address up in `profiles` (visible to any signed-in user
+already, via 0001's "Profiles are viewable by any signed-in user"
+policy) and errors clearly if nobody's signed up with it yet — there's
+no email actually sent, this only works for someone who already has a
+Hound account. If that person already invited *you*, sending them an
+invite accepts theirs instead of creating a second pending row for the
+same pair (the unique index would reject it anyway; the app checks
+first so that race resolves as "you're now friends" rather than an
+error). RLS only lets the *recipient* flip a row to `'accepted'`
+(`friendships`'s update policy) — the requester can't befriend someone
+by editing their own pending row. Declining a pending invite and
+unfriending an existing friend are the same `DELETE`, since there's only
+ever one row per pair regardless of status.
+
+**Deliberately still fake:** the old per-friend "Synced 22m ago" /
+"Stale · 2 days" line. That needs each friend's *own* device pushing a
+sync event somewhere this app can read, which doesn't exist for
+anyone's data but your own (see "What's not implemented"), so a real
+friend row simply doesn't show a sync status rather than inventing one.
+The "Send one link" / "Copy" shareable-link card is also unchanged and
+still decorative — real invites here go through the email lookup above,
+not a link; wiring an actual `hound.app/u/...` deep link to auto-add a
+friend on open is a separate follow-up. The "Challenge" button next to
+each sample friend has no equivalent yet either — jumping from a real
+friend straight into a pre-filled Create flow with them invited isn't
+wired up.
+
 With those two env vars unset (the default — nothing above is required to
 run the app), everything falls back to what it did before: mock auth
 (`src/auth/mockAuth.ts`) and static sample data. This is the same
@@ -567,11 +609,11 @@ generates the Info.plist entry it says it will."
 
 ## What's not implemented
 
-The Challenges *list*, a real challenge's *detail* screen, and the Home
-screen's hero/leaderboard card all read real data now (see "The backend
-(Supabase)"), but the Hunt screen and Friends screen still render
-`src/data/sampleData.ts`'s static content unconditionally, and are
-unrelated to either. The Challenges screen's "Priya invited you…" card
+The Challenges *list*, a real challenge's *detail* screen, the Home
+screen's hero/leaderboard card, and Friends' friend graph all read real
+data now (see "The backend (Supabase)" and "Friends: a real friend
+graph"), but the Hunt screen still renders `src/data/sampleData.ts`'s
+static content unconditionally, unrelated to any of it. The Challenges screen's "Priya invited you…" card
 and "Finished" section, and Home's "Theo's Pixel hasn't reported" card,
 are also still static, on either data path — that one specifically needs
 real cross-device staleness detection that doesn't exist yet, so it (and
@@ -586,7 +628,12 @@ Actually syncing a friend's steps *automatically* into a shared
 leaderboard needs their own device writing those rows without them
 opening the app and typing a number in, which nothing does yet — every
 non-`'steps'` number on a real leaderboard is exactly what someone typed
-in, nothing more.
+in, nothing more. Same reason Friends' per-friend sync status is gone
+entirely for a real friendship rather than faked: there's no per-friend
+device data to show yet. Friends' "Send one link" card and the
+"Challenge" button next to a sample friend are also still decorative —
+real invites go through the email lookup instead, and there's no
+prefilled-Create-flow-from-a-friend shortcut yet.
 
 Facebook/Apple sign-in is wired to real Supabase OAuth calls but needs
 each provider configured in your Supabase dashboard (and, for Apple,
