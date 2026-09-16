@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { AndroidLogoIcon, AppleLogoIcon, ScalesIcon, SignOutIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -12,6 +13,8 @@ import { ALERT_DEFS, SOURCES } from '../data/sampleData';
 import { useHealthProvider } from '../health/HealthContext';
 import { useAuth } from '../auth/AuthContext';
 import type { AuthProviderId } from '../auth/types';
+import { isSupabaseConfigured } from '../lib/supabase';
+import * as notifications from '../notifications/supabaseNotifications';
 
 const SOURCE_ICON: Record<string, React.ComponentType<any>> = {
   'Apple Health': AppleLogoIcon,
@@ -32,6 +35,57 @@ export function SettingsScreen() {
   const [alerts, setAlerts] = useState(ALERT_DEFS.map((a) => a.defaultOn));
   const [conflict, setConflict] = useState<'device' | 'apple' | 'ask'>('device');
   const [units, setUnits] = useState<'imperial' | 'metric'>('imperial');
+
+  // Login-reminder preferences live on the real profiles row — there's no
+  // sample-fallback version of this like other screens have, since
+  // without a real backend there's nothing to check someone into daily.
+  // null while unresolved (mirrors HomeScreen's loadingPrimary) so the
+  // toggles don't flash a default before the real values load.
+  const [pushEnabled, setPushEnabledState] = useState<boolean | null>(null);
+  const [emailEnabled, setEmailEnabledState] = useState<boolean | null>(null);
+  const [savingChannel, setSavingChannel] = useState<'push' | 'email' | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured || !user?.id) return;
+      notifications
+        .getPreferences(user.id)
+        .then((prefs) => {
+          setPushEnabledState(prefs.pushEnabled);
+          setEmailEnabledState(prefs.emailEnabled);
+        })
+        .catch(() => {
+          // Leave the toggles unresolved (still hidden, see the render
+          // below) rather than guessing a default.
+        });
+    }, [user?.id]),
+  );
+
+  const togglePush = async (next: boolean) => {
+    if (!user?.id) return;
+    setSavingChannel('push');
+    try {
+      await notifications.setPushEnabled(user.id, next);
+      setPushEnabledState(next);
+    } catch (err) {
+      Alert.alert('Push reminders', err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setSavingChannel(null);
+    }
+  };
+
+  const toggleEmail = async (next: boolean) => {
+    if (!user?.id) return;
+    setSavingChannel('email');
+    try {
+      await notifications.setEmailEnabled(user.id, next);
+      setEmailEnabledState(next);
+    } catch (err) {
+      Alert.alert('Email reminders', err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setSavingChannel(null);
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -113,6 +167,27 @@ export function SettingsScreen() {
           />
         ))}
       </Card>
+
+      {isSupabaseConfigured && pushEnabled !== null && emailEnabled !== null && (
+        <Card style={{ gap: 14 }} elevated={false}>
+          <Text style={text.h4}>Login reminders</Text>
+          <Text style={styles.footNote}>
+            If you haven&rsquo;t opened Hound today, we&rsquo;ll nudge you before the day&rsquo;s over.
+          </Text>
+          <ToggleRow
+            label="Push notification"
+            note={savingChannel === 'push' ? 'Saving…' : 'Sent to this device'}
+            value={pushEnabled}
+            onChange={togglePush}
+          />
+          <ToggleRow
+            label="Email"
+            note={savingChannel === 'email' ? 'Saving…' : user?.email ?? ''}
+            value={emailEnabled}
+            onChange={toggleEmail}
+          />
+        </Card>
+      )}
     </ScrollView>
   );
 }

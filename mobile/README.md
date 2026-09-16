@@ -302,6 +302,68 @@ existing), joining removes the invite and adds a real participant row,
 and an uninvolved third party can neither see nor delete someone else's
 invite. Never verified against a real Supabase project.
 
+### Login reminders: nudging people who haven't opened the app today
+
+`0010_login_reminders.sql` adds what the rest of this feature is built on:
+`profiles.last_active_at`, touched by the client (`src/notifications/
+supabaseNotifications.ts`'s `touchLastActive`, called from
+`AuthContext.tsx`) on every app open with a valid session — not just a
+fresh sign-in, since a Supabase session can stay valid for weeks without
+anyone seeing a sign-in screen again, and "did they enter credentials
+today" would badly undercount who's actually using the app.
+
+Two independent channels, each with its own per-user on/off switch
+(`profiles.notify_push_enabled` / `notify_email_enabled`, both default
+`true`), toggled from Settings → Data & account → "Login reminders":
+
+- **Push**: `device_push_tokens` holds one row per registered device (a
+  user with two phones gets nudged on both). Turning the toggle on walks
+  through the real flow — request OS permission, get an Expo push token
+  (needs `extra.eas.projectId` in `app.json`, already set), upsert it —
+  and throws (leaving the preference untouched, same as any other action
+  in this app that can fail) if there's no physical device to register or
+  permission is denied, rather than silently flipping a switch that won't
+  do anything.
+- **Email**: reuses the exact Resend setup `send-invite-email` already
+  has (same `RESEND_API_KEY` secret, same "server-side only" reasoning).
+
+`send-login-reminders` (the Edge Function) runs with no signed-in user
+behind it — a service-role client, not a caller's JWT — so it can query
+every profile, not just one person's own row. It picks anyone with at
+least one channel on who hasn't been active since UTC midnight and hasn't
+already been reminded today (`last_login_reminder_sent_at` guards against
+a double-send if the schedule below ever fires twice), sends push via
+Expo's push API and/or email via Resend depending on which channels that
+person has on, then stamps `last_login_reminder_sent_at`.
+
+**Scheduling** uses `pg_cron` + `pg_net` (both enabled by `0010` itself) —
+Postgres calling the Edge Function on a timer, the pattern Supabase's own
+docs use for this. It needs two things `0010`'s own comments call out
+rather than baking into the repo: your project's ref in the function URL,
+and the service-role key stored once via `select
+vault.create_secret('...', 'service_role_key')` in the SQL Editor (never
+committed — same reasoning as `RESEND_API_KEY` never shipping in the app
+bundle).
+
+**Known limitation, on purpose for now**: the schedule fires at one fixed
+UTC hour (9pm) for everyone, not "before the end of each user's own day."
+Doing that properly needs a per-user timezone — captured from the device
+alongside `device_push_tokens.platform` — and an hourly schedule instead
+of a daily one. Flagged as `TODO(timezone)` in both `0010` and the Edge
+Function; not done in this pass.
+
+Verified locally the same way as every other migration this project
+ships: applied `0001` through `0010` (the `pg_cron`/`pg_net`/schedule
+statements aside — that local Postgres doesn't have those extensions
+installed, only Supabase's managed Postgres does) against a throwaway
+database, then confirmed as two simulated users that each can register
+and see only their own push tokens, insert-for-someone-else on
+`device_push_tokens` is rejected, and each can update their own
+`notify_push_enabled`/`last_active_at` but not the other's. The push
+send, email send, and cron schedule itself were never exercised against a
+real project or a real device — this sandbox has no network path to
+Expo's push service, Resend, or a live Supabase project.
+
 With those two env vars unset (the default — nothing above is required to
 run the app), everything falls back to what it did before: mock auth
 (`src/auth/mockAuth.ts`) and static sample data. This is the same
