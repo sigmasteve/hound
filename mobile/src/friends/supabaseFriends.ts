@@ -68,7 +68,26 @@ export const supabaseFriendsProvider: FriendsProvider = {
       .eq('email', normalized)
       .maybeSingle();
     if (lookupError) throw new Error(lookupError.message);
-    if (!target) throw new Error('No Hound account found for that email.');
+
+    if (!target) {
+      // Nobody's signed up with this email yet — park the invite so it
+      // auto-completes as an accepted friendship the moment they do
+      // (0008_pending_invites.sql's handle_new_user() redeems it), and
+      // try to actually email them now via the send-invite-email Edge
+      // Function. A failed send is non-fatal: the invite itself is
+      // already durably recorded in pending_invites either way, so this
+      // still succeeds even if the function isn't deployed yet or
+      // Resend rejects the send.
+      const { error: inviteError } = await client
+        .from('pending_invites')
+        .insert({ inviter_id: userId, email: normalized });
+      if (inviteError) {
+        if (inviteError.code === '23505') throw new Error('You already invited this email.');
+        throw new Error(inviteError.message);
+      }
+      await client.functions.invoke('send-invite-email', { body: { email: normalized } }).catch(() => {});
+      return;
+    }
     if (target.id === userId) throw new Error("That's your own email.");
 
     const { data: existing, error: existingError } = await client

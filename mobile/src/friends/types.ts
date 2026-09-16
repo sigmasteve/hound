@@ -21,7 +21,10 @@ export interface FriendsProvider {
   // Looks up a Hound account by email and sends a request. If that
   // person already sent *you* one, this accepts it instead of creating
   // a second, redundant row — either way you end the call as friends or
-  // with one pending invite between you, never two.
+  // with one pending invite between you, never two. If nobody's signed
+  // up with that email yet, this parks the invite and emails them
+  // instead of erroring — see 0008_pending_invites.sql and
+  // supabase/functions/send-invite-email.
   inviteByEmail(email: string): Promise<void>;
   acceptFriendRequest(friendshipId: string): Promise<void>;
   // Declining a pending invite and unfriending someone are the same
