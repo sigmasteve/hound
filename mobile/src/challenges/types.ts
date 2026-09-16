@@ -86,7 +86,12 @@ export interface ChallengesProvider {
   listBots(challengeId: string): Promise<ChallengeBot[]>;
   getLeaderboard(challengeId: string): Promise<LeaderboardEntry[]>;
   createChallenge(input: CreateChallengeInput): Promise<Challenge>;
-  recordProgress(challengeId: string, steps: number, distanceMi: number): Promise<void>;
+  // `day` ('YYYY-MM-DD') defaults to today when omitted — pass it
+  // explicitly to backfill a past day (see ChallengeDetailScreen's
+  // syncFromDevice, which backfills every day since the challenge
+  // started using real device history instead of only ever writing
+  // today's row).
+  recordProgress(challengeId: string, steps: number, distanceMi: number, day?: string): Promise<void>;
   // Only the creator can do this — see 0005_challenges_delete_policy.sql.
   // Cascades to that challenge's participants, bots, and progress.
   deleteChallenge(challengeId: string): Promise<void>;

@@ -129,6 +129,39 @@ slider in "Set the rules" is still purely decorative — it was before
 this pass too, and wiring it (delaying when the Hunted's log starts
 counting) is a separate follow-up.
 
+### Device sync backfills the whole challenge, not just today
+
+`ChallengeDetailScreen.tsx`'s `syncFromDevice` (triggered on load and via
+its "Sync now" button, for any challenge that auto-syncs — a `'steps'`-kind
+challenge, or a hunt scored on `device_steps`, `gps_distance`, or
+`any_workout`) writes one `progress_snapshots` row per calendar day from
+`challenge.startsAt` through today, not only today's. That covers two
+gaps a "just write today" sync would leave open: joining a challenge that
+already started (every earlier day would otherwise permanently read 0 —
+`getLeaderboard()` has no per-day backfill of its own, it just sums
+whatever rows exist), and picking the app back up after missing a few
+days of opening it.
+
+The two scoring paths pull history differently because their underlying
+device APIs shape it differently. Step-scored challenges call the new
+`HealthProvider.getDailyStepsSince(since)` (real HealthKit
+`queryStatisticsCollectionForQuantity` day buckets on iOS, a sequential
+per-day `readRecords` loop on Android — both generalize the existing
+`getWeeklySteps()` from a fixed trailing week to an arbitrary start date),
+which returns one `{date, steps, distanceMi}` entry per day already. The
+two workout-scored paths instead call `getRecentWorkouts()` (it takes a
+count, not a date range, so this over-fetches up to 200 and filters
+client-side to `when >= challenge.startsAt`), bucket the matching workouts
+by day, and sum each day's distance — today always gets an explicit
+(possibly zero) row even with no matching workout yet, so a quiet day
+doesn't look unsynced. Every day is capped at `challenge.endsAt` so a sync
+after a challenge ends doesn't keep writing rows past its last day.
+`recordProgress()` grew an optional `day` parameter for this (`'YYYY-MM-DD'`,
+defaulting to today when omitted, same as before) — it upserts on
+`(challenge_id, user_id, day)`, so re-running a full backfill on every
+sync is deliberate and harmless rather than a "first sync only" special
+case.
+
 With those two env vars unset (the default — nothing above is required to
 run the app), everything falls back to what it did before: mock auth
 (`src/auth/mockAuth.ts`) and static sample data. This is the same
@@ -234,10 +267,12 @@ Tapping a real challenge card opens `ChallengeDetailScreen.tsx` — a
 generic detail view (not tied to any one challenge kind, unlike Hunt)
 showing the full participant list ranked by steps, defaulting to 0 for
 anyone who hasn't logged anything. A `'steps'`-kind challenge is the one
-case with an unambiguous real number to draw from (today's device step
-count), so it auto-syncs from `useHealthProvider()` — once when the
+case with an unambiguous real number to draw from (device step count), so
+it auto-syncs from `useHealthProvider()` — once when the
 screen loads and again on demand via its own "Sync now" — straight into
-`recordProgress()`, no typing required; every other kind still uses the
+`recordProgress()`, no typing required, backfilling every day since the
+challenge started rather than only today (see "Device sync backfills the
+whole challenge, not just today"); every other kind still uses the
 manual "log your progress" form (there's no automatic sync from
 HealthKit/Health Connect for those yet — see "What's not implemented").
 Sample cards never open
@@ -535,8 +570,9 @@ are also still static, on either data path — that one specifically needs
 real cross-device staleness detection that doesn't exist yet, so it (and
 the "Nudge" action that went with it) only shows up alongside the rest of
 the sample content, never next to a real challenge. HealthKit/Health Connect only ever cover *your own*
-metrics regardless — a `'steps'`-kind challenge auto-syncs *your* device
-steps (see "The backend (Supabase)"), but every other kind, and every
+metrics regardless — a `'steps'`-kind challenge backfills and auto-syncs
+*your* device steps (see "Device sync backfills the whole challenge, not
+just today"), but every other kind, and every
 other participant regardless of kind, still needs `progress_snapshots`
 rows written by hand via `ChallengeDetailScreen.tsx`'s manual entry form.
 Actually syncing a friend's steps *automatically* into a shared

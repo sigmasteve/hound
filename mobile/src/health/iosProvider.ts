@@ -12,6 +12,7 @@ import {
 } from '@kingstinct/react-native-healthkit';
 import type {
   DailySteps,
+  DailyStepsWithDate,
   HealthAuthStatus,
   HealthProvider,
   HealthSnapshot,
@@ -200,7 +201,53 @@ export const iosHealthProvider: HealthProvider = {
       }),
     );
   },
+
+  async getDailyStepsSince(since: Date): Promise<DailyStepsWithDate[]> {
+    const endDate = new Date();
+    const startDate = startOfDay(since);
+
+    const [stepBuckets, distanceBuckets] = await Promise.all([
+      orDefault(
+        queryStatisticsCollectionForQuantity(
+          'HKQuantityTypeIdentifierStepCount',
+          ['cumulativeSum'],
+          startDate,
+          { day: 1 },
+          { filter: { date: { startDate, endDate } }, unit: 'count' },
+        ),
+        [],
+      ),
+      orDefault(
+        queryStatisticsCollectionForQuantity(
+          'HKQuantityTypeIdentifierDistanceWalkingRunning',
+          ['cumulativeSum'],
+          startDate,
+          { day: 1 },
+          { filter: { date: { startDate, endDate } }, unit: 'mi' },
+        ),
+        [],
+      ),
+    ]);
+
+    const distanceByDate = new Map<string, number>();
+    for (const b of distanceBuckets) {
+      distanceByDate.set(dateKey(b.startDate ?? startDate), b.sumQuantity?.quantity ?? 0);
+    }
+
+    return stepBuckets.map((b) => {
+      const date = dateKey(b.startDate ?? startDate);
+      return {
+        date,
+        steps: Math.round(b.sumQuantity?.quantity ?? 0),
+        distanceMi: Math.round((distanceByDate.get(date) ?? 0) * 10) / 10,
+      };
+    });
+  },
 };
+
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 function workoutActivityName(type: WorkoutActivityType): string {
   // WorkoutActivityType is a numeric enum; reverse lookup gives back its
