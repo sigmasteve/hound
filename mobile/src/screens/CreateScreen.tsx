@@ -37,11 +37,11 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const { user } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [draftType, setDraftType] = useState<ChallengeKind>('hunt');
-  const [draftName, setDraftName] = useState('The Hunt: Jordan vs Marcus');
+  const [draftName, setDraftName] = useState('');
   const [headStart, setHeadStart] = useState(2);
   const [length, setLength] = useState('21');
   const [scoringMethod, setScoringMethod] = useState<ScoringMethod>('gps_distance');
-  const [invited, setInvited] = useState<string[]>(['Marcus R.', 'Dana K.']);
+  const [invited, setInvited] = useState<string[]>([]);
   const [selectedBots, setSelectedBots] = useState<string[]>([]);
   // 'me' or a BOT_PRESETS id — the one Hunter; every other selected bot
   // (and the creator, if they're not it) is Hunted. Only meaningful for
@@ -149,7 +149,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
             <TextInput
               value={draftName}
               onChangeText={setDraftName}
-              placeholder="The Hunt: Jordan vs Marcus"
+              placeholder="Name your challenge"
               placeholderTextColor="rgba(233,233,237,0.4)"
               style={styles.input}
             />
