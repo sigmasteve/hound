@@ -86,7 +86,13 @@ export function RootNavigator() {
             <Stack.Screen name="Create" options={{ animation: 'slide_from_bottom' }}>
               {({ navigation }) => (
                 <CreateScreen
-                  onCancel={() => navigation.goBack()}
+                  // Always lands on Today, regardless of whether Create was
+                  // opened from Home or the Challenges tab — same "land
+                  // somewhere fixed and meaningful" reasoning as Hunt's and
+                  // ChallengeDetail's onBack/onGoHome below, rather than
+                  // goBack() popping to wherever the wizard happened to be
+                  // opened from.
+                  onCancel={() => navigation.navigate('Main', { tab: 'home' })}
                   // Used to always go to the static Hunt screen, regardless
                   // of what kind of challenge (or name) was actually
                   // created — every real challenge landed on the same
