@@ -13,7 +13,7 @@ import { color, font, TINT_A, TINT_N } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import { buildBoard, hasHeadStartElapsed, withHuntCatches } from '../challenges/board';
+import { buildBoard, hasHeadStartElapsed, headStartEndDayKey, huntEffectiveMetric, withHuntCatches } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor, usesDeviceSteps, usesWorkoutDistance } from '../challenges/scoring';
 import { HUNT_ROLE_LABEL, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
@@ -47,6 +47,10 @@ export function ChallengeDetailScreen({
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [bots, setBots] = useState<ChallengeBot[]>([]);
+  // Everyone's total as of the day the Hunted's head start ended — only
+  // ever populated for a hunt with one (see load()); stays [] otherwise,
+  // which buildBoard already treats as "nothing to credit."
+  const [headStartLeaderboard, setHeadStartLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -71,18 +75,26 @@ export function ChallengeDetailScreen({
   const load = useCallback(async () => {
     setLoadError(null);
     try {
-      const [c, p, l, b, f] = await Promise.all([
-        supabaseChallengesProvider.getChallenge(challengeId),
+      // The challenge itself has to resolve first — whether a
+      // head-start-baseline fetch is even worth making depends on its
+      // own kind/headStartDays, which isn't known until this returns.
+      const c = await supabaseChallengesProvider.getChallenge(challengeId);
+      const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
+      const [p, l, b, f, hs] = await Promise.all([
         supabaseChallengesProvider.listParticipants(challengeId),
         supabaseChallengesProvider.getLeaderboard(challengeId),
         supabaseChallengesProvider.listBots(challengeId),
         supabaseFriendsProvider.listFriends(),
+        needsHeadStart
+          ? supabaseChallengesProvider.getLeaderboard(challengeId, headStartEndDayKey(c))
+          : Promise.resolve<LeaderboardEntry[]>([]),
       ]);
       setChallenge(c);
       setParticipants(p);
       setLeaderboard(l);
       setBots(b);
       setFriends(f);
+      setHeadStartLeaderboard(hs);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not load this challenge.');
     } finally {
@@ -107,12 +119,20 @@ export function ChallengeDetailScreen({
     const mine = participants.find((p) => p.userId === user.id);
     if (mine?.role !== 'hunted') return;
     const sortBy = boardSortFor(challenge);
-    const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy);
+    const rawBoard = buildBoard(
+      participants,
+      leaderboard,
+      bots,
+      daysElapsedFraction(challenge),
+      sortBy,
+      challenge,
+      headStartLeaderboard,
+    );
     const caught = withHuntCatches(rawBoard, sortBy, challenge).find((r) => r.userId === user.id);
     if (caught?.role === 'zombie') {
       supabaseChallengesProvider.markCaught(challenge.id).then(load).catch(() => {});
     }
-  }, [challenge, participants, leaderboard, bots, user?.id, load]);
+  }, [challenge, participants, leaderboard, bots, headStartLeaderboard, user?.id, load]);
 
   const [deleting, setDeleting] = useState(false);
   const [togglingHighlight, setTogglingHighlight] = useState(false);
@@ -324,7 +344,15 @@ export function ChallengeDetailScreen({
 
   const scoredByDistance = usesWorkoutDistance(challenge);
   const sortBy = boardSortFor(challenge);
-  const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy);
+  const rawBoard = buildBoard(
+    participants,
+    leaderboard,
+    bots,
+    daysElapsedFraction(challenge),
+    sortBy,
+    challenge,
+    headStartLeaderboard,
+  );
   const board = (challenge.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy, challenge) : rawBoard).map((row) => ({
     ...row,
     name: row.userId === user?.id ? 'You' : row.name,
@@ -336,6 +364,21 @@ export function ChallengeDetailScreen({
     challenge.kind === 'hunt' && !hasHeadStartElapsed(challenge)
       ? Math.max(1, Math.ceil((challenge.headStartDays ?? 0) - daysElapsedFraction(challenge)))
       : 0;
+
+  // Once the head start has run out, whatever the Hunter logged during
+  // it stops counting toward catching up (see huntEffectiveMetric) — a
+  // plain leaderboard row showing their full total wouldn't explain why
+  // they still haven't caught anyone despite a higher number, so this
+  // spells out what actually counts.
+  const hunterRow = board.find((r) => r.role === 'hunter');
+  const hunterEffectiveNote =
+    challenge.kind === 'hunt' && !!challenge.headStartDays && headStartDaysLeft === 0 && hunterRow
+      ? `Head start credit applied — only ${
+          scoredByDistance
+            ? `${huntEffectiveMetric(hunterRow, sortBy).toFixed(1)} mi`
+            : `${Math.round(huntEffectiveMetric(hunterRow, sortBy)).toLocaleString()} steps`
+        } of the Hunter's total counts toward catching up.`
+      : null;
 
   const syncStatusText = deviceSyncing
     ? 'Syncing…'
@@ -398,6 +441,7 @@ export function ChallengeDetailScreen({
             {headStartDaysLeft} more {headStartDaysLeft === 1 ? 'day' : 'days'}.
           </Text>
         )}
+        {hunterEffectiveNote && <Text style={styles.footNote}>{hunterEffectiveNote}</Text>}
         {board.map((row, i) => (
           <View key={row.userId} style={styles.boardRow}>
             <Text style={styles.boardRank}>{i + 1}</Text>

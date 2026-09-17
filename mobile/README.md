@@ -130,41 +130,63 @@ the summed distance, so the leaderboard (`src/challenges/board.ts`'s
 step count would otherwise read 0 and rank arbitrarily.
 
 The head-start slider in "Set the rules" is real now too, saved as
-`challenges.head_start_days` (`0011_hunt_head_start.sql`). "Real" here
-means specifically: the Hunter's own total — which still auto-syncs and
-displays normally the whole time, nothing about it is hidden or delayed
-— simply doesn't count toward a catch until `daysElapsedFraction(challenge)`
-(the same fractional-day clock bots use) reaches `head_start_days`
-(`hasHeadStartElapsed`, `src/challenges/board.ts`). Once it does,
-`withHuntCatches` runs exactly as it did before this. `HomeScreen`'s hero
-card shows a distinct "N-day head start left" headline instead of an
-ongoing lead/behind readout while it's running (since showing "X mi
-ahead" during a phase where getting caught is impossible by design would
-read as an active race that isn't one yet), and `ChallengeDetailScreen`'s
-leaderboard gets a matching note. A hunt created before this migration,
-or with no explicit head start, has `head_start_days: null`, which
-`hasHeadStartElapsed` treats as "already elapsed" — the exact same
-behavior as before this pass.
+`challenges.head_start_days` (`0011_hunt_head_start.sql`). Two things
+have to both be true for it to be a *real* advantage, not just a
+countdown: nobody can be caught while it's running
+(`hasHeadStartElapsed`, `src/challenges/board.ts`, gated on the same
+fractional-day clock bots use, `daysElapsedFraction`), **and**, once it
+ends, whatever the Hunter racked up in real life during those days stops
+counting toward closing the gap. That second part is the whole point —
+a Hunter doesn't stop moving just because the game hasn't started
+tallying them yet, so a plain on/off gate alone would let their
+real-world total silently carry over the instant it lifts, quietly
+erasing the head start's benefit. Instead, each Hunter gets a
+`huntBaselineSteps`/`huntBaselineDistanceMi` snapshot — their own total
+at the *exact* moment the head start ended — and `huntEffectiveMetric`
+(`src/challenges/board.ts`) is their current total minus that snapshot,
+not their raw total. `withHuntCatches` and every place that shows the
+Hunter's progress (`HomeScreen`'s hero card, `ChallengeDetailScreen`'s
+leaderboard note) reads through this function, so the Hunter's own
+displayed row still shows their honest full total — nothing about it is
+hidden — but the number that decides a catch, and the number this
+screen's "lead" copy is built from, both start counting from zero the
+moment the gate opens, not from wherever the Hunter's real life happened
+to leave them.
+
+A real Hunter's baseline can't come from anything already in memory — it
+needs their total as of one specific past day, which the regular
+leaderboard fetch (a running total, no day breakdown) can't answer. So
+`ChallengesProvider.getLeaderboard` grew an optional `asOfDay` parameter
+that filters `progress_snapshots` to `day <= asOfDay` before summing, and
+`ChallengesScreen`/`ChallengeDetailScreen`/`HomeScreen` each make one
+extra `getLeaderboard(challengeId, headStartEndDayKey(challenge))` fetch
+— only for a hunt that actually has a head start, everything else skips
+it — and hand the result into `buildBoard`'s new `headStartLeaderboard`
+param, which is where a real participant's baseline actually gets read
+from. Recomputed fresh on every load rather than written anywhere, so it
+comes out correct however late someone opens the app relative to when
+the head start actually ended — there's no "the app happened to be
+closed at the exact moment, so the recorded value is stale" failure mode
+to worry about. A bot Hunter needs no such fetch: its baseline is just
+`simulateBotSteps` evaluated at `head_start_days` elapsed instead of
+"now," deterministic like every other bot number in this file. A hunt
+with no head start at all (`head_start_days: null`, including every hunt
+created before this migration) gets a baseline of 0 for everyone,
+which — since `huntEffectiveMetric` only ever subtracts it from the
+Hunter — is exactly the original, pre-head-start behavior.
 
 ### Getting caught turns a Hunted participant into a Zombie
 
 `HuntRole` gained a third value: `'zombie'` (`src/challenges/types.ts`).
 It's a one-way transition, never assigned at creation — a Hunted
-participant becomes a Zombie once the Hunter's own cumulative total
-reaches theirs, and stays one for the rest of the challenge. The
-condition itself (`withHuntCatches`, `src/challenges/board.ts`) runs
-against whichever number the hunt is actually scored on (steps or
-distance, same as everywhere else in this file) and now does respect the
-Hunted's head start (see just above) — nobody can be caught until it
-runs out. It's still a hard on/off gate rather than a running credit,
-though: once the head start elapses, catching someone is still just "the
-Hunter's total reached theirs from that point on," not "the Hunter's
-total, plus whatever bonus offsets the days they weren't allowed to
-catch up yet." A Hunter who was ready to pounce the moment the gate
-opens isn't worse off than one who started slow, in other words — this
-was true before head start was wired in too, so nothing regressed, but
-it's worth being explicit that "head start" here means "a delay," not
-"a handicap that persists after it's over."
+participant becomes a Zombie once the Hunter's own *effective* total
+(see above — their real total minus their head-start baseline) reaches
+theirs, and stays one for the rest of the challenge. The condition
+itself (`withHuntCatches`, `src/challenges/board.ts`) runs against
+whichever number the hunt is actually scored on (steps or distance, same
+as everywhere else in this file) and respects the Hunted's head start
+both ways — nobody can be caught while it's running, and once it ends
+the Hunter starts from zero, not from their real total.
 
 The trickier part was RLS, not the math: only a participant's *own* row
 is theirs to update (`0006_challenge_highlight.sql`'s policy), so the
@@ -234,6 +256,28 @@ multi-Hunted hunt with at least one still uncaught does *not* finish
 just because some of the others got caught. The catch mechanic itself
 (not this finished-list follow-up specifically) has been confirmed
 working against real device data and a real Supabase project.
+
+The accumulating-credit redesign above has its own unit coverage:
+`huntEffectiveMetric` subtracts a Hunter's baseline from their total and
+leaves everyone else's alone even if a baseline happens to be present;
+`headStartEndDayKey` computes the right calendar day from `startsAt` +
+`head_start_days`; `buildBoard` sources a real Hunter's baseline from a
+`headStartLeaderboard` argument (not their current running total),
+defaults a Hunter missing from it to 0 rather than `NaN`, resimulates a
+bot Hunter's baseline deterministically at exactly `head_start_days`
+elapsed, and gives everyone a 0 baseline when there's no head start at
+all. One check reproduces the exact scenario this redesign was written
+for: a Hunter with a real life who logs 15,000 steps over 3 days while
+serving a 2-day head start, 10,000 of which happened before the head
+start ended — their effective count for catching up is only the 5,000
+logged since, not their full 15,000, correctly leaving them nowhere near
+a Hunted total of 20,300; a second check confirms the catch *does* fire
+once the Hunter has genuinely earned that much since the head start
+ended. Against a local throwaway Postgres: a day-filtered
+`progress_snapshots` sum (the same query `getLeaderboard`'s new
+`asOfDay` runs) correctly returns only the partial total for rows on or
+before that day, under a fellow participant's existing read access, with
+no new RLS policy.
 
 `isHuntConcluded`/`isChallengeFinished` (`src/challenges/board.ts`) are
 that same "is this hunt over" check pulled out into one shared place,

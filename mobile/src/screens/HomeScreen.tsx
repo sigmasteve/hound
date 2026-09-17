@@ -27,11 +27,19 @@ import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import { buildBoard, hasHeadStartElapsed, isChallengeFinished, withHuntCatches, type BoardEntry } from '../challenges/board';
+import {
+  buildBoard,
+  hasHeadStartElapsed,
+  headStartEndDayKey,
+  huntEffectiveMetric,
+  isChallengeFinished,
+  withHuntCatches,
+  type BoardEntry,
+} from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor } from '../challenges/scoring';
 import { ordinal } from '../challenges/present';
-import type { Challenge } from '../challenges/types';
+import type { Challenge, LeaderboardEntry } from '../challenges/types';
 
 function timeAgo(d: Date | null): string {
   if (!d) return '—';
@@ -52,15 +60,22 @@ interface PrimaryChallenge {
 // gets real distance from HealthKit's own snapshot, which a steps-scored
 // sync still writes, but a hunt's *lead* should track whatever it's
 // actually racing on, not just whichever field happens to be nonzero).
+//
+// Uses huntEffectiveMetric, not the raw totals — once a head start has
+// ended, the Hunter's side of this needs to read as "what they've closed
+// since then," or this headline would flatly contradict withHuntCatches'
+// own catch condition (e.g. showing "2,000 steps behind" for a Hunter
+// who, credit included, still has 20,000 to go).
 function huntLeadMetric(
   me: BoardEntry,
   rival: BoardEntry,
   challenge: Challenge,
 ): { lead: number; unit: 'mi' | 'steps'; meTotal: number; rivalTotal: number } {
-  if (boardSortFor(challenge) === 'distance') {
-    return { lead: me.totalDistanceMi - rival.totalDistanceMi, unit: 'mi', meTotal: me.totalDistanceMi, rivalTotal: rival.totalDistanceMi };
-  }
-  return { lead: me.totalSteps - rival.totalSteps, unit: 'steps', meTotal: me.totalSteps, rivalTotal: rival.totalSteps };
+  const sortBy = boardSortFor(challenge);
+  const meMetric = huntEffectiveMetric(me, sortBy);
+  const rivalMetric = huntEffectiveMetric(rival, sortBy);
+  const unit = sortBy === 'distance' ? 'mi' : 'steps';
+  return { lead: meMetric - rivalMetric, unit, meTotal: meMetric, rivalTotal: rivalMetric };
 }
 
 function formatLead(value: number, unit: 'mi' | 'steps'): string {
@@ -193,13 +208,29 @@ export function HomeScreen({
           ? highlighted
           : (await supabaseChallengesProvider.listMyChallenges()).find((c) => new Date(c.endsAt).getTime() > Date.now());
       if (!active) return;
-      const [participants, leaderboard, bots] = await Promise.all([
+      // A hunt with a head start needs one extra fetch — everyone's
+      // total as of the day the head start ended — so the Hunter's
+      // effective progress (huntEffectiveMetric) can be measured from
+      // there instead of from zero. Skipped otherwise; nothing to credit.
+      const needsHeadStart = active.kind === 'hunt' && !!active.headStartDays;
+      const [participants, leaderboard, bots, headStartLeaderboard] = await Promise.all([
         supabaseChallengesProvider.listParticipants(active.id),
         supabaseChallengesProvider.getLeaderboard(active.id),
         supabaseChallengesProvider.listBots(active.id),
+        needsHeadStart
+          ? supabaseChallengesProvider.getLeaderboard(active.id, headStartEndDayKey(active))
+          : Promise.resolve<LeaderboardEntry[]>([]),
       ]);
       const sortBy = boardSortFor(active);
-      const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(active), sortBy);
+      const rawBoard = buildBoard(
+        participants,
+        leaderboard,
+        bots,
+        daysElapsedFraction(active),
+        sortBy,
+        active,
+        headStartLeaderboard,
+      );
       const board = active.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy, active) : rawBoard;
       if (!cancelled) setPrimary({ challenge: active, board });
     })()

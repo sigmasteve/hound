@@ -107,7 +107,12 @@ export interface ChallengesProvider {
   // recordProgress() yet (see README "What's not implemented").
   listParticipants(challengeId: string): Promise<Participant[]>;
   listBots(challengeId: string): Promise<ChallengeBot[]>;
-  getLeaderboard(challengeId: string): Promise<LeaderboardEntry[]>;
+  // `asOfDay` ('YYYY-MM-DD'), when given, sums only progress_snapshots
+  // rows on or before that day instead of every row — used to find a
+  // Hunter's own total at the exact moment a head start ended (see
+  // src/challenges/board.ts's headStartEndDayKey/buildBoard), not just
+  // their current running total.
+  getLeaderboard(challengeId: string, asOfDay?: string): Promise<LeaderboardEntry[]>;
   createChallenge(input: CreateChallengeInput): Promise<Challenge>;
   // `day` ('YYYY-MM-DD') defaults to today when omitted — pass it
   // explicitly to backfill a past day (see ChallengeDetailScreen's

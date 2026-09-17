@@ -16,8 +16,9 @@ import { CHALLENGES, CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleD
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
+import { headStartEndDayKey } from '../challenges/board';
 import { toChallengeCard } from '../challenges/present';
-import type { ChallengeInvite } from '../challenges/types';
+import type { ChallengeInvite, LeaderboardEntry } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
 
 export function ChallengesScreen({
@@ -45,12 +46,21 @@ export function ChallengesScreen({
     const challenges = await supabaseChallengesProvider.listMyChallenges();
     const cards = await Promise.all(
       challenges.map(async (c) => {
-        const [participants, leaderboard, bots] = await Promise.all([
+        // A hunt with a head start needs one extra fetch — everyone's
+        // total as of the day the head start ended, not just now — to
+        // correctly tell whether it's already concluded (see
+        // toChallengeCard/withHuntCatches). Skipped for anything else,
+        // since there's nothing to credit.
+        const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
+        const [participants, leaderboard, bots, headStartLeaderboard] = await Promise.all([
           supabaseChallengesProvider.listParticipants(c.id),
           supabaseChallengesProvider.getLeaderboard(c.id),
           supabaseChallengesProvider.listBots(c.id),
+          needsHeadStart
+            ? supabaseChallengesProvider.getLeaderboard(c.id, headStartEndDayKey(c))
+            : Promise.resolve<LeaderboardEntry[]>([]),
         ]);
-        return toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null);
+        return toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null, headStartLeaderboard);
       }),
     );
     setLiveCards(cards);

@@ -9,6 +9,15 @@ export interface BoardEntry {
   totalDistanceMi: number;
   isBot: boolean;
   role: HuntRole | null;
+  // Only meaningful for the Hunter in a hunt with a head start — their
+  // own total(s) at the exact moment the Hunted's head start ended, so
+  // huntEffectiveMetric can measure how much the Hunter has closed
+  // *since* the head start rather than from zero (see that function and
+  // withHuntCatches). Always 0 when there's no head start to credit, not
+  // just for a Hunted row — the Hunted's own total is never adjusted, so
+  // these fields are simply unused for them.
+  huntBaselineSteps: number;
+  huntBaselineDistanceMi: number;
 }
 
 // Merges real participants (joined with whatever they've actually logged)
@@ -23,16 +32,31 @@ export interface BoardEntry {
 // (src/challenges/botSimulation.ts) so bots accumulate through the
 // current day instead of jumping to a full day's steps the instant it
 // starts.
+//
+// `challenge` and `headStartLeaderboard` only matter for a hunt with a
+// head start — omit them (or pass `[]`) for anything else and every
+// `huntBaselineSteps`/`huntBaselineDistanceMi` below comes out 0, which
+// is exactly correct: no head start means nothing to credit. When they
+// do matter, `headStartLeaderboard` has to be a *separate* fetch —
+// `ChallengesProvider.getLeaderboard(challengeId, headStartEndDayKey(challenge))`
+// — not the regular one, since it needs each real participant's total as
+// of one specific past day, not their current running total (see
+// ChallengeDetailScreen/HomeScreen's data loading for where that extra
+// fetch happens, and only when it's actually needed).
 export function buildBoard(
   participants: Participant[],
   leaderboard: LeaderboardEntry[],
   bots: ChallengeBot[],
   daysElapsed: number,
   sortBy: 'steps' | 'distance' = 'steps',
+  challenge?: Challenge,
+  headStartLeaderboard: LeaderboardEntry[] = [],
 ): BoardEntry[] {
+  const headStartDays = challenge?.headStartDays ?? 0;
   const rows: BoardEntry[] = [
     ...participants.map((p) => {
       const entry = leaderboard.find((l) => l.userId === p.userId);
+      const baseline = headStartLeaderboard.find((l) => l.userId === p.userId);
       return {
         userId: p.userId,
         name: p.name,
@@ -41,6 +65,8 @@ export function buildBoard(
         totalDistanceMi: entry?.totalDistanceMi ?? 0,
         isBot: false,
         role: p.role,
+        huntBaselineSteps: baseline?.totalSteps ?? 0,
+        huntBaselineDistanceMi: baseline?.totalDistanceMi ?? 0,
       };
     }),
     ...bots.map((b) => ({
@@ -54,6 +80,11 @@ export function buildBoard(
       totalDistanceMi: 0,
       isBot: true,
       role: b.role,
+      // No fetch to make for a bot — its baseline is exactly the same
+      // deterministic simulation as its running total, just evaluated at
+      // headStartDays elapsed instead of "now."
+      huntBaselineSteps: headStartDays > 0 ? simulateBotSteps(b.id, b.fitnessLevel, headStartDays) : 0,
+      huntBaselineDistanceMi: 0,
     })),
   ];
   return rows.sort((a, b) => (sortBy === 'distance' ? b.totalDistanceMi - a.totalDistanceMi : b.totalSteps - a.totalSteps));
@@ -69,14 +100,41 @@ export function hasHeadStartElapsed(challenge: Challenge): boolean {
   return daysElapsedFraction(challenge) >= (challenge.headStartDays ?? 0);
 }
 
-// Once the Hunter's own cumulative total reaches a Hunted participant's,
-// that Hunted row displays as 'zombie' — caught, no longer being chased.
-// Nobody can be caught before the Hunted's head start runs out
-// (hasHeadStartElapsed) — the Hunter's real, already-logged total still
-// displays normally everywhere else (this never fabricates or hides a
-// real number), it just doesn't count toward a catch yet, matching
-// CreateScreen's own description: "the hunted logs alone... then the
-// hunter starts tallying."
+// The calendar day the head start ends on — the one day a caller needs
+// in order to fetch "everyone's total as of head start ending" via
+// ChallengesProvider.getLeaderboard(challengeId, headStartEndDayKey(challenge))
+// (see buildBoard's headStartLeaderboard param). Local-calendar, matching
+// progress_snapshots.day's own convention (see supabaseChallenges.ts's
+// localDateKey).
+export function headStartEndDayKey(challenge: Challenge): string {
+  const end = new Date(new Date(challenge.startsAt).getTime() + (challenge.headStartDays ?? 0) * 86_400_000);
+  return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+}
+
+// What actually counts toward a catch for this entry — for the Hunter,
+// their total *since the head start ended* (their own total minus their
+// huntBaselineSteps/huntBaselineDistanceMi snapshot from that moment),
+// so a head start is a true, permanent advantage: whatever the Hunter
+// racked up in real life while the Hunted was logging alone doesn't
+// carry over the instant it ends, they start that count at zero right on
+// schedule. Everyone else's raw total already *is* what counts — a
+// Hunted participant's own total is never adjusted.
+export function huntEffectiveMetric(entry: BoardEntry, sortBy: 'steps' | 'distance'): number {
+  const total = sortBy === 'distance' ? entry.totalDistanceMi : entry.totalSteps;
+  if (entry.role !== 'hunter') return total;
+  const baseline = sortBy === 'distance' ? entry.huntBaselineDistanceMi : entry.huntBaselineSteps;
+  return total - baseline;
+}
+
+// Once the Hunter's own *effective* total (huntEffectiveMetric — their
+// real total, minus whatever they'd already logged before the Hunted's
+// head start ended) reaches a Hunted participant's, that Hunted row
+// displays as 'zombie' — caught, no longer being chased. Nobody can be
+// caught before the head start runs out (hasHeadStartElapsed) — the
+// Hunter's real, already-logged total still displays normally everywhere
+// else (this never fabricates or hides a real number), it just doesn't
+// count toward a catch yet, matching CreateScreen's own description:
+// "the hunted logs alone... then the hunter starts tallying."
 //
 // A real participant's 'zombie' role, once it appears here, gets
 // persisted permanently by the caught person's own client (see
@@ -90,7 +148,7 @@ export function withHuntCatches(board: BoardEntry[], sortBy: 'steps' | 'distance
   if (!hasHeadStartElapsed(challenge)) return board;
   const hunter = board.find((r) => r.role === 'hunter');
   if (!hunter) return board;
-  const hunterMetric = sortBy === 'distance' ? hunter.totalDistanceMi : hunter.totalSteps;
+  const hunterMetric = huntEffectiveMetric(hunter, sortBy);
   return board.map((r) => {
     if (r.role !== 'hunted') return r;
     const metric = sortBy === 'distance' ? r.totalDistanceMi : r.totalSteps;

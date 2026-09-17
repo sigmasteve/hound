@@ -31,6 +31,10 @@ export function toChallengeCard(
   leaderboard: LeaderboardEntry[],
   bots: ChallengeBot[],
   currentUserId: string | null,
+  // Only needed for a hunt with a head start — see buildBoard's own
+  // param of the same name. Defaults to none, which is correct for
+  // every other case (nothing to credit).
+  headStartLeaderboard: LeaderboardEntry[] = [],
 ): ChallengeCard {
   const typeDef = CHALLENGE_TYPES.find((t) => t.id === challenge.kind);
   const kindLabel = typeDef?.name ?? challenge.kind;
@@ -73,7 +77,11 @@ export function toChallengeCard(
   // the moment there's nobody left to chase, however many scheduled days
   // remain; anything else just runs out its clock.
   const sortBy = boardSortFor(challenge);
-  const board = withHuntCatches(buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy), sortBy, challenge);
+  const board = withHuntCatches(
+    buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy, challenge, headStartLeaderboard),
+    sortBy,
+    challenge,
+  );
   const finished = isChallengeFinished(challenge, board);
 
   return {

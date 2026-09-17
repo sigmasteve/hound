@@ -119,16 +119,18 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     }));
   },
 
-  async getLeaderboard(challengeId: string): Promise<LeaderboardEntry[]> {
+  async getLeaderboard(challengeId: string, asOfDay?: string): Promise<LeaderboardEntry[]> {
     const client = requireClient();
     // Aggregated client-side rather than via a Postgres view/RPC — the
     // per-challenge row count is small (one row per participant per day),
     // and keeping the aggregation in JS means the schema stays plain
     // tables, nothing to keep in sync on top of it.
-    const { data, error } = await client
+    let query = client
       .from('progress_snapshots')
       .select('user_id, steps, distance_mi, profiles(name, initials)')
       .eq('challenge_id', challengeId);
+    if (asOfDay) query = query.lte('day', asOfDay);
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
 
     const totals = new Map<string, LeaderboardEntry>();
