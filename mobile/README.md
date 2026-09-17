@@ -234,6 +234,16 @@ fetch hasn't resolved) — once real data loads, real finished challenges
 (tappable, same as an active row) replace it, or "Nothing finished yet."
 if there aren't any.
 
+Each finished row's medal icon is colored by placement now —
+`medalColorFor` (`ChallengesScreen.tsx`) maps the card's own `stat`
+(`toChallengeCard`'s exact `'1st'`/`'2nd'`/`'3rd'`/… ordinal string) to
+`color.gold`/`silver`/`bronze` for the top three, falling back to the
+plain `neutral500` every medal used before this for 4th place and
+worse, or for the no-data `'—'` case. The three new tokens live in
+`src/theme/tokens.ts` alongside every other color in the app, not
+hardcoded in the screen, matching that file's own "never hardcode a hex
+value" rule.
+
 Verified locally: a `withHuntCatches` unit check (day-0 zero/zero
 doesn't instantly catch anyone, a real gap does, ties count, an
 already-zombie row stays zombie even if its total climbs back past the
