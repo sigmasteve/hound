@@ -109,8 +109,19 @@ export const supabaseFriendsProvider: FriendsProvider = {
       return;
     }
 
-    const { error } = await client.from('friendships').insert({ requester_id: userId, recipient_id: target.id });
+    const { data: created, error } = await client
+      .from('friendships')
+      .insert({ requester_id: userId, recipient_id: target.id })
+      .select('id')
+      .single();
     if (error) throw new Error(error.message);
+    // Best-effort, same reasoning as inviteFriendToChallenge's own email
+    // call: the friendship row is already durably written either way,
+    // so a failed send here shouldn't surface as "could not send that
+    // invite" — target.id is a real Hound user who'll still see the
+    // request on their own Friends tab regardless of whether this email
+    // arrives.
+    client.functions.invoke('send-friend-request-email', { body: { friendshipId: created.id } }).catch(() => {});
   },
 
   async acceptFriendRequest(friendshipId: string): Promise<void> {

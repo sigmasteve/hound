@@ -536,6 +536,32 @@ each sample friend has no equivalent yet either — jumping from a real
 friend straight into a pre-filled Create flow with them invited isn't
 wired up.
 
+A gap only surfaced by testing the "someone already has an account"
+branch specifically: `inviteByEmail` finding a matching profile and
+inserting a `friendships` row used to notify nobody at all — silent
+until the recipient happened to open the Friends tab on their own.
+Concretely: user1 invites user2 (not on Hound yet) — `pending_invites` +
+`send-invite-email` fire, real email, covered above. User2 signs up,
+`handle_new_user()` auto-friends them with user1. Now user3, someone
+user2 has never interacted with, invites user2 by email — a matching
+profile exists this time, so it's the `friendships`-insert branch, which
+had no email of its own. New Edge Function
+`send-challenge-invite-email`'s sibling for this, `send-friend-request-email`,
+closes it: same Resend setup, same `RESEND_API_KEY` secret, called right
+after that insert with just the new friendship's `id` — it looks up the
+requester's name and the recipient's own name/email itself
+server-side, the same reasoning `send-challenge-invite-email` uses (every
+row it reads is already something the requester's own RLS lets them
+see: "Users can view their own friendships," "Profiles are viewable by
+any signed-in user"). Same best-effort call site pattern as the other
+two: the `friendships` row is already durably written either way, so a
+failed send never surfaces as "could not send that invite." Verified the
+same way: the query's RLS visibility directly against a local throwaway
+Postgres; the actual Resend send is unverified from this sandbox, same
+as the other two. Deliberately narrow in scope to exactly this gap —
+accepting a friend request still notifies nobody, which is a separate,
+not-yet-requested follow-up, not an oversight.
+
 #### Inviting someone who isn't on Hound yet
 
 `inviteByEmail`'s "no matching profile" case (`0008_pending_invites.sql`)
