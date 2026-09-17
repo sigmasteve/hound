@@ -260,15 +260,27 @@ The Challenges screen itself used to flash its sample content (the
 "Priya invited you" card, the sample active list, the sample "February
 Step Race" finished row) for a beat on every visit, even against a
 configured Supabase backend, simply because the real fetch hadn't
-resolved yet. It now derives `challengesLoading`/`invitesLoading` from
-the existing `liveCards`/`liveInvites` state instead of adding new
+resolved yet. `challengesLoading`/`invitesLoading` are derived from the
+existing `liveCards`/`liveInvites` state instead of adding new
 `useState` — `null && isSupabaseConfigured` — so a spinner shows only
 while `isSupabaseConfigured` is true and that first fetch is still in
 flight; once it resolves, `liveCards`/`liveInvites` are never reset back
 to `null`, so a later `useFocusEffect` refetch on returning to the tab
-never re-shows the spinner. With no backend configured at all, both stay
-`false` forever and the sample content still renders immediately and
-permanently, exactly as before.
+never re-shows the spinner.
+
+That sample content itself is gone now, though — it made an
+unconfigured backend look like a real account with a real invite and a
+real history, which is worse than no data at all. With no backend
+configured, `liveCards`/`liveInvites` stay `null` forever, and the
+screen now treats that exactly like a configured backend that resolved
+to nothing: `challenges`/`finishedChallenges` default to `[]`, invites
+default to `[]`, and the same "No challenges yet — start one above." /
+"Nothing finished yet." empty-state text a real, freshly signed-up user
+would see is what renders — no fabricated Priya invite, no fabricated
+February Step Race. `src/data/sampleData.ts`'s `CHALLENGES` export is no
+longer imported here at all (the Hunt screen and Home's "Theo's Pixel
+hasn't reported" card are still the exception — see "What's not
+implemented").
 
 Verified locally: a `withHuntCatches` unit check (day-0 zero/zero
 doesn't instantly catch anyone, a real gap does, ties count, an
@@ -671,8 +683,9 @@ content — so `<ChallengeRow>` doesn't care which one it's rendering. Once
 Supabase is configured and that fetch succeeds, it fully replaces the
 sample list rather than merging with it (a real backend shouldn't leave
 fake demo challenges sitting next to real ones); on any failure, or with
-Supabase unconfigured, the screen quietly stays on the sample fallback,
-same as `src/health`'s pattern.
+Supabase unconfigured, the screen quietly stays on an honest empty state
+("No challenges yet — start one above.") rather than fabricating sample
+challenges to fill the gap.
 
 Tapping a real challenge card opens `ChallengeDetailScreen.tsx` — a
 generic detail view (not tied to any one challenge kind, unlike Hunt)
@@ -689,12 +702,10 @@ HealthKit/Health Connect for those yet — see "What's not implemented").
 Sample cards never open
 this screen (`ChallengeCard.target` distinguishes 'hunt' / 'detail' /
 not-tappable — see its comment in `sampleData.ts`), since they have no
-real row behind them to fetch. The Hunt screen and the Challenges
-screen's "Finished" section remain fully static regardless of any of
-this — the "Priya invited you…" card is the exception: it now shows
-real pending challenge invites once Supabase is configured (see
-"Inviting a friend to a specific challenge"), falling back to that exact
-static card otherwise.
+real row behind them to fetch. The Hunt screen is the one static
+holdout left — the Challenges screen's active list, "Finished" section,
+and invite card all read real data (or an honest empty state) now; none
+of them fall back to fabricated sample content anymore.
 
 Whoever created a real challenge sees a "Delete challenge" action at the
 bottom of its detail screen — anyone else in it doesn't (there's nothing
@@ -986,12 +997,13 @@ screen's hero/leaderboard card, Friends' friend graph, and challenge
 invites all read real data now (see "The backend (Supabase)", "Friends:
 a real friend graph", and "Inviting a friend to a specific challenge"),
 but the Hunt screen still renders `src/data/sampleData.ts`'s static
-content unconditionally, unrelated to any of it. The Challenges screen's
-"Finished" section and Home's "Theo's Pixel hasn't reported" card are
-also still static, on either data path — that one specifically needs
+content unconditionally, unrelated to any of it. Home's "Theo's Pixel
+hasn't reported" card is also still static — that one specifically needs
 real cross-device staleness detection that doesn't exist yet, so it (and
 the "Nudge" action that went with it) only shows up alongside the rest of
-the sample content, never next to a real challenge. HealthKit/Health Connect only ever cover *your own*
+Home's own sample content, never next to a real challenge. The
+Challenges screen no longer has any sample-content path at all — see
+"The backend (Supabase)" above. HealthKit/Health Connect only ever cover *your own*
 metrics regardless — a `'steps'`-kind challenge backfills and auto-syncs
 *your* device steps (see "Device sync backfills the whole challenge, not
 just today"), but every other kind, and every

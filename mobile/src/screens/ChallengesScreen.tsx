@@ -12,7 +12,7 @@ import { Card } from '../components/Card';
 import { Tag } from '../components/Tag';
 import { text } from '../theme/text';
 import { color, font } from '../theme/tokens';
-import { CHALLENGES, CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
+import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
@@ -31,14 +31,14 @@ export function ChallengesScreen({
   onCreate: () => void;
 }) {
   const { user } = useAuth();
-  // null = still showing the sample fallback (either Supabase isn't
-  // configured, or the real fetch hasn't resolved yet); once set, it
-  // fully replaces the sample list — a real backend shouldn't keep
-  // demo content around next to real data. Same "never break the
-  // screen, just fall back" philosophy as src/health's mock fallback.
+  // null = no fetch has resolved yet, whether that's because Supabase
+  // isn't configured (it never will) or because the real fetch just
+  // hasn't come back (it will, shortly — see challengesLoading below).
+  // Either way this screen never fabricates challenges to fill the gap
+  // — an unconfigured backend and a configured-but-empty one render
+  // identically, as honest empty states.
   const [liveCards, setLiveCards] = useState<ChallengeCard[] | null>(null);
-  // Same null-means-fallback convention, for the hardcoded "Priya
-  // invited you…" card — see the render below.
+  // Same convention, independently, for challenge invites.
   const [liveInvites, setLiveInvites] = useState<ChallengeInvite[] | null>(null);
   const [respondingId, setRespondingId] = useState<string | null>(null);
 
@@ -91,12 +91,12 @@ export function ChallengesScreen({
       // list never showed up either, even though it was fetched
       // successfully).
       loadChallenges().catch(() => {
-        // Stay on the sample fallback for challenges on any failure —
-        // this screen never shows an error state, it just quietly
-        // doesn't upgrade.
+        // Stay on the empty state for challenges on any failure — this
+        // screen never shows an error state, it just quietly doesn't
+        // upgrade.
       });
       loadInvites().catch(() => {
-        // Same, independently, for the invite card.
+        // Same, independently, for invites.
       });
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]),
@@ -120,20 +120,24 @@ export function ChallengesScreen({
   // together (toChallengeCard decides `finished` per card — see
   // src/challenges/present.ts) — split them here so a caught hunt or a
   // challenge past its end date moves down to "Finished" instead of
-  // lingering in the active list above it.
-  const liveActive = liveCards?.filter((c) => !c.finished) ?? null;
-  const liveFinished = liveCards?.filter((c) => c.finished) ?? null;
-  const challenges = liveActive ?? CHALLENGES;
+  // lingering in the active list above it. Defaults to empty, not
+  // fabricated content — see the challengesLoading comment below for why
+  // that's correct even before Supabase's first fetch resolves.
+  const challenges = liveCards?.filter((c) => !c.finished) ?? [];
+  const finishedChallenges = liveCards?.filter((c) => c.finished) ?? [];
 
   // True only for the one transient state worth a spinner: a real
   // backend exists but its very first fetch (this mount, or the first
   // focus after one) hasn't resolved yet. Once `loadChallenges()`
   // resolves — success or failure — `liveCards` is set and stays
   // non-null for the rest of the screen's life, so this only ever shows
-  // once, not on every refocus-triggered refetch. Never true at all
-  // when Supabase isn't configured — there, the sample list below is the
-  // real, permanent content, not a placeholder for a fetch that's about
-  // to happen (same reasoning HomeScreen's loadingPrimary uses).
+  // once, not on every refocus-triggered refetch. Never true at all when
+  // Supabase isn't configured — there, `liveCards` will stay `null`
+  // forever, but `challenges`/`finishedChallenges` above already default
+  // to empty, so it renders the same honest "nothing yet" state as a
+  // configured backend with no data, with no spinner needed for a fetch
+  // that will never happen (same reasoning HomeScreen's loadingPrimary
+  // uses).
   const challengesLoading = liveCards === null && isSupabaseConfigured;
   // Same reasoning, independently, for the invite card — it has its own
   // fetch and can resolve before or after loadChallenges().
@@ -146,20 +150,9 @@ export function ChallengesScreen({
         <Button label="New challenge" variant="primary" small icon={<PlusCircleIcon size={14} color={color.accent} />} onPress={onCreate} />
       </View>
 
-      {invitesLoading ? null : liveInvites === null ? (
-        <Card style={styles.inviteCard} elevated={false}>
-          <EnvelopeOpenIcon size={18} color={color.accent300} weight="fill" />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.inviteTitle}>Priya invited you to &ldquo;Sunrise Streak&rdquo;</Text>
-            <Text style={styles.inviteSub}>30 minutes of movement before 9am · 14 days · starts Monday</Text>
-          </View>
-          <View style={{ gap: 6 }}>
-            <Button label="Join" variant="primary" small />
-            <Button label="Decline" small />
-          </View>
-        </Card>
-      ) : (
-        liveInvites.map((invite) => (
+      {invitesLoading
+        ? null
+        : (liveInvites ?? []).map((invite) => (
           <Card key={invite.id} style={styles.inviteCard} elevated={false}>
             <EnvelopeOpenIcon size={18} color={color.accent300} weight="fill" />
             <View style={{ flex: 1, gap: 2 }}>
@@ -187,8 +180,7 @@ export function ChallengesScreen({
               />
             </View>
           </Card>
-        ))
-      )}
+        ))}
 
       {challengesLoading ? (
         <View style={styles.loadingRow}>
@@ -206,21 +198,15 @@ export function ChallengesScreen({
             />
           ))}
 
-          {liveActive && liveActive.length === 0 && (
+          {challenges.length === 0 && (
             <Text style={styles.emptyNote}>No challenges yet — start one above.</Text>
           )}
 
           <Text style={styles.finishedLabel}>Finished</Text>
-          {liveFinished === null ? (
-            <View style={styles.finishedRow}>
-              <MedalIcon size={20} color={medalColorFor('2nd')} weight="fill" />
-              <Text style={styles.finishedTitle}>February Step Race</Text>
-              <Text style={styles.finishedMeta}>You placed 2nd of 6 · 287,410 steps</Text>
-            </View>
-          ) : liveFinished.length === 0 ? (
+          {finishedChallenges.length === 0 ? (
             <Text style={styles.emptyNote}>Nothing finished yet.</Text>
           ) : (
-            liveFinished.map((c) => (
+            finishedChallenges.map((c) => (
               <FinishedRow key={c.id} c={c} onPress={c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined} />
             ))
           )}
