@@ -1,5 +1,5 @@
 import { botToLeaderboardEntry, botToParticipant, daysElapsedFraction } from './botSimulation';
-import { buildBoard, isChallengeFinished, withHuntCatches } from './board';
+import { buildBoard, headStartDaysLeft, isChallengeFinished, withHuntCatches } from './board';
 import { boardSortFor } from './scoring';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { TINT_A, TINT_N } from '../theme/tokens';
@@ -99,6 +99,7 @@ export function toChallengeCard(
       tint: p.userId === currentUserId ? TINT_A : TINT_N,
     })),
     finished,
+    headStartDaysLeft: headStartDaysLeft(challenge),
     // Opens the generic ChallengeDetailScreen — HuntScreen is one
     // specific hardcoded storyline, not a template real challenges of
     // any kind can share, so this never points there.

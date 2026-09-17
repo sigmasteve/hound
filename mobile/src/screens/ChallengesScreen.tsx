@@ -219,6 +219,12 @@ function ChallengeRow({ c, onPress }: { c: ChallengeCard; onPress?: () => void }
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Text style={styles.rowName}>{c.name}</Text>
           <Tag label={c.kindLabel} variant={c.kind === 'hunt' ? 'accent' : 'neutral'} />
+          {!!c.headStartDaysLeft && (
+            <Tag
+              label={`Head start · ${c.headStartDaysLeft}d left`}
+              variant="amber"
+            />
+          )}
         </View>
         <Text style={styles.rowSub}>{c.sub}</Text>
       </View>

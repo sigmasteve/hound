@@ -244,6 +244,18 @@ worse, or for the no-data `'—'` case. The three new tokens live in
 hardcoded in the screen, matching that file's own "never hardcode a hex
 value" rule.
 
+A hunt still serving its head start also gets its own badge in the
+active list — a filled amber "Head start · Nd left" tag next to the
+existing Hunter & Hunted one, using a new `amber` `<Tag>` variant
+(`src/components/Tag.tsx`) chosen specifically so it doesn't just blend
+into the accent-purple kind tag already on the same row. The day count
+is `headStartDaysLeft` (`src/challenges/board.ts`) — the same ceiling
+math `ChallengeDetailScreen`'s leaderboard note already used, pulled out
+into one shared function instead of `toChallengeCard` growing a second
+copy of it (`ChallengeDetailScreen.tsx` now calls the shared version
+too). The badge disappears the moment the head start elapses; nothing
+shows for a hunt with no head start at all, or for any non-hunt kind.
+
 Verified locally: a `withHuntCatches` unit check (day-0 zero/zero
 doesn't instantly catch anyone, a real gap does, ties count, an
 already-zombie row stays zombie even if its total climbs back past the
@@ -287,7 +299,11 @@ ended. Against a local throwaway Postgres: a day-filtered
 `progress_snapshots` sum (the same query `getLeaderboard`'s new
 `asOfDay` runs) correctly returns only the partial total for rows on or
 before that day, under a fellow participant's existing read access, with
-no new RLS policy.
+no new RLS policy. A separate `headStartDaysLeft` unit check covers the
+active-list badge's own math: the full count on day one, a rounded-up
+partial count partway through, 0 once elapsed, 0 with no head start
+configured, and 0 for a non-hunt kind regardless of what `head_start_days`
+happens to hold.
 
 `isHuntConcluded`/`isChallengeFinished` (`src/challenges/board.ts`) are
 that same "is this hunt over" check pulled out into one shared place,
