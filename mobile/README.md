@@ -654,6 +654,35 @@ reproduces with the old `.upsert()` call, and the fixed plain `insert()`
 succeeds for a first-time accept and correctly falls through to the
 unique-constraint path (not an RLS error) on a simulated retry.
 
+`inviteFriendToChallenge` now also emails the invitee, via a new Edge
+Function, `supabase/functions/send-challenge-invite-email` — the same
+Resend setup `send-invite-email` already uses, reusing the same
+`RESEND_API_KEY` secret, no new configuration needed if that's already
+deployed. The difference from `send-invite-email`: that one is for
+someone who isn't on Hound yet, addressed by a raw email string this
+project has no account for; this one is for an existing user who just
+got a real `challenge_invites` row, so the function takes that row's
+`id` and looks up everything else itself — the challenge's name, the
+inviter's name, and the invitee's name/email from `profiles` — rather
+than trusting anything the client sends beyond which invite this is
+about. Authenticates with the *caller's* JWT, not the service role,
+same as `send-invite-email` and for the same reason it's safe to: every
+row this reads (the invite itself, its challenge, both profiles) is
+already something the inviter's own RLS already lets them see —
+"Users can view invites they sent or received" (0009), "Participants
+can view their challenges" (0001 — sending this invite at all already
+required being a participant), and "Profiles are viewable by any
+signed-in user" (0001, which is also where the invitee's email comes
+from). Called right after the invite insert succeeds, and deliberately
+best-effort exactly like `inviteFriendToChallenge`'s own callers
+already treat *it* — a failed send never blocks or surfaces as
+"could not invite that friend," since the in-app invite card the
+invitee sees on their next visit works regardless of whether this email
+ever arrives. Same two things not done, and can't be from inside this
+sandbox, as `send-invite-email`: a verified sending domain, and (this
+one specifically) a real deep link into the invitee's own pending
+invite rather than just Hound's front door.
+
 The Create wizard's own "Bring friends" step (step 3) had the exact same
 "looks real, isn't" problem `ChallengesScreen`'s Priya card had: it
 listed `sampleData.ts`'s hardcoded `FRIENDS`, and tapping one to "invite"
