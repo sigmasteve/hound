@@ -171,11 +171,14 @@ tell a Zombie apart from someone still being chased. There's no
 "Zombies join the Hunter's side" escalation — being caught here just
 means the chase for that person is over, not a new deliverable.
 
-A caught two-person hunt also now moves to ChallengesScreen's "Finished"
-section instead of lingering in the active list — `toChallengeCard`
-(`src/challenges/present.ts`) computes a `finished` flag per card:
-`huntConcluded` (the same `withHuntCatches` two-person check as above) or
-the challenge's `endsAt` has simply passed, whichever comes first. This
+A hunt with nobody left to chase also now moves to ChallengesScreen's
+"Finished" section instead of lingering in the active list —
+`toChallengeCard` (`src/challenges/present.ts`) computes a `finished`
+flag per card: `huntConcluded` (every Hunted participant is now a Zombie
+— not "the board has exactly two people," which only covers a one-on-one
+hunt and was this feature's own first-pass bug: a 5-person hunt where
+the Hunter had caught all four Hunted still showed as active) or the
+challenge's `endsAt` has simply passed, whichever comes first. This
 is the first time any *real* challenge here has a "finished" state at
 all — before this, the Finished section was 100% the hardcoded "February
 Step Race" placeholder regardless of what any real challenge had
@@ -198,11 +201,12 @@ Hunted's own client, running the exact statement `markCaught()` sends,
 succeeds. A `toChallengeCard` unit check separately covers `finished`
 itself: an ongoing hunt with the Hunted still ahead stays active, a
 caught two-person hunt finishes despite a future end date, a plain
-challenge finishes purely on a past end date (and not before), and a
-3+-person hunt does *not* finish just because one of several Hunted
-participants got caught. The catch mechanic itself (not this
-finished-list follow-up specifically) has been confirmed working
-against real device data and a real Supabase project.
+challenge finishes purely on a past end date (and not before), a
+multi-Hunted hunt finishes once every one of them has been caught, and a
+multi-Hunted hunt with at least one still uncaught does *not* finish
+just because some of the others got caught. The catch mechanic itself
+(not this finished-list follow-up specifically) has been confirmed
+working against real device data and a real Supabase project.
 
 ### Device sync backfills the whole challenge, not just today
 
