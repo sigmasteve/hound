@@ -1131,6 +1131,19 @@ rather not install the native toolchains locally.
   versions need it installed from Play. The Android emulator's default
   system image usually does **not** include it — use a Google Play system
   image, or install the Health Connect APK manually.
+- `app.json`'s `expo-build-properties` plugin sets `android.minSdkVersion: 26`.
+  Expo/RN's own default for this project was 24, but
+  `androidx.health.connect:connect-client` (pulled in transitively by
+  `react-native-health-connect`) declares `minSdkVersion 26` in its own
+  manifest — Health Connect itself only exists on API 26+ (Android 8.0), so
+  Gradle's manifest merger fails the build (`uses-sdk:minSdkVersion 24
+  cannot be smaller than version 26 declared in library
+  [androidx.health.connect:connect-client:1.1.0]`) unless the project's own
+  floor is raised to match, rather than forced past it with
+  `tools:overrideLibrary` (Gradle's own suggestion for that option warns it
+  "may lead to runtime failures"). Practically this means Hound for Android
+  no longer installs on anything older than Android 8.0 — not a real-world
+  constraint given Health Connect's own requirement.
 - `app.json`'s `android.permissions` already lists the
   `android.permission.health.READ_*` entries `react-native-health-connect`
   needs.
