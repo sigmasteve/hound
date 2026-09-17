@@ -13,9 +13,10 @@ import { color, font, TINT_A, TINT_N } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import { buildBoard } from '../challenges/board';
+import { buildBoard, withHuntCatches } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor, usesDeviceSteps, usesWorkoutDistance } from '../challenges/scoring';
+import { HUNT_ROLE_LABEL, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
@@ -92,6 +93,26 @@ export function ChallengeDetailScreen({
   useEffect(() => {
     load();
   }, [load]);
+
+  // Notices "I've just been caught" and persists it — see
+  // ChallengesProvider.markCaught and withHuntCatches for why this is the
+  // caught person's own client doing the writing (only their own
+  // participant row is theirs to update) rather than the Hunter's. Runs
+  // on every load, not just the first — harmless, since it only ever
+  // acts while this user's own stored role is still 'hunted'; once
+  // markCaught lands and load() re-fetches, `mine.role` is 'zombie' and
+  // this becomes a no-op.
+  useEffect(() => {
+    if (!challenge || challenge.kind !== 'hunt' || !user?.id) return;
+    const mine = participants.find((p) => p.userId === user.id);
+    if (mine?.role !== 'hunted') return;
+    const sortBy = boardSortFor(challenge);
+    const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy);
+    const caught = withHuntCatches(rawBoard, sortBy).find((r) => r.userId === user.id);
+    if (caught?.role === 'zombie') {
+      supabaseChallengesProvider.markCaught(challenge.id).then(load).catch(() => {});
+    }
+  }, [challenge, participants, leaderboard, bots, user?.id, load]);
 
   const [deleting, setDeleting] = useState(false);
   const [togglingHighlight, setTogglingHighlight] = useState(false);
@@ -302,7 +323,9 @@ export function ChallengeDetailScreen({
   const myHighlighted = participants.find((p) => p.userId === user?.id)?.highlighted ?? false;
 
   const scoredByDistance = usesWorkoutDistance(challenge);
-  const board = buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), boardSortFor(challenge)).map((row) => ({
+  const sortBy = boardSortFor(challenge);
+  const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy);
+  const board = (challenge.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy) : rawBoard).map((row) => ({
     ...row,
     name: row.userId === user?.id ? 'You' : row.name,
   }));
@@ -369,9 +392,7 @@ export function ChallengeDetailScreen({
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
               <Text style={styles.boardName}>{row.name}</Text>
               {row.isBot && <RobotIcon size={13} color="rgba(233,233,237,0.55)" />}
-              {row.role && (
-                <Tag label={row.role === 'hunter' ? 'Hunter' : 'Hunted'} variant={row.role === 'hunter' ? 'accent' : 'neutral'} />
-              )}
+              {row.role && <Tag label={HUNT_ROLE_LABEL[row.role]} variant={HUNT_ROLE_TAG_VARIANT[row.role]} />}
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               {scoredByDistance ? (

@@ -1,8 +1,11 @@
 export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance';
 
 // A hunt has exactly one Hunter and one or more Hunted — never set for
-// any other challenge kind.
-export type HuntRole = 'hunter' | 'hunted';
+// any other challenge kind. 'zombie' is a one-way transition a Hunted
+// participant makes once the Hunter catches them (see
+// src/challenges/board.ts's withHuntCatches) — there's no path back to
+// 'hunted' once caught.
+export type HuntRole = 'hunter' | 'hunted' | 'zombie';
 
 // Only meaningful for kind 'hunt': which real-world signal decides who's
 // ahead. 'device_steps' auto-syncs from useHealthProvider() the same way
@@ -127,4 +130,12 @@ export interface ChallengesProvider {
   // there's nothing left to represent once you're a participant.
   acceptChallengeInvite(inviteId: string): Promise<void>;
   declineChallengeInvite(inviteId: string): Promise<void>;
+  // Flips the caller's own participant row from 'hunted' to 'zombie' —
+  // called automatically once the board shows they've been caught (see
+  // withHuntCatches), not something a screen exposes as a button. Only
+  // ever touches the caller's own row (see the RLS policy this relies on
+  // in 0006_challenge_highlight.sql), so there's no way for the Hunter to
+  // catch anyone but themselves through this call — the client only ever
+  // calls it for its own signed-in user.
+  markCaught(challengeId: string): Promise<void>;
 }

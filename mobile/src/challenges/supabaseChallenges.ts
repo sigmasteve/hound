@@ -324,4 +324,19 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     const { error } = await client.from('challenge_invites').delete().eq('id', inviteId);
     if (error) throw new Error(error.message);
   },
+
+  async markCaught(challengeId: string): Promise<void> {
+    const client = requireClient();
+    const userId = await requireUserId();
+    // No `.eq('role', 'hunted')` guard here — going from 'zombie' to
+    // 'zombie' is a no-op write either way, and the caller
+    // (ChallengeDetailScreen) already only calls this once it's seen
+    // the board compute 'zombie' for this exact user.
+    const { error } = await client
+      .from('challenge_participants')
+      .update({ role: 'zombie' })
+      .eq('challenge_id', challengeId)
+      .eq('user_id', userId);
+    if (error) throw new Error(error.message);
+  },
 };
