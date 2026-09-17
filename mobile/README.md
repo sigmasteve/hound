@@ -208,6 +208,25 @@ just because some of the others got caught. The catch mechanic itself
 (not this finished-list follow-up specifically) has been confirmed
 working against real device data and a real Supabase project.
 
+`isHuntConcluded`/`isChallengeFinished` (`src/challenges/board.ts`) are
+that same "is this hunt over" check pulled out into one shared place,
+rather than `toChallengeCard` and `HomeScreen.tsx`'s hero card each
+recomputing their own copy of it — the kind of duplication that let the
+board.length === 2 bug above happen in the first place. `HomeScreen.tsx`
+uses it too: once a highlighted challenge is finished, the hero headline
+switches from "your standing" ("You're 2nd of 5 in Me and IAM.") to
+"who won" ("Blaze won Me and IAM." / "You won Me and IAM!") — before
+this it kept reporting your live rank forever, even after there was
+nothing left to rank. A two-person hunt that ends by an actual catch
+keeps its own more personal wording ("Blaze caught you. The hunt's
+over.") instead of the generic announcement; a two-person hunt that
+somehow reaches its scheduled end without either side ever being caught
+falls through to the generic one, same as any other finished challenge
+kind. `board[0]` (already sorted by whichever metric the challenge is
+scored on) is "the winner" — no separate Hunter lookup needed, since a
+concluded hunt's Hunter is, by definition, tied with or ahead of every
+Hunted they've caught.
+
 ### Device sync backfills the whole challenge, not just today
 
 `ChallengeDetailScreen.tsx`'s `syncFromDevice` (triggered on load and via

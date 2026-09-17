@@ -1,5 +1,5 @@
 import { botInitials, simulateBotSteps } from './botSimulation';
-import type { ChallengeBot, HuntRole, LeaderboardEntry, Participant } from './types';
+import type { Challenge, ChallengeBot, HuntRole, LeaderboardEntry, Participant } from './types';
 
 export interface BoardEntry {
   userId: string;
@@ -88,4 +88,25 @@ export function withHuntCatches(board: BoardEntry[], sortBy: 'steps' | 'distance
     // created.
     return metric > 0 && metric <= hunterMetric ? { ...r, role: 'zombie' as const } : r;
   });
+}
+
+// A hunt with nobody left to chase — every Hunted participant (there has
+// to be at least one) is already a Zombie. Requires `board` to already
+// have gone through withHuntCatches; doesn't check challenge.kind itself
+// since a non-hunt board never has any 'hunted'/'zombie' roles to find in
+// the first place, so this is naturally false for one.
+export function isHuntConcluded(board: BoardEntry[]): boolean {
+  const hunted = board.filter((r) => r.role === 'hunted' || r.role === 'zombie');
+  return hunted.length > 0 && hunted.every((r) => r.role === 'zombie');
+}
+
+// The one "is this challenge over" check shared by toChallengeCard
+// (src/challenges/present.ts, for the Challenges screen's Finished
+// section) and HomeScreen's hero card (for switching from "your
+// standing" to "who won") — a hunt ends the moment isHuntConcluded is
+// true, however many scheduled days are left; anything else just runs
+// out its clock.
+export function isChallengeFinished(challenge: Challenge, board: BoardEntry[]): boolean {
+  if (challenge.kind === 'hunt' && isHuntConcluded(board)) return true;
+  return new Date(challenge.endsAt).getTime() <= Date.now();
 }

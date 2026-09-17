@@ -27,7 +27,7 @@ import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import { buildBoard, withHuntCatches, type BoardEntry } from '../challenges/board';
+import { buildBoard, isChallengeFinished, withHuntCatches, type BoardEntry } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor } from '../challenges/scoring';
 import { ordinal } from '../challenges/present';
@@ -84,23 +84,45 @@ function heroCopy(primary: PrimaryChallenge, userId: string | null): { eyebrow: 
 
   const me = userId ? board.find((r) => r.userId === userId) : undefined;
   const rival = board.find((r) => r.userId !== userId);
+  const finished = isChallengeFinished(challenge, board);
 
+  // A two-person hunt concluded by an actual catch gets its own, more
+  // personal wording ("X caught you") — everything else that's finished
+  // (a multi-Hunted hunt with nobody left to chase, or any challenge
+  // whose clock simply ran out) falls through to the generic "who won"
+  // announcement below instead of this screen's usual "your standing"
+  // framing.
   if (challenge.kind === 'hunt' && board.length === 2 && me && rival) {
-    // Once the Hunted has been caught, the ongoing lead/behind framing
-    // below no longer means anything — a 1-on-1 hunt is over the moment
-    // either side is marked 'zombie' (see withHuntCatches).
     if (me.role === 'zombie') {
       return { eyebrow, headline: `${rival.name} caught you. The hunt's over.` };
     }
     if (rival.role === 'zombie') {
       return { eyebrow, headline: `You caught ${rival.name}! The hunt's over.` };
     }
-    const { lead, unit, meTotal, rivalTotal } = huntLeadMetric(me, rival, challenge);
-    if (meTotal === 0 && rivalTotal === 0) {
-      return { eyebrow, headline: `${challenge.name} just started — no ${unit === 'mi' ? 'miles' : 'steps'} logged yet.` };
+    if (!finished) {
+      const { lead, unit, meTotal, rivalTotal } = huntLeadMetric(me, rival, challenge);
+      if (meTotal === 0 && rivalTotal === 0) {
+        return { eyebrow, headline: `${challenge.name} just started — no ${unit === 'mi' ? 'miles' : 'steps'} logged yet.` };
+      }
+      const relation = lead >= 0 ? 'behind you' : 'ahead of you';
+      return { eyebrow, headline: `${rival.name} is ${formatLead(Math.abs(lead), unit)} ${relation}.` };
     }
-    const relation = lead >= 0 ? 'behind you' : 'ahead of you';
-    return { eyebrow, headline: `${rival.name} is ${formatLead(Math.abs(lead), unit)} ${relation}.` };
+    // A 2-person hunt whose scheduled end passed without either side
+    // ever being caught — falls through to "who won" below rather than
+    // repeating the lead/behind framing on something that's already over.
+  }
+
+  // board is already sorted descending by whichever metric this
+  // challenge is scored on (see buildBoard) — for a concluded hunt
+  // specifically, the Hunter's total is guaranteed to be at least every
+  // caught Hunted's, so board[0] is always the Hunter there too, with no
+  // separate hunter-lookup needed.
+  if (finished && board.some((r) => r.totalSteps > 0 || r.totalDistanceMi > 0)) {
+    const winner = board[0];
+    return {
+      eyebrow,
+      headline: winner.userId === userId ? `You won ${challenge.name}!` : `${winner.name} won ${challenge.name}.`,
+    };
   }
 
   if (!me || board.every((r) => r.totalSteps === 0)) {
