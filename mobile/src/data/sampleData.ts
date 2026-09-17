@@ -79,6 +79,12 @@ export interface ChallengeCard {
   // only real cards ever use it, since sample cards have no matching row
   // to fetch; 'challenges' means "not tappable" (the other sample cards).
   target: 'hunt' | 'challenges' | 'detail';
+  // Only ever set (by toChallengeCard) on a real card — true once a
+  // challenge's scheduled end has passed, or, for a hunt, once its
+  // Hunted has been caught early (see withHuntCatches). Sample cards
+  // leave this unset; ChallengesScreen's hardcoded "Finished" row is
+  // separate, static JSX, not one of these.
+  finished?: boolean;
 }
 
 export const CHALLENGES: ChallengeCard[] = [

@@ -1,4 +1,6 @@
 import { botToLeaderboardEntry, botToParticipant, daysElapsedFraction } from './botSimulation';
+import { buildBoard, withHuntCatches } from './board';
+import { boardSortFor } from './scoring';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { TINT_A, TINT_N } from '../theme/tokens';
 import type { Challenge, ChallengeBot, HuntRole, LeaderboardEntry, Participant } from './types';
@@ -67,6 +69,16 @@ export function toChallengeCard(
     }
   }
 
+  // Most challenges only finish on their scheduled end date, but a hunt
+  // with exactly one Hunter and one Hunted ends the moment the Hunted is
+  // caught, however many days are left — same "the chase is over"
+  // condition HomeScreen's hero card and LiveHuntCard already treat as
+  // game over for that pairing.
+  const sortBy = boardSortFor(challenge);
+  const board = withHuntCatches(buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy), sortBy);
+  const huntConcluded = challenge.kind === 'hunt' && board.length === 2 && board.some((r) => r.role === 'zombie');
+  const finished = huntConcluded || new Date(challenge.endsAt).getTime() <= Date.now();
+
   return {
     id: challenge.id,
     name: challenge.name,
@@ -81,6 +93,7 @@ export function toChallengeCard(
       initials: p.initials,
       tint: p.userId === currentUserId ? TINT_A : TINT_N,
     })),
+    finished,
     // Opens the generic ChallengeDetailScreen — HuntScreen is one
     // specific hardcoded storyline, not a template real challenges of
     // any kind can share, so this never points there.
