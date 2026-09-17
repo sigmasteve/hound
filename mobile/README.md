@@ -278,9 +278,39 @@ default to `[]`, and the same "No challenges yet — start one above." /
 "Nothing finished yet." empty-state text a real, freshly signed-up user
 would see is what renders — no fabricated Priya invite, no fabricated
 February Step Race. `src/data/sampleData.ts`'s `CHALLENGES` export is no
-longer imported here at all (the Hunt screen and Home's "Theo's Pixel
-hasn't reported" card are still the exception — see "What's not
-implemented").
+longer imported here at all (the Hunt screen is still the exception —
+see "What's not implemented").
+
+### Home's getting-started cards
+
+Home had the exact same problem, one level worse: whenever there was no
+real challenge to headline — a brand-new user with nothing yet, or
+Supabase unconfigured — it fell back to a fully hardcoded "Marcus is 7.4
+mi behind you" hero line, a fake "Theo's Pixel hasn't reported" staleness
+alert, a static "Jordan vs Marcus" hunt card, and a static "March Step
+Race" leaderboard — a complete, specific chase that read exactly like
+this user's own real progress, with nothing marking it as sample. A
+brand-new Facebook sign-up landing on this screen had no way to tell it
+apart from a real account's real history.
+
+That fallback is gone. `heroCopy`'s null case is now an honest "Start a
+challenge to see your progress here." with a "New challenge" button that
+opens the Challenges tab (`onGoTab('challenges')`) instead of the old
+"Open the chase" button, which used to open the hardcoded Hunt demo
+screen as if it were this user's own. The stale-Pixel alert is gone
+outright — it never had anything real behind it. In their place,
+`GettingStartedCards` renders three real, non-fake cards: **Ways to
+compete** (the actual `CHALLENGE_TYPES` list — Hunter & Hunted, Step
+Race, Daily Streak, Distance Pool — each with its real one-line
+description and icon, plus a "New challenge" button), **Your data syncs
+automatically** (what connecting Apple Health/Health Connect actually
+does — backfills and keeps updating step-based challenges with no manual
+logging), and **Bring your friends in** (a pointer to the real
+email-lookup invite flow — see "Inviting a friend to a specific
+challenge"). All three buttons land on an existing tab
+(`onGoTab('challenges' | 'metrics' | 'friends')`); nothing new was wired
+up to build this, since every capability it describes already exists
+elsewhere in the app.
 
 Verified locally: a `withHuntCatches` unit check (day-0 zero/zero
 doesn't instantly catch anyone, a real gap does, ties count, an
@@ -1055,13 +1085,13 @@ screen's hero/leaderboard card, Friends' friend graph, and challenge
 invites all read real data now (see "The backend (Supabase)", "Friends:
 a real friend graph", and "Inviting a friend to a specific challenge"),
 but the Hunt screen still renders `src/data/sampleData.ts`'s static
-content unconditionally, unrelated to any of it. Home's "Theo's Pixel
-hasn't reported" card is also still static — that one specifically needs
-real cross-device staleness detection that doesn't exist yet, so it (and
-the "Nudge" action that went with it) only shows up alongside the rest of
-Home's own sample content, never next to a real challenge. The
-Challenges screen no longer has any sample-content path at all — see
-"The backend (Supabase)" above. HealthKit/Health Connect only ever cover *your own*
+content unconditionally, unrelated to any of it. Neither the Challenges
+screen nor Home has any sample-content path left at all — see "The
+backend (Supabase)" → "Home's getting-started cards" above. Real
+cross-device staleness detection (the kind the old, now-removed "Theo's
+Pixel hasn't reported" card gestured at) and the "Nudge" action that
+went with it still don't exist — a genuine gap, just no longer papered
+over with a fake alert. HealthKit/Health Connect only ever cover *your own*
 metrics regardless — a `'steps'`-kind challenge backfills and auto-syncs
 *your* device steps (see "Device sync backfills the whole challenge, not
 just today"), but every other kind, and every

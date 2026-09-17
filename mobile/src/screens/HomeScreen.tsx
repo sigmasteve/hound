@@ -8,10 +8,11 @@ import {
   HeartbeatIcon,
   PathIcon,
   PawPrintIcon,
+  PlusCircleIcon,
   ScalesIcon,
   SneakerMoveIcon,
   TrophyIcon,
-  WarningIcon,
+  UserPlusIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -22,7 +23,8 @@ import { text } from '../theme/text';
 import { color, font, TINT_A, TINT_N } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
 import type { HealthSnapshot } from '../health/types';
-import { CHALLENGE_TYPES, RACE_BOARD } from '../data/sampleData';
+import { CHALLENGE_TYPES } from '../data/sampleData';
+import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -246,7 +248,11 @@ export function HomeScreen({
   }, [user?.id]);
 
   const hero = primary ? heroCopy(primary, user?.id ?? null) : null;
-  const openPrimary = primary ? () => onOpenChallenge(primary.challenge.id) : onOpenHunt;
+  // No real challenge to open yet — sends a brand-new user (or the
+  // unconfigured sandbox) to where "New challenge" actually lives,
+  // instead of the old fallback of opening the hardcoded Hunt demo as if
+  // it were this user's own chase.
+  const openPrimary = primary ? () => onOpenChallenge(primary.challenge.id) : () => onGoTab('challenges');
 
   // While the real fetch above is still in flight, show a spinner instead
   // of the sample "Marcus" content — that content used to render first and
@@ -265,13 +271,21 @@ export function HomeScreen({
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.heroRow}>
         <View style={styles.heroText}>
-          <Text style={text.eyebrow}>{hero?.eyebrow ?? 'TUESDAY · WEEK 3 OF THE HUNT'}</Text>
-          <Text style={[text.h2, styles.heroTitle]}>{hero?.headline ?? 'Marcus is 7.4 mi behind you.'}</Text>
+          <Text style={text.eyebrow}>{hero?.eyebrow ?? 'GET STARTED'}</Text>
+          <Text style={[text.h2, styles.heroTitle]}>
+            {hero?.headline ?? 'Start a challenge to see your progress here.'}
+          </Text>
         </View>
         <Button
-          label={primary ? 'View challenge' : 'Open the chase'}
+          label={primary ? 'View challenge' : 'New challenge'}
           variant="primary"
-          icon={<CrosshairIcon size={15} color={color.accent} />}
+          icon={
+            primary ? (
+              <CrosshairIcon size={15} color={color.accent} />
+            ) : (
+              <PlusCircleIcon size={15} color={color.accent} />
+            )
+          }
           onPress={openPrimary}
         />
       </View>
@@ -288,24 +302,6 @@ export function HomeScreen({
           <Text style={styles.syncLabel}>Sync now</Text>
         </Pressable>
       </View>
-
-      {/* "Nudge" and friend-staleness detection need a real cross-device
-          integration that doesn't exist yet — this stays sample-only
-          content, not something to fake for a real challenge. */}
-      {!primary && (
-        <Card style={styles.staleCard} elevated={false}>
-          <View style={styles.staleRow}>
-            <WarningIcon size={18} color={color.amber} weight="fill" />
-            <View style={styles.staleText}>
-              <Text style={styles.staleTitle}>Theo&rsquo;s Pixel hasn&rsquo;t reported since Sunday</Text>
-              <Text style={styles.staleBody}>
-                His step race total is frozen at 41,208. Scores stay provisional until Health Connect
-                catches up.
-              </Text>
-            </View>
-          </View>
-        </Card>
-      )}
 
       <View style={styles.tileGrid}>
         <MetricTile
@@ -352,54 +348,82 @@ export function HomeScreen({
             <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} />
           )
         ) : (
-          <>
-            <Card style={styles.huntCard} elevated={false}>
-              <View style={styles.huntHeader}>
-                <PawPrintIcon size={15} color={color.accent300} weight="fill" />
-                <Text style={styles.huntTitle}>The Hunt · Jordan vs Marcus</Text>
-                <Tag label="day 9 / 21" variant="outline" />
-              </View>
-              <View style={styles.huntTrack}>
-                <View style={styles.huntTrackLine} />
-                <View style={[styles.huntMarker, styles.hunterMarker, { left: '58%' }]}>
-                  <SneakerMoveIcon size={14} color={color.neutral200} />
-                </View>
-                <View style={[styles.huntMarker, styles.huntedMarker, { left: '78%' }]}>
-                  <SneakerMoveIcon size={14} color={color.accent100} weight="fill" />
-                </View>
-              </View>
-              <View style={styles.huntStatsRow}>
-                <Text style={styles.huntLead}>
-                  7.4 mi<Text style={styles.huntLeadSuffix}> lead</Text>
-                </Text>
-                <Text style={styles.huntNote}>Marcus logged 6.1 mi yesterday. Shrinking fast.</Text>
-              </View>
-              <Button label="See the tally" variant="primary" small onPress={onOpenHunt} />
-            </Card>
-
-            <Card style={styles.raceCard} elevated={false}>
-              <View style={styles.raceHeader}>
-                <TrophyIcon size={15} color={color.accent} />
-                <Text style={styles.raceTitle}>March Step Race</Text>
-                <Text style={styles.raceMeta}>5 friends · 4 days left</Text>
-              </View>
-              {RACE_BOARD.map((row) => (
-                <View key={row.rank} style={styles.raceRow}>
-                  <Text style={styles.raceRank}>{row.rank}</Text>
-                  <Avatar initials={row.initials} tint={row.tint} size={24} fontSize={10} />
-                  <Text style={styles.raceName}>{row.name}</Text>
-                  <ProgressBar pct={row.pct} fillColor={row.bar} height={3} trackColor={color.neutral900} />
-                  <Text style={[styles.raceSteps, row.highlight && { color: color.accent200 }]}>
-                    {row.steps}
-                  </Text>
-                </View>
-              ))}
-              <Button label="Full leaderboard" variant="ghost" small onPress={() => onGoTab('challenges')} />
-            </Card>
-          </>
+          <GettingStartedCards onGoTab={onGoTab} />
         )}
       </View>
     </ScrollView>
+  );
+}
+
+// Shown in place of a live challenge card whenever there's no real one
+// to headline — a brand-new user with nothing yet, or Supabase
+// unconfigured. Replaces the old hardcoded "Jordan vs Marcus" hunt +
+// "March Step Race" cards, which rendered as if they were this user's
+// own history with nothing marking them as sample — exactly the
+// "fabricated data indistinguishable from real data" problem
+// ChallengesScreen's empty state fixed, except here there's no real
+// history to fall back to being honest about, so the honest content is
+// an explanation of what the app can actually do instead.
+function GettingStartedCards({ onGoTab }: { onGoTab: (tab: MainTab) => void }) {
+  return (
+    <>
+      <Card style={styles.onboardCard} elevated={false}>
+        <View style={styles.onboardHeader}>
+          <TrophyIcon size={15} color={color.accent} />
+          <Text style={styles.onboardTitle}>Ways to compete</Text>
+        </View>
+        <Text style={styles.onboardBody}>
+          Every challenge here runs on real logged steps or distance. Pick a kind and invite people in.
+        </Text>
+        <View style={styles.typeList}>
+          {CHALLENGE_TYPES.map((t) => {
+            const Icon = CHALLENGE_KIND_ICON[t.id];
+            return (
+              <View key={t.id} style={styles.typeRow}>
+                <View style={[styles.typeIcon, { backgroundColor: t.tint }]}>
+                  <Icon size={16} color={t.iconColor} weight={t.id === 'hunt' ? 'fill' : 'regular'} />
+                </View>
+                <View style={styles.typeText}>
+                  <Text style={styles.typeName}>{t.name}</Text>
+                  <Text style={styles.typeDesc}>{t.desc}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+        <Button
+          label="New challenge"
+          variant="primary"
+          small
+          icon={<PlusCircleIcon size={14} color={color.accent} />}
+          onPress={() => onGoTab('challenges')}
+        />
+      </Card>
+
+      <Card style={styles.onboardCard} elevated={false}>
+        <View style={styles.onboardHeader}>
+          <ArrowsClockwiseIcon size={15} color={color.accent} />
+          <Text style={styles.onboardTitle}>Your data syncs automatically</Text>
+        </View>
+        <Text style={styles.onboardBody}>
+          Connect Apple Health or Health Connect once and every step-based challenge backfills and
+          keeps updating on its own — no manual logging needed for steps.
+        </Text>
+        <Button label="Manage data sources" variant="ghost" small onPress={() => onGoTab('metrics')} />
+      </Card>
+
+      <Card style={styles.onboardCard} elevated={false}>
+        <View style={styles.onboardHeader}>
+          <UserPlusIcon size={15} color={color.accent} />
+          <Text style={styles.onboardTitle}>Bring your friends in</Text>
+        </View>
+        <Text style={styles.onboardBody}>
+          Find a friend by email and invite them straight into a challenge — that's how a Hunter and
+          Hunted end up chasing each other.
+        </Text>
+        <Button label="Find friends" variant="ghost" small onPress={() => onGoTab('friends')} />
+      </Card>
+    </>
   );
 }
 
@@ -585,11 +609,16 @@ const styles = StyleSheet.create({
   badgeMuted: { fontSize: 12, color: 'rgba(233,233,237,0.55)' },
   syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
   syncLabel: { fontSize: 12, color: color.accent, fontFamily: font.heading },
-  staleCard: { backgroundColor: '#2a2115', flexDirection: 'row' },
-  staleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, flex: 1 },
-  staleText: { flex: 1, gap: 2 },
-  staleTitle: { fontFamily: font.heading, fontSize: 14, color: color.text },
-  staleBody: { fontSize: 13, color: 'rgba(233,233,237,0.78)' },
+  onboardCard: { padding: 16, gap: 10 },
+  onboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  onboardTitle: { fontFamily: font.heading, fontSize: 15, color: color.text, flex: 1 },
+  onboardBody: { fontSize: 13, color: 'rgba(233,233,237,0.7)', lineHeight: 18 },
+  typeList: { gap: 10, marginTop: 2 },
+  typeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  typeIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  typeText: { flex: 1, gap: 1 },
+  typeName: { fontFamily: font.heading, fontSize: 13.5, color: color.text },
+  typeDesc: { fontSize: 12, color: 'rgba(233,233,237,0.55)' },
   tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tile: {
     flexBasis: '47%',
