@@ -34,6 +34,13 @@ export const color = {
 
   amber: '#e0a94f',
   green: '#7fd39b',
+
+  // Finished-challenge medal colors — 1st/2nd/3rd only, everything
+  // 4th-or-worse keeps the plain neutral500 the medal icon always used
+  // before these existed.
+  gold: '#e0b84f',
+  silver: '#c4c8d6',
+  bronze: '#c17f4f',
 } as const;
 
 // Fixed alpha compositing of `color-mix(in srgb, X N%, transparent)` calls

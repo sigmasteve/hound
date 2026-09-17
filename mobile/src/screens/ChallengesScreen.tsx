@@ -16,8 +16,9 @@ import { CHALLENGES, CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleD
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
+import { headStartEndDayKey } from '../challenges/board';
 import { toChallengeCard } from '../challenges/present';
-import type { ChallengeInvite } from '../challenges/types';
+import type { ChallengeInvite, LeaderboardEntry } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
 
 export function ChallengesScreen({
@@ -45,12 +46,21 @@ export function ChallengesScreen({
     const challenges = await supabaseChallengesProvider.listMyChallenges();
     const cards = await Promise.all(
       challenges.map(async (c) => {
-        const [participants, leaderboard, bots] = await Promise.all([
+        // A hunt with a head start needs one extra fetch — everyone's
+        // total as of the day the head start ended, not just now — to
+        // correctly tell whether it's already concluded (see
+        // toChallengeCard/withHuntCatches). Skipped for anything else,
+        // since there's nothing to credit.
+        const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
+        const [participants, leaderboard, bots, headStartLeaderboard] = await Promise.all([
           supabaseChallengesProvider.listParticipants(c.id),
           supabaseChallengesProvider.getLeaderboard(c.id),
           supabaseChallengesProvider.listBots(c.id),
+          needsHeadStart
+            ? supabaseChallengesProvider.getLeaderboard(c.id, headStartEndDayKey(c))
+            : Promise.resolve<LeaderboardEntry[]>([]),
         ]);
-        return toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null);
+        return toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null, headStartLeaderboard);
       }),
     );
     setLiveCards(cards);
@@ -183,7 +193,7 @@ export function ChallengesScreen({
       <Text style={styles.finishedLabel}>Finished</Text>
       {liveFinished === null ? (
         <View style={styles.finishedRow}>
-          <MedalIcon size={20} color={color.neutral500} weight="fill" />
+          <MedalIcon size={20} color={medalColorFor('2nd')} weight="fill" />
           <Text style={styles.finishedTitle}>February Step Race</Text>
           <Text style={styles.finishedMeta}>You placed 2nd of 6 · 287,410 steps</Text>
         </View>
@@ -221,6 +231,17 @@ function ChallengeRow({ c, onPress }: { c: ChallengeCard; onPress?: () => void }
   );
 }
 
+// `c.stat` is an exact ordinal string ('1st', '2nd', '3rd', '4th', …)
+// whenever the current user placed at all (see toChallengeCard's
+// ordinal()) — only those top three get a medal color, everything
+// 4th-or-worse (or the no-data '—' case) keeps the plain default.
+function medalColorFor(stat: string): string {
+  if (stat === '1st') return color.gold;
+  if (stat === '2nd') return color.silver;
+  if (stat === '3rd') return color.bronze;
+  return color.neutral500;
+}
+
 // Same visual language as the hardcoded placeholder this replaces (a
 // medal, a title, a "you placed Nth" line) — just populated from a real
 // finished card instead. `c.stat` is '—' (see toChallengeCard) when
@@ -229,7 +250,7 @@ function ChallengeRow({ c, onPress }: { c: ChallengeCard; onPress?: () => void }
 function FinishedRow({ c, onPress }: { c: ChallengeCard; onPress?: () => void }) {
   return (
     <Pressable style={styles.finishedRow} onPress={onPress}>
-      <MedalIcon size={20} color={color.neutral500} weight="fill" />
+      <MedalIcon size={20} color={medalColorFor(c.stat)} weight="fill" />
       <Text style={styles.finishedTitle}>{c.name}</Text>
       <Text style={styles.finishedMeta}>
         {c.stat === '—' ? c.statLabel : `You placed ${c.stat} ${c.statLabel}`}
