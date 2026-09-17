@@ -309,13 +309,22 @@ export const supabaseChallengesProvider: ChallengesProvider = {
   async inviteFriendToChallenge(challengeId: string, friendUserId: string): Promise<void> {
     const client = requireClient();
     const userId = await requireUserId();
-    const { error } = await client
+    const { data, error } = await client
       .from('challenge_invites')
-      .insert({ challenge_id: challengeId, inviter_id: userId, invitee_id: friendUserId });
+      .insert({ challenge_id: challengeId, inviter_id: userId, invitee_id: friendUserId })
+      .select('id')
+      .single();
     if (error) {
       if (error.code === '23505') throw new Error('Already invited.');
       throw new Error(error.message);
     }
+    // Best-effort, same reasoning CreateScreen's own invite calls use
+    // Promise.allSettled for: the invite itself already saved
+    // successfully by this point, so a failed email (no RESEND_API_KEY
+    // set, Resend rejecting an unverified domain, whatever) shouldn't
+    // read as "could not invite that friend" — the in-app invite card
+    // still works regardless of whether this email ever arrives.
+    client.functions.invoke('send-challenge-invite-email', { body: { inviteId: data.id } }).catch(() => {});
   },
 
   async acceptChallengeInvite(inviteId: string): Promise<void> {
