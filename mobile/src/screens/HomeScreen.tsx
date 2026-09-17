@@ -5,11 +5,9 @@ import {
   ArrowsClockwiseIcon,
   CrosshairIcon,
   FootprintsIcon,
-  HeartbeatIcon,
   PathIcon,
   PawPrintIcon,
   PlusCircleIcon,
-  ScalesIcon,
   SneakerMoveIcon,
   TrophyIcon,
   UserPlusIcon,
@@ -303,6 +301,10 @@ export function HomeScreen({
         </Pressable>
       </View>
 
+      {/* Resting HR and Weight moved to the Data tab (MetricsScreen already
+          has its own dedicated "Heart rate"/"Weight" views with real
+          7-day charts) — Today only keeps the two metrics that matter
+          for a challenge in progress. */}
       <View style={styles.tileGrid}>
         <MetricTile
           label="Steps"
@@ -318,24 +320,6 @@ export function HomeScreen({
           value={`${(snap?.distanceTodayMi ?? 0).toFixed(1)} mi`}
           sub="1 walk, 1 run logged"
           pct={63}
-          onPress={() => onGoTab('metrics')}
-        />
-        <MetricTile
-          label="Resting HR"
-          Icon={HeartbeatIcon}
-          value={snap?.restingHeartRateBpm != null ? `${snap.restingHeartRateBpm} bpm` : '—'}
-          sub="Down 3 bpm over 30 days"
-          pct={42}
-          barColor={color.accent600}
-          onPress={() => onGoTab('metrics')}
-        />
-        <MetricTile
-          label="Weight"
-          Icon={ScalesIcon}
-          value={snap?.latestWeightLb != null ? `${snap.latestWeightLb} lb` : '—'}
-          sub="Last entry Sunday · Withings"
-          pct={28}
-          barColor={color.accent600}
           onPress={() => onGoTab('metrics')}
         />
       </View>
