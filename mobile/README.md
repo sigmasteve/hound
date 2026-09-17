@@ -601,12 +601,13 @@ separate accounts Claude can't create on your behalf) and pasting the
 resulting client ID/secret into Supabase's Authentication → Providers
 page. Until a given provider is enabled there, tapping its button fails
 with a clear error ("Sign-in did not return a session — is this provider
-enabled in Supabase?") rather than crashing. Apple in particular: App
-Store review expects native Sign in with Apple
-(`expo-apple-authentication`) rather than the generic web-OAuth flow used
-here — that's a follow-up, not done in this pass (see "What's not
-implemented"). **Google uses a different, better path** — see "Google
-Sign-In (native)" below.
+enabled in Supabase?") rather than crashing. Facebook's checklist below
+has been run end-to-end for real (see "Facebook Sign-In"); Apple's
+equivalent hasn't been set up yet, and App Store review expects native
+Sign in with Apple (`expo-apple-authentication`) rather than the generic
+web-OAuth flow used here regardless — that's a follow-up, not done in
+this pass (see "What's not implemented"). **Google uses a different,
+better path** — see "Google Sign-In (native)" below.
 
 ### Facebook Sign-In
 
@@ -655,6 +656,15 @@ Until steps 1-5 are done, tapping "Continue with Facebook" fails with
 the same clear "is this provider enabled in Supabase?" error every other
 unconfigured provider shows — never a crash, and nothing else in the app
 depends on this being set up.
+
+**Confirmed working end-to-end against a real Supabase project**: this
+checklist, followed exactly as written above, took a real Facebook
+account through the full "Continue with Facebook" button all the way to
+a new row in `auth.users` with `provider` correctly set to `facebook` —
+the one thing this sandbox could never exercise itself (no network path
+to a live Supabase project or Facebook's OAuth servers), so this is the
+first of the three providers verified against the real thing rather than
+just read against the SDKs' docs.
 
 ### Google Sign-In (native)
 
@@ -1068,11 +1078,14 @@ device data to show yet. Friends' "Send one link" card and the
 real invites go through the email lookup instead, and there's no
 prefilled-Create-flow-from-a-friend shortcut yet.
 
-Facebook/Apple sign-in is wired to real Supabase OAuth calls but needs
-each provider configured in your Supabase dashboard (and, for Apple,
-ideally replaced with the native `expo-apple-authentication` flow before
-shipping to the App Store) before tapping those buttons does anything
-but show an error. Google sign-in is wired natively
+Facebook sign-in has been confirmed end-to-end against a real Supabase
+project — see "Facebook Sign-In" above for the full setup checklist.
+Apple sign-in goes through the same generic Supabase OAuth call but
+still needs its own provider configured in your Supabase dashboard
+(and, for Apple specifically, ideally replaced with the native
+`expo-apple-authentication` flow before shipping to the App Store) —
+until then, tapping it does nothing but show an error. Google sign-in
+is wired natively
 (`@react-native-google-signin/google-signin` + `signInWithIdToken`) but
 needs three OAuth clients created in Google Cloud Console, one Info.plist
 edit in `app.json`, and a native rebuild before it does anything either
