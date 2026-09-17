@@ -26,7 +26,7 @@ async function requireUserId(): Promise<string> {
 }
 
 const CHALLENGE_COLUMNS =
-  'id, name, kind, created_by, duration_days, starts_at, ends_at, daily_goal_steps, scoring_method, head_start_days';
+  'id, name, kind, created_by, duration_days, starts_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi';
 
 interface ChallengeRow {
   id: string;
@@ -39,6 +39,7 @@ interface ChallengeRow {
   daily_goal_steps: number | null;
   scoring_method: Challenge['scoringMethod'];
   head_start_days: number | null;
+  distance_goal_mi: number | null;
 }
 
 interface ChallengeInviteRow {
@@ -59,6 +60,7 @@ function rowToChallenge(row: ChallengeRow): Challenge {
     dailyGoalSteps: row.daily_goal_steps,
     scoringMethod: row.scoring_method,
     headStartDays: row.head_start_days,
+    distanceGoalMi: row.distance_goal_mi,
   };
 }
 
@@ -162,6 +164,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     creatorRole,
     bots,
     headStartDays,
+    distanceGoalMi,
   }: CreateChallengeInput): Promise<Challenge> {
     const client = requireClient();
     const userId = await requireUserId();
@@ -180,6 +183,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         daily_goal_steps: dailyGoalSteps ?? null,
         scoring_method: scoringMethod ?? null,
         head_start_days: headStartDays ?? null,
+        distance_goal_mi: distanceGoalMi ?? null,
       })
       .select(CHALLENGE_COLUMNS)
       .single();
