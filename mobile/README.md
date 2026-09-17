@@ -129,6 +129,59 @@ slider in "Set the rules" is still purely decorative — it was before
 this pass too, and wiring it (delaying when the Hunted's log starts
 counting) is a separate follow-up.
 
+### Getting caught turns a Hunted participant into a Zombie
+
+`HuntRole` gained a third value: `'zombie'` (`src/challenges/types.ts`).
+It's a one-way transition, never assigned at creation — a Hunted
+participant becomes a Zombie once the Hunter's own cumulative total
+reaches theirs, and stays one for the rest of the challenge. The
+condition itself (`withHuntCatches`, `src/challenges/board.ts`) runs
+against whichever number the hunt is actually scored on (steps or
+distance, same as everywhere else in this file) and is deliberately
+simple: it's "the Hunter closed the whole gap from zero," not "the
+Hunter closed the Hunted's real head-start advantage" — the head-start
+slider mentioned just above is still decorative, so there's no real
+number yet for a catch condition to account for. Revisit this once that
+slider writes something.
+
+The trickier part was RLS, not the math: only a participant's *own* row
+is theirs to update (`0006_challenge_highlight.sql`'s policy), so the
+Hunter's client can never flip the Hunted's role directly — no new
+migration adds that, on purpose, since a "the Hunter can edit anyone
+else's row" policy is real attack surface for one line of gameplay logic.
+Instead, `ChallengeDetailScreen.tsx` has each Hunted participant's own
+client notice they've been caught (their computed board entry now reads
+`'zombie'`, but their stored `role` still says `'hunted'`) and persist it
+themselves via the new `ChallengesProvider.markCaught()` — the same
+"you write your own row" shape `recordProgress`/`setHighlighted` already
+use, just automatic instead of a button press. A bot has no client to do
+this from, so a caught bot's `'zombie'` status is never written anywhere
+— it's simply recomputed fresh every time `withHuntCatches` runs, the
+same way every other bot number in this app already is.
+
+`ChallengeDetailScreen`'s leaderboard shows a "Zombie" tag once caught
+(`HUNT_ROLE_LABEL`/`HUNT_ROLE_TAG_VARIANT`, `src/challenges/present.ts`).
+For a two-person hunt specifically, `HomeScreen.tsx`'s hero headline and
+`LiveHuntCard` both treat a catch as the hunt ending — "X caught you" or
+"You caught X," instead of an ongoing lead/behind readout — since with
+exactly one Hunter and one Hunted, being caught is the whole game. A hunt
+with more than one Hunted keeps going for whoever's left; only the
+caught person's own row changes, so the Hunter (and the leaderboard) can
+tell a Zombie apart from someone still being chased. There's no
+"Zombies join the Hunter's side" escalation — being caught here just
+means the chase for that person is over, not a new deliverable.
+
+Verified locally: a `withHuntCatches` unit check (day-0 zero/zero
+doesn't instantly catch anyone, a real gap does, ties count, an
+already-zombie row stays zombie even if its total climbs back past the
+Hunter's, multi-Hunted only catches whoever's actually been passed,
+distance-scored hunts ignore steps entirely) and, against a local
+throwaway Postgres, that the Hunter's own client cannot update the
+Hunted's `challenge_participants` row (0 rows affected) while the
+Hunted's own client, running the exact statement `markCaught()` sends,
+succeeds. Never exercised end-to-end against a real Supabase project or
+real device data.
+
 ### Device sync backfills the whole challenge, not just today
 
 `ChallengeDetailScreen.tsx`'s `syncFromDevice` (triggered on load and via

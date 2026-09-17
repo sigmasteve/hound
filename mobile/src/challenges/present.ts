@@ -1,7 +1,22 @@
 import { botToLeaderboardEntry, botToParticipant, daysElapsedFraction } from './botSimulation';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { TINT_A, TINT_N } from '../theme/tokens';
-import type { Challenge, ChallengeBot, LeaderboardEntry, Participant } from './types';
+import type { Challenge, ChallengeBot, HuntRole, LeaderboardEntry, Participant } from './types';
+
+// Shared by ChallengeDetailScreen's leaderboard — one place mapping a
+// HuntRole to what its <Tag> looks like, so a caught 'zombie' row doesn't
+// need its own bespoke ternary next to the existing hunter/hunted one.
+export const HUNT_ROLE_LABEL: Record<HuntRole, string> = {
+  hunter: 'Hunter',
+  hunted: 'Hunted',
+  zombie: 'Zombie',
+};
+
+export const HUNT_ROLE_TAG_VARIANT: Record<HuntRole, 'accent' | 'neutral' | 'outline'> = {
+  hunter: 'accent',
+  hunted: 'neutral',
+  zombie: 'outline',
+};
 
 // Turns a raw challenge + who's in it + what they've logged into the same
 // display shape src/data/sampleData.ts hand-authors for the sample

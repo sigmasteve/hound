@@ -58,3 +58,34 @@ export function buildBoard(
   ];
   return rows.sort((a, b) => (sortBy === 'distance' ? b.totalDistanceMi - a.totalDistanceMi : b.totalSteps - a.totalSteps));
 }
+
+// Once the Hunter's own cumulative total reaches a Hunted participant's,
+// that Hunted row displays as 'zombie' — caught, no longer being chased.
+// Doesn't yet account for the Hunted's head start (CreateScreen's
+// head-start slider is still purely decorative — see README "Hunter &
+// Hunted: real scoring and roles"), so this is "closed the whole gap
+// from zero," not "closed a real head-start advantage"; revisit once
+// that slider actually writes a number somewhere.
+//
+// A real participant's 'zombie' role, once it appears here, gets
+// persisted permanently by the caught person's own client (see
+// ChallengeDetailScreen's catch-detection effect and
+// ChallengesProvider.markCaught) — so for them this function is really
+// "notice it," not "decide it fresh every time." A bot has no client of
+// its own to persist anything through, so its 'zombie' status here is
+// simply recomputed from scratch on every call instead, the same way
+// every other bot number in this file already is.
+export function withHuntCatches(board: BoardEntry[], sortBy: 'steps' | 'distance'): BoardEntry[] {
+  const hunter = board.find((r) => r.role === 'hunter');
+  if (!hunter) return board;
+  const hunterMetric = sortBy === 'distance' ? hunter.totalDistanceMi : hunter.totalSteps;
+  return board.map((r) => {
+    if (r.role !== 'hunted') return r;
+    const metric = sortBy === 'distance' ? r.totalDistanceMi : r.totalSteps;
+    // `metric > 0` matters at the very start of a hunt, before anyone's
+    // logged anything: both totals are 0 there, and 0 <= 0 would
+    // otherwise catch every Hunted participant the instant the hunt is
+    // created.
+    return metric > 0 && metric <= hunterMetric ? { ...r, role: 'zombie' as const } : r;
+  });
+}

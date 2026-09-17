@@ -27,7 +27,7 @@ import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import { buildBoard, type BoardEntry } from '../challenges/board';
+import { buildBoard, withHuntCatches, type BoardEntry } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor } from '../challenges/scoring';
 import { ordinal } from '../challenges/present';
@@ -86,6 +86,15 @@ function heroCopy(primary: PrimaryChallenge, userId: string | null): { eyebrow: 
   const rival = board.find((r) => r.userId !== userId);
 
   if (challenge.kind === 'hunt' && board.length === 2 && me && rival) {
+    // Once the Hunted has been caught, the ongoing lead/behind framing
+    // below no longer means anything — a 1-on-1 hunt is over the moment
+    // either side is marked 'zombie' (see withHuntCatches).
+    if (me.role === 'zombie') {
+      return { eyebrow, headline: `${rival.name} caught you. The hunt's over.` };
+    }
+    if (rival.role === 'zombie') {
+      return { eyebrow, headline: `You caught ${rival.name}! The hunt's over.` };
+    }
     const { lead, unit, meTotal, rivalTotal } = huntLeadMetric(me, rival, challenge);
     if (meTotal === 0 && rivalTotal === 0) {
       return { eyebrow, headline: `${challenge.name} just started — no ${unit === 'mi' ? 'miles' : 'steps'} logged yet.` };
@@ -154,7 +163,9 @@ export function HomeScreen({
         supabaseChallengesProvider.getLeaderboard(active.id),
         supabaseChallengesProvider.listBots(active.id),
       ]);
-      const board = buildBoard(participants, leaderboard, bots, daysElapsedFraction(active), boardSortFor(active));
+      const sortBy = boardSortFor(active);
+      const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(active), sortBy);
+      const board = active.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy) : rawBoard;
       if (!cancelled) setPrimary({ challenge: active, board });
     })()
       .catch(() => {
@@ -348,11 +359,15 @@ function LiveHuntCard({
     challenge.durationDays,
     Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
   );
+  // Once either side is 'zombie' the chase is over — the marker gap and
+  // lead/behind readout below stop meaning anything the moment that's
+  // true, so both collapse to "caught" instead of stale numbers.
+  const caught = me.role === 'zombie' || rival.role === 'zombie';
   const { lead, unit, rivalTotal } = huntLeadMetric(me, rival, challenge);
   // Same "readable gap, not a literal scale" idea in either unit — 1 mi
   // moves the marker 2 points, 250 steps moves it 1 point, both clamped
   // to the same readable range.
-  const gapPct = Math.min(40, Math.max(4, Math.abs(lead) * (unit === 'mi' ? 2 : 1 / 250)));
+  const gapPct = caught ? 0 : Math.min(40, Math.max(4, Math.abs(lead) * (unit === 'mi' ? 2 : 1 / 250)));
   const meLeft = lead >= 0 ? 78 : 78 - gapPct;
   const rivalLeft = lead >= 0 ? 78 - gapPct : 78;
 
@@ -361,7 +376,7 @@ function LiveHuntCard({
       <View style={styles.huntHeader}>
         <PawPrintIcon size={15} color={color.accent300} weight="fill" />
         <Text style={styles.huntTitle}>{challenge.name}</Text>
-        <Tag label={`day ${daysElapsed} / ${challenge.durationDays}`} variant="outline" />
+        <Tag label={caught ? 'Caught' : `day ${daysElapsed} / ${challenge.durationDays}`} variant="outline" />
       </View>
       <View style={styles.huntTrack}>
         <View style={styles.huntTrackLine} />
@@ -373,13 +388,26 @@ function LiveHuntCard({
         </View>
       </View>
       <View style={styles.huntStatsRow}>
-        <Text style={styles.huntLead}>
-          {formatLead(Math.abs(lead), unit)}
-          <Text style={styles.huntLeadSuffix}> {lead >= 0 ? 'lead' : 'behind'}</Text>
-        </Text>
-        <Text style={styles.huntNote}>
-          {rival.name} has logged {formatLead(rivalTotal, unit)} so far.
-        </Text>
+        {caught ? (
+          <>
+            <Text style={styles.huntLead}>{me.role === 'zombie' ? 'Caught' : 'Got them!'}</Text>
+            <Text style={styles.huntNote}>
+              {me.role === 'zombie'
+                ? `${rival.name} caught you — the hunt's over.`
+                : `You caught ${rival.name} — the hunt's over.`}
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.huntLead}>
+              {formatLead(Math.abs(lead), unit)}
+              <Text style={styles.huntLeadSuffix}> {lead >= 0 ? 'lead' : 'behind'}</Text>
+            </Text>
+            <Text style={styles.huntNote}>
+              {rival.name} has logged {formatLead(rivalTotal, unit)} so far.
+            </Text>
+          </>
+        )}
       </View>
       <Button label="See the tally" variant="primary" small onPress={onOpen} />
     </Card>
