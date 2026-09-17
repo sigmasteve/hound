@@ -627,6 +627,35 @@ existing), joining removes the invite and adds a real participant row,
 and an uninvolved third party can neither see nor delete someone else's
 invite. Never verified against a real Supabase project.
 
+The Create wizard's own "Bring friends" step (step 3) had the exact same
+"looks real, isn't" problem `ChallengesScreen`'s Priya card had: it
+listed `sampleData.ts`'s hardcoded `FRIENDS`, and tapping one to "invite"
+them just toggled a local checkbox that `start()` never read — a brand
+new user picking real people they know off a fake list, with taps that
+did nothing either way. It now lists real accepted friends
+(`supabaseFriendsProvider.listFriends()`, filtered to `status ===
+'accepted'`, same as `ChallengeDetailScreen`'s own invite card), with the
+same honest empty state ("Add friends from the Friends tab, then invite
+them here.") every other real-data screen this session settled on rather
+than falling back to `FRIENDS`. Picking someone now does something real:
+once `createChallenge()` returns, `start()` calls
+`inviteFriendToChallenge(created.id, friendUserId)` for each selected
+friend — the exact same call `ChallengeDetailScreen`'s "Invite a friend"
+card makes after the fact, just fired immediately instead of on a later
+visit. Deliberately `Promise.allSettled`, not `Promise.all`: the
+challenge itself has already saved successfully by that point, so one
+bad invite shouldn't surface as "could not save that challenge."
+
+A hunt's "Who's the Hunter?" picker still only offers bots, not real
+friends — unchanged by this fix, and already documented above ("Hunter
+& Hunted: real scoring and roles") as its own, separate limitation: a
+role has to be assigned before the invitee has even accepted, which
+this pass didn't attempt to solve. The static `hound.app/j/hunt-4kq9`
+"Copy invite link" box on this same step is also still decorative —
+narrower scope than what was actually asked for here, but worth naming
+rather than leaving it looking finished by association now that the
+list right above it is real.
+
 ### Login reminders: nudging people who haven't opened the app today
 
 `0010_login_reminders.sql` adds what the rest of this feature is built on:
