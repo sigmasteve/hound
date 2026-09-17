@@ -73,7 +73,7 @@ export function toChallengeCard(
   // the moment there's nobody left to chase, however many scheduled days
   // remain; anything else just runs out its clock.
   const sortBy = boardSortFor(challenge);
-  const board = withHuntCatches(buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy), sortBy);
+  const board = withHuntCatches(buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy), sortBy, challenge);
   const finished = isChallengeFinished(challenge, board);
 
   return {

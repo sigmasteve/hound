@@ -41,7 +41,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const [draftName, setDraftName] = useState('');
   const [headStart, setHeadStart] = useState(2);
   const [length, setLength] = useState('21');
-  const [scoringMethod, setScoringMethod] = useState<ScoringMethod>('gps_distance');
+  const [scoringMethod, setScoringMethod] = useState<ScoringMethod>('device_steps');
   const [invited, setInvited] = useState<string[]>([]);
   const [selectedBots, setSelectedBots] = useState<string[]>([]);
   // 'me' or a BOT_PRESETS id — the one Hunter; every other selected bot
@@ -92,6 +92,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
           fitnessLevel: b.fitnessLevel,
           role: roleFor(b.id),
         })),
+        headStartDays: isHunt ? headStart : undefined,
       });
       onFinish();
     } catch (e) {

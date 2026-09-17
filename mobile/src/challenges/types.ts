@@ -27,6 +27,11 @@ export interface Challenge {
   endsAt: string;
   dailyGoalSteps: number | null;
   scoringMethod: ScoringMethod | null;
+  // Only meaningful for kind 'hunt': how many days the Hunted gets to log
+  // alone before the Hunter's own total starts counting toward a catch
+  // (see src/challenges/board.ts's withHuntCatches) — null for every
+  // other kind, and for a hunt created before this existed.
+  headStartDays: number | null;
 }
 
 export interface LeaderboardEntry {
@@ -85,6 +90,8 @@ export interface CreateChallengeInput {
   // are assigned a role at all should be 'hunted'.
   creatorRole?: HuntRole;
   bots?: { name: string; fitnessLevel: BotFitnessLevel; role?: HuntRole }[];
+  // Only meaningful for kind 'hunt' — see Challenge.headStartDays.
+  headStartDays?: number;
 }
 
 export interface ChallengesProvider {

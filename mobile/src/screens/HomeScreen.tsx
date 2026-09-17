@@ -27,7 +27,7 @@ import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import { buildBoard, isChallengeFinished, withHuntCatches, type BoardEntry } from '../challenges/board';
+import { buildBoard, hasHeadStartElapsed, isChallengeFinished, withHuntCatches, type BoardEntry } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor } from '../challenges/scoring';
 import { ordinal } from '../challenges/present';
@@ -98,6 +98,19 @@ function heroCopy(primary: PrimaryChallenge, userId: string | null): { eyebrow: 
     }
     if (rival.role === 'zombie') {
       return { eyebrow, headline: `You caught ${rival.name}! The hunt's over.` };
+    }
+    if (!finished && !hasHeadStartElapsed(challenge)) {
+      // The Hunter's real, already-logged total still exists during head
+      // start — it just doesn't count toward a catch yet (see
+      // withHuntCatches) — so this replaces the lead/behind framing below
+      // rather than showing a number that would otherwise read as an
+      // ongoing race nobody's actually allowed to close yet.
+      const daysLeft = Math.max(1, Math.ceil((challenge.headStartDays ?? 0) - daysElapsedFraction(challenge)));
+      const dayWord = daysLeft === 1 ? 'day' : 'days';
+      if (me.role === 'hunter') {
+        return { eyebrow, headline: `${rival.name} has a ${daysLeft}-${dayWord} head start left.` };
+      }
+      return { eyebrow, headline: `Your head start ends in ${daysLeft} ${dayWord} — log while you can.` };
     }
     if (!finished) {
       const { lead, unit, meTotal, rivalTotal } = huntLeadMetric(me, rival, challenge);
@@ -187,7 +200,7 @@ export function HomeScreen({
       ]);
       const sortBy = boardSortFor(active);
       const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(active), sortBy);
-      const board = active.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy) : rawBoard;
+      const board = active.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy, active) : rawBoard;
       if (!cancelled) setPrimary({ challenge: active, board });
     })()
       .catch(() => {
