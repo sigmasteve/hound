@@ -106,7 +106,10 @@ minute) without a backend to keep in sync.
 CreateScreen's "Set the rules" step for a hunt has a real, functional
 "What counts" picker now (it used to be two `RadioPill`s that never did
 anything): **GPS distance from runs & walks**, **any logged workout**, or
-**device step count**, saved as `challenges.scoring_method`. A hunt also
+**device step count** — the last one defaults selected now, since it's
+the only option that needs nothing from the creator beyond having
+HealthKit/Health Connect connected (the other two need workouts actually
+logged that day) — saved as `challenges.scoring_method`. A hunt also
 always has exactly one Hunter and one or more Hunted — "Bring friends"
 step 3 has a "Who's the Hunter?" picker (you, or any bot you've added;
 real friend invites aren't wired to a role, same limitation as
@@ -124,10 +127,24 @@ still slip through or be excluded incorrectly, a real limitation, not a
 hidden bug. Either way `recordProgress()` is called with `steps: 0` and
 the summed distance, so the leaderboard (`src/challenges/board.ts`'s
 `buildBoard`) sorts by distance instead of steps for these — everyone's
-step count would otherwise read 0 and rank arbitrarily. The head-start
-slider in "Set the rules" is still purely decorative — it was before
-this pass too, and wiring it (delaying when the Hunted's log starts
-counting) is a separate follow-up.
+step count would otherwise read 0 and rank arbitrarily.
+
+The head-start slider in "Set the rules" is real now too, saved as
+`challenges.head_start_days` (`0011_hunt_head_start.sql`). "Real" here
+means specifically: the Hunter's own total — which still auto-syncs and
+displays normally the whole time, nothing about it is hidden or delayed
+— simply doesn't count toward a catch until `daysElapsedFraction(challenge)`
+(the same fractional-day clock bots use) reaches `head_start_days`
+(`hasHeadStartElapsed`, `src/challenges/board.ts`). Once it does,
+`withHuntCatches` runs exactly as it did before this. `HomeScreen`'s hero
+card shows a distinct "N-day head start left" headline instead of an
+ongoing lead/behind readout while it's running (since showing "X mi
+ahead" during a phase where getting caught is impossible by design would
+read as an active race that isn't one yet), and `ChallengeDetailScreen`'s
+leaderboard gets a matching note. A hunt created before this migration,
+or with no explicit head start, has `head_start_days: null`, which
+`hasHeadStartElapsed` treats as "already elapsed" — the exact same
+behavior as before this pass.
 
 ### Getting caught turns a Hunted participant into a Zombie
 
@@ -137,12 +154,17 @@ participant becomes a Zombie once the Hunter's own cumulative total
 reaches theirs, and stays one for the rest of the challenge. The
 condition itself (`withHuntCatches`, `src/challenges/board.ts`) runs
 against whichever number the hunt is actually scored on (steps or
-distance, same as everywhere else in this file) and is deliberately
-simple: it's "the Hunter closed the whole gap from zero," not "the
-Hunter closed the Hunted's real head-start advantage" — the head-start
-slider mentioned just above is still decorative, so there's no real
-number yet for a catch condition to account for. Revisit this once that
-slider writes something.
+distance, same as everywhere else in this file) and now does respect the
+Hunted's head start (see just above) — nobody can be caught until it
+runs out. It's still a hard on/off gate rather than a running credit,
+though: once the head start elapses, catching someone is still just "the
+Hunter's total reached theirs from that point on," not "the Hunter's
+total, plus whatever bonus offsets the days they weren't allowed to
+catch up yet." A Hunter who was ready to pounce the moment the gate
+opens isn't worse off than one who started slow, in other words — this
+was true before head start was wired in too, so nothing regressed, but
+it's worth being explicit that "head start" here means "a delay," not
+"a handicap that persists after it's over."
 
 The trickier part was RLS, not the math: only a participant's *own* row
 is theirs to update (`0006_challenge_highlight.sql`'s policy), so the
@@ -194,8 +216,13 @@ Verified locally: a `withHuntCatches` unit check (day-0 zero/zero
 doesn't instantly catch anyone, a real gap does, ties count, an
 already-zombie row stays zombie even if its total climbs back past the
 Hunter's, multi-Hunted only catches whoever's actually been passed,
-distance-scored hunts ignore steps entirely) and, against a local
-throwaway Postgres, that the Hunter's own client cannot update the
+distance-scored hunts ignore steps entirely, nobody is caught while the
+head start is still running even with a real gap already open, catches
+resume the moment it elapses, and `head_start_days: null` behaves
+exactly like before head start existed) and, against a local throwaway
+Postgres, that the new `head_start_days` column inserts/reads back
+under the existing insert/select policies with no new RLS needed, and
+that the Hunter's own client cannot update the
 Hunted's `challenge_participants` row (0 rows affected) while the
 Hunted's own client, running the exact statement `markCaught()` sends,
 succeeds. A `toChallengeCard` unit check separately covers `finished`

@@ -13,7 +13,7 @@ import { color, font, TINT_A, TINT_N } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import { buildBoard, withHuntCatches } from '../challenges/board';
+import { buildBoard, hasHeadStartElapsed, withHuntCatches } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor, usesDeviceSteps, usesWorkoutDistance } from '../challenges/scoring';
 import { HUNT_ROLE_LABEL, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
@@ -108,7 +108,7 @@ export function ChallengeDetailScreen({
     if (mine?.role !== 'hunted') return;
     const sortBy = boardSortFor(challenge);
     const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy);
-    const caught = withHuntCatches(rawBoard, sortBy).find((r) => r.userId === user.id);
+    const caught = withHuntCatches(rawBoard, sortBy, challenge).find((r) => r.userId === user.id);
     if (caught?.role === 'zombie') {
       supabaseChallengesProvider.markCaught(challenge.id).then(load).catch(() => {});
     }
@@ -325,10 +325,17 @@ export function ChallengeDetailScreen({
   const scoredByDistance = usesWorkoutDistance(challenge);
   const sortBy = boardSortFor(challenge);
   const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy);
-  const board = (challenge.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy) : rawBoard).map((row) => ({
+  const board = (challenge.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy, challenge) : rawBoard).map((row) => ({
     ...row,
     name: row.userId === user?.id ? 'You' : row.name,
   }));
+
+  // Days left in the Hunted's head start, for the leaderboard note below
+  // — 0/undefined once it's run out or this hunt never had one.
+  const headStartDaysLeft =
+    challenge.kind === 'hunt' && !hasHeadStartElapsed(challenge)
+      ? Math.max(1, Math.ceil((challenge.headStartDays ?? 0) - daysElapsedFraction(challenge)))
+      : 0;
 
   const syncStatusText = deviceSyncing
     ? 'Syncing…'
@@ -385,6 +392,12 @@ export function ChallengeDetailScreen({
           <TrophyIcon size={16} color={color.accent} />
           <Text style={text.h4}>Leaderboard</Text>
         </View>
+        {headStartDaysLeft > 0 && (
+          <Text style={styles.footNote}>
+            Head start: the Hunter&rsquo;s total won&rsquo;t count toward a catch for{' '}
+            {headStartDaysLeft} more {headStartDaysLeft === 1 ? 'day' : 'days'}.
+          </Text>
+        )}
         {board.map((row, i) => (
           <View key={row.userId} style={styles.boardRow}>
             <Text style={styles.boardRank}>{i + 1}</Text>

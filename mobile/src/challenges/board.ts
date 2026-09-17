@@ -1,4 +1,4 @@
-import { botInitials, simulateBotSteps } from './botSimulation';
+import { botInitials, daysElapsedFraction, simulateBotSteps } from './botSimulation';
 import type { Challenge, ChallengeBot, HuntRole, LeaderboardEntry, Participant } from './types';
 
 export interface BoardEntry {
@@ -59,13 +59,24 @@ export function buildBoard(
   return rows.sort((a, b) => (sortBy === 'distance' ? b.totalDistanceMi - a.totalDistanceMi : b.totalSteps - a.totalSteps));
 }
 
+// True once the Hunted's head start (challenge.headStartDays, set at
+// creation — see CreateScreen's "Head start for the hunted" slider) has
+// run out and the Hunter's own total starts counting toward a catch. A
+// hunt created before this existed, or a non-hunt challenge, has
+// headStartDays === null, which is always "already elapsed" — there was
+// never a head start to wait out.
+export function hasHeadStartElapsed(challenge: Challenge): boolean {
+  return daysElapsedFraction(challenge) >= (challenge.headStartDays ?? 0);
+}
+
 // Once the Hunter's own cumulative total reaches a Hunted participant's,
 // that Hunted row displays as 'zombie' — caught, no longer being chased.
-// Doesn't yet account for the Hunted's head start (CreateScreen's
-// head-start slider is still purely decorative — see README "Hunter &
-// Hunted: real scoring and roles"), so this is "closed the whole gap
-// from zero," not "closed a real head-start advantage"; revisit once
-// that slider actually writes a number somewhere.
+// Nobody can be caught before the Hunted's head start runs out
+// (hasHeadStartElapsed) — the Hunter's real, already-logged total still
+// displays normally everywhere else (this never fabricates or hides a
+// real number), it just doesn't count toward a catch yet, matching
+// CreateScreen's own description: "the hunted logs alone... then the
+// hunter starts tallying."
 //
 // A real participant's 'zombie' role, once it appears here, gets
 // persisted permanently by the caught person's own client (see
@@ -75,7 +86,8 @@ export function buildBoard(
 // its own to persist anything through, so its 'zombie' status here is
 // simply recomputed from scratch on every call instead, the same way
 // every other bot number in this file already is.
-export function withHuntCatches(board: BoardEntry[], sortBy: 'steps' | 'distance'): BoardEntry[] {
+export function withHuntCatches(board: BoardEntry[], sortBy: 'steps' | 'distance', challenge: Challenge): BoardEntry[] {
+  if (!hasHeadStartElapsed(challenge)) return board;
   const hunter = board.find((r) => r.role === 'hunter');
   if (!hunter) return board;
   const hunterMetric = sortBy === 'distance' ? hunter.totalDistanceMi : hunter.totalSteps;
