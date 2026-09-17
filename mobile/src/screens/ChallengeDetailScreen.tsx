@@ -13,7 +13,13 @@ import { color, font, TINT_A, TINT_N } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import { buildBoard, hasHeadStartElapsed, headStartEndDayKey, huntEffectiveMetric, withHuntCatches } from '../challenges/board';
+import {
+  buildBoard,
+  headStartDaysLeft as computeHeadStartDaysLeft,
+  headStartEndDayKey,
+  huntEffectiveMetric,
+  withHuntCatches,
+} from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor, usesDeviceSteps, usesWorkoutDistance } from '../challenges/scoring';
 import { HUNT_ROLE_LABEL, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
@@ -359,11 +365,8 @@ export function ChallengeDetailScreen({
   }));
 
   // Days left in the Hunted's head start, for the leaderboard note below
-  // — 0/undefined once it's run out or this hunt never had one.
-  const headStartDaysLeft =
-    challenge.kind === 'hunt' && !hasHeadStartElapsed(challenge)
-      ? Math.max(1, Math.ceil((challenge.headStartDays ?? 0) - daysElapsedFraction(challenge)))
-      : 0;
+  // — 0 once it's run out or this hunt never had one.
+  const headStartDaysLeft = computeHeadStartDaysLeft(challenge);
 
   // Once the head start has run out, whatever the Hunter logged during
   // it stops counting toward catching up (see huntEffectiveMetric) — a

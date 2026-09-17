@@ -100,6 +100,18 @@ export function hasHeadStartElapsed(challenge: Challenge): boolean {
   return daysElapsedFraction(challenge) >= (challenge.headStartDays ?? 0);
 }
 
+// Whole days left before a hunt's head start elapses, or 0 once it has
+// (or if there was never one to begin with, or this isn't a hunt) — the
+// one place this ceiling/clamp math lives, so ChallengeDetailScreen's
+// leaderboard note and the Challenges list's own row badge (via
+// toChallengeCard) can't drift out of sync the way the "board.length
+// === 2" concluded-hunt check once did between two separate copies of
+// similar logic.
+export function headStartDaysLeft(challenge: Challenge): number {
+  if (challenge.kind !== 'hunt' || hasHeadStartElapsed(challenge)) return 0;
+  return Math.max(1, Math.ceil((challenge.headStartDays ?? 0) - daysElapsedFraction(challenge)));
+}
+
 // The calendar day the head start ends on — the one day a caller needs
 // in order to fetch "everyone's total as of head start ending" via
 // ChallengesProvider.getLeaderboard(challengeId, headStartEndDayKey(challenge))

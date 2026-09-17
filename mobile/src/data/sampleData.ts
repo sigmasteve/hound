@@ -85,6 +85,12 @@ export interface ChallengeCard {
   // leave this unset; ChallengesScreen's hardcoded "Finished" row is
   // separate, static JSX, not one of these.
   finished?: boolean;
+  // Only ever set (by toChallengeCard), and only nonzero, for a hunt
+  // whose head start hasn't run out yet (src/challenges/board.ts's
+  // headStartDaysLeft) — ChallengesScreen's active-row badge is the only
+  // thing that reads this. Unset/0 for every other kind, a hunt with no
+  // head start, or one whose head start has already elapsed.
+  headStartDaysLeft?: number;
 }
 
 export const CHALLENGES: ChallengeCard[] = [
