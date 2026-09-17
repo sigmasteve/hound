@@ -608,6 +608,54 @@ here — that's a follow-up, not done in this pass (see "What's not
 implemented"). **Google uses a different, better path** — see "Google
 Sign-In (native)" below.
 
+### Facebook Sign-In
+
+There's no separate "create account with Facebook" flow — the one
+"Continue with Facebook" button on `WelcomeScreen.tsx` does both:
+`signInWithOAuth` creates the `auth.users` row (and, via the trigger in
+`0001_challenges_schema.sql`, the matching `profiles` row) the first time
+a given Facebook account completes it, then signs that same session in
+on every visit after — the exact behavior the Google and Apple buttons
+already have. All of it is code-complete already; what's left is entirely
+in two consoles you have to click through yourself, since both need
+accounts/credentials Claude has no access to:
+
+1. [Meta for Developers](https://developers.facebook.com/apps) → **Create
+   App** → any use case that includes **Facebook Login** (e.g.
+   "Authenticate and request data from users with Facebook Login") →
+   add the **Facebook Login** product to it.
+2. In that app's **Facebook Login → Settings**, add one **Valid OAuth
+   Redirect URI**: `https://<your-project-ref>.supabase.co/auth/v1/callback`
+   — Supabase's own hosted callback, not this app's `hound://` scheme.
+   Facebook redirects here first; Supabase is the one that redirects back
+   into the app afterward (next step), which is why this app's own scheme
+   never needs to be registered with Facebook at all. `<your-project-ref>`
+   is the subdomain in `EXPO_PUBLIC_SUPABASE_URL` (`.env`).
+3. App **Settings → Basic**: copy the **App ID** and **App Secret**.
+4. Supabase dashboard → **Authentication → Providers → Facebook**: paste
+   those two in, enable.
+5. Supabase dashboard → **Authentication → URL Configuration → Redirect
+   URLs**: add `hound://auth/callback` (`app.json`'s `scheme` +
+   `signInWithWebOAuth`'s `Linking.createURL('auth/callback')` in
+   `supabaseAuth.ts`) — Supabase refuses to bounce back into any
+   `redirectTo` that isn't on this allowlist. Testing in Expo Go or a dev
+   client instead of a standalone build needs its own `exp://…` redirect
+   added here too (printed by the dev server at startup); that one
+   changes per machine/tunnel, so it's not worth hardcoding into these
+   steps as a fixed value.
+6. While the Facebook app is in **development mode** (the default for a
+   brand new app), Facebook Login only works for that app's own admins,
+   developers, and testers (**App roles** in the developer console) —
+   add any account you want to test with there, or submit the app for
+   Meta's App Review (asking for the `public_profile`/`email`
+   permissions this flow uses) before real users outside your team can
+   use it.
+
+Until steps 1-5 are done, tapping "Continue with Facebook" fails with
+the same clear "is this provider enabled in Supabase?" error every other
+unconfigured provider shows — never a crash, and nothing else in the app
+depends on this being set up.
+
 ### Google Sign-In (native)
 
 Google's button uses the real native Google account picker
