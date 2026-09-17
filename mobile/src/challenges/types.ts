@@ -17,6 +17,11 @@ export type HuntRole = 'hunter' | 'hunted' | 'zombie';
 // walk).
 export type ScoringMethod = 'gps_distance' | 'any_workout' | 'device_steps';
 
+// Only meaningful for kind 'distance': which number the group's shared
+// target is measured in — see Challenge.distanceGoalMi/distanceGoalSteps
+// and CreateScreen.tsx's unit picker.
+export type DistanceGoalUnit = 'miles' | 'steps';
+
 export interface Challenge {
   id: string;
   name: string;
@@ -32,12 +37,16 @@ export interface Challenge {
   // (see src/challenges/board.ts's withHuntCatches) — null for every
   // other kind, and for a hunt created before this existed.
   headStartDays: number | null;
-  // Only meaningful for kind 'distance': the shared target (in miles) the
-  // whole group is trying to cover together — see toChallengeCard's
-  // groupProgress and ChallengeDetailScreen's group-progress card. Null
-  // for every other kind, and for a distance pool created before this
-  // existed.
+  // Only meaningful for kind 'distance': the shared target the whole
+  // group is trying to cover together, and which unit it's measured in
+  // — see toChallengeCard's group-progress stat and
+  // ChallengeDetailScreen's "Group progress" card. `distanceGoalUnit`
+  // null means "miles" (every pool created before the unit picker
+  // existed only ever set distanceGoalMi, in miles); exactly one of
+  // distanceGoalMi/distanceGoalSteps is ever set for a given pool.
   distanceGoalMi: number | null;
+  distanceGoalSteps: number | null;
+  distanceGoalUnit: DistanceGoalUnit | null;
 }
 
 export interface LeaderboardEntry {
@@ -98,8 +107,12 @@ export interface CreateChallengeInput {
   bots?: { name: string; fitnessLevel: BotFitnessLevel; role?: HuntRole }[];
   // Only meaningful for kind 'hunt' — see Challenge.headStartDays.
   headStartDays?: number;
-  // Only meaningful for kind 'distance' — see Challenge.distanceGoalMi.
+  // Only meaningful for kind 'distance' — see Challenge.distanceGoalMi /
+  // distanceGoalSteps / distanceGoalUnit. Set exactly one of
+  // distanceGoalMi/distanceGoalSteps, matching distanceGoalUnit.
   distanceGoalMi?: number;
+  distanceGoalSteps?: number;
+  distanceGoalUnit?: DistanceGoalUnit;
 }
 
 export interface ChallengesProvider {

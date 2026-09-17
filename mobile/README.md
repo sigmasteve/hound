@@ -175,44 +175,68 @@ created before this migration) gets a baseline of 0 for everyone,
 which — since `huntEffectiveMetric` only ever subtracts it from the
 Hunter — is exactly the original, pre-head-start behavior.
 
-### Distance Pool: a real group target
+### Distance Pool: a real group target, in miles or steps
 
 `CHALLENGE_TYPES` describes "Distance Pool" as "Add every mile the group
 covers toward one shared target" — but CreateScreen's "Set the rules"
 step had no field to actually set that target, the same "decorative
 slider" gap the head-start one had before `0011_hunt_head_start.sql`.
-Same fix, same pattern: a "Group target distance" slider (10–1000 mi,
-step 10) that only shows for `draftType === 'distance'`, saved as
-`challenges.distance_goal_mi` (`0012_distance_pool_goal.sql`, nullable —
-a distance pool created before this migration just has none).
+Same fix, same pattern: a "Group target" block that only shows for
+`draftType === 'distance'`, saved as `challenges.distance_goal_mi`
+(`0012_distance_pool_goal.sql`, nullable — a distance pool created
+before that migration just has none).
+
+The target can be set in **miles** (10–1000, step 10) or **steps**
+(50,000–2,000,000, step 50,000) — most people know their daily step
+count better than their mileage — via a `SegmentedControl` and
+`challenges.distance_goal_unit`/`distance_goal_steps`
+(`0013_distance_pool_unit.sql`, both nullable and purely additive; a
+pool with `distance_goal_unit` unset, from before this second
+migration, is read as `'miles'` in `rowToChallenge` — exactly what a
+lone `distance_goal_mi` already meant on its own).
 
 Unlike every other kind, a distance pool with a goal set isn't ranked at
 all — `toChallengeCard` (`src/challenges/present.ts`) sums every
-participant's and bot's `totalDistanceMi` into one group total and shows
-that against the goal (`"142.3" / "of 500 mi goal"`) instead of this
+participant's and bot's total (steps or miles, whichever the goal is
+in) into one group total and shows that against the goal (`"142.3" / "of
+500 mi goal"` or `"320,000" / "of 500,000 steps goal"`) instead of this
 user's own rank, on both the Challenges list card and a dedicated "Group
 progress" card (with a real `<ProgressBar>`) on
-`ChallengeDetailScreen.tsx`. A distance pool with no goal set falls back
-to the exact same per-person rank framing every other kind already had.
+`ChallengeDetailScreen.tsx`. A distance pool with no goal set at all
+falls back to the exact same per-person rank framing every other kind
+already had.
 
-Worth flagging rather than quietly working around: a distance pool's
-board is still sorted by **steps** (`boardSortFor`/`usesWorkoutDistance`
-in `src/challenges/scoring.ts` only special-case `kind === 'hunt'`), and
-still uses the manual "Log your progress" form rather than
-auto-syncing — both pre-existing gaps this fix didn't touch. They don't
-affect the group-total math above (that sums real `totalDistanceMi`
-regardless of what the board itself sorts by), but a distance pool's own
-per-person leaderboard rows underneath the group-progress card rank by
-whatever steps someone typed in, not by miles — a real, separate
-inconsistency for a kind that's supposed to be entirely about distance.
+The unit picker also closed a loose end the first pass of this feature
+left open and flagged rather than quietly worked around: a miles-goal
+pool's own leaderboard used to rank by steps regardless
+(`boardSortFor`/`usesWorkoutDistance` only special-cased `kind ===
+'hunt'`), a real inconsistency for a kind that's supposed to be
+entirely about distance. New `usesDistanceRanking`
+(`src/challenges/scoring.ts`) folds a miles-goal distance pool into the
+same "rank by distance" bucket a workout-distance hunt already used —
+requiring an actual goal value, not just the unit flag, so a pool with
+no goal at all still correctly ranks by steps like before. A steps-goal
+pool was always correct here (steps *is* its ranking metric) and needed
+no change. `ChallengeDetailScreen.tsx`'s own `scoredByDistance` (which
+decides whether leaderboard rows show "X mi" or "X steps") now reads
+through the same function, so the per-row units always match what the
+group-progress card above them is measuring. Still unchanged, and still
+a real, separate gap: a distance pool of either unit still uses the
+manual "Log your progress" form rather than auto-syncing from device
+data — that one's untouched by either pass of this feature.
 
-Verified locally: a `toChallengeCard` unit check (a set goal sums every
-participant's miles into the group total and labels it with the real
-goal; no goal set falls back to the old per-person rank framing exactly
-as before; a non-distance kind with `distanceGoalMi` somehow set is never
-misread as a group-goal card) and, against a local throwaway Postgres,
-that `distance_goal_mi` inserts and reads back under the existing
-insert/select policies with no new RLS needed.
+Verified locally: a `toChallengeCard` unit check (a miles goal sums
+every participant's miles into the group total and labels it with the
+real goal; a steps goal does the same with steps; no goal set falls
+back to the old per-person rank framing exactly as before; a
+non-distance kind with `distanceGoalMi` somehow set is never misread as
+a group-goal card) plus a `boardSortFor`/`usesDistanceRanking` check (a
+miles-goal pool ranks by distance; a steps-goal pool, and a pool with no
+goal at all, still rank by steps) — and, against a local throwaway
+Postgres, that `distance_goal_mi`/`distance_goal_steps`/`distance_goal_unit`
+insert and read back correctly under the existing insert/select
+policies with no new RLS needed, and that the check constraint on
+`distance_goal_unit` rejects anything other than `'miles'`/`'steps'`.
 
 ### Getting caught turns a Hunted participant into a Zombie
 

@@ -22,7 +22,7 @@ import {
   withHuntCatches,
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
-import { boardSortFor, usesDeviceSteps, usesWorkoutDistance } from '../challenges/scoring';
+import { boardSortFor, usesDeviceSteps, usesDistanceRanking, usesWorkoutDistance } from '../challenges/scoring';
 import { HUNT_ROLE_LABEL, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
@@ -349,7 +349,7 @@ export function ChallengeDetailScreen({
 
   const myHighlighted = participants.find((p) => p.userId === user?.id)?.highlighted ?? false;
 
-  const scoredByDistance = usesWorkoutDistance(challenge);
+  const scoredByDistance = usesDistanceRanking(challenge);
   const sortBy = boardSortFor(challenge);
   const rawBoard = buildBoard(
     participants,
@@ -403,11 +403,20 @@ export function ChallengeDetailScreen({
     (f) => f.status === 'accepted' && !participants.some((p) => p.userId === f.userId),
   );
 
-  // A distance pool isn't ranked at all — everyone's miles add up toward
-  // one shared target (see CreateScreen.tsx's "Group target distance"
-  // slider), so this reads as the group's combined progress rather than
-  // who's ahead of whom.
-  const groupTotalMi = board.reduce((sum, r) => sum + r.totalDistanceMi, 0);
+  // A distance pool isn't ranked at all — everyone's steps or miles
+  // (whichever unit its creator picked — see CreateScreen.tsx's "Group
+  // target" picker) add up toward one shared target, so this reads as
+  // the group's combined progress rather than who's ahead of whom.
+  const distanceGoal =
+    challenge.kind === 'distance'
+      ? challenge.distanceGoalUnit === 'steps'
+        ? challenge.distanceGoalSteps
+        : challenge.distanceGoalMi
+      : null;
+  const groupTotal = board.reduce(
+    (sum, r) => sum + (challenge.distanceGoalUnit === 'steps' ? r.totalSteps : r.totalDistanceMi),
+    0,
+  );
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
@@ -440,22 +449,27 @@ export function ChallengeDetailScreen({
         onChange={togglingHighlight ? () => {} : toggleHighlight}
       />
 
-      {challenge.kind === 'distance' && challenge.distanceGoalMi && (
+      {distanceGoal && (
         <Card style={{ gap: 10 }} elevated={false}>
           <Text style={text.h4}>Group progress</Text>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-            <Text style={styles.groupTotal}>{groupTotalMi.toFixed(1)} mi</Text>
-            <Text style={styles.footNote}>of {challenge.distanceGoalMi} mi goal</Text>
+            <Text style={styles.groupTotal}>
+              {challenge.distanceGoalUnit === 'steps' ? groupTotal.toLocaleString() : groupTotal.toFixed(1) + ' mi'}
+            </Text>
+            <Text style={styles.footNote}>
+              of {challenge.distanceGoalUnit === 'steps' ? distanceGoal.toLocaleString() : `${distanceGoal} mi`} goal
+            </Text>
           </View>
           <ProgressBar
-            pct={Math.min(100, (groupTotalMi / challenge.distanceGoalMi) * 100)}
+            pct={Math.min(100, (groupTotal / distanceGoal) * 100)}
             fillColor={color.accent}
             height={6}
             trackColor={color.neutral900}
           />
           <Text style={styles.footNote}>
-            Everyone&rsquo;s logged miles count toward this one shared target — it&rsquo;s the whole
-            group against the goal, not against each other.
+            Everyone&rsquo;s logged {challenge.distanceGoalUnit === 'steps' ? 'steps' : 'miles'} count
+            toward this one shared target — it&rsquo;s the whole group against the goal, not against
+            each other.
           </Text>
         </Card>
       )}
