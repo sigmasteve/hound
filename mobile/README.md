@@ -625,7 +625,34 @@ invite someone, a non-participant can't, an invitee can read the
 challenge's name before joining (the new policy's whole reason for
 existing), joining removes the invite and adds a real participant row,
 and an uninvolved third party can neither see nor delete someone else's
-invite. Never verified against a real Supabase project.
+invite.
+
+That local verification used a plain insert for the join step, which is
+exactly why it missed a real bug this one caught: `acceptChallengeInvite`
+had since grown an `.upsert(..., { onConflict: 'challenge_id,user_id',
+ignoreDuplicates: true })` (to make a retry after a failed delete
+idempotent instead of hitting the unique constraint as a hard error) —
+`.upsert()` compiles to `INSERT ... ON CONFLICT DO NOTHING`, and Postgres
+RLS requires the executing role to satisfy the table's SELECT policy for
+the conflict-arbiter check itself, even when no conflict actually
+exists. An invitee accepting for the first time isn't a participant yet
+— that's exactly what this insert is trying to make them — so
+"Participants can view each other" always evaluated to false for them,
+and Postgres rejected the whole statement as an RLS violation before it
+ever got to check whether a real conflict existed. Tapping "Join" against
+a real Supabase project did nothing, with no error surfaced anywhere
+(`ChallengesScreen.tsx`'s `respondToInvite` deliberately swallows any
+failure here — "a stale invite silently stops responding rather than
+crashing" — which is exactly why this one produced no visible error at
+all instead of a wrong one). Fixed by going back to a plain `insert()`
+and catching Postgres's `23505` (unique_violation) directly for the
+retry case, the same pattern `inviteFriendToChallenge` already uses for
+"Already invited." — a plain insert has no conflict-arbiter SELECT
+requirement, so it isn't exposed to this class of bug at all. Verified
+directly against a local throwaway Postgres: the exact failure
+reproduces with the old `.upsert()` call, and the fixed plain `insert()`
+succeeds for a first-time accept and correctly falls through to the
+unique-constraint path (not an RLS error) on a simulated retry.
 
 The Create wizard's own "Bring friends" step (step 3) had the exact same
 "looks real, isn't" problem `ChallengesScreen`'s Priya card had: it

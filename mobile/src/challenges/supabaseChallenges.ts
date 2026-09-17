@@ -328,14 +328,25 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       .single();
     if (fetchError) throw new Error(fetchError.message);
 
-    // Upsert with ignoreDuplicates rather than a plain insert — a retry
-    // after a failed delete below (already joined, invite row still
-    // there) would otherwise hit challenge_participants' own
-    // unique(challenge_id, user_id) constraint as a hard error.
+    // A plain insert, not an upsert: `.upsert(..., { ignoreDuplicates })`
+    // compiles to `INSERT ... ON CONFLICT DO NOTHING`, and Postgres RLS
+    // requires the executing role to satisfy the table's SELECT policy
+    // for the conflict-arbiter check itself — even when no conflict
+    // actually exists. The invitee accepting for the first time isn't a
+    // participant yet (that's exactly what this insert is trying to
+    // make them), so "Participants can view each other" always returns
+    // false for them, and the whole statement gets rejected as an RLS
+    // violation before it ever gets to check for a real conflict. A
+    // plain insert has no such requirement. A retry after a failed
+    // delete below (already joined, invite row still there) instead
+    // hits challenge_participants' own unique(challenge_id, user_id)
+    // constraint (Postgres code 23505) — caught and treated as success,
+    // same reasoning inviteFriendToChallenge already uses for "Already
+    // invited."
     const { error: joinError } = await client
       .from('challenge_participants')
-      .upsert({ challenge_id: invite.challenge_id, user_id: userId }, { onConflict: 'challenge_id,user_id', ignoreDuplicates: true });
-    if (joinError) throw new Error(joinError.message);
+      .insert({ challenge_id: invite.challenge_id, user_id: userId });
+    if (joinError && joinError.code !== '23505') throw new Error(joinError.message);
 
     const { error: deleteError } = await client.from('challenge_invites').delete().eq('id', inviteId);
     if (deleteError) throw new Error(deleteError.message);
