@@ -70,13 +70,16 @@ export function toChallengeCard(
   }
 
   // Most challenges only finish on their scheduled end date, but a hunt
-  // with exactly one Hunter and one Hunted ends the moment the Hunted is
-  // caught, however many days are left — same "the chase is over"
-  // condition HomeScreen's hero card and LiveHuntCard already treat as
-  // game over for that pairing.
+  // ends the moment there's nobody left to chase — every Hunted
+  // participant has been caught — however many days are left. Checking
+  // "every Hunted is now a zombie" rather than "board.length === 2"
+  // covers a multi-Hunted hunt too: the Hunter catching one of several
+  // doesn't conclude it (see HomeScreen's own "keeps going for whoever's
+  // left" handling), but catching the last one does.
   const sortBy = boardSortFor(challenge);
   const board = withHuntCatches(buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy), sortBy);
-  const huntConcluded = challenge.kind === 'hunt' && board.length === 2 && board.some((r) => r.role === 'zombie');
+  const hunted = board.filter((r) => r.role === 'hunted' || r.role === 'zombie');
+  const huntConcluded = challenge.kind === 'hunt' && hunted.length > 0 && hunted.every((r) => r.role === 'zombie');
   const finished = huntConcluded || new Date(challenge.endsAt).getTime() <= Date.now();
 
   return {
