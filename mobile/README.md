@@ -312,6 +312,17 @@ challenge"). All three buttons land on an existing tab
 up to build this, since every capability it describes already exists
 elsewhere in the app.
 
+Home's own metric tiles were also trimmed from four down to Steps and
+Distance — Resting HR and Weight are gone from Today entirely, not just
+moved. `MetricsScreen.tsx` (the Data tab) already has its own dedicated
+"Heart rate" and "Weight" segmented-control views with real 7-day
+charts (`getHeartRateSeries`/`getWeightSeries`), so Today's two extra
+tiles were a second, flatter rendering of exactly the same numbers,
+each with its own hardcoded caption ("Down 3 bpm over 30 days," "Last
+entry Sunday · Withings") that never actually reflected the underlying
+data. Both tiles already linked to `onGoTab('metrics')` before removal,
+so nothing that pointed at them loses its destination.
+
 Verified locally: a `withHuntCatches` unit check (day-0 zero/zero
 doesn't instantly catch anyone, a real gap does, ties count, an
 already-zombie row stays zombie even if its total climbs back past the
