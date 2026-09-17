@@ -256,6 +256,20 @@ copy of it (`ChallengeDetailScreen.tsx` now calls the shared version
 too). The badge disappears the moment the head start elapses; nothing
 shows for a hunt with no head start at all, or for any non-hunt kind.
 
+The Challenges screen itself used to flash its sample content (the
+"Priya invited you" card, the sample active list, the sample "February
+Step Race" finished row) for a beat on every visit, even against a
+configured Supabase backend, simply because the real fetch hadn't
+resolved yet. It now derives `challengesLoading`/`invitesLoading` from
+the existing `liveCards`/`liveInvites` state instead of adding new
+`useState` — `null && isSupabaseConfigured` — so a spinner shows only
+while `isSupabaseConfigured` is true and that first fetch is still in
+flight; once it resolves, `liveCards`/`liveInvites` are never reset back
+to `null`, so a later `useFocusEffect` refetch on returning to the tab
+never re-shows the spinner. With no backend configured at all, both stay
+`false` forever and the sample content still renders immediately and
+permanently, exactly as before.
+
 Verified locally: a `withHuntCatches` unit check (day-0 zero/zero
 doesn't instantly catch anyone, a real gap does, ties count, an
 already-zombie row stays zombie even if its total climbs back past the

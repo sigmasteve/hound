@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   CaretRightIcon,
@@ -125,6 +125,20 @@ export function ChallengesScreen({
   const liveFinished = liveCards?.filter((c) => c.finished) ?? null;
   const challenges = liveActive ?? CHALLENGES;
 
+  // True only for the one transient state worth a spinner: a real
+  // backend exists but its very first fetch (this mount, or the first
+  // focus after one) hasn't resolved yet. Once `loadChallenges()`
+  // resolves — success or failure — `liveCards` is set and stays
+  // non-null for the rest of the screen's life, so this only ever shows
+  // once, not on every refocus-triggered refetch. Never true at all
+  // when Supabase isn't configured — there, the sample list below is the
+  // real, permanent content, not a placeholder for a fetch that's about
+  // to happen (same reasoning HomeScreen's loadingPrimary uses).
+  const challengesLoading = liveCards === null && isSupabaseConfigured;
+  // Same reasoning, independently, for the invite card — it has its own
+  // fetch and can resolve before or after loadChallenges().
+  const invitesLoading = liveInvites === null && isSupabaseConfigured;
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -132,7 +146,7 @@ export function ChallengesScreen({
         <Button label="New challenge" variant="primary" small icon={<PlusCircleIcon size={14} color={color.accent} />} onPress={onCreate} />
       </View>
 
-      {liveInvites === null ? (
+      {invitesLoading ? null : liveInvites === null ? (
         <Card style={styles.inviteCard} elevated={false}>
           <EnvelopeOpenIcon size={18} color={color.accent300} weight="fill" />
           <View style={{ flex: 1, gap: 2 }}>
@@ -176,33 +190,41 @@ export function ChallengesScreen({
         ))
       )}
 
-      {challenges.map((c) => (
-        <ChallengeRow
-          key={c.id}
-          c={c}
-          onPress={
-            c.target === 'hunt' ? onOpenHunt : c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined
-          }
-        />
-      ))}
-
-      {liveActive && liveActive.length === 0 && (
-        <Text style={styles.emptyNote}>No challenges yet — start one above.</Text>
-      )}
-
-      <Text style={styles.finishedLabel}>Finished</Text>
-      {liveFinished === null ? (
-        <View style={styles.finishedRow}>
-          <MedalIcon size={20} color={medalColorFor('2nd')} weight="fill" />
-          <Text style={styles.finishedTitle}>February Step Race</Text>
-          <Text style={styles.finishedMeta}>You placed 2nd of 6 · 287,410 steps</Text>
+      {challengesLoading ? (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator color={color.accent} />
         </View>
-      ) : liveFinished.length === 0 ? (
-        <Text style={styles.emptyNote}>Nothing finished yet.</Text>
       ) : (
-        liveFinished.map((c) => (
-          <FinishedRow key={c.id} c={c} onPress={c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined} />
-        ))
+        <>
+          {challenges.map((c) => (
+            <ChallengeRow
+              key={c.id}
+              c={c}
+              onPress={
+                c.target === 'hunt' ? onOpenHunt : c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined
+              }
+            />
+          ))}
+
+          {liveActive && liveActive.length === 0 && (
+            <Text style={styles.emptyNote}>No challenges yet — start one above.</Text>
+          )}
+
+          <Text style={styles.finishedLabel}>Finished</Text>
+          {liveFinished === null ? (
+            <View style={styles.finishedRow}>
+              <MedalIcon size={20} color={medalColorFor('2nd')} weight="fill" />
+              <Text style={styles.finishedTitle}>February Step Race</Text>
+              <Text style={styles.finishedMeta}>You placed 2nd of 6 · 287,410 steps</Text>
+            </View>
+          ) : liveFinished.length === 0 ? (
+            <Text style={styles.emptyNote}>Nothing finished yet.</Text>
+          ) : (
+            liveFinished.map((c) => (
+              <FinishedRow key={c.id} c={c} onPress={c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined} />
+            ))
+          )}
+        </>
       )}
     </ScrollView>
   );
@@ -285,6 +307,7 @@ const styles = StyleSheet.create({
   rowStat: { fontFamily: font.heading, fontSize: 18, color: color.text },
   rowStatLabel: { fontSize: 11, color: 'rgba(233,233,237,0.55)' },
   emptyNote: { fontSize: 13, color: 'rgba(233,233,237,0.55)', textAlign: 'center', paddingVertical: 8 },
+  loadingRow: { paddingVertical: 24, alignItems: 'center' },
   finishedLabel: { fontSize: 15, color: 'rgba(233,233,237,0.7)', marginTop: 8 },
   finishedRow: {
     flexDirection: 'row',
