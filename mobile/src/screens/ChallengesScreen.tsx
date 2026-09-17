@@ -106,7 +106,14 @@ export function ChallengesScreen({
     }
   };
 
-  const challenges = liveCards ?? CHALLENGES;
+  // liveCards holds both still-running and finished real challenges
+  // together (toChallengeCard decides `finished` per card — see
+  // src/challenges/present.ts) — split them here so a caught hunt or a
+  // challenge past its end date moves down to "Finished" instead of
+  // lingering in the active list above it.
+  const liveActive = liveCards?.filter((c) => !c.finished) ?? null;
+  const liveFinished = liveCards?.filter((c) => c.finished) ?? null;
+  const challenges = liveActive ?? CHALLENGES;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -169,16 +176,24 @@ export function ChallengesScreen({
         />
       ))}
 
-      {liveCards && liveCards.length === 0 && (
+      {liveActive && liveActive.length === 0 && (
         <Text style={styles.emptyNote}>No challenges yet — start one above.</Text>
       )}
 
       <Text style={styles.finishedLabel}>Finished</Text>
-      <View style={styles.finishedRow}>
-        <MedalIcon size={20} color={color.neutral500} weight="fill" />
-        <Text style={styles.finishedTitle}>February Step Race</Text>
-        <Text style={styles.finishedMeta}>You placed 2nd of 6 · 287,410 steps</Text>
-      </View>
+      {liveFinished === null ? (
+        <View style={styles.finishedRow}>
+          <MedalIcon size={20} color={color.neutral500} weight="fill" />
+          <Text style={styles.finishedTitle}>February Step Race</Text>
+          <Text style={styles.finishedMeta}>You placed 2nd of 6 · 287,410 steps</Text>
+        </View>
+      ) : liveFinished.length === 0 ? (
+        <Text style={styles.emptyNote}>Nothing finished yet.</Text>
+      ) : (
+        liveFinished.map((c) => (
+          <FinishedRow key={c.id} c={c} onPress={c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined} />
+        ))
+      )}
     </ScrollView>
   );
 }
@@ -202,6 +217,23 @@ function ChallengeRow({ c, onPress }: { c: ChallengeCard; onPress?: () => void }
         <Text style={styles.rowStatLabel}>{c.statLabel}</Text>
       </View>
       <CaretRightIcon size={16} color="rgba(233,233,237,0.5)" />
+    </Pressable>
+  );
+}
+
+// Same visual language as the hardcoded placeholder this replaces (a
+// medal, a title, a "you placed Nth" line) — just populated from a real
+// finished card instead. `c.stat` is '—' (see toChallengeCard) when
+// nobody ever logged anything, which "You placed —" would read oddly
+// for, so that case shows the plain statLabel ("no data yet") instead.
+function FinishedRow({ c, onPress }: { c: ChallengeCard; onPress?: () => void }) {
+  return (
+    <Pressable style={styles.finishedRow} onPress={onPress}>
+      <MedalIcon size={20} color={color.neutral500} weight="fill" />
+      <Text style={styles.finishedTitle}>{c.name}</Text>
+      <Text style={styles.finishedMeta}>
+        {c.stat === '—' ? c.statLabel : `You placed ${c.stat} ${c.statLabel}`}
+      </Text>
     </Pressable>
   );
 }
