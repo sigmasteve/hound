@@ -5,6 +5,7 @@ import { ArrowLeftIcon, ArrowsClockwiseIcon, RobotIcon, TrashIcon, TrophyIcon } 
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { ProgressBar } from '../components/ProgressBar';
 import { Tag } from '../components/Tag';
 import { TextField } from '../components/TextField';
 import { ToggleRow } from '../components/Selectable';
@@ -402,6 +403,12 @@ export function ChallengeDetailScreen({
     (f) => f.status === 'accepted' && !participants.some((p) => p.userId === f.userId),
   );
 
+  // A distance pool isn't ranked at all — everyone's miles add up toward
+  // one shared target (see CreateScreen.tsx's "Group target distance"
+  // slider), so this reads as the group's combined progress rather than
+  // who's ahead of whom.
+  const groupTotalMi = board.reduce((sum, r) => sum + r.totalDistanceMi, 0);
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={styles.container}>
@@ -432,6 +439,26 @@ export function ChallengeDetailScreen({
         value={myHighlighted}
         onChange={togglingHighlight ? () => {} : toggleHighlight}
       />
+
+      {challenge.kind === 'distance' && challenge.distanceGoalMi && (
+        <Card style={{ gap: 10 }} elevated={false}>
+          <Text style={text.h4}>Group progress</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+            <Text style={styles.groupTotal}>{groupTotalMi.toFixed(1)} mi</Text>
+            <Text style={styles.footNote}>of {challenge.distanceGoalMi} mi goal</Text>
+          </View>
+          <ProgressBar
+            pct={Math.min(100, (groupTotalMi / challenge.distanceGoalMi) * 100)}
+            fillColor={color.accent}
+            height={6}
+            trackColor={color.neutral900}
+          />
+          <Text style={styles.footNote}>
+            Everyone&rsquo;s logged miles count toward this one shared target — it&rsquo;s the whole
+            group against the goal, not against each other.
+          </Text>
+        </Card>
+      )}
 
       <Card style={{ gap: 12 }} elevated={false}>
         <View style={styles.leaderboardHeader}>
@@ -573,6 +600,7 @@ const styles = StyleSheet.create({
   syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' },
   syncLabel: { fontSize: 12, color: color.accent, fontFamily: font.heading },
   leaderboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  groupTotal: { fontFamily: font.heading, fontSize: 24, color: color.text },
   boardRow: {
     flexDirection: 'row',
     alignItems: 'center',

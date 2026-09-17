@@ -32,6 +32,12 @@ export interface Challenge {
   // (see src/challenges/board.ts's withHuntCatches) — null for every
   // other kind, and for a hunt created before this existed.
   headStartDays: number | null;
+  // Only meaningful for kind 'distance': the shared target (in miles) the
+  // whole group is trying to cover together — see toChallengeCard's
+  // groupProgress and ChallengeDetailScreen's group-progress card. Null
+  // for every other kind, and for a distance pool created before this
+  // existed.
+  distanceGoalMi: number | null;
 }
 
 export interface LeaderboardEntry {
@@ -92,6 +98,8 @@ export interface CreateChallengeInput {
   bots?: { name: string; fitnessLevel: BotFitnessLevel; role?: HuntRole }[];
   // Only meaningful for kind 'hunt' — see Challenge.headStartDays.
   headStartDays?: number;
+  // Only meaningful for kind 'distance' — see Challenge.distanceGoalMi.
+  distanceGoalMi?: number;
 }
 
 export interface ChallengesProvider {

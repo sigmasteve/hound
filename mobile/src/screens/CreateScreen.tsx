@@ -40,6 +40,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const [draftType, setDraftType] = useState<ChallengeKind>('hunt');
   const [draftName, setDraftName] = useState('');
   const [headStart, setHeadStart] = useState(2);
+  const [distanceGoal, setDistanceGoal] = useState(100);
   const [length, setLength] = useState('21');
   const [scoringMethod, setScoringMethod] = useState<ScoringMethod>('device_steps');
   const [invited, setInvited] = useState<string[]>([]);
@@ -93,6 +94,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
           role: roleFor(b.id),
         })),
         headStartDays: isHunt ? headStart : undefined,
+        distanceGoalMi: draftType === 'distance' ? distanceGoal : undefined,
       });
       onFinish();
     } catch (e) {
@@ -186,6 +188,29 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
               thumbTintColor={color.accent}
             />
           </View>
+
+          {draftType === 'distance' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Group target distance</Text>
+                <Text style={styles.huntBlockValue}>{distanceGoal} mi</Text>
+              </View>
+              <Slider
+                minimumValue={10}
+                maximumValue={1000}
+                step={10}
+                value={distanceGoal}
+                onValueChange={(v) => setDistanceGoal(Math.round(v))}
+                minimumTrackTintColor={color.accent}
+                maximumTrackTintColor={color.neutral700}
+                thumbTintColor={color.accent}
+              />
+              <Text style={styles.huntBlockNote}>
+                Everyone&rsquo;s logged miles add up toward this one shared target — it&rsquo;s the
+                whole group against the goal, not against each other.
+              </Text>
+            </View>
+          )}
 
           {draftType === 'hunt' && (
             <View style={styles.huntBlock}>

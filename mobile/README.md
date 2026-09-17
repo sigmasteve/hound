@@ -175,6 +175,45 @@ created before this migration) gets a baseline of 0 for everyone,
 which — since `huntEffectiveMetric` only ever subtracts it from the
 Hunter — is exactly the original, pre-head-start behavior.
 
+### Distance Pool: a real group target
+
+`CHALLENGE_TYPES` describes "Distance Pool" as "Add every mile the group
+covers toward one shared target" — but CreateScreen's "Set the rules"
+step had no field to actually set that target, the same "decorative
+slider" gap the head-start one had before `0011_hunt_head_start.sql`.
+Same fix, same pattern: a "Group target distance" slider (10–1000 mi,
+step 10) that only shows for `draftType === 'distance'`, saved as
+`challenges.distance_goal_mi` (`0012_distance_pool_goal.sql`, nullable —
+a distance pool created before this migration just has none).
+
+Unlike every other kind, a distance pool with a goal set isn't ranked at
+all — `toChallengeCard` (`src/challenges/present.ts`) sums every
+participant's and bot's `totalDistanceMi` into one group total and shows
+that against the goal (`"142.3" / "of 500 mi goal"`) instead of this
+user's own rank, on both the Challenges list card and a dedicated "Group
+progress" card (with a real `<ProgressBar>`) on
+`ChallengeDetailScreen.tsx`. A distance pool with no goal set falls back
+to the exact same per-person rank framing every other kind already had.
+
+Worth flagging rather than quietly working around: a distance pool's
+board is still sorted by **steps** (`boardSortFor`/`usesWorkoutDistance`
+in `src/challenges/scoring.ts` only special-case `kind === 'hunt'`), and
+still uses the manual "Log your progress" form rather than
+auto-syncing — both pre-existing gaps this fix didn't touch. They don't
+affect the group-total math above (that sums real `totalDistanceMi`
+regardless of what the board itself sorts by), but a distance pool's own
+per-person leaderboard rows underneath the group-progress card rank by
+whatever steps someone typed in, not by miles — a real, separate
+inconsistency for a kind that's supposed to be entirely about distance.
+
+Verified locally: a `toChallengeCard` unit check (a set goal sums every
+participant's miles into the group total and labels it with the real
+goal; no goal set falls back to the old per-person rank framing exactly
+as before; a non-distance kind with `distanceGoalMi` somehow set is never
+misread as a group-goal card) and, against a local throwaway Postgres,
+that `distance_goal_mi` inserts and reads back under the existing
+insert/select policies with no new RLS needed.
+
 ### Getting caught turns a Hunted participant into a Zombie
 
 `HuntRole` gained a third value: `'zombie'` (`src/challenges/types.ts`).
