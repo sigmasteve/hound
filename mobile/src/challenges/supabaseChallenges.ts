@@ -26,7 +26,7 @@ async function requireUserId(): Promise<string> {
 }
 
 const CHALLENGE_COLUMNS =
-  'id, name, kind, created_by, duration_days, starts_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi';
+  'id, name, kind, created_by, duration_days, starts_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit';
 
 interface ChallengeRow {
   id: string;
@@ -40,6 +40,8 @@ interface ChallengeRow {
   scoring_method: Challenge['scoringMethod'];
   head_start_days: number | null;
   distance_goal_mi: number | null;
+  distance_goal_steps: number | null;
+  distance_goal_unit: Challenge['distanceGoalUnit'];
 }
 
 interface ChallengeInviteRow {
@@ -61,6 +63,11 @@ function rowToChallenge(row: ChallengeRow): Challenge {
     scoringMethod: row.scoring_method,
     headStartDays: row.head_start_days,
     distanceGoalMi: row.distance_goal_mi,
+    distanceGoalSteps: row.distance_goal_steps,
+    // Every pool created before 0013_distance_pool_unit.sql set
+    // distance_goal_mi with no unit at all, in miles — read that
+    // exactly as it already meant, rather than as "no goal."
+    distanceGoalUnit: row.distance_goal_unit ?? (row.distance_goal_mi != null ? 'miles' : null),
   };
 }
 
@@ -165,6 +172,8 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     bots,
     headStartDays,
     distanceGoalMi,
+    distanceGoalSteps,
+    distanceGoalUnit,
   }: CreateChallengeInput): Promise<Challenge> {
     const client = requireClient();
     const userId = await requireUserId();
@@ -184,6 +193,8 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         scoring_method: scoringMethod ?? null,
         head_start_days: headStartDays ?? null,
         distance_goal_mi: distanceGoalMi ?? null,
+        distance_goal_steps: distanceGoalSteps ?? null,
+        distance_goal_unit: distanceGoalUnit ?? null,
       })
       .select(CHALLENGE_COLUMNS)
       .single();

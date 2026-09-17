@@ -25,7 +25,7 @@ import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { BOT_FITNESS_LEVELS, BOT_PRESETS, botInitials } from '../challenges/botSimulation';
-import type { HuntRole, ScoringMethod } from '../challenges/types';
+import type { DistanceGoalUnit, HuntRole, ScoringMethod } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
 
 const SCORING_METHODS: { id: ScoringMethod; label: string }[] = [
@@ -40,7 +40,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const [draftType, setDraftType] = useState<ChallengeKind>('hunt');
   const [draftName, setDraftName] = useState('');
   const [headStart, setHeadStart] = useState(2);
-  const [distanceGoal, setDistanceGoal] = useState(100);
+  const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>('miles');
+  const [distanceGoalMi, setDistanceGoalMi] = useState(100);
+  const [distanceGoalSteps, setDistanceGoalSteps] = useState(500_000);
   const [length, setLength] = useState('21');
   const [scoringMethod, setScoringMethod] = useState<ScoringMethod>('device_steps');
   const [invited, setInvited] = useState<string[]>([]);
@@ -94,7 +96,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
           role: roleFor(b.id),
         })),
         headStartDays: isHunt ? headStart : undefined,
-        distanceGoalMi: draftType === 'distance' ? distanceGoal : undefined,
+        distanceGoalUnit: draftType === 'distance' ? distanceGoalUnit : undefined,
+        distanceGoalMi: draftType === 'distance' && distanceGoalUnit === 'miles' ? distanceGoalMi : undefined,
+        distanceGoalSteps: draftType === 'distance' && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
       });
       onFinish();
     } catch (e) {
@@ -192,22 +196,46 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
           {draftType === 'distance' && (
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
-                <Text style={styles.huntBlockLabel}>Group target distance</Text>
-                <Text style={styles.huntBlockValue}>{distanceGoal} mi</Text>
+                <Text style={styles.huntBlockLabel}>Group target</Text>
+                <Text style={styles.huntBlockValue}>
+                  {distanceGoalUnit === 'miles' ? `${distanceGoalMi} mi` : `${distanceGoalSteps.toLocaleString()} steps`}
+                </Text>
               </View>
-              <Slider
-                minimumValue={10}
-                maximumValue={1000}
-                step={10}
-                value={distanceGoal}
-                onValueChange={(v) => setDistanceGoal(Math.round(v))}
-                minimumTrackTintColor={color.accent}
-                maximumTrackTintColor={color.neutral700}
-                thumbTintColor={color.accent}
+              <SegmentedControl
+                options={[
+                  { value: 'miles', label: 'Miles' },
+                  { value: 'steps', label: 'Steps' },
+                ]}
+                value={distanceGoalUnit}
+                onChange={setDistanceGoalUnit}
               />
+              {distanceGoalUnit === 'miles' ? (
+                <Slider
+                  minimumValue={10}
+                  maximumValue={1000}
+                  step={10}
+                  value={distanceGoalMi}
+                  onValueChange={(v) => setDistanceGoalMi(Math.round(v))}
+                  minimumTrackTintColor={color.accent}
+                  maximumTrackTintColor={color.neutral700}
+                  thumbTintColor={color.accent}
+                />
+              ) : (
+                <Slider
+                  minimumValue={50_000}
+                  maximumValue={2_000_000}
+                  step={50_000}
+                  value={distanceGoalSteps}
+                  onValueChange={(v) => setDistanceGoalSteps(Math.round(v))}
+                  minimumTrackTintColor={color.accent}
+                  maximumTrackTintColor={color.neutral700}
+                  thumbTintColor={color.accent}
+                />
+              )}
               <Text style={styles.huntBlockNote}>
-                Everyone&rsquo;s logged miles add up toward this one shared target — it&rsquo;s the
-                whole group against the goal, not against each other.
+                Everyone&rsquo;s logged {distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up
+                toward this one shared target — it&rsquo;s the whole group against the goal, not
+                against each other.
               </Text>
             </View>
           )}

@@ -61,14 +61,27 @@ export function toChallengeCard(
   // "no one's logged anything yet" state, not a bug to paper over.
   let stat = '—';
   let statLabel = 'no data yet';
-  if (challenge.kind === 'distance' && challenge.distanceGoalMi) {
+  const distanceGoal =
+    challenge.kind === 'distance'
+      ? challenge.distanceGoalUnit === 'steps'
+        ? challenge.distanceGoalSteps
+        : challenge.distanceGoalMi
+      : null;
+  if (distanceGoal) {
     // A distance pool isn't a ranked leaderboard at all — everyone's
-    // miles add up toward the one shared goal a Create-screen slider
-    // sets (see CreateScreen.tsx), so the card's stat is the group's
-    // combined progress, not this user's own rank.
-    const groupTotalMi = allLeaderboard.reduce((sum, p) => sum + p.totalDistanceMi, 0);
-    stat = groupTotalMi.toFixed(1);
-    statLabel = `of ${challenge.distanceGoalMi} mi goal`;
+    // steps or miles (whichever unit its creator picked — see
+    // CreateScreen.tsx) add up toward the one shared goal, so the
+    // card's stat is the group's combined progress, not this user's own
+    // rank.
+    if (challenge.distanceGoalUnit === 'steps') {
+      const groupTotalSteps = allLeaderboard.reduce((sum, p) => sum + p.totalSteps, 0);
+      stat = groupTotalSteps.toLocaleString();
+      statLabel = `of ${distanceGoal.toLocaleString()} steps goal`;
+    } else {
+      const groupTotalMi = allLeaderboard.reduce((sum, p) => sum + p.totalDistanceMi, 0);
+      stat = groupTotalMi.toFixed(1);
+      statLabel = `of ${distanceGoal} mi goal`;
+    }
   } else if (allLeaderboard.length > 0) {
     const ranked = [...allLeaderboard].sort((a, b) => b.totalSteps - a.totalSteps);
     const myRank = currentUserId ? ranked.findIndex((p) => p.userId === currentUserId) : -1;
