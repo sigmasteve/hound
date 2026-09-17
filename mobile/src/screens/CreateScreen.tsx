@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import {
-  AndroidLogoIcon,
-  AppleLogoIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckCircleIcon,
@@ -19,11 +17,13 @@ import { Button } from '../components/Button';
 import { RadioPill } from '../components/Selectable';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { text } from '../theme/text';
-import { color, font } from '../theme/tokens';
-import { CHALLENGE_TYPES, FRIENDS, type ChallengeKind } from '../data/sampleData';
+import { color, font, TINT_N } from '../theme/tokens';
+import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
+import { supabaseFriendsProvider } from '../friends/supabaseFriends';
+import type { Friend } from '../friends/types';
 import { BOT_FITNESS_LEVELS, BOT_PRESETS, botInitials } from '../challenges/botSimulation';
 import type { DistanceGoalUnit, HuntRole, ScoringMethod } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
@@ -45,7 +45,15 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const [distanceGoalSteps, setDistanceGoalSteps] = useState(500_000);
   const [length, setLength] = useState('21');
   const [scoringMethod, setScoringMethod] = useState<ScoringMethod>('device_steps');
+  // Real friends' userIds picked to invite once the challenge exists —
+  // see start()'s inviteFriendToChallenge calls below. Never populated
+  // (and this screen just shows an empty state) while Supabase isn't
+  // configured, same reasoning as every other real-data screen.
   const [invited, setInvited] = useState<string[]>([]);
+  // null = the real fetch hasn't resolved yet, or never will (Supabase
+  // unconfigured) — both render the same honest empty state below,
+  // never fabricated friends (see ChallengesScreen's own fix for why).
+  const [liveFriends, setLiveFriends] = useState<Friend[] | null>(null);
   const [selectedBots, setSelectedBots] = useState<string[]>([]);
   // 'me' or a BOT_PRESETS id — the one Hunter; every other selected bot
   // (and the creator, if they're not it) is Hunted. Only meaningful for
@@ -54,8 +62,19 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const toggleFriend = (name: string) =>
-    setInvited((cur) => (cur.includes(name) ? cur.filter((n) => n !== name) : [...cur, name]));
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    supabaseFriendsProvider
+      .listFriends()
+      .then(setLiveFriends)
+      .catch(() => {
+        // Stay on the empty state on any failure — this screen never
+        // shows an error for the friend list itself.
+      });
+  }, []);
+
+  const toggleFriend = (userId: string) =>
+    setInvited((cur) => (cur.includes(userId) ? cur.filter((id) => id !== userId) : [...cur, userId]));
   const toggleBot = (id: string) => {
     setSelectedBots((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
     // Deselecting the bot currently picked as Hunter would leave hunterId
@@ -66,14 +85,15 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const headStartLabel = headStart === 1 ? '1 day' : `${headStart} days`;
   const customLength = Number(length) || 1;
   const customLengthLabel = customLength === 1 ? '1 day' : `${customLength} days`;
+  const friendsLoading = liveFriends === null && isSupabaseConfigured;
+  const acceptedFriends = (liveFriends ?? []).filter((f) => f.status === 'accepted');
 
   const start = async () => {
-    // The rest of the app (Challenges list, Hunt screen) still reads the
-    // static sample data — see mobile/README.md "The backend (Supabase)"
-    // for why that's a deliberate, separate follow-up. This just proves
-    // the write path against a real project: creating a challenge here
-    // persists it and adds you as a participant, even though nothing yet
-    // reads it back.
+    // The Hunt screen still reads static sample data unconditionally —
+    // see mobile/README.md "What's not implemented" for why that's a
+    // deliberate, separate follow-up. Everything else this saves is
+    // read back for real: the Challenges list, Home's hero card, and
+    // (for whoever gets invited below) their own invite card.
     if (!isSupabaseConfigured) {
       onFinish();
       return;
@@ -84,7 +104,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
       const isHunt = draftType === 'hunt';
       const chosenBots = BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
       const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
-      await supabaseChallengesProvider.createChallenge({
+      const created = await supabaseChallengesProvider.createChallenge({
         name: draftName.trim() || 'Untitled challenge',
         kind: draftType,
         durationDays: Number(length),
@@ -100,6 +120,14 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         distanceGoalMi: draftType === 'distance' && distanceGoalUnit === 'miles' ? distanceGoalMi : undefined,
         distanceGoalSteps: draftType === 'distance' && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
       });
+      // Best-effort, same reasoning as ChallengeDetailScreen's own
+      // inviteFriend: the challenge itself already saved successfully by
+      // this point, so one invite failing (a stale friendship row,
+      // whatever) shouldn't read as "could not save that challenge" —
+      // Promise.all would reject the whole thing on the first failure.
+      await Promise.allSettled(
+        invited.map((friendUserId) => supabaseChallengesProvider.inviteFriendToChallenge(created.id, friendUserId)),
+      );
       onFinish();
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Could not save that challenge — try again.');
@@ -298,25 +326,35 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
       {step === 3 && (
         <View style={{ gap: 14 }}>
           <Text style={text.h2}>Bring friends</Text>
-          {FRIENDS.map((f) => {
-            const picked = invited.includes(f.name);
-            return (
-              <Pressable
-                key={f.name}
-                onPress={() => toggleFriend(f.name)}
-                style={[styles.friendRow, picked && styles.friendRowOn]}
-              >
-                <Avatar initials={f.initials} tint={f.tint} size={30} fontSize={11} />
-                <Text style={styles.friendName}>{f.name}</Text>
-                <PlatformBadge label={f.platform} apple={f.platform === 'Apple Health'} />
-                {picked ? (
-                  <CheckCircleIcon size={18} color={color.accent} weight="fill" />
-                ) : (
-                  <CircleIcon size={18} color={color.neutral700} />
-                )}
-              </Pressable>
-            );
-          })}
+          {friendsLoading ? (
+            <View style={styles.friendsLoadingRow}>
+              <ActivityIndicator color={color.accent} />
+            </View>
+          ) : (
+            <>
+              {acceptedFriends.map((f) => {
+                const picked = invited.includes(f.userId);
+                return (
+                  <Pressable
+                    key={f.userId}
+                    onPress={() => toggleFriend(f.userId)}
+                    style={[styles.friendRow, picked && styles.friendRowOn]}
+                  >
+                    <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
+                    <Text style={[styles.friendName, { flex: 1 }]}>{f.name}</Text>
+                    {picked ? (
+                      <CheckCircleIcon size={18} color={color.accent} weight="fill" />
+                    ) : (
+                      <CircleIcon size={18} color={color.neutral700} />
+                    )}
+                  </Pressable>
+                );
+              })}
+              {acceptedFriends.length === 0 && (
+                <Text style={styles.footNote}>Add friends from the Friends tab, then invite them here.</Text>
+              )}
+            </>
+          )}
           <View style={styles.linkRow}>
             <LinkIcon size={16} color={color.accent} />
             <Text style={styles.linkText}>hound.app/j/hunt-4kq9</Text>
@@ -430,19 +468,6 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   );
 }
 
-function PlatformBadge({ label, apple }: { label: string; apple: boolean }) {
-  return (
-    <View style={styles.platformBadge}>
-      {apple ? (
-        <AppleLogoIcon size={11} color={color.neutral200} weight="fill" />
-      ) : (
-        <AndroidLogoIcon size={11} color={color.neutral200} />
-      )}
-      <Text style={styles.platformBadgeText}>{label}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { padding: 16, gap: 16, paddingBottom: 48 },
   stepsBar: { flexDirection: 'row', gap: 6 },
@@ -517,6 +542,7 @@ const styles = StyleSheet.create({
   },
   linkText: { flex: 1, fontFamily: font.body, fontSize: 12.5, color: 'rgba(233,233,237,0.75)' },
   footNote: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
+  friendsLoadingRow: { paddingVertical: 20, alignItems: 'center' },
   saveError: { fontSize: 12.5, color: color.amber, textAlign: 'center' },
   footer: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6 },
 });
