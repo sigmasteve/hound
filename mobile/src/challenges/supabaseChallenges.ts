@@ -48,6 +48,7 @@ interface ChallengeInviteRow {
   id: string;
   challenges: { id: string; name: string; kind: Challenge['kind']; duration_days: number } | null;
   inviter: { name: string } | null;
+  role: HuntRole | null;
 }
 
 function rowToChallenge(row: ChallengeRow): Challenge {
@@ -290,7 +291,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       .from('challenge_invites')
       .select(
         'id, challenges(id, name, kind, duration_days), ' +
-          'inviter:profiles!challenge_invites_inviter_id_fkey(name)',
+          'inviter:profiles!challenge_invites_inviter_id_fkey(name), role',
       )
       .eq('invitee_id', userId);
     if (error) throw new Error(error.message);
@@ -303,15 +304,16 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         challengeKind: row.challenges!.kind,
         durationDays: row.challenges!.duration_days,
         inviterName: row.inviter?.name ?? 'Someone',
+        role: row.role,
       }));
   },
 
-  async inviteFriendToChallenge(challengeId: string, friendUserId: string): Promise<void> {
+  async inviteFriendToChallenge(challengeId: string, friendUserId: string, role?: HuntRole): Promise<void> {
     const client = requireClient();
     const userId = await requireUserId();
     const { data, error } = await client
       .from('challenge_invites')
-      .insert({ challenge_id: challengeId, inviter_id: userId, invitee_id: friendUserId })
+      .insert({ challenge_id: challengeId, inviter_id: userId, invitee_id: friendUserId, role: role ?? null })
       .select('id')
       .single();
     if (error) {
@@ -332,7 +334,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     const userId = await requireUserId();
     const { data: invite, error: fetchError } = await client
       .from('challenge_invites')
-      .select('challenge_id')
+      .select('challenge_id, role')
       .eq('id', inviteId)
       .single();
     if (fetchError) throw new Error(fetchError.message);
@@ -354,7 +356,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     // invited."
     const { error: joinError } = await client
       .from('challenge_participants')
-      .insert({ challenge_id: invite.challenge_id, user_id: userId });
+      .insert({ challenge_id: invite.challenge_id, user_id: userId, role: invite.role ?? null });
     if (joinError && joinError.code !== '23505') throw new Error(joinError.message);
 
     const { error: deleteError } = await client.from('challenge_invites').delete().eq('id', inviteId);

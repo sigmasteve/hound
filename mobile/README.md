@@ -111,10 +111,17 @@ the only option that needs nothing from the creator beyond having
 HealthKit/Health Connect connected (the other two need workouts actually
 logged that day) — saved as `challenges.scoring_method`. A hunt also
 always has exactly one Hunter and one or more Hunted — "Bring friends"
-step 3 has a "Who's the Hunter?" picker (you, or any bot you've added;
-real friend invites aren't wired to a role, same limitation as
-elsewhere) that sets `challenge_participants.role` /
-`challenge_bots.role` accordingly.
+step 3 has a "Who's the Hunter?" picker — you, any bot you've added, or
+now any real friend you've invited too (`0014_challenge_invite_role.sql`)
+— that sets `challenge_participants.role` / `challenge_bots.role`
+accordingly. A real friend isn't a `challenge_participants` row yet at
+creation time — they only become one once they accept — so their picked
+role has to survive the trip through `challenge_invites.role` in the
+meantime: `inviteFriendToChallenge` now takes an optional `role` and
+writes it onto the invite, and `acceptChallengeInvite` reads it back off
+that same invite and copies it onto the new participant row it inserts.
+Bots don't need this detour since their `challenge_bots` row (role
+included) is created synchronously alongside the challenge itself.
 
 `ChallengeDetailScreen.tsx` reads both back: a hunt scored on
 `device_steps` auto-syncs the same way a `'steps'`-kind challenge does
@@ -728,13 +735,14 @@ visit. Deliberately `Promise.allSettled`, not `Promise.all`: the
 challenge itself has already saved successfully by that point, so one
 bad invite shouldn't surface as "could not save that challenge."
 
-A hunt's "Who's the Hunter?" picker still only offers bots, not real
-friends — unchanged by this fix, and already documented above ("Hunter
-& Hunted: real scoring and roles") as its own, separate limitation: a
-role has to be assigned before the invitee has even accepted, which
-this pass didn't attempt to solve. The static `hound.app/j/hunt-4kq9`
-"Copy invite link" box on this same step is also still decorative —
-narrower scope than what was actually asked for here, but worth naming
+A hunt's "Who's the Hunter?" picker only offered bots, not real
+friends, at the time this fix shipped — see "Hunter & Hunted: real
+scoring and roles" above for how `0014_challenge_invite_role.sql` later
+closed that gap by giving `challenge_invites` its own `role` column to
+hold the pick until the invitee accepts. The static
+`hound.app/j/hunt-4kq9` "Copy invite link" box on this same step is also
+still decorative — narrower scope than what was actually asked for here,
+but worth naming
 rather than leaving it looking finished by association now that the
 list right above it is real.
 

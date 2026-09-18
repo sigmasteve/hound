@@ -55,9 +55,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   // never fabricated friends (see ChallengesScreen's own fix for why).
   const [liveFriends, setLiveFriends] = useState<Friend[] | null>(null);
   const [selectedBots, setSelectedBots] = useState<string[]>([]);
-  // 'me' or a BOT_PRESETS id — the one Hunter; every other selected bot
-  // (and the creator, if they're not it) is Hunted. Only meaningful for
-  // draftType === 'hunt'.
+  // 'me', a BOT_PRESETS id, or an invited friend's userId — the one
+  // Hunter; every other selected bot/invited friend (and the creator, if
+  // they're not it) is Hunted. Only meaningful for draftType === 'hunt'.
   const [hunterId, setHunterId] = useState<string>('me');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -73,8 +73,13 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
       });
   }, []);
 
-  const toggleFriend = (userId: string) =>
+  const toggleFriend = (userId: string) => {
     setInvited((cur) => (cur.includes(userId) ? cur.filter((id) => id !== userId) : [...cur, userId]));
+    // Deselecting the friend currently picked as Hunter would leave
+    // hunterId pointing at someone no longer invited — fall back to
+    // "You", same reasoning toggleBot already uses.
+    setHunterId((cur) => (cur === userId ? 'me' : cur));
+  };
   const toggleBot = (id: string) => {
     setSelectedBots((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
     // Deselecting the bot currently picked as Hunter would leave hunterId
@@ -126,7 +131,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
       // whatever) shouldn't read as "could not save that challenge" —
       // Promise.all would reject the whole thing on the first failure.
       await Promise.allSettled(
-        invited.map((friendUserId) => supabaseChallengesProvider.inviteFriendToChallenge(created.id, friendUserId)),
+        invited.map((friendUserId) =>
+          supabaseChallengesProvider.inviteFriendToChallenge(created.id, friendUserId, roleFor(friendUserId)),
+        ),
       );
       onFinish();
     } catch (e) {
@@ -416,6 +423,23 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                   <CircleIcon size={18} color={color.neutral700} />
                 )}
               </Pressable>
+              {acceptedFriends
+                .filter((f) => invited.includes(f.userId))
+                .map((f) => (
+                  <Pressable
+                    key={f.userId}
+                    onPress={() => setHunterId(f.userId)}
+                    style={[styles.friendRow, hunterId === f.userId && styles.friendRowOn]}
+                  >
+                    <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
+                    <Text style={styles.friendName}>{f.name}</Text>
+                    {hunterId === f.userId ? (
+                      <CheckCircleIcon size={18} color={color.accent} weight="fill" />
+                    ) : (
+                      <CircleIcon size={18} color={color.neutral700} />
+                    )}
+                  </Pressable>
+                ))}
               {BOT_PRESETS.filter((b) => selectedBots.includes(b.id)).map((b) => (
                 <Pressable
                   key={b.id}
@@ -431,10 +455,10 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                   )}
                 </Pressable>
               ))}
-              {selectedBots.length === 0 && (
+              {invited.length === 0 && selectedBots.length === 0 && (
                 <Text style={styles.footNote}>
-                  Add a bot above to give this hunt someone else to chase, or be chased by — real
-                  friend invites above aren&rsquo;t wired to a role yet.
+                  Invite a friend or add a bot above to give this hunt someone else to chase, or be
+                  chased by.
                 </Text>
               )}
             </View>
