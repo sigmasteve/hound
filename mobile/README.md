@@ -243,6 +243,63 @@ as 100%, caught) — the leaderboard's raw numbers show who's ahead
 step-for-step, but not how close the actual chase is, which is the
 number the whole game turns on.
 
+A real hunt has one more fairness gap the head-start mechanic exists to
+prevent, but didn't actually close until now: nothing stopped inviting
+a brand new friend to a hunt whose head start had already elapsed —
+they'd join with no baseline of their own and no grace period, the
+exact same "instant target" a late Hunted participant would face for
+real. Closed from both ends. `ChallengeDetailScreen`'s "Invite a
+friend" card now checks the same `challenge.kind === 'hunt' &&
+!!challenge.headStartDays && headStartDaysLeft === 0` condition
+`hunterEffectiveNote` already uses, and swaps the whole friend list for
+an explanatory note once it's true — never letting the inviter send a
+doomed invite in the first place. `acceptChallengeInvite`
+(`supabaseChallenges.ts`) enforces the same rule server-side too, for
+an invite that was already pending from before the head start elapsed:
+it joins `challenge_invites` to its `challenges` row (readable under
+the invitee's own "Invitees can view challenges they're invited to"
+policy from 0009) and refuses the join with a clear error via
+`hasHeadStartElapsed` if the hunt's head start is already over — the
+one place this actually has to be enforced, since the invite-side
+check alone can't stop someone invited *before* the cutoff from
+accepting well after it. A hunt with no head start at all is never
+locked by either check — `headStartDaysLeft`/`hasHeadStartElapsed` both
+read as "elapsed" for that case too, but there was never a grace period
+to violate by joining one late.
+
+### Home's hunt card: a shared road for more than two runners
+
+`HomeScreen`'s hero card already had a real "open road" visual for a
+clean 1-Hunter-vs-1-Hunted hunt (`LiveHuntCard`: a dotted track, two
+sneaker-icon markers positioned by `left: %`) — but a hunt with a bot
+added, or more than one real friend, fell through to
+`LiveLeaderboardCard`, the same plain ranked list every non-hunt
+challenge uses. That's a real mismatch: a hunt's whole framing is a
+chase, not a rank, and a rank-ordered list of raw totals doesn't say
+anything about who's actually closest to being caught (see the
+leaderboard rank-order fix above for exactly why raw totals and catch
+progress aren't the same thing for a Hunter).
+
+`LiveMultiHuntCard` generalizes the two-person road to however many
+Hunted/Zombie participants a hunt actually has, all sharing one 0-100%
+track: every Hunted/Zombie gets a puck positioned by their own
+`huntEffectiveMetric ÷ their total` — the exact same percentage
+`ChallengeDetailScreen`'s "Chase progress" card already computes, just
+condensed for Home — so 100% always means caught, regardless of that
+person's own total, and pucks stay comparable to each other even
+though they're each being chased toward a different number. The
+Hunter sits fixed at the finish end; a Zombie's puck stays visible but
+dimmed, right at 100%, rather than disappearing once caught. The
+headline and the one puck that gets a highlighted ring both feature
+whoever's genuinely closest to being caught (`stillOut`, sorted by
+percentage, filtered to `role === 'hunted'` only — a Zombie is never
+"closest," it already happened) — "you" instead of the viewer's own
+name when that's who it is, same convention `LiveLeaderboardCard`'s
+own rows already use. `LiveLeaderboardCard` itself is now only ever
+used for a genuinely non-hunt challenge (a step race, streak, or
+distance pool), where "chase" framing was never the right metaphor to
+begin with.
+
 Two small follow-up polish items on the same screen: the "Highlight on
 Today screen" toggle's label wrapped onto 3-4 ugly lines (a long label
 next to an equally long `note` squeezes the label's column — `note` has

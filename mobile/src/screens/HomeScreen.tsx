@@ -328,6 +328,8 @@ export function HomeScreen({
         {primary ? (
           primary.challenge.kind === 'hunt' && primary.board.length === 2 ? (
             <LiveHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} />
+          ) : primary.challenge.kind === 'hunt' ? (
+            <LiveMultiHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} />
           ) : (
             <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} />
           )
@@ -488,10 +490,113 @@ function LiveHuntCard({
   );
 }
 
-// Any real challenge that isn't a clean two-way hunt (a step race, streak,
-// distance pool, or a hunt with a bot added on top of a real rival) — a
-// ranked list scaled to whoever's currently leading, same shape as the
-// sample race card.
+// A hunt with more than one Hunted (bots, multiple friends, or both) —
+// LiveHuntCard's own two-person "open road between you" framing doesn't
+// generalize to more than one rival on a fixed scale, so this puts
+// every Hunted/Zombie participant on one shared 0-100% track instead,
+// each positioned by how much of their own gap the Hunter's real
+// effective progress (huntEffectiveMetric — the same number
+// ChallengeDetailScreen's own "Chase progress" card already computes,
+// condensed for Home) has actually closed. 100% always means caught,
+// regardless of that person's own total, so pucks stay comparable to
+// each other even though they're each being chased toward a different
+// number.
+function LiveMultiHuntCard({
+  primary,
+  userId,
+  onOpen,
+}: {
+  primary: PrimaryChallenge;
+  userId: string | null;
+  onOpen: () => void;
+}) {
+  const { challenge, board } = primary;
+  const hunter = board.find((r) => r.role === 'hunter');
+  if (!hunter) return null;
+
+  const sortBy = boardSortFor(challenge);
+  const unit: 'mi' | 'steps' = sortBy === 'distance' ? 'mi' : 'steps';
+  const hunterMetric = huntEffectiveMetric(hunter, sortBy);
+  const targets = board
+    .filter((r) => r.role === 'hunted' || r.role === 'zombie')
+    .map((row) => {
+      const total = sortBy === 'distance' ? row.totalDistanceMi : row.totalSteps;
+      const pct = row.role === 'zombie' ? 100 : total > 0 ? Math.min(100, (hunterMetric / total) * 100) : 0;
+      return { row, total, pct, gap: Math.max(0, total - hunterMetric) };
+    });
+  // The headline and the spotlighted puck both feature whoever's
+  // genuinely closest to being caught — a Zombie is never "closest," it
+  // already happened, so this only ever looks at who's still Hunted.
+  const stillOut = targets.filter((t) => t.row.role === 'hunted').sort((a, b) => b.pct - a.pct);
+  const closest = stillOut[0];
+  const closestName = closest?.row.userId === userId ? 'you' : closest?.row.name;
+  const caughtCount = targets.length - stillOut.length;
+
+  const daysElapsed = Math.min(
+    challenge.durationDays,
+    Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
+  );
+  const concluded = targets.length > 0 && stillOut.length === 0;
+
+  return (
+    <Card style={styles.huntCard} elevated={false}>
+      <View style={styles.huntHeader}>
+        <PawPrintIcon size={15} color={color.accent300} weight="fill" />
+        <Text style={styles.huntTitle}>{challenge.name}</Text>
+        <Tag label={concluded ? 'Caught everyone' : `day ${daysElapsed} / ${challenge.durationDays}`} variant="outline" />
+      </View>
+
+      {!closest ? (
+        <Text style={styles.huntNote}>
+          {concluded
+            ? "The Hunter's caught everyone — the hunt's over."
+            : 'No one to chase yet.'}
+        </Text>
+      ) : (
+        <>
+          <View style={styles.huntStatsRow}>
+            <Text style={styles.huntLead}>
+              {formatLead(closest.gap, unit)}
+              <Text style={styles.huntLeadSuffix}> left to {closestName}</Text>
+            </Text>
+            <Text style={styles.huntNote}>
+              {caughtCount > 0
+                ? `${caughtCount} of ${targets.length} already caught.`
+                : `${targets.length} still out there.`}
+            </Text>
+          </View>
+          <View style={styles.multiTrack}>
+            <View style={styles.multiTrackDots}>
+              {Array.from({ length: 18 }).map((_, i) => (
+                <View key={i} style={styles.multiTrackDot} />
+              ))}
+            </View>
+            {targets.map((t) => (
+              <View
+                key={t.row.userId}
+                style={[
+                  styles.multiPuck,
+                  t.row.role === 'zombie' ? styles.multiPuckCaught : t.row.userId === closest.row.userId && styles.multiPuckSpotlight,
+                  { left: `${Math.min(88, Math.max(2, t.pct))}%` },
+                ]}
+              >
+                <Avatar initials={t.row.initials} tint={t.row.role === 'zombie' ? color.neutral800 : TINT_N} size={22} fontSize={9} />
+              </View>
+            ))}
+            <View style={[styles.multiPuck, styles.multiHunterPuck, { left: '94%' }]}>
+              <SneakerMoveIcon size={13} color={color.accent100} weight="fill" />
+            </View>
+          </View>
+        </>
+      )}
+      <Button label="See the tally" variant="primary" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+// Any real challenge that isn't a hunt at all (a step race, streak, or
+// distance pool) — a ranked list scaled to whoever's currently leading,
+// same shape as the sample race card.
 function LiveLeaderboardCard({
   primary,
   userId,
@@ -637,6 +742,20 @@ const styles = StyleSheet.create({
   huntLead: { fontFamily: font.heading, fontSize: 24, color: color.text },
   huntLeadSuffix: { fontSize: 13, color: 'rgba(233,233,237,0.65)', fontFamily: font.body },
   huntNote: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
+  multiTrack: { height: 36, justifyContent: 'center' },
+  multiTrackDots: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  multiTrackDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: color.divider },
+  multiPuck: { position: 'absolute', top: 3 },
+  multiPuckSpotlight: { borderRadius: 15, borderWidth: 1.5, borderColor: color.accent, padding: 1.5 },
+  multiPuckCaught: { opacity: 0.6 },
+  multiHunterPuck: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: color.neutral800,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   raceCard: { padding: 16, gap: 10 },
   raceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   raceTitle: { fontFamily: font.heading, fontSize: 16, color: color.text, flex: 1 },
