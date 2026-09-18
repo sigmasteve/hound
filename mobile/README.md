@@ -197,6 +197,30 @@ created before this migration) gets a baseline of 0 for everyone,
 which — since `huntEffectiveMetric` only ever subtracts it from the
 Hunter — is exactly the original, pre-head-start behavior.
 
+`buildBoard`'s own rank order had a gap in this same logic it took real
+testing to surface: it sorted every row — Hunter included — by raw
+`totalSteps`/`totalDistanceMi`, not `huntEffectiveMetric`. For anyone but
+the Hunter those are the same number, but the Hunter's raw total
+includes whatever they logged *during* the head start, which
+`withHuntCatches` correctly treats as 0 progress — so the leaderboard
+could rank the Hunter above a Hunted participant on steps that don't
+count toward anything, visibly contradicting the game's own catch
+condition (a Hunter who "hasn't started chasing" showing up in 2nd
+place). `buildBoard`'s sort now uses `huntEffectiveMetric` for every row
+instead — a no-op for non-hunt boards and for anyone but the Hunter
+(`huntEffectiveMetric` only ever adjusts a `'hunter'` row), and the fix
+everywhere else that reads `board` in rank order (`HomeScreen`'s "You're
+Nth of M," a concluded hunt's `board[0]` winner lookup) for free, since
+none of them re-sort on their own.
+
+`ChallengeDetailScreen` also gained a "Chase progress" card, right below
+the Leaderboard, for any hunt with a Hunter: one progress bar per
+Hunted/Zombie participant, showing how much of *their* total the
+Hunter's effective progress has actually closed (a Zombie always reads
+as 100%, caught) — the leaderboard's raw numbers show who's ahead
+step-for-step, but not how close the actual chase is, which is the
+number the whole game turns on.
+
 ### Distance Pool: a real group target, in miles or steps
 
 `CHALLENGE_TYPES` describes "Distance Pool" as "Add every mile the group

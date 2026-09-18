@@ -87,7 +87,15 @@ export function buildBoard(
       huntBaselineDistanceMi: 0,
     })),
   ];
-  return rows.sort((a, b) => (sortBy === 'distance' ? b.totalDistanceMi - a.totalDistanceMi : b.totalSteps - a.totalSteps));
+  // Ranked by huntEffectiveMetric, not the raw totals — for anyone but a
+  // Hunter that's the same number either way (it only ever subtracts a
+  // baseline for role === 'hunter'), but for the Hunter it's what
+  // actually counts toward a catch. Sorting by raw totals instead would
+  // let the Hunter's real, already-logged-during-the-head-start total
+  // outrank a Hunted participant on this list despite withHuntCatches
+  // correctly treating that same total as 0 progress — a leaderboard
+  // that visually contradicts its own game's catch condition.
+  return rows.sort((a, b) => huntEffectiveMetric(b, sortBy) - huntEffectiveMetric(a, sortBy));
 }
 
 // True once the Hunted's head start (challenge.headStartDays, set at
