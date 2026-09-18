@@ -92,6 +92,13 @@ export interface ChallengeInvite {
   challengeKind: ChallengeKind;
   durationDays: number;
   inviterName: string;
+  // Only meaningful for challengeKind 'hunt' — the role the inviter
+  // picked for this friend in CreateScreen's "Who's the Hunter?" step
+  // (or ChallengeDetailScreen's own "Invite a friend" card, which never
+  // offers a role and always leaves this null). Copied onto the new
+  // challenge_participants row when accepted — see
+  // acceptChallengeInvite.
+  role: HuntRole | null;
 }
 
 export interface CreateChallengeInput {
@@ -158,7 +165,12 @@ export interface ChallengesProvider {
   // Only a current participant of challengeId can call this (see
   // 0009_challenge_invites.sql's insert policy) — inviting someone
   // who isn't your friend still works, this doesn't check friendships.
-  inviteFriendToChallenge(challengeId: string, friendUserId: string): Promise<void>;
+  // `role` is only meaningful for a 'hunt' challenge — see
+  // CreateScreen's "Who's the Hunter?" step, which is the only caller
+  // that ever passes one; ChallengeDetailScreen's own "Invite a friend"
+  // card omits it, leaving the invite (and the participant row it
+  // becomes) roleless, same as before this existed.
+  inviteFriendToChallenge(challengeId: string, friendUserId: string, role?: HuntRole): Promise<void>;
   // Joins as a real challenge_participants row and removes the invite —
   // there's nothing left to represent once you're a participant.
   acceptChallengeInvite(inviteId: string): Promise<void>;
