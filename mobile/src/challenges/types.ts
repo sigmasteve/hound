@@ -138,7 +138,7 @@ export interface ChallengesProvider {
   // `asOfDay` ('YYYY-MM-DD'), when given, sums only progress_snapshots
   // rows on or before that day instead of every row — used to find a
   // Hunter's own total at the exact moment a head start ended (see
-  // src/challenges/board.ts's headStartEndDayKey/buildBoard), not just
+  // src/challenges/board.ts's headStartBaselineDayKey/buildBoard), not just
   // their current running total.
   getLeaderboard(challengeId: string, asOfDay?: string): Promise<LeaderboardEntry[]>;
   createChallenge(input: CreateChallengeInput): Promise<Challenge>;

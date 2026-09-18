@@ -30,7 +30,7 @@ import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import {
   buildBoard,
   hasHeadStartElapsed,
-  headStartEndDayKey,
+  headStartBaselineDayKey,
   huntEffectiveMetric,
   isChallengeFinished,
   withHuntCatches,
@@ -218,7 +218,7 @@ export function HomeScreen({
         supabaseChallengesProvider.getLeaderboard(active.id),
         supabaseChallengesProvider.listBots(active.id),
         needsHeadStart
-          ? supabaseChallengesProvider.getLeaderboard(active.id, headStartEndDayKey(active))
+          ? supabaseChallengesProvider.getLeaderboard(active.id, headStartBaselineDayKey(active))
           : Promise.resolve<LeaderboardEntry[]>([]),
       ]);
       const sortBy = boardSortFor(active);
