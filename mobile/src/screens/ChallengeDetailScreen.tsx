@@ -388,14 +388,29 @@ export function ChallengeDetailScreen({
   // they still haven't caught anyone despite a higher number, so this
   // spells out what actually counts.
   const hunterRow = board.find((r) => r.role === 'hunter');
+  const formatMetric = (value: number) =>
+    scoredByDistance ? `${value.toFixed(1)} mi` : `${Math.round(value).toLocaleString()} steps`;
   const hunterEffectiveNote =
     challenge.kind === 'hunt' && !!challenge.headStartDays && headStartDaysLeft === 0 && hunterRow
-      ? `Head start credit applied — only ${
-          scoredByDistance
-            ? `${huntEffectiveMetric(hunterRow, sortBy).toFixed(1)} mi`
-            : `${Math.round(huntEffectiveMetric(hunterRow, sortBy)).toLocaleString()} steps`
-        } of the Hunter's total counts toward catching up.`
+      ? `Head start credit applied — only ${formatMetric(huntEffectiveMetric(hunterRow, sortBy))} of the Hunter's total counts toward catching up.`
       : null;
+  // One progress bar per Hunted/Zombie participant, showing how much of
+  // the *gap* the Hunter's effective progress (huntEffectiveMetric, not
+  // their raw total — same reasoning as the leaderboard's own sort order
+  // above) has actually closed. A Zombie always reads as fully caught
+  // (100%), matching withHuntCatches' own catch condition exactly rather
+  // than recomputing something that could drift from it.
+  const chaseRows =
+    challenge.kind === 'hunt' && hunterRow
+      ? board
+          .filter((r) => r.role === 'hunted' || r.role === 'zombie')
+          .map((r) => {
+            const theirTotal = scoredByDistance ? r.totalDistanceMi : r.totalSteps;
+            const hunterMetric = huntEffectiveMetric(hunterRow, sortBy);
+            const pct = r.role === 'zombie' ? 100 : theirTotal > 0 ? Math.min(100, (hunterMetric / theirTotal) * 100) : 0;
+            return { row: r, pct, hunterMetric, theirTotal };
+          })
+      : [];
 
   const syncStatusText = deviceSyncing
     ? 'Syncing…'
@@ -522,6 +537,32 @@ export function ChallengeDetailScreen({
         ))}
         {board.length === 0 && <Text style={styles.footNote}>No participants found.</Text>}
       </Card>
+
+      {chaseRows.length > 0 && (
+        <Card style={{ gap: 12 }} elevated={false}>
+          <Text style={text.h4}>Chase progress</Text>
+          <Text style={styles.footNote}>
+            How much of each gap the Hunter&rsquo;s actually closed since the head start ended — not
+            just the raw numbers above.
+          </Text>
+          {chaseRows.map(({ row, pct, hunterMetric, theirTotal }) => (
+            <View key={row.userId} style={{ gap: 4 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Text style={styles.friendName}>{row.name}</Text>
+                <Text style={styles.footNote}>
+                  {row.role === 'zombie' ? 'Caught' : `${formatMetric(hunterMetric)} of ${formatMetric(theirTotal)}`}
+                </Text>
+              </View>
+              <ProgressBar
+                pct={pct}
+                fillColor={row.role === 'zombie' ? color.amber : color.accent}
+                height={6}
+                trackColor={color.neutral900}
+              />
+            </View>
+          ))}
+        </Card>
+      )}
 
       {usesDeviceSteps(challenge) || usesWorkoutDistance(challenge) ? (
         <Card style={{ gap: 10 }} elevated={false}>
