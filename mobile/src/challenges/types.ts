@@ -171,6 +171,21 @@ export interface ChallengesProvider {
   // card omits it, leaving the invite (and the participant row it
   // becomes) roleless, same as before this existed.
   inviteFriendToChallenge(challengeId: string, friendUserId: string, role?: HuntRole): Promise<void>;
+  // Every friend the caller has already invited to challengeId who
+  // hasn't accepted or declined yet — used to hydrate
+  // ChallengeDetailScreen's "Invite a friend" card on load, so a friend
+  // invited at creation time (via CreateScreen's "Bring friends" step)
+  // or on an earlier visit reads "Remind" from the very first render,
+  // not just after tapping "Invite" in this same session.
+  listSentChallengeInvites(challengeId: string): Promise<string[]>;
+  // Re-sends the invite email for a friend who already has a pending
+  // invite — same underlying send-challenge-invite-email call
+  // inviteFriendToChallenge's own insert triggers, just fired explicitly
+  // instead of right after creating the invite. Unlike that best-effort
+  // send, this throws on failure (no pending invite found, or the send
+  // itself fails): it's a deliberate "remind them" tap, so silently
+  // doing nothing would read as "it worked" when it didn't.
+  remindChallengeInvite(challengeId: string, friendUserId: string): Promise<void>;
   // Joins as a real challenge_participants row and removes the invite —
   // there's nothing left to represent once you're a participant.
   acceptChallengeInvite(inviteId: string): Promise<void>;

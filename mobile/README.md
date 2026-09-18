@@ -123,6 +123,21 @@ that same invite and copies it onto the new participant row it inserts.
 Bots don't need this detour since their `challenge_bots` row (role
 included) is created synchronously alongside the challenge itself.
 
+`ChallengeDetailScreen`'s own "Invite a friend" card had a related gap:
+its "Invited" label was purely a local flip, set only when *this session*
+tapped "Invite" — a friend invited at creation time (or on an earlier
+visit) still showed a plain "Invite" button forever, with no way to tell
+they already had a pending invite. `listSentChallengeInvites` now
+hydrates that on every `load()` from the real `challenge_invites` rows
+the current user has sent for this challenge, and the button itself
+reads "Remind" instead of a disabled "Invited" once someone's already
+invited — tapping it calls `remindChallengeInvite`, which re-sends the
+same `send-challenge-invite-email` call the original invite triggered,
+just on demand. Unlike that original best-effort send, this one throws
+on failure (no invite found, or the send itself fails) — a deliberate
+"remind them" tap failing silently would read as "it worked" when it
+didn't.
+
 `ChallengeDetailScreen.tsx` reads both back: a hunt scored on
 `device_steps` auto-syncs the same way a `'steps'`-kind challenge does
 (see below). `gps_distance` and `any_workout` instead sum today's

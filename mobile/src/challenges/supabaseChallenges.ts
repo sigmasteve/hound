@@ -329,6 +329,36 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     client.functions.invoke('send-challenge-invite-email', { body: { inviteId: data.id } }).catch(() => {});
   },
 
+  async listSentChallengeInvites(challengeId: string): Promise<string[]> {
+    const client = requireClient();
+    const userId = await requireUserId();
+    const { data, error } = await client
+      .from('challenge_invites')
+      .select('invitee_id')
+      .eq('challenge_id', challengeId)
+      .eq('inviter_id', userId);
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((row) => row.invitee_id);
+  },
+
+  async remindChallengeInvite(challengeId: string, friendUserId: string): Promise<void> {
+    const client = requireClient();
+    const userId = await requireUserId();
+    const { data: invite, error: fetchError } = await client
+      .from('challenge_invites')
+      .select('id')
+      .eq('challenge_id', challengeId)
+      .eq('inviter_id', userId)
+      .eq('invitee_id', friendUserId)
+      .maybeSingle();
+    if (fetchError) throw new Error(fetchError.message);
+    if (!invite) throw new Error('That invite is no longer pending.');
+    const { error: sendError } = await client.functions.invoke('send-challenge-invite-email', {
+      body: { inviteId: invite.id },
+    });
+    if (sendError) throw new Error('Could not send the reminder — try again.');
+  },
+
   async acceptChallengeInvite(inviteId: string): Promise<void> {
     const client = requireClient();
     const userId = await requireUserId();

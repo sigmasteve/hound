@@ -73,10 +73,10 @@ export function ChallengeDetailScreen({
 
   const [friends, setFriends] = useState<Friend[]>([]);
   const [invitingId, setInvitingId] = useState<string | null>(null);
-  // Friends invited this session but not yet reflected in `friends`
-  // (accepting isn't instant, and this screen has no way to tell a
-  // friend accepted a challenge invite vs. just hasn't yet) — purely a
-  // local "Invited" label flip, not a source of truth.
+  // Every friend with a pending invite to this challenge — hydrated from
+  // listSentChallengeInvites() on every load() (see below), not just
+  // flipped locally after tapping "Invite" in this session, so a friend
+  // invited at creation time reads "Remind" from the very first render.
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
@@ -87,7 +87,7 @@ export function ChallengeDetailScreen({
       // own kind/headStartDays, which isn't known until this returns.
       const c = await supabaseChallengesProvider.getChallenge(challengeId);
       const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
-      const [p, l, b, f, hs] = await Promise.all([
+      const [p, l, b, f, hs, sentInvites] = await Promise.all([
         supabaseChallengesProvider.listParticipants(challengeId),
         supabaseChallengesProvider.getLeaderboard(challengeId),
         supabaseChallengesProvider.listBots(challengeId),
@@ -95,6 +95,7 @@ export function ChallengeDetailScreen({
         needsHeadStart
           ? supabaseChallengesProvider.getLeaderboard(challengeId, headStartEndDayKey(c))
           : Promise.resolve<LeaderboardEntry[]>([]),
+        supabaseChallengesProvider.listSentChallengeInvites(challengeId),
       ]);
       setChallenge(c);
       setParticipants(p);
@@ -102,6 +103,7 @@ export function ChallengeDetailScreen({
       setBots(b);
       setFriends(f);
       setHeadStartLeaderboard(hs);
+      setInvitedIds(new Set(sentInvites));
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not load this challenge.');
     } finally {
@@ -169,6 +171,17 @@ export function ChallengeDetailScreen({
       } else {
         Alert.alert('Could not invite', e instanceof Error ? e.message : 'Try again.');
       }
+    } finally {
+      setInvitingId(null);
+    }
+  };
+
+  const remindFriend = async (friend: Friend) => {
+    setInvitingId(friend.userId);
+    try {
+      await supabaseChallengesProvider.remindChallengeInvite(challengeId, friend.userId);
+    } catch (e) {
+      Alert.alert('Could not send reminder', e instanceof Error ? e.message : 'Try again.');
     } finally {
       setInvitingId(null);
     }
@@ -571,16 +584,17 @@ export function ChallengeDetailScreen({
         ) : (
           invitableFriends.map((f) => {
             const invited = invitedIds.has(f.userId);
+            const busy = invitingId === f.userId;
             return (
               <View key={f.userId} style={styles.inviteFriendRow}>
                 <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
                 <Text style={[styles.friendName, { flex: 1 }]}>{f.name}</Text>
                 <Button
-                  label={invited ? 'Invited' : invitingId === f.userId ? 'Inviting…' : 'Invite'}
+                  label={busy ? (invited ? 'Reminding…' : 'Inviting…') : invited ? 'Remind' : 'Invite'}
                   variant={invited ? 'ghost' : 'secondary'}
                   small
-                  disabled={invited || invitingId === f.userId}
-                  onPress={() => inviteFriend(f)}
+                  disabled={busy}
+                  onPress={() => (invited ? remindFriend(f) : inviteFriend(f))}
                 />
               </View>
             );
