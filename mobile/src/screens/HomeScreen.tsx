@@ -541,15 +541,20 @@ function LiveMultiHuntCard({
   const concluded = targets.length > 0 && stillOut.length === 0;
 
   // Most people read left to right, and the Hunter is the one *behind*,
-  // doing the chasing — so it anchors the left edge, not the finish
-  // line on the right. A target's own pct (0 = hasn't been touched, 100
-  // = caught) maps backward from there: the safest Hunted sits out near
-  // the right edge, and closing the gap pulls their puck leftward, back
-  // toward the Hunter, landing right next to it once actually caught —
-  // a Zombie's puck (pct always 100) stays visible at that same
-  // near-Hunter position rather than disappearing, so the board still
-  // reads as a real, ongoing race.
-  const trackPosFor = (pct: number) => 88 - (Math.min(100, Math.max(0, pct)) / 100) * 76;
+  // doing the chasing — so it anchors the left edge (HUNTER_POS), not
+  // the finish line on the right. A still-Hunted target's own pct (0 =
+  // hasn't been touched, approaching 100 = about to be caught) maps
+  // backward from there: the safest sits out near the right edge, and
+  // closing the gap pulls their puck leftward, toward the Hunter — but
+  // never quite reaching or passing it, since that position would read
+  // as "about to be caught," not "already caught." A Zombie isn't on
+  // that gradient at all: it jumps to a fixed spot *behind* the Hunter
+  // (CAUGHT_POS, left of HUNTER_POS) the instant withHuntCatches flips
+  // them, the same way the Hunter has visibly already passed them by in
+  // a real chase, rather than sitting just short of the Hunter forever.
+  const HUNTER_POS = 8;
+  const CAUGHT_POS = 2;
+  const trackPosFor = (pct: number) => 90 - (Math.min(100, Math.max(0, pct)) / 100) * 76;
 
   return (
     <Card style={styles.huntCard} elevated={false}>
@@ -585,24 +590,33 @@ function LiveMultiHuntCard({
                 <View key={i} style={styles.multiTrackDot} />
               ))}
             </View>
-            {targets.map((t) => (
-              <View
-                key={t.row.userId}
-                style={[
-                  styles.multiPuck,
-                  t.row.role === 'zombie' ? styles.multiPuckCaught : t.row.userId === closest.row.userId && styles.multiPuckSpotlight,
-                  { left: `${trackPosFor(t.pct)}%` },
-                ]}
-              >
-                <Avatar initials={t.row.initials} tint={t.row.role === 'zombie' ? color.neutral800 : TINT_N} size={22} fontSize={9} />
-              </View>
-            ))}
+            {targets.map((t) => {
+              const caught = t.row.role === 'zombie';
+              return (
+                <View
+                  key={t.row.userId}
+                  style={[
+                    styles.multiPuck,
+                    caught ? styles.multiPuckCaught : t.row.userId === closest.row.userId && styles.multiPuckSpotlight,
+                    { left: `${caught ? CAUGHT_POS : trackPosFor(t.pct)}%` },
+                  ]}
+                >
+                  <Avatar initials={t.row.initials} tint={caught ? color.neutral800 : TINT_N} size={22} fontSize={9} />
+                  {/* A literal strikethrough, not just the dimmed
+                      opacity above — "caught" should read at a glance,
+                      not just as a slightly-fainter avatar next to
+                      everyone else's. */}
+                  {caught && <View style={styles.multiPuckStrike} />}
+                </View>
+              );
+            })}
             {/* Amber + paw print, not the same neutral gray a caught
                 Zombie's puck already uses — the Hunter needs its own
                 unmistakable color so it doesn't read as just another
-                (caught) participant sitting right next to it. Fixed at
-                the left edge — see trackPosFor's own comment for why. */}
-            <View style={[styles.multiPuck, styles.multiHunterPuck, { left: '4%' }]}>
+                (caught) participant. Fixed at the left edge, ahead of
+                every Zombie's own fixed CAUGHT_POS — see trackPosFor's
+                own comment for why. */}
+            <View style={[styles.multiPuck, styles.multiHunterPuck, { left: `${HUNTER_POS}%` }]}>
               <PawPrintIcon size={14} color="#232a54" weight="fill" />
             </View>
           </View>
@@ -767,6 +781,15 @@ const styles = StyleSheet.create({
   multiPuck: { position: 'absolute', top: 3 },
   multiPuckSpotlight: { borderRadius: 15, borderWidth: 1.5, borderColor: color.accent, padding: 1.5 },
   multiPuckCaught: { opacity: 0.6 },
+  multiPuckStrike: {
+    position: 'absolute',
+    top: 10,
+    left: 0,
+    width: 22,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: 'rgba(233,233,237,0.85)',
+  },
   multiHunterPuck: {
     width: 26,
     height: 26,

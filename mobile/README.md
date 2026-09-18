@@ -334,6 +334,18 @@ convention as `closestName`'s own "you" substitution, with the right
 verb either way) — "Blaze needs 15,930 steps left to you," not just a
 number with no subject.
 
+Retesting also caught a real positioning bug in the track itself: a
+Zombie's puck used the same `trackPosFor` gradient every still-Hunted
+target does, landing it just short of the Hunter's own fixed position
+— visually indistinguishable from "about to be caught next" rather
+than "already caught." A Zombie isn't on that gradient at all anymore:
+`CAUGHT_POS` (2%) sits it at a fixed spot *behind* the Hunter's own
+`HUNTER_POS` (8%), the same way the Hunter has visibly already passed
+them by in a real chase. It also gets a literal strikethrough now (a
+small bar across the avatar, `multiPuckStrike`) on top of the existing
+dimmed opacity — "caught" needs to read at a glance, not as a
+slightly-fainter avatar that otherwise looks like everyone else's.
+
 Two small follow-up polish items on the same screen: the "Highlight on
 Today screen" toggle's label wrapped onto 3-4 ugly lines (a long label
 next to an equally long `note` squeezes the label's column — `note` has
