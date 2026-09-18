@@ -583,8 +583,12 @@ function LiveMultiHuntCard({
                 <Avatar initials={t.row.initials} tint={t.row.role === 'zombie' ? color.neutral800 : TINT_N} size={22} fontSize={9} />
               </View>
             ))}
+            {/* Amber + paw print, not the same neutral gray a caught
+                Zombie's puck already uses — the Hunter needs its own
+                unmistakable color so it doesn't read as just another
+                (caught) participant sitting at the finish end. */}
             <View style={[styles.multiPuck, styles.multiHunterPuck, { left: '94%' }]}>
-              <SneakerMoveIcon size={13} color={color.accent100} weight="fill" />
+              <PawPrintIcon size={14} color="#232a54" weight="fill" />
             </View>
           </View>
         </>
@@ -752,7 +756,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: color.neutral800,
+    backgroundColor: color.amber,
     alignItems: 'center',
     justifyContent: 'center',
   },

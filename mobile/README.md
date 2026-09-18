@@ -300,6 +300,16 @@ used for a genuinely non-hunt challenge (a step race, streak, or
 distance pool), where "chase" framing was never the right metaphor to
 begin with.
 
+The Hunter's own puck first shipped as the same neutral gray a caught
+Zombie's puck already used, plus a sneaker icon — real testing found
+it immediately: sitting right next to a caught Hunted at the finish
+end, it visually blended into "just another (caught) participant"
+instead of standing out as the one actually doing the chasing. Now
+amber, filled with `PawPrintIcon` instead of `SneakerMoveIcon` — a
+Hound's own paw doing the catching, and a color no other puck state
+(spotlighted-closest purple ring, dimmed-caught gray) uses, so it's
+never ambiguous which one is the Hunter at a glance.
+
 Two small follow-up polish items on the same screen: the "Highlight on
 Today screen" toggle's label wrapped onto 3-4 ugly lines (a long label
 next to an equally long `note` squeezes the label's column — `note` has
