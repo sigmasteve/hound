@@ -538,6 +538,17 @@ function LiveMultiHuntCard({
   );
   const concluded = targets.length > 0 && stillOut.length === 0;
 
+  // Most people read left to right, and the Hunter is the one *behind*,
+  // doing the chasing — so it anchors the left edge, not the finish
+  // line on the right. A target's own pct (0 = hasn't been touched, 100
+  // = caught) maps backward from there: the safest Hunted sits out near
+  // the right edge, and closing the gap pulls their puck leftward, back
+  // toward the Hunter, landing right next to it once actually caught —
+  // a Zombie's puck (pct always 100) stays visible at that same
+  // near-Hunter position rather than disappearing, so the board still
+  // reads as a real, ongoing race.
+  const trackPosFor = (pct: number) => 88 - (Math.min(100, Math.max(0, pct)) / 100) * 76;
+
   return (
     <Card style={styles.huntCard} elevated={false}>
       <View style={styles.huntHeader}>
@@ -577,7 +588,7 @@ function LiveMultiHuntCard({
                 style={[
                   styles.multiPuck,
                   t.row.role === 'zombie' ? styles.multiPuckCaught : t.row.userId === closest.row.userId && styles.multiPuckSpotlight,
-                  { left: `${Math.min(88, Math.max(2, t.pct))}%` },
+                  { left: `${trackPosFor(t.pct)}%` },
                 ]}
               >
                 <Avatar initials={t.row.initials} tint={t.row.role === 'zombie' ? color.neutral800 : TINT_N} size={22} fontSize={9} />
@@ -586,8 +597,9 @@ function LiveMultiHuntCard({
             {/* Amber + paw print, not the same neutral gray a caught
                 Zombie's puck already uses — the Hunter needs its own
                 unmistakable color so it doesn't read as just another
-                (caught) participant sitting at the finish end. */}
-            <View style={[styles.multiPuck, styles.multiHunterPuck, { left: '94%' }]}>
+                (caught) participant sitting right next to it. Fixed at
+                the left edge — see trackPosFor's own comment for why. */}
+            <View style={[styles.multiPuck, styles.multiHunterPuck, { left: '4%' }]}>
               <PawPrintIcon size={14} color="#232a54" weight="fill" />
             </View>
           </View>
