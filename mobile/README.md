@@ -325,6 +325,15 @@ Zombie's puck (pct always 100) stays at that same near-Hunter
 position rather than disappearing, so the board still reads as a
 real, ongoing race instead of just the survivors.
 
+The headline itself ("15,930 steps left to you") never actually named
+the Hunter — the amber paw puck is the only thing on the card that
+does, and a first-time viewer has no way to connect a plain paw icon
+to a specific bot or friend's name without it. Now prefixed with
+`{hunterName} {need(s)}` (`"You"` when the viewer is the Hunter, same
+convention as `closestName`'s own "you" substitution, with the right
+verb either way) — "Blaze needs 15,930 steps left to you," not just a
+number with no subject.
+
 Two small follow-up polish items on the same screen: the "Highlight on
 Today screen" toggle's label wrapped onto 3-4 ugly lines (a long label
 next to an equally long `note` squeezes the label's column — `note` has

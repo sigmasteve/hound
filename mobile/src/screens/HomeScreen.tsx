@@ -530,6 +530,8 @@ function LiveMultiHuntCard({
   const stillOut = targets.filter((t) => t.row.role === 'hunted').sort((a, b) => b.pct - a.pct);
   const closest = stillOut[0];
   const closestName = closest?.row.userId === userId ? 'you' : closest?.row.name;
+  const hunterIsMe = hunter.userId === userId;
+  const hunterName = hunterIsMe ? 'You' : hunter.name;
   const caughtCount = targets.length - stillOut.length;
 
   const daysElapsed = Math.min(
@@ -567,6 +569,7 @@ function LiveMultiHuntCard({
         <>
           <View style={styles.huntStatsRow}>
             <Text style={styles.huntLead}>
+              <Text style={styles.huntLeadSuffix}>{hunterName} {hunterIsMe ? 'need' : 'needs'} </Text>
               {formatLead(closest.gap, unit)}
               <Text style={styles.huntLeadSuffix}> left to {closestName}</Text>
             </Text>
