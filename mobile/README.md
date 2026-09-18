@@ -197,6 +197,28 @@ created before this migration) gets a baseline of 0 for everyone,
 which — since `huntEffectiveMetric` only ever subtracts it from the
 Hunter — is exactly the original, pre-head-start behavior.
 
+The baseline fetch itself had a real bug that made the whole credit
+mechanism silently a no-op for a real (non-bot) Hunter on the exact day
+their head start ended: `headStartEndDayKey` returned the calendar day
+the head start ends *on*, and `getLeaderboard`'s `asOfDay` filter is
+`day <= asOfDay` — but `progress_snapshots` has exactly one row per
+`(challenge, user, day)`, continuously upserted as new steps sync in
+throughout that day. A head start essentially never ends at exactly
+local midnight, so "the day it ends on" is almost always still today —
+meaning the baseline query included that same still-live, ever-updating
+row, so the Hunter's baseline tracked their current total for the
+*entire* day the head start ended, no matter how many new steps they
+logged. `huntEffectiveMetric` (their total minus that baseline) stayed
+stuck at 0 all day, and the credit would only actually start working
+the day after. Renamed to `headStartBaselineDayKey` and fixed to return
+the day *before* instead — a boundary that's already closed and will
+never be upserted into again, at the (acceptable, given
+`progress_snapshots`' day-level granularity) cost of also crediting
+whatever the Hunter logged earlier that same day, before the exact
+cutoff. A bot Hunter never had this bug: its baseline
+(`simulateBotSteps` evaluated at `head_start_days` elapsed) is a pure
+function with no underlying row for anything to upsert into.
+
 `buildBoard`'s own rank order had a gap in this same logic it took real
 testing to surface: it sorted every row — Hunter included — by raw
 `totalSteps`/`totalDistanceMi`, not `huntEffectiveMetric`. For anyone but
@@ -220,6 +242,20 @@ Hunter's effective progress has actually closed (a Zombie always reads
 as 100%, caught) — the leaderboard's raw numbers show who's ahead
 step-for-step, but not how close the actual chase is, which is the
 number the whole game turns on.
+
+Two small follow-up polish items on the same screen: the "Highlight on
+Today screen" toggle's label wrapped onto 3-4 ugly lines (a long label
+next to an equally long `note` squeezes the label's column — `note` has
+no `flexShrink` in `ToggleRow`, so it always claims its full single-line
+width first). Shortened to "Highlight on Home," which also fixes a
+stray "Today" vs. the rest of the app's own "Home" naming. And the
+"Your progress" card (sync status + a manual "Sync now" button) is
+gone entirely for a device-synced challenge — `syncFromDevice` already
+runs automatically in the background the moment the screen loads (see
+the auto-sync effect above it), so once Health Connect/HealthKit is
+actually connected there was nothing left for that card to add; a
+failed sync now fails silently and simply retries on the next visit,
+rather than surfacing an error nothing was left to show it next to.
 
 ### Distance Pool: a real group target, in miles or steps
 

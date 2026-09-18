@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeftIcon, ArrowsClockwiseIcon, RobotIcon, TrashIcon, TrophyIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, RobotIcon, TrashIcon, TrophyIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -17,7 +17,7 @@ import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import {
   buildBoard,
   headStartDaysLeft as computeHeadStartDaysLeft,
-  headStartEndDayKey,
+  headStartBaselineDayKey,
   huntEffectiveMetric,
   withHuntCatches,
 } from '../challenges/board';
@@ -67,10 +67,6 @@ export function ChallengeDetailScreen({
   const [logError, setLogError] = useState<string | null>(null);
   const [logSuccess, setLogSuccess] = useState(false);
 
-  const [deviceSyncing, setDeviceSyncing] = useState(false);
-  const [deviceSyncedAt, setDeviceSyncedAt] = useState<Date | null>(null);
-  const [deviceSyncError, setDeviceSyncError] = useState<string | null>(null);
-
   const [friends, setFriends] = useState<Friend[]>([]);
   const [invitingId, setInvitingId] = useState<string | null>(null);
   // Every friend with a pending invite to this challenge — hydrated from
@@ -93,7 +89,7 @@ export function ChallengeDetailScreen({
         supabaseChallengesProvider.listBots(challengeId),
         supabaseFriendsProvider.listFriends(),
         needsHeadStart
-          ? supabaseChallengesProvider.getLeaderboard(challengeId, headStartEndDayKey(c))
+          ? supabaseChallengesProvider.getLeaderboard(challengeId, headStartBaselineDayKey(c))
           : Promise.resolve<LeaderboardEntry[]>([]),
         supabaseChallengesProvider.listSentChallengeInvites(challengeId),
       ]);
@@ -228,8 +224,6 @@ export function ChallengeDetailScreen({
   // to match, which is a real limitation, not a hidden bug.
   const syncFromDevice = useCallback(async () => {
     if (!challenge) return;
-    setDeviceSyncError(null);
-    setDeviceSyncing(true);
     try {
       const since = new Date(challenge.startsAt);
       // Local-calendar day keys throughout — startDayKey/endCap have to
@@ -286,12 +280,13 @@ export function ChallengeDetailScreen({
           daily.map((d) => supabaseChallengesProvider.recordProgress(challengeId, d.steps, d.distanceMi, d.date)),
         );
       }
-      setDeviceSyncedAt(new Date());
       await load();
-    } catch (e) {
-      setDeviceSyncError(e instanceof Error ? e.message : 'Could not sync — try again.');
-    } finally {
-      setDeviceSyncing(false);
+    } catch {
+      // Silent — this only ever runs automatically in the background now
+      // (see the auto-sync effect below); there's no "Your progress" card
+      // left to surface an error on, and the next successful sync (this
+      // same effect, next time the screen loads) supersedes a failed one
+      // anyway.
     }
   }, [challenge, challengeId, health, load]);
 
@@ -412,21 +407,6 @@ export function ChallengeDetailScreen({
           })
       : [];
 
-  const syncStatusText = deviceSyncing
-    ? 'Syncing…'
-    : deviceSyncError
-      ? deviceSyncError
-      : deviceSyncedAt
-        ? 'Synced just now'
-        : 'Not synced yet';
-
-  const syncDescription =
-    challenge.kind === 'hunt' && challenge.scoringMethod === 'gps_distance'
-      ? `Distance from today’s runs and walks auto-syncs from ${health.platformLabel}.`
-      : challenge.kind === 'hunt' && challenge.scoringMethod === 'any_workout'
-        ? `Distance from every workout logged today auto-syncs from ${health.platformLabel}.`
-        : `Steps auto-sync from ${health.platformLabel} — no manual entry needed.`;
-
   const invitableFriends = friends.filter(
     (f) => f.status === 'accepted' && !participants.some((p) => p.userId === f.userId),
   );
@@ -471,7 +451,7 @@ export function ChallengeDetailScreen({
       </View>
 
       <ToggleRow
-        label="Highlight on Today screen"
+        label="Highlight on Home"
         note="Feature this challenge on your Home screen"
         value={myHighlighted}
         onChange={togglingHighlight ? () => {} : toggleHighlight}
@@ -564,20 +544,13 @@ export function ChallengeDetailScreen({
         </Card>
       )}
 
-      {usesDeviceSteps(challenge) || usesWorkoutDistance(challenge) ? (
-        <Card style={{ gap: 10 }} elevated={false}>
-          <Text style={text.h4}>Your progress</Text>
-          <Text style={styles.footNote}>{syncDescription}</Text>
-          <View style={styles.syncRow}>
-            <View style={[styles.dot, { backgroundColor: deviceSyncError ? color.amber : color.green }]} />
-            <Text style={styles.footNote}>{syncStatusText}</Text>
-            <Pressable style={styles.syncBtn} onPress={syncFromDevice} disabled={deviceSyncing}>
-              <ArrowsClockwiseIcon size={13} color={color.accent} />
-              <Text style={styles.syncLabel}>Sync now</Text>
-            </Pressable>
-          </View>
-        </Card>
-      ) : (
+      {/* A device-synced challenge (usesDeviceSteps/usesWorkoutDistance)
+          gets no card here at all — syncFromDevice already runs
+          automatically in the background (see the auto-sync effect
+          above) once Health Connect/HealthKit is connected, so there's
+          nothing for this screen to show or for the person to trigger
+          manually. */}
+      {!usesDeviceSteps(challenge) && !usesWorkoutDistance(challenge) && (
         <Card style={{ gap: 14 }} elevated={false}>
           <Text style={text.h4}>Log your progress</Text>
           <Text style={styles.footNote}>
@@ -664,10 +637,6 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
   headerIcon: { width: 46, height: 46, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   headerMeta: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
-  syncRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' },
-  syncLabel: { fontSize: 12, color: color.accent, fontFamily: font.heading },
   leaderboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   groupTotal: { fontFamily: font.heading, fontSize: 24, color: color.text },
   boardRow: {

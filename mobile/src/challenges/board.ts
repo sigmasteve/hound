@@ -38,7 +38,7 @@ export interface BoardEntry {
 // `huntBaselineSteps`/`huntBaselineDistanceMi` below comes out 0, which
 // is exactly correct: no head start means nothing to credit. When they
 // do matter, `headStartLeaderboard` has to be a *separate* fetch —
-// `ChallengesProvider.getLeaderboard(challengeId, headStartEndDayKey(challenge))`
+// `ChallengesProvider.getLeaderboard(challengeId, headStartBaselineDayKey(challenge))`
 // — not the regular one, since it needs each real participant's total as
 // of one specific past day, not their current running total (see
 // ChallengeDetailScreen/HomeScreen's data loading for where that extra
@@ -120,15 +120,39 @@ export function headStartDaysLeft(challenge: Challenge): number {
   return Math.max(1, Math.ceil((challenge.headStartDays ?? 0) - daysElapsedFraction(challenge)));
 }
 
-// The calendar day the head start ends on — the one day a caller needs
-// in order to fetch "everyone's total as of head start ending" via
-// ChallengesProvider.getLeaderboard(challengeId, headStartEndDayKey(challenge))
-// (see buildBoard's headStartLeaderboard param). Local-calendar, matching
-// progress_snapshots.day's own convention (see supabaseChallenges.ts's
-// localDateKey).
-export function headStartEndDayKey(challenge: Challenge): string {
-  const end = new Date(new Date(challenge.startsAt).getTime() + (challenge.headStartDays ?? 0) * 86_400_000);
-  return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+// The calendar day a caller needs in order to fetch "everyone's total as
+// of head start ending" via
+// ChallengesProvider.getLeaderboard(challengeId, headStartBaselineDayKey(challenge))
+// (see buildBoard's headStartLeaderboard param) — deliberately the day
+// *before* the head start actually ends, not the day it ends on.
+// progress_snapshots has one row per (challenge, user, day), continuously
+// upserted as new steps sync in throughout that day — a head start
+// almost never ends exactly at local midnight, so using that day's own
+// key would make `day <= asOfDay` include that same still-being-updated
+// row. A real Hunter's baseline would then track their current total
+// for the entire day the head start ends on (never freezing), making
+// huntEffectiveMetric read 0 no matter how many new steps they log that
+// day — it would only start crediting them the day after. Using the day
+// before instead gives a hard boundary nothing will ever upsert into
+// again, at the cost of also crediting whatever the Hunter logged
+// earlier on the head-start-end day itself, before the exact cutoff —
+// an acceptable rounding error given progress_snapshots' day-level
+// granularity (there's no per-sync timestamp to slice more precisely),
+// and far better than the credit not applying until a full day late. A
+// bot Hunter never had this problem — see buildBoard's own comment for
+// why its baseline is a separate, deterministic simulation with no
+// underlying row to upsert into in the first place.
+// Local-calendar, matching progress_snapshots.day's own convention (see
+// supabaseChallenges.ts's localDateKey).
+export function headStartBaselineDayKey(challenge: Challenge): string {
+  const headStartDays = challenge.headStartDays ?? 0;
+  const end = new Date(new Date(challenge.startsAt).getTime() + headStartDays * 86_400_000);
+  // Only shift back a day when there's an actual head start ending —
+  // with none, this is never called in practice (see needsHeadStart's
+  // own !!headStartDays guard on every caller), so there's no real end
+  // day to step back from.
+  const baseline = headStartDays > 0 ? new Date(end.getTime() - 86_400_000) : end;
+  return `${baseline.getFullYear()}-${String(baseline.getMonth() + 1).padStart(2, '0')}-${String(baseline.getDate()).padStart(2, '0')}`;
 }
 
 // What actually counts toward a catch for this entry — for the Hunter,

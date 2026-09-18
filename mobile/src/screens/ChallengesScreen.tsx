@@ -16,7 +16,7 @@ import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import { headStartEndDayKey } from '../challenges/board';
+import { headStartBaselineDayKey } from '../challenges/board';
 import { toChallengeCard } from '../challenges/present';
 import type { ChallengeInvite, LeaderboardEntry } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
@@ -57,7 +57,7 @@ export function ChallengesScreen({
           supabaseChallengesProvider.getLeaderboard(c.id),
           supabaseChallengesProvider.listBots(c.id),
           needsHeadStart
-            ? supabaseChallengesProvider.getLeaderboard(c.id, headStartEndDayKey(c))
+            ? supabaseChallengesProvider.getLeaderboard(c.id, headStartBaselineDayKey(c))
             : Promise.resolve<LeaderboardEntry[]>([]),
         ]);
         return toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null, headStartLeaderboard);
