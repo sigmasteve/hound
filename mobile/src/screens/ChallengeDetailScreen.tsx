@@ -410,6 +410,14 @@ export function ChallengeDetailScreen({
   const invitableFriends = friends.filter(
     (f) => f.status === 'accepted' && !participants.some((p) => p.userId === f.userId),
   );
+  // Same condition as hunterEffectiveNote's own: once a hunt's head
+  // start has genuinely elapsed, a freshly invited friend would join
+  // with no head start credit of their own — the same unfair "instant
+  // target" a late Hunted would face for real. acceptChallengeInvite
+  // enforces this server-side too (see supabaseChallenges.ts) — this is
+  // just what keeps the inviter from sending a doomed invite in the
+  // first place.
+  const huntHeadStartLocked = challenge.kind === 'hunt' && !!challenge.headStartDays && headStartDaysLeft === 0;
 
   // A distance pool isn't ranked at all — everyone's steps or miles
   // (whichever unit its creator picked — see CreateScreen.tsx's "Group
@@ -589,7 +597,12 @@ export function ChallengeDetailScreen({
 
       <Card style={{ gap: 10 }} elevated={false}>
         <Text style={text.h4}>Invite a friend</Text>
-        {invitableFriends.length === 0 ? (
+        {huntHeadStartLocked ? (
+          <Text style={styles.footNote}>
+            This hunt&rsquo;s head start has already ended — a newly invited friend would join with
+            no head start of their own, so new invites are closed for the rest of this hunt.
+          </Text>
+        ) : invitableFriends.length === 0 ? (
           <Text style={styles.footNote}>
             {friends.length === 0
               ? 'Add friends from the Friends tab, then invite them here.'

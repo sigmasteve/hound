@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { hasHeadStartElapsed } from './board';
 import type {
   Challenge,
   ChallengeBot,
@@ -364,10 +365,32 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     const userId = await requireUserId();
     const { data: invite, error: fetchError } = await client
       .from('challenge_invites')
-      .select('challenge_id, role')
+      .select('challenge_id, role, challenges(kind, head_start_days, starts_at, duration_days)')
       .eq('id', inviteId)
       .single();
     if (fetchError) throw new Error(fetchError.message);
+
+    // Once a hunt's head start has genuinely elapsed, joining now would
+    // drop the new participant straight into the chase with no head
+    // start of their own — the same unfair "instant target" a late
+    // Hunted would face for real. Never true for a hunt with no head
+    // start at all (hasHeadStartElapsed reads true for that case too,
+    // but there's nothing to be unfair about joining a hunt that was
+    // never gated by one) — see its own doc comment.
+    const c = invite.challenges as unknown as {
+      kind: Challenge['kind'];
+      head_start_days: number | null;
+      starts_at: string;
+      duration_days: number;
+    } | null;
+    if (c && c.kind === 'hunt' && c.head_start_days) {
+      const elapsed = hasHeadStartElapsed({
+        startsAt: c.starts_at,
+        durationDays: c.duration_days,
+        headStartDays: c.head_start_days,
+      } as Challenge);
+      if (elapsed) throw new Error("This hunt's head start has already ended — new invites can no longer be accepted.");
+    }
 
     // A plain insert, not an upsert: `.upsert(..., { ignoreDuplicates })`
     // compiles to `INSERT ... ON CONFLICT DO NOTHING`, and Postgres RLS
