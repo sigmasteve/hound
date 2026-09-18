@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 2,
     borderRadius: 1,
-    backgroundColor: 'rgba(233,233,237,0.85)',
+    backgroundColor: color.amber,
   },
   multiHunterPuck: {
     width: 26,
