@@ -345,6 +345,10 @@ them by in a real chase. It also gets a literal strikethrough now (a
 small bar across the avatar, `multiPuckStrike`) on top of the existing
 dimmed opacity — "caught" needs to read at a glance, not as a
 slightly-fainter avatar that otherwise looks like everyone else's.
+That strike is `color.amber` now, not plain gray — the same color the
+Hunter's own puck uses, so the mark reads as "caught *by the Hunter*"
+rather than just a generic done/crossed-out state, which matters more
+on this card's dark background than a neutral line would.
 
 Two small follow-up polish items on the same screen: the "Highlight on
 Today screen" toggle's label wrapped onto 3-4 ugly lines (a long label
