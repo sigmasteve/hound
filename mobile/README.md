@@ -310,6 +310,21 @@ Hound's own paw doing the catching, and a color no other puck state
 (spotlighted-closest purple ring, dimmed-caught gray) uses, so it's
 never ambiguous which one is the Hunter at a glance.
 
+The track's own direction shipped backward from how most people
+actually read a chase: the Hunter (fixed at 94%, right next to the
+finish line) anchored the *right* edge, with a safe Hunted sitting
+further left and getting pulled rightward, toward the Hunter, as the
+gap closed. Retesting caught it immediately — left-to-right, that
+reads as the Hunter arriving *last*, not doing the catching.
+`trackPosFor` now anchors the Hunter at the left edge instead (4%, the
+one doing the chasing, reads first) and maps a target's own pct
+backward from there: the safest Hunted sits out near the right edge
+(88%), and closing the gap pulls their puck leftward, back toward the
+Hunter, landing right next to it once actually caught (12%) — a
+Zombie's puck (pct always 100) stays at that same near-Hunter
+position rather than disappearing, so the board still reads as a
+real, ongoing race instead of just the survivors.
+
 Two small follow-up polish items on the same screen: the "Highlight on
 Today screen" toggle's label wrapped onto 3-4 ugly lines (a long label
 next to an equally long `note` squeezes the label's column — `note` has
