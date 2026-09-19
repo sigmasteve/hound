@@ -59,6 +59,25 @@ buttons will fail or bounce to the wrong place.
   sections for the full per-provider checklist — the OAuth app
   credentials are shared between mobile and this site, only the
   redirect URL differs).
+
+  **One extra step Google needs here that mobile's own setup doesn't
+  cover**: mobile signs in with the native Google SDK
+  (`signInWithIdToken`), which mobile's own README notes needs no
+  redirect URI at all. This site instead uses Supabase's standard browser
+  OAuth redirect (there's no native SDK on the web) — Google redirects to
+  *Supabase's* callback URL first, not straight back to this site, so
+  that URL has to be allow-listed on the Google OAuth client or you'll
+  hit `Error 400: redirect_uri_mismatch`. In [Google Cloud
+  Console](https://console.cloud.google.com/apis/credentials), open the
+  **Web application** OAuth client (the one whose Client ID/Secret is
+  entered into Supabase's Google provider) and add under **Authorized
+  redirect URIs**:
+  ```
+  https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback
+  ```
+  (`YOUR_PROJECT_REF` is the subdomain in your `config.js`'s
+  `supabaseUrl` — `/auth/v1/callback` is Supabase's fixed callback path,
+  same for every provider.)
 - **Apple** isn't wired up here — per `mobile/README.md`, it still needs
   its own provider configured in the Supabase dashboard first.
 
