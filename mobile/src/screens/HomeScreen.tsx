@@ -39,8 +39,10 @@ import {
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor } from '../challenges/scoring';
-import { ordinal } from '../challenges/present';
+import { huntKindName, ordinal } from '../challenges/present';
 import type { Challenge, LeaderboardEntry } from '../challenges/types';
+import { useLabels } from '../labels/LabelsContext';
+import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 
 function timeAgo(d: Date | null): string {
   if (!d) return '—';
@@ -89,13 +91,17 @@ function formatLead(value: number, unit: 'mi' | 'steps'): string {
 // however many kinds of standing a real challenge can actually be in: a
 // two-way gap (hunt, in whatever unit it's scored on), a rank in a bigger
 // field, or nobody having logged anything yet.
-function heroCopy(primary: PrimaryChallenge, userId: string | null): { eyebrow: string; headline: string } {
+function heroCopy(
+  primary: PrimaryChallenge,
+  userId: string | null,
+  labels: HuntLabels = DEFAULT_HUNT_LABELS,
+): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = Math.min(
     challenge.durationDays,
     Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
   );
-  const kindLabel = CHALLENGE_TYPES.find((t) => t.id === challenge.kind)?.name ?? challenge.kind;
+  const kindLabel = challenge.kind === 'hunt' ? huntKindName(labels) : CHALLENGE_TYPES.find((t) => t.id === challenge.kind)?.name ?? challenge.kind;
   const eyebrow = `DAY ${daysElapsed} OF ${challenge.durationDays} · ${kindLabel.toUpperCase()}`;
 
   const me = userId ? board.find((r) => r.userId === userId) : undefined;
@@ -150,7 +156,10 @@ function heroCopy(primary: PrimaryChallenge, userId: string | null): { eyebrow: 
   // otherwise still report a stale rank for someone who's already out of
   // the running.
   if (challenge.kind === 'hunt' && me?.role === 'zombie' && !finished) {
-    return { eyebrow, headline: `You've been caught — you're a Zombie now. ${challenge.name} continues without you.` };
+    return {
+      eyebrow,
+      headline: `You've been caught — you're a ${labels.zombie} now. ${challenge.name} continues without you.`,
+    };
   }
 
   // board is already sorted descending by whichever metric this
@@ -185,6 +194,7 @@ export function HomeScreen({
   const { user } = useAuth();
   const health = useHealthProvider();
   const { colors, text } = useTheme();
+  const { labels } = useLabels();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [snap, setSnap] = useState<HealthSnapshot | null>(null);
   // null = either no real active challenge to headline, or the fetch
@@ -259,7 +269,7 @@ export function HomeScreen({
     };
   }, [user?.id]);
 
-  const hero = primary ? heroCopy(primary, user?.id ?? null) : null;
+  const hero = primary ? heroCopy(primary, user?.id ?? null, labels) : null;
   // No real challenge to open yet — sends a brand-new user (or the
   // unconfigured sandbox) to where "New challenge" actually lives,
   // instead of the old fallback of opening the hardcoded Hunt demo as if
@@ -367,6 +377,7 @@ export function HomeScreen({
 // history to fall back to being honest about, so the honest content is
 // an explanation of what the app can actually do instead.
 function GettingStartedCards({ onGoTab, styles }: { onGoTab: (tab: MainTab) => void; styles: HomeStyles }) {
+  const { labels } = useLabels();
   return (
     <>
       <Card style={styles.onboardCard} elevated={false}>
@@ -386,7 +397,7 @@ function GettingStartedCards({ onGoTab, styles }: { onGoTab: (tab: MainTab) => v
                   <Icon size={16} color={t.iconColor} weight={t.id === 'hunt' ? 'fill' : 'regular'} />
                 </View>
                 <View style={styles.typeText}>
-                  <Text style={styles.typeName}>{t.name}</Text>
+                  <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName(labels) : t.name}</Text>
                   <Text style={styles.typeDesc}>{t.desc}</Text>
                 </View>
               </View>
@@ -420,8 +431,8 @@ function GettingStartedCards({ onGoTab, styles }: { onGoTab: (tab: MainTab) => v
           <Text style={styles.onboardTitle}>Bring your friends in</Text>
         </View>
         <Text style={styles.onboardBody}>
-          Find a friend by email and invite them straight into a challenge — that's how a Hunter and
-          Hunted end up chasing each other.
+          Find a friend by email and invite them straight into a challenge — that's how a {labels.hunter}{' '}
+          and {labels.hunted} end up chasing each other.
         </Text>
         <Button label="Find friends" variant="ghost" small onPress={() => onGoTab('friends')} />
       </Card>
@@ -530,6 +541,7 @@ function LiveMultiHuntCard({
   onOpen: () => void;
   styles: HomeStyles;
 }) {
+  const { labels } = useLabels();
   const { challenge, board } = primary;
   const hunter = board.find((r) => r.role === 'hunter');
   if (!hunter) return null;
@@ -587,7 +599,7 @@ function LiveMultiHuntCard({
       {!closest ? (
         <Text style={styles.huntNote}>
           {concluded
-            ? "The Hunter's caught everyone — the hunt's over."
+            ? `The ${labels.hunter}'s caught everyone — the hunt's over.`
             : 'No one to chase yet.'}
         </Text>
       ) : (

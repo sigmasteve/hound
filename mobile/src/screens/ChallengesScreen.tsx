@@ -18,7 +18,8 @@ import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { headStartBaselineDayKey, pickPrimaryChallenge } from '../challenges/board';
-import { toChallengeCard } from '../challenges/present';
+import { huntKindName, toChallengeCard } from '../challenges/present';
+import { useLabels } from '../labels/LabelsContext';
 import type { ChallengeInvite, LeaderboardEntry } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
 
@@ -33,6 +34,7 @@ export function ChallengesScreen({
 }) {
   const { user } = useAuth();
   const { colors, text } = useTheme();
+  const { labels } = useLabels();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   // null = no fetch has resolved yet, whether that's because Supabase
   // isn't configured (it never will) or because the real fetch just
@@ -73,7 +75,7 @@ export function ChallengesScreen({
             ? supabaseChallengesProvider.getLeaderboard(c.id, headStartBaselineDayKey(c))
             : Promise.resolve<LeaderboardEntry[]>([]),
         ]);
-        return toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null, headStartLeaderboard);
+        return toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null, headStartLeaderboard, labels);
       }),
     );
     setLiveCards(cards);
@@ -173,7 +175,10 @@ export function ChallengesScreen({
                 {invite.inviterName} invited you to &ldquo;{invite.challengeName}&rdquo;
               </Text>
               <Text style={styles.inviteSub}>
-                {CHALLENGE_TYPES.find((t) => t.id === invite.challengeKind)?.name ?? invite.challengeKind} ·{' '}
+                {invite.challengeKind === 'hunt'
+                  ? huntKindName(labels)
+                  : CHALLENGE_TYPES.find((t) => t.id === invite.challengeKind)?.name ?? invite.challengeKind}{' '}
+                ·{' '}
                 {invite.durationDays} days
               </Text>
             </View>

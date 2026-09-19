@@ -17,6 +17,8 @@ import { Button } from '../components/Button';
 import { RadioPill } from '../components/Selectable';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { useTheme } from '../theme/ThemeContext';
+import { huntKindName } from '../challenges/present';
+import { useLabels } from '../labels/LabelsContext';
 import { font, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
@@ -37,6 +39,7 @@ const SCORING_METHODS: { id: ScoringMethod; label: string }[] = [
 export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onFinish: () => void }) {
   const { user } = useAuth();
   const { colors, text } = useTheme();
+  const { labels } = useLabels();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [draftType, setDraftType] = useState<ChallengeKind>('hunt');
@@ -173,7 +176,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                   <TypeIcon size={19} color={t.iconColor} weight={t.id === 'hunt' ? 'fill' : 'regular'} />
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.typeName}>{t.name}</Text>
+                  <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName(labels) : t.name}</Text>
                   <Text style={styles.typeDesc}>{t.desc}</Text>
                 </View>
                 {picked ? (
@@ -280,7 +283,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
           {draftType === 'hunt' && (
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
-                <Text style={styles.huntBlockLabel}>Head start for the hunted</Text>
+                <Text style={styles.huntBlockLabel}>Head start for the {labels.hunted.toLowerCase()}</Text>
                 <Text style={styles.huntBlockValue}>{headStartLabel}</Text>
               </View>
               <Slider
@@ -294,9 +297,10 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                 thumbTintColor={colors.accent}
               />
               <Text style={styles.huntBlockNote}>
-                The hunted logs alone for {headStartLabel}. Then the hunter starts tallying and has to
-                close the gap before the clock runs out. Pick who&rsquo;s hunting whom on the next step
-                — a hunt always has exactly one Hunter, but can have more than one Hunted.
+                The {labels.hunted} logs alone for {headStartLabel}. Then the {labels.hunter} starts
+                tallying and has to close the gap before the clock runs out. Pick who&rsquo;s hunting
+                whom on the next step — a hunt always has exactly one {labels.hunter}, but can have more
+                than one {labels.hunted}.
               </Text>
             </View>
           )}
@@ -408,10 +412,10 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
 
           {draftType === 'hunt' && (
             <View style={{ gap: 8, marginTop: 4 }}>
-              <Text style={text.h4}>Who&rsquo;s the Hunter?</Text>
+              <Text style={text.h4}>Who&rsquo;s the {labels.hunter}?</Text>
               <Text style={styles.footNote}>
-                Exactly one Hunter chases everyone else — everyone else is Hunted, however many there
-                are.
+                Exactly one {labels.hunter} chases everyone else — everyone else is {labels.hunted},
+                however many there are.
               </Text>
               <Pressable
                 onPress={() => setHunterId('me')}

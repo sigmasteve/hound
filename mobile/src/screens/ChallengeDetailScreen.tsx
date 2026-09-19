@@ -23,12 +23,13 @@ import {
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor, usesDeviceSteps, usesDistanceRanking, usesWorkoutDistance } from '../challenges/scoring';
-import { HUNT_ROLE_LABEL, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
+import { huntKindName, huntRoleLabel, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { useAuth } from '../auth/AuthContext';
 import { useHealthProvider } from '../health/HealthContext';
+import { useLabels } from '../labels/LabelsContext';
 
 // The generic detail view for a real, Supabase-backed challenge of any
 // kind — there's no per-kind template yet (HuntScreen is one specific
@@ -52,6 +53,7 @@ export function ChallengeDetailScreen({
   const health = useHealthProvider();
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { labels } = useLabels();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -400,7 +402,7 @@ export function ChallengeDetailScreen({
     scoredByDistance ? `${value.toFixed(1)} mi` : `${Math.round(value).toLocaleString()} steps`;
   const hunterEffectiveNote =
     challenge.kind === 'hunt' && !!challenge.headStartDays && headStartDaysLeft === 0 && hunterRow
-      ? "Head start credit applied — steps the Hunter logged before it ended don't count toward catching up."
+      ? `Head start credit applied — steps the ${labels.hunter} logged before it ended don't count toward catching up.`
       : null;
   // One progress bar per Hunted/Zombie participant, showing how much of
   // the *gap* the Hunter's effective progress (huntEffectiveMetric, not
@@ -463,7 +465,10 @@ export function ChallengeDetailScreen({
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={[text.h2, { fontSize: 24 }]}>{challenge.name}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <Tag label={typeDef?.name ?? challenge.kind} variant={challenge.kind === 'hunt' ? 'accent' : 'neutral'} />
+            <Tag
+              label={challenge.kind === 'hunt' ? huntKindName(labels) : (typeDef?.name ?? challenge.kind)}
+              variant={challenge.kind === 'hunt' ? 'accent' : 'neutral'}
+            />
             <Text style={styles.headerMeta}>
               Day {daysElapsed} of {challenge.durationDays} · {endsLabel}
             </Text>
@@ -509,7 +514,7 @@ export function ChallengeDetailScreen({
         </View>
         {headStartDaysLeft > 0 && (
           <Text style={styles.footNote}>
-            Head start: the Hunter&rsquo;s total won&rsquo;t count toward a catch for{' '}
+            Head start: the {labels.hunter}&rsquo;s total won&rsquo;t count toward a catch for{' '}
             {headStartDaysLeft} more {headStartDaysLeft === 1 ? 'day' : 'days'}.
           </Text>
         )}
@@ -532,7 +537,7 @@ export function ChallengeDetailScreen({
               <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                 <Text style={styles.boardName}>{row.name}</Text>
                 {row.isBot && <RobotIcon size={13} color={withAlpha(colors.text, 0.55)} />}
-                {row.role && <Tag label={HUNT_ROLE_LABEL[row.role]} variant={HUNT_ROLE_TAG_VARIANT[row.role]} />}
+                {row.role && <Tag label={huntRoleLabel(row.role, labels)} variant={HUNT_ROLE_TAG_VARIANT[row.role]} />}
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 {scoredByDistance ? (
@@ -554,8 +559,8 @@ export function ChallengeDetailScreen({
         <Card style={{ gap: 12 }} elevated={false}>
           <Text style={text.h4}>Chase progress</Text>
           <Text style={styles.footNote}>
-            How much of each gap the Hunter&rsquo;s actually closed since the head start ended — not
-            just the raw numbers above.
+            How much of each gap the {labels.hunter}&rsquo;s actually closed since the head start
+            ended — not just the raw numbers above.
           </Text>
           {chaseRows.map(({ row, pct, hunterMetric, theirTotal }) => (
             <View key={row.userId} style={{ gap: 4 }}>
