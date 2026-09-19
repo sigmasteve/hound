@@ -1,5 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '../theme/ThemeContext';
@@ -8,16 +10,67 @@ import { MainScreen } from '../screens/MainScreen';
 import { HuntScreen } from '../screens/HuntScreen';
 import { CreateScreen } from '../screens/CreateScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
+import { ConnectScreen } from '../screens/ConnectScreen';
 import { WelcomeScreen } from '../screens/auth/WelcomeScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { SignUpScreen } from '../screens/auth/SignUpScreen';
 import { useAuth } from '../auth/AuthContext';
+import { useHealthProvider } from '../health/HealthContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+// Once someone's dealt with this (connected, or tapped "Skip for now"),
+// it never interrupts a launch again — from then on Connect is just the
+// normal tab, there to revisit whenever. Device-scoped rather than
+// per-account on purpose: whether this phone's HealthKit/Health Connect
+// access is granted is an OS-level fact, not something a second Hound
+// account signing in on the same device needs asked again.
+const CONNECT_PROMPT_SEEN_KEY = 'hound:connect-prompt-seen';
+
+// 'checking': the AsyncStorage read + health.getAuthorizationStatus() call
+// below haven't resolved yet — rendered the same as `initializing`, so a
+// fresh sign-in never flashes Main before this decides. 'show': neither
+// seen before nor already authorized — this is what makes ConnectScreen
+// appear right after a first login instead of relying on someone finding
+// it in the nav. 'hide': already seen, or health access already granted
+// (e.g. restored from a previous session) — go straight to Main.
+type ConnectGate = 'checking' | 'show' | 'hide';
+
 export function RootNavigator() {
   const { status, initializing } = useAuth();
+  const health = useHealthProvider();
   const { colors } = useTheme();
+  const [connectGate, setConnectGate] = useState<ConnectGate>('checking');
+
+  useEffect(() => {
+    if (status !== 'signedIn') {
+      // Reset so a sign-out followed by a different sign-in re-checks
+      // fresh, rather than reusing whichever gate the previous session
+      // last landed on.
+      setConnectGate('checking');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const [seen, authStatus] = await Promise.all([
+        AsyncStorage.getItem(CONNECT_PROMPT_SEEN_KEY),
+        health.getAuthorizationStatus(),
+      ]);
+      if (cancelled) return;
+      setConnectGate(seen !== 'true' && authStatus !== 'authorized' ? 'show' : 'hide');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, health]);
+
+  const dismissConnectPrompt = useCallback(() => {
+    setConnectGate('hide');
+    AsyncStorage.setItem(CONNECT_PROMPT_SEEN_KEY, 'true').catch(() => {
+      // Best-effort — this session still moves on to Main either way,
+      // it just might ask again next launch if this write never lands.
+    });
+  }, []);
 
   const navTheme = useMemo(
     () => ({
@@ -39,11 +92,26 @@ export function RootNavigator() {
   // session from AsyncStorage is fast but still async, and briefly
   // showing Welcome before swapping to Main would be worse than a beat of
   // blank screen.
-  if (initializing) {
+  if (initializing || (status === 'signedIn' && connectGate === 'checking')) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={colors.accent} />
       </View>
+    );
+  }
+
+  // Deliberately outside the Stack.Navigator below — a plain full-screen
+  // gate, the same way the spinner above is, rather than a Stack.Screen
+  // this would have to navigate to (and briefly show Main's own first
+  // screen behind before redirecting). onDone is the one thing that
+  // marks CONNECT_PROMPT_SEEN_KEY, so tapping "Skip for now" counts as
+  // "dealt with" exactly the same as actually connecting — either way
+  // this never interrupts a launch again.
+  if (status === 'signedIn' && connectGate === 'show') {
+    return (
+      <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: colors.bg }}>
+        <ConnectScreen onDone={dismissConnectPrompt} />
+      </SafeAreaView>
     );
   }
 
