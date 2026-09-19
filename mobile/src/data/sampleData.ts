@@ -169,7 +169,6 @@ export interface DataSource {
 export const SOURCES: DataSource[] = [
   { name: 'Apple Health', tint: TINT_N, status: 'Synced 4 minutes ago', statusColor: GREEN, scope: 'Steps, workouts, HR, weight', action: 'Manage' },
   { name: 'Health Connect', tint: TINT_A, status: 'Last sync 2 days ago — background access paused', statusColor: AMBER, scope: 'Steps, workouts, distance', action: 'Reconnect' },
-  { name: 'Withings Scale', tint: TINT_N, status: 'Via Apple Health · Sunday', statusColor: GREEN, scope: 'Weight only', action: 'Manage' },
 ];
 
 export const ALERT_DEFS = [

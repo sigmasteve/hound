@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
-  AppleLogoIcon,
   ArrowsClockwiseIcon,
+  CaretRightIcon,
   CrosshairIcon,
+  FlagCheckeredIcon,
   FootprintsIcon,
   PathIcon,
   PawPrintIcon,
@@ -43,14 +44,6 @@ import { huntKindName, ordinal } from '../challenges/present';
 import type { Challenge, LeaderboardEntry } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
-
-function timeAgo(d: Date | null): string {
-  if (!d) return '—';
-  const mins = Math.round((Date.now() - d.getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
-  return `${Math.round(mins / 60)}h ago`;
-}
 
 interface PrimaryChallenge {
   challenge: Challenge;
@@ -211,6 +204,10 @@ export function HomeScreen({
   // fallback is the real, permanent content in that case, not a
   // placeholder for a fetch that's about to happen.
   const [loadingPrimary, setLoadingPrimary] = useState(isSupabaseConfigured);
+  // Null until the fetch below resolves (or forever, unconfigured) —
+  // the "N active · N finished" row stays hidden rather than showing a
+  // misleading 0/0 while this is still loading.
+  const [challengeCounts, setChallengeCounts] = useState<{ active: number; finished: number } | null>(null);
 
   const reload = useCallback(() => {
     health.getSnapshot().then(setSnap);
@@ -230,33 +227,42 @@ export function HomeScreen({
         supabaseChallengesProvider.getHighlightedChallenge(),
         supabaseChallengesProvider.listMyChallenges(),
       ]);
-      const active = pickPrimaryChallenge(challenges, highlighted);
-      if (!active) return;
-      // A hunt with a head start needs one extra fetch — everyone's
-      // total as of the day the head start ended — so the Hunter's
-      // effective progress (huntEffectiveMetric) can be measured from
-      // there instead of from zero. Skipped otherwise; nothing to credit.
-      const needsHeadStart = active.kind === 'hunt' && !!active.headStartDays;
-      const [participants, leaderboard, bots, headStartLeaderboard] = await Promise.all([
-        supabaseChallengesProvider.listParticipants(active.id),
-        supabaseChallengesProvider.getLeaderboard(active.id),
-        supabaseChallengesProvider.listBots(active.id),
-        needsHeadStart
-          ? supabaseChallengesProvider.getLeaderboard(active.id, headStartBaselineDayKey(active))
-          : Promise.resolve<LeaderboardEntry[]>([]),
-      ]);
-      const sortBy = boardSortFor(active);
-      const rawBoard = buildBoard(
-        participants,
-        leaderboard,
-        bots,
-        daysElapsedFraction(active),
-        sortBy,
-        active,
-        headStartLeaderboard,
+      const primaryId = pickPrimaryChallenge(challenges, highlighted)?.id ?? null;
+
+      // One board per challenge, not just the primary one — needed for
+      // the "N active · N finished" summary below the hero. Built from
+      // the same isChallengeFinished ChallengesScreen's own active/
+      // Finished split already uses, so this can't quietly disagree with
+      // what tapping through to Challenges actually shows (a hunt
+      // concluded early by a catch counts as finished here too, not just
+      // one whose scheduled end passed). Every challenge's own
+      // participants/leaderboard/bots is fetched exactly once here and
+      // reused below for whichever one turns out to be primary, rather
+      // than fetching that one a second time.
+      const results = await Promise.all(
+        challenges.map(async (c) => {
+          const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
+          const [participants, leaderboard, bots, headStartLeaderboard] = await Promise.all([
+            supabaseChallengesProvider.listParticipants(c.id),
+            supabaseChallengesProvider.getLeaderboard(c.id),
+            supabaseChallengesProvider.listBots(c.id),
+            needsHeadStart
+              ? supabaseChallengesProvider.getLeaderboard(c.id, headStartBaselineDayKey(c))
+              : Promise.resolve<LeaderboardEntry[]>([]),
+          ]);
+          const sortBy = boardSortFor(c);
+          const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(c), sortBy, c, headStartLeaderboard);
+          const board = c.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy, c) : rawBoard;
+          return { challenge: c, board, finished: isChallengeFinished(c, board) };
+        }),
       );
-      const board = active.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy, active) : rawBoard;
-      if (!cancelled) setPrimary({ challenge: active, board });
+      if (cancelled) return;
+      setChallengeCounts({
+        active: results.filter((r) => !r.finished).length,
+        finished: results.filter((r) => r.finished).length,
+      });
+      const primaryResult = results.find((r) => r.challenge.id === primaryId);
+      if (primaryResult) setPrimary({ challenge: primaryResult.challenge, board: primaryResult.board });
     })()
       .catch(() => {
         // Stay on the sample fallback on any failure.
@@ -312,18 +318,21 @@ export function HomeScreen({
         />
       </View>
 
-      <View style={styles.badgeRow}>
-        <View style={styles.badge}>
-          <AppleLogoIcon size={14} color={colors.text} weight="fill" />
-          <Text style={styles.badgeLabel}>Apple Health</Text>
-          <View style={[styles.dot, { backgroundColor: color.green }]} />
-          <Text style={styles.badgeMuted}>{timeAgo(snap?.lastSyncedAt ?? null)}</Text>
-        </View>
-        <Pressable style={styles.syncBtn} onPress={reload}>
-          <ArrowsClockwiseIcon size={13} color={color.accent} />
-          <Text style={styles.syncLabel}>Sync now</Text>
+      {/* Hidden until the counts fetch resolves (or never, unconfigured/
+          no challenges at all) — see challengeCounts' own state comment.
+          Exists for the same reason ChallengesScreen splits its own list
+          into "active" and "Finished": once there are more than a
+          handful of challenges, it's not obvious at a glance how many
+          are still actually running versus just sitting there finished. */}
+      {challengeCounts && challengeCounts.active + challengeCounts.finished > 0 && (
+        <Pressable style={styles.countsRow} onPress={() => onGoTab('challenges')}>
+          <FlagCheckeredIcon size={13} color={color.accent} />
+          <Text style={styles.countsText}>
+            {challengeCounts.active} active · {challengeCounts.finished} finished
+          </Text>
+          <CaretRightIcon size={12} color={withAlpha(colors.text, 0.4)} />
         </Pressable>
-      </View>
+      )}
 
       {/* Resting HR and Weight moved to the Data tab (MetricsScreen already
           has its own dedicated "Heart rate"/"Weight" views with real
@@ -765,21 +774,17 @@ function makeStyles(colors: Palette) {
     heroRow: { gap: 14 },
     heroText: { gap: 6 },
     heroTitle: { fontSize: 28 },
-    badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-    badge: {
+    countsRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      alignSelf: 'flex-start',
       gap: 7,
-      paddingVertical: 5,
-      paddingHorizontal: 11,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
       borderRadius: 999,
       backgroundColor: colors.surface,
     },
-    badgeLabel: { fontSize: 12, color: colors.text },
-    dot: { width: 6, height: 6, borderRadius: 3 },
-    badgeMuted: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
-    syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
-    syncLabel: { fontSize: 12, color: colors.accent, fontFamily: font.heading },
+    countsText: { fontSize: 12.5, color: colors.text, fontFamily: font.heading },
     onboardCard: { padding: 16, gap: 10 },
     onboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     onboardTitle: { fontFamily: font.heading, fontSize: 15, color: colors.text, flex: 1 },
