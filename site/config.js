@@ -12,6 +12,6 @@
 // account the mobile app signs in with — same project, same `profiles`
 // row.
 window.HOUND_CONFIG = {
-  supabaseUrl: 'YOUR_SUPABASE_PROJECT_URL',
-  supabasePublishableKey: 'YOUR_SUPABASE_PUBLISHABLE_KEY',
+  supabaseUrl: 'https://vaypjksgpuuopqvurcus.supabase.co',
+  supabasePublishableKey: 'sb_publishable_Mzw-0rWnaOPJQ5AlTHwRVQ_F2VhnmBQ',
 };
