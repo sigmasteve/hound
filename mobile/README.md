@@ -593,6 +593,68 @@ that never reaches `ChallengeDetailScreen` at all). Verified by
 visually confirmed correct on the three screens the original PR did test
 live — worth an on-device check before calling this one fully done.
 
+### Light mode: migrating the rest of the app
+
+The remaining fast-follow — every screen the toggle's own README note
+still listed as "not migrated yet": `MetricsScreen`, `ConnectScreen`,
+`FriendsScreen`, `HuntScreen`, `CreateScreen`, and the three auth screens
+(`WelcomeScreen`/`LoginScreen`/`SignUpScreen`), plus two shared
+components they depend on (`Chip`/`InlineBadge`). Same mechanical
+pattern throughout: `useTheme()` for `colors`/`text`, styles built via
+`makeStyles(colors)` + `useMemo`, every muted-text literal through
+`withAlpha(colors.text, N)`.
+
+Unlike the first fast-follow, this whole batch *was* re-verified live —
+Metrics, Friends, Connect, and the Create wizard's three steps are all
+reachable from the mock-auth account this sandbox actually has, and the
+three auth screens are reachable by toggling Light mode, then logging
+out (the theme lives in `App.tsx`'s `ThemeProvider`, above
+`RootNavigator`, so it survives a sign-out that swaps the whole
+navigator's screen group — it's a genuinely separate piece of state from
+auth, not something that resets with it). `HuntScreen` is the one
+exception: it's only reachable via a live two-person hunt or a
+`target === 'hunt'` challenge card, neither of which exists without a
+real backend, so it got the same "typecheck + identical, already-proven
+pattern" treatment `ChallengeDetailScreen` did in the previous PR instead
+of a live look.
+
+That live pass caught real bugs the mechanical conversion alone would
+have missed — the same `accentActive` class of bug the toggle PR first
+found in `TopNav` and Home's leaderboard, just in new places:
+
+- **`ConnectScreen`'s "Read-only, five metrics" notice** and
+  **`CreateScreen`'s "Everyone in this hunt is scored on…" notice** —
+  both a wash of the accent color over the page's own (now
+  theme-following) background, both using the near-white `accent200` as
+  their text color. Fixed with `accentActive`, same as `TopNav`.
+- **`CreateScreen`'s matching `DevicesIcon`**, sitting in that same
+  notice — an icon needs exactly the same fix as text does, since it's
+  just as invisible near-white-on-near-white; the mechanical pass had
+  only been checking text colors.
+- **`HuntScreen`'s "Both sides are scored on GPS distance only" notice`**
+  — identical shape, fixed the same way.
+- **`FriendsScreen`'s real "Invite by email" card** — a plain migrated
+  `Card` with no background override, so its `UserPlusIcon` sits on this
+  theme's own surface — `accentActive` again. Its *sample-fallback*
+  counterpart right above it in the same file (shown before Supabase
+  is configured) sits inside a fixed dark `inviteCard`, and correctly
+  did **not** need the fix — the same background-dependent distinction
+  `ChallengeDetailScreen`'s hunt-card treatment already established, just
+  easy to miss when a file has both a fixed-dark card and a
+  theme-following one within a few lines of each other.
+
+Left deliberately alone, matching the "always-dark spotlight card"
+precedent from Home's `huntCard` and Challenges' invite card:
+`HuntScreen`'s own `progressCard` (fixed `#232a54`) and `CreateScreen`'s
+`huntBlock` (fixed `#262a60`, the `section` token's own value) — every
+near-white accent/neutral shade inside either one is correct as-is in
+both themes, precisely because the card underneath them never changes
+color to begin with.
+
+With this batch merged, every screen in the app reads from the theme
+system — Light mode is no longer a partial toggle with known gaps, it's
+the app's second complete look.
+
 ### Distance Pool: a real group target, in miles or steps
 
 `CHALLENGE_TYPES` describes "Distance Pool" as "Add every mile the group

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -17,8 +17,8 @@ import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { InlineBadge } from '../components/Chip';
-import { text } from '../theme/text';
-import { color, font } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { font, withAlpha, type Palette } from '../theme/tokens';
 import { TALLY } from '../data/sampleData';
 
 const TALLY_ICON: Record<string, React.ComponentType<any>> = {
@@ -29,10 +29,12 @@ const TALLY_ICON: Record<string, React.ComponentType<any>> = {
 };
 
 export function HuntScreen({ onBack }: { onBack: () => void }) {
+  const { colors, text } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={styles.container}>
-      <Button label="All challenges" variant="ghost" small icon={<ArrowLeftIcon size={13} color={color.accent} />} onPress={onBack} />
+      <Button label="All challenges" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
       <View style={styles.headerRow}>
         <View style={{ gap: 6, flex: 1 }}>
@@ -40,8 +42,8 @@ export function HuntScreen({ onBack }: { onBack: () => void }) {
           <Text style={[text.h2, { fontSize: 26 }]}>Marcus is hunting you</Text>
         </View>
         <View style={styles.headerBtns}>
-          <Button label="Trash talk" small icon={<ChatCircleIcon size={14} color={color.text} />} />
-          <Button label="Log" small variant="primary" icon={<PlusIcon size={14} color={color.accent} />} />
+          <Button label="Trash talk" small icon={<ChatCircleIcon size={14} color={colors.text} />} />
+          <Button label="Log" small variant="primary" icon={<PlusIcon size={14} color={colors.accent} />} />
         </View>
       </View>
 
@@ -57,11 +59,11 @@ export function HuntScreen({ onBack }: { onBack: () => void }) {
         <View style={styles.track}>
           <View style={styles.dashedLine} />
           <View style={[styles.marker, styles.hunterMarker, { left: '58%' }]}>
-            <DogIcon size={18} color={color.text} weight="fill" />
+            <DogIcon size={18} color={colors.text} weight="fill" />
           </View>
           <Text style={[styles.markerLabel, { left: '58%' }]}>Marcus · 33.8 mi</Text>
           <View style={[styles.marker, styles.huntedMarker, { left: '78%' }]}>
-            <SneakerMoveIcon size={18} color={color.accent100} weight="fill" />
+            <SneakerMoveIcon size={18} color={colors.accent100} weight="fill" />
           </View>
           <Text style={[styles.markerLabel, styles.markerLabelAccent, { left: '78%', top: 0 }]}>
             You · 41.2 mi
@@ -69,10 +71,10 @@ export function HuntScreen({ onBack }: { onBack: () => void }) {
         </View>
 
         <View style={styles.statGrid}>
-          <Stat label="Your pace" value="4.6 mi / day" />
-          <Stat label="His pace" value="5.4 mi / day" valueColor={color.amber} />
-          <Stat label="Caught by" value="Fri 27 Mar" />
-          <Stat label="Counts toward" value="Runs & walks" />
+          <Stat label="Your pace" value="4.6 mi / day" styles={styles} />
+          <Stat label="His pace" value="5.4 mi / day" valueColor={colors.amber} styles={styles} />
+          <Stat label="Caught by" value="Fri 27 Mar" styles={styles} />
+          <Stat label="Counts toward" value="Runs & walks" styles={styles} />
         </View>
       </View>
 
@@ -83,7 +85,7 @@ export function HuntScreen({ onBack }: { onBack: () => void }) {
           return (
             <View key={i} style={styles.tallyRow}>
               <View style={[styles.tallyIcon, { backgroundColor: t.tint }]}>
-                <Icon size={14} color={color.text} />
+                <Icon size={14} color={colors.text} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.tallyLabel}>{t.label}</Text>
@@ -98,27 +100,27 @@ export function HuntScreen({ onBack }: { onBack: () => void }) {
       <Card style={{ gap: 14 }} elevated={false}>
         <Text style={text.h4}>Where the numbers come from</Text>
         <View style={styles.sourceRow}>
-          <Avatar initials="JL" tint={color.accent800} />
+          <Avatar initials="JL" tint={colors.accent800} />
           <View style={{ flex: 1, gap: 4 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
               <Text style={styles.sourceName}>You</Text>
-              <InlineBadge icon={<AppleLogoIcon size={11} color={color.neutral200} weight="fill" />} label="Apple Health · iPhone 15" />
+              <InlineBadge icon={<AppleLogoIcon size={11} color={colors.neutral200} weight="fill" />} label="Apple Health · iPhone 15" />
             </View>
             <Text style={styles.sourceNote}>GPS distance from Apple Workouts. Synced 4 minutes ago.</Text>
           </View>
         </View>
         <View style={styles.sourceRow}>
-          <Avatar initials="MR" tint={color.neutral800} />
+          <Avatar initials="MR" tint={colors.neutral800} />
           <View style={{ flex: 1, gap: 4 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
               <Text style={styles.sourceName}>Marcus</Text>
-              <InlineBadge icon={<AndroidLogoIcon size={11} color={color.neutral200} />} label="Health Connect · Pixel 8" />
+              <InlineBadge icon={<AndroidLogoIcon size={11} color={colors.neutral200} />} label="Health Connect · Pixel 8" />
             </View>
             <Text style={styles.sourceNote}>GPS distance from Google Fit sessions. Synced 22 minutes ago.</Text>
           </View>
         </View>
         <View style={styles.notice}>
-          <ShieldCheckIcon size={13} color={color.accent200} />
+          <ShieldCheckIcon size={13} color={colors.accentActive} />
           <Text style={styles.noticeText}>
             Both sides are scored on GPS distance only, so a treadmill or a phone left on a desk
             can&rsquo;t pad the tally.
@@ -130,7 +132,17 @@ export function HuntScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-function Stat({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+function Stat({
+  label,
+  value,
+  valueColor,
+  styles,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+  styles: HuntStyles;
+}) {
   return (
     <View style={{ minWidth: 130 }}>
       <Text style={styles.statLabel}>{label.toUpperCase()}</Text>
@@ -139,61 +151,73 @@ function Stat({ label, value, valueColor }: { label: string; value: string; valu
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, gap: 18, paddingBottom: 48 },
-  headerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
-  headerBtns: { flexDirection: 'row', gap: 8 },
-  progressCard: {
-    padding: 20,
-    borderRadius: 14,
-    backgroundColor: '#232a54',
-    gap: 20,
-  },
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  progressLead: { fontFamily: font.heading, fontSize: 32, color: color.text },
-  progressSub: { fontSize: 13, color: 'rgba(233,233,237,0.7)' },
-  progressMeta: { fontSize: 12, color: 'rgba(233,233,237,0.55)', textAlign: 'right' },
-  track: { height: 90, position: 'relative' },
-  dashedLine: { position: 'absolute', left: 0, right: 0, top: 50, height: 3, backgroundColor: 'rgba(233,233,237,0.15)' },
-  marker: {
-    position: 'absolute',
-    top: 30,
-    width: 38,
-    height: 38,
-    marginLeft: -19,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hunterMarker: { backgroundColor: color.neutral800 },
-  huntedMarker: { backgroundColor: color.accent800, borderWidth: 1, borderColor: color.accent, top: 8 },
-  markerLabel: { position: 'absolute', top: 70, fontSize: 11, color: color.text, marginLeft: -40, width: 80, textAlign: 'center' },
-  markerLabelAccent: { color: color.accent200 },
-  statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-  statLabel: { fontSize: 11, letterSpacing: 0.6, color: 'rgba(233,233,237,0.6)' },
-  statValue: { fontFamily: font.heading, fontSize: 18, color: color.text, marginTop: 3 },
-  tallyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 9,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(233,233,237,0.07)',
-  },
-  tallyIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  tallyLabel: { fontSize: 13.5, color: color.text },
-  tallyMeta: { fontSize: 11.5, color: 'rgba(233,233,237,0.55)' },
-  tallyDist: { fontFamily: font.heading, fontSize: 14, color: color.text },
-  sourceRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  sourceName: { fontSize: 14, color: color.text },
-  sourceNote: { fontSize: 12, color: 'rgba(233,233,237,0.55)' },
-  notice: {
-    flexDirection: 'row',
-    gap: 6,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(145,132,217,0.10)',
-    alignItems: 'flex-start',
-  },
-  noticeText: { flex: 1, fontSize: 12.5, lineHeight: 18, color: color.accent200 },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    container: { padding: 16, gap: 18, paddingBottom: 48 },
+    headerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
+    headerBtns: { flexDirection: 'row', gap: 8 },
+    // Fixed, hand-tuned dark background regardless of theme — the same
+    // "always-dark spotlight card" reasoning as Home's huntCard (see that
+    // file's own comment). Every color/text inside this card is safe to
+    // leave as its Dark-mode-tuned value for the same reason.
+    progressCard: {
+      padding: 20,
+      borderRadius: 14,
+      backgroundColor: '#232a54',
+      gap: 20,
+    },
+    progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    progressLead: { fontFamily: font.heading, fontSize: 32, color: colors.text },
+    progressSub: { fontSize: 13, color: withAlpha(colors.text, 0.7) },
+    progressMeta: { fontSize: 12, color: withAlpha(colors.text, 0.55), textAlign: 'right' },
+    track: { height: 90, position: 'relative' },
+    dashedLine: { position: 'absolute', left: 0, right: 0, top: 50, height: 3, backgroundColor: withAlpha(colors.text, 0.15) },
+    marker: {
+      position: 'absolute',
+      top: 30,
+      width: 38,
+      height: 38,
+      marginLeft: -19,
+      borderRadius: 19,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    hunterMarker: { backgroundColor: colors.neutral800 },
+    huntedMarker: { backgroundColor: colors.accent800, borderWidth: 1, borderColor: colors.accent, top: 8 },
+    markerLabel: { position: 'absolute', top: 70, fontSize: 11, color: colors.text, marginLeft: -40, width: 80, textAlign: 'center' },
+    markerLabelAccent: { color: colors.accent200 },
+    statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+    statLabel: { fontSize: 11, letterSpacing: 0.6, color: withAlpha(colors.text, 0.6) },
+    statValue: { fontFamily: font.heading, fontSize: 18, color: colors.text, marginTop: 3 },
+    tallyRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 9,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: withAlpha(colors.text, 0.07),
+    },
+    tallyIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    tallyLabel: { fontSize: 13.5, color: colors.text },
+    tallyMeta: { fontSize: 11.5, color: withAlpha(colors.text, 0.55) },
+    tallyDist: { fontFamily: font.heading, fontSize: 14, color: colors.text },
+    sourceRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+    sourceName: { fontSize: 14, color: colors.text },
+    sourceNote: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    // Unlike progressCard, this sits inside a migrated Card on the
+    // page's own (theme-following) surface — an accent wash over that,
+    // not a fixed dark background, so its text needs accentActive
+    // rather than the raw accent200 that's fine on progressCard.
+    notice: {
+      flexDirection: 'row',
+      gap: 6,
+      padding: 12,
+      borderRadius: 8,
+      backgroundColor: withAlpha(colors.accent, 0.1),
+      alignItems: 'flex-start',
+    },
+    noticeText: { flex: 1, fontSize: 12.5, lineHeight: 18, color: colors.accentActive },
+  });
+}
+
+type HuntStyles = ReturnType<typeof makeStyles>;
