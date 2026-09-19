@@ -23,7 +23,6 @@ import { DEFAULT_HUNT_LABELS } from '../labels/types';
 const SOURCE_ICON: Record<string, React.ComponentType<any>> = {
   'Apple Health': AppleLogoIcon,
   'Health Connect': AndroidLogoIcon,
-  'Withings Scale': ScalesIcon,
 };
 
 // Moved here from HomeScreen, which used to show this device's own real
