@@ -1,18 +1,20 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AndroidLogoIcon, AppleLogoIcon, HourglassIcon, UserPlusIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { TextField } from '../components/TextField';
-import { text } from '../theme/text';
-import { color, font, TINT_A, TINT_N } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { FRIENDS } from '../data/sampleData';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 
 export function FriendsScreen() {
+  const { colors, text } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   // null = still showing the sample fallback (either Supabase isn't
   // configured, or the real fetch hasn't resolved yet); once set, it
   // fully replaces the sample list — same "never break the screen, just
@@ -73,7 +75,7 @@ export function FriendsScreen() {
         <Text style={text.h2}>Friends</Text>
 
         <Card style={styles.inviteCard} elevated={false}>
-          <UserPlusIcon size={17} color={color.accent300} />
+          <UserPlusIcon size={17} color={colors.accent300} />
           <Text style={styles.inviteText}>Send one link. It works on iPhone and Android.</Text>
           <Text style={styles.inviteLink}>hound.app/u/jordan</Text>
           <Button label="Copy" variant="primary" small />
@@ -88,9 +90,9 @@ export function FriendsScreen() {
             </View>
             <View style={styles.platformBadge}>
               {f.platform === 'Apple Health' ? (
-                <AppleLogoIcon size={12} color={color.neutral200} weight="fill" />
+                <AppleLogoIcon size={12} color={colors.neutral200} weight="fill" />
               ) : (
-                <AndroidLogoIcon size={12} color={color.neutral200} />
+                <AndroidLogoIcon size={12} color={colors.neutral200} />
               )}
               <Text style={styles.platformText}>{f.platform}</Text>
             </View>
@@ -105,7 +107,7 @@ export function FriendsScreen() {
         <Text style={styles.pendingLabel}>Pending</Text>
         <Card style={styles.pendingRow} elevated={false}>
           <View style={styles.pendingAvatar}>
-            <HourglassIcon size={15} color={color.neutral500} />
+            <HourglassIcon size={15} color={colors.neutral500} />
           </View>
           <Text style={styles.pendingEmail}>kate.n@gmail.com</Text>
           <Text style={styles.pendingMeta}>Invited 3 days ago</Text>
@@ -125,7 +127,12 @@ export function FriendsScreen() {
 
       <Card style={{ gap: 10 }} elevated={false}>
         <View style={styles.inviteHeader}>
-          <UserPlusIcon size={17} color={color.accent300} />
+          {/* Unlike the sample fallback's inviteCard above (a fixed dark
+              chip regardless of theme), this Card has no background
+              override — it's this theme's own (possibly light) surface,
+              so the icon needs accentActive rather than the raw
+              accent300 that's fine on a fixed dark chip. */}
+          <UserPlusIcon size={17} color={colors.accentActive} />
           <Text style={styles.inviteText}>Invite by email</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
@@ -191,7 +198,7 @@ export function FriendsScreen() {
           {sentInvites.map((f) => (
             <Card key={f.friendshipId} style={styles.pendingRow} elevated={false}>
               <View style={styles.pendingAvatar}>
-                <HourglassIcon size={15} color={color.neutral500} />
+                <HourglassIcon size={15} color={colors.neutral500} />
               </View>
               <Text style={styles.pendingEmail}>{f.name}</Text>
               <Text style={styles.pendingMeta}>Invite sent</Text>
@@ -210,49 +217,51 @@ export function FriendsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, gap: 12, paddingBottom: 48 },
-  inviteCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#2a2540', flexWrap: 'wrap' },
-  inviteHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  inviteText: { flex: 1, minWidth: 150, fontSize: 13.5, color: color.text },
-  inviteLink: { fontFamily: font.body, fontSize: 12.5, color: 'rgba(233,233,237,0.7)' },
-  errorNote: { fontSize: 12.5, color: color.amber },
-  successNote: { fontSize: 12.5, color: color.green },
-  footNote: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
-  friendRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
-  friendName: { fontSize: 14.5, color: color.text },
-  friendSub: { fontSize: 12, color: 'rgba(233,233,237,0.55)' },
-  platformBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    backgroundColor: color.neutral800,
-  },
-  platformText: { fontSize: 10.5, color: color.neutral200 },
-  syncRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  syncText: { fontSize: 11.5 },
-  pendingLabel: { fontSize: 15, color: 'rgba(233,233,237,0.7)', marginTop: 6 },
-  pendingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: 'rgba(35,37,50,0.6)',
-    flexWrap: 'wrap',
-  },
-  pendingAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: color.neutral600,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pendingEmail: { flex: 1, fontSize: 14, color: color.text, minWidth: 120 },
-  pendingMeta: { fontSize: 12, color: 'rgba(233,233,237,0.55)' },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    container: { padding: 16, gap: 12, paddingBottom: 48 },
+    inviteCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#2a2540', flexWrap: 'wrap' },
+    inviteHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    inviteText: { flex: 1, minWidth: 150, fontSize: 13.5, color: colors.text },
+    inviteLink: { fontFamily: font.body, fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    errorNote: { fontSize: 12.5, color: colors.amber },
+    successNote: { fontSize: 12.5, color: colors.green },
+    footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    friendRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
+    friendName: { fontSize: 14.5, color: colors.text },
+    friendSub: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    platformBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingVertical: 3,
+      paddingHorizontal: 8,
+      borderRadius: 6,
+      backgroundColor: colors.neutral800,
+    },
+    platformText: { fontSize: 10.5, color: colors.neutral200 },
+    syncRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    dot: { width: 6, height: 6, borderRadius: 3 },
+    syncText: { fontSize: 11.5 },
+    pendingLabel: { fontSize: 15, color: withAlpha(colors.text, 0.7), marginTop: 6 },
+    pendingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: withAlpha(colors.surface, 0.6),
+      flexWrap: 'wrap',
+    },
+    pendingAvatar: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.neutral600,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pendingEmail: { flex: 1, fontSize: 14, color: colors.text, minWidth: 120 },
+    pendingMeta: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+  });
+}

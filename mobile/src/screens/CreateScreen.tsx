@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
@@ -16,8 +16,8 @@ import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { RadioPill } from '../components/Selectable';
 import { SegmentedControl } from '../components/SegmentedControl';
-import { text } from '../theme/text';
-import { color, font, TINT_N } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { font, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -36,6 +36,8 @@ const SCORING_METHODS: { id: ScoringMethod; label: string }[] = [
 
 export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onFinish: () => void }) {
   const { user } = useAuth();
+  const { colors, text } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [draftType, setDraftType] = useState<ChallengeKind>('hunt');
   const [draftName, setDraftName] = useState('');
@@ -146,7 +148,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={styles.container}>
-      <Button label="Cancel" variant="ghost" small icon={<XIcon size={13} color={color.accent} />} onPress={onCancel} />
+      <Button label="Cancel" variant="ghost" small icon={<XIcon size={13} color={colors.accent} />} onPress={onCancel} />
 
       <View style={styles.stepsBar}>
         {[1, 2, 3].map((n) => (
@@ -175,9 +177,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                   <Text style={styles.typeDesc}>{t.desc}</Text>
                 </View>
                 {picked ? (
-                  <CheckCircleIcon size={18} color={color.accent} weight="fill" />
+                  <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
                 ) : (
-                  <CircleIcon size={18} color={color.neutral700} />
+                  <CircleIcon size={18} color={colors.neutral700} />
                 )}
               </Pressable>
             );
@@ -194,7 +196,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
               value={draftName}
               onChangeText={setDraftName}
               placeholder="Name your challenge"
-              placeholderTextColor="rgba(233,233,237,0.4)"
+              placeholderTextColor={withAlpha(colors.text, 0.4)}
               style={styles.input}
             />
           </View>
@@ -222,9 +224,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
               step={1}
               value={customLength}
               onValueChange={(v) => setLength(String(Math.round(v)))}
-              minimumTrackTintColor={color.accent}
-              maximumTrackTintColor={color.neutral700}
-              thumbTintColor={color.accent}
+              minimumTrackTintColor={colors.accent}
+              maximumTrackTintColor={colors.neutral700}
+              thumbTintColor={colors.accent}
             />
           </View>
 
@@ -251,9 +253,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                   step={10}
                   value={distanceGoalMi}
                   onValueChange={(v) => setDistanceGoalMi(Math.round(v))}
-                  minimumTrackTintColor={color.accent}
-                  maximumTrackTintColor={color.neutral700}
-                  thumbTintColor={color.accent}
+                  minimumTrackTintColor={colors.accent}
+                  maximumTrackTintColor={colors.neutral700}
+                  thumbTintColor={colors.accent}
                 />
               ) : (
                 <Slider
@@ -262,9 +264,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                   step={50_000}
                   value={distanceGoalSteps}
                   onValueChange={(v) => setDistanceGoalSteps(Math.round(v))}
-                  minimumTrackTintColor={color.accent}
-                  maximumTrackTintColor={color.neutral700}
-                  thumbTintColor={color.accent}
+                  minimumTrackTintColor={colors.accent}
+                  maximumTrackTintColor={colors.neutral700}
+                  thumbTintColor={colors.accent}
                 />
               )}
               <Text style={styles.huntBlockNote}>
@@ -287,9 +289,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                 step={1}
                 value={headStart}
                 onValueChange={setHeadStart}
-                minimumTrackTintColor={color.accent}
-                maximumTrackTintColor={color.neutral700}
-                thumbTintColor={color.accent}
+                minimumTrackTintColor={colors.accent}
+                maximumTrackTintColor={colors.neutral700}
+                thumbTintColor={colors.accent}
               />
               <Text style={styles.huntBlockNote}>
                 The hunted logs alone for {headStartLabel}. Then the hunter starts tallying and has to
@@ -317,7 +319,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
 
           {draftType === 'hunt' && (
             <View style={styles.notice}>
-              <DevicesIcon size={17} color={color.accent300} />
+              <DevicesIcon size={17} color={colors.accentActive} />
               <Text style={styles.noticeText}>
                 {scoringMethod === 'device_steps'
                   ? 'Everyone in this hunt is scored on today’s device step count, synced automatically from their own phone.'
@@ -335,7 +337,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
           <Text style={text.h2}>Bring friends</Text>
           {friendsLoading ? (
             <View style={styles.friendsLoadingRow}>
-              <ActivityIndicator color={color.accent} />
+              <ActivityIndicator color={colors.accent} />
             </View>
           ) : (
             <>
@@ -350,9 +352,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                     <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
                     <Text style={[styles.friendName, { flex: 1 }]}>{f.name}</Text>
                     {picked ? (
-                      <CheckCircleIcon size={18} color={color.accent} weight="fill" />
+                      <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
                     ) : (
-                      <CircleIcon size={18} color={color.neutral700} />
+                      <CircleIcon size={18} color={colors.neutral700} />
                     )}
                   </Pressable>
                 );
@@ -363,7 +365,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
             </>
           )}
           <View style={styles.linkRow}>
-            <LinkIcon size={16} color={color.accent} />
+            <LinkIcon size={16} color={colors.accent} />
             <Text style={styles.linkText}>hound.app/j/hunt-4kq9</Text>
             <Button label="Copy invite link" small />
           </View>
@@ -386,19 +388,19 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                 onPress={() => toggleBot(b.id)}
                 style={[styles.friendRow, picked && styles.friendRowOn]}
               >
-                <Avatar initials={botInitials(b.name)} tint={color.neutral800} size={30} fontSize={11} />
+                <Avatar initials={botInitials(b.name)} tint={colors.neutral800} size={30} fontSize={11} />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={styles.friendName}>{b.name}</Text>
                   <Text style={styles.botLevelDesc}>{level.desc}</Text>
                 </View>
                 <View style={styles.platformBadge}>
-                  <RobotIcon size={11} color={color.neutral200} />
+                  <RobotIcon size={11} color={colors.neutral200} />
                   <Text style={styles.platformBadgeText}>{level.label}</Text>
                 </View>
                 {picked ? (
-                  <CheckCircleIcon size={18} color={color.accent} weight="fill" />
+                  <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
                 ) : (
-                  <CircleIcon size={18} color={color.neutral700} />
+                  <CircleIcon size={18} color={colors.neutral700} />
                 )}
               </Pressable>
             );
@@ -415,12 +417,12 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                 onPress={() => setHunterId('me')}
                 style={[styles.friendRow, hunterId === 'me' && styles.friendRowOn]}
               >
-                <Avatar initials={user?.initials ?? 'Y'} tint={color.accent800} size={30} fontSize={11} />
+                <Avatar initials={user?.initials ?? 'Y'} tint={colors.accent800} size={30} fontSize={11} />
                 <Text style={styles.friendName}>You</Text>
                 {hunterId === 'me' ? (
-                  <CheckCircleIcon size={18} color={color.accent} weight="fill" />
+                  <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
                 ) : (
-                  <CircleIcon size={18} color={color.neutral700} />
+                  <CircleIcon size={18} color={colors.neutral700} />
                 )}
               </Pressable>
               {acceptedFriends
@@ -434,9 +436,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                     <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
                     <Text style={styles.friendName}>{f.name}</Text>
                     {hunterId === f.userId ? (
-                      <CheckCircleIcon size={18} color={color.accent} weight="fill" />
+                      <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
                     ) : (
-                      <CircleIcon size={18} color={color.neutral700} />
+                      <CircleIcon size={18} color={colors.neutral700} />
                     )}
                   </Pressable>
                 ))}
@@ -446,12 +448,12 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                   onPress={() => setHunterId(b.id)}
                   style={[styles.friendRow, hunterId === b.id && styles.friendRowOn]}
                 >
-                  <Avatar initials={botInitials(b.name)} tint={color.neutral800} size={30} fontSize={11} />
+                  <Avatar initials={botInitials(b.name)} tint={colors.neutral800} size={30} fontSize={11} />
                   <Text style={styles.friendName}>{b.name}</Text>
                   {hunterId === b.id ? (
-                    <CheckCircleIcon size={18} color={color.accent} weight="fill" />
+                    <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
                   ) : (
-                    <CircleIcon size={18} color={color.neutral700} />
+                    <CircleIcon size={18} color={colors.neutral700} />
                   )}
                 </Pressable>
               ))}
@@ -472,7 +474,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         {step > 1 ? (
           <Button
             label="Back"
-            icon={<ArrowLeftIcon size={13} color={color.text} />}
+            icon={<ArrowLeftIcon size={13} color={colors.text} />}
             onPress={() => setStep((s) => (s - 1) as 1 | 2)}
             disabled={saving}
           />
@@ -482,7 +484,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         <Button
           label={step === 3 ? (saving ? 'Starting…' : 'Start the challenge') : 'Continue'}
           variant="primary"
-          trailingIcon={<ArrowRightIcon size={13} color={color.accent} />}
+          trailingIcon={<ArrowRightIcon size={13} color={colors.accent} />}
           disabled={saving}
           onPress={() => (step === 3 ? start() : setStep((s) => (s + 1) as 2 | 3))}
         />
@@ -492,81 +494,91 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, gap: 16, paddingBottom: 48 },
-  stepsBar: { flexDirection: 'row', gap: 6 },
-  stepDot: { flex: 1, height: 3, borderRadius: 2, backgroundColor: color.neutral800 },
-  stepDotOn: { backgroundColor: color.accent },
-  typeRow: {
-    flexDirection: 'row',
-    gap: 14,
-    alignItems: 'flex-start',
-    padding: 15,
-    borderRadius: 8,
-    backgroundColor: color.surface,
-  },
-  typeRowOn: { borderWidth: 1, borderColor: color.accent },
-  typeIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  typeName: { fontFamily: font.heading, fontSize: 16, color: color.text },
-  typeDesc: { fontSize: 13, color: 'rgba(233,233,237,0.7)' },
-  fieldLabel: { fontSize: 12, color: 'rgba(233,233,237,0.7)' },
-  input: {
-    minHeight: 44,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: color.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.divider,
-    color: color.text,
-    fontSize: 15,
-  },
-  huntBlock: { gap: 14, padding: 16, borderRadius: 8, backgroundColor: '#262a60' },
-  huntBlockHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  huntBlockLabel: { fontFamily: font.heading, fontSize: 15, color: color.text },
-  huntBlockValue: { fontFamily: font.heading, fontSize: 20, color: color.accent200 },
-  huntBlockNote: { fontSize: 12.5, color: 'rgba(233,233,237,0.7)' },
-  notice: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 14,
-    borderRadius: 8,
-    backgroundColor: 'rgba(145,132,217,0.09)',
-    alignItems: 'flex-start',
-  },
-  noticeText: { flex: 1, fontSize: 12.5, lineHeight: 18, color: color.accent200 },
-  friendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: color.surface,
-  },
-  friendRowOn: { borderWidth: 1, borderColor: color.accent },
-  friendName: { flex: 1, fontSize: 14, color: color.text },
-  botLevelDesc: { fontSize: 11.5, color: 'rgba(233,233,237,0.55)' },
-  platformBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 2,
-    paddingHorizontal: 7,
-    borderRadius: 5,
-    backgroundColor: color.neutral800,
-  },
-  platformBadgeText: { fontSize: 10, color: color.neutral200 },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 13,
-    borderRadius: 8,
-    backgroundColor: color.surface,
-    flexWrap: 'wrap',
-  },
-  linkText: { flex: 1, fontFamily: font.body, fontSize: 12.5, color: 'rgba(233,233,237,0.75)' },
-  footNote: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
-  friendsLoadingRow: { paddingVertical: 20, alignItems: 'center' },
-  saveError: { fontSize: 12.5, color: color.amber, textAlign: 'center' },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6 },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    container: { padding: 16, gap: 16, paddingBottom: 48 },
+    stepsBar: { flexDirection: 'row', gap: 6 },
+    stepDot: { flex: 1, height: 3, borderRadius: 2, backgroundColor: colors.neutral800 },
+    stepDotOn: { backgroundColor: colors.accent },
+    typeRow: {
+      flexDirection: 'row',
+      gap: 14,
+      alignItems: 'flex-start',
+      padding: 15,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+    },
+    typeRowOn: { borderWidth: 1, borderColor: colors.accent },
+    typeIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+    typeName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
+    typeDesc: { fontSize: 13, color: withAlpha(colors.text, 0.7) },
+    fieldLabel: { fontSize: 12, color: withAlpha(colors.text, 0.7) },
+    input: {
+      minHeight: 44,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.divider,
+      color: colors.text,
+      fontSize: 15,
+    },
+    // Fixed, hand-tuned dark background (matches the `section` token)
+    // regardless of theme — same "always-dark spotlight" reasoning as
+    // Home's huntCard, so huntBlockValue's near-white accent200 stays
+    // correct in both themes rather than needing accentActive.
+    huntBlock: { gap: 14, padding: 16, borderRadius: 8, backgroundColor: '#262a60' },
+    huntBlockHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+    huntBlockLabel: { fontFamily: font.heading, fontSize: 15, color: colors.text },
+    huntBlockValue: { fontFamily: font.heading, fontSize: 20, color: colors.accent200 },
+    huntBlockNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    // Unlike huntBlock, this sits directly on the screen's own
+    // (theme-following) background — an accent wash over that, not a
+    // fixed dark card, so its text needs accentActive rather than the
+    // raw accent200 that's fine on huntBlock (see tokens.ts).
+    notice: {
+      flexDirection: 'row',
+      gap: 12,
+      padding: 14,
+      borderRadius: 8,
+      backgroundColor: withAlpha(colors.accent, 0.09),
+      alignItems: 'flex-start',
+    },
+    noticeText: { flex: 1, fontSize: 12.5, lineHeight: 18, color: colors.accentActive },
+    friendRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 12,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+    },
+    friendRowOn: { borderWidth: 1, borderColor: colors.accent },
+    friendName: { flex: 1, fontSize: 14, color: colors.text },
+    botLevelDesc: { fontSize: 11.5, color: withAlpha(colors.text, 0.55) },
+    platformBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 2,
+      paddingHorizontal: 7,
+      borderRadius: 5,
+      backgroundColor: colors.neutral800,
+    },
+    platformBadgeText: { fontSize: 10, color: colors.neutral200 },
+    linkRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      padding: 13,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+      flexWrap: 'wrap',
+    },
+    linkText: { flex: 1, fontFamily: font.body, fontSize: 12.5, color: withAlpha(colors.text, 0.75) },
+    footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    friendsLoadingRow: { paddingVertical: 20, alignItems: 'center' },
+    saveError: { fontSize: 12.5, color: colors.amber, textAlign: 'center' },
+    footer: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6 },
+  });
+}

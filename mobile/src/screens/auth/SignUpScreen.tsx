@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ArrowLeftIcon, EnvelopeSimpleIcon, LockSimpleIcon, UserIcon } from 'phosphor-react-native';
 import { Button } from '../../components/Button';
 import { TextField } from '../../components/TextField';
-import { text } from '../../theme/text';
-import { color } from '../../theme/tokens';
+import { useTheme } from '../../theme/ThemeContext';
+import { withAlpha, type Palette } from '../../theme/tokens';
 import { useAuth } from '../../auth/AuthContext';
 
 export function SignUpScreen({ onBack, onLogIn }: { onBack: () => void; onLogIn: () => void }) {
   const { signUpWithEmail } = useAuth();
+  const { colors, text } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,7 +49,7 @@ export function SignUpScreen({ onBack, onLogIn }: { onBack: () => void; onLogIn:
           label="Back"
           variant="ghost"
           small
-          icon={<ArrowLeftIcon size={15} color={color.accent} />}
+          icon={<ArrowLeftIcon size={15} color={colors.accent} />}
           onPress={onBack}
           style={styles.back}
         />
@@ -57,7 +59,7 @@ export function SignUpScreen({ onBack, onLogIn }: { onBack: () => void; onLogIn:
         <View style={styles.fields}>
           <TextField
             label="Name"
-            icon={<UserIcon size={17} color="rgba(233,233,237,0.55)" />}
+            icon={<UserIcon size={17} color={withAlpha(colors.text, 0.55)} />}
             value={name}
             onChangeText={setName}
             placeholder="Jordan Lee"
@@ -65,7 +67,7 @@ export function SignUpScreen({ onBack, onLogIn }: { onBack: () => void; onLogIn:
           />
           <TextField
             label="Email"
-            icon={<EnvelopeSimpleIcon size={17} color="rgba(233,233,237,0.55)" />}
+            icon={<EnvelopeSimpleIcon size={17} color={withAlpha(colors.text, 0.55)} />}
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
@@ -76,7 +78,7 @@ export function SignUpScreen({ onBack, onLogIn }: { onBack: () => void; onLogIn:
           />
           <TextField
             label="Password"
-            icon={<LockSimpleIcon size={17} color="rgba(233,233,237,0.55)" />}
+            icon={<LockSimpleIcon size={17} color={withAlpha(colors.text, 0.55)} />}
             value={password}
             onChangeText={setPassword}
             placeholder="At least 6 characters"
@@ -85,7 +87,7 @@ export function SignUpScreen({ onBack, onLogIn }: { onBack: () => void; onLogIn:
           />
           <TextField
             label="Confirm password"
-            icon={<LockSimpleIcon size={17} color="rgba(233,233,237,0.55)" />}
+            icon={<LockSimpleIcon size={17} color={withAlpha(colors.text, 0.55)} />}
             value={confirm}
             onChangeText={setConfirm}
             placeholder="••••••••"
@@ -112,11 +114,13 @@ export function SignUpScreen({ onBack, onLogIn }: { onBack: () => void; onLogIn:
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: color.bg, padding: 24, paddingTop: 20, gap: 18 },
-  back: { alignSelf: 'flex-start' },
-  title: { marginTop: 4 },
-  fields: { gap: 14 },
-  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 'auto', paddingTop: 20 },
-  footerText: { fontSize: 13, color: 'rgba(233,233,237,0.6)' },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    container: { flexGrow: 1, backgroundColor: colors.bg, padding: 24, paddingTop: 20, gap: 18 },
+    back: { alignSelf: 'flex-start' },
+    title: { marginTop: 4 },
+    fields: { gap: 14 },
+    footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 'auto', paddingTop: 20 },
+    footerText: { fontSize: 13, color: withAlpha(colors.text, 0.6) },
+  });
+}

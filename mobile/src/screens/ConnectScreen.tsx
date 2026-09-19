@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AndroidLogoIcon, AppleLogoIcon, PawPrintIcon } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { text } from '../theme/text';
-import { color, font } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
 
 export function ConnectScreen({ onDone }: { onDone: () => void }) {
   const health = useHealthProvider();
+  const { colors, text } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [connecting, setConnecting] = useState<'apple' | 'android' | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -30,7 +32,7 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.badge}>
-        <PawPrintIcon size={26} color={color.accent} weight="fill" />
+        <PawPrintIcon size={26} color={colors.accent} weight="fill" />
       </View>
       <Text style={[text.h2, styles.title]}>Hound needs your health data</Text>
       <Text style={styles.body}>
@@ -40,7 +42,7 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
 
       <View style={styles.cardsRow}>
         <Card style={styles.platformCard} elevated={false}>
-          <AppleLogoIcon size={24} color={color.text} weight="fill" />
+          <AppleLogoIcon size={24} color={colors.text} weight="fill" />
           <Text style={styles.platformName}>Apple Health</Text>
           <Text style={styles.platformSub}>iPhone, Apple Watch, Withings</Text>
           <Button
@@ -51,10 +53,10 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
             disabled={connecting !== null || Platform.OS !== 'ios'}
             onPress={connect}
           />
-          {connecting === 'apple' && <ActivityIndicator color={color.accent} />}
+          {connecting === 'apple' && <ActivityIndicator color={colors.accent} />}
         </Card>
         <Card style={styles.platformCard} elevated={false}>
-          <AndroidLogoIcon size={24} color={color.text} />
+          <AndroidLogoIcon size={24} color={colors.text} />
           <Text style={styles.platformName}>Health Connect</Text>
           <Text style={styles.platformSub}>Pixel, Samsung Health, Fitbit, Strava</Text>
           <Button
@@ -65,7 +67,7 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
             disabled={connecting !== null || Platform.OS !== 'android'}
             onPress={connect}
           />
-          {connecting === 'android' && <ActivityIndicator color={color.accent} />}
+          {connecting === 'android' && <ActivityIndicator color={colors.accent} />}
         </Card>
       </View>
 
@@ -84,32 +86,39 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, paddingTop: 24, gap: 20, alignItems: 'center', paddingBottom: 48 },
-  badge: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: color.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: { textAlign: 'center' },
-  body: { textAlign: 'center', fontSize: 15, color: 'rgba(233,233,237,0.78)', maxWidth: 420 },
-  cardsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, width: '100%' },
-  platformCard: { flexBasis: '46%', flexGrow: 1, gap: 10, padding: 18 },
-  platformName: { fontFamily: font.heading, fontSize: 16, color: color.text },
-  platformSub: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
-  status: { fontSize: 12.5, color: color.amber, textAlign: 'center' },
-  notice: {
-    width: '100%',
-    padding: 14,
-    borderRadius: 8,
-    backgroundColor: 'rgba(145,132,217,0.09)',
-    gap: 6,
-  },
-  noticeTitle: { fontFamily: font.heading, fontSize: 12.5, color: color.accent200 },
-  noticeBody: { fontSize: 12.5, lineHeight: 18, color: color.accent200 },
-  skip: { alignSelf: 'center' },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    container: { padding: 16, paddingTop: 24, gap: 20, alignItems: 'center', paddingBottom: 48 },
+    badge: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    title: { textAlign: 'center' },
+    body: { textAlign: 'center', fontSize: 15, color: withAlpha(colors.text, 0.78), maxWidth: 420 },
+    cardsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, width: '100%' },
+    platformCard: { flexBasis: '46%', flexGrow: 1, gap: 10, padding: 18 },
+    platformName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
+    platformSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    status: { fontSize: 12.5, color: colors.amber, textAlign: 'center' },
+    notice: {
+      width: '100%',
+      padding: 14,
+      borderRadius: 8,
+      backgroundColor: withAlpha(colors.accent, 0.09),
+      gap: 6,
+    },
+    // On a wash of the accent color over this theme's own page bg, not a
+    // fixed dark chip — accent200 (near-white) reads fine over Dark's own
+    // near-black wash but goes invisible over Light's near-white one. See
+    // tokens.ts's own comment on accentActive (added for TopNav's active
+    // tab and Home's leaderboard highlight — same bug, same fix).
+    noticeTitle: { fontFamily: font.heading, fontSize: 12.5, color: colors.accentActive },
+    noticeBody: { fontSize: 12.5, lineHeight: 18, color: colors.accentActive },
+    skip: { alignSelf: 'center' },
+  });
+}
