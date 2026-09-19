@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import {
@@ -16,6 +16,7 @@ import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { RadioPill } from '../components/Selectable';
 import { SegmentedControl } from '../components/SegmentedControl';
+import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { huntKindName } from '../challenges/present';
 import { useLabels } from '../labels/LabelsContext';
@@ -35,6 +36,11 @@ const SCORING_METHODS: { id: ScoringMethod; label: string }[] = [
   { id: 'any_workout', label: 'Any logged workout' },
   { id: 'device_steps', label: 'Device step count' },
 ];
+
+// Every challenge kind shares this one name field (step 2 below) and this
+// one save path (start()), so this single constant is the whole rule —
+// there's no per-kind name validation to keep in sync.
+const NAME_MIN_LENGTH = 4;
 
 export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onFinish: () => void }) {
   const { user } = useAuth();
@@ -66,6 +72,21 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const [hunterId, setHunterId] = useState<string>('me');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+
+  // Only called at the two points that actually move the wizard forward
+  // (Continue from step 2, and Start on step 3 as a defense-in-depth
+  // recheck — see the footer button below) rather than on every
+  // keystroke, matching this app's other forms (e.g. SignUpScreen): no
+  // red border before you've tried to move on.
+  const validateName = () => {
+    if (draftName.trim().length < NAME_MIN_LENGTH) {
+      setNameError(`Give it a name — at least ${NAME_MIN_LENGTH} characters.`);
+      return false;
+    }
+    setNameError(null);
+    return true;
+  };
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -104,6 +125,13 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
     // deliberate, separate follow-up. Everything else this saves is
     // read back for real: the Challenges list, Home's hero card, and
     // (for whoever gets invited below) their own invite card.
+    // Re-checked here, not just trusted from the step-2 gate below — this
+    // is the actual save call, and the wizard has a Back button that can
+    // in principle return here more than once.
+    if (!validateName()) {
+      setStep(2);
+      return;
+    }
     if (!isSupabaseConfigured) {
       onFinish();
       return;
@@ -115,7 +143,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
       const chosenBots = BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
       const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
       const created = await supabaseChallengesProvider.createChallenge({
-        name: draftName.trim() || 'Untitled challenge',
+        name: draftName.trim(),
         kind: draftType,
         durationDays: Number(length),
         scoringMethod: isHunt ? scoringMethod : undefined,
@@ -193,16 +221,16 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
       {step === 2 && (
         <View style={{ gap: 16 }}>
           <Text style={text.h2}>Set the rules</Text>
-          <View style={{ gap: 5 }}>
-            <Text style={styles.fieldLabel}>Challenge name</Text>
-            <TextInput
-              value={draftName}
-              onChangeText={setDraftName}
-              placeholder="Name your challenge"
-              placeholderTextColor={withAlpha(colors.text, 0.4)}
-              style={styles.input}
-            />
-          </View>
+          <TextField
+            label="Challenge name"
+            value={draftName}
+            onChangeText={(t) => {
+              setDraftName(t);
+              if (nameError) setNameError(null);
+            }}
+            placeholder="Name your challenge"
+            error={nameError ?? undefined}
+          />
           <View style={{ gap: 5 }}>
             <Text style={styles.fieldLabel}>Runs for</Text>
             <SegmentedControl
@@ -490,7 +518,17 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
           variant="primary"
           trailingIcon={<ArrowRightIcon size={13} color={colors.accent} />}
           disabled={saving}
-          onPress={() => (step === 3 ? start() : setStep((s) => (s + 1) as 2 | 3))}
+          onPress={() => {
+            if (step === 3) {
+              start();
+              return;
+            }
+            // Step 2 is where the name field lives (step 1 is just
+            // picking the game) — this is the one gate a name has to
+            // clear before the wizard lets you reach step 3 at all.
+            if (step === 2 && !validateName()) return;
+            setStep((s) => (s + 1) as 2 | 3);
+          }}
         />
       </View>
     </ScrollView>
@@ -517,16 +555,6 @@ function makeStyles(colors: Palette) {
     typeName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
     typeDesc: { fontSize: 13, color: withAlpha(colors.text, 0.7) },
     fieldLabel: { fontSize: 12, color: withAlpha(colors.text, 0.7) },
-    input: {
-      minHeight: 44,
-      paddingHorizontal: 12,
-      borderRadius: 8,
-      backgroundColor: colors.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.divider,
-      color: colors.text,
-      fontSize: 15,
-    },
     // Fixed, hand-tuned dark background (matches the `section` token)
     // regardless of theme — same "always-dark spotlight" reasoning as
     // Home's huntCard, so huntBlockValue's near-white accent200 stays
