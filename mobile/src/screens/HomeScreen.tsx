@@ -576,7 +576,7 @@ function LiveMultiHuntCard({
             <Text style={styles.huntLead}>
               <Text style={styles.huntLeadSuffix}>{hunterName} {hunterIsMe ? 'need' : 'needs'} </Text>
               {formatLead(closest.gap, unit)}
-              <Text style={styles.huntLeadSuffix}> left to {closestName}</Text>
+              <Text style={styles.huntLeadSuffix}> left to catch {closestName}</Text>
             </Text>
             <Text style={styles.huntNote}>
               {caughtCount > 0
