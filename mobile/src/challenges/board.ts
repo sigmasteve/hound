@@ -95,7 +95,21 @@ export function buildBoard(
   // outrank a Hunted participant on this list despite withHuntCatches
   // correctly treating that same total as 0 progress — a leaderboard
   // that visually contradicts its own game's catch condition.
-  return rows.sort((a, b) => huntEffectiveMetric(b, sortBy) - huntEffectiveMetric(a, sortBy));
+  //
+  // A caught Zombie gets demoted below everyone still in it first,
+  // regardless of that comparison — huntEffectiveMetric never adjusts a
+  // non-Hunter row at all, so a Zombie's raw total (whatever real steps
+  // they logged before being caught) would otherwise keep ranking them
+  // by a number the game itself no longer counts for anything. Being
+  // caught is a strictly worse state than still being chased, no matter
+  // how many steps got them there — the exact same principle that
+  // already demoted the Hunter's own pre-head-start steps.
+  return rows.sort((a, b) => {
+    const aCaught = a.role === 'zombie';
+    const bCaught = b.role === 'zombie';
+    if (aCaught !== bCaught) return aCaught ? 1 : -1;
+    return huntEffectiveMetric(b, sortBy) - huntEffectiveMetric(a, sortBy);
+  });
 }
 
 // True once the Hunted's head start (challenge.headStartDays, set at
