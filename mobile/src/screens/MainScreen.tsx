@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TopNav } from '../components/TopNav';
-import { color } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 import type { MainTab, RootStackParamList } from '../navigation/types';
 import { HomeScreen } from './HomeScreen';
 import { ChallengesScreen } from './ChallengesScreen';
@@ -15,6 +15,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Main'>;
 
 export function MainScreen({ route, navigation }: Props) {
   const [tab, setTab] = useState<MainTab>(route.params?.tab ?? 'home');
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   // Main stays mounted for the app's lifetime, so a second `navigate('Main',
   // { tab })` while it's already on the stack (e.g. Hunt's "All challenges"
@@ -54,7 +56,9 @@ export function MainScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: color.bg },
-  content: { flex: 1 },
-});
+function makeStyles(colors: { bg: string }) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
+    content: { flex: 1 },
+  });
+}

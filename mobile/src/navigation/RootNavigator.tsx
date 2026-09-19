@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { color } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from './types';
 import { MainScreen } from '../screens/MainScreen';
 import { HuntScreen } from '../screens/HuntScreen';
@@ -15,20 +15,24 @@ import { useAuth } from '../auth/AuthContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const navTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: color.bg,
-    card: color.bg,
-    text: color.text,
-    border: color.divider,
-    primary: color.accent,
-  },
-};
-
 export function RootNavigator() {
   const { status, initializing } = useAuth();
+  const { colors } = useTheme();
+
+  const navTheme = useMemo(
+    () => ({
+      ...DefaultTheme,
+      colors: {
+        ...DefaultTheme.colors,
+        background: colors.bg,
+        card: colors.bg,
+        text: colors.text,
+        border: colors.divider,
+        primary: colors.accent,
+      },
+    }),
+    [colors],
+  );
 
   // Only non-instant when Supabase is configured (mock auth never
   // persists a session, so there's nothing to wait on) — restoring a
@@ -37,8 +41,8 @@ export function RootNavigator() {
   // blank screen.
   if (initializing) {
     return (
-      <View style={{ flex: 1, backgroundColor: color.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={color.accent} />
+      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={colors.accent} />
       </View>
     );
   }

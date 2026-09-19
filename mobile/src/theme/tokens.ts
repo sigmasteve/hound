@@ -1,13 +1,32 @@
 // Nocturne design tokens, ported from the web app's styles.css (:root block).
 // Keep this file as the single source of truth for color/space/radius/type —
-// screens should read from `theme`, never hardcode a hex value.
+// screens should read from `theme` (or, once migrated, `useTheme()`), never
+// hardcode a hex value.
 
-export const color = {
-  bg: '#161826',
-  surface: '#232532',
-  text: '#e9e9ed',
-  divider: 'rgba(233,233,237,0.16)',
+// Converts a '#rrggbb' token into an rgba() string at the given alpha —
+// every "muted text"/"faint divider" color in this app (the many
+// `rgba(233,233,237,0.NN)` literals scattered across screens before Light
+// mode existed) turned out to just be `color.text` at some alpha, and
+// `rgba(22,24,38,0.NN)` was always `color.bg` the same way. Routing those
+// through this helper against whichever theme's `text`/`bg` is current
+// means a muted-text color automatically flips with the theme instead of
+// needing its own hand-picked light-mode value.
+export function withAlpha(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
+// Neutral/accent/status scales are fixed across both themes — the accent
+// purple, amber, green, and the medal colors all read fine against either
+// a dark or a light page background, and the neutral scale is used almost
+// entirely as fixed tinted-chip/avatar backgrounds (TINT_A/TINT_N below)
+// rather than as page chrome, so it doesn't need a light counterpart
+// either. Only the page's own surface/text tokens (see ThemeSurface below)
+// actually flip.
+const neutralScale = {
   neutral100: '#f3f5fe',
   neutral200: '#e4e7f5',
   neutral300: '#cfd3e5',
@@ -17,7 +36,9 @@ export const color = {
   neutral700: '#595d6c',
   neutral800: '#3f424d',
   neutral900: '#292b31',
+} as const;
 
+const accentScale = {
   accent: '#9184d9',
   accent100: '#f5f4ff',
   accent200: '#e7e5fe',
@@ -28,6 +49,11 @@ export const color = {
   accent700: '#5d5294',
   accent800: '#423a6a',
   accent900: '#2b2741',
+} as const;
+
+const fixedTokens = {
+  ...neutralScale,
+  ...accentScale,
 
   section: '#262a60',
   sectionGlow: '#353b80',
@@ -43,14 +69,72 @@ export const color = {
   bronze: '#c17f4f',
 } as const;
 
+interface ThemeSurface {
+  bg: string;
+  surface: string;
+  text: string;
+  divider: string;
+  // React Native has no box-shadow string or `inset`; these are elevation
+  // stand-ins used for the web's hairline `--shadow-*` tokens. Applied as a
+  // thin border (an "inset" ring) rather than a drop shadow, which is what
+  // the web tokens actually read as visually (a 1px ring, not a blur).
+  // Picked from the light or dark end of the fixed neutral scale above,
+  // whichever sits close enough to that theme's own surface color to read
+  // as a subtle ring rather than a hard line.
+  ring: { sm: string; md: string; lg: string };
+  // The accent shade to use as *text or an icon* sitting directly on this
+  // theme's own bg/surface (or on a wash of the accent color over that
+  // same bg — see TopNav's active tab), as opposed to on a fixed, always-
+  // dark tinted chip (an avatar, a badge on its own accent800 background)
+  // which reads fine with accent200 regardless of theme and doesn't need
+  // this. Dark mode's own bg/surface is dark, so a near-white accent
+  // shade (accent200) reads there; Light mode's is light, so the same
+  // near-white shade would be reading white-on-white — this picks a dark,
+  // saturated shade (accent700) instead for exactly that case.
+  accentActive: string;
+}
+
+const darkSurface: ThemeSurface = {
+  bg: '#161826',
+  surface: '#232532',
+  text: '#e9e9ed',
+  divider: 'rgba(233,233,237,0.16)',
+  ring: { sm: neutralScale.neutral800, md: neutralScale.neutral700, lg: neutralScale.neutral500 },
+  accentActive: accentScale.accent200,
+};
+
+const lightSurface: ThemeSurface = {
+  bg: '#f4f4f8',
+  surface: '#ffffff',
+  text: '#1b1d29',
+  divider: 'rgba(27,29,41,0.12)',
+  ring: { sm: neutralScale.neutral200, md: neutralScale.neutral300, lg: neutralScale.neutral500 },
+  accentActive: accentScale.accent700,
+};
+
+export type Palette = typeof fixedTokens & ThemeSurface;
+export type ThemeMode = 'light' | 'dark';
+
+export function buildPalette(mode: ThemeMode): Palette {
+  return { ...fixedTokens, ...(mode === 'light' ? lightSurface : darkSurface) };
+}
+
+// The app's only look until the Settings "Light mode" toggle (see
+// src/theme/ThemeContext.tsx) existed — kept as a plain, static export so
+// any screen that hasn't been migrated to useTheme() yet keeps compiling
+// and keeps rendering exactly as it always has, unaffected by the toggle
+// until it is.
+export const color: Palette = buildPalette('dark');
+
 // Fixed alpha compositing of `color-mix(in srgb, X N%, transparent)` calls
 // from the CSS, pre-computed against their specific backgrounds where the
-// web version relied on the browser doing the mixing live.
+// web version relied on the browser doing the mixing live. Static/dark,
+// same caveat as `color` above.
 export const overlay = {
-  textMuted: 'rgba(233,233,237,0.55)',
-  headerBg: 'rgba(22,24,38,0.88)',
-  accentWash9: 'rgba(145,132,217,0.09)',
-  accentWash10: 'rgba(145,132,217,0.10)',
+  textMuted: withAlpha(color.text, 0.55),
+  headerBg: withAlpha(color.bg, 0.88),
+  accentWash9: withAlpha(color.accent, 0.09),
+  accentWash10: withAlpha(color.accent, 0.1),
 } as const;
 
 export const space = {
@@ -68,15 +152,9 @@ export const radius = {
   lg: 14,
 } as const;
 
-// React Native has no box-shadow string or `inset`; these are elevation
-// stand-ins used for the web's hairline `--shadow-*` tokens. Applied as a
-// thin border (an "inset" ring) rather than a drop shadow, which is what
-// the web tokens actually read as visually (a 1px ring, not a blur).
-export const ring = {
-  sm: color.neutral800,
-  md: color.neutral700,
-  lg: color.neutral500,
-} as const;
+// Static/dark alias of color.ring, kept for any unmigrated file that still
+// imports the old standalone `ring` export directly.
+export const ring = color.ring;
 
 export const font = {
   heading: 'Inter_500Medium',
@@ -96,6 +174,10 @@ export const type = {
   tiny: 11,
 } as const;
 
+// Tinted avatar/badge backgrounds — deliberately fixed across both themes
+// (see fixedTokens' own comment above): a dark accent/neutral tint reads
+// fine as a small chip regardless of the page's own background, and
+// Avatar's initials are always white to match.
 export const TINT_A = color.accent800;
 export const TINT_N = color.neutral800;
 export const AMBER = color.amber;

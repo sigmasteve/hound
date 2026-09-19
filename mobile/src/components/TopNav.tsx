@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -9,7 +9,8 @@ import {
   PlugsIcon,
   UsersThreeIcon,
 } from 'phosphor-react-native';
-import { color, font } from '../theme/tokens';
+import { font, withAlpha, type Palette } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
 
@@ -31,6 +32,8 @@ export function TopNav({
   onProfile: () => void;
 }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   // First name only — the header's too narrow for "Stephen Washington
   // Jr" alongside the nav row, and every other screen that shows the
   // full name (Settings' account card) is right there one tap away via
@@ -41,7 +44,7 @@ export function TopNav({
     <SafeAreaView edges={['top']} style={styles.safe}>
       <View style={styles.brandRow}>
         <View style={styles.brandMark}>
-          <PawPrintIcon size={16} color={color.accent} weight="fill" />
+          <PawPrintIcon size={16} color={colors.accent} weight="fill" />
         </View>
         <Text style={styles.brandName}>Hound</Text>
         <Pressable style={styles.profile} onPress={onProfile}>
@@ -64,7 +67,7 @@ export function TopNav({
               onPress={() => onSelect(id)}
               style={[styles.navItem, on && styles.navItemOn]}
             >
-              <Icon size={15} color={on ? color.accent200 : 'rgba(233,233,237,0.68)'} />
+              <Icon size={15} color={on ? colors.accentActive : withAlpha(colors.text, 0.68)} />
               <Text style={[styles.navLabel, on && styles.navLabelOn]}>{label}</Text>
             </Pressable>
           );
@@ -74,66 +77,68 @@ export function TopNav({
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    backgroundColor: 'rgba(22,24,38,0.96)',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: color.divider,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 6,
-  },
-  brandMark: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: color.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandName: { fontFamily: font.headingSemibold, fontSize: 17, color: color.text, letterSpacing: 0.2 },
-  profile: {
-    marginLeft: 'auto',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
-    paddingLeft: 4,
-    paddingRight: 10,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.divider,
-  },
-  profileAvatar: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: color.accent800,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileInitials: { fontFamily: font.headingSemibold, fontSize: 11, color: color.accent100 },
-  profileName: { fontFamily: font.body, fontSize: 13, color: color.text },
-  navRow: { paddingHorizontal: 16, paddingBottom: 10, gap: 4 },
-  navItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  navItemOn: {
-    backgroundColor: 'rgba(145,132,217,0.16)',
-    borderWidth: 1,
-    borderColor: color.accent,
-  },
-  navLabel: { fontFamily: font.heading, fontSize: 13, color: 'rgba(233,233,237,0.68)' },
-  navLabelOn: { color: color.accent200 },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    safe: {
+      backgroundColor: withAlpha(colors.bg, 0.96),
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.divider,
+    },
+    brandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 9,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+      paddingBottom: 6,
+    },
+    brandMark: {
+      width: 28,
+      height: 28,
+      borderRadius: 9,
+      borderWidth: 1,
+      borderColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    brandName: { fontFamily: font.headingSemibold, fontSize: 17, color: colors.text, letterSpacing: 0.2 },
+    profile: {
+      marginLeft: 'auto',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 4,
+      paddingLeft: 4,
+      paddingRight: 10,
+      borderRadius: 999,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.divider,
+    },
+    profileAvatar: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: colors.accent800,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    profileInitials: { fontFamily: font.headingSemibold, fontSize: 11, color: colors.accent100 },
+    profileName: { fontFamily: font.body, fontSize: 13, color: colors.text },
+    navRow: { paddingHorizontal: 16, paddingBottom: 10, gap: 4 },
+    navItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 7,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+    },
+    navItemOn: {
+      backgroundColor: withAlpha(colors.accent, 0.16),
+      borderWidth: 1,
+      borderColor: colors.accent,
+    },
+    navLabel: { fontFamily: font.heading, fontSize: 13, color: withAlpha(colors.text, 0.68) },
+    navLabelOn: { color: colors.accentActive },
+  });
+}

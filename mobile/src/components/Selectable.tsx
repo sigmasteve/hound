@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { color, font } from '../theme/tokens';
+import { font, withAlpha, type Palette } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 // Radio pill used in "What counts" / "Conflicts" / "Units" rows.
 export function RadioPill({
@@ -12,6 +13,8 @@ export function RadioPill({
   selected: boolean;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <Pressable onPress={onPress} style={styles.pill}>
       <View style={[styles.dot, selected && styles.dotOn]} />
@@ -32,6 +35,8 @@ export function ToggleRow({
   value: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <Pressable style={styles.toggleRow} onPress={() => onChange(!value)}>
       <View style={[styles.checkbox, value && styles.checkboxOn]} />
@@ -41,38 +46,40 @@ export function ToggleRow({
   );
 }
 
-const styles = StyleSheet.create({
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.divider,
-    borderRadius: 8,
-  },
-  dot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: color.divider,
-  },
-  dotOn: {
-    borderColor: color.accent,
-    backgroundColor: color.accent,
-  },
-  label: { fontFamily: font.body, fontSize: 14, color: color.text },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  toggleLabel: { flex: 1 },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: color.divider,
-  },
-  checkboxOn: { backgroundColor: color.accent, borderColor: color.accent },
-  note: { fontSize: 12, color: 'rgba(233,233,237,0.55)' },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    pill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.divider,
+      borderRadius: 8,
+    },
+    dot: {
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      borderWidth: 1.5,
+      borderColor: colors.divider,
+    },
+    dotOn: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accent,
+    },
+    label: { fontFamily: font.body, fontSize: 14, color: colors.text },
+    toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    toggleLabel: { flex: 1 },
+    checkbox: {
+      width: 18,
+      height: 18,
+      borderRadius: 4,
+      borderWidth: 1.5,
+      borderColor: colors.divider,
+    },
+    checkboxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+    note: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+  });
+}

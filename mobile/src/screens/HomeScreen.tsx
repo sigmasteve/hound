@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   AppleLogoIcon,
@@ -17,8 +17,8 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { Tag } from '../components/Tag';
-import { text } from '../theme/text';
-import { color, font, TINT_A, TINT_N } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { color, font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
 import type { HealthSnapshot } from '../health/types';
 import { CHALLENGE_TYPES } from '../data/sampleData';
@@ -184,6 +184,8 @@ export function HomeScreen({
 }) {
   const { user } = useAuth();
   const health = useHealthProvider();
+  const { colors, text } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [snap, setSnap] = useState<HealthSnapshot | null>(null);
   // null = either no real active challenge to headline, or the fetch
   // below hasn't resolved yet — same "never break the screen, just fall
@@ -302,7 +304,7 @@ export function HomeScreen({
 
       <View style={styles.badgeRow}>
         <View style={styles.badge}>
-          <AppleLogoIcon size={14} color={color.text} weight="fill" />
+          <AppleLogoIcon size={14} color={colors.text} weight="fill" />
           <Text style={styles.badgeLabel}>Apple Health</Text>
           <View style={[styles.dot, { backgroundColor: color.green }]} />
           <Text style={styles.badgeMuted}>{timeAgo(snap?.lastSyncedAt ?? null)}</Text>
@@ -325,6 +327,7 @@ export function HomeScreen({
           sub={`${Math.round(((snap?.stepsToday ?? 0) / (snap?.stepsGoal ?? 10000)) * 100)}% of ${(snap?.stepsGoal ?? 10000).toLocaleString()} · ${snap?.source ?? ''}`}
           pct={((snap?.stepsToday ?? 0) / (snap?.stepsGoal ?? 10000)) * 100}
           onPress={() => onGoTab('metrics')}
+          styles={styles}
         />
         <MetricTile
           label="Distance"
@@ -333,20 +336,21 @@ export function HomeScreen({
           sub="1 walk, 1 run logged"
           pct={63}
           onPress={() => onGoTab('metrics')}
+          styles={styles}
         />
       </View>
 
       <View style={styles.cardsRow}>
         {primary ? (
           primary.challenge.kind === 'hunt' && primary.board.length === 2 ? (
-            <LiveHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} />
+            <LiveHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
           ) : primary.challenge.kind === 'hunt' ? (
-            <LiveMultiHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} />
+            <LiveMultiHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
           ) : (
-            <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} />
+            <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} colors={colors} />
           )
         ) : (
-          <GettingStartedCards onGoTab={onGoTab} />
+          <GettingStartedCards onGoTab={onGoTab} styles={styles} />
         )}
       </View>
     </ScrollView>
@@ -362,7 +366,7 @@ export function HomeScreen({
 // ChallengesScreen's empty state fixed, except here there's no real
 // history to fall back to being honest about, so the honest content is
 // an explanation of what the app can actually do instead.
-function GettingStartedCards({ onGoTab }: { onGoTab: (tab: MainTab) => void }) {
+function GettingStartedCards({ onGoTab, styles }: { onGoTab: (tab: MainTab) => void; styles: HomeStyles }) {
   return (
     <>
       <Card style={styles.onboardCard} elevated={false}>
@@ -433,10 +437,12 @@ function LiveHuntCard({
   primary,
   userId,
   onOpen,
+  styles,
 }: {
   primary: PrimaryChallenge;
   userId: string | null;
   onOpen: () => void;
+  styles: HomeStyles;
 }) {
   const { challenge, board } = primary;
   const me = board.find((r) => r.userId === userId);
@@ -517,10 +523,12 @@ function LiveMultiHuntCard({
   primary,
   userId,
   onOpen,
+  styles,
 }: {
   primary: PrimaryChallenge;
   userId: string | null;
   onOpen: () => void;
+  styles: HomeStyles;
 }) {
   const { challenge, board } = primary;
   const hunter = board.find((r) => r.role === 'hunter');
@@ -646,10 +654,14 @@ function LiveLeaderboardCard({
   primary,
   userId,
   onOpen,
+  styles,
+  colors,
 }: {
   primary: PrimaryChallenge;
   userId: string | null;
   onOpen: () => void;
+  styles: HomeStyles;
+  colors: Palette;
 }) {
   const { challenge, board } = primary;
   const top = board.slice(0, 4);
@@ -679,12 +691,11 @@ function LiveLeaderboardCard({
             <View style={styles.raceBarWrap}>
               <ProgressBar
                 pct={(metric(row) / maxMetric) * 100}
-                fillColor={isMe ? color.accent200 : '#796cbf'}
+                fillColor={isMe ? colors.accentActive : '#796cbf'}
                 height={3}
-                trackColor={color.neutral900}
               />
             </View>
-            <Text style={[styles.raceSteps, isMe && { color: color.accent200 }]}>
+            <Text style={[styles.raceSteps, isMe && { color: colors.accentActive }]}>
               {scoredByDistance ? `${row.totalDistanceMi.toFixed(1)} mi` : row.totalSteps.toLocaleString()}
             </Text>
           </View>
@@ -704,6 +715,7 @@ function MetricTile({
   pct,
   barColor = color.accent,
   onPress,
+  styles,
 }: {
   label: string;
   Icon: React.ComponentType<any>;
@@ -712,6 +724,7 @@ function MetricTile({
   pct: number;
   barColor?: string;
   onPress: () => void;
+  styles: HomeStyles;
 }) {
   return (
     <Pressable style={styles.tile} onPress={onPress}>
@@ -726,101 +739,112 @@ function MetricTile({
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, gap: 20, paddingBottom: 48 },
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  heroRow: { gap: 14 },
-  heroText: { gap: 6 },
-  heroTitle: { fontSize: 28 },
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingVertical: 5,
-    paddingHorizontal: 11,
-    borderRadius: 999,
-    backgroundColor: color.surface,
-  },
-  badgeLabel: { fontSize: 12, color: color.text },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  badgeMuted: { fontSize: 12, color: 'rgba(233,233,237,0.55)' },
-  syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
-  syncLabel: { fontSize: 12, color: color.accent, fontFamily: font.heading },
-  onboardCard: { padding: 16, gap: 10 },
-  onboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  onboardTitle: { fontFamily: font.heading, fontSize: 15, color: color.text, flex: 1 },
-  onboardBody: { fontSize: 13, color: 'rgba(233,233,237,0.7)', lineHeight: 18 },
-  typeList: { gap: 10, marginTop: 2 },
-  typeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  typeIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  typeText: { flex: 1, gap: 1 },
-  typeName: { fontFamily: font.heading, fontSize: 13.5, color: color.text },
-  typeDesc: { fontSize: 12, color: 'rgba(233,233,237,0.55)' },
-  tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  tile: {
-    flexBasis: '47%',
-    flexGrow: 1,
-    gap: 10,
-    padding: 14,
-    borderRadius: 8,
-    backgroundColor: color.surface,
-  },
-  tileLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  tileLabel: { fontSize: 11, letterSpacing: 1, color: color.accent },
-  tileValue: { fontFamily: font.heading, fontSize: 28, color: color.text },
-  tileSub: { fontSize: 12, color: 'rgba(233,233,237,0.55)' },
-  cardsRow: { gap: 12 },
-  huntCard: { backgroundColor: '#232a54', gap: 12, padding: 16 },
-  huntHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  huntTitle: { fontFamily: font.heading, fontSize: 16, color: color.text, flex: 1 },
-  huntTrack: { height: 44, borderRadius: 8, justifyContent: 'center' },
-  huntTrackLine: { height: 1, backgroundColor: color.divider },
-  huntMarker: {
-    position: 'absolute',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    top: 7,
-  },
-  hunterMarker: { backgroundColor: color.neutral800 },
-  huntedMarker: { backgroundColor: color.accent800, borderWidth: 1, borderColor: color.accent },
-  huntStatsRow: { gap: 4 },
-  huntLead: { fontFamily: font.heading, fontSize: 24, color: color.text },
-  huntLeadSuffix: { fontSize: 13, color: 'rgba(233,233,237,0.65)', fontFamily: font.body },
-  huntNote: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
-  multiTrack: { height: 36, justifyContent: 'center' },
-  multiTrackDots: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  multiTrackDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: color.divider },
-  multiPuck: { position: 'absolute', top: 3 },
-  multiPuckSpotlight: { borderRadius: 15, borderWidth: 1.5, borderColor: color.accent, padding: 1.5 },
-  multiPuckCaught: { opacity: 0.6 },
-  multiPuckStrike: {
-    position: 'absolute',
-    top: 10,
-    left: 0,
-    width: 22,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: color.amber,
-  },
-  multiHunterPuck: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: color.amber,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  raceCard: { padding: 16, gap: 10 },
-  raceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  raceTitle: { fontFamily: font.heading, fontSize: 16, color: color.text, flex: 1 },
-  raceMeta: { fontSize: 12, color: 'rgba(233,233,237,0.55)' },
-  raceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
-  raceRank: { width: 14, fontSize: 12, color: 'rgba(233,233,237,0.55)' },
-  raceName: { fontSize: 13.5, color: color.text, width: 62 },
-  raceBarWrap: { flex: 1, minWidth: 0 },
-  raceSteps: { fontSize: 12.5, color: color.text, width: 56, textAlign: 'right' },
-});
+// The hunt card's own background is a fixed, hand-tuned dark navy
+// (`#232a54`, close to but distinct from the `section` token), not
+// derived from `colors.surface` — a deliberately "always dark" spotlight
+// card, the same reasoning as this file's other theme-agnostic accent
+// colors (see tokens.ts's own comment on why the accent/neutral scales
+// don't flip), so it keeps reading as a branded highlight in Light mode
+// instead of just turning white like every other card.
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    container: { padding: 16, gap: 20, paddingBottom: 48 },
+    loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    heroRow: { gap: 14 },
+    heroText: { gap: 6 },
+    heroTitle: { fontSize: 28 },
+    badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+    badge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7,
+      paddingVertical: 5,
+      paddingHorizontal: 11,
+      borderRadius: 999,
+      backgroundColor: colors.surface,
+    },
+    badgeLabel: { fontSize: 12, color: colors.text },
+    dot: { width: 6, height: 6, borderRadius: 3 },
+    badgeMuted: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
+    syncLabel: { fontSize: 12, color: colors.accent, fontFamily: font.heading },
+    onboardCard: { padding: 16, gap: 10 },
+    onboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    onboardTitle: { fontFamily: font.heading, fontSize: 15, color: colors.text, flex: 1 },
+    onboardBody: { fontSize: 13, color: withAlpha(colors.text, 0.7), lineHeight: 18 },
+    typeList: { gap: 10, marginTop: 2 },
+    typeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    typeIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+    typeText: { flex: 1, gap: 1 },
+    typeName: { fontFamily: font.heading, fontSize: 13.5, color: colors.text },
+    typeDesc: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    tile: {
+      flexBasis: '47%',
+      flexGrow: 1,
+      gap: 10,
+      padding: 14,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+    },
+    tileLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+    tileLabel: { fontSize: 11, letterSpacing: 1, color: colors.accent },
+    tileValue: { fontFamily: font.heading, fontSize: 28, color: colors.text },
+    tileSub: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    cardsRow: { gap: 12 },
+    huntCard: { backgroundColor: '#232a54', gap: 12, padding: 16 },
+    huntHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    huntTitle: { fontFamily: font.heading, fontSize: 16, color: colors.text, flex: 1 },
+    huntTrack: { height: 44, borderRadius: 8, justifyContent: 'center' },
+    huntTrackLine: { height: 1, backgroundColor: colors.divider },
+    huntMarker: {
+      position: 'absolute',
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      top: 7,
+    },
+    hunterMarker: { backgroundColor: colors.neutral800 },
+    huntedMarker: { backgroundColor: colors.accent800, borderWidth: 1, borderColor: colors.accent },
+    huntStatsRow: { gap: 4 },
+    huntLead: { fontFamily: font.heading, fontSize: 24, color: colors.text },
+    huntLeadSuffix: { fontSize: 13, color: withAlpha(colors.text, 0.65), fontFamily: font.body },
+    huntNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    multiTrack: { height: 36, justifyContent: 'center' },
+    multiTrackDots: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    multiTrackDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: colors.divider },
+    multiPuck: { position: 'absolute', top: 3 },
+    multiPuckSpotlight: { borderRadius: 15, borderWidth: 1.5, borderColor: colors.accent, padding: 1.5 },
+    multiPuckCaught: { opacity: 0.6 },
+    multiPuckStrike: {
+      position: 'absolute',
+      top: 10,
+      left: 0,
+      width: 22,
+      height: 2,
+      borderRadius: 1,
+      backgroundColor: colors.amber,
+    },
+    multiHunterPuck: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: colors.amber,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    raceCard: { padding: 16, gap: 10 },
+    raceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    raceTitle: { fontFamily: font.heading, fontSize: 16, color: colors.text, flex: 1 },
+    raceMeta: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    raceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+    raceRank: { width: 14, fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    raceName: { fontSize: 13.5, color: colors.text, width: 62 },
+    raceBarWrap: { flex: 1, minWidth: 0 },
+    raceSteps: { fontSize: 12.5, color: colors.text, width: 56, textAlign: 'right' },
+  });
+}
+
+type HomeStyles = ReturnType<typeof makeStyles>;
