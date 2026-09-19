@@ -427,6 +427,33 @@ enough to just leave running for as long as this screen is open) is
 what makes it actually count down instead of freezing at whatever
 value it had on the last full reload.
 
+### Home's non-hunt leaderboard card was cutting off every number
+
+`LiveLeaderboardCard` (Home's mini-leaderboard for any challenge that
+isn't a hunt — a step race, streak, or distance pool) renders each row
+as `rank · avatar · name · ProgressBar · steps-or-miles` in one flex
+row. `ProgressBar`'s own track is hardcoded to `width: '100%'` — correct
+everywhere else it's used (`MetricTile`, and both `ChallengeDetailScreen`
+call sites), since there it's the only thing in its row or column. Here
+it had three fixed-width siblings *and* a trailing number after it, but
+nothing constrained the bar itself to the space actually left over —
+`100%` resolved against the row's own total width, so the bar rendered
+as wide as the whole row on top of everything else, shoving the row (and
+the step/mile count after it) past the card's right edge. The result was
+exactly what it looked like: a bare, ambiguous-length line for every
+participant with no number visible at all, even though the code was
+already computing and rendering one.
+
+The fix wraps `ProgressBar` in a `flex: 1, minWidth: 0` `View` so it
+only ever gets the width actually left over after the rank, avatar,
+name, and number are laid out — `ProgressBar` itself needed no change,
+since a percentage width already resolves against whatever its
+immediate parent resolves to. `raceName` also picked up
+`numberOfLines={1}` while in there — a long name (e.g. "Stephen
+Washington Jr") was wrapping across two lines inside its fixed 62px
+width instead of just truncating, which read as broken in the same
+screenshot.
+
 ### Distance Pool: a real group target, in miles or steps
 
 `CHALLENGE_TYPES` describes "Distance Pool" as "Add every mile the group
