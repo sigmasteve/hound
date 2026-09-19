@@ -60,6 +60,15 @@ export function ChallengeDetailScreen({
   const [headStartLeaderboard, setHeadStartLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Only exists to make formatEndsLabel's countdown actually tick once a
+  // challenge is in its last 24 hours — every 30s is plenty of
+  // resolution for a minutes-level countdown, and doesn't need to be
+  // running at all the rest of the time this screen is open.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const [stepsInput, setStepsInput] = useState('');
   const [distanceInput, setDistanceInput] = useState('');
@@ -353,7 +362,7 @@ export function ChallengeDetailScreen({
     challenge.durationDays,
     Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
   );
-  const endsLabel = new Date(challenge.endsAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const endsLabel = formatEndsLabel(challenge.endsAt, now);
 
   const myHighlighted = participants.find((p) => p.userId === user?.id)?.highlighted ?? false;
 
@@ -452,7 +461,7 @@ export function ChallengeDetailScreen({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <Tag label={typeDef?.name ?? challenge.kind} variant={challenge.kind === 'hunt' ? 'accent' : 'neutral'} />
             <Text style={styles.headerMeta}>
-              Day {daysElapsed} of {challenge.durationDays} · ends {endsLabel}
+              Day {daysElapsed} of {challenge.durationDays} · {endsLabel}
             </Text>
           </View>
         </View>
@@ -642,6 +651,24 @@ export function ChallengeDetailScreen({
 
 function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// "ends Sep 19" reads fine when that's tomorrow, but is genuinely
+// ambiguous the day a challenge ends *today* — nothing about a bare
+// date says whether there are 30 minutes or 20 hours left. Once a
+// challenge is inside its last 24 hours, this switches to a live
+// countdown instead ("Ends in 3h 12m"), ticking down via the caller's
+// own `now` (see the component's 30s-interval effect) rather than
+// freezing at whatever value it had on the last full reload.
+function formatEndsLabel(endsAt: string, now: number): string {
+  const msLeft = new Date(endsAt).getTime() - now;
+  if (msLeft > 24 * 3_600_000) {
+    return `ends ${new Date(endsAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+  }
+  if (msLeft <= 0) return 'ended';
+  const hours = Math.floor(msLeft / 3_600_000);
+  const minutes = Math.floor((msLeft % 3_600_000) / 60_000);
+  return hours > 0 ? `ends in ${hours}h ${minutes}m` : `ends in ${Math.max(1, minutes)}m`;
 }
 
 const styles = StyleSheet.create({
