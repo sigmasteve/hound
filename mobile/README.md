@@ -655,6 +655,90 @@ With this batch merged, every screen in the app reads from the theme
 system — Light mode is no longer a partial toggle with known gaps, it's
 the app's second complete look.
 
+### Customizable hunt terminology: "Hunter"/"Hunted"/"Zombie" as a setting
+
+"Hunter," "Hunted," and "Zombie" are hardcoded English words that a
+school or company running Hound for their own group might not want —
+not everyone wants "Zombie" as the word for "caught." Settings now has
+a "Hunt labels" card (under "Data & account," gated on
+`isSupabaseConfigured` the same way "Login reminders" is — there's
+nothing meaningful to persist without a real backend) that lets anyone
+rename all three, with the app's original wording as the default.
+
+**Deliberately app-wide, not per-user or per-organization** — this
+was an explicit scoping decision (see `0015_app_labels.sql`'s own
+comment) rather than an oversight: Hound has no organization/tenant
+concept yet, and different users seeing different words for the same
+role on the same shared hunt (a Hunter on one phone reading "Chaser" on
+another's) would be actively confusing. One shared row —
+`public.app_labels`, a Postgres "exactly one row, ever" singleton table
+(`id boolean primary key default true` + `check (id)`) — is the
+simplest thing that actually works for "our whole group uses these
+words." A true per-organization version, where each school/company gets
+its own label set scoped to its own users, is real follow-up work once
+this app has an organization model to scope it to — deliberately not
+attempted here. The RLS policy that lets *any* signed-in user update the
+shared row (there's no admin/role concept either) is the other half of
+that same limitation, called out in the migration's own comment as
+exactly what that follow-up needs to tighten.
+
+**The internal `HuntRole` type (`'hunter' | 'hunted' | 'zombie'` in
+`challenges/types.ts`) never changes** — only what a screen *displays*
+for it does. `src/labels/types.ts`'s `HuntLabels` interface holds the
+three display strings; `src/labels/LabelsContext.tsx`'s `useLabels()`
+(wired into `App.tsx` the same way `ThemeProvider`/`AuthProvider` are)
+holds the current shared values, fetched once on mount and re-fetched on
+every focus of the Settings screen specifically (so opening it again
+picks up a change made elsewhere, the same reasoning `ChallengesScreen`'s
+own refetch-on-focus already uses) — falling back to
+`DEFAULT_HUNT_LABELS` (the app's original wording) whenever Supabase
+isn't configured or the fetch hasn't resolved yet, same "safe default,
+upgrade once the real fetch lands" shape as every other real-data fetch
+in this app. Saving from Settings updates every screen immediately via
+the context, not just on the next fetch — that's what "propagates to
+all screens" actually means for whoever just hit Save.
+
+**Where the actual word shows up, and where it deliberately doesn't:**
+`challenges/present.ts` gained `huntRoleLabel(role, labels)` (replacing
+the old static `HUNT_ROLE_LABEL` map — the leaderboard's role `Tag` in
+`ChallengeDetailScreen` is the one caller) and `huntKindName(labels)`
+(`` `${labels.hunter} & ${labels.hunted}` `` — the hunt challenge kind's
+own display name is literally built from the same two words, so it has
+to track the same setting rather than staying hardcoded "Hunter &
+Hunted" while the role tags it's named after change out from under it;
+`toChallengeCard` takes an optional `labels` param for exactly this,
+threaded in from `ChallengesScreen`). Every narrative sentence that
+names a role directly — Home's "you're a Zombie now," "has a caught
+everyone" hunt-card note, the onboarding "that's how a Hunter and
+Hunted end up chasing each other" copy; `ChallengeDetailScreen`'s head
+start and Chase-progress notes; `CreateScreen`'s "Who's the Hunter?"
+step and its head-start/scoring notes — reads from `useLabels()` too.
+`CHALLENGE_TYPES`' own static `name: 'Hunter & Hunted'` entry
+(`data/sampleData.ts`) stays as a fallback default value only, never
+read directly for the hunt kind anymore — every real call site checks
+`kind === 'hunt'` first and calls `huntKindName(labels)` instead.
+
+Left alone, on purpose: `HuntScreen` (the "Marcus is hunting you"
+screen) and `data/sampleData.ts`'s hardcoded `CHALLENGES` array it reads
+from — both are already-documented, pure demo content shown only before
+Supabase is configured (see "What's not implemented" below), unrelated
+to any real hunt's actual settings. Wiring a demo screen's hardcoded
+storyline into a live settings value would be effort spent on content
+that, by design, never reflects anything real in the first place.
+
+**Not verified live against a real save** — this sandbox has no
+Supabase project configured, so the Settings card itself never renders
+here (it's gated on `isSupabaseConfigured`, same as every other
+backend-only card), and the actual "type in a new word, hit Save, see it
+everywhere" loop was never exercised end to end. What *was* verified
+live: the default wording ("Hunter & Hunted," "Hunter," "Hunted" on the
+Create wizard's steps 1 and 3, the onboarding card) still renders
+correctly everywhere `useLabels()` now sits in the render path, and the
+Settings screen correctly hides the new card without a backend — a
+regression check on the plumbing, not a test of the feature's actual
+payoff. Worth an on-device check against a real project before calling
+this fully done.
+
 ### Distance Pool: a real group target, in miles or steps
 
 `CHALLENGE_TYPES` describes "Distance Pool" as "Add every mile the group

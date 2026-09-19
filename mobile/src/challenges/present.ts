@@ -3,22 +3,32 @@ import { buildBoard, headStartDaysLeft, isChallengeFinished, withHuntCatches } f
 import { boardSortFor } from './scoring';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { TINT_A, TINT_N } from '../theme/tokens';
+import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 import type { Challenge, ChallengeBot, HuntRole, LeaderboardEntry, Participant } from './types';
 
-// Shared by ChallengeDetailScreen's leaderboard — one place mapping a
-// HuntRole to what its <Tag> looks like, so a caught 'zombie' row doesn't
-// need its own bespoke ternary next to the existing hunter/hunted one.
-export const HUNT_ROLE_LABEL: Record<HuntRole, string> = {
-  hunter: 'Hunter',
-  hunted: 'Hunted',
-  zombie: 'Zombie',
-};
+// What a role's <Tag> actually reads — HuntRole's own values ('hunter',
+// 'hunted', 'zombie') are internal identifiers that never change; this is
+// the customizable word for it (see SettingsScreen's "Hunt labels" card
+// and src/labels/). `labels` defaults to the app's original wording so a
+// caller that hasn't loaded useLabels() yet (or Supabase isn't
+// configured) still renders something correct.
+export function huntRoleLabel(role: HuntRole, labels: HuntLabels = DEFAULT_HUNT_LABELS): string {
+  return labels[role];
+}
 
 export const HUNT_ROLE_TAG_VARIANT: Record<HuntRole, 'accent' | 'neutral' | 'outline'> = {
   hunter: 'accent',
   hunted: 'neutral',
   zombie: 'outline',
 };
+
+// The hunt challenge kind's own display name — literally built from the
+// same two customizable words (the app's original "Hunter & Hunted"),
+// so it has to track the same setting rather than staying hardcoded
+// while the role tags it's named after change out from under it.
+export function huntKindName(labels: HuntLabels = DEFAULT_HUNT_LABELS): string {
+  return `${labels.hunter} & ${labels.hunted}`;
+}
 
 // Turns a raw challenge + who's in it + what they've logged into the same
 // display shape src/data/sampleData.ts hand-authors for the sample
@@ -35,9 +45,13 @@ export function toChallengeCard(
   // param of the same name. Defaults to none, which is correct for
   // every other case (nothing to credit).
   headStartLeaderboard: LeaderboardEntry[] = [],
+  // The caller's current useLabels().labels — defaults to the app's
+  // original wording so a caller that never passes this (or hasn't
+  // loaded it yet) still gets a correct, if not-yet-customized, name.
+  labels: HuntLabels = DEFAULT_HUNT_LABELS,
 ): ChallengeCard {
   const typeDef = CHALLENGE_TYPES.find((t) => t.id === challenge.kind);
-  const kindLabel = typeDef?.name ?? challenge.kind;
+  const kindLabel = challenge.kind === 'hunt' ? huntKindName(labels) : (typeDef?.name ?? challenge.kind);
   const tint = typeDef?.tint ?? TINT_N;
   const iconColor = typeDef?.iconColor ?? '#e9e9ed';
 
