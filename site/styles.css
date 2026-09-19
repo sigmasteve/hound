@@ -267,7 +267,7 @@ ol.steps { list-style: none; margin: 0; padding: 0; }
 .step p.sub { color: rgba(233, 233, 237, 0.6); font-size: 12.5px; }
 
 .linkbox {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: flex-start; gap: 8px;
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid var(--divider);
   border-radius: 8px;
@@ -275,7 +275,7 @@ ol.steps { list-style: none; margin: 0; padding: 0; }
   margin: 8px 0;
 }
 .linkbox a {
-  flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap;
+  flex: 1; min-width: 0; word-break: break-all;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
 }
