@@ -364,6 +364,20 @@ actually connected there was nothing left for that card to add; a
 failed sync now fails silently and simply retries on the next visit,
 rather than surfacing an error nothing was left to show it next to.
 
+### A live countdown for a challenge ending today
+
+`ChallengeDetailScreen`'s header used to always show a bare end date
+("ends Sep 20") — fine when that's tomorrow or later, genuinely
+ambiguous the day a challenge ends *today*: nothing about a plain date
+says whether there are 20 hours left or 20 minutes. `formatEndsLabel`
+now switches to a live countdown ("ends in 3h 12m," or just "ends in
+12m" under an hour) once a challenge is inside its last 24 hours, and
+reads "ended" once it's actually passed. A `now` state ticking every
+30s (plenty of resolution for a minutes-level countdown, and cheap
+enough to just leave running for as long as this screen is open) is
+what makes it actually count down instead of freezing at whatever
+value it had on the last full reload.
+
 ### Distance Pool: a real group target, in miles or steps
 
 `CHALLENGE_TYPES` describes "Distance Pool" as "Add every mile the group
