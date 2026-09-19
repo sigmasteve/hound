@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { color, font, radius, space } from '../theme/tokens';
+import { font, radius, space, withAlpha, type Palette } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 type Variant = 'primary' | 'secondary' | 'ghost';
 
@@ -25,6 +26,9 @@ export function Button({
   style?: ViewStyle;
   disabled?: boolean;
 }) {
+  const { colors } = useTheme();
+  const { styles, variantStyles, variantText } = useMemo(() => makeStyles(colors), [colors]);
+
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
@@ -45,35 +49,39 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
-  base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: space[2],
-    paddingHorizontal: space[3] * 1.2,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    alignSelf: 'flex-start',
-  },
-  small: { paddingVertical: 6, paddingHorizontal: 10 },
-  block: { alignSelf: 'stretch' },
-  pressed: { opacity: 0.8 },
-  disabled: { opacity: 0.45 },
-  label: { fontFamily: font.heading, fontSize: 14 },
-  smallLabel: { fontSize: 12.5 },
-});
+function makeStyles(colors: Palette) {
+  const styles = StyleSheet.create({
+    base: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: space[2],
+      paddingHorizontal: space[3] * 1.2,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: 'transparent',
+      alignSelf: 'flex-start',
+    },
+    small: { paddingVertical: 6, paddingHorizontal: 10 },
+    block: { alignSelf: 'stretch' },
+    pressed: { opacity: 0.8 },
+    disabled: { opacity: 0.45 },
+    label: { fontFamily: font.heading, fontSize: 14 },
+    smallLabel: { fontSize: 12.5 },
+  });
 
-const variantStyles: Record<Variant, ViewStyle> = {
-  primary: { borderColor: color.accent, backgroundColor: 'rgba(145,132,217,0.12)' },
-  secondary: { borderColor: color.divider, backgroundColor: 'transparent' },
-  ghost: { borderColor: 'transparent', backgroundColor: 'transparent', paddingHorizontal: 4 },
-};
+  const variantStyles: Record<Variant, ViewStyle> = {
+    primary: { borderColor: colors.accent, backgroundColor: withAlpha(colors.accent, 0.12) },
+    secondary: { borderColor: colors.divider, backgroundColor: 'transparent' },
+    ghost: { borderColor: 'transparent', backgroundColor: 'transparent', paddingHorizontal: 4 },
+  };
 
-const variantText = StyleSheet.create({
-  primary: { color: color.accent },
-  secondary: { color: color.text },
-  ghost: { color: color.accent },
-});
+  const variantText = StyleSheet.create({
+    primary: { color: colors.accent },
+    secondary: { color: colors.text },
+    ghost: { color: colors.accent },
+  });
+
+  return { styles, variantStyles, variantText };
+}

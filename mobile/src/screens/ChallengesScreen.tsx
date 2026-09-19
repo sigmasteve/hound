@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -11,8 +11,8 @@ import {
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Tag } from '../components/Tag';
-import { text } from '../theme/text';
-import { color, font } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -32,6 +32,8 @@ export function ChallengesScreen({
   onCreate: () => void;
 }) {
   const { user } = useAuth();
+  const { colors, text } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   // null = no fetch has resolved yet, whether that's because Supabase
   // isn't configured (it never will) or because the real fetch just
   // hasn't come back (it will, shortly — see challengesLoading below).
@@ -204,6 +206,8 @@ export function ChallengesScreen({
               key={c.id}
               c={c}
               isPrimary={c.id === primaryChallengeId}
+              styles={styles}
+              colors={colors}
               onPress={
                 c.target === 'hunt' ? onOpenHunt : c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined
               }
@@ -219,7 +223,12 @@ export function ChallengesScreen({
             <Text style={styles.emptyNote}>Nothing finished yet.</Text>
           ) : (
             finishedChallenges.map((c) => (
-              <FinishedRow key={c.id} c={c} onPress={c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined} />
+              <FinishedRow
+                key={c.id}
+                c={c}
+                styles={styles}
+                onPress={c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined}
+              />
             ))
           )}
         </>
@@ -228,7 +237,19 @@ export function ChallengesScreen({
   );
 }
 
-function ChallengeRow({ c, isPrimary, onPress }: { c: ChallengeCard; isPrimary?: boolean; onPress?: () => void }) {
+function ChallengeRow({
+  c,
+  isPrimary,
+  onPress,
+  styles,
+  colors,
+}: {
+  c: ChallengeCard;
+  isPrimary?: boolean;
+  onPress?: () => void;
+  styles: ChallengesStyles;
+  colors: Palette;
+}) {
   const Icon = CHALLENGE_KIND_ICON[c.kind];
   return (
     <Pressable style={[styles.row, isPrimary && styles.rowPrimary]} onPress={onPress}>
@@ -255,7 +276,7 @@ function ChallengeRow({ c, isPrimary, onPress }: { c: ChallengeCard; isPrimary?:
               challenge itself. */}
           {isPrimary && (
             <View style={styles.primaryBadge}>
-              <HouseIcon size={11} color={color.accent200} weight="fill" />
+              <HouseIcon size={11} color={colors.accent200} weight="fill" />
               <Text style={styles.primaryBadgeText}>On Today</Text>
             </View>
           )}
@@ -266,7 +287,7 @@ function ChallengeRow({ c, isPrimary, onPress }: { c: ChallengeCard; isPrimary?:
         <Text style={styles.rowStat}>{c.stat}</Text>
         <Text style={styles.rowStatLabel}>{c.statLabel}</Text>
       </View>
-      <CaretRightIcon size={16} color="rgba(233,233,237,0.5)" />
+      <CaretRightIcon size={16} color={withAlpha(colors.text, 0.5)} />
     </Pressable>
   );
 }
@@ -287,7 +308,15 @@ function medalColorFor(stat: string): string {
 // finished card instead. `c.stat` is '—' (see toChallengeCard) when
 // nobody ever logged anything, which "You placed —" would read oddly
 // for, so that case shows the plain statLabel ("no data yet") instead.
-function FinishedRow({ c, onPress }: { c: ChallengeCard; onPress?: () => void }) {
+function FinishedRow({
+  c,
+  onPress,
+  styles,
+}: {
+  c: ChallengeCard;
+  onPress?: () => void;
+  styles: ChallengesStyles;
+}) {
   return (
     <Pressable style={styles.finishedRow} onPress={onPress}>
       <MedalIcon size={20} color={medalColorFor(c.stat)} weight="fill" />
@@ -299,51 +328,59 @@ function FinishedRow({ c, onPress }: { c: ChallengeCard; onPress?: () => void })
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, gap: 14, paddingBottom: 48 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 },
-  inviteCard: { flexDirection: 'row', gap: 12, backgroundColor: '#2a2540', alignItems: 'center' },
-  inviteTitle: { fontFamily: font.heading, fontSize: 14, color: color.text },
-  inviteSub: { fontSize: 12.5, color: 'rgba(233,233,237,0.7)' },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: color.surface,
-  },
-  // A visible border, not just a tag, so which card Today is showing
-  // reads at a glance scrolling past the whole list — the badge alone
-  // (see primaryBadge below) is easy to miss next to the kind/head-start
-  // tags already competing for attention on the same line.
-  rowPrimary: { borderWidth: 1, borderColor: color.accent700 },
-  rowIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  rowName: { fontFamily: font.heading, fontSize: 16, color: color.text },
-  primaryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 3,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    backgroundColor: color.accent800,
-  },
-  primaryBadgeText: { fontSize: 11, letterSpacing: 0.3, color: color.accent200 },
-  rowSub: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
-  rowStat: { fontFamily: font.heading, fontSize: 18, color: color.text },
-  rowStatLabel: { fontSize: 11, color: 'rgba(233,233,237,0.55)' },
-  emptyNote: { fontSize: 13, color: 'rgba(233,233,237,0.55)', textAlign: 'center', paddingVertical: 8 },
-  loadingRow: { paddingVertical: 24, alignItems: 'center' },
-  finishedLabel: { fontSize: 15, color: 'rgba(233,233,237,0.7)', marginTop: 8 },
-  finishedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 14,
-    borderRadius: 8,
-    backgroundColor: 'rgba(35,37,50,0.6)',
-  },
-  finishedTitle: { flex: 1, fontSize: 14, color: color.text },
-  finishedMeta: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
-});
+// The invite card's own background is a fixed, hand-tuned dark purple
+// tint (close to but distinct from the accent900 token), the same
+// "deliberately always-dark spotlight" reasoning as HomeScreen's hunt
+// card — see that file's own comment on its `huntCard` style.
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    container: { padding: 16, gap: 14, paddingBottom: 48 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 },
+    inviteCard: { flexDirection: 'row', gap: 12, backgroundColor: '#2a2540', alignItems: 'center' },
+    inviteTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
+    inviteSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      padding: 16,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+    },
+    // A visible border, not just a tag, so which card Today is showing
+    // reads at a glance scrolling past the whole list — the badge alone
+    // (see primaryBadge below) is easy to miss next to the kind/head-start
+    // tags already competing for attention on the same line.
+    rowPrimary: { borderWidth: 1, borderColor: colors.accent700 },
+    rowIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    rowName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
+    primaryBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 3,
+      paddingHorizontal: 10,
+      borderRadius: 6,
+      backgroundColor: colors.accent800,
+    },
+    primaryBadgeText: { fontSize: 11, letterSpacing: 0.3, color: colors.accent200 },
+    rowSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    rowStat: { fontFamily: font.heading, fontSize: 18, color: colors.text },
+    rowStatLabel: { fontSize: 11, color: withAlpha(colors.text, 0.55) },
+    emptyNote: { fontSize: 13, color: withAlpha(colors.text, 0.55), textAlign: 'center', paddingVertical: 8 },
+    loadingRow: { paddingVertical: 24, alignItems: 'center' },
+    finishedLabel: { fontSize: 15, color: withAlpha(colors.text, 0.7), marginTop: 8 },
+    finishedRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      padding: 14,
+      borderRadius: 8,
+      backgroundColor: withAlpha(colors.surface, 0.6),
+    },
+    finishedTitle: { flex: 1, fontSize: 14, color: colors.text },
+    finishedMeta: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+  });
+}
+
+type ChallengesStyles = ReturnType<typeof makeStyles>;

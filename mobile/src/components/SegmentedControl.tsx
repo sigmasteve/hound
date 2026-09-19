@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { color, font, radius } from '../theme/tokens';
+import { font, radius, withAlpha, type Palette } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 export function SegmentedControl<T extends string>({
   options,
@@ -11,6 +12,8 @@ export function SegmentedControl<T extends string>({
   value: T;
   onChange: (v: T) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.seg}>
       {options.map((opt, i) => {
@@ -29,17 +32,19 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-const styles = StyleSheet.create({
-  seg: {
-    flexDirection: 'row',
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.divider,
-    overflow: 'hidden',
-  },
-  opt: { flex: 1, alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10 },
-  divider: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: color.divider },
-  optOn: { backgroundColor: 'rgba(145,132,217,0.12)' },
-  label: { fontFamily: font.body, fontSize: 13, color: color.text },
-  labelOn: { color: color.accent, fontFamily: font.heading },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    seg: {
+      flexDirection: 'row',
+      borderRadius: radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.divider,
+      overflow: 'hidden',
+    },
+    opt: { flex: 1, alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10 },
+    divider: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.divider },
+    optOn: { backgroundColor: withAlpha(colors.accent, 0.12) },
+    label: { fontFamily: font.body, fontSize: 13, color: colors.text },
+    labelOn: { color: colors.accent, fontFamily: font.heading },
+  });
+}

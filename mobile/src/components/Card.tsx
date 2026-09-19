@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
-import { color, radius, ring, space } from '../theme/tokens';
+import { radius, space, type Palette } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 export function Card({
   children,
@@ -11,18 +12,22 @@ export function Card({
   style?: ViewStyle | ViewStyle[];
   elevated?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return <View style={[styles.card, elevated && styles.ring, style]}>{children}</View>;
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: color.surface,
-    borderRadius: radius.md,
-    padding: space[3],
-    gap: space[2],
-  },
-  ring: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: ring.sm,
-  },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      padding: space[3],
+      gap: space[2],
+    },
+    ring: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.ring.sm,
+    },
+  });
+}

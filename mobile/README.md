@@ -477,6 +477,88 @@ Today tab's own icon) plus an accent border around the whole row — a
 badge alone was easy to miss next to the kind/head-start tags already
 competing for attention on the same line.
 
+### Light mode: a Settings toggle, and a theme system to make it real
+
+Hound only ever had one look — every color lived as a flat, static
+constant in `theme/tokens.ts` (`color.bg`, `color.surface`, `color.text`,
+plus dozens of hand-written `rgba(233,233,237,0.NN)` literals scattered
+across every screen for "muted text," which turned out to just be
+`color.text` at some alpha — `233,233,237` is `#e9e9ed` in decimal).
+None of it responded to anything; a "Light mode" toggle needed an actual
+theme system underneath it, not just a new screen.
+
+**The palette split.** `tokens.ts` now builds a `Palette` from two
+pieces: a fixed set of tokens that read fine on either a dark or a light
+page (the accent purple, amber, green, the medal colors, and the
+neutral/accent scales used almost entirely as tinted avatar/badge
+backgrounds rather than page chrome), and a small `ThemeSurface` that
+actually flips — `bg`, `surface`, `text`, `divider`, a per-theme `ring`
+(card border shades, picked from whichever end of the neutral scale sits
+close enough to that theme's own surface to read as subtle), and a new
+`accentActive` (see below). `buildPalette('light' | 'dark')` merges the
+two; `color` stays as a static, permanently-dark export so any screen
+that hasn't been migrated yet keeps compiling and keeps looking exactly
+as it always has. `withAlpha(hex, alpha)` replaces every hand-rolled
+`rgba(233,233,237,0.NN)` literal with `withAlpha(colors.text, 0.NN)` —
+mechanical once you notice what those literals actually were.
+
+**`ThemeContext`** (`theme/ThemeContext.tsx`) holds the current `mode`,
+the `colors` it resolves to, a `text` StyleSheet (`theme/text.ts`'s
+`createTextStyles` parameterized on `colors` the same way), and
+`setMode`/`toggleMode`. The choice persists to `AsyncStorage` (already a
+dependency, used for the Supabase session) under `hound:theme-mode` —
+same "start on the safe default, upgrade once the async read resolves"
+shape as this app's session restore and highlighted-challenge fetch, so
+a cold start never flashes the wrong theme long enough to matter, and a
+device with nothing stored yet just stays on dark.
+
+**Migrating a screen or component** means swapping its static
+`StyleSheet.create({...})` for a `makeStyles(colors)` function called via
+`useMemo(() => makeStyles(colors), [colors])` inside the component (a
+plain module-level StyleSheet is built once at import time and can't
+react to a theme change), reading `colors`/`text` from `useTheme()`
+instead of the static `color`/`text` exports, and routing any
+`rgba(233,233,237,0.NN)` literal through `withAlpha(colors.text, 0.NN)`.
+`App.tsx`, `RootNavigator` (React Navigation's own `theme` prop),
+`MainScreen`, `TopNav`, and the shared `Card`/`Button`/`Selectable`
+(`RadioPill`/`ToggleRow`)/`SegmentedControl`/`ProgressBar` components got
+this treatment first, since every screen depends on them — followed by
+the three screens asked for by name: Home (Today), Challenges, and
+Settings, where the toggle itself now lives as an "Appearance" card
+(`ToggleRow` again) right under the "Data & account" header.
+
+**The one thing that isn't mechanical:** a few colors were near-white
+accent shades (`accent100`/`accent200`) used as *text or an icon*
+sitting directly on the page/card background rather than on a fixed,
+always-dark tinted chip (an avatar, a badge on its own `accent800`) —
+`TopNav`'s active-tab label and icon, and the leaderboard's "isMe"
+row highlight on Home. Those read fine on Dark mode's own dark bg but
+would've rendered as white-on-white the moment Light mode's bg turned
+light — caught by actually toggling the app in a browser and looking,
+not by the type checker. Fixed with a new `accentActive` palette field:
+`accent200` (light) for Dark mode, `accent700` (dark, saturated) for
+Light mode — the same "pick a shade that contrasts with *this* theme's
+own background" idea `ring` already uses for card borders, just for
+text/icon color instead of a border.
+
+**Deliberately left alone:** two cards — Home's hunt-card spotlight and
+Challenges' invite card — keep their own fixed, hand-tuned dark
+background (`#232a54`, `#2a2540`) in both themes rather than following
+`colors.surface`, the same reasoning as the fixed accent/neutral scales
+above: a "branded," always-dark spotlight card reads as intentional even
+on a light page, the way a dark embed or callout does elsewhere.
+
+**What's not migrated yet, on purpose** (the user explicitly asked for
+the toggle plus these three core screens first, as a separate branch
+from the rest of this session's work, specifically so a light mode that
+turns out to look worse than expected can be rolled back without losing
+anything else): `ChallengeDetailScreen`, `HuntScreen`, `CreateScreen`,
+`MetricsScreen`, `FriendsScreen`, `ConnectScreen`, and the auth screens
+(`WelcomeScreen`/`LoginScreen`/`SignUpScreen`) all still read the static,
+permanently-dark `color`/`text` exports — navigating to any of them
+while Light mode is on will show a dark screen again until they get the
+same `makeStyles(colors)` treatment as a fast-follow.
+
 ### Distance Pool: a real group target, in miles or steps
 
 `CHALLENGE_TYPES` describes "Distance Pool" as "Add every mile the group

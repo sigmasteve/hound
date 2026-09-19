@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { AndroidLogoIcon, AppleLogoIcon, ScalesIcon, SignOutIcon } from 'phosphor-react-native';
@@ -7,8 +7,8 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { RadioPill, ToggleRow } from '../components/Selectable';
 import { SegmentedControl } from '../components/SegmentedControl';
-import { text } from '../theme/text';
-import { color, font } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { withAlpha, type Palette } from '../theme/tokens';
 import { ALERT_DEFS, SOURCES } from '../data/sampleData';
 import { useHealthProvider } from '../health/HealthContext';
 import { useAuth } from '../auth/AuthContext';
@@ -32,6 +32,8 @@ const PROVIDER_LABEL: Record<AuthProviderId, string> = {
 export function SettingsScreen() {
   const health = useHealthProvider();
   const { user, signOut } = useAuth();
+  const { colors, text, mode, setMode } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [alerts, setAlerts] = useState(ALERT_DEFS.map((a) => a.defaultOn));
   const [conflict, setConflict] = useState<'device' | 'apple' | 'ask'>('device');
   const [units, setUnits] = useState<'imperial' | 'metric'>('imperial');
@@ -91,9 +93,19 @@ export function SettingsScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={text.h2}>Data & account</Text>
 
+      <Card style={{ gap: 14 }} elevated={false}>
+        <Text style={text.h4}>Appearance</Text>
+        <ToggleRow
+          label="Light mode"
+          note="Use a bright background with dark text instead of Hound's usual dark theme"
+          value={mode === 'light'}
+          onChange={(v) => setMode(v ? 'light' : 'dark')}
+        />
+      </Card>
+
       {user && (
         <Card style={styles.accountRow} elevated={false}>
-          <Avatar initials={user.initials} tint={color.accent800} size={40} fontSize={14} />
+          <Avatar initials={user.initials} tint={colors.accent800} size={40} fontSize={14} />
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={styles.sourceName}>{user.name}</Text>
             <Text style={styles.footNote}>
@@ -103,7 +115,7 @@ export function SettingsScreen() {
           <Button
             label="Log out"
             small
-            icon={<SignOutIcon size={14} color={color.text} />}
+            icon={<SignOutIcon size={14} color={colors.text} />}
             onPress={signOut}
           />
         </Card>
@@ -117,7 +129,7 @@ export function SettingsScreen() {
           return (
             <View key={s.name} style={styles.sourceRow}>
               <View style={[styles.sourceIcon, { backgroundColor: s.tint }]}>
-                <Icon size={18} color={color.text} weight={s.name === 'Apple Health' ? 'fill' : 'regular'} />
+                <Icon size={18} color={colors.text} weight={s.name === 'Apple Health' ? 'fill' : 'regular'} />
               </View>
               <View style={{ flex: 1, gap: 2, minWidth: 130 }}>
                 <Text style={styles.sourceName}>{s.name}</Text>
@@ -192,21 +204,23 @@ export function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, gap: 14, paddingBottom: 48 },
-  accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  sourceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(233,233,237,0.07)',
-    flexWrap: 'wrap',
-  },
-  sourceIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  sourceName: { fontSize: 14.5, color: color.text },
-  sourceStatus: { fontSize: 12 },
-  sourceScope: { fontSize: 12, color: 'rgba(233,233,237,0.55)' },
-  footNote: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    container: { padding: 16, gap: 14, paddingBottom: 48 },
+    accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    sourceRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: withAlpha(colors.text, 0.07),
+      flexWrap: 'wrap',
+    },
+    sourceIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    sourceName: { fontSize: 14.5, color: colors.text },
+    sourceStatus: { fontSize: 12 },
+    sourceScope: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+  });
+}
