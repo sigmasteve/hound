@@ -228,6 +228,22 @@ export function isHuntConcluded(board: BoardEntry[]): boolean {
   return hunted.length > 0 && hunted.every((r) => r.role === 'zombie');
 }
 
+// Which challenge Home actually shows as its hero/leaderboard card —
+// shared so ChallengesScreen can mark that exact same one in its list
+// (see "Add a visual indicator to highlight the challenge is displayed
+// on the Today screen") instead of guessing at a parallel copy of this
+// same fallback that could quietly drift out of sync with it. Whichever
+// challenge the user explicitly highlighted (ChallengeDetailScreen's
+// "Highlight on Home" toggle) wins, as long as it hasn't ended yet;
+// otherwise the most recently created still-active one. `challenges`
+// must already be in `listMyChallenges`' own
+// `order('created_at', { ascending: false })` — this never re-sorts it,
+// matching HomeScreen's own `.find(...)` doing the same.
+export function pickPrimaryChallenge(challenges: Challenge[], highlighted: Challenge | null): Challenge | null {
+  if (highlighted && new Date(highlighted.endsAt).getTime() > Date.now()) return highlighted;
+  return challenges.find((c) => new Date(c.endsAt).getTime() > Date.now()) ?? null;
+}
+
 // The one "is this challenge over" check shared by toChallengeCard
 // (src/challenges/present.ts, for the Challenges screen's Finished
 // section) and HomeScreen's hero card (for switching from "your

@@ -454,6 +454,29 @@ Washington Jr") was wrapping across two lines inside its fixed 62px
 width instead of just truncating, which read as broken in the same
 screenshot.
 
+### Marking which challenge the Challenges list is the one shown on Today
+
+Home's hero card only ever shows one challenge at a time, chosen by a
+small fallback in its own data-loading effect: whichever one the user
+explicitly highlighted (`ChallengeDetailScreen`'s "Highlight on Home"
+toggle), as long as it hasn't ended, otherwise the most recently created
+still-active one. Nothing on the Challenges list said which of its own
+rows that was — scrolling past five active challenges, there was no way
+to tell at a glance which one you'd actually see on opening the app.
+
+Rather than have `ChallengesScreen` grow its own copy of that same
+fallback (and risk it quietly drifting out of sync with Home's — exactly
+the kind of duplicated-logic bug this codebase has hit before, see the
+head-start-baseline-day fix above), the decision itself moved into
+`board.ts` as `pickPrimaryChallenge(challenges, highlighted)`, a pure
+function both screens now call. `HomeScreen` uses it to pick `active`;
+`ChallengesScreen` calls it too, in the same `loadChallenges` fetch that
+already lists every challenge, and marks whichever `ChallengeRow` has a
+matching id with a small "On Today" badge (a house icon, echoing the
+Today tab's own icon) plus an accent border around the whole row — a
+badge alone was easy to miss next to the kind/head-start tags already
+competing for attention on the same line.
+
 ### Distance Pool: a real group target, in miles or steps
 
 `CHALLENGE_TYPES` describes "Distance Pool" as "Add every mile the group
