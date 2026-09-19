@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   CaretRightIcon,
   EnvelopeOpenIcon,
+  HouseIcon,
   MedalIcon,
   PlusCircleIcon,
 } from 'phosphor-react-native';
@@ -16,7 +17,7 @@ import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import { headStartBaselineDayKey } from '../challenges/board';
+import { headStartBaselineDayKey, pickPrimaryChallenge } from '../challenges/board';
 import { toChallengeCard } from '../challenges/present';
 import type { ChallengeInvite, LeaderboardEntry } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
@@ -41,9 +42,19 @@ export function ChallengesScreen({
   // Same convention, independently, for challenge invites.
   const [liveInvites, setLiveInvites] = useState<ChallengeInvite[] | null>(null);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  // Whichever challenge Home is currently showing as its own hero card —
+  // pickPrimaryChallenge (src/challenges/board.ts) is the one place that
+  // decision gets made, so this list can mark the exact same row instead
+  // of a parallel guess. Null both before the first fetch resolves and
+  // when nothing qualifies (no active challenges at all).
+  const [primaryChallengeId, setPrimaryChallengeId] = useState<string | null>(null);
 
   const loadChallenges = async (): Promise<void> => {
-    const challenges = await supabaseChallengesProvider.listMyChallenges();
+    const [challenges, highlighted] = await Promise.all([
+      supabaseChallengesProvider.listMyChallenges(),
+      supabaseChallengesProvider.getHighlightedChallenge(),
+    ]);
+    setPrimaryChallengeId(pickPrimaryChallenge(challenges, highlighted)?.id ?? null);
     const cards = await Promise.all(
       challenges.map(async (c) => {
         // A hunt with a head start needs one extra fetch — everyone's
@@ -192,6 +203,7 @@ export function ChallengesScreen({
             <ChallengeRow
               key={c.id}
               c={c}
+              isPrimary={c.id === primaryChallengeId}
               onPress={
                 c.target === 'hunt' ? onOpenHunt : c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined
               }
@@ -216,10 +228,10 @@ export function ChallengesScreen({
   );
 }
 
-function ChallengeRow({ c, onPress }: { c: ChallengeCard; onPress?: () => void }) {
+function ChallengeRow({ c, isPrimary, onPress }: { c: ChallengeCard; isPrimary?: boolean; onPress?: () => void }) {
   const Icon = CHALLENGE_KIND_ICON[c.kind];
   return (
-    <Pressable style={styles.row} onPress={onPress}>
+    <Pressable style={[styles.row, isPrimary && styles.rowPrimary]} onPress={onPress}>
       <View style={[styles.rowIcon, { backgroundColor: c.tint }]}>
         <Icon size={21} color={c.iconColor} weight={c.kind === 'hunt' ? 'fill' : 'regular'} />
       </View>
@@ -232,6 +244,20 @@ function ChallengeRow({ c, onPress }: { c: ChallengeCard; onPress?: () => void }
               label={`Head start · ${c.headStartDaysLeft}d left`}
               variant="amber"
             />
+          )}
+          {/* The one card whose own numbers are what Today's hero/
+              leaderboard card is currently showing — see
+              pickPrimaryChallenge (src/challenges/board.ts), the single
+              place that decision is made for both screens. A house icon
+              to echo the Today tab's own icon (see TopNav), not another
+              color of the kind/head-start tags above, so it reads as "is
+              shown there" rather than as one more property of the
+              challenge itself. */}
+          {isPrimary && (
+            <View style={styles.primaryBadge}>
+              <HouseIcon size={11} color={color.accent200} weight="fill" />
+              <Text style={styles.primaryBadgeText}>On Today</Text>
+            </View>
           )}
         </View>
         <Text style={styles.rowSub}>{c.sub}</Text>
@@ -287,8 +313,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: color.surface,
   },
+  // A visible border, not just a tag, so which card Today is showing
+  // reads at a glance scrolling past the whole list — the badge alone
+  // (see primaryBadge below) is easy to miss next to the kind/head-start
+  // tags already competing for attention on the same line.
+  rowPrimary: { borderWidth: 1, borderColor: color.accent700 },
   rowIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   rowName: { fontFamily: font.heading, fontSize: 16, color: color.text },
+  primaryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: color.accent800,
+  },
+  primaryBadgeText: { fontSize: 11, letterSpacing: 0.3, color: color.accent200 },
   rowSub: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
   rowStat: { fontFamily: font.heading, fontSize: 18, color: color.text },
   rowStatLabel: { fontSize: 11, color: 'rgba(233,233,237,0.55)' },

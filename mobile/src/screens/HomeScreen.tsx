@@ -33,6 +33,7 @@ import {
   headStartBaselineDayKey,
   huntEffectiveMetric,
   isChallengeFinished,
+  pickPrimaryChallenge,
   withHuntCatches,
   type BoardEntry,
 } from '../challenges/board';
@@ -209,16 +210,15 @@ export function HomeScreen({
     if (!isSupabaseConfigured) return;
     let cancelled = false;
     (async () => {
-      // Whichever challenge the user explicitly highlighted from its own
-      // detail screen (see ChallengeDetailScreen's "Highlight on Today
-      // screen" toggle) wins, as long as it hasn't ended — falling back
-      // to the most recently created still-active one otherwise, same as
-      // before that feature existed.
-      const highlighted = await supabaseChallengesProvider.getHighlightedChallenge();
-      const active =
-        highlighted && new Date(highlighted.endsAt).getTime() > Date.now()
-          ? highlighted
-          : (await supabaseChallengesProvider.listMyChallenges()).find((c) => new Date(c.endsAt).getTime() > Date.now());
+      // pickPrimaryChallenge is the single source of truth for "which
+      // challenge does Today show" — ChallengesScreen calls the exact
+      // same function to mark that one in its own list, so the two
+      // screens can't quietly disagree about it.
+      const [highlighted, challenges] = await Promise.all([
+        supabaseChallengesProvider.getHighlightedChallenge(),
+        supabaseChallengesProvider.listMyChallenges(),
+      ]);
+      const active = pickPrimaryChallenge(challenges, highlighted);
       if (!active) return;
       // A hunt with a head start needs one extra fetch — everyone's
       // total as of the day the head start ended — so the Hunter's
