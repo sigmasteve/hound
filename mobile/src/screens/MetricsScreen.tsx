@@ -70,7 +70,9 @@ export function MetricsScreen() {
         options={[
           { value: 'steps', label: 'Steps & distance' },
           { value: 'hr', label: 'Heart rate' },
-          { value: 'weight', label: 'Weight' },
+          // Weight hidden for now — everything that reads/renders it
+          // below (getWeightSeries fetch, headline, chart) is untouched,
+          // so this comes back by just re-adding this option.
         ]}
       />
 
