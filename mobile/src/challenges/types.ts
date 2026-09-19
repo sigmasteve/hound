@@ -102,6 +102,11 @@ export interface ChallengeInvite {
 }
 
 export interface CreateChallengeInput {
+  // At least 4 trimmed characters, for every kind — CreateScreen.tsx's
+  // own validateName() is what actually stops a caller from getting here
+  // with less, backed by a matching check constraint in
+  // 0016_challenge_name_min_length.sql for anything that isn't this
+  // provider's own client.
   name: string;
   kind: ChallengeKind;
   durationDays: number;
