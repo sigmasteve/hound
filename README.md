@@ -23,3 +23,8 @@ python3 -m http.server 8000
 then open http://localhost:8000 in a browser (or just open `index.html`
 directly).
 
+**`site/`** is the houndchallenge.net landing page: real sign-up/log-in
+against the same Supabase project the app uses, plus how to become an
+early tester — for people who want an account before the app is
+installable. See `site/README.md` to configure and deploy it.
+
