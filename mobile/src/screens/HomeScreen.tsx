@@ -673,13 +673,17 @@ function LiveLeaderboardCard({
           <View key={row.userId} style={styles.raceRow}>
             <Text style={styles.raceRank}>{i + 1}</Text>
             <Avatar initials={row.initials} tint={isMe ? TINT_A : TINT_N} size={24} fontSize={10} />
-            <Text style={styles.raceName}>{isMe ? 'You' : row.name}</Text>
-            <ProgressBar
-              pct={(metric(row) / maxMetric) * 100}
-              fillColor={isMe ? color.accent200 : '#796cbf'}
-              height={3}
-              trackColor={color.neutral900}
-            />
+            <Text style={styles.raceName} numberOfLines={1}>
+              {isMe ? 'You' : row.name}
+            </Text>
+            <View style={styles.raceBarWrap}>
+              <ProgressBar
+                pct={(metric(row) / maxMetric) * 100}
+                fillColor={isMe ? color.accent200 : '#796cbf'}
+                height={3}
+                trackColor={color.neutral900}
+              />
+            </View>
             <Text style={[styles.raceSteps, isMe && { color: color.accent200 }]}>
               {scoredByDistance ? `${row.totalDistanceMi.toFixed(1)} mi` : row.totalSteps.toLocaleString()}
             </Text>
@@ -817,5 +821,6 @@ const styles = StyleSheet.create({
   raceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   raceRank: { width: 14, fontSize: 12, color: 'rgba(233,233,237,0.55)' },
   raceName: { fontSize: 13.5, color: color.text, width: 62 },
+  raceBarWrap: { flex: 1, minWidth: 0 },
   raceSteps: { fontSize: 12.5, color: color.text, width: 56, textAlign: 'right' },
 });
