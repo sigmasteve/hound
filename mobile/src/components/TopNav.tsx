@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ChartLineUpIcon,
@@ -54,11 +54,13 @@ export function TopNav({
           <Text style={styles.profileName}>{firstName}</Text>
         </Pressable>
       </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.navRow}
-      >
+      {/* Icon-only, evenly split across the full width (flex: 1 per item)
+          instead of the old horizontal-scrolling row of icon+label pills
+          — that layout let a 5th tab (Connect) scroll off-screen with no
+          visible affordance hinting it was there at all. Every item still
+          carries its label as an accessibilityLabel, just not rendered,
+          so this isn't a real loss for screen readers. */}
+      <View style={styles.navRow}>
         {NAV.map(({ id, label, Icon }) => {
           const on = active === id || (id === 'challenges' && (active === 'hunt' || active === 'create'));
           return (
@@ -66,13 +68,15 @@ export function TopNav({
               key={id}
               onPress={() => onSelect(id)}
               style={[styles.navItem, on && styles.navItemOn]}
+              accessibilityRole="tab"
+              accessibilityLabel={label}
+              accessibilityState={{ selected: on }}
             >
-              <Icon size={15} color={on ? colors.accentActive : withAlpha(colors.text, 0.68)} />
-              <Text style={[styles.navLabel, on && styles.navLabelOn]}>{label}</Text>
+              <Icon size={21} color={on ? colors.accentActive : withAlpha(colors.text, 0.68)} weight={on ? 'fill' : 'regular'} />
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -124,13 +128,12 @@ function makeStyles(colors: Palette) {
     },
     profileInitials: { fontFamily: font.headingSemibold, fontSize: 11, color: colors.accent100 },
     profileName: { fontFamily: font.body, fontSize: 13, color: colors.text },
-    navRow: { paddingHorizontal: 16, paddingBottom: 10, gap: 4 },
+    navRow: { flexDirection: 'row', paddingHorizontal: 10, paddingBottom: 10, gap: 4 },
     navItem: {
-      flexDirection: 'row',
+      flex: 1,
       alignItems: 'center',
-      gap: 6,
-      paddingVertical: 7,
-      paddingHorizontal: 12,
+      justifyContent: 'center',
+      paddingVertical: 9,
       borderRadius: 8,
     },
     navItemOn: {
@@ -138,7 +141,5 @@ function makeStyles(colors: Palette) {
       borderWidth: 1,
       borderColor: colors.accent,
     },
-    navLabel: { fontFamily: font.heading, fontSize: 13, color: withAlpha(colors.text, 0.68) },
-    navLabelOn: { color: colors.accentActive },
   });
 }
