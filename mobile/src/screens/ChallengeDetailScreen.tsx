@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeftIcon, RobotIcon, TrashIcon, TrophyIcon } from 'phosphor-react-native';
@@ -9,8 +9,8 @@ import { ProgressBar } from '../components/ProgressBar';
 import { Tag } from '../components/Tag';
 import { TextField } from '../components/TextField';
 import { ToggleRow } from '../components/Selectable';
-import { text } from '../theme/text';
-import { color, font, TINT_A, TINT_N } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
+import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
@@ -50,6 +50,8 @@ export function ChallengeDetailScreen({
 }) {
   const { user } = useAuth();
   const health = useHealthProvider();
+  const { colors, text } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -340,7 +342,7 @@ export function ChallengeDetailScreen({
   if (loading) {
     return (
       <SafeAreaView edges={['top']} style={[styles.container, styles.centered]}>
-        <ActivityIndicator color={color.accent} />
+        <ActivityIndicator color={colors.accent} />
       </SafeAreaView>
     );
   }
@@ -349,7 +351,7 @@ export function ChallengeDetailScreen({
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container}>
-          <Button label="All challenges" variant="ghost" small icon={<ArrowLeftIcon size={13} color={color.accent} />} onPress={onBack} />
+          <Button label="All challenges" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
           <Text style={styles.loadError}>{loadError ?? 'This challenge could not be found.'}</Text>
         </ScrollView>
       </SafeAreaView>
@@ -448,7 +450,7 @@ export function ChallengeDetailScreen({
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={styles.container}>
-      <Button label="All challenges" variant="ghost" small icon={<ArrowLeftIcon size={13} color={color.accent} />} onPress={onBack} />
+      <Button label="All challenges" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
       <View style={styles.headerRow}>
         <Pressable
@@ -489,9 +491,8 @@ export function ChallengeDetailScreen({
           </View>
           <ProgressBar
             pct={Math.min(100, (groupTotal / distanceGoal) * 100)}
-            fillColor={color.accent}
+            fillColor={colors.accent}
             height={6}
-            trackColor={color.neutral900}
           />
           <Text style={styles.footNote}>
             Everyone&rsquo;s logged {challenge.distanceGoalUnit === 'steps' ? 'steps' : 'miles'} count
@@ -503,7 +504,7 @@ export function ChallengeDetailScreen({
 
       <Card style={{ gap: 12 }} elevated={false}>
         <View style={styles.leaderboardHeader}>
-          <TrophyIcon size={16} color={color.accent} />
+          <TrophyIcon size={16} color={colors.accent} />
           <Text style={text.h4}>Leaderboard</Text>
         </View>
         {headStartDaysLeft > 0 && (
@@ -530,7 +531,7 @@ export function ChallengeDetailScreen({
               <Avatar initials={row.initials} tint={row.userId === user?.id ? TINT_A : TINT_N} size={30} fontSize={11} />
               <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                 <Text style={styles.boardName}>{row.name}</Text>
-                {row.isBot && <RobotIcon size={13} color="rgba(233,233,237,0.55)" />}
+                {row.isBot && <RobotIcon size={13} color={withAlpha(colors.text, 0.55)} />}
                 {row.role && <Tag label={HUNT_ROLE_LABEL[row.role]} variant={HUNT_ROLE_TAG_VARIANT[row.role]} />}
               </View>
               <View style={{ alignItems: 'flex-end' }}>
@@ -566,9 +567,8 @@ export function ChallengeDetailScreen({
               </View>
               <ProgressBar
                 pct={pct}
-                fillColor={row.role === 'zombie' ? color.amber : color.accent}
+                fillColor={row.role === 'zombie' ? colors.amber : colors.accent}
                 height={6}
-                trackColor={color.neutral900}
               />
             </View>
           ))}
@@ -654,7 +654,7 @@ export function ChallengeDetailScreen({
 
       {challenge.createdBy === user?.id && (
         <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteRow}>
-          <TrashIcon size={14} color={color.amber} />
+          <TrashIcon size={14} color={colors.amber} />
           <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete challenge'}</Text>
         </Pressable>
       )}
@@ -685,38 +685,40 @@ function formatEndsLabel(endsAt: string, now: number): string {
   return hours > 0 ? `ends in ${hours}h ${minutes}m` : `ends in ${Math.max(1, minutes)}m`;
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, gap: 16, paddingBottom: 48 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  headerRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
-  headerIcon: { width: 46, height: 46, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  headerMeta: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
-  leaderboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  groupTotal: { fontFamily: font.heading, fontSize: 24, color: color.text },
-  boardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(233,233,237,0.07)',
-  },
-  boardRank: { width: 16, fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
-  boardName: { flex: 1, fontSize: 14, color: color.text, fontFamily: font.body },
-  boardSteps: { fontSize: 14, color: color.text, fontFamily: font.heading },
-  boardDistance: { fontSize: 11, color: 'rgba(233,233,237,0.55)' },
-  footNote: { fontSize: 12.5, color: 'rgba(233,233,237,0.55)' },
-  inviteFriendRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  friendName: { fontSize: 14, color: color.text, fontFamily: font.body },
-  loadError: { fontSize: 12.5, color: color.amber, textAlign: 'center' },
-  successNote: { fontSize: 12.5, color: color.green, textAlign: 'center' },
-  deleteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    marginTop: 4,
-  },
-  deleteLabel: { fontSize: 13, color: color.amber, fontFamily: font.heading },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    container: { padding: 16, gap: 16, paddingBottom: 48 },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    headerRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
+    headerIcon: { width: 46, height: 46, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+    headerMeta: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    leaderboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    groupTotal: { fontFamily: font.heading, fontSize: 24, color: colors.text },
+    boardRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: withAlpha(colors.text, 0.07),
+    },
+    boardRank: { width: 16, fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    boardName: { flex: 1, fontSize: 14, color: colors.text, fontFamily: font.body },
+    boardSteps: { fontSize: 14, color: colors.text, fontFamily: font.heading },
+    boardDistance: { fontSize: 11, color: withAlpha(colors.text, 0.55) },
+    footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    inviteFriendRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    friendName: { fontSize: 14, color: colors.text, fontFamily: font.body },
+    loadError: { fontSize: 12.5, color: colors.amber, textAlign: 'center' },
+    successNote: { fontSize: 12.5, color: colors.green, textAlign: 'center' },
+    deleteRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 10,
+      marginTop: 4,
+    },
+    deleteLabel: { fontSize: 13, color: colors.amber, fontFamily: font.heading },
+  });
+}

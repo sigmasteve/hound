@@ -559,6 +559,40 @@ permanently-dark `color`/`text` exports — navigating to any of them
 while Light mode is on will show a dark screen again until they get the
 same `makeStyles(colors)` treatment as a fast-follow.
 
+### Light mode, fast-follow: ChallengeDetailScreen
+
+First screen migrated after seeing Light mode live — exactly the
+screenshot the "what's not migrated yet" note above predicted: near-white
+`color.text` and hardcoded `rgba(233,233,237,0.NN)` "muted text" literals
+rendered as barely-visible ghost text the moment the screen's own
+background (inherited from `NavigationContainer`'s now-theme-aware
+`navTheme`, since `RootNavigator` was already migrated) turned light,
+even though its `Card`s were already correctly white. Same mechanical
+treatment as Home/Challenges/Settings: `useTheme()` for `colors`/`text`,
+`makeStyles(colors)` built via `useMemo`, every `rgba(233,233,237,0.NN)`
+through `withAlpha(colors.text, 0.NN)`. `TextField` (this screen's manual
+step-logging form is the only place in the migrated set that uses it)
+got the same treatment first, for the same reason `ProgressBar` did in
+the original toggle PR — anything a migrated screen depends on has to
+move with it, or it just becomes the next visible gap.
+
+Two `ProgressBar` calls here (`Group progress`, `Chase progress`) used to
+pass an explicit `trackColor={color.neutral900}` override; both now omit
+it entirely and fall back to `ProgressBar`'s own theme-aware default
+(`colors.ring.md`) instead — same reasoning as `LiveLeaderboardCard`'s
+identical fix in the original PR: a hardcoded near-black track reads as
+a near-invisible hairline in Dark mode but a heavy, broken-looking bar in
+Light mode, and the component's own default already handles both.
+
+**Not yet re-verified live in a browser** — unlike the original toggle
+PR, this one couldn't be: reaching this screen needs a real,
+Supabase-backed challenge to navigate into, and this sandbox has no
+backend configured (the app falls back to the sample/empty-state path
+that never reaches `ChallengeDetailScreen` at all). Verified by
+`tsc --noEmit` and by applying the exact conversion pattern already
+visually confirmed correct on the three screens the original PR did test
+live — worth an on-device check before calling this one fully done.
+
 ### Distance Pool: a real group target, in miles or steps
 
 `CHALLENGE_TYPES` describes "Distance Pool" as "Add every mile the group
