@@ -35,11 +35,13 @@ import { useLabels } from '../labels/LabelsContext';
 // kind — there's no per-kind template yet (HuntScreen is one specific
 // hardcoded storyline, not reusable), so this renders the same for every
 // kind: who's in it, who's logged what, and a way to log your own
-// progress. A 'steps' challenge, and a 'hunt' scored on device steps or
-// workout distance, are the exceptions — they have a real, unambiguous
-// device number to draw from, so they auto-sync from HealthKit/Health
-// Connect instead of showing the manual form. Fetches by id itself rather
-// than taking pre-loaded data as props, so it works from any entry point.
+// progress. A 'steps' challenge, a 'hunt' scored on device steps or
+// workout distance, and a 'distance' pool (once its group target has a
+// unit — see usesDeviceSteps/usesWorkoutDistance in scoring.ts) are the
+// exceptions — they have a real, unambiguous device number to draw from,
+// so they auto-sync from HealthKit/Health Connect instead of showing the
+// manual form. Fetches by id itself rather than taking pre-loaded data as
+// props, so it works from any entry point.
 export function ChallengeDetailScreen({
   challengeId,
   onBack,

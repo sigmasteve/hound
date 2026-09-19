@@ -2,21 +2,36 @@ import type { Challenge } from './types';
 
 // A 'steps' challenge always auto-syncs from the device; a 'hunt' only
 // does when its creator picked 'device_steps' as what counts (see
-// CreateScreen's "What counts" picker) — every other kind/scoring
+// CreateScreen's "What counts" picker); a 'distance' pool does when its
+// group target is steps (CreateScreen.tsx's unit picker) — the miles
+// case is usesWorkoutDistance below instead. Every other kind/scoring
 // combination still needs the manual form (ChallengeDetailScreen) or
 // falls back to ranking by steps regardless (HomeScreen's leaderboard
 // card, which never writes progress itself).
 export function usesDeviceSteps(challenge: Challenge): boolean {
-  return challenge.kind === 'steps' || (challenge.kind === 'hunt' && challenge.scoringMethod === 'device_steps');
+  return (
+    challenge.kind === 'steps' ||
+    (challenge.kind === 'hunt' && challenge.scoringMethod === 'device_steps') ||
+    (challenge.kind === 'distance' && challenge.distanceGoalUnit === 'steps')
+  );
 }
 
-// A hunt scored on 'gps_distance' or 'any_workout' auto-syncs from
-// today's logged workouts instead of steps — see
-// ChallengeDetailScreen.tsx's syncFromDevice for exactly how the two
-// differ. Everyone's totalSteps is 0 for a challenge scored this way, so
-// anything ranking its board needs to sort by distance instead.
+// A hunt scored on 'gps_distance' or 'any_workout', or a 'distance' pool
+// whose group target is miles, auto-syncs from today's logged workouts
+// instead of steps — see ChallengeDetailScreen.tsx's syncFromDevice for
+// exactly how the two hunt scoring methods differ (a pool has no such
+// distinction, so it's treated like 'any_workout': every logged workout
+// counts, not just ones named like a run or walk). Everyone's totalSteps
+// is 0 for a challenge scored this way, so anything ranking its board
+// needs to sort by distance instead. Deliberately excludes a pool with
+// distanceGoalUnit === null (every pool created before the unit picker
+// existed) — that legacy case keeps its existing manual-entry,
+// ranked-by-steps behavior rather than silently changing under it.
 export function usesWorkoutDistance(challenge: Challenge): boolean {
-  return challenge.kind === 'hunt' && (challenge.scoringMethod === 'gps_distance' || challenge.scoringMethod === 'any_workout');
+  return (
+    (challenge.kind === 'hunt' && (challenge.scoringMethod === 'gps_distance' || challenge.scoringMethod === 'any_workout')) ||
+    (challenge.kind === 'distance' && challenge.distanceGoalUnit === 'miles')
+  );
 }
 
 // Whether a challenge's own "what matters" number is miles rather than
