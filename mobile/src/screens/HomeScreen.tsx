@@ -140,6 +140,18 @@ function heroCopy(primary: PrimaryChallenge, userId: string | null): { eyebrow: 
     // repeating the lead/behind framing on something that's already over.
   }
 
+  // The viewer's own catch, for a hunt with more than one Hunted — the
+  // 2-person branch above already covers that case (there, being caught
+  // and the hunt ending are the same event). Here they aren't: Blaze or
+  // Micah might still be out there even though you're a Zombie, so this
+  // doesn't say "the hunt's over" — just what happened to *you*. Checked
+  // before the generic rank/"who won" framing below, which would
+  // otherwise still report a stale rank for someone who's already out of
+  // the running.
+  if (challenge.kind === 'hunt' && me?.role === 'zombie' && !finished) {
+    return { eyebrow, headline: `You've been caught — you're a Zombie now. ${challenge.name} continues without you.` };
+  }
+
   // board is already sorted descending by whichever metric this
   // challenge is scored on (see buildBoard) — for a concluded hunt
   // specifically, the Hunter's total is guaranteed to be at least every

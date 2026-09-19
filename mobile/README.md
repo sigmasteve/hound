@@ -364,6 +364,33 @@ actually connected there was nothing left for that card to add; a
 failed sync now fails silently and simply retries on the next visit,
 rather than surfacing an error nothing was left to show it next to.
 
+### A caught Zombie no longer outranks whoever's still in it
+
+Real testing surfaced a case `huntEffectiveMetric`'s own rank fix (see
+above) didn't cover: it only ever adjusts a `'hunter'` row, so a
+Zombie's raw total — real steps, logged before they were caught —
+still ranked them by a number the game no longer counts for anything.
+A caught participant with a big head start on real life could (and
+did) show up in 1st place on both the leaderboard and Home's "You're
+Nth of M" headline, despite being out of the running. `buildBoard`'s
+sort now demotes every Zombie below anyone still active (Hunted or
+the Hunter) first, before falling back to the same effective-metric
+comparison for everyone else — being caught is a strictly worse state
+than still being chased, no matter how many steps got them there,
+the same principle that already demoted the Hunter's own
+pre-head-start steps.
+
+Home's own headline had a related gap: the personal "X caught you.
+The hunt's over." wording only ever fired for a clean two-person
+hunt, since there being caught and the hunt ending are the same
+event. For a hunt with more than one Hunted, getting caught yourself
+used to fall straight through to the generic "You're Nth of M"
+framing — which, worse, was reporting a rank a Zombie shouldn't have
+had in the first place. Now checked explicitly: if you're a Zombie and
+the hunt isn't over for everyone else, the headline says so ("You've
+been caught — you're a Zombie now. `<name>` continues without you.")
+instead of quietly reporting a stale standing.
+
 ### A live countdown for a challenge ending today
 
 `ChallengeDetailScreen`'s header used to always show a bare end date
