@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hound — turn your step count into a friendly chase</title>
+<meta name="description" content="Create your Hound account or log in on the web — no app install needed yet. Plus how to become an early tester.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="15.2" r="4.1" fill="#9184d9"/>
+        <circle cx="5.1" cy="9.4" r="2.1" fill="#9184d9"/>
+        <circle cx="18.9" cy="9.4" r="2.1" fill="#9184d9"/>
+        <circle cx="8.3" cy="4.6" r="2" fill="#9184d9"/>
+        <circle cx="15.7" cy="4.6" r="2" fill="#9184d9"/>
+      </svg>
+    </div>
+    <div class="brand-name">Hound</div>
+    <nav><a href="#tester">Become a tester</a></nav>
+  </header>
+
+  <section class="hero">
+    <p class="eyebrow">Hunter &amp; Hunted · Step Race · Daily Streak · Distance Pool</p>
+    <h1>Turn your step count into a friendly chase.</h1>
+    <p class="lede">
+      Create your account now and it's ready the moment you install the app —
+      same sign-in, same friends, same challenges. No download needed yet.
+    </p>
+    <div class="ctas">
+      <a href="#auth" class="btn btn-primary" onclick="setAuthTab('signup')">Create your account</a>
+      <a href="#auth" class="btn btn-secondary" onclick="setAuthTab('login')">Log in</a>
+    </div>
+  </section>
+
+  <div class="card">
+    <h2 class="section-title">Ways to compete</h2>
+    <p class="section-sub">Every challenge runs on real logged steps or distance from Apple Health or Health Connect.</p>
+    <div class="kind-list">
+      <div class="kind-row">
+        <div class="kind-icon">🐾</div>
+        <div>
+          <h3>Hunter &amp; Hunted</h3>
+          <p>One runner gets a head start. The other has to catch them on logged miles before time runs out.</p>
+        </div>
+      </div>
+      <div class="kind-row">
+        <div class="kind-icon">👟</div>
+        <div>
+          <h3>Step Race</h3>
+          <p>Most steps over the window. Everyone against everyone.</p>
+        </div>
+      </div>
+      <div class="kind-row">
+        <div class="kind-icon">🔥</div>
+        <div>
+          <h3>Daily Streak</h3>
+          <p>Hit a daily goal every day. One miss and you're out.</p>
+        </div>
+      </div>
+      <div class="kind-row">
+        <div class="kind-icon">🚩</div>
+        <div>
+          <h3>Distance Pool</h3>
+          <p>Add every mile the group covers toward one shared target.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="auth">
+    <h2 class="section-title">Get your account ready</h2>
+    <p class="section-sub" id="auth-sub">
+      This creates the real account you'll use once the app's installed.
+    </p>
+
+    <div class="auth-tabs">
+      <button class="auth-tab on" id="tab-signup" onclick="setAuthTab('signup')" type="button">Sign up</button>
+      <button class="auth-tab" id="tab-login" onclick="setAuthTab('login')" type="button">Log in</button>
+    </div>
+
+    <div class="oauth-row">
+      <button class="btn btn-secondary btn-block" id="btn-google" type="button">Continue with Google</button>
+      <button class="btn btn-secondary btn-block" id="btn-facebook" type="button">Continue with Facebook</button>
+    </div>
+    <div class="divider-row"><div class="line"></div><span>or</span><div class="line"></div></div>
+
+    <form id="form-signup">
+      <div class="field">
+        <label for="su-name">Name</label>
+        <input id="su-name" name="name" type="text" autocomplete="name" placeholder="Jordan Lee" required>
+      </div>
+      <div class="field">
+        <label for="su-email">Email</label>
+        <input id="su-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+      </div>
+      <div class="field">
+        <label for="su-password">Password</label>
+        <input id="su-password" name="password" type="password" autocomplete="new-password" placeholder="At least 6 characters" required>
+      </div>
+      <div class="field">
+        <label for="su-confirm">Confirm password</label>
+        <input id="su-confirm" name="confirm" type="password" autocomplete="new-password" placeholder="••••••••" required>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" id="su-submit">Create account</button>
+      <p class="form-note" id="su-note"></p>
+    </form>
+
+    <form id="form-login" style="display:none">
+      <div class="field">
+        <label for="li-email">Email</label>
+        <input id="li-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+      </div>
+      <div class="field">
+        <label for="li-password">Password</label>
+        <input id="li-password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" id="li-submit">Log in</button>
+      <p class="form-note" id="li-note"></p>
+    </form>
+  </div>
+
+  <div class="spotlight" id="tester">
+    <h2 class="section-title">Become an early tester</h2>
+    <p class="section-sub">Five steps to get Hound running on your own iPhone before it's on the App Store — no TestFlight needed.</p>
+    <div class="legend">
+      <span class="pill owner"><span class="dot"></span> The Hound team does this</span>
+      <span class="pill tester"><span class="dot"></span> You do this</span>
+    </div>
+
+    <ol class="steps">
+      <li class="step">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title"><h3>You get invited to the Expo team</h3><span class="pill owner"><span class="dot"></span> Team</span></div>
+          <p>We'll send an invite to your email from <a href="https://expo.dev" target="_blank" rel="noopener">expo.dev</a>.</p>
+          <p class="sub">If you don't have an Expo account yet, accepting it walks you through creating one.</p>
+        </div>
+      </li>
+      <li class="step">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title"><h3>Register your device</h3><span class="pill tester"><span class="dot"></span> You</span></div>
+          <p>On the iPhone you'll actually use for testing, open this link and follow the prompts:</p>
+          <div class="linkbox">
+            <a href="https://expo.dev/register-device/8a0e217a-6387-435b-9174-7c75706546e6" target="_blank" rel="noopener">https://expo.dev/register-device/8a0e217a-6387-435b-9174-7c75706546e6</a>
+            <button class="copy-btn" type="button" onclick="copyLink(this)">Copy</button>
+          </div>
+          <p class="sub">Open it in Safari, on that exact device — it registers that phone's UDID, so forwarding the link elsewhere won't work.</p>
+        </div>
+      </li>
+      <li class="step">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title"><h3>We rebuild with your device included</h3><span class="pill owner"><span class="dot"></span> Team</span></div>
+          <p>Once you've registered, we kick off a new build so the provisioning profile picks up your device:</p>
+          <code class="cmd">eas build --profile preview --platform ios</code>
+          <p class="sub">A device registered after the last build was never in that build's profile — only a fresh build picks it up.</p>
+        </div>
+      </li>
+      <li class="step">
+        <div class="step-num">4</div>
+        <div>
+          <div class="step-title"><h3>You get the install link</h3><span class="pill owner"><span class="dot"></span> Team</span></div>
+          <p>When the build finishes, we'll send you its install link or QR code.</p>
+          <p class="sub">Open it on the same registered iPhone and install directly — still no App Store involved.</p>
+        </div>
+      </li>
+      <li class="step">
+        <div class="step-num">5</div>
+        <div>
+          <div class="step-title"><h3>Turn on Developer Mode</h3><span class="pill tester"><span class="dot"></span> You</span></div>
+          <p>The first time you try to open Hound, iOS blocks it — since iOS 16, any app installed outside the App Store needs Developer Mode on.</p>
+          <p>Go to <b>Settings → Privacy &amp; Security → Developer Mode</b>, toggle it on, then tap <b>Restart</b> when prompted.</p>
+          <p class="sub">After the restart, one more confirmation appears — enter your passcode and tap <b>Turn On</b>. Hound opens normally from then on, for this and every future build.</p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="notes">
+      <h4>Worth knowing</h4>
+      <ul>
+        <li><b>This is iOS-only.</b> Android testers just need the build's APK/AAB link — no device registration step.</li>
+        <li><b>One registration lasts</b> as long as it stays in our Apple provisioning — you won't need to re-register for every new build, only the first one after you join.</li>
+        <li><b>Registering ≠ installing.</b> Step 2 only adds you to the guest list — nothing installs until the rebuild in step 3 finishes.</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>Hound — a fitness-challenge app for friends. This page creates your real account; nothing here is a preview or a demo.</footer>
+
+</div>
+
+<script src="vendor/supabase-js/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
