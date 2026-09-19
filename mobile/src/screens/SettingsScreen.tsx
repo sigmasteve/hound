@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { AndroidLogoIcon, AppleLogoIcon, ScalesIcon, SignOutIcon } from 'phosphor-react-native';
+import { AndroidLogoIcon, ArrowsClockwiseIcon, AppleLogoIcon, ScalesIcon, SignOutIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -9,9 +9,10 @@ import { RadioPill, ToggleRow } from '../components/Selectable';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
-import { withAlpha, type Palette } from '../theme/tokens';
+import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { ALERT_DEFS, SOURCES } from '../data/sampleData';
 import { useHealthProvider } from '../health/HealthContext';
+import type { HealthSnapshot } from '../health/types';
 import { useAuth } from '../auth/AuthContext';
 import type { AuthProviderId } from '../auth/types';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -24,6 +25,19 @@ const SOURCE_ICON: Record<string, React.ComponentType<any>> = {
   'Health Connect': AndroidLogoIcon,
   'Withings Scale': ScalesIcon,
 };
+
+// Moved here from HomeScreen, which used to show this device's own real
+// sync status (formerly a badge + "Sync now" button above Today's metric
+// tiles) — that's data-source management, so it belongs in the
+// "Connected sources" card below instead. Home kept the metric tiles
+// themselves (Steps/Distance), which still read from their own snapshot.
+function timeAgo(d: Date | null): string {
+  if (!d) return '—';
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  return `${Math.round(mins / 60)}h ago`;
+}
 
 const PROVIDER_LABEL: Record<AuthProviderId, string> = {
   google: 'Google',
@@ -41,6 +55,16 @@ export function SettingsScreen() {
   const [alerts, setAlerts] = useState(ALERT_DEFS.map((a) => a.defaultOn));
   const [conflict, setConflict] = useState<'device' | 'apple' | 'ask'>('device');
   const [units, setUnits] = useState<'imperial' | 'metric'>('imperial');
+
+  // This device's own real sync status, for whichever "Connected sources"
+  // row matches health.platformLabel below — every other row there is
+  // still SOURCES' static sample data (a different, pre-existing gap;
+  // not what moved here from Home).
+  const [snap, setSnap] = useState<HealthSnapshot | null>(null);
+  const reloadSnap = useCallback(() => {
+    health.getSnapshot().then(setSnap);
+  }, [health]);
+  useFocusEffect(reloadSnap);
 
   // Local drafts, not the context's own labels directly — TextField needs
   // something to edit that doesn't immediately propagate to every other
@@ -159,41 +183,6 @@ export function SettingsScreen() {
         />
       </Card>
 
-      {/* Backend-only — see src/labels/. Whatever's saved here is shared
-          by every signed-in person right now (there's no per-user or
-          per-organization scope yet), so there's nothing meaningful to
-          show or edit without a real project to save it to — same
-          reasoning "Login reminders" below gates on isSupabaseConfigured
-          too. */}
-      {isSupabaseConfigured && (
-        <Card style={{ gap: 12 }} elevated={false}>
-          <Text style={text.h4}>Hunt labels</Text>
-          <Text style={styles.footNote}>
-            What a hunt&rsquo;s three roles are called, everywhere in the app. This changes it for
-            everyone signed in right now, not just you — there&rsquo;s no per-person version of this
-            setting yet.
-          </Text>
-          <TextField label="Hunter" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
-          <TextField label="Hunted" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
-          <TextField label="Zombie" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
-          {labelsError && <Text style={styles.loadError}>{labelsError}</Text>}
-          {labelsSaved && !labelsError && <Text style={styles.successNote}>Saved — updated everywhere.</Text>}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button
-              label={savingLabels ? 'Saving…' : 'Save'}
-              variant="primary"
-              disabled={savingLabels}
-              onPress={() => submitLabels({ hunter: hunterInput, hunted: huntedInput, zombie: zombieInput })}
-            />
-            <Button
-              label="Reset to default"
-              disabled={savingLabels}
-              onPress={() => submitLabels(DEFAULT_HUNT_LABELS)}
-            />
-          </View>
-        </Card>
-      )}
-
       {user && (
         <Card style={styles.accountRow} elevated={false}>
           <Avatar initials={user.initials} tint={colors.accent800} size={40} fontSize={14} />
@@ -224,10 +213,23 @@ export function SettingsScreen() {
               </View>
               <View style={{ flex: 1, gap: 2, minWidth: 130 }}>
                 <Text style={styles.sourceName}>{s.name}</Text>
-                <Text style={[styles.sourceStatus, { color: s.statusColor }]}>{s.status}</Text>
+                {isThisDevicesPlatform ? (
+                  <Text style={[styles.sourceStatus, { color: color.green }]}>
+                    Synced {timeAgo(snap?.lastSyncedAt ?? null)}
+                  </Text>
+                ) : (
+                  <Text style={[styles.sourceStatus, { color: s.statusColor }]}>{s.status}</Text>
+                )}
               </View>
               <Text style={styles.sourceScope}>{s.scope}</Text>
-              <Button label={s.action} small variant={isThisDevicesPlatform ? 'primary' : 'secondary'} />
+              {isThisDevicesPlatform ? (
+                <Pressable style={styles.syncBtn} onPress={reloadSnap}>
+                  <ArrowsClockwiseIcon size={13} color={colors.accent} />
+                  <Text style={styles.syncLabel}>Sync now</Text>
+                </Pressable>
+              ) : (
+                <Button label={s.action} small variant="secondary" />
+              )}
             </View>
           );
         })}
@@ -291,6 +293,43 @@ export function SettingsScreen() {
           />
         </Card>
       )}
+
+      {/* Last on the page, deliberately — a per-hunt terminology
+          customization is a far less common thing to reach for than the
+          account/data cards above it. Backend-only (see src/labels/):
+          whatever's saved here is shared by every signed-in person right
+          now (there's no per-user or per-organization scope yet), so
+          there's nothing meaningful to show or edit without a real
+          project to save it to — same reasoning "Login reminders" above
+          gates on isSupabaseConfigured too. */}
+      {isSupabaseConfigured && (
+        <Card style={{ gap: 12 }} elevated={false}>
+          <Text style={text.h4}>Hunt labels</Text>
+          <Text style={styles.footNote}>
+            What a hunt&rsquo;s three roles are called, everywhere in the app. This changes it for
+            everyone signed in right now, not just you — there&rsquo;s no per-person version of this
+            setting yet.
+          </Text>
+          <TextField label="Hunter" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
+          <TextField label="Hunted" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
+          <TextField label="Zombie" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
+          {labelsError && <Text style={styles.loadError}>{labelsError}</Text>}
+          {labelsSaved && !labelsError && <Text style={styles.successNote}>Saved — updated everywhere.</Text>}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Button
+              label={savingLabels ? 'Saving…' : 'Save'}
+              variant="primary"
+              disabled={savingLabels}
+              onPress={() => submitLabels({ hunter: hunterInput, hunted: huntedInput, zombie: zombieInput })}
+            />
+            <Button
+              label="Reset to default"
+              disabled={savingLabels}
+              onPress={() => submitLabels(DEFAULT_HUNT_LABELS)}
+            />
+          </View>
+        </Card>
+      )}
     </ScrollView>
   );
 }
@@ -312,6 +351,8 @@ function makeStyles(colors: Palette) {
     sourceName: { fontSize: 14.5, color: colors.text },
     sourceStatus: { fontSize: 12 },
     sourceScope: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
+    syncLabel: { fontSize: 12, color: colors.accent, fontFamily: font.heading },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     loadError: { fontSize: 12.5, color: colors.amber },
     successNote: { fontSize: 12.5, color: colors.green },
