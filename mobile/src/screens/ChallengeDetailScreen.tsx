@@ -387,16 +387,18 @@ export function ChallengeDetailScreen({
   const headStartDaysLeft = computeHeadStartDaysLeft(challenge);
 
   // Once the head start has run out, whatever the Hunter logged during
-  // it stops counting toward catching up (see huntEffectiveMetric) — a
-  // plain leaderboard row showing their full total wouldn't explain why
-  // they still haven't caught anyone despite a higher number, so this
-  // spells out what actually counts.
+  // it stops counting toward catching up (see huntEffectiveMetric) —
+  // the Hunter's own leaderboard row already shows that credited number
+  // now, not their raw total (see board.map below), so this doesn't
+  // need to spell out a second, bigger number nobody on this screen can
+  // actually see anymore — just why the Hunter's own number might read
+  // lower than they'd expect from their real day.
   const hunterRow = board.find((r) => r.role === 'hunter');
   const formatMetric = (value: number) =>
     scoredByDistance ? `${value.toFixed(1)} mi` : `${Math.round(value).toLocaleString()} steps`;
   const hunterEffectiveNote =
     challenge.kind === 'hunt' && !!challenge.headStartDays && headStartDaysLeft === 0 && hunterRow
-      ? `Head start credit applied — only ${formatMetric(huntEffectiveMetric(hunterRow, sortBy))} of the Hunter's total counts toward catching up.`
+      ? "Head start credit applied — steps the Hunter logged before it ended don't count toward catching up."
       : null;
   // One progress bar per Hunted/Zombie participant, showing how much of
   // the *gap* the Hunter's effective progress (huntEffectiveMetric, not
@@ -511,27 +513,39 @@ export function ChallengeDetailScreen({
           </Text>
         )}
         {hunterEffectiveNote && <Text style={styles.footNote}>{hunterEffectiveNote}</Text>}
-        {board.map((row, i) => (
-          <View key={row.userId} style={styles.boardRow}>
-            <Text style={styles.boardRank}>{i + 1}</Text>
-            <Avatar initials={row.initials} tint={row.userId === user?.id ? TINT_A : TINT_N} size={30} fontSize={11} />
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-              <Text style={styles.boardName}>{row.name}</Text>
-              {row.isBot && <RobotIcon size={13} color="rgba(233,233,237,0.55)" />}
-              {row.role && <Tag label={HUNT_ROLE_LABEL[row.role]} variant={HUNT_ROLE_TAG_VARIANT[row.role]} />}
+        {board.map((row, i) => {
+          // The Hunter's row shows their credited progress
+          // (huntEffectiveMetric), not their raw total — showing 50,610
+          // here while the Chase progress card below says only 34,895 of
+          // it counts is confusing on its own screen: two different
+          // numbers for the same person, only one of which means
+          // anything toward a catch. huntEffectiveMetric already no-ops
+          // for every non-Hunter role, so this is exactly the raw total
+          // for everyone else on the board.
+          const displaySteps = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'steps') : row.totalSteps;
+          const displayMi = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'distance') : row.totalDistanceMi;
+          return (
+            <View key={row.userId} style={styles.boardRow}>
+              <Text style={styles.boardRank}>{i + 1}</Text>
+              <Avatar initials={row.initials} tint={row.userId === user?.id ? TINT_A : TINT_N} size={30} fontSize={11} />
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                <Text style={styles.boardName}>{row.name}</Text>
+                {row.isBot && <RobotIcon size={13} color="rgba(233,233,237,0.55)" />}
+                {row.role && <Tag label={HUNT_ROLE_LABEL[row.role]} variant={HUNT_ROLE_TAG_VARIANT[row.role]} />}
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                {scoredByDistance ? (
+                  <Text style={styles.boardSteps}>{displayMi.toFixed(1)} mi</Text>
+                ) : (
+                  <>
+                    <Text style={styles.boardSteps}>{displaySteps.toLocaleString()} steps</Text>
+                    {displayMi > 0 && <Text style={styles.boardDistance}>{displayMi.toFixed(1)} mi</Text>}
+                  </>
+                )}
+              </View>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              {scoredByDistance ? (
-                <Text style={styles.boardSteps}>{row.totalDistanceMi.toFixed(1)} mi</Text>
-              ) : (
-                <>
-                  <Text style={styles.boardSteps}>{row.totalSteps.toLocaleString()} steps</Text>
-                  {row.totalDistanceMi > 0 && <Text style={styles.boardDistance}>{row.totalDistanceMi.toFixed(1)} mi</Text>}
-                </>
-              )}
-            </View>
-          </View>
-        ))}
+          );
+        })}
         {board.length === 0 && <Text style={styles.footNote}>No participants found.</Text>}
       </Card>
 
