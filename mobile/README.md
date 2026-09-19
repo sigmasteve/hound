@@ -391,6 +391,28 @@ the hunt isn't over for everyone else, the headline says so ("You've
 been caught — you're a Zombie now. `<name>` continues without you.")
 instead of quietly reporting a stale standing.
 
+### The leaderboard shows the Hunter's credited number, not their raw one
+
+Feedback after using the fixes above: even once the ranking and the
+Chase progress bars were both correct, the screen still *showed* two
+different numbers for the same person — the Hunter's leaderboard row
+read their full raw total (say, 50,610 steps) while the Chase progress
+card right below it said only 34,895 of it counted. Understanding why
+those differ doesn't make seeing both at once any less confusing.
+
+Every leaderboard row now displays `huntEffectiveMetric`, not the raw
+`totalSteps`/`totalDistanceMi` fields, for both the primary stat and
+the secondary distance line underneath it — a no-op for anyone but the
+Hunter (`huntEffectiveMetric` only ever adjusts a `'hunter'` row), so
+this is exactly the same real number for every other participant.
+`hunterEffectiveNote` (the "Head start credit applied" banner) no
+longer restates that number either — it used to spell out "only X of
+the Hunter's total counts," which only made sense next to a bigger
+raw number the leaderboard doesn't show anymore; now it just explains
+*why* the Hunter's own row might read lower than they'd expect from
+their real day ("steps the Hunter logged before it ended don't count
+toward catching up"). One number, shown once, explained once.
+
 ### A live countdown for a challenge ending today
 
 `ChallengeDetailScreen`'s header used to always show a bare end date
