@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 import { EyeIcon, EyeSlashIcon } from 'phosphor-react-native';
-import { color, font, radius, space } from '../theme/tokens';
+import { font, radius, space, withAlpha, type Palette } from '../theme/tokens';
+import { useTheme } from '../theme/ThemeContext';
 
 export function TextField({
   label,
@@ -17,6 +18,8 @@ export function TextField({
   error?: string;
 } & TextInputProps) {
   const [hidden, setHidden] = useState(!!secureToggle);
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
     <View style={style}>
@@ -24,7 +27,7 @@ export function TextField({
       <View style={[styles.row, error && styles.rowError]}>
         {icon}
         <TextInput
-          placeholderTextColor="rgba(233,233,237,0.4)"
+          placeholderTextColor={withAlpha(colors.text, 0.4)}
           style={styles.input}
           secureTextEntry={secureToggle ? hidden : inputProps.secureTextEntry}
           {...inputProps}
@@ -32,9 +35,9 @@ export function TextField({
         {secureToggle && (
           <Pressable onPress={() => setHidden((h) => !h)} hitSlop={8}>
             {hidden ? (
-              <EyeIcon size={18} color="rgba(233,233,237,0.55)" />
+              <EyeIcon size={18} color={withAlpha(colors.text, 0.55)} />
             ) : (
-              <EyeSlashIcon size={18} color="rgba(233,233,237,0.55)" />
+              <EyeSlashIcon size={18} color={withAlpha(colors.text, 0.55)} />
             )}
           </Pressable>
         )}
@@ -44,20 +47,22 @@ export function TextField({
   );
 }
 
-const styles = StyleSheet.create({
-  label: { fontSize: 12, color: 'rgba(233,233,237,0.7)', marginBottom: 5 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    minHeight: 44,
-    paddingHorizontal: 12,
-    borderRadius: radius.md,
-    backgroundColor: color.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: color.divider,
-  },
-  rowError: { borderColor: color.amber },
-  input: { flex: 1, color: color.text, fontSize: 15, fontFamily: font.body, paddingVertical: space[2] },
-  error: { fontSize: 12, color: color.amber, marginTop: 4 },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    label: { fontSize: 12, color: withAlpha(colors.text, 0.7), marginBottom: 5 },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      minHeight: 44,
+      paddingHorizontal: 12,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.divider,
+    },
+    rowError: { borderColor: colors.amber },
+    input: { flex: 1, color: colors.text, fontSize: 15, fontFamily: font.body, paddingVertical: space[2] },
+    error: { fontSize: 12, color: colors.amber, marginTop: 4 },
+  });
+}
