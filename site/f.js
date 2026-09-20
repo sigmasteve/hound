@@ -78,8 +78,12 @@
       // Carries the code forward so index.html's own app.js can redeem
       // it automatically right after sign-up/log-in succeeds, instead
       // of asking someone to come back to this link a second time.
+      // Absolute path, not relative — the browser's visible URL is still
+      // /f/<code> (see vercel.json's rewrite), so a relative
+      // "index.html" would resolve against /f/ and land back on this
+      // same rewrite rule instead of the real page.
       ctas.innerHTML =
-        '<a class="btn btn-primary" href="index.html?f=' + encodeURIComponent(code) +
+        '<a class="btn btn-primary" href="/index.html?f=' + encodeURIComponent(code) +
         '#auth">Sign up or log in to accept</a>';
     }
 
