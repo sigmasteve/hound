@@ -23,16 +23,23 @@ function requireClient() {
 export async function userFromSession(session: Session, provider: AuthProviderId = 'email'): Promise<AuthUser> {
   const client = requireClient();
   const fallbackEmail = session.user.email ?? '';
-  const { data } = await client.from('profiles').select('name, initials, email').eq('id', session.user.id).single();
+  const { data } = await client.from('profiles').select('name, initials, email, is_admin').eq('id', session.user.id).single();
   if (!data) {
     // The trigger runs in the same transaction as the auth.users insert,
     // so this really only happens if it hasn't landed yet (rare, but
     // possible right after a signUp response) — fall back to what the
     // session itself already knows rather than surfacing an error here.
     const name = fallbackEmail.split('@')[0] || 'Hound user';
-    return { id: session.user.id, name, email: fallbackEmail, initials: initialsFor(name), provider };
+    return { id: session.user.id, name, email: fallbackEmail, initials: initialsFor(name), provider, isAdmin: false };
   }
-  return { id: session.user.id, name: data.name, email: data.email, initials: data.initials, provider };
+  return {
+    id: session.user.id,
+    name: data.name,
+    email: data.email,
+    initials: data.initials,
+    provider,
+    isAdmin: data.is_admin ?? false,
+  };
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<AuthUser> {

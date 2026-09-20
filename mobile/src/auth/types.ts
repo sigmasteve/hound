@@ -10,6 +10,12 @@ export interface AuthUser {
   email: string;
   initials: string;
   provider: AuthProviderId;
+  // From profiles.is_admin (see 0021_admin_flag.sql) — false for every
+  // account until someone sets it directly in the database; there's no
+  // in-app way to become an admin, on purpose. Nothing branches on this
+  // yet — it exists so a feature that needs "is this signed-in user an
+  // admin" has a real answer to check, not a screen this session builds.
+  isAdmin: boolean;
 }
 
 export type AuthStatus = 'signedOut' | 'signedIn';

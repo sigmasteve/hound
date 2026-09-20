@@ -300,7 +300,10 @@ export function SettingsScreen() {
           now (there's no per-user or per-organization scope yet), so
           there's nothing meaningful to show or edit without a real
           project to save it to — same reasoning "Login reminders" above
-          gates on isSupabaseConfigured too. */}
+          gates on isSupabaseConfigured too. Still editable by anyone
+          signed in, not just an admin — 0021_admin_flag.sql's own
+          comment calls this out by name as exactly the kind of thing an
+          is_admin check should eventually gate, once that's built. */}
       {isSupabaseConfigured && (
         <Card style={{ gap: 12 }} elevated={false}>
           <Text style={text.h4}>Chase labels</Text>
