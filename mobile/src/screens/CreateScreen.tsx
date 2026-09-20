@@ -611,19 +611,29 @@ function makeStyles(colors: Palette) {
     typeName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
     typeDesc: { fontSize: 13, color: withAlpha(colors.text, 0.7) },
     fieldLabel: { fontSize: 12, color: withAlpha(colors.text, 0.7) },
-    // Fixed, hand-tuned dark background (matches the `section` token)
-    // regardless of theme — same "always-dark spotlight" reasoning as
-    // Home's huntCard, so huntBlockValue's near-white accent200 stays
-    // correct in both themes rather than needing accentActive.
-    huntBlock: { gap: 14, padding: 16, borderRadius: 8, backgroundColor: '#262a60' },
+    // An accent wash over this theme's own colors, not a fixed dark
+    // background — same "spotlight card that actually follows the theme"
+    // reasoning as Home's huntCard (see that file's own comment).
+    huntBlock: {
+      gap: 14,
+      padding: 16,
+      borderRadius: 8,
+      backgroundColor: withAlpha(colors.accent, 0.14),
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 0.4),
+    },
     huntBlockHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
     huntBlockLabel: { fontFamily: font.heading, fontSize: 15, color: colors.text },
-    huntBlockValue: { fontFamily: font.heading, fontSize: 20, color: colors.accent200 },
+    // Also used standalone for "Or pick any length" below, sitting
+    // directly on the screen's own background rather than inside
+    // huntBlock — accentActive (not the raw accent200 fixed token) is the
+    // color meant for accent text on this theme's own bg/surface either
+    // way (see tokens.ts), so one color works in both places.
+    huntBlockValue: { fontFamily: font.heading, fontSize: 20, color: colors.accentActive },
     huntBlockNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
-    // Unlike huntBlock, this sits directly on the screen's own
-    // (theme-following) background — an accent wash over that, not a
-    // fixed dark card, so its text needs accentActive rather than the
-    // raw accent200 that's fine on huntBlock (see tokens.ts).
+    // Same accent-wash-over-the-theme approach huntBlock uses above, just
+    // at a lighter alpha since this sits inline rather than being its own
+    // spotlight card.
     notice: {
       flexDirection: 'row',
       gap: 12,

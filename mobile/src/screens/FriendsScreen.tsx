@@ -75,7 +75,7 @@ export function FriendsScreen() {
         <Text style={text.h2}>Friends</Text>
 
         <Card style={styles.inviteCard} elevated={false}>
-          <UserPlusIcon size={17} color={colors.accent300} />
+          <UserPlusIcon size={17} color={colors.accentActive} />
           <Text style={styles.inviteText}>Send one link. It works on iPhone and Android.</Text>
           <Text style={styles.inviteLink}>hound.app/u/jordan</Text>
           <Button label="Copy" variant="primary" small />
@@ -127,11 +127,10 @@ export function FriendsScreen() {
 
       <Card style={{ gap: 10 }} elevated={false}>
         <View style={styles.inviteHeader}>
-          {/* Unlike the sample fallback's inviteCard above (a fixed dark
-              chip regardless of theme), this Card has no background
-              override — it's this theme's own (possibly light) surface,
-              so the icon needs accentActive rather than the raw
-              accent300 that's fine on a fixed dark chip. */}
+          {/* Same accentActive icon color as the sample fallback's own
+              inviteCard above — both now sit on a theme-following
+              surface (an accent wash, in that card's case), not a fixed
+              dark chip, so neither needs the raw accent300. */}
           <UserPlusIcon size={17} color={colors.accentActive} />
           <Text style={styles.inviteText}>Invite by email</Text>
         </View>
@@ -220,7 +219,18 @@ export function FriendsScreen() {
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 12, paddingBottom: 48 },
-    inviteCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#2a2540', flexWrap: 'wrap' },
+    // An accent wash over this theme's own colors, not a fixed dark
+    // background — same "spotlight card that actually follows the theme"
+    // reasoning as Home's huntCard (see that file's own comment).
+    inviteCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: withAlpha(colors.accent, 0.12),
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 0.4),
+      flexWrap: 'wrap',
+    },
     inviteHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     inviteText: { flex: 1, minWidth: 150, fontSize: 13.5, color: colors.text },
     inviteLink: { fontFamily: font.body, fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
