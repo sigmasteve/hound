@@ -10,6 +10,7 @@ import { MainScreen } from '../screens/MainScreen';
 import { HuntScreen } from '../screens/HuntScreen';
 import { CreateScreen } from '../screens/CreateScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
+import { FriendDetailScreen } from '../screens/FriendDetailScreen';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { WelcomeScreen } from '../screens/auth/WelcomeScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -185,6 +186,17 @@ export function RootNavigator() {
                   challengeId={route.params.challengeId}
                   onBack={() => navigation.navigate('Main', { tab: 'challenges' })}
                   onGoHome={() => navigation.navigate('Main', { tab: 'home' })}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="FriendDetail" options={{ animation: 'slide_from_right' }}>
+              {({ navigation, route }) => (
+                <FriendDetailScreen
+                  friendshipId={route.params.friendshipId}
+                  friendUserId={route.params.friendUserId}
+                  friendName={route.params.friendName}
+                  friendInitials={route.params.friendInitials}
+                  onBack={() => navigation.navigate('Main', { tab: 'friends' })}
                 />
               )}
             </Stack.Screen>

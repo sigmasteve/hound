@@ -48,7 +48,18 @@ export function MainScreen({ route, navigation }: Props) {
           />
         )}
         {tab === 'metrics' && <MetricsScreen />}
-        {tab === 'friends' && <FriendsScreen />}
+        {tab === 'friends' && (
+          <FriendsScreen
+            onOpenFriend={(friend) =>
+              navigation.navigate('FriendDetail', {
+                friendshipId: friend.friendshipId,
+                friendUserId: friend.userId,
+                friendName: friend.name,
+                friendInitials: friend.initials,
+              })
+            }
+          />
+        )}
         {tab === 'settings' && <SettingsScreen />}
         {tab === 'connect' && <ConnectScreen onDone={() => setTab('home')} />}
       </View>
