@@ -168,12 +168,28 @@ export const androidHealthProvider: HealthProvider = {
       ascendingOrder: false,
       pageSize: limit,
     }));
-    return records.slice(0, limit).map((r, i) => ({
-      id: r.metadata?.id ?? String(i),
-      name: r.title ?? r.exerciseType?.toString() ?? 'Workout',
-      when: new Date(r.startTime),
-      source: 'Health Connect',
-    }));
+    const sessions = records.slice(0, limit);
+    // ExerciseSession has no distance of its own (unlike HealthKit's
+    // HKWorkout, which carries its own distance statistic) — Health
+    // Connect keeps distance as a separate record type, so a workout's
+    // distance is whatever 'Distance' records fall inside its own
+    // [startTime, endTime] window, same idea as iosProvider's per-workout
+    // getStatistic call just against a different API shape.
+    return Promise.all(
+      sessions.map(async (r, i) => {
+        const { records: distanceRecords } = await orEmpty(readRecords('Distance', {
+          timeRangeFilter: { operator: 'between', startTime: r.startTime, endTime: r.endTime },
+        }));
+        const distanceMi = distanceRecords.reduce((sum, d) => sum + metersToMiles(d.distance.inMeters), 0);
+        return {
+          id: r.metadata?.id ?? String(i),
+          name: r.title ?? r.exerciseType?.toString() ?? 'Workout',
+          when: new Date(r.startTime),
+          source: 'Health Connect',
+          distanceMi: distanceMi > 0 ? Math.round(distanceMi * 10) / 10 : undefined,
+        };
+      }),
+    );
   },
 
   async getDailyStepsSince(since: Date): Promise<DailyStepsWithDate[]> {
