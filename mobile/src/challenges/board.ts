@@ -181,7 +181,16 @@ export function huntEffectiveMetric(entry: BoardEntry, sortBy: 'steps' | 'distan
   const total = sortBy === 'distance' ? entry.totalDistanceMi : entry.totalSteps;
   if (entry.role !== 'hunter') return total;
   const baseline = sortBy === 'distance' ? entry.huntBaselineDistanceMi : entry.huntBaselineSteps;
-  return total - baseline;
+  // Clamped at 0, not left negative — a bot Hunter's baseline is
+  // simulated against the *full* head start duration (buildBoard's own
+  // simulateBotSteps(..., headStartDays) call) the instant the challenge
+  // is created, while its actual running total only reflects real
+  // elapsed time so far, which is still less than headStartDays for as
+  // long as the head start hasn't ended yet. total - baseline is
+  // genuinely negative during that whole window; there's no real sense
+  // in which the Hunter has "negative progress," so this reads as 0
+  // (exactly where they started) until real elapsed time catches up.
+  return Math.max(0, total - baseline);
 }
 
 // Once the Hunter's own *effective* total (huntEffectiveMetric — their
