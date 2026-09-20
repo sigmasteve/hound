@@ -254,6 +254,15 @@ export function ChallengeDetailScreen({
         // getRecentWorkouts() takes a count, not a date range, so this
         // over-fetches slightly and filters client-side instead.
         const workouts = await health.getRecentWorkouts(200);
+        // A precise timestamp comparison, deliberately — unlike the steps
+        // branch below (which only ever gets one cumulative total per
+        // calendar day from the OS, so it has no finer choice than a day
+        // boundary), a workout carries its own real start time, so
+        // `since` itself is exactly what CreateScreen's "Starts" picker
+        // set it to: start of today (retroactive — includes a workout
+        // logged before the challenge existed, same day), this exact
+        // moment (excludes it), or start of tomorrow (excludes all of
+        // today, even a workout logged after creating the challenge).
         const inRange = workouts.filter((w) => w.when >= since);
         const relevant =
           challenge.scoringMethod === 'gps_distance' ? inRange.filter((w) => /run|walk|jog|hike/i.test(w.name)) : inRange;

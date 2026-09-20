@@ -125,6 +125,16 @@ export interface CreateChallengeInput {
   distanceGoalMi?: number;
   distanceGoalSteps?: number;
   distanceGoalUnit?: DistanceGoalUnit;
+  // ISO timestamp for when this challenge actually starts counting real
+  // device data from — see CreateScreen.tsx's "Starts" picker for the
+  // three choices this ever gets set to (start of today / this exact
+  // moment / start of tomorrow) and why each matters differently for a
+  // workout-distance challenge (real per-session timestamps to filter
+  // on) than a step-count one (the OS only ever reports one cumulative
+  // total per calendar day, so "today" and "now" end up identical
+  // there). Omitted means "now" — supabaseChallenges.ts's own default,
+  // unchanged for any caller that doesn't pass this.
+  startsAt?: string;
 }
 
 export interface ChallengesProvider {
