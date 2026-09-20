@@ -207,7 +207,9 @@ export function HomeScreen({
   // Null until the fetch below resolves (or forever, unconfigured) —
   // the "N active · N finished" row stays hidden rather than showing a
   // misleading 0/0 while this is still loading.
-  const [challengeCounts, setChallengeCounts] = useState<{ active: number; finished: number } | null>(null);
+  const [challengeCounts, setChallengeCounts] = useState<{ active: number; finished: number; invited: number } | null>(
+    null,
+  );
 
   const reload = useCallback(() => {
     health.getSnapshot().then(setSnap);
@@ -223,9 +225,15 @@ export function HomeScreen({
       // challenge does Today show" — ChallengesScreen calls the exact
       // same function to mark that one in its own list, so the two
       // screens can't quietly disagree about it.
-      const [highlighted, challenges] = await Promise.all([
+      const [highlighted, challenges, invites] = await Promise.all([
         supabaseChallengesProvider.getHighlightedChallenge(),
         supabaseChallengesProvider.listMyChallenges(),
+        // Same list ChallengesScreen's own invite cards come from — a
+        // pending invite isn't in `challenges` at all yet (see
+        // supabaseChallenges.ts's listMyChallenges, fixed to no longer
+        // include one just because it's visible under RLS), so this is
+        // a separate count, not part of the active/finished split below.
+        supabaseChallengesProvider.listMyChallengeInvites(),
       ]);
       const primaryId = pickPrimaryChallenge(challenges, highlighted)?.id ?? null;
 
@@ -260,6 +268,7 @@ export function HomeScreen({
       setChallengeCounts({
         active: results.filter((r) => !r.finished).length,
         finished: results.filter((r) => r.finished).length,
+        invited: invites.length,
       });
       const primaryResult = results.find((r) => r.challenge.id === primaryId);
       if (primaryResult) setPrimary({ challenge: primaryResult.challenge, board: primaryResult.board });
@@ -324,11 +333,19 @@ export function HomeScreen({
           into "active" and "Finished": once there are more than a
           handful of challenges, it's not obvious at a glance how many
           are still actually running versus just sitting there finished. */}
-      {challengeCounts && challengeCounts.active + challengeCounts.finished > 0 && (
+      {challengeCounts && challengeCounts.active + challengeCounts.finished + challengeCounts.invited > 0 && (
         <Pressable style={styles.countsRow} onPress={() => onGoTab('challenges')}>
           <FlagCheckeredIcon size={13} color={color.accent} />
           <Text style={styles.countsText}>
             {challengeCounts.active} active · {challengeCounts.finished} finished
+            {/* Called out in accentActive, not the row's own plain text
+                color — the whole point of surfacing this count here is
+                so a pending invite (which otherwise only shows as a
+                card at the top of the Challenges tab) is visible at a
+                glance from Today too, without opening that tab first. */}
+            {challengeCounts.invited > 0 && (
+              <Text style={styles.countsInvited}> · {challengeCounts.invited} invited</Text>
+            )}
           </Text>
           <CaretRightIcon size={12} color={withAlpha(colors.text, 0.4)} />
         </Pressable>
@@ -785,6 +802,7 @@ function makeStyles(colors: Palette) {
       backgroundColor: colors.surface,
     },
     countsText: { fontSize: 12.5, color: colors.text, fontFamily: font.heading },
+    countsInvited: { color: colors.accentActive },
     onboardCard: { padding: 16, gap: 10 },
     onboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     onboardTitle: { fontFamily: font.heading, fontSize: 15, color: colors.text, flex: 1 },
