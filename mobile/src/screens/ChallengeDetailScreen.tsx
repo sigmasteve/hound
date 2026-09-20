@@ -23,7 +23,7 @@ import {
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { boardSortFor, usesDeviceSteps, usesDistanceRanking, usesWorkoutDistance } from '../challenges/scoring';
-import { huntKindName, huntRoleLabel, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
+import { formatStartsLabel, hasStarted, huntKindName, huntRoleLabel, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
@@ -373,11 +373,13 @@ export function ChallengeDetailScreen({
 
   const typeDef = CHALLENGE_TYPES.find((t) => t.id === challenge.kind);
   const Icon = CHALLENGE_KIND_ICON[challenge.kind];
-  const daysElapsed = Math.min(
-    challenge.durationDays,
-    Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
-  );
+  const started = hasStarted(challenge, now);
+  const daysElapsed = Math.min(challenge.durationDays, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1);
   const endsLabel = formatEndsLabel(challenge.endsAt, now);
+  // Before the challenge actually begins (CreateScreen's 'tomorrow' start
+  // option, or any other future starts_at), "Day 1 of N" would read as
+  // if it had already started — see hasStarted's own comment.
+  const dayLabel = started ? `Day ${daysElapsed} of ${challenge.durationDays}` : formatStartsLabel(challenge.startsAt, now);
 
   const myHighlighted = participants.find((p) => p.userId === user?.id)?.highlighted ?? false;
 
@@ -481,7 +483,7 @@ export function ChallengeDetailScreen({
               variant={challenge.kind === 'hunt' ? 'accent' : 'neutral'}
             />
             <Text style={styles.headerMeta}>
-              Day {daysElapsed} of {challenge.durationDays} · {endsLabel}
+              {dayLabel} · {endsLabel}
             </Text>
           </View>
         </View>
