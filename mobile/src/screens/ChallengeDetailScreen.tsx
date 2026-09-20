@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeftIcon, RobotIcon, TrashIcon, TrophyIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, CheckCircleIcon, RobotIcon, TrashIcon, TrophyIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -459,6 +459,7 @@ export function ChallengeDetailScreen({
     (sum, r) => sum + (challenge.distanceGoalUnit === 'steps' ? r.totalSteps : r.totalDistanceMi),
     0,
   );
+  const goalMet = !!distanceGoal && groupTotal >= distanceGoal;
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
@@ -495,8 +496,16 @@ export function ChallengeDetailScreen({
       />
 
       {distanceGoal && (
-        <Card style={{ gap: 10 }} elevated={false}>
-          <Text style={text.h4}>Group progress</Text>
+        <Card style={[{ gap: 10 }, goalMet ? styles.goalMetCard : {}]} elevated={false}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={text.h4}>Group progress</Text>
+            {goalMet && (
+              <View style={styles.goalMetBadge}>
+                <CheckCircleIcon size={14} color={colors.green} weight="fill" />
+                <Text style={styles.goalMetLabel}>Goal reached</Text>
+              </View>
+            )}
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
             <Text style={styles.groupTotal}>
               {challenge.distanceGoalUnit === 'steps' ? groupTotal.toLocaleString() : groupTotal.toFixed(1) + ' mi'}
@@ -507,13 +516,13 @@ export function ChallengeDetailScreen({
           </View>
           <ProgressBar
             pct={Math.min(100, (groupTotal / distanceGoal) * 100)}
-            fillColor={colors.accent}
+            fillColor={goalMet ? colors.green : colors.accent}
             height={6}
           />
           <Text style={styles.footNote}>
-            Everyone&rsquo;s logged {challenge.distanceGoalUnit === 'steps' ? 'steps' : 'miles'} count
-            toward this one shared target — it&rsquo;s the whole group against the goal, not against
-            each other.
+            {goalMet
+              ? 'The group hit its target — anything still logged from here just adds to the total.'
+              : `Everyone’s logged ${challenge.distanceGoalUnit === 'steps' ? 'steps' : 'miles'} count toward this one shared target — it’s the whole group against the goal, not against each other.`}
           </Text>
         </Card>
       )}
@@ -711,6 +720,13 @@ function makeStyles(colors: Palette) {
     headerMeta: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     leaderboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     groupTotal: { fontFamily: font.heading, fontSize: 24, color: colors.text },
+    goalMetCard: {
+      borderWidth: 1,
+      borderColor: withAlpha(colors.green, 0.5),
+      backgroundColor: withAlpha(colors.green, 0.1),
+    },
+    goalMetBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    goalMetLabel: { fontSize: 12, fontFamily: font.heading, color: colors.green },
     boardRow: {
       flexDirection: 'row',
       alignItems: 'center',
