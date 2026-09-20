@@ -94,7 +94,7 @@ function heroCopy(
     challenge.durationDays,
     Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
   );
-  const kindLabel = challenge.kind === 'hunt' ? huntKindName(labels) : CHALLENGE_TYPES.find((t) => t.id === challenge.kind)?.name ?? challenge.kind;
+  const kindLabel = challenge.kind === 'hunt' ? huntKindName() : CHALLENGE_TYPES.find((t) => t.id === challenge.kind)?.name ?? challenge.kind;
   const eyebrow = `DAY ${daysElapsed} OF ${challenge.durationDays} · ${kindLabel.toUpperCase()}`;
 
   const me = userId ? board.find((r) => r.userId === userId) : undefined;
@@ -109,10 +109,10 @@ function heroCopy(
   // framing.
   if (challenge.kind === 'hunt' && board.length === 2 && me && rival) {
     if (me.role === 'zombie') {
-      return { eyebrow, headline: `${rival.name} caught you. The hunt's over.` };
+      return { eyebrow, headline: `${rival.name} caught you. The chase is over.` };
     }
     if (rival.role === 'zombie') {
-      return { eyebrow, headline: `You caught ${rival.name}! The hunt's over.` };
+      return { eyebrow, headline: `You caught ${rival.name}! The chase is over.` };
     }
     if (!finished && !hasHeadStartElapsed(challenge)) {
       // The Hunter's real, already-logged total still exists during head
@@ -144,7 +144,7 @@ function heroCopy(
   // 2-person branch above already covers that case (there, being caught
   // and the hunt ending are the same event). Here they aren't: Blaze or
   // Micah might still be out there even though you're a Zombie, so this
-  // doesn't say "the hunt's over" — just what happened to *you*. Checked
+  // doesn't say "the chase is over" — just what happened to *you*. Checked
   // before the generic rank/"who won" framing below, which would
   // otherwise still report a stale rank for someone who's already out of
   // the running.
@@ -423,7 +423,7 @@ function GettingStartedCards({ onGoTab, styles }: { onGoTab: (tab: MainTab) => v
                   <Icon size={16} color={t.iconColor} weight={t.id === 'hunt' ? 'fill' : 'regular'} />
                 </View>
                 <View style={styles.typeText}>
-                  <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName(labels) : t.name}</Text>
+                  <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName() : t.name}</Text>
                   <Text style={styles.typeDesc}>{t.desc}</Text>
                 </View>
               </View>
@@ -524,8 +524,8 @@ function LiveHuntCard({
             <Text style={styles.huntLead}>{me.role === 'zombie' ? 'Caught' : 'Got them!'}</Text>
             <Text style={styles.huntNote}>
               {me.role === 'zombie'
-                ? `${rival.name} caught you — the hunt's over.`
-                : `You caught ${rival.name} — the hunt's over.`}
+                ? `${rival.name} caught you — the chase is over.`
+                : `You caught ${rival.name} — the chase is over.`}
             </Text>
           </>
         ) : (
@@ -625,7 +625,7 @@ function LiveMultiHuntCard({
       {!closest ? (
         <Text style={styles.huntNote}>
           {concluded
-            ? `The ${labels.hunter}'s caught everyone — the hunt's over.`
+            ? `The ${labels.hunter}'s caught everyone — the chase is over.`
             : 'No one to chase yet.'}
         </Text>
       ) : (

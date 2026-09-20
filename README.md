@@ -2,7 +2,7 @@
 ## Hound
 
 A fitness/health-data app for friend challenges — step races, streaks, and
-a GPS-distance "Hunter & Hunted" chase.
+a GPS-distance "Chase."
 
 **`mobile/`** is the real app: a cross-platform iOS/Android build (Expo +
 React Native) that reads actual step/distance/heart-rate/weight data from

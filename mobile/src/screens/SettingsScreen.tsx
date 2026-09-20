@@ -293,7 +293,7 @@ export function SettingsScreen() {
         </Card>
       )}
 
-      {/* Last on the page, deliberately — a per-hunt terminology
+      {/* Last on the page, deliberately — a per-chase terminology
           customization is a far less common thing to reach for than the
           account/data cards above it. Backend-only (see src/labels/):
           whatever's saved here is shared by every signed-in person right
@@ -303,14 +303,14 @@ export function SettingsScreen() {
           gates on isSupabaseConfigured too. */}
       {isSupabaseConfigured && (
         <Card style={{ gap: 12 }} elevated={false}>
-          <Text style={text.h4}>Hunt labels</Text>
+          <Text style={text.h4}>Chase labels</Text>
           <Text style={styles.footNote}>
-            What a hunt&rsquo;s three roles are called, everywhere in the app. This changes it for
+            What a chase&rsquo;s three roles are called, everywhere in the app. This changes it for
             everyone signed in right now, not just you — there&rsquo;s no per-person version of this
             setting yet.
           </Text>
-          <TextField label="Hunter" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
-          <TextField label="Hunted" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
+          <TextField label="Hound" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
+          <TextField label="Fox" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
           <TextField label="Zombie" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
           {labelsError && <Text style={styles.loadError}>{labelsError}</Text>}
           {labelsSaved && !labelsError && <Text style={styles.successNote}>Saved — updated everywhere.</Text>}

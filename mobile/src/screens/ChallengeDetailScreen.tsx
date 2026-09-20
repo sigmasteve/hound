@@ -477,7 +477,7 @@ export function ChallengeDetailScreen({
           <Text style={[text.h2, { fontSize: 24 }]}>{challenge.name}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <Tag
-              label={challenge.kind === 'hunt' ? huntKindName(labels) : (typeDef?.name ?? challenge.kind)}
+              label={challenge.kind === 'hunt' ? huntKindName() : (typeDef?.name ?? challenge.kind)}
               variant={challenge.kind === 'hunt' ? 'accent' : 'neutral'}
             />
             <Text style={styles.headerMeta}>
@@ -638,8 +638,8 @@ export function ChallengeDetailScreen({
         <Text style={text.h4}>Invite a friend</Text>
         {huntHeadStartLocked ? (
           <Text style={styles.footNote}>
-            This hunt&rsquo;s head start has already ended — a newly invited friend would join with
-            no head start of their own, so new invites are closed for the rest of this hunt.
+            This chase&rsquo;s head start has already ended — a newly invited friend would join with
+            no head start of their own, so new invites are closed for the rest of this chase.
           </Text>
         ) : invitableFriends.length === 0 ? (
           <Text style={styles.footNote}>

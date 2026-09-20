@@ -38,8 +38,8 @@ export function HuntScreen({ onBack }: { onBack: () => void }) {
 
       <View style={styles.headerRow}>
         <View style={{ gap: 6, flex: 1 }}>
-          <Text style={text.eyebrow}>HUNTER & HUNTED · 21 DAYS</Text>
-          <Text style={[text.h2, { fontSize: 26 }]}>Marcus is hunting you</Text>
+          <Text style={text.eyebrow}>CHASE · 21 DAYS</Text>
+          <Text style={[text.h2, { fontSize: 26 }]}>Marcus is chasing you</Text>
         </View>
         <View style={styles.headerBtns}>
           <Button label="Trash talk" small icon={<ChatCircleIcon size={14} color={colors.text} />} />

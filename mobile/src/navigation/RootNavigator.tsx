@@ -170,7 +170,7 @@ export function RootNavigator() {
                   // Used to always go to the static Hunt screen, regardless
                   // of what kind of challenge (or name) was actually
                   // created — every real challenge landed on the same
-                  // hardcoded "Marcus is hunting you" content with no
+                  // hardcoded "Marcus is chasing you" content with no
                   // connection to what the user just made. Back to the
                   // Challenges tab instead, where ChallengesScreen's real
                   // read (src/challenges/present.ts) shows the actual new

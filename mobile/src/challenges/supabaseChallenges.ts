@@ -404,7 +404,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         durationDays: c.duration_days,
         headStartDays: c.head_start_days,
       } as Challenge);
-      if (elapsed) throw new Error("This hunt's head start has already ended — new invites can no longer be accepted.");
+      if (elapsed) throw new Error("This chase's head start has already ended — new invites can no longer be accepted.");
     }
 
     // A plain insert, not an upsert: `.upsert(..., { ignoreDuplicates })`
