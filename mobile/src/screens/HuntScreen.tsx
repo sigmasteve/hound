@@ -18,7 +18,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { InlineBadge } from '../components/Chip';
 import { useTheme } from '../theme/ThemeContext';
-import { color, font, withAlpha, type Palette } from '../theme/tokens';
+import { font, withAlpha, type Palette } from '../theme/tokens';
 import { TALLY } from '../data/sampleData';
 
 const TALLY_ICON: Record<string, React.ComponentType<any>> = {
@@ -156,25 +156,26 @@ function makeStyles(colors: Palette) {
     container: { padding: 16, gap: 18, paddingBottom: 48 },
     headerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
     headerBtns: { flexDirection: 'row', gap: 8 },
-    // Fixed, hand-tuned dark background regardless of theme — the same
-    // "always-dark spotlight card" reasoning as Home's huntCard (see that
-    // file's own comment). Everything drawn on top of it below
-    // (progressLead through statValue) uses the fixed dark `color` import
-    // rather than this theme-following `colors` param: in Light mode,
-    // `colors.text` flips to its near-black light-mode value, which would
-    // read as invisible against this card's permanently-dark navy.
+    // An accent wash over this theme's own colors, not a fixed dark
+    // background — same "spotlight card that actually follows the theme"
+    // reasoning as Home's huntCard (see that file's own comment).
+    // Everything drawn on top of it below (progressLead through
+    // statValue) uses the theme-following `colors` param to match, the
+    // same way `notice` below already does for its own accent wash.
     progressCard: {
       padding: 20,
       borderRadius: 14,
-      backgroundColor: '#232a54',
+      backgroundColor: withAlpha(colors.accent, 0.14),
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 0.4),
       gap: 20,
     },
     progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    progressLead: { fontFamily: font.heading, fontSize: 32, color: color.text },
-    progressSub: { fontSize: 13, color: withAlpha(color.text, 0.7) },
-    progressMeta: { fontSize: 12, color: withAlpha(color.text, 0.55), textAlign: 'right' },
+    progressLead: { fontFamily: font.heading, fontSize: 32, color: colors.text },
+    progressSub: { fontSize: 13, color: withAlpha(colors.text, 0.7) },
+    progressMeta: { fontSize: 12, color: withAlpha(colors.text, 0.55), textAlign: 'right' },
     track: { height: 90, position: 'relative' },
-    dashedLine: { position: 'absolute', left: 0, right: 0, top: 50, height: 3, backgroundColor: withAlpha(color.text, 0.15) },
+    dashedLine: { position: 'absolute', left: 0, right: 0, top: 50, height: 3, backgroundColor: withAlpha(colors.text, 0.15) },
     marker: {
       position: 'absolute',
       top: 30,
@@ -187,11 +188,11 @@ function makeStyles(colors: Palette) {
     },
     hunterMarker: { backgroundColor: colors.neutral800 },
     huntedMarker: { backgroundColor: colors.accent800, borderWidth: 1, borderColor: colors.accent, top: 8 },
-    markerLabel: { position: 'absolute', top: 70, fontSize: 11, color: color.text, marginLeft: -40, width: 80, textAlign: 'center' },
-    markerLabelAccent: { color: colors.accent200 },
+    markerLabel: { position: 'absolute', top: 70, fontSize: 11, color: colors.text, marginLeft: -40, width: 80, textAlign: 'center' },
+    markerLabelAccent: { color: colors.accentActive },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-    statLabel: { fontSize: 11, letterSpacing: 0.6, color: withAlpha(color.text, 0.6) },
-    statValue: { fontFamily: font.heading, fontSize: 18, color: color.text, marginTop: 3 },
+    statLabel: { fontSize: 11, letterSpacing: 0.6, color: withAlpha(colors.text, 0.6) },
+    statValue: { fontFamily: font.heading, fontSize: 18, color: colors.text, marginTop: 3 },
     tallyRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -207,10 +208,10 @@ function makeStyles(colors: Palette) {
     sourceRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
     sourceName: { fontSize: 14, color: colors.text },
     sourceNote: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
-    // Unlike progressCard, this sits inside a migrated Card on the
-    // page's own (theme-following) surface — an accent wash over that,
-    // not a fixed dark background, so its text needs accentActive
-    // rather than the raw accent200 that's fine on progressCard.
+    // Same accent-wash-over-the-theme approach progressCard uses above,
+    // just at a lighter alpha since this sits inside a migrated Card on
+    // the page's own surface rather than being the page's own spotlight
+    // element.
     notice: {
       flexDirection: 'row',
       gap: 6,
