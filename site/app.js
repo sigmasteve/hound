@@ -94,10 +94,35 @@
       '<h2 class="section-title">You’re in, ' +
       escapeHtml(name) +
       '</h2>' +
-      '<p class="section-sub">' +
+      '<p class="section-sub" id="signed-in-note">' +
       escapeHtml(email) +
       ' is ready to go — open the Hound app once it’s installed and log in with the same email.</p>' +
       '<a class="btn btn-secondary" href="#tester">See how to become a tester ↓</a>';
+    redeemPendingFriendCode();
+  }
+
+  // Someone who followed a friend-code link (f.html's own "Sign up or
+  // log in to accept" button, since that page has no session yet to
+  // redeem the code itself) lands here with ?f=<code> — redeem it the
+  // moment sign-up/log-in actually succeeds instead of asking them to
+  // go back to that link a second time. Guarded so getSession() and the
+  // SIGNED_IN event, which both call showSignedIn, can't redeem it twice.
+  var friendCodeHandled = false;
+  function redeemPendingFriendCode() {
+    if (friendCodeHandled) return;
+    var code = new URLSearchParams(window.location.search).get('f');
+    if (!code) return;
+    friendCodeHandled = true;
+    client.rpc('add_friend_by_code', { code: code }).then(function (res) {
+      var note = $('signed-in-note');
+      if (!note) return;
+      note.insertAdjacentHTML(
+        'afterend',
+        res.error
+          ? '<p class="form-note error">' + escapeHtml(res.error.message) + '</p>'
+          : '<p class="section-sub">You’re now friends — open the app to see them on your Friends tab.</p>',
+      );
+    });
   }
 
   // A page reload after an earlier visit's session is still around (or
