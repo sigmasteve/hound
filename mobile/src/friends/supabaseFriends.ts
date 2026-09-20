@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Friend, FriendsProvider } from './types';
+import { extractFriendCode, type Friend, type FriendsProvider } from './types';
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -133,6 +133,21 @@ export const supabaseFriendsProvider: FriendsProvider = {
   async removeFriendship(friendshipId: string): Promise<void> {
     const client = requireClient();
     const { error } = await client.from('friendships').delete().eq('id', friendshipId);
+    if (error) throw new Error(error.message);
+  },
+
+  async getMyFriendCode(): Promise<string> {
+    const client = requireClient();
+    const userId = await requireUserId();
+    const { data, error } = await client.from('profiles').select('friend_code').eq('id', userId).single();
+    if (error) throw new Error(error.message);
+    return data.friend_code;
+  },
+
+  async addFriendByCode(code: string): Promise<void> {
+    const client = requireClient();
+    await requireUserId();
+    const { error } = await client.rpc('add_friend_by_code', { code: extractFriendCode(code) });
     if (error) throw new Error(error.message);
   },
 };

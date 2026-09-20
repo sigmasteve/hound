@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AndroidLogoIcon, AppleLogoIcon, HourglassIcon, UserPlusIcon } from 'phosphor-react-native';
+import { Share, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import QRCode from 'react-native-qrcode-svg';
+import { AndroidLogoIcon, AppleLogoIcon, HourglassIcon, QrCodeIcon, UserPlusIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -10,7 +12,7 @@ import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { FRIENDS } from '../data/sampleData';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
-import type { Friend } from '../friends/types';
+import { friendCodeUrl, type Friend } from '../friends/types';
 
 export function FriendsScreen() {
   const { colors, text } = useTheme();
@@ -27,10 +29,22 @@ export function FriendsScreen() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
 
+  const [myCode, setMyCode] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [redeemInput, setRedeemInput] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) return;
     try {
-      setLiveFriends(await supabaseFriendsProvider.listFriends());
+      const [friends, code] = await Promise.all([
+        supabaseFriendsProvider.listFriends(),
+        supabaseFriendsProvider.getMyFriendCode(),
+      ]);
+      setLiveFriends(friends);
+      setMyCode(code);
     } catch {
       // Stay on the sample fallback on any failure — this screen never
       // shows an error state for the list itself, it just quietly
@@ -55,6 +69,34 @@ export function FriendsScreen() {
       setInviteError(e instanceof Error ? e.message : 'Could not send that invite — try again.');
     } finally {
       setInviting(false);
+    }
+  };
+
+  const copyMyLink = async () => {
+    if (!myCode) return;
+    await Clipboard.setStringAsync(friendCodeUrl(myCode));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareMyLink = () => {
+    if (!myCode) return;
+    Share.share({ message: `Add me on Hound: ${friendCodeUrl(myCode)}` }).catch(() => {});
+  };
+
+  const redeemCode = async () => {
+    setRedeemError(null);
+    setRedeemSuccess(null);
+    setRedeeming(true);
+    try {
+      await supabaseFriendsProvider.addFriendByCode(redeemInput);
+      setRedeemSuccess("You're now friends!");
+      setRedeemInput('');
+      await load();
+    } catch (e) {
+      setRedeemError(e instanceof Error ? e.message : 'Could not add that — try again.');
+    } finally {
+      setRedeeming(false);
     }
   };
 
@@ -156,6 +198,46 @@ export function FriendsScreen() {
         {inviteSuccess && !inviteError && <Text style={styles.successNote}>{inviteSuccess}</Text>}
       </Card>
 
+      <Card style={{ gap: 12 }} elevated={false}>
+        <View style={styles.inviteHeader}>
+          <QrCodeIcon size={17} color={colors.accentActive} />
+          <Text style={styles.inviteText}>My code</Text>
+        </View>
+        {myCode && (
+          <View style={styles.qrWrap}>
+            <QRCode value={friendCodeUrl(myCode)} size={140} color={colors.text} backgroundColor={colors.surface} />
+          </View>
+        )}
+        <Text style={styles.inviteLink}>{myCode ? friendCodeUrl(myCode) : '—'}</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Button label={copied ? 'Copied!' : 'Copy link'} small disabled={!myCode} onPress={copyMyLink} />
+          <Button label="Share" variant="primary" small disabled={!myCode} onPress={shareMyLink} />
+        </View>
+      </Card>
+
+      <Card style={{ gap: 10 }} elevated={false}>
+        <Text style={styles.inviteText}>Add a friend&rsquo;s code</Text>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+          <TextField
+            label="Code or link"
+            value={redeemInput}
+            onChangeText={setRedeemInput}
+            placeholder="e.g. Ab3xK9pQ"
+            autoCapitalize="none"
+            style={{ flex: 1 }}
+          />
+          <Button
+            label={redeeming ? 'Adding…' : 'Add'}
+            variant="primary"
+            small
+            disabled={redeeming || !redeemInput.trim()}
+            onPress={redeemCode}
+          />
+        </View>
+        {redeemError && <Text style={styles.errorNote}>{redeemError}</Text>}
+        {redeemSuccess && !redeemError && <Text style={styles.successNote}>{redeemSuccess}</Text>}
+      </Card>
+
       {receivedInvites.map((f) => (
         <Card key={f.friendshipId} style={styles.pendingRow} elevated={false}>
           <Avatar initials={f.initials} tint={TINT_A} />
@@ -234,6 +316,7 @@ function makeStyles(colors: Palette) {
     inviteHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     inviteText: { flex: 1, minWidth: 150, fontSize: 13.5, color: colors.text },
     inviteLink: { fontFamily: font.body, fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    qrWrap: { alignItems: 'center', paddingVertical: 4 },
     errorNote: { fontSize: 12.5, color: colors.amber },
     successNote: { fontSize: 12.5, color: colors.green },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
