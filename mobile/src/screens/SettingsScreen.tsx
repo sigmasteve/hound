@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { AndroidLogoIcon, ArrowsClockwiseIcon, AppleLogoIcon, ScalesIcon, SignOutIcon } from 'phosphor-react-native';
@@ -7,7 +7,6 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { RadioPill, ToggleRow } from '../components/Selectable';
 import { SegmentedControl } from '../components/SegmentedControl';
-import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { ALERT_DEFS, SOURCES } from '../data/sampleData';
@@ -17,8 +16,6 @@ import { useAuth } from '../auth/AuthContext';
 import type { AuthProviderId } from '../auth/types';
 import { isSupabaseConfigured } from '../lib/supabase';
 import * as notifications from '../notifications/supabaseNotifications';
-import { useLabels } from '../labels/LabelsContext';
-import { DEFAULT_HUNT_LABELS } from '../labels/types';
 
 const SOURCE_ICON: Record<string, React.ComponentType<any>> = {
   'Apple Health': AppleLogoIcon,
@@ -50,7 +47,6 @@ export function SettingsScreen() {
   const { user, signOut } = useAuth();
   const { colors, text, mode, setMode } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { labels, refresh: refreshLabels, save: saveLabels } = useLabels();
   const [alerts, setAlerts] = useState(ALERT_DEFS.map((a) => a.defaultOn));
   const [conflict, setConflict] = useState<'device' | 'apple' | 'ask'>('device');
   const [units, setUnits] = useState<'imperial' | 'metric'>('imperial');
@@ -64,58 +60,6 @@ export function SettingsScreen() {
     health.getSnapshot().then(setSnap);
   }, [health]);
   useFocusEffect(reloadSnap);
-
-  // Local drafts, not the context's own labels directly — TextField needs
-  // something to edit that doesn't immediately propagate to every other
-  // screen on every keystroke, only once Save is actually pressed (see
-  // submitLabels below). Re-synced whenever the shared row changes
-  // underneath (a fresh fetch on focus, or this same save resolving) —
-  // see the refresh-on-focus effect below.
-  const [hunterInput, setHunterInput] = useState(labels.hunter);
-  const [huntedInput, setHuntedInput] = useState(labels.hunted);
-  const [zombieInput, setZombieInput] = useState(labels.zombie);
-  const [savingLabels, setSavingLabels] = useState(false);
-  const [labelsError, setLabelsError] = useState<string | null>(null);
-  const [labelsSaved, setLabelsSaved] = useState(false);
-
-  useEffect(() => {
-    setHunterInput(labels.hunter);
-    setHuntedInput(labels.hunted);
-    setZombieInput(labels.zombie);
-  }, [labels]);
-
-  // Refetches the shared row on every focus — same reasoning
-  // ChallengesScreen's own useFocusEffect gives for refetching its list:
-  // this screen can be reopened after someone else (or this same person,
-  // on another device) changed it, and a mount-only fetch would never
-  // see that.
-  useFocusEffect(
-    useCallback(() => {
-      refreshLabels();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
-  );
-
-  const submitLabels = async (next: { hunter: string; hunted: string; zombie: string }) => {
-    const hunter = next.hunter.trim();
-    const hunted = next.hunted.trim();
-    const zombie = next.zombie.trim();
-    if (!hunter || !hunted || !zombie) {
-      setLabelsError('All three labels need at least one character.');
-      return;
-    }
-    setLabelsError(null);
-    setLabelsSaved(false);
-    setSavingLabels(true);
-    try {
-      await saveLabels({ hunter, hunted, zombie });
-      setLabelsSaved(true);
-    } catch (e) {
-      setLabelsError(e instanceof Error ? e.message : 'Could not save that — try again.');
-    } finally {
-      setSavingLabels(false);
-    }
-  };
 
   // Login-reminder preferences live on the real profiles row — there's no
   // sample-fallback version of this like other screens have, since
@@ -292,47 +236,6 @@ export function SettingsScreen() {
           />
         </Card>
       )}
-
-      {/* Last on the page, deliberately — a per-chase terminology
-          customization is a far less common thing to reach for than the
-          account/data cards above it. Backend-only (see src/labels/):
-          whatever's saved here is shared by every signed-in person right
-          now (there's no per-user or per-organization scope yet), so
-          there's nothing meaningful to show or edit without a real
-          project to save it to — same reasoning "Login reminders" above
-          gates on isSupabaseConfigured too. Admin-only, matching
-          0022_admin_gate_app_labels.sql's own update policy — hiding it
-          here is a UI convenience (a non-admin would just hit a
-          permission error trying to save), not the actual enforcement,
-          which is that policy, not this check. */}
-      {isSupabaseConfigured && user?.isAdmin && (
-        <Card style={{ gap: 12 }} elevated={false}>
-          <Text style={text.h4}>Chase labels</Text>
-          <Text style={styles.footNote}>
-            What a chase&rsquo;s three roles are called, everywhere in the app. This changes it for
-            everyone signed in right now, not just you — there&rsquo;s no per-person version of this
-            setting yet.
-          </Text>
-          <TextField label="Hound" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
-          <TextField label="Fox" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
-          <TextField label="Out" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
-          {labelsError && <Text style={styles.loadError}>{labelsError}</Text>}
-          {labelsSaved && !labelsError && <Text style={styles.successNote}>Saved — updated everywhere.</Text>}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button
-              label={savingLabels ? 'Saving…' : 'Save'}
-              variant="primary"
-              disabled={savingLabels}
-              onPress={() => submitLabels({ hunter: hunterInput, hunted: huntedInput, zombie: zombieInput })}
-            />
-            <Button
-              label="Reset to default"
-              disabled={savingLabels}
-              onPress={() => submitLabels(DEFAULT_HUNT_LABELS)}
-            />
-          </View>
-        </Card>
-      )}
     </ScrollView>
   );
 }
@@ -357,7 +260,5 @@ function makeStyles(colors: Palette) {
     syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
     syncLabel: { fontSize: 12, color: colors.accent, fontFamily: font.heading },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
-    loadError: { fontSize: 12.5, color: colors.amber },
-    successNote: { fontSize: 12.5, color: colors.green },
   });
 }

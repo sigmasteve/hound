@@ -31,7 +31,12 @@ export function MainScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <TopNav active={tab} onSelect={setTab} onProfile={() => setTab('settings')} />
+      <TopNav
+        active={tab}
+        onSelect={setTab}
+        onProfile={() => setTab('settings')}
+        onAdmin={() => navigation.navigate('Admin')}
+      />
       <View style={styles.content}>
         {tab === 'home' && (
           <HomeScreen

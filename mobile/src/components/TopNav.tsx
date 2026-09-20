@@ -7,6 +7,7 @@ import {
   HouseIcon,
   PawPrintIcon,
   PlugsIcon,
+  ShieldCheckIcon,
   UsersThreeIcon,
 } from 'phosphor-react-native';
 import { font, withAlpha, type Palette } from '../theme/tokens';
@@ -26,10 +27,12 @@ export function TopNav({
   active,
   onSelect,
   onProfile,
+  onAdmin,
 }: {
   active: MainTab | 'hunt' | 'create';
   onSelect: (tab: MainTab) => void;
   onProfile: () => void;
+  onAdmin: () => void;
 }) {
   const { user } = useAuth();
   const { colors } = useTheme();
@@ -47,7 +50,12 @@ export function TopNav({
           <PawPrintIcon size={16} color={colors.accent} weight="fill" />
         </View>
         <Text style={styles.brandName}>Hound</Text>
-        <Pressable style={styles.profile} onPress={onProfile}>
+        {user?.isAdmin && (
+          <Pressable style={[styles.iconButton, styles.pushRight]} onPress={onAdmin} accessibilityLabel="Admin">
+            <ShieldCheckIcon size={16} color={colors.accent} />
+          </Pressable>
+        )}
+        <Pressable style={[styles.profile, !user?.isAdmin && styles.pushRight]} onPress={onProfile}>
           <View style={styles.profileAvatar}>
             <Text style={styles.profileInitials}>{user?.initials ?? ''}</Text>
           </View>
@@ -106,8 +114,21 @@ function makeStyles(colors: Palette) {
       justifyContent: 'center',
     },
     brandName: { fontFamily: font.headingSemibold, fontSize: 17, color: colors.text, letterSpacing: 0.2 },
+    // Whichever of the admin icon / profile pill renders first gets this
+    // (see the JSX above) — flexbox `gap` still spaces the two of them
+    // apart normally, this just pushes that first one (and everything
+    // after it) to the row's far right.
+    pushRight: { marginLeft: 'auto' },
+    iconButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.divider,
+    },
     profile: {
-      marginLeft: 'auto',
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,

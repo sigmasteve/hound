@@ -11,6 +11,7 @@ import { HuntScreen } from '../screens/HuntScreen';
 import { CreateScreen } from '../screens/CreateScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { FriendDetailScreen } from '../screens/FriendDetailScreen';
+import { AdminScreen } from '../screens/AdminScreen';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { WelcomeScreen } from '../screens/auth/WelcomeScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -199,6 +200,14 @@ export function RootNavigator() {
                   onBack={() => navigation.navigate('Main', { tab: 'friends' })}
                 />
               )}
+            </Stack.Screen>
+            <Stack.Screen name="Admin" options={{ animation: 'slide_from_right' }}>
+              {/* Reached from TopNav's own admin icon, visible on every
+                  tab — goBack() naturally returns to whichever tab that
+                  was, unlike Hunt/Create above, which deliberately land
+                  on one fixed tab since they can be opened from several
+                  different starting points. */}
+              {({ navigation }) => <AdminScreen onBack={() => navigation.goBack()} />}
             </Stack.Screen>
           </Stack.Group>
         )}
