@@ -32,6 +32,7 @@ export async function searchUsers(query: string): Promise<AdminUserSummary[]> {
   let q = client
     .from('profiles')
     .select('id, name, initials, email, is_admin, last_active_at')
+    .order('is_admin', { ascending: false })
     .order('name', { ascending: true })
     .limit(25);
   if (trimmed) q = q.or(`name.ilike.%${trimmed}%,email.ilike.%${trimmed}%`);
