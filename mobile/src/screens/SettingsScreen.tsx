@@ -311,7 +311,7 @@ export function SettingsScreen() {
           </Text>
           <TextField label="Hound" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
           <TextField label="Fox" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
-          <TextField label="Zombie" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
+          <TextField label="Out" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
           {labelsError && <Text style={styles.loadError}>{labelsError}</Text>}
           {labelsSaved && !labelsError && <Text style={styles.successNote}>Saved — updated everywhere.</Text>}
           <View style={{ flexDirection: 'row', gap: 8 }}>

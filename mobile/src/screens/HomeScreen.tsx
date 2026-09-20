@@ -151,7 +151,7 @@ function heroCopy(
   if (challenge.kind === 'hunt' && me?.role === 'zombie' && !finished) {
     return {
       eyebrow,
-      headline: `You've been caught — you're a ${labels.zombie} now. ${challenge.name} continues without you.`,
+      headline: `You've been caught — you're ${labels.zombie} now. ${challenge.name} continues without you.`,
     };
   }
 

@@ -18,5 +18,5 @@ export interface HuntLabels {
 export const DEFAULT_HUNT_LABELS: HuntLabels = {
   hunter: 'Hound',
   hunted: 'Fox',
-  zombie: 'Zombie',
+  zombie: 'Out',
 };
