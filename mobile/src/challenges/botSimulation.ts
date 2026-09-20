@@ -10,12 +10,12 @@ export function botInitials(name: string): string {
 
 export const BOT_FITNESS_LEVELS: Record<
   BotFitnessLevel,
-  { label: string; desc: string; dailyStepsRange: [number, number] }
+  { label: string; desc: string; dailyStepsRange: [number, number]; dailyMilesRange: [number, number] }
 > = {
-  casual: { label: 'Casual', desc: '2,500–7,000 steps/day', dailyStepsRange: [2500, 7000] },
-  active: { label: 'Active', desc: '6,500–12,000 steps/day', dailyStepsRange: [6500, 12000] },
-  athletic: { label: 'Athletic', desc: '10,000–16,000 steps/day', dailyStepsRange: [10000, 16000] },
-  elite: { label: 'Elite', desc: '15,000–23,000 steps/day', dailyStepsRange: [15000, 23000] },
+  casual: { label: 'Casual', desc: '2,500–7,000 steps/day', dailyStepsRange: [2500, 7000], dailyMilesRange: [1.5, 3.5] },
+  active: { label: 'Active', desc: '6,500–12,000 steps/day', dailyStepsRange: [6500, 12000], dailyMilesRange: [3, 6] },
+  athletic: { label: 'Athletic', desc: '10,000–16,000 steps/day', dailyStepsRange: [10000, 16000], dailyMilesRange: [5, 9] },
+  elite: { label: 'Elite', desc: '15,000–23,000 steps/day', dailyStepsRange: [15000, 23000], dailyMilesRange: [8, 13] },
 };
 
 // One named preset per fitness level — picking a bot means picking one of
@@ -52,23 +52,44 @@ function pseudoRandom(seed: number): number {
 // `daysElapsed` can be fractional (see daysElapsedFraction below) — every
 // *complete* day (its integer part) counts in full, but the current,
 // still-in-progress day is scaled by how far into it we are, so a bot's
-// steps climb through the day the way a real synced step count would
-// instead of jumping to a full day's total the instant the day starts.
-export function simulateBotSteps(botId: string, fitnessLevel: BotFitnessLevel, daysElapsed: number): number {
-  const [min, max] = BOT_FITNESS_LEVELS[fitnessLevel].dailyStepsRange;
+// steps (or miles) climb through the day the way a real synced total
+// would instead of jumping to a full day's total the instant the day
+// starts. `seedKey` is folded into every day's seed rather than just the
+// bot id, so two metrics simulated for the same bot (steps and distance)
+// draw from independent random streams instead of both landing on the
+// same percentile of their own range every day.
+function simulateBotMetric(seedKey: string, range: [number, number], daysElapsed: number): number {
+  const [min, max] = range;
   const fullDays = Math.floor(daysElapsed);
   const todayFraction = daysElapsed - fullDays;
 
   let total = 0;
   for (let day = 0; day < fullDays; day++) {
-    const rand = pseudoRandom(hashSeed(`${botId}:${day}`));
+    const rand = pseudoRandom(hashSeed(`${seedKey}:${day}`));
     total += min + rand * (max - min);
   }
   if (todayFraction > 0) {
-    const rand = pseudoRandom(hashSeed(`${botId}:${fullDays}`));
+    const rand = pseudoRandom(hashSeed(`${seedKey}:${fullDays}`));
     total += (min + rand * (max - min)) * todayFraction;
   }
-  return Math.round(total);
+  return total;
+}
+
+export function simulateBotSteps(botId: string, fitnessLevel: BotFitnessLevel, daysElapsed: number): number {
+  return Math.round(simulateBotMetric(botId, BOT_FITNESS_LEVELS[fitnessLevel].dailyStepsRange, daysElapsed));
+}
+
+// A fixed steps-per-mile conversion would be fabricated precision — real
+// pace varies by activity, not by a universal ratio — so distance gets its
+// own seeded daily range per fitness level instead of being derived from
+// simulateBotSteps. That makes a bot's steps and distance independent
+// random draws rather than correlated, but a challenge is only ever
+// scored on one metric at a time, so nothing ever shows both side by side
+// for the same bot. Not rounded, unlike steps — real logged distance is
+// never a whole number either, and every caller already formats this with
+// toFixed(1).
+export function simulateBotDistance(botId: string, fitnessLevel: BotFitnessLevel, daysElapsed: number): number {
+  return simulateBotMetric(`${botId}:mi`, BOT_FITNESS_LEVELS[fitnessLevel].dailyMilesRange, daysElapsed);
 }
 
 // Fractional day count for bot simulation specifically — the integer
@@ -104,8 +125,6 @@ export function botToLeaderboardEntry(bot: ChallengeBot, daysElapsed: number): L
     name: bot.name,
     initials: botInitials(bot.name),
     totalSteps: simulateBotSteps(bot.id, bot.fitnessLevel, daysElapsed),
-    // Only steps are simulated — a made-up steps-per-mile conversion would
-    // just be fabricated precision, so bots never show a distance.
-    totalDistanceMi: 0,
+    totalDistanceMi: simulateBotDistance(bot.id, bot.fitnessLevel, daysElapsed),
   };
 }

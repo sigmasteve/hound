@@ -1,4 +1,4 @@
-import { botInitials, daysElapsedFraction, simulateBotSteps } from './botSimulation';
+import { botInitials, daysElapsedFraction, simulateBotDistance, simulateBotSteps } from './botSimulation';
 import type { Challenge, ChallengeBot, HuntRole, LeaderboardEntry, Participant } from './types';
 
 export interface BoardEntry {
@@ -74,17 +74,14 @@ export function buildBoard(
       name: b.name,
       initials: botInitials(b.name),
       totalSteps: simulateBotSteps(b.id, b.fitnessLevel, daysElapsed),
-      // Bots only ever simulate steps — inventing a steps-to-miles
-      // conversion for a distance-scored hunt would be fabricated
-      // precision, so a bot always shows 0 distance.
-      totalDistanceMi: 0,
+      totalDistanceMi: simulateBotDistance(b.id, b.fitnessLevel, daysElapsed),
       isBot: true,
       role: b.role,
       // No fetch to make for a bot — its baseline is exactly the same
       // deterministic simulation as its running total, just evaluated at
       // headStartDays elapsed instead of "now."
       huntBaselineSteps: headStartDays > 0 ? simulateBotSteps(b.id, b.fitnessLevel, headStartDays) : 0,
-      huntBaselineDistanceMi: 0,
+      huntBaselineDistanceMi: headStartDays > 0 ? simulateBotDistance(b.id, b.fitnessLevel, headStartDays) : 0,
     })),
   ];
   // Ranked by huntEffectiveMetric, not the raw totals — for anyone but a
