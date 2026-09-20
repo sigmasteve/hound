@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeftIcon, CaretRightIcon, MagnifyingGlassIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
@@ -108,74 +109,76 @@ export function AdminScreen({
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
-      <Text style={text.h2}>Admin</Text>
+    <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
+        <Text style={text.h2}>Admin</Text>
 
-      {!user?.isAdmin ? (
-        <Text style={styles.footNote}>This page is for admins only.</Text>
-      ) : (
-        <>
-          <Card style={{ gap: 12 }} elevated={false}>
-            <View style={styles.directoryHeader}>
-              <Text style={text.h4}>User directory</Text>
-              {totalUsers !== null && <Text style={styles.footNote}>{totalUsers} registered</Text>}
-            </View>
-            <TextField
-              label="Search"
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Name or email"
-              icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
-              autoCapitalize="none"
-            />
-            {searchError && <Text style={styles.loadError}>{searchError}</Text>}
-            {searching && results.length === 0 ? (
-              <ActivityIndicator color={colors.accent} />
-            ) : results.length === 0 ? (
-              <Text style={styles.footNote}>No users match that search.</Text>
-            ) : (
-              results.map((u) => (
-                <Pressable key={u.id} onPress={() => onOpenUser(u)} style={styles.userRow}>
-                  <Avatar initials={u.initials} tint={TINT_A} size={34} fontSize={12} />
-                  <View style={{ flex: 1, gap: 1 }}>
-                    <Text style={styles.userName}>
-                      {u.name}
-                      {u.isAdmin ? ' · Admin' : ''}
-                    </Text>
-                    <Text style={styles.footNote}>{u.email}</Text>
-                  </View>
-                  <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
-                </Pressable>
-              ))
-            )}
-          </Card>
-
-          <Card style={{ gap: 12 }} elevated={false}>
-            <Text style={text.h4}>Chase labels</Text>
-            <Text style={styles.footNote}>
-              What a chase&rsquo;s three roles are called, everywhere in the app. This changes it for
-              everyone signed in right now, not just you — there&rsquo;s no per-person version of this
-              setting yet.
-            </Text>
-            <TextField label="Hound" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
-            <TextField label="Fox" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
-            <TextField label="Out" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
-            {labelsError && <Text style={styles.loadError}>{labelsError}</Text>}
-            {labelsSaved && !labelsError && <Text style={styles.successNote}>Saved — updated everywhere.</Text>}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Button
-                label={savingLabels ? 'Saving…' : 'Save'}
-                variant="primary"
-                disabled={savingLabels}
-                onPress={() => submitLabels({ hunter: hunterInput, hunted: huntedInput, zombie: zombieInput })}
+        {!user?.isAdmin ? (
+          <Text style={styles.footNote}>This page is for admins only.</Text>
+        ) : (
+          <>
+            <Card style={{ gap: 12 }} elevated={false}>
+              <View style={styles.directoryHeader}>
+                <Text style={text.h4}>User directory</Text>
+                {totalUsers !== null && <Text style={styles.footNote}>{totalUsers} registered</Text>}
+              </View>
+              <TextField
+                label="Search"
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Name or email"
+                icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
+                autoCapitalize="none"
               />
-              <Button label="Reset to default" disabled={savingLabels} onPress={() => submitLabels(DEFAULT_HUNT_LABELS)} />
-            </View>
-          </Card>
-        </>
-      )}
-    </ScrollView>
+              {searchError && <Text style={styles.loadError}>{searchError}</Text>}
+              {searching && results.length === 0 ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : results.length === 0 ? (
+                <Text style={styles.footNote}>No users match that search.</Text>
+              ) : (
+                results.map((u) => (
+                  <Pressable key={u.id} onPress={() => onOpenUser(u)} style={styles.userRow}>
+                    <Avatar initials={u.initials} tint={TINT_A} size={34} fontSize={12} />
+                    <View style={{ flex: 1, gap: 1 }}>
+                      <Text style={styles.userName}>
+                        {u.name}
+                        {u.isAdmin ? ' · Admin' : ''}
+                      </Text>
+                      <Text style={styles.footNote}>{u.email}</Text>
+                    </View>
+                    <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+                  </Pressable>
+                ))
+              )}
+            </Card>
+
+            <Card style={{ gap: 12 }} elevated={false}>
+              <Text style={text.h4}>Chase labels</Text>
+              <Text style={styles.footNote}>
+                What a chase&rsquo;s three roles are called, everywhere in the app. This changes it for
+                everyone signed in right now, not just you — there&rsquo;s no per-person version of this
+                setting yet.
+              </Text>
+              <TextField label="Hound" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
+              <TextField label="Fox" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
+              <TextField label="Out" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
+              {labelsError && <Text style={styles.loadError}>{labelsError}</Text>}
+              {labelsSaved && !labelsError && <Text style={styles.successNote}>Saved — updated everywhere.</Text>}
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Button
+                  label={savingLabels ? 'Saving…' : 'Save'}
+                  variant="primary"
+                  disabled={savingLabels}
+                  onPress={() => submitLabels({ hunter: hunterInput, hunted: huntedInput, zombie: zombieInput })}
+                />
+                <Button label="Reset to default" disabled={savingLabels} onPress={() => submitLabels(DEFAULT_HUNT_LABELS)} />
+              </View>
+            </Card>
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
