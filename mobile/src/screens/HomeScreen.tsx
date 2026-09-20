@@ -827,11 +827,19 @@ function makeStyles(colors: Palette) {
     tileValue: { fontFamily: font.heading, fontSize: 28, color: colors.text },
     tileSub: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
     cardsRow: { gap: 12 },
+    // Fixed, hand-tuned dark background regardless of theme — the same
+    // "always-dark spotlight card" reasoning as HuntScreen's progressCard
+    // (see that file's own comment). Everything drawn on top of it below
+    // (huntTitle through multiTrackDot) uses the fixed dark `color` import
+    // rather than this theme-following `colors` param, for the same
+    // reason: in Light mode, `colors.text`/`colors.divider` flip to their
+    // near-black light-mode values, which would read as invisible against
+    // this card's permanently-dark navy.
     huntCard: { backgroundColor: '#232a54', gap: 12, padding: 16 },
     huntHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    huntTitle: { fontFamily: font.heading, fontSize: 16, color: colors.text, flex: 1 },
+    huntTitle: { fontFamily: font.heading, fontSize: 16, color: color.text, flex: 1 },
     huntTrack: { height: 44, borderRadius: 8, justifyContent: 'center' },
-    huntTrackLine: { height: 1, backgroundColor: colors.divider },
+    huntTrackLine: { height: 1, backgroundColor: color.divider },
     huntMarker: {
       position: 'absolute',
       width: 30,
@@ -844,12 +852,12 @@ function makeStyles(colors: Palette) {
     hunterMarker: { backgroundColor: colors.neutral800 },
     huntedMarker: { backgroundColor: colors.accent800, borderWidth: 1, borderColor: colors.accent },
     huntStatsRow: { gap: 4 },
-    huntLead: { fontFamily: font.heading, fontSize: 24, color: colors.text },
-    huntLeadSuffix: { fontSize: 13, color: withAlpha(colors.text, 0.65), fontFamily: font.body },
-    huntNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    huntLead: { fontFamily: font.heading, fontSize: 24, color: color.text },
+    huntLeadSuffix: { fontSize: 13, color: withAlpha(color.text, 0.65), fontFamily: font.body },
+    huntNote: { fontSize: 12.5, color: withAlpha(color.text, 0.55) },
     multiTrack: { height: 36, justifyContent: 'center' },
     multiTrackDots: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    multiTrackDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: colors.divider },
+    multiTrackDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: color.divider },
     multiPuck: { position: 'absolute', top: 3 },
     multiPuckSpotlight: { borderRadius: 15, borderWidth: 1.5, borderColor: colors.accent, padding: 1.5 },
     multiPuckCaught: { opacity: 0.6 },

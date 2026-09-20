@@ -342,8 +342,8 @@ function makeStyles(colors: Palette) {
     container: { padding: 16, gap: 14, paddingBottom: 48 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 },
     inviteCard: { flexDirection: 'row', gap: 12, backgroundColor: '#2a2540', alignItems: 'center' },
-    inviteTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
-    inviteSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    inviteTitle: { fontFamily: font.heading, fontSize: 14, color: color.text },
+    inviteSub: { fontSize: 12.5, color: withAlpha(color.text, 0.7) },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
