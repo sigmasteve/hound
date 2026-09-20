@@ -254,7 +254,14 @@ export function ChallengeDetailScreen({
         // getRecentWorkouts() takes a count, not a date range, so this
         // over-fetches slightly and filters client-side instead.
         const workouts = await health.getRecentWorkouts(200);
-        const inRange = workouts.filter((w) => w.when >= since);
+        // Day-level, like startDayKey/endCap above — not `w.when >= since`
+        // (the challenge's precise creation timestamp). A workout logged
+        // earlier the same calendar day, before the challenge existed by
+        // a few seconds or hours, is still today's real activity; the
+        // steps branch below already gets this right by clamping to
+        // startDayKey instead of trusting a raw timestamp, and this one
+        // needs the same treatment for the same reason.
+        const inRange = workouts.filter((w) => dateKey(w.when) >= startDayKey);
         const relevant =
           challenge.scoringMethod === 'gps_distance' ? inRange.filter((w) => /run|walk|jog|hike/i.test(w.name)) : inRange;
 
