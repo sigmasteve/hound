@@ -18,7 +18,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { InlineBadge } from '../components/Chip';
 import { useTheme } from '../theme/ThemeContext';
-import { font, withAlpha, type Palette } from '../theme/tokens';
+import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { TALLY } from '../data/sampleData';
 
 const TALLY_ICON: Record<string, React.ComponentType<any>> = {
@@ -158,8 +158,11 @@ function makeStyles(colors: Palette) {
     headerBtns: { flexDirection: 'row', gap: 8 },
     // Fixed, hand-tuned dark background regardless of theme — the same
     // "always-dark spotlight card" reasoning as Home's huntCard (see that
-    // file's own comment). Every color/text inside this card is safe to
-    // leave as its Dark-mode-tuned value for the same reason.
+    // file's own comment). Everything drawn on top of it below
+    // (progressLead through statValue) uses the fixed dark `color` import
+    // rather than this theme-following `colors` param: in Light mode,
+    // `colors.text` flips to its near-black light-mode value, which would
+    // read as invisible against this card's permanently-dark navy.
     progressCard: {
       padding: 20,
       borderRadius: 14,
@@ -167,11 +170,11 @@ function makeStyles(colors: Palette) {
       gap: 20,
     },
     progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    progressLead: { fontFamily: font.heading, fontSize: 32, color: colors.text },
-    progressSub: { fontSize: 13, color: withAlpha(colors.text, 0.7) },
-    progressMeta: { fontSize: 12, color: withAlpha(colors.text, 0.55), textAlign: 'right' },
+    progressLead: { fontFamily: font.heading, fontSize: 32, color: color.text },
+    progressSub: { fontSize: 13, color: withAlpha(color.text, 0.7) },
+    progressMeta: { fontSize: 12, color: withAlpha(color.text, 0.55), textAlign: 'right' },
     track: { height: 90, position: 'relative' },
-    dashedLine: { position: 'absolute', left: 0, right: 0, top: 50, height: 3, backgroundColor: withAlpha(colors.text, 0.15) },
+    dashedLine: { position: 'absolute', left: 0, right: 0, top: 50, height: 3, backgroundColor: withAlpha(color.text, 0.15) },
     marker: {
       position: 'absolute',
       top: 30,
@@ -184,11 +187,11 @@ function makeStyles(colors: Palette) {
     },
     hunterMarker: { backgroundColor: colors.neutral800 },
     huntedMarker: { backgroundColor: colors.accent800, borderWidth: 1, borderColor: colors.accent, top: 8 },
-    markerLabel: { position: 'absolute', top: 70, fontSize: 11, color: colors.text, marginLeft: -40, width: 80, textAlign: 'center' },
+    markerLabel: { position: 'absolute', top: 70, fontSize: 11, color: color.text, marginLeft: -40, width: 80, textAlign: 'center' },
     markerLabelAccent: { color: colors.accent200 },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-    statLabel: { fontSize: 11, letterSpacing: 0.6, color: withAlpha(colors.text, 0.6) },
-    statValue: { fontFamily: font.heading, fontSize: 18, color: colors.text, marginTop: 3 },
+    statLabel: { fontSize: 11, letterSpacing: 0.6, color: withAlpha(color.text, 0.6) },
+    statValue: { fontFamily: font.heading, fontSize: 18, color: color.text, marginTop: 3 },
     tallyRow: {
       flexDirection: 'row',
       alignItems: 'center',
