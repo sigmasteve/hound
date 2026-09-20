@@ -218,6 +218,7 @@ export function RootNavigator() {
                       initials: u.initials,
                       email: u.email,
                       lastActiveAt: u.lastActiveAt,
+                      createdAt: u.createdAt,
                     })
                   }
                 />
@@ -231,6 +232,7 @@ export function RootNavigator() {
                   initials={route.params.initials}
                   email={route.params.email}
                   lastActiveAt={route.params.lastActiveAt}
+                  createdAt={route.params.createdAt}
                   onBack={() => navigation.goBack()}
                 />
               )}
