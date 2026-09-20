@@ -44,7 +44,7 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
         <Card style={styles.platformCard} elevated={false}>
           <AppleLogoIcon size={24} color={colors.text} weight="fill" />
           <Text style={styles.platformName}>Apple Health</Text>
-          <Text style={styles.platformSub}>iPhone, Apple Watch, Withings</Text>
+          <Text style={styles.platformSub}>iPhone, Apple Watch</Text>
           <Button
             label={connecting === 'apple' ? 'Connecting…' : 'Connect'}
             variant="primary"
@@ -58,7 +58,7 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
         <Card style={styles.platformCard} elevated={false}>
           <AndroidLogoIcon size={24} color={colors.text} />
           <Text style={styles.platformName}>Health Connect</Text>
-          <Text style={styles.platformSub}>Pixel, Samsung Health, Fitbit, Strava</Text>
+          <Text style={styles.platformSub}>Pixel, Samsung Health</Text>
           <Button
             label={connecting === 'android' ? 'Connecting…' : 'Connect'}
             variant="primary"

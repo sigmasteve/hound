@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, Share, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Share, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
 import { AndroidLogoIcon, AppleLogoIcon, CaretRightIcon, HourglassIcon, QrCodeIcon, UserPlusIcon } from 'phosphor-react-native';
@@ -111,7 +111,25 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
     }
   };
 
-  if (!isSupabaseConfigured || liveFriends === null) {
+  if (liveFriends === null) {
+    // A real backend exists but its first fetch hasn't resolved yet —
+    // same "one real spinner, then never again" shape as ChallengesScreen's
+    // own challengesLoading. Every tab switch away from Friends unmounts
+    // this screen (MainScreen only renders the active tab), so without
+    // this, coming back always re-ran load() and, for that first instant,
+    // showed the sample fallback below instead of a loading state — easy
+    // to mistake for real data.
+    if (isSupabaseConfigured) {
+      return (
+        <View style={styles.loadingScreen}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      );
+    }
+
+    // No backend configured at all — there's no fetch to wait on, so
+    // this goes straight to the honest sample fallback instead of
+    // spinning forever.
     return (
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={text.h2}>Friends</Text>
@@ -304,6 +322,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 12, paddingBottom: 48 },
+    loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     // An accent wash over this theme's own colors, not a fixed dark
     // background — same "spotlight card that actually follows the theme"
     // reasoning as Home's huntCard (see that file's own comment).
