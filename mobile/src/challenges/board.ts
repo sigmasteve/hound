@@ -119,6 +119,27 @@ export function hasHeadStartElapsed(challenge: Challenge): boolean {
   return daysElapsedFraction(challenge) >= (challenge.headStartDays ?? 0);
 }
 
+// How long after a challenge starts someone can still be invited into it
+// (or accept a pending invite) — past this, ChallengeDetailScreen hides
+// "Invite a friend" and acceptChallengeInvite/inviteFriendToChallenge
+// both refuse (see their own comments in supabaseChallenges.ts). Without
+// some cutoff, an invite sent (or sat on, unaccepted) after everyone
+// else's standing is already obvious would let someone stack a
+// challenge with an easy loss or a sandbagged "ringer" who never faced
+// the same clock as anyone else.
+const INVITE_WINDOW_HOURS = 24;
+
+// A hunt with its own headStartDays keeps using that instead — a real,
+// deliberately-chosen grace period (often longer than 24h) that already
+// exists for exactly this reason, just framed as fairness to the Hunted
+// rather than as an anti-manipulation cutoff. Everything else (every
+// non-hunt kind, and a hunt created with no head start at all, where
+// hasHeadStartElapsed is always already true) gets the flat window.
+export function inviteWindowClosed(challenge: Challenge): boolean {
+  if (challenge.kind === 'hunt' && challenge.headStartDays) return hasHeadStartElapsed(challenge);
+  return Date.now() >= new Date(challenge.startsAt).getTime() + INVITE_WINDOW_HOURS * 3_600_000;
+}
+
 // Whole days left before a hunt's head start elapses, or 0 once it has
 // (or if there was never one to begin with, or this isn't a hunt) — the
 // one place this ceiling/clamp math lives, so ChallengeDetailScreen's

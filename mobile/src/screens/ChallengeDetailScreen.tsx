@@ -19,6 +19,7 @@ import {
   headStartDaysLeft as computeHeadStartDaysLeft,
   headStartBaselineDayKey,
   huntEffectiveMetric,
+  inviteWindowClosed,
   withHuntCatches,
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
@@ -438,14 +439,11 @@ export function ChallengeDetailScreen({
   const invitableFriends = friends.filter(
     (f) => f.status === 'accepted' && !participants.some((p) => p.userId === f.userId),
   );
-  // Same condition as hunterEffectiveNote's own: once a hunt's head
-  // start has genuinely elapsed, a freshly invited friend would join
-  // with no head start credit of their own — the same unfair "instant
-  // target" a late Hunted would face for real. acceptChallengeInvite
-  // enforces this server-side too (see supabaseChallenges.ts) — this is
-  // just what keeps the inviter from sending a doomed invite in the
-  // first place.
-  const huntHeadStartLocked = challenge.kind === 'hunt' && !!challenge.headStartDays && headStartDaysLeft === 0;
+  // Same window inviteFriendToChallenge/acceptChallengeInvite enforce
+  // server-side (see supabaseChallenges.ts and inviteWindowClosed's own
+  // comment) — this is just what keeps the inviter from sending a doomed
+  // invite in the first place.
+  const inviteLocked = inviteWindowClosed(challenge);
 
   // A distance pool isn't ranked at all — everyone's steps or miles
   // (whichever unit its creator picked — see CreateScreen.tsx's "Group
@@ -638,10 +636,11 @@ export function ChallengeDetailScreen({
 
       <Card style={{ gap: 10 }} elevated={false}>
         <Text style={text.h4}>Invite a friend</Text>
-        {huntHeadStartLocked ? (
+        {inviteLocked ? (
           <Text style={styles.footNote}>
-            This chase&rsquo;s head start has already ended — a newly invited friend would join with
-            no head start of their own, so new invites are closed for the rest of this chase.
+            {challenge.kind === 'hunt' && challenge.headStartDays
+              ? `This chase’s head start has already ended — a newly invited friend would join with no head start of their own, so new invites are closed for the rest of this chase.`
+              : `It’s been more than 24 hours since this challenge started, so new invites are closed — joining this late would give someone an unfair read on where everyone else already stands.`}
           </Text>
         ) : invitableFriends.length === 0 ? (
           <Text style={styles.footNote}>
