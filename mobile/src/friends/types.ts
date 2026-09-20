@@ -1,5 +1,24 @@
 export type FriendshipStatus = 'pending' | 'accepted';
 
+// The web landing page a friend code's QR/link points at — see
+// 0019_friend_codes.sql. Not yet built (that's the site/ directory's
+// own follow-up), but the URL shape is fixed here since both the app
+// (generating it) and that page (reading its own path) need to agree on
+// it independently.
+const FRIEND_CODE_URL_PREFIX = 'https://houndchallenge.net/f/';
+
+export function friendCodeUrl(code: string): string {
+  return `${FRIEND_CODE_URL_PREFIX}${code}`;
+}
+
+// Accepts either a bare code or a full pasted link — someone redeeming a
+// friend's code by hand (no camera scan) is just as likely to paste the
+// whole URL they were sent as the code by itself.
+export function extractFriendCode(input: string): string {
+  const trimmed = input.trim();
+  return trimmed.startsWith(FRIEND_CODE_URL_PREFIX) ? trimmed.slice(FRIEND_CODE_URL_PREFIX.length) : trimmed;
+}
+
 export interface Friend {
   friendshipId: string;
   userId: string;
@@ -30,4 +49,14 @@ export interface FriendsProvider {
   // Declining a pending invite and unfriending someone are the same
   // operation on this schema — there's only one row per pair either way.
   removeFriendship(friendshipId: string): Promise<void>;
+  // This user's own durable "add me" code (see 0019_friend_codes.sql) —
+  // every account has one, minted at signup, so this never needs a
+  // "generate mine" step.
+  getMyFriendCode(): Promise<string>;
+  // Redeems someone else's code (accepts either the bare code or a full
+  // friendCodeUrl(...) link — see extractFriendCode). Unlike
+  // inviteByEmail, this connects immediately as 'accepted': opening
+  // someone's own code is a deliberate, already-mutual act, not an async
+  // invite that still needs a separate accept step.
+  addFriendByCode(code: string): Promise<void>;
 }
