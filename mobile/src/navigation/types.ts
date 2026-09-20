@@ -10,5 +10,12 @@ export type RootStackParamList = {
   ChallengeDetail: { challengeId: string };
   FriendDetail: { friendshipId: string; friendUserId: string; friendName: string; friendInitials: string };
   Admin: undefined;
-  AdminUserDetail: { userId: string; name: string; initials: string; email: string; lastActiveAt: string | null };
+  AdminUserDetail: {
+    userId: string;
+    name: string;
+    initials: string;
+    email: string;
+    lastActiveAt: string | null;
+    createdAt: string;
+  };
 };

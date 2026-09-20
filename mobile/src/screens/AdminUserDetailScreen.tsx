@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeftIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, TrashIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
-import { getUserOverview, type AdminUserOverview } from '../admin/adminApi';
+import { useAuth } from '../auth/AuthContext';
+import { deleteUser, getUserOverview, type AdminUserOverview } from '../admin/adminApi';
 
 // Same "how long ago" shape as SettingsScreen's own timeAgo(), extended
 // with days/weeks — that one only ever formats a just-synced device (at
@@ -31,6 +32,7 @@ export function AdminUserDetailScreen({
   initials,
   email,
   lastActiveAt,
+  createdAt,
   onBack,
 }: {
   userId: string;
@@ -42,13 +44,17 @@ export function AdminUserDetailScreen({
   // rather than re-fetched — admin_user_overview only covers the two
   // stats profiles.select can't already answer on its own.
   lastActiveAt: string | null;
+  createdAt: string;
   onBack: () => void;
 }) {
+  const { user: currentUser } = useAuth();
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const isSelf = currentUser?.id === userId;
 
   const [overview, setOverview] = useState<AdminUserOverview | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +70,30 @@ export function AdminUserDetailScreen({
     };
   }, [userId]);
 
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete this account?',
+      `${name}'s Hound account, and everything tied to it — challenges they've joined, friendships, kudos — will be permanently deleted. This can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteUser(userId);
+              onBack();
+            } catch (e) {
+              Alert.alert('Could not delete', e instanceof Error ? e.message : 'Try again.');
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -74,6 +104,9 @@ export function AdminUserDetailScreen({
           <View style={{ flex: 1 }}>
             <Text style={text.h2}>{name}</Text>
             <Text style={styles.footNote}>{email}</Text>
+            <Text style={styles.footNote}>
+              Joined {new Date(createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+            </Text>
           </View>
         </View>
 
@@ -97,6 +130,15 @@ export function AdminUserDetailScreen({
             <ActivityIndicator color={colors.accent} />
           ) : null}
         </Card>
+
+        {isSelf ? (
+          <Text style={[styles.footNote, { textAlign: 'center' }]}>You can't delete your own account from here.</Text>
+        ) : (
+          <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteRow}>
+            <TrashIcon size={14} color={colors.amber} />
+            <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete account'}</Text>
+          </Pressable>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -121,6 +163,15 @@ function makeStyles(colors: Palette) {
     statValue: { fontFamily: font.heading, fontSize: 22, color: colors.text },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
     errorNote: { fontSize: 12.5, color: colors.amber },
+    deleteRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 10,
+      marginTop: 4,
+    },
+    deleteLabel: { fontSize: 13, color: colors.amber, fontFamily: font.heading },
   });
 }
 
