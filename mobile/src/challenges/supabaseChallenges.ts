@@ -76,9 +76,23 @@ function rowToChallenge(row: ChallengeRow): Challenge {
 export const supabaseChallengesProvider: ChallengesProvider = {
   async listMyChallenges(): Promise<Challenge[]> {
     const client = requireClient();
+    const userId = await requireUserId();
+    // An explicit inner-join filter, not a bare `select *` trusting RLS
+    // alone to define "my challenges" — 0009_challenge_invites.sql's own
+    // "Invitees can view challenges they're invited to" policy is a
+    // second, independently permissive SELECT policy (Postgres ORs every
+    // permissive policy for the same command together), added so the
+    // invite card can read a challenge's name/kind/duration before it's
+    // accepted. A bare `select *` here would return exactly those rows
+    // too, showing a challenge someone's only been invited to — never
+    // actually joined — as if it were already theirs. This join only
+    // ever returns rows where the caller has a real
+    // challenge_participants row: every creator gets one immediately
+    // (see createChallenge below), and so does anyone who's accepted.
     const { data, error } = await client
       .from('challenges')
-      .select(CHALLENGE_COLUMNS)
+      .select(`${CHALLENGE_COLUMNS}, challenge_participants!inner(user_id)`)
+      .eq('challenge_participants.user_id', userId)
       .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     return (data ?? []).map(rowToChallenge);
