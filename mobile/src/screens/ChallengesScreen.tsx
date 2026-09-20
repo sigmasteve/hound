@@ -176,7 +176,7 @@ export function ChallengesScreen({
               </Text>
               <Text style={styles.inviteSub}>
                 {invite.challengeKind === 'hunt'
-                  ? huntKindName(labels)
+                  ? huntKindName()
                   : CHALLENGE_TYPES.find((t) => t.id === invite.challengeKind)?.name ?? invite.challengeKind}{' '}
                 ·{' '}
                 {invite.durationDays} days

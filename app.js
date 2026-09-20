@@ -26,14 +26,14 @@
   ];
 
   var CHALLENGE_TYPES = [
-    ['hunt', 'Hunter & Hunted', 'One runner gets a head start. The other has to catch them on logged miles before time runs out.', 'ph-fill ph-paw-print', 'var(--color-accent-800)', 'var(--color-accent-100)'],
+    ['hunt', 'Chase', 'One runner gets a head start. The other has to catch them on logged miles before time runs out.', 'ph-fill ph-paw-print', 'var(--color-accent-800)', 'var(--color-accent-100)'],
     ['steps', 'Step Race', 'Most steps over the window. Everyone against everyone.', 'ph ph-footprints', '#3f424d', '#e9e9ed'],
     ['streak', 'Daily Streak', 'Hit a daily goal every day. One miss and you are out.', 'ph ph-flame', '#3f424d', '#e9e9ed'],
     ['distance', 'Distance Pool', 'Add every mile the group covers toward one shared target.', 'ph ph-path', '#3f424d', '#e9e9ed'],
   ];
 
   var FRIEND_DATA = [
-    { name: 'Marcus R.', initials: 'MR', platform: 'Apple Health', srcIcon: 'ph-fill ph-apple-logo', tint: TINT_N, sync: 'Synced 22m ago', syncColor: GREEN, sub: 'Your hunter · 4 challenges together' },
+    { name: 'Marcus R.', initials: 'MR', platform: 'Apple Health', srcIcon: 'ph-fill ph-apple-logo', tint: TINT_N, sync: 'Synced 22m ago', syncColor: GREEN, sub: 'Your hound · 4 challenges together' },
     { name: 'Dana K.', initials: 'DK', platform: 'Health Connect', srcIcon: 'ph ph-android-logo', tint: TINT_A, sync: 'Synced 1h ago', syncColor: GREEN, sub: 'Joined in January' },
     { name: 'Priya S.', initials: 'PS', platform: 'Apple Health', srcIcon: 'ph-fill ph-apple-logo', tint: TINT_N, sync: 'Synced 8m ago', syncColor: GREEN, sub: 'Sent you an invite' },
     { name: 'Theo A.', initials: 'TA', platform: 'Health Connect', srcIcon: 'ph ph-android-logo', tint: TINT_A, sync: 'Stale · 2 days', syncColor: AMBER, sub: 'Pixel 8 · reconnect needed' },
@@ -57,7 +57,7 @@
 
   var CHALLENGES = [
     {
-      name: 'The Hunt: Jordan vs Marcus', kind: 'Hunter & Hunted', tagClass: 'tag tag-accent',
+      name: 'The Chase: Jordan vs Marcus', kind: 'Chase', tagClass: 'tag tag-accent',
       sub: 'Day 9 of 21 · GPS distance from runs and walks', stat: '7.4 mi', statLabel: 'your lead',
       icon: 'ph-fill ph-paw-print', tint: 'var(--color-accent-800)', iconColor: 'var(--color-accent-100)',
       people: [{ initials: 'JL', tint: TINT_A }, { initials: 'MR', tint: TINT_N }],
@@ -223,7 +223,7 @@
       '<section style="display:flex;flex-direction:column;gap:22px">' +
         '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:10px">' +
           '<div>' +
-            '<p style="margin:0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent)">Tuesday · week 3 of the hunt</p>' +
+            '<p style="margin:0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent)">Tuesday · week 3 of the chase</p>' +
             '<h2 style="margin:6px 0 0;font-size:clamp(26px,4vw,34px)">Marcus is 7.4 mi behind you.</h2>' +
           '</div>' +
           '<button type="button" data-act="go" data-arg="hunt" class="btn btn-primary" style="font-size:14px;padding:9px 14px"><i class="ph ph-crosshair"></i>Open the chase</button>' +
@@ -321,8 +321,8 @@
 
         '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">' +
           '<div>' +
-            '<p style="margin:0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent)">Hunter &amp; Hunted · 21 days</p>' +
-            '<h2 style="margin:6px 0 0;font-size:clamp(24px,3.6vw,32px)">Marcus is hunting you</h2>' +
+            '<p style="margin:0;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent)">Chase · 21 days</p>' +
+            '<h2 style="margin:6px 0 0;font-size:clamp(24px,3.6vw,32px)">Marcus is chasing you</h2>' +
           '</div>' +
           '<div style="display:flex;gap:8px">' +
             '<button type="button" class="btn btn-secondary" style="font-size:13px"><i class="ph ph-chat-circle"></i>Trash talk</button>' +
@@ -447,8 +447,8 @@
             '<input id="hound-headstart" type="range" min="1" max="3" step="1" value="' + state.headStart + '" data-act="setHeadStart" style="width:100%;accent-color:var(--color-accent)">' +
             '<p class="text-muted" style="margin:0;font-size:12.5px">The hunted logs alone for ' + headStartLabel + '. Then the hunter starts tallying and has to close the gap before the clock runs out.</p>' +
             '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">' +
-              '<div class="field" style="margin:0"><label>Hunted</label><div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb, #161826 55%, transparent);font-size:13.5px"><span style="display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--color-accent-800);font-size:9.5px;font-weight:600">JL</span>You</div></div>' +
-              '<div class="field" style="margin:0"><label>Hunter</label><div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb, #161826 55%, transparent);font-size:13.5px"><span style="display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#3f424d;font-size:9.5px;font-weight:600">MR</span>Marcus</div></div>' +
+              '<div class="field" style="margin:0"><label>Fox</label><div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb, #161826 55%, transparent);font-size:13.5px"><span style="display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--color-accent-800);font-size:9.5px;font-weight:600">JL</span>You</div></div>' +
+              '<div class="field" style="margin:0"><label>Hound</label><div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;background:color-mix(in srgb, #161826 55%, transparent);font-size:13.5px"><span style="display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#3f424d;font-size:9.5px;font-weight:600">MR</span>Marcus</div></div>' +
             '</div>' +
           '</div>'
         );
@@ -491,7 +491,7 @@
       body = (
         '<div style="display:flex;flex-direction:column;gap:14px">' +
           '<h2 style="margin:0;font-size:clamp(24px,3.6vw,30px)">Bring friends</h2>' + picks +
-          '<div style="display:flex;gap:8px;align-items:center;padding:13px 14px;border-radius:8px;background:var(--color-surface);box-shadow:var(--shadow-sm);flex-wrap:wrap"><i class="ph ph-link" style="font-size:16px;color:var(--color-accent)"></i><span style="flex:1;min-width:160px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;opacity:.75">hound.app/j/hunt-4kq9</span><button type="button" class="btn btn-secondary" style="font-size:12px">Copy invite link</button></div>' +
+          '<div style="display:flex;gap:8px;align-items:center;padding:13px 14px;border-radius:8px;background:var(--color-surface);box-shadow:var(--shadow-sm);flex-wrap:wrap"><i class="ph ph-link" style="font-size:16px;color:var(--color-accent)"></i><span style="flex:1;min-width:160px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;opacity:.75">hound.app/j/chase-4kq9</span><button type="button" class="btn btn-secondary" style="font-size:12px">Copy invite link</button></div>' +
           '<p class="text-muted" style="margin:0;font-size:12.5px">Friends on iPhone connect Apple Health, friends on Android connect Health Connect. Same link either way.</p>' +
         '</div>'
       );

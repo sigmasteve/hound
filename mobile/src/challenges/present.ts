@@ -8,7 +8,7 @@ import type { Challenge, ChallengeBot, HuntRole, LeaderboardEntry, Participant }
 
 // What a role's <Tag> actually reads — HuntRole's own values ('hunter',
 // 'hunted', 'zombie') are internal identifiers that never change; this is
-// the customizable word for it (see SettingsScreen's "Hunt labels" card
+// the customizable word for it (see SettingsScreen's "Chase labels" card
 // and src/labels/). `labels` defaults to the app's original wording so a
 // caller that hasn't loaded useLabels() yet (or Supabase isn't
 // configured) still renders something correct.
@@ -22,12 +22,13 @@ export const HUNT_ROLE_TAG_VARIANT: Record<HuntRole, 'accent' | 'neutral' | 'out
   zombie: 'outline',
 };
 
-// The hunt challenge kind's own display name — literally built from the
-// same two customizable words (the app's original "Hunter & Hunted"),
-// so it has to track the same setting rather than staying hardcoded
-// while the role tags it's named after change out from under it.
-export function huntKindName(labels: HuntLabels = DEFAULT_HUNT_LABELS): string {
-  return `${labels.hunter} & ${labels.hunted}`;
+// The hunt challenge kind's own display name. Used to be built from the
+// two customizable role words (the app's original "Hunter & Hunted"), but
+// "Chase" reads as its own name rather than a composite of whatever the
+// two roles are currently called, so it's a fixed word now, independent
+// of src/labels/.
+export function huntKindName(): string {
+  return 'Chase';
 }
 
 // Turns a raw challenge + who's in it + what they've logged into the same
@@ -51,7 +52,7 @@ export function toChallengeCard(
   labels: HuntLabels = DEFAULT_HUNT_LABELS,
 ): ChallengeCard {
   const typeDef = CHALLENGE_TYPES.find((t) => t.id === challenge.kind);
-  const kindLabel = challenge.kind === 'hunt' ? huntKindName(labels) : (typeDef?.name ?? challenge.kind);
+  const kindLabel = challenge.kind === 'hunt' ? huntKindName() : (typeDef?.name ?? challenge.kind);
   const tint = typeDef?.tint ?? TINT_N;
   const iconColor = typeDef?.iconColor ?? '#e9e9ed';
 

@@ -1,10 +1,10 @@
-// The customizable words a hunt's three roles show up as everywhere in
-// the app — the leaderboard's role Tag, Home's hero copy, the Create
-// wizard's "Who's the Hunter?" step, and the "Hunter & Hunted" challenge
-// kind name itself (see huntKindName in ../challenges/present). Internal
-// role identifiers (HuntRole — 'hunter' | 'hunted' | 'zombie' in
-// ../challenges/types) never change; this is purely what a screen
-// displays for them.
+// The customizable words a chase's three roles show up as everywhere in
+// the app — the leaderboard's role Tag, Home's hero copy, and the Create
+// wizard's "Who's the Hound?" step. The challenge kind's own display name
+// ("Chase" — see huntKindName in ../challenges/present) isn't built from
+// these anymore, so it isn't part of this set. Internal role identifiers
+// (HuntRole — 'hunter' | 'hunted' | 'zombie' in ../challenges/types) never
+// change; this is purely what a screen displays for them.
 export interface HuntLabels {
   hunter: string;
   hunted: string;
@@ -13,9 +13,10 @@ export interface HuntLabels {
 
 // What every screen shows before the real, shared row loads (or when
 // nobody's ever changed it, or Supabase isn't configured) — the app's
-// original, only wording until this setting existed.
+// current, generic wording (see 0017_rename_hunt_labels_to_chase.sql for
+// the backend half of this rename).
 export const DEFAULT_HUNT_LABELS: HuntLabels = {
-  hunter: 'Hunter',
-  hunted: 'Hunted',
-  zombie: 'Zombie',
+  hunter: 'Hound',
+  hunted: 'Fox',
+  zombie: 'Out',
 };

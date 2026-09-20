@@ -237,7 +237,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                   <TypeIcon size={19} color={t.iconColor} weight={t.id === 'hunt' ? 'fill' : 'regular'} />
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName(labels) : t.name}</Text>
+                  <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName() : t.name}</Text>
                   <Text style={styles.typeDesc}>{t.desc}</Text>
                 </View>
                 {picked ? (
@@ -382,8 +382,8 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
               />
               <Text style={styles.huntBlockNote}>
                 The {labels.hunted} logs alone for {headStartLabel}. Then the {labels.hunter} starts
-                tallying and has to close the gap before the clock runs out. Pick who&rsquo;s hunting
-                whom on the next step — a hunt always has exactly one {labels.hunter}, but can have more
+                tallying and has to close the gap before the clock runs out. Pick who&rsquo;s chasing
+                whom on the next step — a chase always has exactly one {labels.hunter}, but can have more
                 than one {labels.hunted}.
               </Text>
             </View>
@@ -410,10 +410,10 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
               <DevicesIcon size={17} color={colors.accentActive} />
               <Text style={styles.noticeText}>
                 {scoringMethod === 'device_steps'
-                  ? 'Everyone in this hunt is scored on today’s device step count, synced automatically from their own phone.'
+                  ? 'Everyone in this chase is scored on today’s device step count, synced automatically from their own phone.'
                   : scoringMethod === 'any_workout'
-                    ? 'Everyone in this hunt is scored on total distance from every logged workout today, GPS or not.'
-                    : 'Everyone in this hunt is scored on GPS distance from today’s runs and walks specifically — a treadmill session or a phone left on a desk won’t count.'}
+                    ? 'Everyone in this chase is scored on total distance from every logged workout today, GPS or not.'
+                    : 'Everyone in this chase is scored on GPS distance from today’s runs and walks specifically — a treadmill session or a phone left on a desk won’t count.'}
               </Text>
             </View>
           )}
@@ -454,7 +454,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
           )}
           <View style={styles.linkRow}>
             <LinkIcon size={16} color={colors.accent} />
-            <Text style={styles.linkText}>hound.app/j/hunt-4kq9</Text>
+            <Text style={styles.linkText}>hound.app/j/chase-4kq9</Text>
             <Button label="Copy invite link" small />
           </View>
           <Text style={styles.footNote}>
@@ -547,7 +547,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
               ))}
               {invited.length === 0 && selectedBots.length === 0 && (
                 <Text style={styles.footNote}>
-                  Invite a friend or add a bot above to give this hunt someone else to chase, or be
+                  Invite a friend or add a bot above to give this chase someone else to chase, or be
                   chased by.
                 </Text>
               )}

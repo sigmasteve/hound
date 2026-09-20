@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { HuntLabels } from './types';
 
-// Used from SettingsScreen's "Hunt labels" card — see
+// Used from SettingsScreen's "Chase labels" card — see
 // 0015_app_labels.sql for the backend half (a single shared row, app-wide
 // for now; see that migration's own comment on the per-organization
 // follow-up this deliberately isn't yet).

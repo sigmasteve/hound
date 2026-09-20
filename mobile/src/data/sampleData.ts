@@ -96,9 +96,9 @@ export interface ChallengeCard {
 export const CHALLENGES: ChallengeCard[] = [
   {
     id: 'hunt-1',
-    name: 'The Hunt: Jordan vs Marcus',
+    name: 'The Chase: Jordan vs Marcus',
     kind: 'hunt',
-    kindLabel: 'Hunter & Hunted',
+    kindLabel: 'Chase',
     sub: 'Day 9 of 21 · GPS distance from runs and walks',
     stat: '7.4 mi',
     statLabel: 'your lead',
@@ -151,7 +151,7 @@ export const CHALLENGE_TYPES: {
   tint: string;
   iconColor: string;
 }[] = [
-  { id: 'hunt', name: 'Hunter & Hunted', desc: 'One runner gets a head start. The other has to catch them on logged miles before time runs out.', tint: TINT_A, iconColor: '#f5f4ff' },
+  { id: 'hunt', name: 'Chase', desc: 'One runner gets a head start. The other has to catch them on logged miles before time runs out.', tint: TINT_A, iconColor: '#f5f4ff' },
   { id: 'steps', name: 'Step Race', desc: 'Most steps over the window. Everyone against everyone.', tint: TINT_N, iconColor: '#e9e9ed' },
   { id: 'streak', name: 'Daily Streak', desc: 'Hit a daily goal every day. One miss and you are out.', tint: TINT_N, iconColor: '#e9e9ed' },
   { id: 'distance', name: 'Distance Pool', desc: 'Add every mile the group covers toward one shared target.', tint: TINT_N, iconColor: '#e9e9ed' },
@@ -172,7 +172,7 @@ export const SOURCES: DataSource[] = [
 ];
 
 export const ALERT_DEFS = [
-  { label: 'Someone closes within 2 miles of me', note: 'Hunt challenges', defaultOn: true },
+  { label: 'Someone closes within 2 miles of me', note: 'Chase challenges', defaultOn: true },
   { label: 'A friend’s data goes stale mid-challenge', note: 'All challenges', defaultOn: true },
   { label: 'Daily standings at 8pm', note: 'Step races', defaultOn: false },
 ];
