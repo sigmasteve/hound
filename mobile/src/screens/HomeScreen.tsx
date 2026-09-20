@@ -777,13 +777,18 @@ function MetricTile({
   );
 }
 
-// The hunt card's own background is a fixed, hand-tuned dark navy
-// (`#232a54`, close to but distinct from the `section` token), not
-// derived from `colors.surface` — a deliberately "always dark" spotlight
-// card, the same reasoning as this file's other theme-agnostic accent
-// colors (see tokens.ts's own comment on why the accent/neutral scales
-// don't flip), so it keeps reading as a branded highlight in Light mode
-// instead of just turning white like every other card.
+// The hunt card's own background used to be a fixed, hand-tuned dark navy
+// regardless of theme, so it'd keep reading as a branded highlight
+// instead of turning white like every other card in Light mode — but a
+// permanently-dark card sitting in an otherwise-light screen just read as
+// broken, not "branded." An accent wash over this theme's own `colors.bg`
+// keeps the same "this card is special" pop in both themes (a muted
+// purple-navy tint in Dark mode, a pale lavender in Light mode) without
+// abandoning the theme, and its own text/divider styles below
+// (huntTitle through multiTrackDot) go back to the theme-following
+// `colors` param to match — HuntScreen's progressCard and
+// ChallengesScreen's inviteCard get the same treatment, for the same
+// reason.
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 20, paddingBottom: 48 },
@@ -835,11 +840,17 @@ function makeStyles(colors: Palette) {
     // reason: in Light mode, `colors.text`/`colors.divider` flip to their
     // near-black light-mode values, which would read as invisible against
     // this card's permanently-dark navy.
-    huntCard: { backgroundColor: '#232a54', gap: 12, padding: 16 },
+    huntCard: {
+      backgroundColor: withAlpha(colors.accent, 0.14),
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 0.4),
+      gap: 12,
+      padding: 16,
+    },
     huntHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    huntTitle: { fontFamily: font.heading, fontSize: 16, color: color.text, flex: 1 },
+    huntTitle: { fontFamily: font.heading, fontSize: 16, color: colors.text, flex: 1 },
     huntTrack: { height: 44, borderRadius: 8, justifyContent: 'center' },
-    huntTrackLine: { height: 1, backgroundColor: color.divider },
+    huntTrackLine: { height: 1, backgroundColor: colors.divider },
     huntMarker: {
       position: 'absolute',
       width: 30,
@@ -852,12 +863,12 @@ function makeStyles(colors: Palette) {
     hunterMarker: { backgroundColor: colors.neutral800 },
     huntedMarker: { backgroundColor: colors.accent800, borderWidth: 1, borderColor: colors.accent },
     huntStatsRow: { gap: 4 },
-    huntLead: { fontFamily: font.heading, fontSize: 24, color: color.text },
-    huntLeadSuffix: { fontSize: 13, color: withAlpha(color.text, 0.65), fontFamily: font.body },
-    huntNote: { fontSize: 12.5, color: withAlpha(color.text, 0.55) },
+    huntLead: { fontFamily: font.heading, fontSize: 24, color: colors.text },
+    huntLeadSuffix: { fontSize: 13, color: withAlpha(colors.text, 0.65), fontFamily: font.body },
+    huntNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     multiTrack: { height: 36, justifyContent: 'center' },
     multiTrackDots: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    multiTrackDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: color.divider },
+    multiTrackDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: colors.divider },
     multiPuck: { position: 'absolute', top: 3 },
     multiPuckSpotlight: { borderRadius: 15, borderWidth: 1.5, borderColor: colors.accent, padding: 1.5 },
     multiPuckCaught: { opacity: 0.6 },

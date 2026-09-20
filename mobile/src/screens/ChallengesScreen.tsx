@@ -333,17 +333,24 @@ function FinishedRow({
   );
 }
 
-// The invite card's own background is a fixed, hand-tuned dark purple
-// tint (close to but distinct from the accent900 token), the same
-// "deliberately always-dark spotlight" reasoning as HomeScreen's hunt
-// card — see that file's own comment on its `huntCard` style.
+// The invite card's own background is an accent wash over this theme's
+// own colors, not a fixed hand-tuned tint — same "spotlight card that
+// actually follows the theme" reasoning as HomeScreen's hunt card, see
+// that file's own comment on its `huntCard` style.
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 14, paddingBottom: 48 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 },
-    inviteCard: { flexDirection: 'row', gap: 12, backgroundColor: '#2a2540', alignItems: 'center' },
-    inviteTitle: { fontFamily: font.heading, fontSize: 14, color: color.text },
-    inviteSub: { fontSize: 12.5, color: withAlpha(color.text, 0.7) },
+    inviteCard: {
+      flexDirection: 'row',
+      gap: 12,
+      backgroundColor: withAlpha(colors.accent, 0.12),
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 0.4),
+      alignItems: 'center',
+    },
+    inviteTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
+    inviteSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
