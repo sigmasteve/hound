@@ -9,4 +9,6 @@ export type RootStackParamList = {
   Create: undefined;
   ChallengeDetail: { challengeId: string };
   FriendDetail: { friendshipId: string; friendUserId: string; friendName: string; friendInitials: string };
+  Admin: undefined;
+  AdminUserDetail: { userId: string; name: string; initials: string; email: string; lastActiveAt: string | null };
 };
