@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import { CaretRightIcon } from 'phosphor-react-native';
 import { Card } from '../components/Card';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { Tag } from '../components/Tag';
@@ -101,6 +102,7 @@ export function MetricsScreen() {
   const [weekly, setWeekly] = useState<DailySteps[]>([]);
   const [series, setSeries] = useState<number[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutSample[]>([]);
+  const [workoutsOpen, setWorkoutsOpen] = useState(false);
 
   useEffect(() => {
     health.getWeeklySteps().then(setWeekly);
@@ -135,28 +137,6 @@ export function MetricsScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={text.h2}>Your data</Text>
-
-      <Card style={{ gap: 14, padding: 18 }} elevated={false}>
-        <Text style={text.h4}>This week</Text>
-        <View style={styles.weekGrid}>
-          <View style={styles.weekTile}>
-            <Text style={styles.weekTileLabel}>TOTAL STEPS</Text>
-            <Text style={styles.weekTileValue}>{totalSteps.toLocaleString()}</Text>
-          </View>
-          <View style={styles.weekTile}>
-            <Text style={styles.weekTileLabel}>TOTAL DISTANCE</Text>
-            <Text style={styles.weekTileValue}>{totalDistanceMi.toFixed(1)} mi</Text>
-          </View>
-          <View style={styles.weekTile}>
-            <Text style={styles.weekTileLabel}>DAILY AVG</Text>
-            <Text style={styles.weekTileValue}>{avgSteps.toLocaleString()}</Text>
-          </View>
-          <View style={styles.weekTile}>
-            <Text style={styles.weekTileLabel}>WORKOUTS</Text>
-            <Text style={styles.weekTileValue}>{workoutCount}</Text>
-          </View>
-        </View>
-      </Card>
 
       <SegmentedControl
         value={tab}
@@ -204,32 +184,69 @@ export function MetricsScreen() {
           </Svg>
         )}
 
-        <View style={styles.tagRow}>
-          <Tag label="Apple Health" variant="neutral" />
-          <Tag label="Health Connect" variant="neutral" />
-          <Tag label="De-duplicated across devices" variant="outline" />
-          {tab === 'steps' && <Tag label="↗ Trend" variant="amber" />}
+        {tab === 'steps' && (
+          <View style={styles.tagRow}>
+            <Tag label="↗ Trend" variant="amber" />
+          </View>
+        )}
+      </Card>
+
+      <Card style={{ gap: 14, padding: 18 }} elevated={false}>
+        <Text style={text.h4}>This week</Text>
+        <View style={styles.weekGrid}>
+          <View style={styles.weekTile}>
+            <Text style={styles.weekTileLabel}>TOTAL STEPS</Text>
+            <Text style={styles.weekTileValue}>{totalSteps.toLocaleString()}</Text>
+          </View>
+          <View style={styles.weekTile}>
+            <Text style={styles.weekTileLabel}>TOTAL DISTANCE</Text>
+            <Text style={styles.weekTileValue}>{totalDistanceMi.toFixed(1)} mi</Text>
+          </View>
+          <View style={styles.weekTile}>
+            <Text style={styles.weekTileLabel}>DAILY AVG</Text>
+            <Text style={styles.weekTileValue}>{avgSteps.toLocaleString()}</Text>
+          </View>
+          <View style={styles.weekTile}>
+            <Text style={styles.weekTileLabel}>WORKOUTS</Text>
+            <Text style={styles.weekTileValue}>{workoutCount}</Text>
+          </View>
         </View>
       </Card>
 
       <Card style={{ padding: 0, overflow: 'hidden' }} elevated={false}>
-        <View style={styles.tableHeader}>
-          <Text style={[styles.th, { flex: 1.4 }]}>WORKOUT</Text>
-          <Text style={[styles.th, { flex: 1 }]}>WHEN</Text>
-          <Text style={[styles.th, styles.thRight]}>DIST</Text>
-          <Text style={[styles.th, styles.thRight]}>HR</Text>
-        </View>
-        {workouts.slice(0, 5).map((w) => (
-          <View key={w.id} style={styles.tableRow}>
-            <Text style={[styles.td, { flex: 1.4 }]}>{w.name}</Text>
-            <Text style={[styles.td, styles.tdMuted, { flex: 1 }]}>
-              {w.when.toLocaleDateString(undefined, { weekday: 'short' })}{' '}
-              {w.when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-            </Text>
-            <Text style={[styles.td, styles.tdRight]}>{w.distanceMi ? `${w.distanceMi.toFixed(1)} mi` : '—'}</Text>
-            <Text style={[styles.td, styles.tdRight]}>{w.avgHeartRate ?? '—'}</Text>
-          </View>
-        ))}
+        <Pressable
+          style={[styles.workoutsHeader, workoutsOpen && styles.workoutsHeaderOpen]}
+          onPress={() => setWorkoutsOpen((open) => !open)}
+        >
+          <Text style={styles.workoutsTitle}>Workouts</Text>
+          <Text style={styles.workoutsCount}>{workouts.slice(0, 5).length}</Text>
+          <CaretRightIcon
+            size={16}
+            color={withAlpha(colors.text, 0.5)}
+            style={workoutsOpen ? styles.workoutsCaretOpen : undefined}
+          />
+        </Pressable>
+        {workoutsOpen && (
+          <>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.th, { flex: 1.4 }]}>WORKOUT</Text>
+              <Text style={[styles.th, { flex: 1 }]}>WHEN</Text>
+              <Text style={[styles.th, styles.thRight]}>DIST</Text>
+              <Text style={[styles.th, styles.thRight]}>HR</Text>
+            </View>
+            {workouts.slice(0, 5).map((w) => (
+              <View key={w.id} style={styles.tableRow}>
+                <Text style={[styles.td, { flex: 1.4 }]}>{w.name}</Text>
+                <Text style={[styles.td, styles.tdMuted, { flex: 1 }]}>
+                  {w.when.toLocaleDateString(undefined, { weekday: 'short' })}{' '}
+                  {w.when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                </Text>
+                <Text style={[styles.td, styles.tdRight]}>{w.distanceMi ? `${w.distanceMi.toFixed(1)} mi` : '—'}</Text>
+                <Text style={[styles.td, styles.tdRight]}>{w.avgHeartRate ?? '—'}</Text>
+              </View>
+            ))}
+          </>
+        )}
       </Card>
     </ScrollView>
   );
@@ -327,6 +344,22 @@ function makeStyles(colors: Palette) {
     // white surface (see tokens.ts's own comment on accentActive).
     barLabelToday: { color: colors.accentActive },
     tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    workoutsHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      padding: 16,
+    },
+    // Only a real border while open, separating the header from the table
+    // below — collapsed, the header is the whole card, so a border here
+    // would just be a stray line under empty space.
+    workoutsHeaderOpen: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: withAlpha(colors.text, 0.08),
+    },
+    workoutsTitle: { flex: 1, fontFamily: font.heading, fontSize: 16, color: colors.text },
+    workoutsCount: { fontSize: 13, color: withAlpha(colors.text, 0.5) },
+    workoutsCaretOpen: { transform: [{ rotate: '90deg' }] },
     tableHeader: {
       flexDirection: 'row',
       padding: 12,

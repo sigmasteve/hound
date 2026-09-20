@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   AppleLogoIcon,
   AndroidLogoIcon,
   ArrowLeftIcon,
+  CaretRightIcon,
   ChatCircleIcon,
   DogIcon,
   PersonSimpleRunIcon,
@@ -31,6 +32,7 @@ const TALLY_ICON: Record<string, React.ComponentType<any>> = {
 export function HuntScreen({ onBack }: { onBack: () => void }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [tallyOpen, setTallyOpen] = useState(false);
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
     <ScrollView contentContainerStyle={styles.container}>
@@ -78,23 +80,38 @@ export function HuntScreen({ onBack }: { onBack: () => void }) {
         </View>
       </View>
 
-      <Card style={{ gap: 4 }} elevated={false}>
-        <Text style={[text.h4, { marginBottom: 4 }]}>The tally</Text>
-        {TALLY.map((t, i) => {
-          const Icon = TALLY_ICON[t.iconKind];
-          return (
-            <View key={i} style={styles.tallyRow}>
-              <View style={[styles.tallyIcon, { backgroundColor: t.tint }]}>
-                <Icon size={14} color={colors.text} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.tallyLabel}>{t.label}</Text>
-                <Text style={styles.tallyMeta}>{t.meta}</Text>
-              </View>
-              <Text style={styles.tallyDist}>{t.dist}</Text>
-            </View>
-          );
-        })}
+      <Card style={{ padding: 0, overflow: 'hidden' }} elevated={false}>
+        <Pressable
+          style={[styles.workoutsHeader, tallyOpen && styles.workoutsHeaderOpen]}
+          onPress={() => setTallyOpen((open) => !open)}
+        >
+          <Text style={styles.workoutsTitle}>Workouts</Text>
+          <Text style={styles.workoutsCount}>{TALLY.length}</Text>
+          <CaretRightIcon
+            size={16}
+            color={withAlpha(colors.text, 0.5)}
+            style={tallyOpen ? styles.workoutsCaretOpen : undefined}
+          />
+        </Pressable>
+        {tallyOpen && (
+          <View style={{ padding: 16, paddingTop: 0, gap: 4 }}>
+            {TALLY.map((t, i) => {
+              const Icon = TALLY_ICON[t.iconKind];
+              return (
+                <View key={i} style={styles.tallyRow}>
+                  <View style={[styles.tallyIcon, { backgroundColor: t.tint }]}>
+                    <Icon size={14} color={colors.text} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.tallyLabel}>{t.label}</Text>
+                    <Text style={styles.tallyMeta}>{t.meta}</Text>
+                  </View>
+                  <Text style={styles.tallyDist}>{t.dist}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </Card>
 
       <Card style={{ gap: 14 }} elevated={false}>
@@ -193,6 +210,23 @@ function makeStyles(colors: Palette) {
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
     statLabel: { fontSize: 11, letterSpacing: 0.6, color: withAlpha(colors.text, 0.6) },
     statValue: { fontFamily: font.heading, fontSize: 18, color: colors.text, marginTop: 3 },
+    // Matches MetricsScreen's own workoutsHeader/workoutsCaretOpen/etc —
+    // same "labeled, collapsed-by-default disclosure" treatment for the
+    // same kind of content (a list of individual workouts), just styled
+    // against this screen's own tally rows below instead of a table.
+    workoutsHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      padding: 16,
+    },
+    workoutsHeaderOpen: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: withAlpha(colors.text, 0.08),
+    },
+    workoutsTitle: { flex: 1, fontFamily: font.heading, fontSize: 16, color: colors.text },
+    workoutsCount: { fontSize: 13, color: withAlpha(colors.text, 0.5) },
+    workoutsCaretOpen: { transform: [{ rotate: '90deg' }] },
     tallyRow: {
       flexDirection: 'row',
       alignItems: 'center',
