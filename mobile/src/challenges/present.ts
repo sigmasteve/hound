@@ -31,6 +31,39 @@ export function huntKindName(): string {
   return 'Chase';
 }
 
+// CreateScreen's 'tomorrow' start option (and a future starts_at set any
+// other way) means a challenge can exist before it's actually begun —
+// both toChallengeCard's "Day X of Y" and ChallengeDetailScreen's own
+// header used to read Date.now() - startsAt and clamp the negative
+// result up to "Day 1", which looked identical to a challenge that had
+// genuinely just started. hasStarted() is the one check both places use
+// to tell those two apart.
+export function hasStarted(challenge: Pick<Challenge, 'startsAt'>, now: number = Date.now()): boolean {
+  return new Date(challenge.startsAt).getTime() <= now;
+}
+
+// What to show in place of "Day X of Y" before a challenge has started —
+// mirrors ChallengeDetailScreen's own formatEndsLabel (name a countdown
+// under a day, otherwise a calendar date), with one addition: "tomorrow"
+// specifically, since that's a real CreateScreen option people pick by
+// name and deserve to see echoed back, not just "starts Sep 21".
+export function formatStartsLabel(startsAt: string, now: number = Date.now()): string {
+  const start = new Date(startsAt);
+  const msUntil = start.getTime() - now;
+  if (msUntil <= 0) return 'starts now';
+  if (msUntil < 24 * 3_600_000) {
+    const hours = Math.floor(msUntil / 3_600_000);
+    const minutes = Math.floor((msUntil % 3_600_000) / 60_000);
+    return hours > 0 ? `starts in ${hours}h ${minutes}m` : `starts in ${Math.max(1, minutes)}m`;
+  }
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const today = new Date(now);
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const daysUntil = Math.round((startDay.getTime() - todayStart.getTime()) / 86_400_000);
+  if (daysUntil === 1) return 'starts tomorrow';
+  return `starts ${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+}
+
 // Turns a raw challenge + who's in it + what they've logged into the same
 // display shape src/data/sampleData.ts hand-authors for the sample
 // content — ChallengesScreen.tsx's <ChallengeRow> renders either without
@@ -56,10 +89,7 @@ export function toChallengeCard(
   const tint = typeDef?.tint ?? TINT_N;
   const iconColor = typeDef?.iconColor ?? '#e9e9ed';
 
-  const daysElapsed = Math.min(
-    challenge.durationDays,
-    Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
-  );
+  const daysElapsed = Math.min(challenge.durationDays, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1);
 
   // Bots count as people for the summary card too — a bot always has
   // "logged" something (its steps are simulated, not recorded), so it
@@ -68,7 +98,10 @@ export function toChallengeCard(
   const allLeaderboard = [...leaderboard, ...bots.map((b) => botToLeaderboardEntry(b, daysElapsedFraction(challenge)))];
 
   const peopleCount = allParticipants.length;
-  const sub = `Day ${daysElapsed} of ${challenge.durationDays} · ${peopleCount} ${peopleCount === 1 ? 'person' : 'people'}`;
+  const peopleLabel = `${peopleCount} ${peopleCount === 1 ? 'person' : 'people'}`;
+  const sub = hasStarted(challenge)
+    ? `Day ${daysElapsed} of ${challenge.durationDays} · ${peopleLabel}`
+    : `${formatStartsLabel(challenge.startsAt)} · ${peopleLabel}`;
 
   // Nothing calls recordProgress() yet (see README "What's not
   // implemented"), so a freshly created challenge always has an empty
