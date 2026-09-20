@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { hasHeadStartElapsed } from './board';
+import { inviteWindowClosed } from './board';
 import type {
   Challenge,
   ChallengeBot,
@@ -24,6 +24,25 @@ async function requireUserId(): Promise<string> {
   const { data } = await requireClient().auth.getUser();
   if (!data.user) throw new Error('Sign in to do that.');
   return data.user.id;
+}
+
+// inviteWindowClosed (src/challenges/board.ts) only ever reads these four
+// fields, but wants them as a Challenge — both call sites below only ever
+// have this much of one (a bare `challenges` row, or the invite-select's
+// joined subset), so this is the one place that shape gets cast rather
+// than duplicating the same `as unknown as {...} as Challenge` twice.
+function challengeRowToInviteWindowInput(row: {
+  kind: Challenge['kind'];
+  head_start_days: number | null;
+  starts_at: string;
+  duration_days: number;
+}): Challenge {
+  return {
+    kind: row.kind,
+    headStartDays: row.head_start_days,
+    startsAt: row.starts_at,
+    durationDays: row.duration_days,
+  } as Challenge;
 }
 
 const CHALLENGE_COLUMNS =
@@ -327,6 +346,20 @@ export const supabaseChallengesProvider: ChallengesProvider = {
   async inviteFriendToChallenge(challengeId: string, friendUserId: string, role?: HuntRole): Promise<void> {
     const client = requireClient();
     const userId = await requireUserId();
+
+    // Mirrors acceptChallengeInvite's own check below — this is what
+    // keeps the inviter from sending an invite that's just going to get
+    // refused (and cleaned up) the moment anyone tries to accept it.
+    const { data: c, error: challengeError } = await client
+      .from('challenges')
+      .select('kind, head_start_days, starts_at, duration_days')
+      .eq('id', challengeId)
+      .single();
+    if (challengeError) throw new Error(challengeError.message);
+    if (inviteWindowClosed(challengeRowToInviteWindowInput(c))) {
+      throw new Error("It's been more than 24 hours since this challenge started — new invites are closed.");
+    }
+
     const { data, error } = await client
       .from('challenge_invites')
       .insert({ challenge_id: challengeId, inviter_id: userId, invitee_id: friendUserId, role: role ?? null })
@@ -385,26 +418,27 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       .single();
     if (fetchError) throw new Error(fetchError.message);
 
-    // Once a hunt's head start has genuinely elapsed, joining now would
-    // drop the new participant straight into the chase with no head
-    // start of their own — the same unfair "instant target" a late
-    // Hunted would face for real. Never true for a hunt with no head
-    // start at all (hasHeadStartElapsed reads true for that case too,
-    // but there's nothing to be unfair about joining a hunt that was
-    // never gated by one) — see its own doc comment.
+    // Once the invite window's closed (a hunt's own head start, or the
+    // flat 24h-from-start fallback everything else uses — see
+    // inviteWindowClosed's own comment), accepting now would let someone
+    // join with a clean read on where everyone else already stands
+    // instead of facing the same clock as everyone else. The invite row
+    // itself is deleted here too, not just refused — otherwise it sits
+    // there forever as a pending invite its recipient can never actually
+    // act on.
     const c = invite.challenges as unknown as {
       kind: Challenge['kind'];
       head_start_days: number | null;
       starts_at: string;
       duration_days: number;
     } | null;
-    if (c && c.kind === 'hunt' && c.head_start_days) {
-      const elapsed = hasHeadStartElapsed({
-        startsAt: c.starts_at,
-        durationDays: c.duration_days,
-        headStartDays: c.head_start_days,
-      } as Challenge);
-      if (elapsed) throw new Error("This chase's head start has already ended — new invites can no longer be accepted.");
+    if (c && inviteWindowClosed(challengeRowToInviteWindowInput(c))) {
+      await client.from('challenge_invites').delete().eq('id', inviteId);
+      throw new Error(
+        c.kind === 'hunt' && c.head_start_days
+          ? "This chase's head start has already ended — this invite has expired."
+          : "It's been more than 24 hours since this challenge started — this invite has expired.",
+      );
     }
 
     // A plain insert, not an upsert: `.upsert(..., { ignoreDuplicates })`
