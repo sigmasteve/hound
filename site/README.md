@@ -110,6 +110,29 @@ Then, **Project Settings → Domains**, add `houndchallenge.net` and
 follow Vercel's DNS instructions (a CNAME or A record at your
 registrar) to point the domain at it.
 
+## Friend-code invite links (`/f/<code>`)
+
+`f.html`/`f.js` are what a friend code's QR/link (see the mobile app's
+FriendsScreen and `mobile/supabase/migrations/0019_friend_codes.sql`)
+actually points at — `houndchallenge.net/f/<code>`. `vercel.json`'s
+`rewrites` maps that path to `f.html` without changing the URL the
+browser shows, so `f.js` reads the code straight out of
+`window.location.pathname`.
+
+The page looks the inviter's name up via the `friend_code_owner_name`
+RPC (anon-callable on purpose — most visitors have no session yet) and
+either offers to add them directly (already signed in) or links to
+`index.html?f=<code>#auth`, which redeems the code automatically the
+moment sign-up/log-in succeeds (see `app.js`'s `redeemPendingFriendCode`)
+rather than sending someone back to the link a second time. That
+redemption path only fires on a session that resolves same-page —
+if the Supabase project requires email confirmation, clicking the
+confirmation email's own link goes through Supabase's redirect first,
+which doesn't reliably preserve the `?f=` query param, so that specific
+path (sign up with confirmation on, then confirm via email) can lose
+the pending code. Confirmed working: an existing account logging in, or
+a project with email confirmation off.
+
 ## What this page deliberately doesn't do
 
 - **No app experience.** This is sign-up/log-in plus the tester
