@@ -136,28 +136,6 @@ export function MetricsScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={text.h2}>Your data</Text>
 
-      <Card style={{ gap: 14, padding: 18 }} elevated={false}>
-        <Text style={text.h4}>This week</Text>
-        <View style={styles.weekGrid}>
-          <View style={styles.weekTile}>
-            <Text style={styles.weekTileLabel}>TOTAL STEPS</Text>
-            <Text style={styles.weekTileValue}>{totalSteps.toLocaleString()}</Text>
-          </View>
-          <View style={styles.weekTile}>
-            <Text style={styles.weekTileLabel}>TOTAL DISTANCE</Text>
-            <Text style={styles.weekTileValue}>{totalDistanceMi.toFixed(1)} mi</Text>
-          </View>
-          <View style={styles.weekTile}>
-            <Text style={styles.weekTileLabel}>DAILY AVG</Text>
-            <Text style={styles.weekTileValue}>{avgSteps.toLocaleString()}</Text>
-          </View>
-          <View style={styles.weekTile}>
-            <Text style={styles.weekTileLabel}>WORKOUTS</Text>
-            <Text style={styles.weekTileValue}>{workoutCount}</Text>
-          </View>
-        </View>
-      </Card>
-
       <SegmentedControl
         value={tab}
         onChange={setTab}
@@ -204,11 +182,32 @@ export function MetricsScreen() {
           </Svg>
         )}
 
-        <View style={styles.tagRow}>
-          <Tag label="Apple Health" variant="neutral" />
-          <Tag label="Health Connect" variant="neutral" />
-          <Tag label="De-duplicated across devices" variant="outline" />
-          {tab === 'steps' && <Tag label="↗ Trend" variant="amber" />}
+        {tab === 'steps' && (
+          <View style={styles.tagRow}>
+            <Tag label="↗ Trend" variant="amber" />
+          </View>
+        )}
+      </Card>
+
+      <Card style={{ gap: 14, padding: 18 }} elevated={false}>
+        <Text style={text.h4}>This week</Text>
+        <View style={styles.weekGrid}>
+          <View style={styles.weekTile}>
+            <Text style={styles.weekTileLabel}>TOTAL STEPS</Text>
+            <Text style={styles.weekTileValue}>{totalSteps.toLocaleString()}</Text>
+          </View>
+          <View style={styles.weekTile}>
+            <Text style={styles.weekTileLabel}>TOTAL DISTANCE</Text>
+            <Text style={styles.weekTileValue}>{totalDistanceMi.toFixed(1)} mi</Text>
+          </View>
+          <View style={styles.weekTile}>
+            <Text style={styles.weekTileLabel}>DAILY AVG</Text>
+            <Text style={styles.weekTileValue}>{avgSteps.toLocaleString()}</Text>
+          </View>
+          <View style={styles.weekTile}>
+            <Text style={styles.weekTileLabel}>WORKOUTS</Text>
+            <Text style={styles.weekTileValue}>{workoutCount}</Text>
+          </View>
         </View>
       </Card>
 
