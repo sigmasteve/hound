@@ -37,6 +37,20 @@ const SCORING_METHODS: { id: ScoringMethod; label: string }[] = [
   { id: 'device_steps', label: 'Device step count' },
 ];
 
+type StartOption = 'today' | 'now' | 'tomorrow';
+
+// The actual Challenge.startsAt this challenge gets created with — every
+// downstream read (ChallengeDetailScreen's syncFromDevice, daysElapsedFraction,
+// the head-start math) just works off whatever this resolves to, so this
+// is the one place the three choices below turn into a real Date.
+function startsAtFor(option: StartOption): Date {
+  const d = new Date();
+  if (option === 'now') return d;
+  d.setHours(0, 0, 0, 0);
+  if (option === 'tomorrow') d.setDate(d.getDate() + 1);
+  return d;
+}
+
 // Every challenge kind shares this one name field (step 2 below) and this
 // one save path (start()), so this single constant is the whole rule —
 // there's no per-kind name validation to keep in sync.
@@ -55,6 +69,13 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const [distanceGoalMi, setDistanceGoalMi] = useState(100);
   const [distanceGoalSteps, setDistanceGoalSteps] = useState(500_000);
   const [length, setLength] = useState('21');
+  // Defaults to 'today' (retroactive to midnight) — matches what people
+  // reasonably expect "I started this today" to mean, without needing to
+  // find this control at all. 'now'/'tomorrow' are here for the two
+  // real cases that default doesn't cover: wanting today's earlier
+  // activity to NOT count, or wanting a clean first day starting
+  // tomorrow instead.
+  const [startOption, setStartOption] = useState<StartOption>('today');
   const [scoringMethod, setScoringMethod] = useState<ScoringMethod>('device_steps');
   // Real friends' userIds picked to invite once the challenge exists —
   // see start()'s inviteFriendToChallenge calls below. Never populated
@@ -118,6 +139,17 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const customLengthLabel = customLength === 1 ? '1 day' : `${customLength} days`;
   const friendsLoading = liveFriends === null && isSupabaseConfigured;
   const acceptedFriends = (liveFriends ?? []).filter((f) => f.status === 'accepted');
+  // Mirrors usesDeviceSteps (src/challenges/scoring.ts) against this
+  // draft's own in-progress state, not a saved Challenge — just for the
+  // "Starts" picker's own footnote below, since a step-only challenge
+  // has no intraday data to distinguish "Today" from "Now" with. Daily
+  // Streak is deliberately excluded — it doesn't auto-sync at all yet
+  // (manual entry only, see scoring.ts's own usesDeviceSteps comment),
+  // so the footnote's device-granularity claim wouldn't even apply to it.
+  const usesStepsOnly =
+    draftType === 'steps' ||
+    (draftType === 'hunt' && scoringMethod === 'device_steps') ||
+    (draftType === 'distance' && distanceGoalUnit === 'steps');
 
   const start = async () => {
     // The Hunt screen still reads static sample data unconditionally —
@@ -157,6 +189,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         distanceGoalUnit: draftType === 'distance' ? distanceGoalUnit : undefined,
         distanceGoalMi: draftType === 'distance' && distanceGoalUnit === 'miles' ? distanceGoalMi : undefined,
         distanceGoalSteps: draftType === 'distance' && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
+        startsAt: startsAtFor(startOption).toISOString(),
       });
       // Best-effort, same reasoning as ChallengeDetailScreen's own
       // inviteFriend: the challenge itself already saved successfully by
@@ -231,6 +264,29 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
             placeholder="Name your challenge"
             error={nameError ?? undefined}
           />
+          <View style={{ gap: 5 }}>
+            <Text style={styles.fieldLabel}>Starts</Text>
+            <SegmentedControl
+              options={[
+                { value: 'today', label: 'Today' },
+                { value: 'now', label: 'Now' },
+                { value: 'tomorrow', label: 'Tomorrow' },
+              ]}
+              value={startOption}
+              onChange={setStartOption}
+            />
+            <Text style={styles.footNote}>
+              {startOption === 'today'
+                ? 'Counts everything logged today, even before this challenge existed.'
+                : startOption === 'now'
+                  ? 'Only counts what you log from this moment forward — earlier today doesn’t count.'
+                  : 'Starts fresh tomorrow — nothing today counts, even if you log something right after creating this.'}
+              {usesStepsOnly && startOption !== 'tomorrow'
+                ? ' For a step-count challenge, “Today” and “Now” count the same — your phone only reports a whole day’s steps at a time, not by the minute.'
+                : ''}
+            </Text>
+          </View>
+
           <View style={{ gap: 5 }}>
             <Text style={styles.fieldLabel}>Runs for</Text>
             <SegmentedControl

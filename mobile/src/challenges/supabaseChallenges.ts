@@ -176,10 +176,11 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     distanceGoalMi,
     distanceGoalSteps,
     distanceGoalUnit,
+    startsAt: startsAtInput,
   }: CreateChallengeInput): Promise<Challenge> {
     const client = requireClient();
     const userId = await requireUserId();
-    const startsAt = new Date();
+    const startsAt = startsAtInput ? new Date(startsAtInput) : new Date();
     const endsAt = new Date(startsAt.getTime() + durationDays * 86_400_000);
 
     const { data, error } = await client
