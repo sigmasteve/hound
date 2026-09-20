@@ -12,6 +12,7 @@ import { CreateScreen } from '../screens/CreateScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { FriendDetailScreen } from '../screens/FriendDetailScreen';
 import { AdminScreen } from '../screens/AdminScreen';
+import { AdminUserDetailScreen } from '../screens/AdminUserDetailScreen';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { WelcomeScreen } from '../screens/auth/WelcomeScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -207,7 +208,32 @@ export function RootNavigator() {
                   was, unlike Hunt/Create above, which deliberately land
                   on one fixed tab since they can be opened from several
                   different starting points. */}
-              {({ navigation }) => <AdminScreen onBack={() => navigation.goBack()} />}
+              {({ navigation }) => (
+                <AdminScreen
+                  onBack={() => navigation.goBack()}
+                  onOpenUser={(u) =>
+                    navigation.navigate('AdminUserDetail', {
+                      userId: u.id,
+                      name: u.name,
+                      initials: u.initials,
+                      email: u.email,
+                      lastActiveAt: u.lastActiveAt,
+                    })
+                  }
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="AdminUserDetail" options={{ animation: 'slide_from_right' }}>
+              {({ navigation, route }) => (
+                <AdminUserDetailScreen
+                  userId={route.params.userId}
+                  name={route.params.name}
+                  initials={route.params.initials}
+                  email={route.params.email}
+                  lastActiveAt={route.params.lastActiveAt}
+                  onBack={() => navigation.goBack()}
+                />
+              )}
             </Stack.Screen>
           </Stack.Group>
         )}
