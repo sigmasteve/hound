@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Share, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
-import { AndroidLogoIcon, AppleLogoIcon, HourglassIcon, QrCodeIcon, UserPlusIcon } from 'phosphor-react-native';
+import { AndroidLogoIcon, AppleLogoIcon, CaretRightIcon, HourglassIcon, QrCodeIcon, UserPlusIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -14,7 +14,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import { friendCodeUrl, type Friend } from '../friends/types';
 
-export function FriendsScreen() {
+export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend) => void }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   // null = still showing the sample fallback (either Supabase isn't
@@ -262,12 +262,15 @@ export function FriendsScreen() {
       ))}
 
       {accepted.map((f) => (
-        <Card key={f.friendshipId} style={styles.friendRow} elevated={false}>
-          <Avatar initials={f.initials} tint={TINT_N} />
-          <View style={{ flex: 1, gap: 2, minWidth: 120 }}>
-            <Text style={styles.friendName}>{f.name}</Text>
-          </View>
-        </Card>
+        <Pressable key={f.friendshipId} onPress={() => onOpenFriend(f)}>
+          <Card style={styles.friendRow} elevated={false}>
+            <Avatar initials={f.initials} tint={TINT_N} />
+            <View style={{ flex: 1, gap: 2, minWidth: 120 }}>
+              <Text style={styles.friendName}>{f.name}</Text>
+            </View>
+            <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+          </Card>
+        </Pressable>
       ))}
       {accepted.length === 0 && receivedInvites.length === 0 && sentInvites.length === 0 && (
         <Text style={styles.footNote}>No friends yet — invite someone above.</Text>

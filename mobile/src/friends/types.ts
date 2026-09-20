@@ -59,4 +59,14 @@ export interface FriendsProvider {
   // someone's own code is a deliberate, already-mutual act, not an async
   // invite that still needs a separate accept step.
   addFriendByCode(code: string): Promise<void>;
+  // How many kudos have passed between the caller and this friend, each
+  // direction (see 0020_friend_kudos.sql) — unlimited and un-doable, so
+  // this is just a running count, not a list of individual events.
+  getKudosCounts(friendUserId: string): Promise<KudosCounts>;
+  giveKudos(friendUserId: string): Promise<void>;
+}
+
+export interface KudosCounts {
+  given: number;
+  received: number;
 }

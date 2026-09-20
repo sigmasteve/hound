@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { extractFriendCode, type Friend, type FriendsProvider } from './types';
+import { extractFriendCode, type Friend, type FriendsProvider, type KudosCounts } from './types';
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -148,6 +148,25 @@ export const supabaseFriendsProvider: FriendsProvider = {
     const client = requireClient();
     await requireUserId();
     const { error } = await client.rpc('add_friend_by_code', { code: extractFriendCode(code) });
+    if (error) throw new Error(error.message);
+  },
+
+  async getKudosCounts(friendUserId: string): Promise<KudosCounts> {
+    const client = requireClient();
+    const userId = await requireUserId();
+    const [given, received] = await Promise.all([
+      client.from('kudos').select('id', { count: 'exact', head: true }).eq('giver_id', userId).eq('receiver_id', friendUserId),
+      client.from('kudos').select('id', { count: 'exact', head: true }).eq('giver_id', friendUserId).eq('receiver_id', userId),
+    ]);
+    if (given.error) throw new Error(given.error.message);
+    if (received.error) throw new Error(received.error.message);
+    return { given: given.count ?? 0, received: received.count ?? 0 };
+  },
+
+  async giveKudos(friendUserId: string): Promise<void> {
+    const client = requireClient();
+    const userId = await requireUserId();
+    const { error } = await client.from('kudos').insert({ giver_id: userId, receiver_id: friendUserId });
     if (error) throw new Error(error.message);
   },
 };

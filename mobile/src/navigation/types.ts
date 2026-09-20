@@ -8,4 +8,5 @@ export type RootStackParamList = {
   Hunt: undefined;
   Create: undefined;
   ChallengeDetail: { challengeId: string };
+  FriendDetail: { friendshipId: string; friendUserId: string; friendName: string; friendInitials: string };
 };
