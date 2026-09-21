@@ -18,6 +18,7 @@ import type {
   HealthSnapshot,
   WorkoutSample,
 } from './types';
+import { pickNonOverlapping } from './dedupeWorkouts';
 
 // Real HealthKit integration via @kingstinct/react-native-healthkit (a Nitro
 // Module — React Native's New Architecture only). Requires a custom dev
@@ -183,7 +184,16 @@ export const iosHealthProvider: HealthProvider = {
   },
 
   async getRecentWorkouts(limit: number): Promise<WorkoutSample[]> {
-    const workouts = await orDefault(queryWorkoutSamples({ limit, ascending: false }), []);
+    const rawWorkouts = await orDefault(queryWorkoutSamples({ limit, ascending: false }), []);
+    // See dedupeWorkouts.ts's own comment — a Watch + companion-app pair
+    // both writing the same session shows up here as two HKWorkout
+    // records with the same activity type and overlapping start/end.
+    const workouts = pickNonOverlapping(rawWorkouts, (w) => ({
+      activityKey: String(w.workoutActivityType),
+      startMs: w.startDate.getTime(),
+      endMs: w.endDate.getTime(),
+      richness: (w.totalDistance?.quantity ? 1 : 0) + (w.totalEnergyBurned?.quantity ? 1 : 0),
+    }));
     return Promise.all(
       workouts.map(async (w) => {
         const distanceStat = await orDefault(

@@ -13,6 +13,7 @@ import type {
   HealthSnapshot,
   WorkoutSample,
 } from './types';
+import { pickNonOverlapping } from './dedupeWorkouts';
 
 // Real Health Connect integration. Requires a custom dev client or a
 // standalone build (`npx expo prebuild` + `expo run:android`, or an EAS
@@ -175,35 +176,48 @@ export const androidHealthProvider: HealthProvider = {
     // distance is whatever 'Distance' records fall inside its own
     // [startTime, endTime] window, same idea as iosProvider's per-workout
     // getStatistic call just against a different API shape.
-    return Promise.all(
+    const withDistance = await Promise.all(
       sessions.map(async (r) => {
         const { records: distanceRecords } = await orEmpty(readRecords('Distance', {
           timeRangeFilter: { operator: 'between', startTime: r.startTime, endTime: r.endTime },
         }));
         const distanceMi = distanceRecords.reduce((sum, d) => sum + metersToMiles(d.distance.inMeters), 0);
-        return {
-          // r.metadata?.id should always be set in practice (Health
-          // Connect assigns one on insert) — the fallback is defensive,
-          // and needs to be stable across fetches on its own: String(i)
-          // (this session's position in *this* page) used to shift
-          // every time an older/newer session entered the same page,
-          // silently changing a workout's own id from one sync to the
-          // next. startTime + exerciseType can't do that — two sessions
-          // starting at the same instant of different types is the only
-          // (unrealistic) collision.
-          id: r.metadata?.id ?? `${r.startTime}_${r.exerciseType ?? 'unknown'}`,
-          name: r.title ?? r.exerciseType?.toString() ?? 'Workout',
-          when: new Date(r.startTime),
-          source: 'Health Connect',
-          distanceMi: distanceMi > 0 ? Math.round(distanceMi * 10) / 10 : undefined,
-          // ExerciseSession carries its own [startTime, endTime] window
-          // (unlike distance, there's no separate duration record type to
-          // read here) — same reasoning as the distance lookup above, just
-          // arithmetic instead of a second query.
-          durationMin: Math.round((new Date(r.endTime).getTime() - new Date(r.startTime).getTime()) / 60_000),
-        };
+        return { session: r, distanceMi };
       }),
     );
+
+    // See dedupeWorkouts.ts's own comment — a paired Wear OS watch and
+    // its phone-side companion app can each write their own
+    // ExerciseSession for the same real workout. Done after the distance
+    // fetch above (not before) since richness needs it as a tiebreaker.
+    const deduped = pickNonOverlapping(withDistance, ({ session, distanceMi }) => ({
+      activityKey: String(session.exerciseType ?? 'unknown'),
+      startMs: new Date(session.startTime).getTime(),
+      endMs: new Date(session.endTime).getTime(),
+      richness: distanceMi > 0 ? 1 : 0,
+    }));
+
+    return deduped.map(({ session: r, distanceMi }) => ({
+      // r.metadata?.id should always be set in practice (Health
+      // Connect assigns one on insert) — the fallback is defensive,
+      // and needs to be stable across fetches on its own: String(i)
+      // (this session's position in *this* page) used to shift
+      // every time an older/newer session entered the same page,
+      // silently changing a workout's own id from one sync to the
+      // next. startTime + exerciseType can't do that — two sessions
+      // starting at the same instant of different types is the only
+      // (unrealistic) collision.
+      id: r.metadata?.id ?? `${r.startTime}_${r.exerciseType ?? 'unknown'}`,
+      name: r.title ?? r.exerciseType?.toString() ?? 'Workout',
+      when: new Date(r.startTime),
+      source: 'Health Connect',
+      distanceMi: distanceMi > 0 ? Math.round(distanceMi * 10) / 10 : undefined,
+      // ExerciseSession carries its own [startTime, endTime] window
+      // (unlike distance, there's no separate duration record type to
+      // read here) — same reasoning as the distance lookup above, just
+      // arithmetic instead of a second query.
+      durationMin: Math.round((new Date(r.endTime).getTime() - new Date(r.startTime).getTime()) / 60_000),
+    }));
   },
 
   async getDailyStepsSince(since: Date): Promise<DailyStepsWithDate[]> {
