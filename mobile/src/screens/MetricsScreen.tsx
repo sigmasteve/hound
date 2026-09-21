@@ -87,25 +87,45 @@ function bucketWorkoutDistanceByDay(workouts: WorkoutSample[], days: number): nu
   return buckets.map((v) => Math.round(v * 10) / 10);
 }
 
-// Same bucketing as bucketWorkoutDistanceByDay, summing durationMin
-// instead of distanceMi — the Workouts tab's own second chart. A
-// workout with no readable duration (see WorkoutSample's own comment on
-// "missing means missing, not zero") contributes 0 to its day rather
-// than being dropped, same as distanceMi's `?? 0` above.
-function bucketWorkoutDurationByDay(workouts: WorkoutSample[], days: number): number[] {
+export interface ActivityTotal {
+  name: string;
+  totalMinutes: number;
+}
+
+// The Workouts tab's own summary — grouped by each workout's raw name
+// ("Running", "Cricket", ...) rather than bucketed by day like the
+// Steps/Distance tabs' charts, which is deliberately a different shape
+// (a day-by-day chart here would just look like a second Distance tab).
+// Sorted by total duration descending so the biggest chunk of the week
+// leads. A workout with no readable duration contributes 0 rather than
+// being dropped, same "missing means missing, not zero" convention
+// distanceMi's own `?? 0` uses elsewhere in this file.
+function groupWorkoutsByActivity(workouts: WorkoutSample[], days: number): ActivityTotal[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const windowStart = new Date(today);
   windowStart.setDate(windowStart.getDate() - (days - 1));
 
-  const buckets = new Array(days).fill(0);
+  const totals = new Map<string, number>();
   for (const w of workouts) {
     const day = new Date(w.when);
     day.setHours(0, 0, 0, 0);
-    const idx = Math.round((day.getTime() - windowStart.getTime()) / 86_400_000);
-    if (idx >= 0 && idx < days) buckets[idx] += w.durationMin ?? 0;
+    if (day.getTime() < windowStart.getTime() || day.getTime() > today.getTime()) continue;
+    totals.set(w.name, (totals.get(w.name) ?? 0) + (w.durationMin ?? 0));
   }
-  return buckets;
+  return [...totals.entries()]
+    .map(([name, totalMinutes]) => ({ name, totalMinutes }))
+    .sort((a, b) => b.totalMinutes - a.totalMinutes);
+}
+
+// "4 hrs", "30 min", "1 hr 20 min" — matches how a person would actually
+// say it rather than a bare minute count once it crosses an hour.
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const hrLabel = `${hrs} hr${hrs === 1 ? '' : 's'}`;
+  return mins === 0 ? hrLabel : `${hrLabel} ${mins} min`;
 }
 
 function countWorkoutsInWindow(workouts: WorkoutSample[], days: number): number {
@@ -163,11 +183,15 @@ export function MetricsScreen() {
 
   const days = weekly.length || 7;
   const distanceByDay = useMemo(() => bucketWorkoutDistanceByDay(workouts, days), [workouts, days]);
-  const durationByDay = useMemo(() => bucketWorkoutDurationByDay(workouts, days), [workouts, days]);
+  const activitySummary = useMemo(() => groupWorkoutsByActivity(workouts, days), [workouts, days]);
   const totalSteps = useMemo(() => weekly.reduce((sum, d) => sum + d.steps, 0), [weekly]);
   const totalDistanceMi = useMemo(() => distanceByDay.reduce((sum, v) => sum + v, 0), [distanceByDay]);
   const avgSteps = weekly.length ? Math.round(totalSteps / weekly.length) : 0;
   const workoutCount = useMemo(() => countWorkoutsInWindow(workouts, days), [workouts, days]);
+  const totalWorkoutMinutes = useMemo(
+    () => activitySummary.reduce((sum, a) => sum + a.totalMinutes, 0),
+    [activitySummary],
+  );
 
   const readiness = useMemo(() => computeReadiness(workouts), [workouts]);
 
@@ -184,7 +208,7 @@ export function MetricsScreen() {
       : tab === 'distance'
         ? { value: `${(distanceByDay.at(-1) ?? 0).toFixed(1)} mi`, sub: 'today' }
         : tab === 'workouts'
-          ? { value: `${workoutCount} workouts`, sub: 'last 7 days' }
+          ? { value: formatDuration(totalWorkoutMinutes), sub: `${workoutCount} workouts · last 7 days` }
           : tab === 'hr'
             ? { value: series.length ? `${series.at(-1)} bpm` : '—', sub: 'resting, 7-day average' }
             : { value: series.length ? `${series.at(-1)} lb` : '—', sub: 'latest entry' };
@@ -236,35 +260,12 @@ export function MetricsScreen() {
             formatValue={(v) => `${v.toFixed(1)} mi`}
           />
         ) : tab === 'workouts' ? (
-          // Two mini charts, not one dual-axis chart — distance (mi) and
-          // duration (min) live on totally different scales, and BarChart
-          // only ever draws one series. Stacking them keeps each one's
-          // own tap-to-reveal callout and trend line working exactly like
-          // the Steps/Distance tabs, just twice.
-          <View style={{ gap: 22 }}>
-            <View style={{ gap: 6 }}>
-              <Text style={styles.chartSectionLabel}>DISTANCE (MI)</Text>
-              <BarChart
-                values={distanceByDay}
-                labels={weekly.map((d) => d.date)}
-                colors={colors}
-                styles={styles}
-                showTrend
-                formatValue={(v) => `${v.toFixed(1)} mi`}
-              />
-            </View>
-            <View style={{ gap: 6 }}>
-              <Text style={styles.chartSectionLabel}>DURATION (MIN)</Text>
-              <BarChart
-                values={durationByDay}
-                labels={weekly.map((d) => d.date)}
-                colors={colors}
-                styles={styles}
-                showTrend
-                formatValue={(v) => `${Math.round(v)} min`}
-              />
-            </View>
-          </View>
+          // A ranked list by activity, not a day-by-day chart — a second
+          // 7-bars-per-week chart here would just read as another
+          // Distance tab. This answers a different question (what did
+          // you actually do this week, and how much of it), same shape
+          // as the plain-language summary asked for: "Running — 4 hrs".
+          <ActivitySummaryList activities={activitySummary} colors={colors} styles={styles} />
         ) : (
           <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
             <Defs>
@@ -416,6 +417,45 @@ function WorkoutGroup({ label, workouts, styles }: { label: string; workouts: Wo
   );
 }
 
+// The Workouts tab's own view — a ranked list ("Running — 4 hrs") with a
+// horizontal bar sized relative to the week's biggest chunk, rather than
+// the Steps/Distance tabs' day-by-day vertical bars. Deliberately a
+// different shape from those (see the tab's own comment on why).
+function ActivitySummaryList({
+  activities,
+  colors,
+  styles,
+}: {
+  activities: ActivityTotal[];
+  colors: Palette;
+  styles: MetricsStyles;
+}) {
+  if (activities.length === 0) {
+    return <Text style={styles.emptyNote}>No workouts in the last 7 days.</Text>;
+  }
+  const maxMinutes = activities[0].totalMinutes || 1;
+  return (
+    <View style={{ gap: 16 }}>
+      {activities.map((a) => (
+        <View key={a.name} style={{ gap: 6 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={styles.activityName}>{a.name}</Text>
+            <Text style={styles.activityDuration}>{formatDuration(a.totalMinutes)}</Text>
+          </View>
+          <View style={styles.activityBarTrack}>
+            <View
+              style={[
+                styles.activityBarFill,
+                { width: `${Math.max(4, (a.totalMinutes / maxMinutes) * 100)}%`, backgroundColor: colors.accent },
+              ]}
+            />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // A fixed pixel width rather than a percentage of the chart — its exact
 // left position (calloutLeft below) is computed in real screen pixels
 // off onLayout, since RN has no percentage-based translateX to center a
@@ -542,7 +582,10 @@ function makeStyles(colors: Palette) {
     },
     weekTileLabel: { fontSize: 10.5, letterSpacing: 0.8, color: withAlpha(colors.text, 0.55) },
     weekTileValue: { fontFamily: font.heading, fontSize: 20, color: colors.text },
-    chartSectionLabel: { fontSize: 10.5, letterSpacing: 0.8, color: withAlpha(colors.text, 0.55) },
+    activityName: { fontFamily: font.heading, fontSize: 14.5, color: colors.text },
+    activityDuration: { fontSize: 13, color: withAlpha(colors.text, 0.6) },
+    activityBarTrack: { height: 8, borderRadius: 4, backgroundColor: withAlpha(colors.text, 0.08) },
+    activityBarFill: { height: 8, borderRadius: 4 },
     barLabelRow: { flexDirection: 'row' },
     barLabel: { fontSize: 11, color: withAlpha(colors.text, 0.55), textAlign: 'center' },
     // Today's bar label sits directly on the Card's own (theme-following)
