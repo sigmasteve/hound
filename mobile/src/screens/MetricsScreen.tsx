@@ -233,13 +233,24 @@ export function MetricsScreen() {
       />
 
       <Card style={{ gap: 18, padding: 18 }} elevated={false}>
-        <View style={styles.headlineRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+        {tab === 'workouts' ? (
+          // Stacked, not the baseline row below — "9 workouts · last 7
+          // days" is long enough on its own to collide with the separate
+          // "Last 7 days" label (which would also just repeat what this
+          // sub already says), so this tab skips that label entirely.
+          <View style={{ gap: 2 }}>
             <Text style={styles.headlineValue}>{headline.value}</Text>
             <Text style={styles.headlineSub}>{headline.sub}</Text>
           </View>
-          <Text style={styles.last7}>Last 7 days</Text>
-        </View>
+        ) : (
+          <View style={styles.headlineRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+              <Text style={styles.headlineValue}>{headline.value}</Text>
+              <Text style={styles.headlineSub}>{headline.sub}</Text>
+            </View>
+            <Text style={styles.last7}>Last 7 days</Text>
+          </View>
+        )}
 
         {tab === 'steps' ? (
           <BarChart
