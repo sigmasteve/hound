@@ -95,21 +95,33 @@ export function simulateBotDistance(botId: string, fitnessLevel: BotFitnessLevel
 // Fractional day count for bot simulation specifically — the integer
 // "Day X of Y" every screen displays always rounds up to a whole day (a
 // challenge started 5 minutes ago still reads "Day 1"), but a bot's
-// steps need the actual fraction of *today* (real clock time-of-day,
-// midnight to midnight) that's elapsed, the same way a real device's
-// step count works: checking at 5pm shows roughly 5/24 of a day's steps
-// regardless of what time you happened to install the app. This is
-// deliberately NOT "time since the challenge started" — a challenge
-// created at 4:45pm should immediately reflect that it's already 72%
-// through today, not treat 4:45pm as a fresh midnight and restart a
-// rolling 24h window from there. Clamped to the challenge's duration so
-// a finished challenge's bots stop accumulating.
+// steps need the actual fraction of *today* that's elapsed, the same
+// way a real device's step count works: checking 5/24 of the way
+// through a day shows roughly 5/24 of a day's steps, regardless of what
+// time you happened to install the app. This is deliberately NOT "time
+// since the challenge started" — a challenge created at 4:45pm should
+// immediately reflect that it's already 72% through today, not treat
+// 4:45pm as a fresh midnight and restart a rolling 24h window from
+// there. Clamped to the challenge's duration so a finished challenge's
+// bots stop accumulating.
+//
+// UTC calendar fields, not local ones (getUTCHours() etc., not
+// getHours()) — every viewer needs to compute the exact same fraction
+// for the same challenge at the same real instant, since a bot's
+// simulated total feeds into a shared group total (toChallengeCard's
+// distance-pool sum, board.ts's leaderboard) that every participant
+// sees together. Local time made this genuinely inconsistent: two
+// participants in different timezones checking within seconds of each
+// other would each compute a different "how much of today has elapsed"
+// (and could even land on different calendar days near either one's
+// local midnight), so the same challenge showed two different group
+// totals depending on who — and where — was looking.
 export function daysElapsedFraction(challenge: Challenge): number {
   const start = new Date(challenge.startsAt);
   const now = new Date();
-  const startOfCreationDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const fullCalendarDaysElapsed = Math.floor((now.getTime() - startOfCreationDay.getTime()) / 86_400_000);
-  const timeOfDayFraction = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86_400;
+  const startOfCreationDayUtc = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+  const fullCalendarDaysElapsed = Math.floor((now.getTime() - startOfCreationDayUtc) / 86_400_000);
+  const timeOfDayFraction = (now.getUTCHours() * 3600 + now.getUTCMinutes() * 60 + now.getUTCSeconds()) / 86_400;
   const elapsed = fullCalendarDaysElapsed + timeOfDayFraction;
   return Math.min(challenge.durationDays, Math.max(0, elapsed));
 }
