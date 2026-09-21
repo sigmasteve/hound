@@ -1,11 +1,26 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { AndroidLogoIcon, AppleLogoIcon, PawPrintIcon } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
+import type { HealthAuthStatus } from '../health/types';
+
+// Where to manage/revoke access once it's already granted — the OS is
+// the only place that lives, there's no in-app disconnect. Shown instead
+// of re-running requestAuthorization() for an already-authorized status,
+// since re-requesting an already-granted permission just resolves
+// instantly with no dialog and nothing visibly happens, which used to
+// read as this screen silently doing nothing (or a bug) rather than "you
+// already did this."
+const MANAGE_INSTRUCTIONS: Record<'ios' | 'android', string> = {
+  ios: 'Already connected. To review or revoke access, open Settings → Privacy & Security → Health → Hound on this device.',
+  android:
+    'Already connected. To review or revoke access, open the Health Connect app → Data and access → App permissions → Hound on this device.',
+};
 
 export function ConnectScreen({ onDone }: { onDone: () => void }) {
   const health = useHealthProvider();
@@ -13,11 +28,29 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [connecting, setConnecting] = useState<'apple' | 'android' | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  // Re-checked on every focus, not just on mount — this screen can be
+  // revisited after the person went and changed something in the OS's
+  // own settings, and the button/status here should reflect that instead
+  // of whatever was true the first time this screen mounted.
+  const [authStatus, setAuthStatus] = useState<HealthAuthStatus | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      health.getAuthorizationStatus().then(setAuthStatus);
+    }, [health]),
+  );
+
+  const alreadyAuthorized = authStatus === 'authorized' && health.platform !== 'mock';
 
   const connect = async () => {
+    if (alreadyAuthorized) {
+      setStatus(MANAGE_INSTRUCTIONS[health.platform === 'ios' ? 'ios' : 'android']);
+      return;
+    }
     setConnecting(Platform.OS === 'ios' ? 'apple' : 'android');
     const result = await health.requestAuthorization();
     setConnecting(null);
+    setAuthStatus(result);
     if (result === 'authorized') {
       onDone();
     } else {
@@ -46,8 +79,8 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
           <Text style={styles.platformName}>Apple Health</Text>
           <Text style={styles.platformSub}>iPhone, Apple Watch</Text>
           <Button
-            label={connecting === 'apple' ? 'Connecting…' : 'Connect'}
-            variant="primary"
+            label={connecting === 'apple' ? 'Connecting…' : Platform.OS === 'ios' && alreadyAuthorized ? 'Connected ✓' : 'Connect'}
+            variant={Platform.OS === 'ios' && alreadyAuthorized ? 'secondary' : 'primary'}
             block
             small
             disabled={connecting !== null || Platform.OS !== 'ios'}
@@ -60,8 +93,10 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
           <Text style={styles.platformName}>Health Connect</Text>
           <Text style={styles.platformSub}>Pixel, Samsung Health</Text>
           <Button
-            label={connecting === 'android' ? 'Connecting…' : 'Connect'}
-            variant="primary"
+            label={
+              connecting === 'android' ? 'Connecting…' : Platform.OS === 'android' && alreadyAuthorized ? 'Connected ✓' : 'Connect'
+            }
+            variant={Platform.OS === 'android' && alreadyAuthorized ? 'secondary' : 'primary'}
             block
             small
             disabled={connecting !== null || Platform.OS !== 'android'}
