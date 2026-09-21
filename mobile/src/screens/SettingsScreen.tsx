@@ -129,6 +129,33 @@ export function SettingsScreen() {
     }
   };
 
+  // "Fire it now" buttons for the three cron-driven notification jobs —
+  // only ever rendered for user?.isAdmin below, a real database-set flag
+  // (see 0021_admin_flag.sql), same gate the Edge Functions themselves
+  // enforce (see each one's own comment) alongside the cron job's own
+  // service-role call. Deliberately not also gated on __DEV__: that's
+  // only ever true through Metro's own dev server, not an installed
+  // TestFlight/production build, which is how this app actually gets
+  // tested day to day. Lets the two new Alerts toggles (and Login
+  // reminders) get tested in minutes instead of waiting for tomorrow's
+  // schedule.
+  const [triggering, setTriggering] = useState<'login' | 'staleData' | 'dailyStandings' | null>(null);
+
+  const runTrigger = async (
+    which: 'login' | 'staleData' | 'dailyStandings',
+    fn: () => Promise<Record<string, unknown>>,
+  ) => {
+    setTriggering(which);
+    try {
+      const result = await fn();
+      Alert.alert('Sent', JSON.stringify(result));
+    } catch (err) {
+      Alert.alert('Could not trigger', err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setTriggering(null);
+    }
+  };
+
   const togglePush = async (next: boolean) => {
     if (!user?.id) return;
     setSavingChannel('push');
@@ -264,6 +291,33 @@ export function SettingsScreen() {
             note={savingChannel === 'email' ? 'Saving…' : user?.email ?? ''}
             value={emailEnabled}
             onChange={toggleEmail}
+          />
+        </Card>
+      )}
+
+      {isSupabaseConfigured && user?.isAdmin && (
+        <Card style={{ gap: 10 }} elevated={false}>
+          <Text style={text.h4}>Developer tools</Text>
+          <Text style={styles.footNote}>
+            Fire a notification job right now instead of waiting for its daily schedule.
+          </Text>
+          <Button
+            label={triggering === 'login' ? 'Sending…' : 'Test: Login reminders'}
+            small
+            disabled={triggering !== null}
+            onPress={() => runTrigger('login', notifications.triggerLoginReminders)}
+          />
+          <Button
+            label={triggering === 'staleData' ? 'Sending…' : 'Test: Stale data alert'}
+            small
+            disabled={triggering !== null}
+            onPress={() => runTrigger('staleData', notifications.triggerStaleDataAlerts)}
+          />
+          <Button
+            label={triggering === 'dailyStandings' ? 'Sending…' : 'Test: Daily standings'}
+            small
+            disabled={triggering !== null}
+            onPress={() => runTrigger('dailyStandings', notifications.triggerDailyStandings)}
           />
         </Card>
       )}

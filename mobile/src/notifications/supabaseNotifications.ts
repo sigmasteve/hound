@@ -122,6 +122,39 @@ export async function setDailyStandingsAlertEnabled(userId: string, enabled: boo
   if (error) throw new Error(error.message);
 }
 
+// Dev-only "fire this job right now" triggers — SettingsScreen's
+// Developer tools card (only ever shown in a dev build, for an admin
+// account). Each Edge Function accepts a signed-in admin's own JWT as
+// an alternative to its cron job's own service-role call — see each
+// function's own comment on that caller check. Same "read the real
+// error out of the response body" reasoning admin/adminApi.ts's
+// deleteUser() already uses: a non-2xx only ever surfaces as a generic
+// message otherwise.
+async function invokeTrigger(functionName: string): Promise<Record<string, unknown>> {
+  const client = requireClient();
+  const { data, error } = await client.functions.invoke(functionName, { body: {} });
+  if (error) {
+    const context = (error as { context?: Response }).context;
+    const detail = await context
+      ?.clone()
+      .json()
+      .then((body) => (typeof body?.error === 'string' ? body.error : null))
+      .catch(() => null);
+    throw new Error(detail ?? error.message);
+  }
+  return (data as Record<string, unknown>) ?? {};
+}
+
+export function triggerLoginReminders(): Promise<Record<string, unknown>> {
+  return invokeTrigger('send-login-reminders');
+}
+export function triggerStaleDataAlerts(): Promise<Record<string, unknown>> {
+  return invokeTrigger('send-stale-data-alerts');
+}
+export function triggerDailyStandings(): Promise<Record<string, unknown>> {
+  return invokeTrigger('send-daily-standings');
+}
+
 // Called on every app open with a real session (see
 // src/auth/AuthContext.tsx), not just a fresh sign-in — a Supabase
 // session can stay valid for weeks without the user ever seeing a
