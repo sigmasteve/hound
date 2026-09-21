@@ -199,9 +199,16 @@ export function MetricsScreen() {
             colors={colors}
             styles={styles}
             showTrend
+            formatValue={(v) => `${Math.round(v).toLocaleString()} steps`}
           />
         ) : tab === 'distance' ? (
-          <BarChart values={distanceByDay} labels={weekly.map((d) => d.date)} colors={colors} styles={styles} />
+          <BarChart
+            values={distanceByDay}
+            labels={weekly.map((d) => d.date)}
+            colors={colors}
+            styles={styles}
+            formatValue={(v) => `${v.toFixed(1)} mi`}
+          />
         ) : (
           <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
             <Defs>
@@ -350,21 +357,32 @@ function WorkoutGroup({ label, workouts, styles }: { label: string; workouts: Wo
   );
 }
 
+// A fixed pixel width rather than a percentage of the chart — its exact
+// left position (calloutLeft below) is computed in real screen pixels
+// off onLayout, since RN has no percentage-based translateX to center a
+// floating element over an arbitrary column otherwise.
+const CALLOUT_WIDTH = 76;
+
 // Shared by the Steps and Distance tabs — both are the same shape (one
 // bar per day, most recent on the right), just fed different values, and
-// only Steps asks for a trend line overlaid on top.
+// only Steps asks for a trend line overlaid on top. Bar height alone
+// never told you the exact number for a day, only how it compares to the
+// others — tapping a bar (or its column, same touch target) reveals that
+// in a small callout above the chart and highlights the bar itself.
 function BarChart({
   values,
   labels,
   colors,
   styles,
   showTrend,
+  formatValue,
 }: {
   values: number[];
   labels: string[];
   colors: Palette;
   styles: MetricsStyles;
   showTrend?: boolean;
+  formatValue: (v: number) => string;
 }) {
   const n = values.length;
   const maxVal = Math.max(1, ...values);
@@ -373,38 +391,69 @@ function BarChart({
   const yFor = (v: number) => CHART_H - CHART_BOTTOM_PAD - (Math.max(0, v) / maxVal) * (CHART_H - CHART_BOTTOM_PAD - CHART_TOP_PAD);
   const trend = showTrend ? linearTrend(values) : null;
 
+  const [selected, setSelected] = useState<number | null>(null);
+  const [chartWidth, setChartWidth] = useState(CHART_W);
+  const colWpx = chartWidth / Math.max(1, n);
+  const calloutLeft =
+    selected != null
+      ? Math.max(0, Math.min(chartWidth - CALLOUT_WIDTH, colWpx * selected + colWpx / 2 - CALLOUT_WIDTH / 2))
+      : 0;
+
   return (
     <View>
-      <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
-        {values.map((v, i) => {
-          const isLast = i === n - 1;
-          const barH = Math.max(4, (v / maxVal) * (CHART_H - CHART_BOTTOM_PAD - CHART_TOP_PAD));
-          const cx = colW * i + colW / 2;
-          return (
-            <Rect
-              key={i}
-              x={cx - barW / 2}
-              y={CHART_H - CHART_BOTTOM_PAD - barH}
-              width={barW}
-              height={barH}
-              rx={4}
-              fill={isLast ? colors.accent400 : colors.accent600}
-              stroke={isLast ? colors.accent : 'none'}
-              strokeWidth={isLast ? 1 : 0}
-            />
-          );
-        })}
-        {trend && n > 1 && (
-          <Path
-            d={`M ${colW / 2} ${yFor(trend.start)} L ${colW * (n - 1) + colW / 2} ${yFor(trend.end)}`}
-            stroke={colors.amber}
-            strokeWidth={2}
-            strokeDasharray="5 4"
-            strokeLinecap="round"
-            fill="none"
-          />
+      <View style={styles.chartCalloutSlot}>
+        {selected != null && (
+          <View style={[styles.chartCallout, { left: calloutLeft, width: CALLOUT_WIDTH }]}>
+            <Text style={styles.chartCalloutLabel} numberOfLines={1}>
+              {labels[selected]}
+            </Text>
+            <Text style={styles.chartCalloutValue} numberOfLines={1}>
+              {formatValue(values[selected])}
+            </Text>
+          </View>
         )}
-      </Svg>
+      </View>
+      <View style={{ position: 'relative' }} onLayout={(e) => setChartWidth(e.nativeEvent.layout.width)}>
+        <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
+          {values.map((v, i) => {
+            const isLast = i === n - 1;
+            const isSelected = i === selected;
+            const barH = Math.max(4, (v / maxVal) * (CHART_H - CHART_BOTTOM_PAD - CHART_TOP_PAD));
+            const cx = colW * i + colW / 2;
+            return (
+              <Rect
+                key={i}
+                x={cx - barW / 2}
+                y={CHART_H - CHART_BOTTOM_PAD - barH}
+                width={barW}
+                height={barH}
+                rx={4}
+                fill={isSelected ? colors.accent : isLast ? colors.accent400 : colors.accent600}
+                stroke={isSelected || isLast ? colors.accent : 'none'}
+                strokeWidth={isSelected ? 2 : isLast ? 1 : 0}
+              />
+            );
+          })}
+          {trend && n > 1 && (
+            <Path
+              d={`M ${colW / 2} ${yFor(trend.start)} L ${colW * (n - 1) + colW / 2} ${yFor(trend.end)}`}
+              stroke={colors.amber}
+              strokeWidth={2}
+              strokeDasharray="5 4"
+              strokeLinecap="round"
+              fill="none"
+            />
+          )}
+        </Svg>
+        {/* Invisible equal-width touch targets, one per bar column —
+            simpler and more reliable across platforms than attaching
+            touch handlers to the SVG shapes themselves. */}
+        <View style={[StyleSheet.absoluteFill, { flexDirection: 'row' }]}>
+          {values.map((_, i) => (
+            <Pressable key={i} style={{ flex: 1 }} onPress={() => setSelected((cur) => (cur === i ? null : i))} />
+          ))}
+        </View>
+      </View>
       <View style={styles.barLabelRow}>
         {labels.map((label, i) => (
           <Text key={i} style={[styles.barLabel, i === n - 1 && styles.barLabelToday, { width: colW }]} numberOfLines={1}>
@@ -441,6 +490,23 @@ function makeStyles(colors: Palette) {
     // either theme where a raw accent200 would go invisible on Light's
     // white surface (see tokens.ts's own comment on accentActive).
     barLabelToday: { color: colors.accentActive },
+    // Fixed height, always reserved (whether or not a bar's selected) so
+    // tapping a bar never shifts the chart itself down by however tall
+    // the callout happens to be.
+    chartCalloutSlot: { height: 34, position: 'relative' },
+    chartCallout: {
+      position: 'absolute',
+      top: 0,
+      alignItems: 'center',
+      paddingVertical: 4,
+      paddingHorizontal: 6,
+      borderRadius: 8,
+      backgroundColor: withAlpha(colors.accent, 0.14),
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 0.4),
+    },
+    chartCalloutLabel: { fontSize: 10, color: withAlpha(colors.text, 0.6) },
+    chartCalloutValue: { fontSize: 12.5, fontFamily: font.heading, color: colors.text },
     tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     workoutsHeader: {
       flexDirection: 'row',
