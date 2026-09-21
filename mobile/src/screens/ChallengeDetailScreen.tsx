@@ -173,7 +173,14 @@ export function ChallengeDetailScreen({
   const inviteFriend = async (friend: Friend) => {
     setInvitingId(friend.userId);
     try {
-      await supabaseChallengesProvider.inviteFriendToChallenge(challengeId, friend.userId);
+      // A hunt's Hunter is fixed at creation (CreateScreen's own
+      // roleFor) and never changes later — anyone invited after that
+      // joins as Hunted. Without this, a friend added post-creation got
+      // role: null, which reads as no tag at all rather than "Runner",
+      // and (via huntEffectiveMetric/withHuntCatches) never counts as
+      // someone the Hunter can actually catch.
+      const role = challenge?.kind === 'hunt' ? 'hunted' : undefined;
+      await supabaseChallengesProvider.inviteFriendToChallenge(challengeId, friend.userId, role);
       setInvitedIds((cur) => new Set(cur).add(friend.userId));
     } catch (e) {
       // "Already invited" isn't really a failure from here — still mark
