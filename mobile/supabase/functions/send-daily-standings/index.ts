@@ -84,13 +84,6 @@ Deno.serve(async (req) => {
   let challengesSent = 0;
 
   for (const challenge of challenges ?? []) {
-    // Insert-if-not-already-recorded — a conflict means today's
-    // standings for this challenge already went out.
-    const { error: guardError } = await supabase
-      .from('daily_standings_sent')
-      .insert({ challenge_id: challenge.id, day: today });
-    if (guardError) continue;
-
     const [{ data: participants }, { data: snapshots }] = await Promise.all([
       supabase
         .from('challenge_participants')
@@ -101,6 +94,19 @@ Deno.serve(async (req) => {
     ]);
     if (!participants || participants.length === 0) continue;
 
+    const optedIn = participants.filter((p) => p.profiles?.alert_daily_standings_enabled);
+    if (optedIn.length === 0) continue;
+
+    // Insert-if-not-already-recorded — checked only now that there's
+    // actually someone to notify, not before. A challenge with nobody
+    // opted in yet shouldn't burn today's one attempt: if it did, opting
+    // in later the same day would find the guard already tripped and
+    // silently get skipped until tomorrow.
+    const { error: guardError } = await supabase
+      .from('daily_standings_sent')
+      .insert({ challenge_id: challenge.id, day: today });
+    if (guardError) continue;
+
     const totalsByUser = new Map<string, number>();
     for (const p of participants) totalsByUser.set(p.user_id, 0);
     for (const s of snapshots ?? []) {
@@ -109,9 +115,6 @@ Deno.serve(async (req) => {
 
     const ranked = [...totalsByUser.entries()].sort((a, b) => b[1] - a[1]);
     const rankByUser = new Map(ranked.map(([userId], i) => [userId, i + 1]));
-
-    const optedIn = participants.filter((p) => p.profiles?.alert_daily_standings_enabled);
-    if (optedIn.length === 0) continue;
 
     const { data: tokenRows } = await supabase
       .from('device_push_tokens')

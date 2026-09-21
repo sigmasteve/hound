@@ -111,17 +111,21 @@ Deno.serve(async (req) => {
       const staleMs = lastSynced ? now.getTime() - new Date(lastSynced).getTime() : STALE_MS;
       if (staleMs < STALE_MS) continue;
 
-      // Insert-if-not-already-recorded — a conflict means this exact
-      // (challenge, stale participant, day) fact already went out.
-      const { error: guardError } = await supabase
-        .from('stale_data_alerts_sent')
-        .insert({ challenge_id: challenge.id, stale_user_id: participant.user_id, day: today });
-      if (guardError) continue; // 23505 (already sent) or any other failure — skip either way
-
       const recipients = participants.filter(
         (p) => p.user_id !== participant.user_id && p.profiles?.alert_stale_data_enabled,
       );
       if (recipients.length === 0) continue;
+
+      // Insert-if-not-already-recorded — checked only now that there's
+      // actually someone to notify, not before. Nobody opted in yet
+      // shouldn't burn today's one attempt at this (challenge, stale
+      // participant) fact: if it did, opting in later the same day
+      // would find the guard already tripped and silently get skipped
+      // until tomorrow.
+      const { error: guardError } = await supabase
+        .from('stale_data_alerts_sent')
+        .insert({ challenge_id: challenge.id, stale_user_id: participant.user_id, day: today });
+      if (guardError) continue; // 23505 (already sent) or any other failure — skip either way
 
       const { data: tokenRows } = await supabase
         .from('device_push_tokens')
