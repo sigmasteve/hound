@@ -20,6 +20,11 @@ export interface ReadinessResult {
   acuteMinutes: number;
   chronicWeeklyAvgMinutes: number | null;
   acwr: number | null;
+  // Days since the oldest workout on hand — only meaningful for the
+  // insufficient_data label's "still building" branch, where the UI
+  // uses it to say how many more days are left, not just that there
+  // aren't enough yet.
+  historyDays: number;
 }
 
 const MS_PER_DAY = 86_400_000;
@@ -58,14 +63,16 @@ export function computeReadiness(workouts: WorkoutSample[], now: Date = new Date
   const acuteMinutes = sumMinutesInWindow(workouts, now, 7);
 
   if (historyDays < MIN_HISTORY_DAYS) {
+    const daysToGo = MIN_HISTORY_DAYS - historyDays;
     return {
       label: 'insufficient_data',
       reason: oldest
-        ? "Still building your baseline — readiness needs a few weeks of workout history to compare against."
+        ? `Still building your baseline — ${daysToGo} more ${daysToGo === 1 ? 'day' : 'days'} of workout history and readiness can compare against it.`
         : 'Log a workout to start building a readiness signal.',
       acuteMinutes,
       chronicWeeklyAvgMinutes: null,
       acwr: null,
+      historyDays,
     };
   }
 
@@ -77,6 +84,7 @@ export function computeReadiness(workouts: WorkoutSample[], now: Date = new Date
       acuteMinutes,
       chronicWeeklyAvgMinutes: 0,
       acwr: null,
+      historyDays,
     };
   }
 
@@ -90,6 +98,7 @@ export function computeReadiness(workouts: WorkoutSample[], now: Date = new Date
       acuteMinutes,
       chronicWeeklyAvgMinutes,
       acwr,
+      historyDays,
     };
   }
   if (acwr > SLOW_DOWN_THRESHOLD) {
@@ -99,6 +108,7 @@ export function computeReadiness(workouts: WorkoutSample[], now: Date = new Date
       acuteMinutes,
       chronicWeeklyAvgMinutes,
       acwr,
+      historyDays,
     };
   }
   if (acwr < READY_FOR_MORE_THRESHOLD) {
@@ -108,6 +118,7 @@ export function computeReadiness(workouts: WorkoutSample[], now: Date = new Date
       acuteMinutes,
       chronicWeeklyAvgMinutes,
       acwr,
+      historyDays,
     };
   }
   return {
@@ -116,8 +127,22 @@ export function computeReadiness(workouts: WorkoutSample[], now: Date = new Date
     acuteMinutes,
     chronicWeeklyAvgMinutes,
     acwr,
+    historyDays,
   };
 }
+
+// A hardcoded, clearly-labeled example — shown by the UI only alongside
+// the insufficient_data state, never in place of it, so a brand-new
+// account can see what this feature becomes rather than just a flat
+// "not enough data" message the whole time it's building a baseline.
+export const SAMPLE_READINESS: ReadinessResult = {
+  label: 'ready_for_more',
+  reason: "This week's training is 22% below your last month's average — there's room to add more.",
+  acuteMinutes: 140,
+  chronicWeeklyAvgMinutes: 180,
+  acwr: 140 / 180,
+  historyDays: 28,
+};
 
 // StatusTone lives in theme/tokens.ts, not here — this module stays free
 // of any RN/theme dependency (see the plan doc's touch list: pure logic,
