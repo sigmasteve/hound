@@ -30,6 +30,7 @@ import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { getMyDailyStepRank, getMyWeeklyStepRank, recordDailyStepTotal, type StepRank } from '../leaderboard/supabaseStepsRank';
+import { recordWorkoutHistory } from '../workouts/supabaseWorkoutHistory';
 import {
   buildBoard,
   hasHeadStartElapsed,
@@ -242,7 +243,15 @@ export function HomeScreen({
     // Same fetch MetricsScreen's own readiness card runs off — a big
     // enough window (50 most recent) to cover computeReadiness's 28-day
     // chronic baseline, not just today.
-    health.getRecentWorkouts(50).then(setWorkouts);
+    health.getRecentWorkouts(50).then((w) => {
+      setWorkouts(w);
+      if (isSupabaseConfigured && user?.id) {
+        recordWorkoutHistory(user.id, w).catch(() => {
+          // Same "never break the screen" convention as the rest of
+          // Home's own fetches.
+        });
+      }
+    });
   }, [health, user?.id]);
 
   useEffect(reload, [reload]);
