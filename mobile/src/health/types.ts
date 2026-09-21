@@ -29,6 +29,13 @@ export interface WorkoutSample {
   source: SourceLabel;
   distanceMi?: number;
   avgHeartRate?: number;
+  // Minutes, not a Quantity/unit pair like the platforms' own duration
+  // fields — src/health/readiness.ts (training-load calculation) is the
+  // one thing that needs this, and it only ever wants a plain number to
+  // sum. Undefined for a workout whose duration couldn't be read, same
+  // "missing means missing, not zero" convention distanceMi/avgHeartRate
+  // already use.
+  durationMin?: number;
 }
 
 export interface HealthSnapshot {

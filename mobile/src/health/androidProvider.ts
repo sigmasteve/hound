@@ -187,6 +187,11 @@ export const androidHealthProvider: HealthProvider = {
           when: new Date(r.startTime),
           source: 'Health Connect',
           distanceMi: distanceMi > 0 ? Math.round(distanceMi * 10) / 10 : undefined,
+          // ExerciseSession carries its own [startTime, endTime] window
+          // (unlike distance, there's no separate duration record type to
+          // read here) — same reasoning as the distance lookup above, just
+          // arithmetic instead of a second query.
+          durationMin: Math.round((new Date(r.endTime).getTime() - new Date(r.startTime).getTime()) / 60_000),
         };
       }),
     );

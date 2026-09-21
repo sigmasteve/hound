@@ -46,11 +46,27 @@ export const mockProvider: HealthProvider = {
 
   async getRecentWorkouts(limit: number): Promise<WorkoutSample[]> {
     const all: WorkoutSample[] = [
-      { id: '1', name: 'Trail run', when: daysAgo(0, 8, 2), source: 'Apple Health', distanceMi: 7.8, avgHeartRate: 148 },
-      { id: '2', name: 'Lunch walk', when: daysAgo(1, 12, 20), source: 'Apple Health', distanceMi: 2.4, avgHeartRate: 96 },
-      { id: '3', name: 'Cycling', when: daysAgo(2, 9, 15), source: 'Strava → Health Connect', distanceMi: 14.2, avgHeartRate: 132 },
-      { id: '4', name: 'Strength', when: daysAgo(3, 18, 30), source: 'Apple Watch', avgHeartRate: 118 },
-      { id: '5', name: 'Evening walk', when: daysAgo(4, 19, 45), source: 'Apple Health', distanceMi: 1.9, avgHeartRate: 92 },
+      { id: '1', name: 'Trail run', when: daysAgo(0, 8, 2), source: 'Apple Health', distanceMi: 7.8, avgHeartRate: 148, durationMin: 52 },
+      { id: '2', name: 'Lunch walk', when: daysAgo(1, 12, 20), source: 'Apple Health', distanceMi: 2.4, avgHeartRate: 96, durationMin: 24 },
+      { id: '3', name: 'Cycling', when: daysAgo(2, 9, 15), source: 'Strava → Health Connect', distanceMi: 14.2, avgHeartRate: 132, durationMin: 58 },
+      { id: '4', name: 'Strength', when: daysAgo(3, 18, 30), source: 'Apple Watch', avgHeartRate: 118, durationMin: 40 },
+      { id: '5', name: 'Evening walk', when: daysAgo(4, 19, 45), source: 'Apple Health', distanceMi: 1.9, avgHeartRate: 92, durationMin: 22 },
+      // A lighter-paced 4-week baseline behind the busier week above —
+      // together they give computeReadiness() (src/health/readiness.ts) a
+      // real acute:chronic ratio to react to (this week reads noticeably
+      // busier than the last month), rather than everything landing in
+      // the no-history "insufficient_data" state in Expo Go / this
+      // sandbox / web, where this provider is what's actually running.
+      { id: '6', name: 'Strength', when: daysAgo(7, 17, 30), source: 'Apple Watch', avgHeartRate: 121, durationMin: 30 },
+      { id: '7', name: 'Easy jog', when: daysAgo(9, 7, 45), source: 'Apple Health', distanceMi: 2.6, avgHeartRate: 128, durationMin: 35 },
+      { id: '8', name: 'Cycling', when: daysAgo(11, 9, 0), source: 'Strava → Health Connect', distanceMi: 6.1, avgHeartRate: 124, durationMin: 28 },
+      { id: '9', name: 'Strength', when: daysAgo(14, 18, 0), source: 'Apple Watch', avgHeartRate: 119, durationMin: 32 },
+      { id: '10', name: 'Evening walk', when: daysAgo(16, 19, 30), source: 'Apple Health', distanceMi: 1.7, avgHeartRate: 90, durationMin: 25 },
+      { id: '11', name: 'Easy jog', when: daysAgo(18, 8, 10), source: 'Apple Health', distanceMi: 2.2, avgHeartRate: 126, durationMin: 30 },
+      { id: '12', name: 'Strength', when: daysAgo(21, 17, 45), source: 'Apple Watch', avgHeartRate: 120, durationMin: 28 },
+      { id: '13', name: 'Lunch walk', when: daysAgo(23, 12, 15), source: 'Apple Health', distanceMi: 1.5, avgHeartRate: 94, durationMin: 20 },
+      { id: '14', name: 'Cycling', when: daysAgo(25, 9, 30), source: 'Strava → Health Connect', distanceMi: 6.8, avgHeartRate: 123, durationMin: 32 },
+      { id: '15', name: 'Easy jog', when: daysAgo(27, 7, 50), source: 'Apple Health', distanceMi: 2.0, avgHeartRate: 127, durationMin: 25 },
     ];
     return all.slice(0, limit);
   },

@@ -182,3 +182,23 @@ export const TINT_A = color.accent800;
 export const TINT_N = color.neutral800;
 export const AMBER = color.amber;
 export const GREEN = color.green;
+
+// A status tone → this theme's own color, for anything that maps a small
+// closed set of states (readiness, sync status, ...) onto a color —
+// this app only has two real status colors (amber, green), so 'amber'
+// covers every "worth noticing" state rather than each getting its own
+// shade, same as Tag's own amber variant already does.
+export type StatusTone = 'green' | 'neutral' | 'amber' | 'muted';
+
+export function toneColor(tone: StatusTone, colors: Palette): string {
+  switch (tone) {
+    case 'green':
+      return colors.green;
+    case 'amber':
+      return colors.amber;
+    case 'muted':
+      return withAlpha(colors.text, 0.5);
+    default:
+      return colors.text;
+  }
+}

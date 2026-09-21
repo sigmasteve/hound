@@ -19,9 +19,10 @@ import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { Tag } from '../components/Tag';
 import { useTheme } from '../theme/ThemeContext';
-import { color, font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
+import { color, font, TINT_A, TINT_N, toneColor, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
-import type { HealthSnapshot } from '../health/types';
+import type { HealthSnapshot, WorkoutSample } from '../health/types';
+import { computeReadiness, READINESS_COPY } from '../health/readiness';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import type { MainTab } from '../navigation/types';
@@ -190,6 +191,7 @@ export function HomeScreen({
   const { labels } = useLabels();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [snap, setSnap] = useState<HealthSnapshot | null>(null);
+  const [workouts, setWorkouts] = useState<WorkoutSample[]>([]);
   // null = either no real active challenge to headline, or the fetch
   // below hasn't resolved yet — same "never break the screen, just fall
   // back" pattern ChallengesScreen uses for its own list. Distinct from
@@ -213,6 +215,10 @@ export function HomeScreen({
 
   const reload = useCallback(() => {
     health.getSnapshot().then(setSnap);
+    // Same fetch MetricsScreen's own readiness card runs off — a big
+    // enough window (50 most recent) to cover computeReadiness's 28-day
+    // chronic baseline, not just today.
+    health.getRecentWorkouts(50).then(setWorkouts);
   }, [health]);
 
   useEffect(reload, [reload]);
@@ -283,6 +289,8 @@ export function HomeScreen({
       cancelled = true;
     };
   }, [user?.id]);
+
+  const readiness = useMemo(() => computeReadiness(workouts), [workouts]);
 
   const hero = primary ? heroCopy(primary, user?.id ?? null, labels) : null;
   // No real challenge to open yet — sends a brand-new user (or the
@@ -375,6 +383,18 @@ export function HomeScreen({
           styles={styles}
         />
       </View>
+
+      {/* One-line pointer to the Data tab's own Readiness card (see the
+          readiness plan doc) — Home is the screen someone actually opens
+          daily, so the signal gets a glance here even though the real
+          detail (reasoning, component breakdown) only lives on Data. */}
+      <Pressable style={styles.readinessChip} onPress={() => onGoTab('metrics')}>
+        <View style={[styles.readinessDot, { backgroundColor: toneColor(READINESS_COPY[readiness.label].tone, colors) }]} />
+        <Text style={styles.readinessChipText} numberOfLines={1}>
+          {READINESS_COPY[readiness.label].title}
+        </Text>
+        <CaretRightIcon size={12} color={withAlpha(colors.text, 0.4)} />
+      </Pressable>
 
       <View style={styles.cardsRow}>
         {primary ? (
@@ -808,6 +828,17 @@ function makeStyles(colors: Palette) {
     },
     countsText: { fontSize: 12.5, color: colors.text, fontFamily: font.heading },
     countsInvited: { color: colors.accentActive },
+    readinessChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+    },
+    readinessDot: { width: 8, height: 8, borderRadius: 4 },
+    readinessChipText: { flex: 1, fontSize: 13.5, fontFamily: font.heading, color: colors.text },
     onboardCard: { padding: 16, gap: 10 },
     onboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     onboardTitle: { fontFamily: font.heading, fontSize: 15, color: colors.text, flex: 1 },

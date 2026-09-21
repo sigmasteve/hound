@@ -197,6 +197,11 @@ export const iosHealthProvider: HealthProvider = {
           source: 'Apple Health',
           distanceMi: distanceStat?.sumQuantity?.quantity,
           avgHeartRate: undefined,
+          // w.duration is HKWorkout's own duration Quantity, always in
+          // seconds (NSTimeInterval) — no unit param to request like the
+          // getStatistic calls above take, since HealthKit hands this one
+          // back pre-computed.
+          durationMin: w.duration?.quantity != null ? Math.round(w.duration.quantity / 60) : undefined,
         };
       }),
     );
