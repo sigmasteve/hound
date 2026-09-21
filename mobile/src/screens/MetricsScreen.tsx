@@ -251,20 +251,6 @@ export function MetricsScreen() {
         </View>
       </Card>
 
-      <Card style={{ gap: 10, padding: 18 }} elevated={false}>
-        <Text style={text.h4}>Readiness</Text>
-        <ReadinessSummary result={readiness} colors={colors} styles={styles} />
-        {readiness.label === 'insufficient_data' && (
-          <View style={styles.readinessPreview}>
-            <View style={styles.readinessPreviewTag}>
-              <Text style={styles.readinessPreviewTagText}>EXAMPLE</Text>
-            </View>
-            <Text style={styles.readinessPreviewLead}>What this card looks like once it has enough history:</Text>
-            <ReadinessSummary result={SAMPLE_READINESS} colors={colors} styles={styles} />
-          </View>
-        )}
-      </Card>
-
       <Card style={{ padding: 0, overflow: 'hidden' }} elevated={false}>
         <Pressable
           style={[styles.workoutsHeader, workoutsOpen && styles.workoutsHeaderOpen]}
@@ -299,6 +285,23 @@ export function MetricsScreen() {
               </ScrollView>
             )}
           </>
+        )}
+      </Card>
+
+      {/* Last on the tab, on purpose — Phase 1 only (training load, no
+          recovery signal yet — see the readiness plan doc), so it's not
+          the polished, load-bearing feature the cards above it are. */}
+      <Card style={{ gap: 10, padding: 18 }} elevated={false}>
+        <Text style={text.h4}>Readiness</Text>
+        <ReadinessSummary result={readiness} colors={colors} styles={styles} />
+        {readiness.label === 'insufficient_data' && (
+          <View style={styles.readinessPreview}>
+            <View style={styles.readinessPreviewTag}>
+              <Text style={styles.readinessPreviewTagText}>EXAMPLE</Text>
+            </View>
+            <Text style={styles.readinessPreviewLead}>What this card looks like once it has enough history:</Text>
+            <ReadinessSummary result={SAMPLE_READINESS} colors={colors} styles={styles} />
+          </View>
         )}
       </Card>
     </ScrollView>
