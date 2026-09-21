@@ -4,11 +4,12 @@
 //
 // For every challenge still running, finds any participant who hasn't
 // recorded progress in it for over STALE_HOURS (or never has, if the
-// challenge itself has been running that long), and pushes every OTHER
-// participant who has alert_stale_data_enabled turned on a "so-and-so
-// hasn't synced" nudge. stale_data_alerts_sent guards against sending
-// the same (challenge, stale participant) fact twice in one day if this
-// job is ever re-run.
+// challenge itself has been running that long), and notifies every
+// OTHER participant who has push and/or email enabled for this alert
+// (0026_alert_email_channels.sql) with a "so-and-so hasn't synced"
+// nudge. stale_data_alerts_sent guards against sending the same
+// (challenge, stale participant) fact twice in one day if this job is
+// ever re-run.
 //
 // Deploy with the Supabase CLI:
 //   supabase functions deploy send-stale-data-alerts
@@ -26,7 +27,12 @@ interface ChallengeRow {
 
 interface ParticipantRow {
   user_id: string;
-  profiles: { name: string; alert_stale_data_enabled: boolean } | null;
+  profiles: {
+    name: string;
+    email: string;
+    alert_stale_data_push_enabled: boolean;
+    alert_stale_data_email_enabled: boolean;
+  } | null;
 }
 
 async function sendPushBatch(tokens: string[], body: string): Promise<void> {
@@ -42,6 +48,22 @@ async function sendPushBatch(tokens: string[], body: string): Promise<void> {
       // send-login-reminders' own sendPushBatch uses.
     });
   }
+}
+
+async function sendAlertEmail(resendApiKey: string, email: string, body: string): Promise<void> {
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: 'Hound <alerts@houndchallenge.net>',
+      to: [email],
+      subject: 'Hound alert',
+      html: `<p>${body}</p>`,
+    }),
+  }).catch(() => {
+    // Same "one failed send shouldn't stop the rest" reasoning
+    // send-login-reminders' own sendReminderEmail uses.
+  });
 }
 
 Deno.serve(async (req) => {
@@ -73,6 +95,7 @@ Deno.serve(async (req) => {
 
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
+  const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
   const { data: challenges, error: challengesError } = await supabase
     .from('challenges')
@@ -93,7 +116,7 @@ Deno.serve(async (req) => {
     const [{ data: participants }, { data: snapshots }] = await Promise.all([
       supabase
         .from('challenge_participants')
-        .select('user_id, profiles(name, alert_stale_data_enabled)')
+        .select('user_id, profiles(name, email, alert_stale_data_push_enabled, alert_stale_data_email_enabled)')
         .eq('challenge_id', challenge.id)
         .returns<ParticipantRow[]>(),
       supabase.from('progress_snapshots').select('user_id, recorded_at').eq('challenge_id', challenge.id),
@@ -112,7 +135,9 @@ Deno.serve(async (req) => {
       if (staleMs < STALE_MS) continue;
 
       const recipients = participants.filter(
-        (p) => p.user_id !== participant.user_id && p.profiles?.alert_stale_data_enabled,
+        (p) =>
+          p.user_id !== participant.user_id &&
+          (p.profiles?.alert_stale_data_push_enabled || p.profiles?.alert_stale_data_email_enabled),
       );
       if (recipients.length === 0) continue;
 
@@ -127,18 +152,31 @@ Deno.serve(async (req) => {
         .insert({ challenge_id: challenge.id, stale_user_id: participant.user_id, day: today });
       if (guardError) continue; // 23505 (already sent) or any other failure — skip either way
 
-      const { data: tokenRows } = await supabase
-        .from('device_push_tokens')
-        .select('expo_push_token')
-        .in(
-          'user_id',
-          recipients.map((r) => r.user_id),
-        );
       const staleName = participant.profiles?.name ?? 'A friend';
-      await sendPushBatch(
-        (tokenRows ?? []).map((t) => t.expo_push_token),
-        `${staleName} hasn't synced progress in "${challenge.name}" for over a day.`,
-      );
+      const body = `${staleName} hasn't synced progress in "${challenge.name}" for over a day.`;
+
+      const pushRecipients = recipients.filter((r) => r.profiles?.alert_stale_data_push_enabled);
+      const emailRecipients = recipients.filter((r) => r.profiles?.alert_stale_data_email_enabled);
+
+      const sends: Promise<void>[] = [];
+      if (pushRecipients.length > 0) {
+        sends.push(
+          supabase
+            .from('device_push_tokens')
+            .select('expo_push_token')
+            .in(
+              'user_id',
+              pushRecipients.map((r) => r.user_id),
+            )
+            .then(({ data: tokenRows }) => sendPushBatch((tokenRows ?? []).map((t) => t.expo_push_token), body)),
+        );
+      }
+      if (resendApiKey) {
+        for (const r of emailRecipients) {
+          if (r.profiles?.email) sends.push(sendAlertEmail(resendApiKey, r.profiles.email, body));
+        }
+      }
+      await Promise.all(sends);
       alertsSent += 1;
     }
   }

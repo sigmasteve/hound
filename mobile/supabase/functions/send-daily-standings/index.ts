@@ -5,10 +5,10 @@
 //
 // For every still-running Step Race ('steps' kind — see
 // 0001_challenges_schema.sql's challenge_kind enum), ranks participants
-// by their total logged steps and pushes each one who has
-// alert_daily_standings_enabled turned on their own rank. daily_standings_sent
-// guards against sending the same challenge's standings twice in one
-// day if this job is ever re-run.
+// by their total logged steps and notifies each one who has push and/or
+// email enabled for this alert (0026_alert_email_channels.sql) with
+// their own rank. daily_standings_sent guards against sending the same
+// challenge's standings twice in one day if this job is ever re-run.
 //
 // Deploy with the Supabase CLI:
 //   supabase functions deploy send-daily-standings
@@ -24,7 +24,11 @@ interface ChallengeRow {
 
 interface ParticipantRow {
   user_id: string;
-  profiles: { alert_daily_standings_enabled: boolean } | null;
+  profiles: {
+    email: string;
+    alert_daily_standings_push_enabled: boolean;
+    alert_daily_standings_email_enabled: boolean;
+  } | null;
 }
 
 async function sendPushBatch(entries: { token: string; body: string }[]): Promise<void> {
@@ -39,6 +43,22 @@ async function sendPushBatch(entries: { token: string; body: string }[]): Promis
       // send-login-reminders' own sendPushBatch uses.
     });
   }
+}
+
+async function sendAlertEmail(resendApiKey: string, email: string, body: string): Promise<void> {
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: 'Hound <alerts@houndchallenge.net>',
+      to: [email],
+      subject: 'Hound alert',
+      html: `<p>${body}</p>`,
+    }),
+  }).catch(() => {
+    // Same "one failed send shouldn't stop the rest" reasoning
+    // send-login-reminders' own sendReminderEmail uses.
+  });
 }
 
 Deno.serve(async (req) => {
@@ -70,6 +90,7 @@ Deno.serve(async (req) => {
 
   const now = new Date().toISOString();
   const today = now.slice(0, 10);
+  const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
   const { data: challenges, error: challengesError } = await supabase
     .from('challenges')
@@ -87,14 +108,16 @@ Deno.serve(async (req) => {
     const [{ data: participants }, { data: snapshots }] = await Promise.all([
       supabase
         .from('challenge_participants')
-        .select('user_id, profiles(alert_daily_standings_enabled)')
+        .select('user_id, profiles(email, alert_daily_standings_push_enabled, alert_daily_standings_email_enabled)')
         .eq('challenge_id', challenge.id)
         .returns<ParticipantRow[]>(),
       supabase.from('progress_snapshots').select('user_id, steps').eq('challenge_id', challenge.id),
     ]);
     if (!participants || participants.length === 0) continue;
 
-    const optedIn = participants.filter((p) => p.profiles?.alert_daily_standings_enabled);
+    const optedIn = participants.filter(
+      (p) => p.profiles?.alert_daily_standings_push_enabled || p.profiles?.alert_daily_standings_email_enabled,
+    );
     if (optedIn.length === 0) continue;
 
     // Insert-if-not-already-recorded — checked only now that there's
@@ -116,12 +139,13 @@ Deno.serve(async (req) => {
     const ranked = [...totalsByUser.entries()].sort((a, b) => b[1] - a[1]);
     const rankByUser = new Map(ranked.map(([userId], i) => [userId, i + 1]));
 
+    const pushRecipients = optedIn.filter((p) => p.profiles?.alert_daily_standings_push_enabled);
     const { data: tokenRows } = await supabase
       .from('device_push_tokens')
       .select('user_id, expo_push_token')
       .in(
         'user_id',
-        optedIn.map((p) => p.user_id),
+        pushRecipients.map((p) => p.user_id),
       );
     const tokensByUser = new Map<string, string[]>();
     for (const row of tokenRows ?? []) {
@@ -130,14 +154,20 @@ Deno.serve(async (req) => {
       tokensByUser.set(row.user_id, existing);
     }
 
-    const entries: { token: string; body: string }[] = [];
+    const pushEntries: { token: string; body: string }[] = [];
+    const emailSends: Promise<void>[] = [];
     for (const p of optedIn) {
       const rank = rankByUser.get(p.user_id) ?? participants.length;
       const steps = totalsByUser.get(p.user_id) ?? 0;
       const body = `You're #${rank} of ${participants.length} in "${challenge.name}" today — ${steps.toLocaleString()} steps so far.`;
-      for (const token of tokensByUser.get(p.user_id) ?? []) entries.push({ token, body });
+      if (p.profiles?.alert_daily_standings_push_enabled) {
+        for (const token of tokensByUser.get(p.user_id) ?? []) pushEntries.push({ token, body });
+      }
+      if (p.profiles?.alert_daily_standings_email_enabled && resendApiKey && p.profiles.email) {
+        emailSends.push(sendAlertEmail(resendApiKey, p.profiles.email, body));
+      }
     }
-    await sendPushBatch(entries);
+    await Promise.all([sendPushBatch(pushEntries), ...emailSends]);
     challengesSent += 1;
   }
 
