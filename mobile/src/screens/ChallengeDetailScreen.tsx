@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeftIcon, CheckCircleIcon, RobotIcon, TrashIcon, TrophyIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, CheckCircleIcon, MagnifyingGlassIcon, RobotIcon, TrashIcon, TrophyIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -90,6 +90,7 @@ export function ChallengeDetailScreen({
   // flipped locally after tapping "Invite" in this session, so a friend
   // invited at creation time reads "Remind" from the very first render.
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
+  const [friendSearch, setFriendSearch] = useState('');
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -446,6 +447,12 @@ export function ChallengeDetailScreen({
   const invitableFriends = friends.filter(
     (f) => f.status === 'accepted' && !participants.some((p) => p.userId === f.userId),
   );
+  // Case-insensitive substring match, applied after the eligibility
+  // filter above — this narrows an already-invitable list down further,
+  // it never brings back someone who's already in the challenge.
+  const searchedFriends = friendSearch.trim()
+    ? invitableFriends.filter((f) => f.name.toLowerCase().includes(friendSearch.trim().toLowerCase()))
+    : invitableFriends;
   // Same window inviteFriendToChallenge/acceptChallengeInvite enforce
   // server-side (see supabaseChallenges.ts and inviteWindowClosed's own
   // comment) — this is just what keeps the inviter from sending a doomed
@@ -665,23 +672,37 @@ export function ChallengeDetailScreen({
               : 'Everyone you’re friends with is already in this challenge.'}
           </Text>
         ) : (
-          invitableFriends.map((f) => {
-            const invited = invitedIds.has(f.userId);
-            const busy = invitingId === f.userId;
-            return (
-              <View key={f.userId} style={styles.inviteFriendRow}>
-                <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
-                <Text style={[styles.friendName, { flex: 1 }]}>{f.name}</Text>
-                <Button
-                  label={busy ? (invited ? 'Reminding…' : 'Inviting…') : invited ? 'Remind' : 'Invite'}
-                  variant={invited ? 'ghost' : 'secondary'}
-                  small
-                  disabled={busy}
-                  onPress={() => (invited ? remindFriend(f) : inviteFriend(f))}
-                />
-              </View>
-            );
-          })
+          <>
+            <TextField
+              label="Search friends"
+              value={friendSearch}
+              onChangeText={setFriendSearch}
+              placeholder="Search by name"
+              icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
+              autoCapitalize="none"
+            />
+            {searchedFriends.length === 0 ? (
+              <Text style={styles.footNote}>No friends match “{friendSearch.trim()}”.</Text>
+            ) : (
+              searchedFriends.map((f) => {
+                const invited = invitedIds.has(f.userId);
+                const busy = invitingId === f.userId;
+                return (
+                  <View key={f.userId} style={styles.inviteFriendRow}>
+                    <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
+                    <Text style={[styles.friendName, { flex: 1 }]}>{f.name}</Text>
+                    <Button
+                      label={busy ? (invited ? 'Reminding…' : 'Inviting…') : invited ? 'Remind' : 'Invite'}
+                      variant={invited ? 'ghost' : 'secondary'}
+                      small
+                      disabled={busy}
+                      onPress={() => (invited ? remindFriend(f) : inviteFriend(f))}
+                    />
+                  </View>
+                );
+              })
+            )}
+          </>
         )}
       </Card>
 
