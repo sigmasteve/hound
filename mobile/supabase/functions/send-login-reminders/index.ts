@@ -88,15 +88,34 @@ async function sendReminderEmail(resendApiKey: string, name: string, email: stri
 }
 
 Deno.serve(async (req) => {
-  const expectedAuth = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`;
-  if (req.headers.get('Authorization') !== expectedAuth) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
-  }
-
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
+
+  // Two callers, both explicit: the cron job itself (service role — see
+  // 0010_login_reminders.sql), or a signed-in admin manually firing this
+  // early to test it (SettingsScreen's dev-only "Developer tools" card,
+  // via notifications/supabaseNotifications.ts's triggerLoginReminders —
+  // same "check the caller's own JWT against profiles.is_admin" pattern
+  // admin-delete-user uses, not a second copy of the service-role key
+  // anywhere near the client). Anyone else gets 401.
+  const authHeader = req.headers.get('Authorization') ?? '';
+  const isServiceRole = authHeader === `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`;
+  if (!isServiceRole) {
+    const callerClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const {
+      data: { user: caller },
+    } = await callerClient.auth.getUser();
+    const { data: callerProfile } = caller
+      ? await supabase.from('profiles').select('is_admin').eq('id', caller.id).single()
+      : { data: null };
+    if (!callerProfile?.is_admin) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    }
+  }
 
   const todayStart = startOfUtcDay();
 
