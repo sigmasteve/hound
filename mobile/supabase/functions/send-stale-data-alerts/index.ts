@@ -1,0 +1,123 @@
+// Runs once a day on a schedule (see 0025_challenge_alerts.sql's pg_cron
+// job) — no signed-in user drives this, so it authenticates with the
+// service role key, same reasoning as send-login-reminders.
+//
+// For every challenge still running, finds any participant who hasn't
+// recorded progress in it for over STALE_HOURS (or never has, if the
+// challenge itself has been running that long), and pushes every OTHER
+// participant who has alert_stale_data_enabled turned on a "so-and-so
+// hasn't synced" nudge. stale_data_alerts_sent guards against sending
+// the same (challenge, stale participant) fact twice in one day if this
+// job is ever re-run.
+//
+// Deploy with the Supabase CLI:
+//   supabase functions deploy send-stale-data-alerts
+
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+
+const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+const STALE_MS = 24 * 60 * 60 * 1000;
+
+interface ChallengeRow {
+  id: string;
+  name: string;
+  starts_at: string;
+}
+
+interface ParticipantRow {
+  user_id: string;
+  profiles: { name: string; alert_stale_data_enabled: boolean } | null;
+}
+
+async function sendPushBatch(tokens: string[], body: string): Promise<void> {
+  if (tokens.length === 0) return;
+  const messages = tokens.map((to) => ({ to, title: 'Hound', body, sound: 'default' }));
+  for (let i = 0; i < messages.length; i += 100) {
+    await fetch(EXPO_PUSH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(messages.slice(i, i + 100)),
+    }).catch(() => {
+      // Same "a batch failing shouldn't stop the rest" reasoning
+      // send-login-reminders' own sendPushBatch uses.
+    });
+  }
+}
+
+Deno.serve(async (req) => {
+  const expectedAuth = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`;
+  if (req.headers.get('Authorization') !== expectedAuth) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+  }
+
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+
+  const { data: challenges, error: challengesError } = await supabase
+    .from('challenges')
+    .select('id, name, starts_at')
+    .gt('ends_at', now.toISOString())
+    .returns<ChallengeRow[]>();
+  if (challengesError) {
+    return new Response(JSON.stringify({ error: challengesError.message }), { status: 500 });
+  }
+
+  let alertsSent = 0;
+
+  for (const challenge of challenges ?? []) {
+    // A challenge younger than the stale window itself has nobody
+    // who's had time to go stale yet — nothing to flag.
+    if (now.getTime() - new Date(challenge.starts_at).getTime() < STALE_MS) continue;
+
+    const [{ data: participants }, { data: snapshots }] = await Promise.all([
+      supabase
+        .from('challenge_participants')
+        .select('user_id, profiles(name, alert_stale_data_enabled)')
+        .eq('challenge_id', challenge.id)
+        .returns<ParticipantRow[]>(),
+      supabase.from('progress_snapshots').select('user_id, recorded_at').eq('challenge_id', challenge.id),
+    ]);
+    if (!participants || participants.length < 2) continue;
+
+    const lastSyncedByUser = new Map<string, string>();
+    for (const s of snapshots ?? []) {
+      const existing = lastSyncedByUser.get(s.user_id);
+      if (!existing || s.recorded_at > existing) lastSyncedByUser.set(s.user_id, s.recorded_at);
+    }
+
+    for (const participant of participants) {
+      const lastSynced = lastSyncedByUser.get(participant.user_id);
+      const staleMs = lastSynced ? now.getTime() - new Date(lastSynced).getTime() : STALE_MS;
+      if (staleMs < STALE_MS) continue;
+
+      // Insert-if-not-already-recorded — a conflict means this exact
+      // (challenge, stale participant, day) fact already went out.
+      const { error: guardError } = await supabase
+        .from('stale_data_alerts_sent')
+        .insert({ challenge_id: challenge.id, stale_user_id: participant.user_id, day: today });
+      if (guardError) continue; // 23505 (already sent) or any other failure — skip either way
+
+      const recipients = participants.filter(
+        (p) => p.user_id !== participant.user_id && p.profiles?.alert_stale_data_enabled,
+      );
+      if (recipients.length === 0) continue;
+
+      const { data: tokenRows } = await supabase
+        .from('device_push_tokens')
+        .select('expo_push_token')
+        .in(
+          'user_id',
+          recipients.map((r) => r.user_id),
+        );
+      const staleName = participant.profiles?.name ?? 'A friend';
+      await sendPushBatch(
+        (tokenRows ?? []).map((t) => t.expo_push_token),
+        `${staleName} hasn't synced progress in "${challenge.name}" for over a day.`,
+      );
+      alertsSent += 1;
+    }
+  }
+
+  return new Response(JSON.stringify({ alertsSent }), { headers: { 'Content-Type': 'application/json' } });
+});
