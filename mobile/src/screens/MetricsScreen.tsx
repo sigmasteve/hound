@@ -207,6 +207,7 @@ export function MetricsScreen() {
             labels={weekly.map((d) => d.date)}
             colors={colors}
             styles={styles}
+            showTrend
             formatValue={(v) => `${v.toFixed(1)} mi`}
           />
         ) : (
