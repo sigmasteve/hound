@@ -107,20 +107,30 @@ Deno.serve(async (req) => {
   }
 
   let alertsSent = 0;
+  const errors: string[] = [];
 
   for (const challenge of challenges ?? []) {
     // A challenge younger than the stale window itself has nobody
     // who's had time to go stale yet — nothing to flag.
     if (now.getTime() - new Date(challenge.starts_at).getTime() < STALE_MS) continue;
 
-    const [{ data: participants }, { data: snapshots }] = await Promise.all([
-      supabase
-        .from('challenge_participants')
-        .select('user_id, profiles(name, email, alert_stale_data_push_enabled, alert_stale_data_email_enabled)')
-        .eq('challenge_id', challenge.id)
-        .returns<ParticipantRow[]>(),
-      supabase.from('progress_snapshots').select('user_id, recorded_at').eq('challenge_id', challenge.id),
-    ]);
+    const [{ data: participants, error: participantsError }, { data: snapshots, error: snapshotsError }] =
+      await Promise.all([
+        supabase
+          .from('challenge_participants')
+          .select('user_id, profiles(name, email, alert_stale_data_push_enabled, alert_stale_data_email_enabled)')
+          .eq('challenge_id', challenge.id)
+          .returns<ParticipantRow[]>(),
+        supabase.from('progress_snapshots').select('user_id, recorded_at').eq('challenge_id', challenge.id),
+      ]);
+    // A query failure (e.g. a schema mismatch between what's deployed
+    // and what's migrated) used to look identical to "no participants"
+    // — silently skipped, reporting the same alertsSent: 0 as "nothing
+    // to do here" would. Surfacing it instead of swallowing it.
+    if (participantsError || snapshotsError) {
+      errors.push(`${challenge.name}: ${participantsError?.message ?? snapshotsError?.message}`);
+      continue;
+    }
     if (!participants || participants.length < 2) continue;
 
     const lastSyncedByUser = new Map<string, string>();
@@ -181,5 +191,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return new Response(JSON.stringify({ alertsSent }), { headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({ alertsSent, errors }), { headers: { 'Content-Type': 'application/json' } });
 });
