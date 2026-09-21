@@ -94,6 +94,27 @@ function countWorkoutsInWindow(workouts: WorkoutSample[], days: number): number 
   return workouts.filter((w) => w.when.getTime() >= windowStart.getTime()).length;
 }
 
+function isToday(d: Date): boolean {
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+}
+
+type WorkoutCategory = 'distance' | 'functional';
+
+// Neither platform hands back a clean "is this a distance sport" flag —
+// workoutActivityName's source enum runs to 70+ activity types (iOS) or
+// its own separate set (Android's Health Connect), too many to hand-
+// maintain a name-keyword list for and keep in sync with either one.
+// distanceMi is the one signal both providers already agree on: it's
+// only ever populated from a real recorded distance (currently just
+// HealthKit's DistanceWalkingRunning stat — see getRecentWorkouts), so
+// it lines up with "Walking/Running/Jogging" almost exactly as asked
+// for, and everything else (strength, stretching, games, ...) falls out
+// naturally as "no distance" rather than needing its own list.
+function categoryOf(w: WorkoutSample): WorkoutCategory {
+  return w.distanceMi != null && w.distanceMi > 0 ? 'distance' : 'functional';
+}
+
 export function MetricsScreen() {
   const health = useHealthProvider();
   const { colors, text } = useTheme();
@@ -124,6 +145,13 @@ export function MetricsScreen() {
   const totalDistanceMi = useMemo(() => distanceByDay.reduce((sum, v) => sum + v, 0), [distanceByDay]);
   const avgSteps = weekly.length ? Math.round(totalSteps / weekly.length) : 0;
   const workoutCount = useMemo(() => countWorkoutsInWindow(workouts, days), [workouts, days]);
+
+  const todaysWorkouts = useMemo(() => workouts.filter((w) => isToday(w.when)), [workouts]);
+  const distanceWorkouts = useMemo(() => todaysWorkouts.filter((w) => categoryOf(w) === 'distance'), [todaysWorkouts]);
+  const functionalWorkouts = useMemo(
+    () => todaysWorkouts.filter((w) => categoryOf(w) === 'functional'),
+    [todaysWorkouts],
+  );
 
   const headline =
     tab === 'steps'
@@ -218,8 +246,8 @@ export function MetricsScreen() {
           style={[styles.workoutsHeader, workoutsOpen && styles.workoutsHeaderOpen]}
           onPress={() => setWorkoutsOpen((open) => !open)}
         >
-          <Text style={styles.workoutsTitle}>Workouts</Text>
-          <Text style={styles.workoutsCount}>{workouts.slice(0, 5).length}</Text>
+          <Text style={styles.workoutsTitle}>Today&rsquo;s Workouts</Text>
+          <Text style={styles.workoutsCount}>{todaysWorkouts.length}</Text>
           <CaretRightIcon
             size={16}
             color={withAlpha(colors.text, 0.5)}
@@ -234,21 +262,46 @@ export function MetricsScreen() {
               <Text style={[styles.th, styles.thRight]}>DIST</Text>
               <Text style={[styles.th, styles.thRight]}>HR</Text>
             </View>
-            {workouts.slice(0, 5).map((w) => (
-              <View key={w.id} style={styles.tableRow}>
-                <Text style={[styles.td, { flex: 1.4 }]}>{w.name}</Text>
-                <Text style={[styles.td, styles.tdMuted, { flex: 1 }]}>
-                  {w.when.toLocaleDateString(undefined, { weekday: 'short' })}{' '}
-                  {w.when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-                </Text>
-                <Text style={[styles.td, styles.tdRight]}>{w.distanceMi ? `${w.distanceMi.toFixed(1)} mi` : '—'}</Text>
-                <Text style={[styles.td, styles.tdRight]}>{w.avgHeartRate ?? '—'}</Text>
-              </View>
-            ))}
+            {todaysWorkouts.length === 0 ? (
+              <Text style={styles.emptyNote}>Nothing logged yet today.</Text>
+            ) : (
+              // Bounded rather than growing with the list — a busy day's
+              // worth of workouts scrolls inside its own space instead of
+              // pushing everything below it (the rest of the screen) down
+              // an unpredictable amount.
+              <ScrollView style={styles.workoutsScroll} nestedScrollEnabled>
+                <WorkoutGroup label="Distance" workouts={distanceWorkouts} styles={styles} />
+                <WorkoutGroup label="Functional" workouts={functionalWorkouts} styles={styles} />
+              </ScrollView>
+            )}
           </>
         )}
       </Card>
     </ScrollView>
+  );
+}
+
+// One labeled section of today's list — Distance (a real recorded
+// distance: Walking, Running, Jogging, ...) or Functional (everything
+// else: strength, stretching, games, ...), see categoryOf's own comment.
+// Renders nothing at all when this category is empty today, rather than
+// an empty section with just a label and no rows.
+function WorkoutGroup({ label, workouts, styles }: { label: string; workouts: WorkoutSample[]; styles: MetricsStyles }) {
+  if (workouts.length === 0) return null;
+  return (
+    <>
+      <Text style={styles.groupLabel}>{label}</Text>
+      {workouts.map((w) => (
+        <View key={w.id} style={styles.tableRow}>
+          <Text style={[styles.td, { flex: 1.4 }]}>{w.name}</Text>
+          <Text style={[styles.td, styles.tdMuted, { flex: 1 }]}>
+            {w.when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+          </Text>
+          <Text style={[styles.td, styles.tdRight]}>{w.distanceMi ? `${w.distanceMi.toFixed(1)} mi` : '—'}</Text>
+          <Text style={[styles.td, styles.tdRight]}>{w.avgHeartRate ?? '—'}</Text>
+        </View>
+      ))}
+    </>
   );
 }
 
@@ -360,6 +413,18 @@ function makeStyles(colors: Palette) {
     workoutsTitle: { flex: 1, fontFamily: font.heading, fontSize: 16, color: colors.text },
     workoutsCount: { fontSize: 13, color: withAlpha(colors.text, 0.5) },
     workoutsCaretOpen: { transform: [{ rotate: '90deg' }] },
+    // ~4 rows before it starts scrolling — enough to show a typical
+    // day's list without the card dominating the screen.
+    workoutsScroll: { maxHeight: 220 },
+    groupLabel: {
+      paddingHorizontal: 12,
+      paddingTop: 12,
+      paddingBottom: 4,
+      fontSize: 11,
+      letterSpacing: 0.6,
+      color: withAlpha(colors.text, 0.5),
+    },
+    emptyNote: { padding: 16, fontSize: 13, color: withAlpha(colors.text, 0.55) },
     tableHeader: {
       flexDirection: 'row',
       padding: 12,
