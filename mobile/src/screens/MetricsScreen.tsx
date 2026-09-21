@@ -9,7 +9,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, toneColor, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
 import type { DailySteps, WorkoutSample } from '../health/types';
-import { computeReadiness, READINESS_COPY } from '../health/readiness';
+import { computeReadiness, READINESS_COPY, SAMPLE_READINESS, type ReadinessResult } from '../health/readiness';
 
 type MetricTab = 'steps' | 'distance' | 'hr' | 'weight';
 
@@ -245,33 +245,15 @@ export function MetricsScreen() {
       </Card>
 
       <Card style={{ gap: 10, padding: 18 }} elevated={false}>
-        <View style={styles.readinessHeader}>
-          <Text style={text.h4}>Readiness</Text>
-          <View
-            style={[
-              styles.readinessBadge,
-              {
-                backgroundColor: withAlpha(toneColor(READINESS_COPY[readiness.label].tone, colors), 0.14),
-                borderColor: withAlpha(toneColor(READINESS_COPY[readiness.label].tone, colors), 0.4),
-              },
-            ]}
-          >
-            <Text style={[styles.readinessBadgeText, { color: toneColor(READINESS_COPY[readiness.label].tone, colors) }]}>
-              {READINESS_COPY[readiness.label].title}
-            </Text>
-          </View>
-        </View>
-        <Text style={styles.footNote}>{readiness.reason}</Text>
-        {readiness.acwr != null && (
-          <View style={styles.weekGrid}>
-            <View style={styles.weekTile}>
-              <Text style={styles.weekTileLabel}>THIS WEEK</Text>
-              <Text style={styles.weekTileValue}>{Math.round(readiness.acuteMinutes)} min</Text>
+        <Text style={text.h4}>Readiness</Text>
+        <ReadinessSummary result={readiness} colors={colors} styles={styles} />
+        {readiness.label === 'insufficient_data' && (
+          <View style={styles.readinessPreview}>
+            <View style={styles.readinessPreviewTag}>
+              <Text style={styles.readinessPreviewTagText}>EXAMPLE</Text>
             </View>
-            <View style={styles.weekTile}>
-              <Text style={styles.weekTileLabel}>LAST 4-WK AVG</Text>
-              <Text style={styles.weekTileValue}>{Math.round(readiness.chronicWeeklyAvgMinutes ?? 0)} min/wk</Text>
-            </View>
+            <Text style={styles.readinessPreviewLead}>What this card looks like once it has enough history:</Text>
+            <ReadinessSummary result={SAMPLE_READINESS} colors={colors} styles={styles} />
           </View>
         )}
       </Card>
@@ -295,7 +277,7 @@ export function MetricsScreen() {
               <Text style={[styles.th, { flex: 1.4 }]}>WORKOUT</Text>
               <Text style={[styles.th, { flex: 1 }]}>WHEN</Text>
               <Text style={[styles.th, styles.thRight]}>DIST</Text>
-              <Text style={[styles.th, styles.thRight]}>HR</Text>
+              <Text style={[styles.th, styles.thRight]}>DUR</Text>
             </View>
             {todaysWorkouts.length === 0 ? (
               <Text style={styles.emptyNote}>Nothing logged yet today.</Text>
@@ -316,6 +298,34 @@ export function MetricsScreen() {
   );
 }
 
+// Badge + reason + this-week/4-week-avg tiles — shared by the real
+// result and, when there's not enough history yet, the hardcoded
+// SAMPLE_READINESS preview shown alongside it (see the Readiness card
+// above), so the two always render identically apart from their data.
+function ReadinessSummary({ result, colors, styles }: { result: ReadinessResult; colors: Palette; styles: MetricsStyles }) {
+  const tone = toneColor(READINESS_COPY[result.label].tone, colors);
+  return (
+    <>
+      <View style={[styles.readinessBadge, { backgroundColor: withAlpha(tone, 0.14), borderColor: withAlpha(tone, 0.4) }]}>
+        <Text style={[styles.readinessBadgeText, { color: tone }]}>{READINESS_COPY[result.label].title}</Text>
+      </View>
+      <Text style={styles.footNote}>{result.reason}</Text>
+      {result.acwr != null && (
+        <View style={styles.weekGrid}>
+          <View style={styles.weekTile}>
+            <Text style={styles.weekTileLabel}>THIS WEEK</Text>
+            <Text style={styles.weekTileValue}>{Math.round(result.acuteMinutes)} min</Text>
+          </View>
+          <View style={styles.weekTile}>
+            <Text style={styles.weekTileLabel}>LAST 4-WK AVG</Text>
+            <Text style={styles.weekTileValue}>{Math.round(result.chronicWeeklyAvgMinutes ?? 0)} min/wk</Text>
+          </View>
+        </View>
+      )}
+    </>
+  );
+}
+
 // One labeled section of today's list — Distance (a real recorded
 // distance: Walking, Running, Jogging, ...) or Functional (everything
 // else: strength, stretching, games, ...), see categoryOf's own comment.
@@ -333,7 +343,7 @@ function WorkoutGroup({ label, workouts, styles }: { label: string; workouts: Wo
             {w.when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
           </Text>
           <Text style={[styles.td, styles.tdRight]}>{w.distanceMi ? `${w.distanceMi.toFixed(1)} mi` : '—'}</Text>
-          <Text style={[styles.td, styles.tdRight]}>{w.avgHeartRate ?? '—'}</Text>
+          <Text style={[styles.td, styles.tdRight]}>{w.durationMin ? `${w.durationMin} min` : '—'}</Text>
         </View>
       ))}
     </>
@@ -449,9 +459,29 @@ function makeStyles(colors: Palette) {
     workoutsCount: { fontSize: 13, color: withAlpha(colors.text, 0.5) },
     workoutsCaretOpen: { transform: [{ rotate: '90deg' }] },
     footNote: { fontSize: 13, color: withAlpha(colors.text, 0.65) },
-    readinessHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    readinessBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1 },
+    readinessBadge: { alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1 },
     readinessBadgeText: { fontSize: 12, fontFamily: font.heading },
+    // Dashed border + a muted "EXAMPLE" tag — visually distinct from the
+    // real card above it (solid border, no tag), so it never reads as
+    // this account's own data.
+    readinessPreview: {
+      gap: 10,
+      marginTop: 4,
+      padding: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: withAlpha(colors.text, 0.2),
+    },
+    readinessPreviewTag: {
+      alignSelf: 'flex-start',
+      paddingVertical: 2,
+      paddingHorizontal: 8,
+      borderRadius: 999,
+      backgroundColor: withAlpha(colors.text, 0.1),
+    },
+    readinessPreviewTagText: { fontSize: 10, letterSpacing: 0.8, color: withAlpha(colors.text, 0.6) },
+    readinessPreviewLead: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
     // ~4 rows before it starts scrolling — enough to show a typical
     // day's list without the card dominating the screen.
     workoutsScroll: { maxHeight: 220 },
