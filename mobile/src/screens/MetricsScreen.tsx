@@ -6,9 +6,10 @@ import { Card } from '../components/Card';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { Tag } from '../components/Tag';
 import { useTheme } from '../theme/ThemeContext';
-import { font, withAlpha, type Palette } from '../theme/tokens';
+import { font, toneColor, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
 import type { DailySteps, WorkoutSample } from '../health/types';
+import { computeReadiness, READINESS_COPY } from '../health/readiness';
 
 type MetricTab = 'steps' | 'distance' | 'hr' | 'weight';
 
@@ -146,6 +147,8 @@ export function MetricsScreen() {
   const avgSteps = weekly.length ? Math.round(totalSteps / weekly.length) : 0;
   const workoutCount = useMemo(() => countWorkoutsInWindow(workouts, days), [workouts, days]);
 
+  const readiness = useMemo(() => computeReadiness(workouts), [workouts]);
+
   const todaysWorkouts = useMemo(() => workouts.filter((w) => isToday(w.when)), [workouts]);
   const distanceWorkouts = useMemo(() => todaysWorkouts.filter((w) => categoryOf(w) === 'distance'), [todaysWorkouts]);
   const functionalWorkouts = useMemo(
@@ -239,6 +242,38 @@ export function MetricsScreen() {
             <Text style={styles.weekTileValue}>{workoutCount}</Text>
           </View>
         </View>
+      </Card>
+
+      <Card style={{ gap: 10, padding: 18 }} elevated={false}>
+        <View style={styles.readinessHeader}>
+          <Text style={text.h4}>Readiness</Text>
+          <View
+            style={[
+              styles.readinessBadge,
+              {
+                backgroundColor: withAlpha(toneColor(READINESS_COPY[readiness.label].tone, colors), 0.14),
+                borderColor: withAlpha(toneColor(READINESS_COPY[readiness.label].tone, colors), 0.4),
+              },
+            ]}
+          >
+            <Text style={[styles.readinessBadgeText, { color: toneColor(READINESS_COPY[readiness.label].tone, colors) }]}>
+              {READINESS_COPY[readiness.label].title}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.footNote}>{readiness.reason}</Text>
+        {readiness.acwr != null && (
+          <View style={styles.weekGrid}>
+            <View style={styles.weekTile}>
+              <Text style={styles.weekTileLabel}>THIS WEEK</Text>
+              <Text style={styles.weekTileValue}>{Math.round(readiness.acuteMinutes)} min</Text>
+            </View>
+            <View style={styles.weekTile}>
+              <Text style={styles.weekTileLabel}>LAST 4-WK AVG</Text>
+              <Text style={styles.weekTileValue}>{Math.round(readiness.chronicWeeklyAvgMinutes ?? 0)} min/wk</Text>
+            </View>
+          </View>
+        )}
       </Card>
 
       <Card style={{ padding: 0, overflow: 'hidden' }} elevated={false}>
@@ -413,6 +448,10 @@ function makeStyles(colors: Palette) {
     workoutsTitle: { flex: 1, fontFamily: font.heading, fontSize: 16, color: colors.text },
     workoutsCount: { fontSize: 13, color: withAlpha(colors.text, 0.5) },
     workoutsCaretOpen: { transform: [{ rotate: '90deg' }] },
+    footNote: { fontSize: 13, color: withAlpha(colors.text, 0.65) },
+    readinessHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    readinessBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1 },
+    readinessBadgeText: { fontSize: 12, fontFamily: font.heading },
     // ~4 rows before it starts scrolling — enough to show a typical
     // day's list without the card dominating the screen.
     workoutsScroll: { maxHeight: 220 },
