@@ -3,7 +3,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
-import type { NotificationPreferences } from './types';
+import type { AlertPreferences, NotificationPreferences } from './types';
 
 // Used from SettingsScreen's "Login reminders" card — see
 // 0010_login_reminders.sql / send-login-reminders for the backend half
@@ -81,6 +81,44 @@ async function registerForPushNotifications(userId: string): Promise<void> {
       { user_id: userId, expo_push_token: token, platform: Platform.OS, updated_at: new Date().toISOString() },
       { onConflict: 'expo_push_token' },
     );
+  if (error) throw new Error(error.message);
+}
+
+// The other two "Alerts" card toggles (SettingsScreen) that are wired
+// to a real backend job — see 0025_challenge_alerts.sql,
+// send-stale-data-alerts, send-daily-standings. Push-only, unlike Login
+// reminders' push/email pair: the Alerts card itself has never offered
+// a channel choice, just a single on/off per alert.
+
+export async function getAlertPreferences(userId: string): Promise<AlertPreferences> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from('profiles')
+    .select('alert_stale_data_enabled, alert_daily_standings_enabled')
+    .eq('id', userId)
+    .single();
+  if (error) throw new Error(error.message);
+  return {
+    staleDataEnabled: data.alert_stale_data_enabled,
+    dailyStandingsEnabled: data.alert_daily_standings_enabled,
+  };
+}
+
+// Turning either on walks through the same real push-registration dance
+// setPushEnabled's own toggle does — there's no point flipping the
+// preference on if there's no token for send-stale-data-alerts /
+// send-daily-standings to actually push to.
+export async function setStaleDataAlertEnabled(userId: string, enabled: boolean): Promise<void> {
+  if (enabled) await registerForPushNotifications(userId);
+  const client = requireClient();
+  const { error } = await client.from('profiles').update({ alert_stale_data_enabled: enabled }).eq('id', userId);
+  if (error) throw new Error(error.message);
+}
+
+export async function setDailyStandingsAlertEnabled(userId: string, enabled: boolean): Promise<void> {
+  if (enabled) await registerForPushNotifications(userId);
+  const client = requireClient();
+  const { error } = await client.from('profiles').update({ alert_daily_standings_enabled: enabled }).eq('id', userId);
   if (error) throw new Error(error.message);
 }
 

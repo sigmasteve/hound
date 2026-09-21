@@ -5,11 +5,10 @@ import { AndroidLogoIcon, ArrowsClockwiseIcon, AppleLogoIcon, ScalesIcon, SignOu
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { RadioPill, ToggleRow } from '../components/Selectable';
-import { SegmentedControl } from '../components/SegmentedControl';
+import { ToggleRow } from '../components/Selectable';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
-import { ALERT_DEFS, SOURCES } from '../data/sampleData';
+import { SOURCES } from '../data/sampleData';
 import { useHealthProvider } from '../health/HealthContext';
 import type { HealthSnapshot } from '../health/types';
 import { useAuth } from '../auth/AuthContext';
@@ -47,10 +46,6 @@ export function SettingsScreen() {
   const { user, signOut } = useAuth();
   const { colors, text, mode, setMode } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [alerts, setAlerts] = useState(ALERT_DEFS.map((a) => a.defaultOn));
-  const [conflict, setConflict] = useState<'device' | 'apple' | 'ask'>('device');
-  const [units, setUnits] = useState<'imperial' | 'metric'>('imperial');
-
   // This device's own real sync status, for whichever "Connected sources"
   // row matches health.platformLabel below — every other row there is
   // still SOURCES' static sample data (a different, pre-existing gap;
@@ -85,6 +80,54 @@ export function SettingsScreen() {
         });
     }, [user?.id]),
   );
+
+  // Two of the three Alerts toggles — see notifications/types.ts's own
+  // comment on why the third (proximity) isn't part of this shape.
+  const [staleDataEnabled, setStaleDataEnabledState] = useState<boolean | null>(null);
+  const [dailyStandingsEnabled, setDailyStandingsEnabledState] = useState<boolean | null>(null);
+  const [savingAlert, setSavingAlert] = useState<'staleData' | 'dailyStandings' | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured || !user?.id) return;
+      notifications
+        .getAlertPreferences(user.id)
+        .then((prefs) => {
+          setStaleDataEnabledState(prefs.staleDataEnabled);
+          setDailyStandingsEnabledState(prefs.dailyStandingsEnabled);
+        })
+        .catch(() => {
+          // Same "leave it unresolved rather than guess" reasoning the
+          // login-reminder fetch above uses.
+        });
+    }, [user?.id]),
+  );
+
+  const toggleStaleData = async (next: boolean) => {
+    if (!user?.id) return;
+    setSavingAlert('staleData');
+    try {
+      await notifications.setStaleDataAlertEnabled(user.id, next);
+      setStaleDataEnabledState(next);
+    } catch (err) {
+      Alert.alert('Stale data alert', err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setSavingAlert(null);
+    }
+  };
+
+  const toggleDailyStandings = async (next: boolean) => {
+    if (!user?.id) return;
+    setSavingAlert('dailyStandings');
+    try {
+      await notifications.setDailyStandingsAlertEnabled(user.id, next);
+      setDailyStandingsEnabledState(next);
+    } catch (err) {
+      Alert.alert('Daily standings alert', err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setSavingAlert(null);
+    }
+  };
 
   const togglePush = async (next: boolean) => {
     if (!user?.id) return;
@@ -182,39 +225,27 @@ export function SettingsScreen() {
         </Text>
       </Card>
 
-      <Card style={{ gap: 14 }} elevated={false}>
-        <Text style={text.h4}>Conflicts</Text>
-        <Text style={styles.footNote}>When two sources report the same day, Hound keeps one. Pick which wins.</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          <RadioPill label="Highest-fidelity device" selected={conflict === 'device'} onPress={() => setConflict('device')} />
-          <RadioPill label="Apple Health first" selected={conflict === 'apple'} onPress={() => setConflict('apple')} />
-          <RadioPill label="Ask me each time" selected={conflict === 'ask'} onPress={() => setConflict('ask')} />
-        </View>
-        <View style={{ gap: 5 }}>
-          <Text style={styles.footNote}>Units</Text>
-          <SegmentedControl
-            value={units}
-            onChange={setUnits}
-            options={[
-              { value: 'imperial', label: 'Miles / lb' },
-              { value: 'metric', label: 'Km / kg' },
-            ]}
-          />
-        </View>
-      </Card>
-
-      <Card style={{ gap: 14 }} elevated={false}>
-        <Text style={text.h4}>Alerts</Text>
-        {ALERT_DEFS.map((a, i) => (
+      {isSupabaseConfigured && staleDataEnabled !== null && dailyStandingsEnabled !== null && (
+        <Card style={{ gap: 14 }} elevated={false}>
+          <Text style={text.h4}>Alerts</Text>
+          {/* A third alert ("Someone closes within 2 miles of me")
+              belongs here too, but needs live GPS tracking this app
+              doesn't have any infrastructure for yet — left out rather
+              than shown wired to nothing. See notifications/types.ts. */}
           <ToggleRow
-            key={a.label}
-            label={a.label}
-            note={a.note}
-            value={alerts[i]}
-            onChange={(v) => setAlerts((cur) => cur.map((x, j) => (j === i ? v : x)))}
+            label="A friend's data goes stale mid-challenge"
+            note={savingAlert === 'staleData' ? 'Saving…' : 'All challenges'}
+            value={staleDataEnabled}
+            onChange={toggleStaleData}
           />
-        ))}
-      </Card>
+          <ToggleRow
+            label="Daily standings at 8pm"
+            note={savingAlert === 'dailyStandings' ? 'Saving…' : 'Step races'}
+            value={dailyStandingsEnabled}
+            onChange={toggleDailyStandings}
+          />
+        </Card>
+      )}
 
       {isSupabaseConfigured && pushEnabled !== null && emailEnabled !== null && (
         <Card style={{ gap: 14 }} elevated={false}>
