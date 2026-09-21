@@ -176,13 +176,22 @@ export const androidHealthProvider: HealthProvider = {
     // [startTime, endTime] window, same idea as iosProvider's per-workout
     // getStatistic call just against a different API shape.
     return Promise.all(
-      sessions.map(async (r, i) => {
+      sessions.map(async (r) => {
         const { records: distanceRecords } = await orEmpty(readRecords('Distance', {
           timeRangeFilter: { operator: 'between', startTime: r.startTime, endTime: r.endTime },
         }));
         const distanceMi = distanceRecords.reduce((sum, d) => sum + metersToMiles(d.distance.inMeters), 0);
         return {
-          id: r.metadata?.id ?? String(i),
+          // r.metadata?.id should always be set in practice (Health
+          // Connect assigns one on insert) — the fallback is defensive,
+          // and needs to be stable across fetches on its own: String(i)
+          // (this session's position in *this* page) used to shift
+          // every time an older/newer session entered the same page,
+          // silently changing a workout's own id from one sync to the
+          // next. startTime + exerciseType can't do that — two sessions
+          // starting at the same instant of different types is the only
+          // (unrealistic) collision.
+          id: r.metadata?.id ?? `${r.startTime}_${r.exerciseType ?? 'unknown'}`,
           name: r.title ?? r.exerciseType?.toString() ?? 'Workout',
           when: new Date(r.startTime),
           source: 'Health Connect',
