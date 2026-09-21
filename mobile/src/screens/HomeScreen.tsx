@@ -387,14 +387,22 @@ export function HomeScreen({
       {/* One-line pointer to the Data tab's own Readiness card (see the
           readiness plan doc) — Home is the screen someone actually opens
           daily, so the signal gets a glance here even though the real
-          detail (reasoning, component breakdown) only lives on Data. */}
-      <Pressable style={styles.readinessChip} onPress={() => onGoTab('metrics')}>
-        <View style={[styles.readinessDot, { backgroundColor: toneColor(READINESS_COPY[readiness.label].tone, colors) }]} />
-        <Text style={styles.readinessChipText} numberOfLines={1}>
-          {READINESS_COPY[readiness.label].title}
-        </Text>
-        <CaretRightIcon size={12} color={withAlpha(colors.text, 0.4)} />
-      </Pressable>
+          detail (reasoning, component breakdown) only lives on Data.
+          Hidden for insufficient_data — a "Not enough data yet" chip
+          here isn't worth a permanent slot on the one screen everyone
+          sees daily, unlike the Data tab's own card (which explains
+          itself with the EXAMPLE preview) — except for an admin, who
+          can still see it to test the feature without needing real
+          history. */}
+      {(readiness.label !== 'insufficient_data' || user?.isAdmin) && (
+        <Pressable style={styles.readinessChip} onPress={() => onGoTab('metrics')}>
+          <View style={[styles.readinessDot, { backgroundColor: toneColor(READINESS_COPY[readiness.label].tone, colors) }]} />
+          <Text style={styles.readinessChipText} numberOfLines={1}>
+            {READINESS_COPY[readiness.label].title}
+          </Text>
+          <CaretRightIcon size={12} color={withAlpha(colors.text, 0.4)} />
+        </Pressable>
+      )}
 
       <View style={styles.cardsRow}>
         {primary ? (

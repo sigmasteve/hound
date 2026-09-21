@@ -81,11 +81,16 @@ export function SettingsScreen() {
     }, [user?.id]),
   );
 
-  // Two of the three Alerts toggles — see notifications/types.ts's own
-  // comment on why the third (proximity) isn't part of this shape.
-  const [staleDataEnabled, setStaleDataEnabledState] = useState<boolean | null>(null);
-  const [dailyStandingsEnabled, setDailyStandingsEnabledState] = useState<boolean | null>(null);
-  const [savingAlert, setSavingAlert] = useState<'staleData' | 'dailyStandings' | null>(null);
+  // Two of the three Alerts, each its own Push + Email pair — see
+  // notifications/types.ts's own comment on why the third (proximity)
+  // isn't part of this shape.
+  const [staleDataPushEnabled, setStaleDataPushEnabledState] = useState<boolean | null>(null);
+  const [staleDataEmailEnabled, setStaleDataEmailEnabledState] = useState<boolean | null>(null);
+  const [dailyStandingsPushEnabled, setDailyStandingsPushEnabledState] = useState<boolean | null>(null);
+  const [dailyStandingsEmailEnabled, setDailyStandingsEmailEnabledState] = useState<boolean | null>(null);
+  const [savingAlert, setSavingAlert] = useState<
+    'staleDataPush' | 'staleDataEmail' | 'dailyStandingsPush' | 'dailyStandingsEmail' | null
+  >(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -93,8 +98,10 @@ export function SettingsScreen() {
       notifications
         .getAlertPreferences(user.id)
         .then((prefs) => {
-          setStaleDataEnabledState(prefs.staleDataEnabled);
-          setDailyStandingsEnabledState(prefs.dailyStandingsEnabled);
+          setStaleDataPushEnabledState(prefs.staleDataPushEnabled);
+          setStaleDataEmailEnabledState(prefs.staleDataEmailEnabled);
+          setDailyStandingsPushEnabledState(prefs.dailyStandingsPushEnabled);
+          setDailyStandingsEmailEnabledState(prefs.dailyStandingsEmailEnabled);
         })
         .catch(() => {
           // Same "leave it unresolved rather than guess" reasoning the
@@ -103,12 +110,12 @@ export function SettingsScreen() {
     }, [user?.id]),
   );
 
-  const toggleStaleData = async (next: boolean) => {
+  const toggleStaleDataPush = async (next: boolean) => {
     if (!user?.id) return;
-    setSavingAlert('staleData');
+    setSavingAlert('staleDataPush');
     try {
-      await notifications.setStaleDataAlertEnabled(user.id, next);
-      setStaleDataEnabledState(next);
+      await notifications.setStaleDataPushEnabled(user.id, next);
+      setStaleDataPushEnabledState(next);
     } catch (err) {
       Alert.alert('Stale data alert', err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
@@ -116,12 +123,38 @@ export function SettingsScreen() {
     }
   };
 
-  const toggleDailyStandings = async (next: boolean) => {
+  const toggleStaleDataEmail = async (next: boolean) => {
     if (!user?.id) return;
-    setSavingAlert('dailyStandings');
+    setSavingAlert('staleDataEmail');
     try {
-      await notifications.setDailyStandingsAlertEnabled(user.id, next);
-      setDailyStandingsEnabledState(next);
+      await notifications.setStaleDataEmailEnabled(user.id, next);
+      setStaleDataEmailEnabledState(next);
+    } catch (err) {
+      Alert.alert('Stale data alert', err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setSavingAlert(null);
+    }
+  };
+
+  const toggleDailyStandingsPush = async (next: boolean) => {
+    if (!user?.id) return;
+    setSavingAlert('dailyStandingsPush');
+    try {
+      await notifications.setDailyStandingsPushEnabled(user.id, next);
+      setDailyStandingsPushEnabledState(next);
+    } catch (err) {
+      Alert.alert('Daily standings alert', err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setSavingAlert(null);
+    }
+  };
+
+  const toggleDailyStandingsEmail = async (next: boolean) => {
+    if (!user?.id) return;
+    setSavingAlert('dailyStandingsEmail');
+    try {
+      await notifications.setDailyStandingsEmailEnabled(user.id, next);
+      setDailyStandingsEmailEnabledState(next);
     } catch (err) {
       Alert.alert('Daily standings alert', err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
@@ -252,27 +285,50 @@ export function SettingsScreen() {
         </Text>
       </Card>
 
-      {isSupabaseConfigured && staleDataEnabled !== null && dailyStandingsEnabled !== null && (
-        <Card style={{ gap: 14 }} elevated={false}>
-          <Text style={text.h4}>Alerts</Text>
-          {/* A third alert ("Someone closes within 2 miles of me")
-              belongs here too, but needs live GPS tracking this app
-              doesn't have any infrastructure for yet — left out rather
-              than shown wired to nothing. See notifications/types.ts. */}
-          <ToggleRow
-            label="A friend's data goes stale mid-challenge"
-            note={savingAlert === 'staleData' ? 'Saving…' : 'All challenges'}
-            value={staleDataEnabled}
-            onChange={toggleStaleData}
-          />
-          <ToggleRow
-            label="Daily standings at 8pm"
-            note={savingAlert === 'dailyStandings' ? 'Saving…' : 'Step races'}
-            value={dailyStandingsEnabled}
-            onChange={toggleDailyStandings}
-          />
-        </Card>
-      )}
+      {isSupabaseConfigured &&
+        staleDataPushEnabled !== null &&
+        staleDataEmailEnabled !== null &&
+        dailyStandingsPushEnabled !== null &&
+        dailyStandingsEmailEnabled !== null && (
+          <Card style={{ gap: 16 }} elevated={false}>
+            <Text style={text.h4}>Alerts</Text>
+            {/* A third alert ("Someone closes within 2 miles of me")
+                belongs here too, but needs live GPS tracking this app
+                doesn't have any infrastructure for yet — left out
+                rather than shown wired to nothing. See
+                notifications/types.ts. */}
+            <View style={{ gap: 10 }}>
+              <Text style={styles.alertGroupLabel}>A friend's data goes stale mid-challenge — all challenges</Text>
+              <ToggleRow
+                label="Push notification"
+                note={savingAlert === 'staleDataPush' ? 'Saving…' : 'Sent to this device'}
+                value={staleDataPushEnabled}
+                onChange={toggleStaleDataPush}
+              />
+              <ToggleRow
+                label="Email"
+                note={savingAlert === 'staleDataEmail' ? 'Saving…' : user?.email ?? ''}
+                value={staleDataEmailEnabled}
+                onChange={toggleStaleDataEmail}
+              />
+            </View>
+            <View style={{ gap: 10 }}>
+              <Text style={styles.alertGroupLabel}>Daily standings at 8pm — step races</Text>
+              <ToggleRow
+                label="Push notification"
+                note={savingAlert === 'dailyStandingsPush' ? 'Saving…' : 'Sent to this device'}
+                value={dailyStandingsPushEnabled}
+                onChange={toggleDailyStandingsPush}
+              />
+              <ToggleRow
+                label="Email"
+                note={savingAlert === 'dailyStandingsEmail' ? 'Saving…' : user?.email ?? ''}
+                value={dailyStandingsEmailEnabled}
+                onChange={toggleDailyStandingsEmail}
+              />
+            </View>
+          </Card>
+        )}
 
       {isSupabaseConfigured && pushEnabled !== null && emailEnabled !== null && (
         <Card style={{ gap: 14 }} elevated={false}>
@@ -345,5 +401,6 @@ function makeStyles(colors: Palette) {
     syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
     syncLabel: { fontSize: 12, color: colors.accent, fontFamily: font.heading },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    alertGroupLabel: { fontSize: 13.5, color: colors.text, fontFamily: font.heading },
   });
 }

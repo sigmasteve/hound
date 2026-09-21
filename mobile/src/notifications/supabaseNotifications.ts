@@ -86,39 +86,67 @@ async function registerForPushNotifications(userId: string): Promise<void> {
 
 // The other two "Alerts" card toggles (SettingsScreen) that are wired
 // to a real backend job — see 0025_challenge_alerts.sql,
-// send-stale-data-alerts, send-daily-standings. Push-only, unlike Login
-// reminders' push/email pair: the Alerts card itself has never offered
-// a channel choice, just a single on/off per alert.
+// send-stale-data-alerts, send-daily-standings. Each has its own
+// Push + Email pair (0026_alert_email_channels.sql), same shape as
+// Login reminders' own setPushEnabled/setEmailEnabled below.
 
 export async function getAlertPreferences(userId: string): Promise<AlertPreferences> {
   const client = requireClient();
   const { data, error } = await client
     .from('profiles')
-    .select('alert_stale_data_enabled, alert_daily_standings_enabled')
+    // One plain string literal, not a concatenation — supabase-js infers
+    // this call's return type by parsing the select string itself at
+    // the type level, which only works against a literal `string`
+    // type; `'a' + 'b'` widens to plain `string` and silently falls
+    // back to an untyped row.
+    .select(
+      'alert_stale_data_push_enabled, alert_stale_data_email_enabled, alert_daily_standings_push_enabled, alert_daily_standings_email_enabled',
+    )
     .eq('id', userId)
     .single();
   if (error) throw new Error(error.message);
   return {
-    staleDataEnabled: data.alert_stale_data_enabled,
-    dailyStandingsEnabled: data.alert_daily_standings_enabled,
+    staleDataPushEnabled: data.alert_stale_data_push_enabled,
+    staleDataEmailEnabled: data.alert_stale_data_email_enabled,
+    dailyStandingsPushEnabled: data.alert_daily_standings_push_enabled,
+    dailyStandingsEmailEnabled: data.alert_daily_standings_email_enabled,
   };
 }
 
-// Turning either on walks through the same real push-registration dance
+// Push toggles walk through the same real push-registration dance
 // setPushEnabled's own toggle does — there's no point flipping the
 // preference on if there's no token for send-stale-data-alerts /
-// send-daily-standings to actually push to.
-export async function setStaleDataAlertEnabled(userId: string, enabled: boolean): Promise<void> {
+// send-daily-standings to actually push to. Email toggles are a plain
+// flip, same as setEmailEnabled — no permission dance needed.
+export async function setStaleDataPushEnabled(userId: string, enabled: boolean): Promise<void> {
   if (enabled) await registerForPushNotifications(userId);
   const client = requireClient();
-  const { error } = await client.from('profiles').update({ alert_stale_data_enabled: enabled }).eq('id', userId);
+  const { error } = await client.from('profiles').update({ alert_stale_data_push_enabled: enabled }).eq('id', userId);
   if (error) throw new Error(error.message);
 }
 
-export async function setDailyStandingsAlertEnabled(userId: string, enabled: boolean): Promise<void> {
+export async function setStaleDataEmailEnabled(userId: string, enabled: boolean): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.from('profiles').update({ alert_stale_data_email_enabled: enabled }).eq('id', userId);
+  if (error) throw new Error(error.message);
+}
+
+export async function setDailyStandingsPushEnabled(userId: string, enabled: boolean): Promise<void> {
   if (enabled) await registerForPushNotifications(userId);
   const client = requireClient();
-  const { error } = await client.from('profiles').update({ alert_daily_standings_enabled: enabled }).eq('id', userId);
+  const { error } = await client
+    .from('profiles')
+    .update({ alert_daily_standings_push_enabled: enabled })
+    .eq('id', userId);
+  if (error) throw new Error(error.message);
+}
+
+export async function setDailyStandingsEmailEnabled(userId: string, enabled: boolean): Promise<void> {
+  const client = requireClient();
+  const { error } = await client
+    .from('profiles')
+    .update({ alert_daily_standings_email_enabled: enabled })
+    .eq('id', userId);
   if (error) throw new Error(error.message);
 }
 
