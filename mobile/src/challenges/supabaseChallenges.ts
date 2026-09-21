@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { displayInitials, displayName, type DisplayableProfile } from '../profiles/displayName';
 import { inviteWindowClosed } from './board';
 import type {
   Challenge,
@@ -13,6 +14,22 @@ import type {
 
 function localDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// A profiles(...) join's raw shape (name, initials, username, use_username
+// — see 0030_username.sql) wherever this file needs to show another
+// participant's identity. Kept snake_case at the boundary, mapped to
+// displayName.ts's own camelCase DisplayableProfile right where it's
+// used, same as every other profiles column this file already reads.
+interface ProfileRow {
+  name: string;
+  initials: string;
+  username: string | null;
+  use_username: boolean;
+}
+
+function toDisplayable(p: ProfileRow): DisplayableProfile & { initials: string } {
+  return { name: p.name, initials: p.initials, username: p.username, useUsername: p.use_username };
 }
 
 function requireClient() {
@@ -67,7 +84,7 @@ interface ChallengeRow {
 interface ChallengeInviteRow {
   id: string;
   challenges: { id: string; name: string; kind: Challenge['kind']; duration_days: number } | null;
-  inviter: { name: string } | null;
+  inviter: { name: string; username: string | null; use_username: boolean } | null;
   role: HuntRole | null;
 }
 
@@ -132,15 +149,15 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     const client = requireClient();
     const { data, error } = await client
       .from('challenge_participants')
-      .select('user_id, role, highlighted, profiles(name, initials)')
+      .select('user_id, role, highlighted, profiles(name, initials, username, use_username)')
       .eq('challenge_id', challengeId);
     if (error) throw new Error(error.message);
     return (data ?? []).map((row) => {
-      const profile = row.profiles as unknown as { name: string; initials: string } | null;
+      const profile = row.profiles as unknown as ProfileRow | null;
       return {
         userId: row.user_id,
-        name: profile?.name ?? 'Someone',
-        initials: profile?.initials ?? '?',
+        name: profile ? displayName(toDisplayable(profile)) : 'Someone',
+        initials: profile ? displayInitials(toDisplayable(profile)) : '?',
         role: (row.role as HuntRole | null) ?? null,
         highlighted: row.highlighted,
       };
@@ -171,7 +188,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     // tables, nothing to keep in sync on top of it.
     let query = client
       .from('progress_snapshots')
-      .select('user_id, steps, distance_mi, profiles(name, initials)')
+      .select('user_id, steps, distance_mi, profiles(name, initials, username, use_username)')
       .eq('challenge_id', challengeId);
     if (asOfDay) query = query.lte('day', asOfDay);
     const { data, error } = await query;
@@ -179,7 +196,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
 
     const totals = new Map<string, LeaderboardEntry>();
     for (const row of data ?? []) {
-      const profile = row.profiles as unknown as { name: string; initials: string } | null;
+      const profile = row.profiles as unknown as ProfileRow | null;
       const existing = totals.get(row.user_id);
       if (existing) {
         existing.totalSteps += row.steps;
@@ -187,8 +204,8 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       } else {
         totals.set(row.user_id, {
           userId: row.user_id,
-          name: profile?.name ?? 'Someone',
-          initials: profile?.initials ?? '?',
+          name: profile ? displayName(toDisplayable(profile)) : 'Someone',
+          initials: profile ? displayInitials(toDisplayable(profile)) : '?',
           totalSteps: row.steps,
           totalDistanceMi: Number(row.distance_mi),
         });
@@ -326,7 +343,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       .from('challenge_invites')
       .select(
         'id, challenges(id, name, kind, duration_days), ' +
-          'inviter:profiles!challenge_invites_inviter_id_fkey(name), role',
+          'inviter:profiles!challenge_invites_inviter_id_fkey(name, username, use_username), role',
       )
       .eq('invitee_id', userId);
     if (error) throw new Error(error.message);
@@ -338,7 +355,9 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         challengeName: row.challenges!.name,
         challengeKind: row.challenges!.kind,
         durationDays: row.challenges!.duration_days,
-        inviterName: row.inviter?.name ?? 'Someone',
+        inviterName: row.inviter
+          ? displayName({ name: row.inviter.name, username: row.inviter.username, useUsername: row.inviter.use_username })
+          : 'Someone',
         role: row.role,
       }));
   },

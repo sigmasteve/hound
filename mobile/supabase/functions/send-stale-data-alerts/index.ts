@@ -29,10 +29,23 @@ interface ParticipantRow {
   user_id: string;
   profiles: {
     name: string;
+    username: string | null;
+    use_username: boolean;
     email: string;
     alert_stale_data_push_enabled: boolean;
     alert_stale_data_email_enabled: boolean;
   } | null;
+}
+
+// Same "username instead of real name once someone's set one" rule
+// src/profiles/displayName.ts applies on the client — duplicated here
+// rather than shared, since Edge Functions are deployed independently
+// and can't import from mobile/src. This alert names the stale
+// participant to every OTHER co-participant, so it's exactly the
+// "challenge context revealing someone else's identity" case that rule
+// covers.
+function displayName(p: { name: string; username: string | null; use_username: boolean }): string {
+  return p.use_username && p.username ? p.username : p.name;
 }
 
 async function sendPushBatch(tokens: string[], body: string): Promise<void> {
@@ -118,7 +131,9 @@ Deno.serve(async (req) => {
       await Promise.all([
         supabase
           .from('challenge_participants')
-          .select('user_id, profiles(name, email, alert_stale_data_push_enabled, alert_stale_data_email_enabled)')
+          .select(
+            'user_id, profiles(name, username, use_username, email, alert_stale_data_push_enabled, alert_stale_data_email_enabled)',
+          )
           .eq('challenge_id', challenge.id)
           .returns<ParticipantRow[]>(),
         supabase.from('progress_snapshots').select('user_id, recorded_at').eq('challenge_id', challenge.id),
@@ -162,7 +177,7 @@ Deno.serve(async (req) => {
         .insert({ challenge_id: challenge.id, stale_user_id: participant.user_id, day: today });
       if (guardError) continue; // 23505 (already sent) or any other failure — skip either way
 
-      const staleName = participant.profiles?.name ?? 'A friend';
+      const staleName = participant.profiles ? displayName(participant.profiles) : 'A friend';
       const body = `${staleName} hasn't synced progress in "${challenge.name}" for over a day.`;
 
       const pushRecipients = recipients.filter((r) => r.profiles?.alert_stale_data_push_enabled);

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { displayInitials, displayName } from '../profiles/displayName';
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -7,8 +8,17 @@ function requireClient() {
 
 export interface AdminUserSummary {
   id: string;
+  // The real name/initials — used for the delete-confirmation alert and
+  // carried into AdminUserDetailScreen, which always shows the real
+  // identity behind an account regardless of that account's own
+  // username preference (admin tooling is support/moderation, not
+  // another player). displayName/displayInitials below are what the
+  // search list itself renders, same as everywhere else a challenge
+  // context shows someone else's identity.
   name: string;
   initials: string;
+  displayName: string;
+  displayInitials: string;
   email: string;
   isAdmin: boolean;
   lastActiveAt: string | null;
@@ -32,22 +42,27 @@ export async function searchUsers(query: string): Promise<AdminUserSummary[]> {
   const trimmed = query.trim();
   let q = client
     .from('profiles')
-    .select('id, name, initials, email, is_admin, last_active_at, created_at')
+    .select('id, name, initials, username, use_username, email, is_admin, last_active_at, created_at')
     .order('is_admin', { ascending: false })
     .order('name', { ascending: true })
     .limit(25);
-  if (trimmed) q = q.or(`name.ilike.%${trimmed}%,email.ilike.%${trimmed}%`);
+  if (trimmed) q = q.or(`name.ilike.%${trimmed}%,username.ilike.%${trimmed}%,email.ilike.%${trimmed}%`);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    name: row.name,
-    initials: row.initials,
-    email: row.email,
-    isAdmin: row.is_admin,
-    lastActiveAt: row.last_active_at,
-    createdAt: row.created_at,
-  }));
+  return (data ?? []).map((row) => {
+    const displayable = { name: row.name, username: row.username, useUsername: row.use_username };
+    return {
+      id: row.id,
+      name: row.name,
+      initials: row.initials,
+      displayName: displayName(displayable),
+      displayInitials: displayInitials({ ...displayable, initials: row.initials }),
+      email: row.email,
+      isAdmin: row.is_admin,
+      lastActiveAt: row.last_active_at,
+      createdAt: row.created_at,
+    };
+  });
 }
 
 export async function getTotalUserCount(): Promise<number> {

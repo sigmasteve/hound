@@ -23,7 +23,11 @@ function requireClient() {
 export async function userFromSession(session: Session, provider: AuthProviderId = 'email'): Promise<AuthUser> {
   const client = requireClient();
   const fallbackEmail = session.user.email ?? '';
-  const { data } = await client.from('profiles').select('name, initials, email, is_admin').eq('id', session.user.id).single();
+  const { data } = await client
+    .from('profiles')
+    .select('name, initials, email, is_admin, username, use_username')
+    .eq('id', session.user.id)
+    .single();
   if (!data) {
     // The trigger runs in the same transaction as the auth.users insert,
     // so this really only happens if it hasn't landed yet (rare, but
@@ -39,6 +43,8 @@ export async function userFromSession(session: Session, provider: AuthProviderId
     initials: data.initials,
     provider,
     isAdmin: data.is_admin ?? false,
+    username: data.username,
+    useUsername: data.use_username ?? false,
   };
 }
 

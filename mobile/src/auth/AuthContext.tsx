@@ -20,6 +20,13 @@ interface AuthContextValue {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (input: SignUpInput) => Promise<void>;
   signOut: () => Promise<void>;
+  // Merges into the in-memory user right after a successful write
+  // elsewhere (e.g. SettingsScreen's username save) — optimistic, not a
+  // re-fetch, since the caller already knows the new value it just
+  // persisted. Every other field here only ever changes via a fresh
+  // sign-in/session restore, so this is deliberately narrow rather than
+  // a general "patch anything" escape hatch.
+  updateUser: (patch: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -93,6 +100,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((patch: Partial<AuthUser>) => {
+    setUser((u) => (u ? { ...u, ...patch } : u));
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       status: user ? 'signedIn' : 'signedOut',
@@ -104,8 +115,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithEmail,
       signUpWithEmail,
       signOut,
+      updateUser,
     }),
-    [user, initializing, signInWithGoogle, signInWithFacebook, signInWithApple, signInWithEmail, signUpWithEmail, signOut],
+    [
+      user,
+      initializing,
+      signInWithGoogle,
+      signInWithFacebook,
+      signInWithApple,
+      signInWithEmail,
+      signUpWithEmail,
+      signOut,
+      updateUser,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

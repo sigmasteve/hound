@@ -139,10 +139,10 @@ export function AdminScreen({
               ) : (
                 results.map((u) => (
                   <Pressable key={u.id} onPress={() => onOpenUser(u)} style={styles.userRow}>
-                    <Avatar initials={u.initials} tint={TINT_A} size={34} fontSize={12} />
+                    <Avatar initials={u.displayInitials} tint={TINT_A} size={34} fontSize={12} />
                     <View style={{ flex: 1, gap: 1 }}>
                       <Text style={styles.userName}>
-                        {u.name}
+                        {u.displayName}
                         {u.isAdmin ? ' · Admin' : ''}
                       </Text>
                       <Text style={styles.footNote}>{u.email}</Text>
