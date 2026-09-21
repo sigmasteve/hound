@@ -29,6 +29,7 @@ import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
+import { getMyDailyStepRank, getMyWeeklyStepRank, recordDailyStepTotal, type StepRank } from '../leaderboard/supabaseStepsRank';
 import {
   buildBoard,
   hasHeadStartElapsed,
@@ -213,13 +214,36 @@ export function HomeScreen({
     null,
   );
 
+  // Null until both rank RPCs resolve with an actual row — see
+  // 0027_daily_step_totals.sql's own comment on why an empty result
+  // (nothing synced yet in that window) reads as "hide the chip", not
+  // an error.
+  const [dailyRank, setDailyRank] = useState<StepRank | null>(null);
+  const [weeklyRank, setWeeklyRank] = useState<StepRank | null>(null);
+
   const reload = useCallback(() => {
-    health.getSnapshot().then(setSnap);
+    health.getSnapshot().then((s) => {
+      setSnap(s);
+      if (!isSupabaseConfigured || !user?.id) return;
+      // Upsert first, then read the ranks back — the RPCs only rank
+      // rows that already exist, so reading before the write lands would
+      // show yesterday's place for a click that just changed it.
+      recordDailyStepTotal(user.id, s.stepsToday)
+        .then(() => Promise.all([getMyDailyStepRank(), getMyWeeklyStepRank()]))
+        .then(([daily, weekly]) => {
+          setDailyRank(daily);
+          setWeeklyRank(weekly);
+        })
+        .catch(() => {
+          // Same "never break the screen" convention as the rest of
+          // Home's own fetches — the chip just stays hidden.
+        });
+    });
     // Same fetch MetricsScreen's own readiness card runs off — a big
     // enough window (50 most recent) to cover computeReadiness's 28-day
     // chronic baseline, not just today.
     health.getRecentWorkouts(50).then(setWorkouts);
-  }, [health]);
+  }, [health, user?.id]);
 
   useEffect(reload, [reload]);
 
@@ -400,6 +424,25 @@ export function HomeScreen({
           <Text style={styles.readinessChipText} numberOfLines={1}>
             {READINESS_COPY[readiness.label].title}
           </Text>
+          <CaretRightIcon size={12} color={withAlpha(colors.text, 0.4)} />
+        </Pressable>
+      )}
+
+      {/* Global (not challenge-scoped) steps rank — see
+          0027_daily_step_totals.sql. Hidden until both RPCs come back
+          with a real row, same "no metric is better than a wrong one"
+          rule the readiness chip above already follows. */}
+      {dailyRank && weeklyRank && (
+        <Pressable style={styles.stepsRankChip} onPress={() => onGoTab('metrics')}>
+          <TrophyIcon size={14} color={color.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.stepsRankChipText} numberOfLines={1}>
+              #{dailyRank.rank} of {dailyRank.totalUsers} Hound users today
+            </Text>
+            <Text style={styles.stepsRankChipSub} numberOfLines={1}>
+              #{weeklyRank.rank} of {weeklyRank.totalUsers} this week
+            </Text>
+          </View>
           <CaretRightIcon size={12} color={withAlpha(colors.text, 0.4)} />
         </Pressable>
       )}
@@ -847,6 +890,17 @@ function makeStyles(colors: Palette) {
     },
     readinessDot: { width: 8, height: 8, borderRadius: 4 },
     readinessChipText: { flex: 1, fontSize: 13.5, fontFamily: font.heading, color: colors.text },
+    stepsRankChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+    },
+    stepsRankChipText: { fontSize: 13.5, fontFamily: font.heading, color: colors.text },
+    stepsRankChipSub: { fontSize: 12, color: withAlpha(colors.text, 0.55), marginTop: 1 },
     onboardCard: { padding: 16, gap: 10 },
     onboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     onboardTitle: { fontFamily: font.heading, fontSize: 15, color: colors.text, flex: 1 },
