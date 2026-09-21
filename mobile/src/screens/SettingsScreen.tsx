@@ -130,11 +130,15 @@ export function SettingsScreen() {
   };
 
   // "Fire it now" buttons for the three cron-driven notification jobs —
-  // only ever rendered for __DEV__ && user?.isAdmin below, since the
-  // Edge Functions themselves only accept this from a signed-in admin
-  // (see each one's own comment) or the cron job's service-role call.
-  // Lets the two new Alerts toggles (and Login reminders) get tested in
-  // minutes instead of waiting for tomorrow's schedule.
+  // only ever rendered for user?.isAdmin below, a real database-set flag
+  // (see 0021_admin_flag.sql), same gate the Edge Functions themselves
+  // enforce (see each one's own comment) alongside the cron job's own
+  // service-role call. Deliberately not also gated on __DEV__: that's
+  // only ever true through Metro's own dev server, not an installed
+  // TestFlight/production build, which is how this app actually gets
+  // tested day to day. Lets the two new Alerts toggles (and Login
+  // reminders) get tested in minutes instead of waiting for tomorrow's
+  // schedule.
   const [triggering, setTriggering] = useState<'login' | 'staleData' | 'dailyStandings' | null>(null);
 
   const runTrigger = async (
@@ -291,9 +295,7 @@ export function SettingsScreen() {
         </Card>
       )}
 
-      {/* __DEV__ is React Native's own dev-vs-release global — this
-          never renders in a production build, whatever the account. */}
-      {__DEV__ && isSupabaseConfigured && user?.isAdmin && (
+      {isSupabaseConfigured && user?.isAdmin && (
         <Card style={{ gap: 10 }} elevated={false}>
           <Text style={text.h4}>Developer tools</Text>
           <Text style={styles.footNote}>
