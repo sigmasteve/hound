@@ -71,7 +71,11 @@ function makeStyles(colors: Palette) {
     },
     label: { fontFamily: font.body, fontSize: 14, color: colors.text },
     toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    toggleLabel: { flex: 1 },
+    // Label keeps its natural width; note takes whatever's left and wraps
+    // instead of overflowing the card when it's a long description (e.g.
+    // Appearance's "Light mode") rather than a short paired value (e.g.
+    // Alerts' "Sent to this device").
+    toggleLabel: { flexShrink: 0 },
     checkbox: {
       width: 18,
       height: 18,
@@ -80,6 +84,6 @@ function makeStyles(colors: Palette) {
       borderColor: colors.divider,
     },
     checkboxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
-    note: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    note: { fontSize: 12, color: withAlpha(colors.text, 0.55), flex: 1, textAlign: 'right' },
   });
 }
