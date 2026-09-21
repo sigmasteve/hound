@@ -52,6 +52,10 @@ export function ChallengesScreen({
   // of a parallel guess. Null both before the first fetch resolves and
   // when nothing qualifies (no active challenges at all).
   const [primaryChallengeId, setPrimaryChallengeId] = useState<string | null>(null);
+  // Collapsed by default — the medal tally is the headline, the finished
+  // challenges themselves are detail you dig into, same "summary first,
+  // list on demand" shape as MetricsScreen's Today's Workouts card.
+  const [finishedExpanded, setFinishedExpanded] = useState(false);
 
   const loadChallenges = async (): Promise<void> => {
     const [challenges, highlighted] = await Promise.all([
@@ -140,6 +144,19 @@ export function ChallengesScreen({
   // that's correct even before Supabase's first fetch resolves.
   const challenges = liveCards?.filter((c) => !c.finished) ?? [];
   const finishedChallenges = liveCards?.filter((c) => c.finished) ?? [];
+  // Tally by the same `c.stat` ordinal FinishedRow/medalColorFor already
+  // read — '1st'/'2nd'/'3rd' get their own medal, everything else (4th+,
+  // or '—' when nobody ever logged anything) lands in "Other".
+  const medalCounts = finishedChallenges.reduce(
+    (acc, c) => {
+      if (c.stat === '1st') acc.gold += 1;
+      else if (c.stat === '2nd') acc.silver += 1;
+      else if (c.stat === '3rd') acc.bronze += 1;
+      else acc.other += 1;
+      return acc;
+    },
+    { gold: 0, silver: 0, bronze: 0, other: 0 },
+  );
 
   // True only for the one transient state worth a spinner: a real
   // backend exists but its very first fetch (this mount, or the first
@@ -223,19 +240,44 @@ export function ChallengesScreen({
             <Text style={styles.emptyNote}>No challenges yet — start one above.</Text>
           )}
 
-          <Text style={styles.finishedLabel}>Finished</Text>
-          {finishedChallenges.length === 0 ? (
-            <Text style={styles.emptyNote}>Nothing finished yet.</Text>
-          ) : (
-            finishedChallenges.map((c) => (
-              <FinishedRow
-                key={c.id}
-                c={c}
-                styles={styles}
-                onPress={c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined}
-              />
-            ))
-          )}
+          <Card style={{ padding: 0, overflow: 'hidden' }} elevated={false}>
+            <Pressable
+              style={[styles.medalsHeader, finishedExpanded && styles.medalsHeaderOpen]}
+              onPress={() => setFinishedExpanded((open) => !open)}
+            >
+              <View style={styles.medalsTitleRow}>
+                <Text style={styles.finishedLabel}>Finished</Text>
+                <Text style={styles.finishedCount}>{finishedChallenges.length}</Text>
+                <CaretRightIcon
+                  size={16}
+                  color={withAlpha(colors.text, 0.5)}
+                  style={finishedExpanded ? styles.medalsCaretOpen : undefined}
+                />
+              </View>
+              <View style={styles.medalsRow}>
+                <MedalTile tint={color.gold} count={medalCounts.gold} label="Gold" styles={styles} />
+                <MedalTile tint={color.silver} count={medalCounts.silver} label="Silver" styles={styles} />
+                <MedalTile tint={color.bronze} count={medalCounts.bronze} label="Bronze" styles={styles} />
+                <MedalTile tint={color.neutral500} count={medalCounts.other} label="Other" styles={styles} />
+              </View>
+            </Pressable>
+            {finishedExpanded && (
+              <View style={styles.finishedList}>
+                {finishedChallenges.length === 0 ? (
+                  <Text style={styles.emptyNote}>Nothing finished yet.</Text>
+                ) : (
+                  finishedChallenges.map((c) => (
+                    <FinishedRow
+                      key={c.id}
+                      c={c}
+                      styles={styles}
+                      onPress={c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined}
+                    />
+                  ))
+                )}
+              </View>
+            )}
+          </Card>
         </>
       )}
     </ScrollView>
@@ -333,6 +375,29 @@ function FinishedRow({
   );
 }
 
+// One of the four tally tiles in the Finished card's header — always
+// visible (even at 0), so the header reads as "here's your record" at a
+// glance before ever expanding the list below it.
+function MedalTile({
+  tint,
+  count,
+  label,
+  styles,
+}: {
+  tint: string;
+  count: number;
+  label: string;
+  styles: ChallengesStyles;
+}) {
+  return (
+    <View style={styles.medalTile}>
+      <MedalIcon size={16} color={tint} weight="fill" />
+      <Text style={styles.medalTileValue}>{count}</Text>
+      <Text style={styles.medalTileLabel}>{label}</Text>
+    </View>
+  );
+}
+
 // The invite card's own background is an accent wash over this theme's
 // own colors, not a fixed hand-tuned tint — same "spotlight card that
 // actually follows the theme" reasoning as HomeScreen's hunt card, see
@@ -381,7 +446,31 @@ function makeStyles(colors: Palette) {
     rowStatLabel: { fontSize: 11, color: withAlpha(colors.text, 0.55) },
     emptyNote: { fontSize: 13, color: withAlpha(colors.text, 0.55), textAlign: 'center', paddingVertical: 8 },
     loadingRow: { paddingVertical: 24, alignItems: 'center' },
-    finishedLabel: { fontSize: 15, color: withAlpha(colors.text, 0.7), marginTop: 8 },
+    medalsHeader: { padding: 16, gap: 14 },
+    // Only a real border while open, separating the tally from the list
+    // below — collapsed, the header is the whole card, so a border here
+    // would just be a stray line under empty space. Same reasoning as
+    // MetricsScreen's workoutsHeaderOpen.
+    medalsHeaderOpen: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: withAlpha(colors.text, 0.08),
+    },
+    medalsTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    finishedLabel: { flex: 1, fontFamily: font.heading, fontSize: 16, color: colors.text },
+    finishedCount: { fontSize: 13, color: withAlpha(colors.text, 0.5) },
+    medalsCaretOpen: { transform: [{ rotate: '90deg' }] },
+    medalsRow: { flexDirection: 'row', gap: 8 },
+    medalTile: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 10,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+    },
+    medalTileValue: { fontFamily: font.heading, fontSize: 18, color: colors.text },
+    medalTileLabel: { fontSize: 10.5, letterSpacing: 0.5, color: withAlpha(colors.text, 0.55) },
+    finishedList: { padding: 16, paddingTop: 12, gap: 10 },
     finishedRow: {
       flexDirection: 'row',
       alignItems: 'center',
