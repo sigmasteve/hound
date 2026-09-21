@@ -48,8 +48,16 @@ const CORS_HEADERS = {
 interface InviteRow {
   id: string;
   challenges: { name: string; kind: string } | null;
-  inviter: { name: string } | null;
+  inviter: { name: string; username: string | null; use_username: boolean } | null;
   invitee: { name: string; email: string } | null;
+}
+
+// Same rule src/profiles/displayName.ts applies on the client, duplicated
+// here since Edge Functions can't import from mobile/src — the inviter's
+// name is exactly the "challenge context revealing someone else's
+// identity" case that rule covers.
+function displayName(p: { name: string; username: string | null; use_username: boolean }): string {
+  return p.use_username && p.username ? p.username : p.name;
 }
 
 Deno.serve(async (req) => {
@@ -85,7 +93,7 @@ Deno.serve(async (req) => {
       .from('challenge_invites')
       .select(
         'id, challenges(name, kind), ' +
-          'inviter:profiles!challenge_invites_inviter_id_fkey(name), ' +
+          'inviter:profiles!challenge_invites_inviter_id_fkey(name, username, use_username), ' +
           'invitee:profiles!challenge_invites_invitee_id_fkey(name, email)',
       )
       .eq('id', inviteId)
@@ -97,7 +105,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const inviterName = data.inviter?.name ?? 'Someone';
+    const inviterName = data.inviter ? displayName(data.inviter) : 'Someone';
     const challengeName = data.challenges.name;
 
     const resendResponse = await fetch('https://api.resend.com/emails', {

@@ -16,6 +16,13 @@ export interface AuthUser {
   // yet — it exists so a feature that needs "is this signed-in user an
   // admin" has a real answer to check, not a screen this session builds.
   isAdmin: boolean;
+  // From profiles.username / use_username (see 0030_username.sql) —
+  // optional (not every backend populates them) rather than required
+  // like the fields above, so mockAuth.ts's placeholder users don't need
+  // updating just to carry an always-null/false pair. See
+  // src/profiles/displayName.ts for where these actually get used.
+  username?: string | null;
+  useUsername?: boolean;
 }
 
 export type AuthStatus = 'signedOut' | 'signedIn';

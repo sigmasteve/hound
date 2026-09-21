@@ -6,6 +6,7 @@ import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ToggleRow } from '../components/Selectable';
+import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { SOURCES } from '../data/sampleData';
@@ -15,6 +16,9 @@ import { useAuth } from '../auth/AuthContext';
 import type { AuthProviderId } from '../auth/types';
 import { isSupabaseConfigured } from '../lib/supabase';
 import * as notifications from '../notifications/supabaseNotifications';
+import { setUseUsername, setUsername } from '../profiles/supabaseProfile';
+
+const USERNAME_FORMAT = /^[A-Za-z0-9_]{3,20}$/;
 
 const SOURCE_ICON: Record<string, React.ComponentType<any>> = {
   'Apple Health': AppleLogoIcon,
@@ -43,9 +47,54 @@ const PROVIDER_LABEL: Record<AuthProviderId, string> = {
 
 export function SettingsScreen() {
   const health = useHealthProvider();
-  const { user, signOut } = useAuth();
+  const { user, signOut, updateUser } = useAuth();
   const { colors, text, mode, setMode } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  // Seeded from the signed-in user, not a separate fetch — profiles.username
+  // /use_username (0030_username.sql) already come back on sign-in (see
+  // supabaseAuth.ts's userFromSession), so there's nothing else to load.
+  const [usernameInput, setUsernameInput] = useState(user?.username ?? '');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [savingUseUsername, setSavingUseUsername] = useState(false);
+
+  const saveUsername = async () => {
+    if (!user?.id) return;
+    const trimmed = usernameInput.trim();
+    if (trimmed && !USERNAME_FORMAT.test(trimmed)) {
+      setUsernameError('3–20 letters, numbers, or underscores.');
+      return;
+    }
+    setUsernameError(null);
+    setSavingUsername(true);
+    try {
+      await setUsername(user.id, trimmed || null);
+      // Clearing the username makes "use it in challenges" meaningless —
+      // turn that back off too rather than leaving a stale true with
+      // nothing left to show.
+      if (!trimmed && user.useUsername) await setUseUsername(user.id, false);
+      updateUser({ username: trimmed || null, useUsername: trimmed ? user.useUsername : false });
+    } catch (e) {
+      setUsernameError(e instanceof Error ? e.message : 'Could not save that — try again.');
+    } finally {
+      setSavingUsername(false);
+    }
+  };
+
+  const toggleUseUsername = async (next: boolean) => {
+    if (!user?.id) return;
+    setSavingUseUsername(true);
+    try {
+      await setUseUsername(user.id, next);
+      updateUser({ useUsername: next });
+    } catch {
+      // No dedicated error UI for this toggle — same as every other
+      // plain on/off preference on this screen.
+    } finally {
+      setSavingUseUsername(false);
+    }
+  };
   // This device's own real sync status, for whichever "Connected sources"
   // row matches health.platformLabel below — every other row there is
   // still SOURCES' static sample data (a different, pre-existing gap;
@@ -244,6 +293,41 @@ export function SettingsScreen() {
             icon={<SignOutIcon size={14} color={colors.text} />}
             onPress={signOut}
           />
+        </Card>
+      )}
+
+      {isSupabaseConfigured && user && (
+        <Card style={{ gap: 14 }} elevated={false}>
+          <Text style={text.h4}>Username</Text>
+          <Text style={styles.footNote}>
+            Show a username instead of your real name in challenge leaderboards and invites.
+          </Text>
+          <TextField
+            label="Username"
+            value={usernameInput}
+            onChangeText={setUsernameInput}
+            placeholder="NightRunner99"
+            autoCapitalize="none"
+            autoCorrect={false}
+            error={usernameError ?? undefined}
+          />
+          <Button
+            label={savingUsername ? 'Saving…' : 'Save username'}
+            variant="secondary"
+            small
+            disabled={savingUsername || usernameInput.trim() === (user.username ?? '')}
+            onPress={saveUsername}
+          />
+          {user.username ? (
+            <ToggleRow
+              label="Use username in challenges"
+              note={savingUseUsername ? 'Saving…' : 'Instead of your real name'}
+              value={!!user.useUsername}
+              onChange={toggleUseUsername}
+            />
+          ) : (
+            <Text style={styles.footNote}>Set a username above to enable this.</Text>
+          )}
         </Card>
       )}
 
