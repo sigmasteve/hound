@@ -103,16 +103,26 @@ Deno.serve(async (req) => {
   }
 
   let challengesSent = 0;
+  const errors: string[] = [];
 
   for (const challenge of challenges ?? []) {
-    const [{ data: participants }, { data: snapshots }] = await Promise.all([
-      supabase
-        .from('challenge_participants')
-        .select('user_id, profiles(email, alert_daily_standings_push_enabled, alert_daily_standings_email_enabled)')
-        .eq('challenge_id', challenge.id)
-        .returns<ParticipantRow[]>(),
-      supabase.from('progress_snapshots').select('user_id, steps').eq('challenge_id', challenge.id),
-    ]);
+    const [{ data: participants, error: participantsError }, { data: snapshots, error: snapshotsError }] =
+      await Promise.all([
+        supabase
+          .from('challenge_participants')
+          .select('user_id, profiles(email, alert_daily_standings_push_enabled, alert_daily_standings_email_enabled)')
+          .eq('challenge_id', challenge.id)
+          .returns<ParticipantRow[]>(),
+        supabase.from('progress_snapshots').select('user_id, steps').eq('challenge_id', challenge.id),
+      ]);
+    // A query failure (e.g. a schema mismatch between what's deployed
+    // and what's migrated) used to look identical to "no participants"
+    // — silently skipped, reporting the same challengesSent: 0 as
+    // "nothing to do here" would. Surfacing it instead of swallowing it.
+    if (participantsError || snapshotsError) {
+      errors.push(`${challenge.name}: ${participantsError?.message ?? snapshotsError?.message}`);
+      continue;
+    }
     if (!participants || participants.length === 0) continue;
 
     const optedIn = participants.filter(
@@ -171,5 +181,5 @@ Deno.serve(async (req) => {
     challengesSent += 1;
   }
 
-  return new Response(JSON.stringify({ challengesSent }), { headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify({ challengesSent, errors }), { headers: { 'Content-Type': 'application/json' } });
 });
