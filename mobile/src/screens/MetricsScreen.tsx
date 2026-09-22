@@ -356,8 +356,8 @@ export function MetricsScreen() {
               // pushing everything below it (the rest of the screen) down
               // an unpredictable amount.
               <ScrollView style={styles.workoutsScroll} nestedScrollEnabled>
-                <WorkoutGroup label="Distance" workouts={distanceWorkouts} styles={styles} />
-                <WorkoutGroup label="Functional" workouts={functionalWorkouts} styles={styles} />
+                <WorkoutGroup label="Distance" workouts={distanceWorkouts} colors={colors} styles={styles} />
+                <WorkoutGroup label="Functional" workouts={functionalWorkouts} colors={colors} styles={styles} />
               </ScrollView>
             )}
           </>
@@ -417,14 +417,27 @@ function ReadinessSummary({ result, colors, styles }: { result: ReadinessResult;
 // else: strength, stretching, games, ...), see categoryOf's own comment.
 // Renders nothing at all when this category is empty today, rather than
 // an empty section with just a label and no rows.
-function WorkoutGroup({ label, workouts, styles }: { label: string; workouts: WorkoutSample[]; styles: MetricsStyles }) {
+function WorkoutGroup({
+  label,
+  workouts,
+  colors,
+  styles,
+}: {
+  label: string;
+  workouts: WorkoutSample[];
+  colors: Palette;
+  styles: MetricsStyles;
+}) {
   if (workouts.length === 0) return null;
   return (
     <>
       <Text style={styles.groupLabel}>{label}</Text>
       {workouts.map((w) => (
         <View key={w.id} style={styles.tableRow}>
-          <Text style={[styles.td, { flex: 1.4 }]}>{w.name}</Text>
+          <View style={{ flex: 1.4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Text style={styles.td}>{w.name}</Text>
+            {w.isOutdoor && <SunIcon size={12} color={colors.amber} weight="fill" />}
+          </View>
           <Text style={[styles.td, styles.tdMuted, { flex: 1 }]}>
             {w.when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
           </Text>
