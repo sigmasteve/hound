@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
-import { CaretRightIcon } from 'phosphor-react-native';
+import { CaretRightIcon, SunIcon } from 'phosphor-react-native';
 import { Card } from '../components/Card';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { Tag } from '../components/Tag';
@@ -90,6 +90,12 @@ function bucketWorkoutDistanceByDay(workouts: WorkoutSample[], days: number): nu
 export interface ActivityTotal {
   name: string;
   totalMinutes: number;
+  // True when at least one workout behind this row was confirmed outdoor
+  // (WorkoutSample.isOutdoor === true — see health/types.ts). A named
+  // group like "Running" can mix outdoor and treadmill sessions, or
+  // sessions with no signal at all, so this is "outdoor data exists for
+  // this activity," not "every session was outdoor."
+  hasOutdoor: boolean;
 }
 
 // The Workouts tab's own summary — grouped by each workout's raw name
@@ -107,14 +113,16 @@ function groupWorkoutsByActivity(workouts: WorkoutSample[], days: number): Activ
   windowStart.setDate(windowStart.getDate() - (days - 1));
 
   const totals = new Map<string, number>();
+  const outdoor = new Map<string, boolean>();
   for (const w of workouts) {
     const day = new Date(w.when);
     day.setHours(0, 0, 0, 0);
     if (day.getTime() < windowStart.getTime() || day.getTime() > today.getTime()) continue;
     totals.set(w.name, (totals.get(w.name) ?? 0) + (w.durationMin ?? 0));
+    if (w.isOutdoor) outdoor.set(w.name, true);
   }
   return [...totals.entries()]
-    .map(([name, totalMinutes]) => ({ name, totalMinutes }))
+    .map(([name, totalMinutes]) => ({ name, totalMinutes, hasOutdoor: outdoor.get(name) ?? false }))
     .sort((a, b) => b.totalMinutes - a.totalMinutes);
 }
 
@@ -348,8 +356,8 @@ export function MetricsScreen() {
               // pushing everything below it (the rest of the screen) down
               // an unpredictable amount.
               <ScrollView style={styles.workoutsScroll} nestedScrollEnabled>
-                <WorkoutGroup label="Distance" workouts={distanceWorkouts} styles={styles} />
-                <WorkoutGroup label="Functional" workouts={functionalWorkouts} styles={styles} />
+                <WorkoutGroup label="Distance" workouts={distanceWorkouts} colors={colors} styles={styles} />
+                <WorkoutGroup label="Functional" workouts={functionalWorkouts} colors={colors} styles={styles} />
               </ScrollView>
             )}
           </>
@@ -409,14 +417,27 @@ function ReadinessSummary({ result, colors, styles }: { result: ReadinessResult;
 // else: strength, stretching, games, ...), see categoryOf's own comment.
 // Renders nothing at all when this category is empty today, rather than
 // an empty section with just a label and no rows.
-function WorkoutGroup({ label, workouts, styles }: { label: string; workouts: WorkoutSample[]; styles: MetricsStyles }) {
+function WorkoutGroup({
+  label,
+  workouts,
+  colors,
+  styles,
+}: {
+  label: string;
+  workouts: WorkoutSample[];
+  colors: Palette;
+  styles: MetricsStyles;
+}) {
   if (workouts.length === 0) return null;
   return (
     <>
       <Text style={styles.groupLabel}>{label}</Text>
       {workouts.map((w) => (
         <View key={w.id} style={styles.tableRow}>
-          <Text style={[styles.td, { flex: 1.4 }]}>{w.name}</Text>
+          <View style={{ flex: 1.4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Text style={styles.td}>{w.name}</Text>
+            {w.isOutdoor && <SunIcon size={12} color={colors.amber} weight="fill" />}
+          </View>
           <Text style={[styles.td, styles.tdMuted, { flex: 1 }]}>
             {w.when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
           </Text>
@@ -450,7 +471,10 @@ function ActivitySummaryList({
       {activities.map((a) => (
         <View key={a.name} style={{ gap: 6 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={styles.activityName}>{a.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Text style={styles.activityName}>{a.name}</Text>
+              {a.hasOutdoor && <SunIcon size={13} color={colors.amber} weight="fill" />}
+            </View>
             <Text style={styles.activityDuration}>{formatDuration(a.totalMinutes)}</Text>
           </View>
           <View style={styles.activityBarTrack}>

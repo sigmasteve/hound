@@ -206,6 +206,13 @@ export const iosHealthProvider: HealthProvider = {
           when: w.startDate,
           source: 'Apple Health',
           distanceMi: distanceStat?.sumQuantity?.quantity,
+          // HKIndoorWorkout is only present when whatever logged the
+          // workout actually recorded it (the Workout app does; a lot of
+          // third-party apps and manual entries don't) — absent means
+          // "unknown", not "outdoor", so this has to stay undefined rather
+          // than defaulting to a guess; deviceSync.ts's name heuristic is
+          // the fallback for that case.
+          isOutdoor: w.metadata.HKIndoorWorkout == null ? undefined : !w.metadata.HKIndoorWorkout,
           avgHeartRate: undefined,
           // w.duration is HKWorkout's own duration Quantity, always in
           // seconds (NSTimeInterval) — no unit param to request like the
