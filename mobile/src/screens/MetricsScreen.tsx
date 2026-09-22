@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
-import { CaretRightIcon } from 'phosphor-react-native';
+import { CaretRightIcon, SunIcon } from 'phosphor-react-native';
 import { Card } from '../components/Card';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { Tag } from '../components/Tag';
@@ -90,6 +90,12 @@ function bucketWorkoutDistanceByDay(workouts: WorkoutSample[], days: number): nu
 export interface ActivityTotal {
   name: string;
   totalMinutes: number;
+  // True when at least one workout behind this row was confirmed outdoor
+  // (WorkoutSample.isOutdoor === true — see health/types.ts). A named
+  // group like "Running" can mix outdoor and treadmill sessions, or
+  // sessions with no signal at all, so this is "outdoor data exists for
+  // this activity," not "every session was outdoor."
+  hasOutdoor: boolean;
 }
 
 // The Workouts tab's own summary — grouped by each workout's raw name
@@ -107,14 +113,16 @@ function groupWorkoutsByActivity(workouts: WorkoutSample[], days: number): Activ
   windowStart.setDate(windowStart.getDate() - (days - 1));
 
   const totals = new Map<string, number>();
+  const outdoor = new Map<string, boolean>();
   for (const w of workouts) {
     const day = new Date(w.when);
     day.setHours(0, 0, 0, 0);
     if (day.getTime() < windowStart.getTime() || day.getTime() > today.getTime()) continue;
     totals.set(w.name, (totals.get(w.name) ?? 0) + (w.durationMin ?? 0));
+    if (w.isOutdoor) outdoor.set(w.name, true);
   }
   return [...totals.entries()]
-    .map(([name, totalMinutes]) => ({ name, totalMinutes }))
+    .map(([name, totalMinutes]) => ({ name, totalMinutes, hasOutdoor: outdoor.get(name) ?? false }))
     .sort((a, b) => b.totalMinutes - a.totalMinutes);
 }
 
@@ -450,7 +458,10 @@ function ActivitySummaryList({
       {activities.map((a) => (
         <View key={a.name} style={{ gap: 6 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={styles.activityName}>{a.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Text style={styles.activityName}>{a.name}</Text>
+              {a.hasOutdoor && <SunIcon size={13} color={colors.amber} weight="fill" />}
+            </View>
             <Text style={styles.activityDuration}>{formatDuration(a.totalMinutes)}</Text>
           </View>
           <View style={styles.activityBarTrack}>
