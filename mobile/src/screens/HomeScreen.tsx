@@ -42,6 +42,7 @@ import {
   type BoardEntry,
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
+import { syncChallengeProgressFromDevice } from '../challenges/deviceSync';
 import { boardSortFor } from '../challenges/scoring';
 import { huntKindName, ordinal } from '../challenges/present';
 import type { Challenge, LeaderboardEntry } from '../challenges/types';
@@ -275,6 +276,20 @@ export function HomeScreen({
         supabaseChallengesProvider.listMyChallengeInvites(),
       ]);
       const primaryId = pickPrimaryChallenge(challenges, highlighted)?.id ?? null;
+
+      // Best-effort background sync — every device-scored challenge this
+      // user has joined gets its progress backfilled here, not just
+      // whichever one they happen to open next (see deviceSync.ts's own
+      // comment: before this, a participant who joined a challenge but
+      // never opened its own detail screen individually stayed at 0
+      // forever despite their device logging real steps the whole
+      // time). Fire-and-forget: never awaited, so a slow sync for one
+      // challenge can't delay Home's own render, and
+      // syncChallengeProgressFromDevice already swallows its own
+      // failures — there's nothing here to catch.
+      challenges.forEach((c) => {
+        syncChallengeProgressFromDevice(c, health);
+      });
 
       // One board per challenge, not just the primary one — needed for
       // the "N active · N finished" summary below the hero. Built from

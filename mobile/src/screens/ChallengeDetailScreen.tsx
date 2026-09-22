@@ -23,6 +23,7 @@ import {
   withHuntCatches,
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
+import { syncChallengeProgressFromDevice } from '../challenges/deviceSync';
 import { boardSortFor, usesDeviceSteps, usesDistanceRanking, usesWorkoutDistance } from '../challenges/scoring';
 import { formatStartsLabel, hasStarted, huntKindName, huntRoleLabel, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
@@ -233,95 +234,16 @@ export function ChallengeDetailScreen({
   };
 
   // Backfills this challenge's entire progress from real device history —
-  // every calendar day from when it started through today, not just
-  // today — using the same upsert-by-day recordProgress() the manual form
-  // uses, just filled in from the device instead of typed in. Re-running
-  // this on every sync is deliberate and harmless (it's an upsert): it
-  // catches up a challenge someone joined after it started, or picks back
-  // up correctly after a few days of not opening the app, without a
-  // separate "first ever sync" code path. Which number depends on what
-  // this challenge is scored on: a plain step count, or distance summed
-  // from logged workouts. The health abstraction has no true
-  // GPS-verified flag, so 'gps_distance' is approximated as workouts
-  // whose name reads like a run or walk — a treadmill session or a
-  // phone-in-a-drawer walk would still slip through if its name happens
-  // to match, which is a real limitation, not a hidden bug.
+  // see deviceSync.ts's own comment for what/why. Re-running this on
+  // every sync is deliberate and harmless (it's an upsert): it catches
+  // up a challenge someone joined after it started, or picks back up
+  // correctly after a few days of not opening the app, without a
+  // separate "first ever sync" code path.
   const syncFromDevice = useCallback(async () => {
     if (!challenge) return;
-    try {
-      const since = new Date(challenge.startsAt);
-      // Local-calendar day keys throughout — startDayKey/endCap have to
-      // compare against dateKey()'s local dates the same way todayKey
-      // does, or a day just outside the challenge's real range can slip
-      // through (or a real one get excluded) at the UTC/local boundary.
-      const startDayKey = dateKey(since);
-      const endCap = dateKey(new Date(challenge.endsAt));
-      const todayKey = dateKey(new Date());
-
-      if (usesWorkoutDistance(challenge)) {
-        // Enough of a lookback to plausibly cover the whole challenge —
-        // getRecentWorkouts() takes a count, not a date range, so this
-        // over-fetches slightly and filters client-side instead.
-        const workouts = await health.getRecentWorkouts(200);
-        // A precise timestamp comparison, deliberately — unlike the steps
-        // branch below (which only ever gets one cumulative total per
-        // calendar day from the OS, so it has no finer choice than a day
-        // boundary), a workout carries its own real start time, so
-        // `since` itself is exactly what CreateScreen's "Starts" picker
-        // set it to: start of today (retroactive — includes a workout
-        // logged before the challenge existed, same day), this exact
-        // moment (excludes it), or start of tomorrow (excludes all of
-        // today, even a workout logged after creating the challenge).
-        const inRange = workouts.filter((w) => w.when >= since);
-        const relevant =
-          challenge.scoringMethod === 'gps_distance' ? inRange.filter((w) => /run|walk|jog|hike/i.test(w.name)) : inRange;
-
-        const byDay = new Map<string, number>();
-        for (const w of relevant) {
-          const key = dateKey(w.when);
-          if (key > endCap) continue;
-          byDay.set(key, (byDay.get(key) ?? 0) + (w.distanceMi ?? 0));
-        }
-        // Today always gets an explicit (possibly zero) row, same as
-        // before this backfilled past days too — otherwise a day with no
-        // matching workout yet would just never get synced at all.
-        if (!byDay.has(todayKey) && todayKey <= endCap) byDay.set(todayKey, 0);
-
-        await Promise.all(
-          Array.from(byDay.entries()).map(([day, distanceMi]) =>
-            supabaseChallengesProvider.recordProgress(challengeId, 0, distanceMi, day),
-          ),
-        );
-      } else {
-        // getDailyStepsSince(since) is asked for history back to the
-        // challenge's start, but still gets clamped to
-        // [startDayKey, endCap] here rather than trusted as-is — a
-        // provider can hand back a bucket just outside that range (a
-        // day before the challenge existed, one past its end) and
-        // that's never real progress for it. A past day with no actual
-        // device data (0 steps and 0 distance) is dropped rather than
-        // written as an explicit zero — that's "nothing recorded", not
-        // "recorded a zero" — except today, which always gets a row so
-        // the screen doesn't look unsynced before you've taken a step.
-        const daily = (await health.getDailyStepsSince(since)).filter(
-          (d) =>
-            d.date >= startDayKey &&
-            d.date <= endCap &&
-            (d.date === todayKey || d.steps > 0 || d.distanceMi > 0),
-        );
-        await Promise.all(
-          daily.map((d) => supabaseChallengesProvider.recordProgress(challengeId, d.steps, d.distanceMi, d.date)),
-        );
-      }
-      await load();
-    } catch {
-      // Silent — this only ever runs automatically in the background now
-      // (see the auto-sync effect below); there's no "Your progress" card
-      // left to surface an error on, and the next successful sync (this
-      // same effect, next time the screen loads) supersedes a failed one
-      // anyway.
-    }
-  }, [challenge, challengeId, health, load]);
+    await syncChallengeProgressFromDevice(challenge, health);
+    await load();
+  }, [challenge, health, load]);
 
   // Auto-sync once whenever a challenge that draws from the device
   // finishes loading — keyed on id/kind/scoringMethod (not the whole
@@ -715,10 +637,6 @@ export function ChallengeDetailScreen({
     </ScrollView>
     </SafeAreaView>
   );
-}
-
-function dateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // "ends Sep 19" reads fine when that's tomorrow, but is genuinely
