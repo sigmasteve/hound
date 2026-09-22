@@ -1,4 +1,5 @@
 import {
+  aggregateRecord,
   getGrantedPermissions,
   getSdkStatus,
   initialize,
@@ -65,6 +66,35 @@ function orEmpty<T>(promise: Promise<{ records: T[] }>): Promise<{ records: T[] 
   return promise.catch(() => ({ records: [] as T[] }));
 }
 
+// Steps (and Distance) totals go through Health Connect's own
+// aggregateRecord API rather than summing readRecords(...) ourselves.
+// Unlike HealthKit's cumulativeSum, a plain readRecords sum is NOT safe
+// for these two types: when more than one source writes to Health
+// Connect for the same real activity (e.g. a paired watch's app AND the
+// phone's own sensor both auto-logging steps), readRecords returns every
+// source's raw records with no de-duplication, so a manual sum
+// double-counts. aggregateRecord is Health Connect's documented,
+// source-aware equivalent — it reconciles overlapping contributions from
+// multiple dataOrigins into one true total.
+type BetweenFilter = { operator: 'between'; startTime: string; endTime: string };
+
+async function aggregateStepsTotal(timeRangeFilter: BetweenFilter): Promise<number> {
+  try {
+    const result = await aggregateRecord({ recordType: 'Steps', timeRangeFilter });
+    return result.COUNT_TOTAL ?? 0;
+  } catch {
+    return 0;
+  }
+}
+async function aggregateDistanceMi(timeRangeFilter: BetweenFilter): Promise<number> {
+  try {
+    const result = await aggregateRecord({ recordType: 'Distance', timeRangeFilter });
+    return metersToMiles(result.DISTANCE?.inMeters ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
 export const androidHealthProvider: HealthProvider = {
   platform: 'android',
   platformLabel: 'Health Connect',
@@ -102,15 +132,13 @@ export const androidHealthProvider: HealthProvider = {
     await ensureInitialized();
     const todayFilter = { operator: 'between' as const, startTime: startOfDayIso(), endTime: new Date().toISOString() };
 
-    const [steps, distance, heartRate, weight] = await Promise.all([
-      orEmpty(readRecords('Steps', { timeRangeFilter: todayFilter })),
-      orEmpty(readRecords('Distance', { timeRangeFilter: todayFilter })),
+    const [totalSteps, totalDistanceMi, heartRate, weight] = await Promise.all([
+      aggregateStepsTotal(todayFilter),
+      aggregateDistanceMi(todayFilter),
       orEmpty(readRecords('HeartRate', { timeRangeFilter: todayFilter })),
       orEmpty(readRecords('Weight', { timeRangeFilter: { operator: 'before', endTime: new Date().toISOString() } })),
     ]);
 
-    const totalSteps = steps.records.reduce((sum, r) => sum + r.count, 0);
-    const totalDistanceMi = distance.records.reduce((sum, r) => sum + metersToMiles(r.distance.inMeters), 0);
     const restingSamples = heartRate.records.flatMap((r) => r.samples.map((s) => s.beatsPerMinute));
     const latestWeightKg = weight.records.at(-1)?.weight.inKilograms;
 
@@ -134,10 +162,7 @@ export const androidHealthProvider: HealthProvider = {
       const start = daysAgoIso(i);
       const endDate = new Date(start);
       endDate.setDate(endDate.getDate() + 1);
-      const { records } = await orEmpty(readRecords('Steps', {
-        timeRangeFilter: { operator: 'between', startTime: start, endTime: endDate.toISOString() },
-      }));
-      const total = records.reduce((sum, r) => sum + r.count, 0);
+      const total = await aggregateStepsTotal({ operator: 'between', startTime: start, endTime: endDate.toISOString() });
       out.push({
         date: new Date(start).toLocaleDateString(undefined, { weekday: 'short' }),
         steps: Math.round(total),
@@ -178,10 +203,7 @@ export const androidHealthProvider: HealthProvider = {
     // getStatistic call just against a different API shape.
     const withDistance = await Promise.all(
       sessions.map(async (r) => {
-        const { records: distanceRecords } = await orEmpty(readRecords('Distance', {
-          timeRangeFilter: { operator: 'between', startTime: r.startTime, endTime: r.endTime },
-        }));
-        const distanceMi = distanceRecords.reduce((sum, d) => sum + metersToMiles(d.distance.inMeters), 0);
+        const distanceMi = await aggregateDistanceMi({ operator: 'between', startTime: r.startTime, endTime: r.endTime });
         return { session: r, distanceMi };
       }),
     );
@@ -232,12 +254,10 @@ export const androidHealthProvider: HealthProvider = {
       dayEnd.setDate(dayEnd.getDate() + 1);
       const filter = { operator: 'between' as const, startTime: dayStart, endTime: dayEnd.toISOString() };
 
-      const [steps, distance] = await Promise.all([
-        orEmpty(readRecords('Steps', { timeRangeFilter: filter })),
-        orEmpty(readRecords('Distance', { timeRangeFilter: filter })),
+      const [totalSteps, totalDistanceMi] = await Promise.all([
+        aggregateStepsTotal(filter),
+        aggregateDistanceMi(filter),
       ]);
-      const totalSteps = steps.records.reduce((sum, r) => sum + r.count, 0);
-      const totalDistanceMi = distance.records.reduce((sum, r) => sum + metersToMiles(r.distance.inMeters), 0);
 
       out.push({
         date: dateKey(cursor),
