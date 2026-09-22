@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeftIcon, TrashIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, LockKeyOpenIcon, ProhibitIcon, TrashIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
-import { deleteUser, getUserOverview, type AdminUserOverview } from '../admin/adminApi';
+import { banUser, deleteUser, getUserOverview, isBanned, unbanUser, type AdminUserOverview } from '../admin/adminApi';
 
 // Same "how long ago" shape as SettingsScreen's own timeAgo(), extended
 // with days/weeks — that one only ever formats a just-synced device (at
@@ -55,6 +55,8 @@ export function AdminUserDetailScreen({
   const [overview, setOverview] = useState<AdminUserOverview | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [banning, setBanning] = useState(false);
+  const banned = overview ? isBanned(overview.bannedUntil) : false;
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +71,51 @@ export function AdminUserDetailScreen({
       cancelled = true;
     };
   }, [userId]);
+
+  const confirmToggleBan = () => {
+    if (banned) {
+      Alert.alert('Unban this account?', `${name} will be able to sign in again.`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unban',
+          onPress: async () => {
+            setBanning(true);
+            try {
+              await unbanUser(userId);
+              setOverview((o) => (o ? { ...o, bannedUntil: null } : o));
+            } catch (e) {
+              Alert.alert('Could not unban', e instanceof Error ? e.message : 'Try again.');
+            } finally {
+              setBanning(false);
+            }
+          },
+        },
+      ]);
+      return;
+    }
+    Alert.alert(
+      'Ban this account?',
+      `${name} will be signed out immediately and won't be able to sign back in until unbanned.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Ban',
+          style: 'destructive',
+          onPress: async () => {
+            setBanning(true);
+            try {
+              await banUser(userId);
+              setOverview((o) => (o ? { ...o, bannedUntil: 'infinity' } : o));
+            } catch (e) {
+              Alert.alert('Could not ban', e instanceof Error ? e.message : 'Try again.');
+            } finally {
+              setBanning(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const confirmDelete = () => {
     Alert.alert(
@@ -107,6 +154,7 @@ export function AdminUserDetailScreen({
             <Text style={styles.footNote}>
               Joined {new Date(createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
             </Text>
+            {banned && <Text style={styles.bannedBadge}>Banned</Text>}
           </View>
         </View>
 
@@ -132,12 +180,24 @@ export function AdminUserDetailScreen({
         </Card>
 
         {isSelf ? (
-          <Text style={[styles.footNote, { textAlign: 'center' }]}>You can't delete your own account from here.</Text>
+          <Text style={[styles.footNote, { textAlign: 'center' }]}>You can't ban or delete your own account from here.</Text>
         ) : (
-          <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteRow}>
-            <TrashIcon size={14} color={colors.amber} />
-            <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete account'}</Text>
-          </Pressable>
+          <>
+            <Pressable onPress={confirmToggleBan} disabled={banning} style={styles.deleteRow}>
+              {banned ? (
+                <LockKeyOpenIcon size={14} color={colors.accent} />
+              ) : (
+                <ProhibitIcon size={14} color={colors.amber} />
+              )}
+              <Text style={[styles.deleteLabel, banned && { color: colors.accent }]}>
+                {banning ? (banned ? 'Unbanning…' : 'Banning…') : banned ? 'Unban account' : 'Ban account'}
+              </Text>
+            </Pressable>
+            <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteRow}>
+              <TrashIcon size={14} color={colors.amber} />
+              <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete account'}</Text>
+            </Pressable>
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -162,6 +222,7 @@ function makeStyles(colors: Palette) {
     statLabel: { fontSize: 11, letterSpacing: 0.6, color: withAlpha(colors.text, 0.6) },
     statValue: { fontFamily: font.heading, fontSize: 22, color: colors.text },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
+    bannedBadge: { fontSize: 11, fontFamily: font.heading, color: colors.amber, marginTop: 2 },
     errorNote: { fontSize: 12.5, color: colors.amber },
     deleteRow: {
       flexDirection: 'row',

@@ -32,6 +32,17 @@ export interface AdminUserOverview {
   // progress_snapshots write, so someone who's never joined a challenge
   // reads the same as someone who has one but hasn't synced.
   lastHealthSyncAt: string | null;
+  // auth.users.banned_until, straight through — null/past means not
+  // banned, 'infinity' or any future timestamp means banned. See
+  // isBanned() below for the one bit of parsing that needs: Postgres's
+  // 'infinity' timestamptz doesn't parse as a JS Date.
+  bannedUntil: string | null;
+}
+
+export function isBanned(bannedUntil: string | null): boolean {
+  if (!bannedUntil) return false;
+  if (bannedUntil === 'infinity') return true;
+  return new Date(bannedUntil).getTime() > Date.now();
 }
 
 // profiles.select is open to any signed-in user (0001_challenges_schema.sql)
@@ -75,6 +86,7 @@ export async function getTotalUserCount(): Promise<number> {
 interface AdminUserOverviewRow {
   active_challenges_count: number | string | null;
   last_health_sync_at: string | null;
+  banned_until: string | null;
 }
 
 export async function getUserOverview(userId: string): Promise<AdminUserOverview> {
@@ -85,7 +97,23 @@ export async function getUserOverview(userId: string): Promise<AdminUserOverview
   return {
     activeChallengesCount: Number(row.active_challenges_count ?? 0),
     lastHealthSyncAt: row.last_health_sync_at,
+    bannedUntil: row.banned_until,
   };
+}
+
+// Permanent by default (admin_ban_user's own ban_duration default) —
+// AdminUserDetailScreen doesn't offer a temporary ban, same "no options,
+// just the action" shape as deleteUser below.
+export async function banUser(userId: string): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.rpc('admin_ban_user', { target_user_id: userId });
+  if (error) throw new Error(error.message);
+}
+
+export async function unbanUser(userId: string): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.rpc('admin_unban_user', { target_user_id: userId });
+  if (error) throw new Error(error.message);
 }
 
 // Deleting an auth.users row needs the service role key (auth.admin.* is
