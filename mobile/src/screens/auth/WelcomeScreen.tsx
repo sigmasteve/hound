@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { EnvelopeSimpleIcon, FacebookLogoIcon, GoogleLogoIcon, PawPrintIcon, AppleLogoIcon } from 'phosphor-react-native';
+import { EnvelopeSimpleIcon, FacebookLogoIcon, GoogleLogoIcon, PawPrintIcon } from 'phosphor-react-native';
 import { Button } from '../../components/Button';
 import { useTheme } from '../../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../../theme/tokens';
@@ -16,7 +16,7 @@ export function WelcomeScreen({
   onContinueWithEmail: () => void;
   onCreateAccount: () => void;
 }) {
-  const { signInWithGoogle, signInWithFacebook, signInWithApple } = useAuth();
+  const { signInWithGoogle, signInWithFacebook } = useAuth();
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [busy, setBusy] = useState<Busy>(null);
@@ -61,14 +61,6 @@ export function WelcomeScreen({
           busy={busy === 'facebook'}
           disabled={busy !== null}
           onPress={() => runProvider('facebook', signInWithFacebook)}
-          textColor={colors.text}
-        />
-        <ProviderButton
-          label="Continue with Apple"
-          icon={<AppleLogoIcon size={18} color={colors.text} weight="fill" />}
-          busy={busy === 'apple'}
-          disabled={busy !== null}
-          onPress={() => runProvider('apple', signInWithApple)}
           textColor={colors.text}
         />
       </View>
