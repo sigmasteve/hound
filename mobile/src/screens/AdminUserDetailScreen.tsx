@@ -5,10 +5,24 @@ import { ArrowLeftIcon, LockKeyOpenIcon, ProhibitIcon, TrashIcon } from 'phospho
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { SegmentedControl } from '../components/SegmentedControl';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { banUser, deleteUser, getUserOverview, isBanned, unbanUser, type AdminUserOverview } from '../admin/adminApi';
+
+type BanDurationChoice = '1' | '7' | '30' | 'forever';
+
+const BAN_DURATION_OPTIONS: { value: BanDurationChoice; label: string }[] = [
+  { value: '1', label: '1 day' },
+  { value: '7', label: '7 days' },
+  { value: '30', label: '30 days' },
+  { value: 'forever', label: 'Forever' },
+];
+
+function banDurationLabel(choice: BanDurationChoice): string {
+  return BAN_DURATION_OPTIONS.find((o) => o.value === choice)?.label.toLowerCase() ?? 'forever';
+}
 
 // Same "how long ago" shape as SettingsScreen's own timeAgo(), extended
 // with days/weeks — that one only ever formats a just-synced device (at
@@ -56,6 +70,8 @@ export function AdminUserDetailScreen({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [banning, setBanning] = useState(false);
+  const [showBanPicker, setShowBanPicker] = useState(false);
+  const [banDuration, setBanDuration] = useState<BanDurationChoice>('forever');
   const banned = overview ? isBanned(overview.bannedUntil) : false;
 
   useEffect(() => {
@@ -72,29 +88,30 @@ export function AdminUserDetailScreen({
     };
   }, [userId]);
 
-  const confirmToggleBan = () => {
-    if (banned) {
-      Alert.alert('Unban this account?', `${name} will be able to sign in again.`, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unban',
-          onPress: async () => {
-            setBanning(true);
-            try {
-              await unbanUser(userId);
-              setOverview((o) => (o ? { ...o, bannedUntil: null } : o));
-            } catch (e) {
-              Alert.alert('Could not unban', e instanceof Error ? e.message : 'Try again.');
-            } finally {
-              setBanning(false);
-            }
-          },
+  const confirmUnban = () => {
+    Alert.alert('Unban this account?', `${name} will be able to sign in again.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Unban',
+        onPress: async () => {
+          setBanning(true);
+          try {
+            await unbanUser(userId);
+            setOverview((o) => (o ? { ...o, bannedUntil: null } : o));
+          } catch (e) {
+            Alert.alert('Could not unban', e instanceof Error ? e.message : 'Try again.');
+          } finally {
+            setBanning(false);
+          }
         },
-      ]);
-      return;
-    }
+      },
+    ]);
+  };
+
+  const confirmBan = () => {
+    const durationDays = banDuration === 'forever' ? undefined : Number(banDuration);
     Alert.alert(
-      'Ban this account?',
+      `Ban this account ${banDurationLabel(banDuration)}?`,
       `${name} will be signed out immediately and won't be able to sign back in until unbanned.`,
       [
         { text: 'Cancel', style: 'cancel' },
@@ -104,8 +121,9 @@ export function AdminUserDetailScreen({
           onPress: async () => {
             setBanning(true);
             try {
-              await banUser(userId);
+              await banUser(userId, durationDays);
               setOverview((o) => (o ? { ...o, bannedUntil: 'infinity' } : o));
+              setShowBanPicker(false);
             } catch (e) {
               Alert.alert('Could not ban', e instanceof Error ? e.message : 'Try again.');
             } finally {
@@ -183,16 +201,25 @@ export function AdminUserDetailScreen({
           <Text style={[styles.footNote, { textAlign: 'center' }]}>You can't ban or delete your own account from here.</Text>
         ) : (
           <>
-            <Pressable onPress={confirmToggleBan} disabled={banning} style={styles.deleteRow}>
-              {banned ? (
+            {banned ? (
+              <Pressable onPress={confirmUnban} disabled={banning} style={styles.deleteRow}>
                 <LockKeyOpenIcon size={14} color={colors.accent} />
-              ) : (
-                <ProhibitIcon size={14} color={colors.amber} />
-              )}
-              <Text style={[styles.deleteLabel, banned && { color: colors.accent }]}>
-                {banning ? (banned ? 'Unbanning…' : 'Banning…') : banned ? 'Unban account' : 'Ban account'}
-              </Text>
-            </Pressable>
+                <Text style={[styles.deleteLabel, { color: colors.accent }]}>{banning ? 'Unbanning…' : 'Unban account'}</Text>
+              </Pressable>
+            ) : (
+              <View style={{ gap: 10 }}>
+                <Pressable onPress={() => setShowBanPicker((v) => !v)} style={styles.deleteRow}>
+                  <ProhibitIcon size={14} color={colors.amber} />
+                  <Text style={styles.deleteLabel}>Ban account</Text>
+                </Pressable>
+                {showBanPicker && (
+                  <View style={{ gap: 10 }}>
+                    <SegmentedControl options={BAN_DURATION_OPTIONS} value={banDuration} onChange={setBanDuration} />
+                    <Button label={banning ? 'Banning…' : 'Confirm ban'} onPress={confirmBan} disabled={banning} block />
+                  </View>
+                )}
+              </View>
+            )}
             <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteRow}>
               <TrashIcon size={14} color={colors.amber} />
               <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete account'}</Text>
