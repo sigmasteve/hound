@@ -114,9 +114,10 @@ export function AdminUserDetailScreen({
 
   const confirmBan = () => {
     const durationDays = banDuration === 'forever' ? undefined : Number(banDuration);
+    const untilClause = banDuration === 'forever' ? 'until unbanned' : banDurationPhrase(banDuration);
     Alert.alert(
       `Ban this account ${banDurationPhrase(banDuration)}?`,
-      `${name} will be signed out immediately and won't be able to sign back in until unbanned.`,
+      `${name} will be signed out immediately and won't be able to sign back in ${untilClause}.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
