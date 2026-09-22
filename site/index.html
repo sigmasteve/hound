@@ -129,7 +129,7 @@
 
   <div class="spotlight" id="tester">
     <h2 class="section-title">Become an early tester</h2>
-    <p class="section-sub">Five steps to get Hound running on your own iPhone before it's on the App Store — no TestFlight needed.</p>
+    <p class="section-sub">Three steps to get Hound running on your own iPhone before it's on the App Store — no TestFlight needed. We'll start by sending an invite to your email from <a href="https://expo.dev" target="_blank" rel="noopener">expo.dev</a>.</p>
     <div class="legend">
       <span class="pill owner"><span class="dot"></span> The Hound team does this</span>
       <span class="pill tester"><span class="dot"></span> You do this</span>
@@ -139,8 +139,8 @@
       <li class="step">
         <div class="step-num">1</div>
         <div>
-          <div class="step-title"><h3>You get invited to the Expo team</h3><span class="pill owner"><span class="dot"></span> Team</span></div>
-          <p>We'll send an invite to your email from <a href="https://expo.dev" target="_blank" rel="noopener">expo.dev</a>.</p>
+          <div class="step-title"><h3>Register on expo.dev</h3><span class="pill tester"><span class="dot"></span> You</span></div>
+          <p>Accept the invite email from expo.dev and select the <b>Hound Challenge</b> team.</p>
           <p class="sub">If you don't have an Expo account yet, accepting it walks you through creating one.</p>
         </div>
       </li>
@@ -148,7 +148,7 @@
         <div class="step-num">2</div>
         <div>
           <div class="step-title"><h3>Register your device</h3><span class="pill tester"><span class="dot"></span> You</span></div>
-          <p>On the iPhone you'll actually use for testing, open this link and follow the prompts:</p>
+          <p>On the iPhone you'll actually use for testing, open this link and follow the prompts — it ties your device's Apple UDID to our Apple Developer profile:</p>
           <div class="linkbox">
             <a href="https://expo.dev/register-device/8a0e217a-6387-435b-9174-7c75706546e6" target="_blank" rel="noopener">https://expo.dev/register-device/8a0e217a-6387-435b-9174-7c75706546e6</a>
             <button class="copy-btn" type="button" onclick="copyLink(this)">Copy</button>
@@ -159,27 +159,9 @@
       <li class="step">
         <div class="step-num">3</div>
         <div>
-          <div class="step-title"><h3>We rebuild with your device included</h3><span class="pill owner"><span class="dot"></span> Team</span></div>
-          <p>Once you've registered, we kick off a new build so the provisioning profile picks up your device:</p>
-          <code class="cmd">eas build --profile preview --platform ios</code>
-          <p class="sub">A device registered after the last build was never in that build's profile — only a fresh build picks it up.</p>
-        </div>
-      </li>
-      <li class="step">
-        <div class="step-num">4</div>
-        <div>
-          <div class="step-title"><h3>You get the install link</h3><span class="pill owner"><span class="dot"></span> Team</span></div>
-          <p>When the build finishes, we'll send you its install link or QR code.</p>
-          <p class="sub">Open it on the same registered iPhone and install directly — still no App Store involved.</p>
-        </div>
-      </li>
-      <li class="step">
-        <div class="step-num">5</div>
-        <div>
-          <div class="step-title"><h3>Turn on Developer Mode</h3><span class="pill tester"><span class="dot"></span> You</span></div>
-          <p>The first time you try to open Hound, iOS blocks it — since iOS 16, any app installed outside the App Store needs Developer Mode on.</p>
-          <p>Go to <b>Settings → Privacy &amp; Security → Developer Mode</b>, toggle it on, then tap <b>Restart</b> when prompted.</p>
-          <p class="sub">After the restart, one more confirmation appears — enter your passcode and tap <b>Turn On</b>. Hound opens normally from then on, for this and every future build.</p>
+          <div class="step-title"><h3>Install Hound</h3><span class="pill owner"><span class="dot"></span> Team</span></div>
+          <p>Once you're registered, we rebuild the app so your device is included, then send you the direct install link or QR code — open it on that same registered iPhone and install directly, still no App Store involved.</p>
+          <p class="sub">The first time you open Hound, iOS blocks it — since iOS 16, any app installed outside the App Store needs Developer Mode on. Go to <b>Settings → Privacy &amp; Security → Developer Mode</b>, toggle it on, then tap <b>Restart</b> when prompted. After the restart, confirm once more — enter your passcode and tap <b>Turn On</b>. Hound opens normally from then on, for this and every future build.</p>
         </div>
       </li>
     </ol>
