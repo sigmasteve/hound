@@ -28,6 +28,18 @@ export interface WorkoutSample {
   when: Date;
   source: SourceLabel;
   distanceMi?: number;
+  // Whether this workout was actually GPS-capable outdoor activity, read
+  // straight from the platform where that's available — true/false is a
+  // real signal, not a guess. Undefined means "the platform can't say"
+  // (Android's Health Connect has no equivalent flag on ExerciseSession;
+  // reading real GPS route data needs the much heavier READ_EXERCISE_ROUTES
+  // permission, not wired up here) — a 'gps_distance' challenge falls back
+  // to guessing from the workout's name in that case (see
+  // challenges/deviceSync.ts). iOS sets this from HealthKit's own
+  // HKIndoorWorkout metadata (see iosProvider.ts) whenever a workout
+  // actually carries it — plenty of older or manually-logged workouts
+  // don't, so undefined is still the common case there too.
+  isOutdoor?: boolean;
   avgHeartRate?: number;
   // Minutes, not a Quantity/unit pair like the platforms' own duration
   // fields — src/health/readiness.ts (training-load calculation) is the

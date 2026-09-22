@@ -16,11 +16,14 @@ function dateKey(d: Date): string {
 // up correctly after a few days of not opening the app, without a
 // separate "first ever sync" code path. Which number depends on what
 // this challenge is scored on: a plain step count, or distance summed
-// from logged workouts. The health abstraction has no true
-// GPS-verified flag, so 'gps_distance' is approximated as workouts
-// whose name reads like a run or walk — a treadmill session or a
-// phone-in-a-drawer walk would still slip through if its name happens
-// to match, which is a real limitation, not a hidden bug.
+// from logged workouts. 'gps_distance' trusts WorkoutSample.isOutdoor
+// when a platform provides it (iOS, from HealthKit's own workout
+// metadata) and only falls back to guessing from the workout's name
+// when it doesn't (Android, or an iOS workout with no indoor/outdoor
+// metadata at all) — that fallback still means a treadmill session or a
+// phone-in-a-drawer walk can slip through if its name happens to match,
+// a real limitation on the platforms/workouts that don't carry the real
+// signal, not a hidden bug.
 //
 // Shared by ChallengeDetailScreen (syncs the one challenge currently
 // open) and HomeScreen (syncs every active device-scored challenge on
@@ -56,8 +59,17 @@ export async function syncChallengeProgressFromDevice(challenge: Challenge, heal
       // moment (excludes it), or start of tomorrow (excludes all of
       // today, even a workout logged after creating the challenge).
       const inRange = workouts.filter((w) => w.when >= since);
+      // isOutdoor is a real per-workout signal where the platform can give
+      // one (currently iOS only, from HealthKit's own indoor/outdoor
+      // metadata — see health/types.ts) — trust it definitively, true or
+      // false, over the name guess. `??` is exactly right here: it only
+      // falls through to the name check when isOutdoor is undefined
+      // ("platform doesn't know"), not when it's false ("platform knows
+      // this was indoor").
       const relevant =
-        challenge.scoringMethod === 'gps_distance' ? inRange.filter((w) => /run|walk|jog|hike/i.test(w.name)) : inRange;
+        challenge.scoringMethod === 'gps_distance'
+          ? inRange.filter((w) => w.isOutdoor ?? /run|walk|jog|hike/i.test(w.name))
+          : inRange;
 
       const byDay = new Map<string, number>();
       for (const w of relevant) {

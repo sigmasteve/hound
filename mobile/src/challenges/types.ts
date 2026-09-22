@@ -10,11 +10,12 @@ export type HuntRole = 'hunter' | 'hunted' | 'zombie';
 // Only meaningful for kind 'hunt': which real-world signal decides who's
 // ahead. 'device_steps' auto-syncs from useHealthProvider() the same way
 // a 'steps'-kind challenge does; 'gps_distance' and 'any_workout'
-// auto-sync from today's logged workouts (see
-// ChallengeDetailScreen.tsx's syncFromDevice for exactly what
-// distinguishes the two — the health abstraction has no true GPS-verified
-// flag, so 'gps_distance' approximates it as workouts named like a run or
-// walk).
+// auto-sync from today's logged workouts (see deviceSync.ts's
+// syncChallengeProgressFromDevice for exactly what distinguishes the two).
+// 'gps_distance' prefers a real indoor/outdoor signal where the platform
+// has one (iOS, via HealthKit's own workout metadata) and falls back to
+// approximating it from the workout's name (a run/walk/jog/hike) when it
+// doesn't — Android's Health Connect has no such flag today.
 export type ScoringMethod = 'gps_distance' | 'any_workout' | 'device_steps';
 
 // Only meaningful for kind 'distance': which number the group's shared
