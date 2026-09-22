@@ -237,6 +237,7 @@ header.top nav a:hover { color: var(--text); }
 .spotlight .section-title,
 .spotlight .section-sub { color: var(--text); }
 .spotlight .section-sub { color: rgba(233, 233, 237, 0.75); }
+.spotlight .section-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 
 .legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 20px; }
 .pill {
