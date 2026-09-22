@@ -451,6 +451,15 @@ export function HomeScreen({
             <Text style={styles.stepsRankChipSub} numberOfLines={1}>
               #{weeklyRank.rank} of {weeklyRank.totalUsers} this week
             </Text>
+            {/* "Today" is a UTC calendar day (0027_daily_step_totals.sql),
+                not each viewer's own — for anyone west of UTC, that day
+                starts partway through their evening, so the "today"
+                headcount can look small right after it flips (US evening
+                = right after UTC midnight) before it fills back in.
+                Called out here instead of silently looking broken. */}
+            <Text style={styles.stepsRankChipNote} numberOfLines={1}>
+              &ldquo;Today&rdquo; resets at UTC midnight, not your local midnight
+            </Text>
           </View>
           <CaretRightIcon size={12} color={withAlpha(colors.text, 0.4)} />
         </Pressable>
@@ -910,6 +919,7 @@ function makeStyles(colors: Palette) {
     },
     stepsRankChipText: { fontSize: 13.5, fontFamily: font.heading, color: colors.text },
     stepsRankChipSub: { fontSize: 12, color: withAlpha(colors.text, 0.55), marginTop: 1 },
+    stepsRankChipNote: { fontSize: 10.5, color: withAlpha(colors.text, 0.4), marginTop: 2 },
     onboardCard: { padding: 16, gap: 10 },
     onboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     onboardTitle: { fontFamily: font.heading, fontSize: 15, color: colors.text, flex: 1 },
