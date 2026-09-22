@@ -52,18 +52,20 @@ function challengeRowToInviteWindowInput(row: {
   kind: Challenge['kind'];
   head_start_days: number | null;
   starts_at: string;
+  created_at: string;
   duration_days: number;
 }): Challenge {
   return {
     kind: row.kind,
     headStartDays: row.head_start_days,
     startsAt: row.starts_at,
+    createdAt: row.created_at,
     durationDays: row.duration_days,
   } as Challenge;
 }
 
 const CHALLENGE_COLUMNS =
-  'id, name, kind, created_by, duration_days, starts_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit';
+  'id, name, kind, created_by, duration_days, starts_at, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit';
 
 interface ChallengeRow {
   id: string;
@@ -72,6 +74,7 @@ interface ChallengeRow {
   created_by: string;
   duration_days: number;
   starts_at: string;
+  created_at: string;
   ends_at: string;
   daily_goal_steps: number | null;
   scoring_method: Challenge['scoringMethod'];
@@ -96,6 +99,7 @@ function rowToChallenge(row: ChallengeRow): Challenge {
     createdBy: row.created_by,
     durationDays: row.duration_days,
     startsAt: row.starts_at,
+    createdAt: row.created_at,
     endsAt: row.ends_at,
     dailyGoalSteps: row.daily_goal_steps,
     scoringMethod: row.scoring_method,
@@ -371,7 +375,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     // refused (and cleaned up) the moment anyone tries to accept it.
     const { data: c, error: challengeError } = await client
       .from('challenges')
-      .select('kind, head_start_days, starts_at, duration_days')
+      .select('kind, head_start_days, starts_at, created_at, duration_days')
       .eq('id', challengeId)
       .single();
     if (challengeError) throw new Error(challengeError.message);
@@ -432,7 +436,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     const userId = await requireUserId();
     const { data: invite, error: fetchError } = await client
       .from('challenge_invites')
-      .select('challenge_id, role, challenges(kind, head_start_days, starts_at, duration_days)')
+      .select('challenge_id, role, challenges(kind, head_start_days, starts_at, created_at, duration_days)')
       .eq('id', inviteId)
       .single();
     if (fetchError) throw new Error(fetchError.message);
@@ -449,6 +453,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       kind: Challenge['kind'];
       head_start_days: number | null;
       starts_at: string;
+      created_at: string;
       duration_days: number;
     } | null;
     if (c && inviteWindowClosed(challengeRowToInviteWindowInput(c))) {

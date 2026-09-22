@@ -134,10 +134,16 @@ const INVITE_WINDOW_HOURS = 24;
 // exists for exactly this reason, just framed as fairness to the Hunted
 // rather than as an anti-manipulation cutoff. Everything else (every
 // non-hunt kind, and a hunt created with no head start at all, where
-// hasHeadStartElapsed is always already true) gets the flat window.
+// hasHeadStartElapsed is always already true) gets the flat window,
+// measured from createdAt — not startsAt, which the default "Today"
+// create option backdates to midnight (see CreateScreen.tsx's
+// startsAtFor) so that day's earlier activity counts. Measuring from
+// startsAt instead would mean a challenge created late in the day could
+// have its invite window already partially or fully burned the moment
+// it's created; createdAt always means 24 real hours from creation.
 export function inviteWindowClosed(challenge: Challenge): boolean {
   if (challenge.kind === 'hunt' && challenge.headStartDays) return hasHeadStartElapsed(challenge);
-  return Date.now() >= new Date(challenge.startsAt).getTime() + INVITE_WINDOW_HOURS * 3_600_000;
+  return Date.now() >= new Date(challenge.createdAt).getTime() + INVITE_WINDOW_HOURS * 3_600_000;
 }
 
 // Whole days left before a hunt's head start elapses, or 0 once it has
