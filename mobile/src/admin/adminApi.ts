@@ -101,12 +101,14 @@ export async function getUserOverview(userId: string): Promise<AdminUserOverview
   };
 }
 
-// Permanent by default (admin_ban_user's own ban_duration default) —
-// AdminUserDetailScreen doesn't offer a temporary ban, same "no options,
-// just the action" shape as deleteUser below.
-export async function banUser(userId: string): Promise<void> {
+// durationDays omitted (or 'forever') falls through to admin_ban_user's
+// own default — a 100-year ban_duration, not literal SQL NULL passed as
+// an interval, which PostgREST can't cast — see 0031_admin_ban_user.sql.
+export async function banUser(userId: string, durationDays?: number): Promise<void> {
   const client = requireClient();
-  const { error } = await client.rpc('admin_ban_user', { target_user_id: userId });
+  const params: { target_user_id: string; ban_duration?: string } = { target_user_id: userId };
+  if (durationDays != null) params.ban_duration = `${durationDays} days`;
+  const { error } = await client.rpc('admin_ban_user', params);
   if (error) throw new Error(error.message);
 }
 

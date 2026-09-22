@@ -48,10 +48,23 @@ export async function userFromSession(session: Session, provider: AuthProviderId
   };
 }
 
+// GoTrue's own message for a banned account ("User is banned") is easy to
+// miss buried among the more common "invalid credentials" copy shown
+// elsewhere — the structured 'user_banned' error code (see admin_ban_user,
+// mobile/supabase/migrations/0031_admin_ban_user.sql) is the reliable way
+// to detect it and show something clearer than passing the raw message
+// through.
+function authErrorMessage(error: { message: string; code?: string }): string {
+  if (error.code === 'user_banned') {
+    return 'This account has been suspended. Contact support if you think this is a mistake.';
+  }
+  return error.message;
+}
+
 export async function signInWithEmail(email: string, password: string): Promise<AuthUser> {
   const client = requireClient();
   const { data, error } = await client.auth.signInWithPassword({ email, password });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(authErrorMessage(error));
   return userFromSession(data.session, 'email');
 }
 
