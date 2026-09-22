@@ -20,8 +20,12 @@ const BAN_DURATION_OPTIONS: { value: BanDurationChoice; label: string }[] = [
   { value: 'forever', label: 'Forever' },
 ];
 
-function banDurationLabel(choice: BanDurationChoice): string {
-  return BAN_DURATION_OPTIONS.find((o) => o.value === choice)?.label.toLowerCase() ?? 'forever';
+// "Ban this account for 1 day?" reads right; "Ban this account for
+// forever?" doesn't — forever skips the "for".
+function banDurationPhrase(choice: BanDurationChoice): string {
+  if (choice === 'forever') return 'forever';
+  const label = BAN_DURATION_OPTIONS.find((o) => o.value === choice)?.label.toLowerCase() ?? '';
+  return `for ${label}`;
 }
 
 // Same "how long ago" shape as SettingsScreen's own timeAgo(), extended
@@ -110,9 +114,10 @@ export function AdminUserDetailScreen({
 
   const confirmBan = () => {
     const durationDays = banDuration === 'forever' ? undefined : Number(banDuration);
+    const untilClause = banDuration === 'forever' ? 'until unbanned' : banDurationPhrase(banDuration);
     Alert.alert(
-      `Ban this account ${banDurationLabel(banDuration)}?`,
-      `${name} will be signed out immediately and won't be able to sign back in until unbanned.`,
+      `Ban this account ${banDurationPhrase(banDuration)}?`,
+      `${name} will be signed out immediately and won't be able to sign back in ${untilClause}.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
