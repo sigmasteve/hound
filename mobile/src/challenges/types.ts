@@ -28,6 +28,13 @@ export interface Challenge {
   kind: ChallengeKind;
   createdBy: string;
   durationDays: number;
+  // The real moment this row was inserted — distinct from startsAt, which
+  // the default "Today" create option deliberately backdates to midnight
+  // so that day's earlier activity counts (see CreateScreen.tsx's
+  // startsAtFor). inviteWindowClosed (board.ts) measures its flat 24h
+  // window from this instead, so "24 hours to invite" means 24 real
+  // hours from creation regardless of which start option was picked.
+  createdAt: string;
   startsAt: string;
   endsAt: string;
   dailyGoalSteps: number | null;
