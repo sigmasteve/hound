@@ -140,3 +140,19 @@ export async function signOut(): Promise<void> {
   const { error } = await client.auth.signOut();
   if (error) throw new Error(error.message);
 }
+
+// Points at the website's own reset-password page (site/reset-password.html)
+// rather than a custom URL scheme — the app has no App Store listing yet,
+// so an email client can't be relied on to hand a hound:// link back to
+// it the way a universal link would, and the site already has the same
+// Supabase client wired up (see site/reset-password.js). That page's URL
+// has to be added to this Supabase project's Redirect URLs allow list
+// (Authentication → URL Configuration) or GoTrue silently falls back to
+// the project's plain Site URL instead.
+const RESET_PASSWORD_URL = 'https://houndchallenge.net/reset-password.html';
+
+export async function resetPasswordForEmail(email: string): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: RESET_PASSWORD_URL });
+  if (error) throw new Error(error.message);
+}

@@ -20,6 +20,7 @@ interface AuthContextValue {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (input: SignUpInput) => Promise<void>;
   signOut: () => Promise<void>;
+  resetPasswordForEmail: (email: string) => Promise<void>;
   // Merges into the in-memory user right after a successful write
   // elsewhere (e.g. SettingsScreen's username save) — optimistic, not a
   // re-fetch, since the caller already knows the new value it just
@@ -99,6 +100,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // needs this to actually clear state.
     setUser(null);
   }, []);
+  // No setUser here — unlike every sign-in method above, this doesn't
+  // establish a session on this device; it just triggers an email.
+  const resetPasswordForEmail = useCallback((email: string) => backend.resetPasswordForEmail(email), []);
 
   const updateUser = useCallback((patch: Partial<AuthUser>) => {
     setUser((u) => (u ? { ...u, ...patch } : u));
@@ -115,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithEmail,
       signUpWithEmail,
       signOut,
+      resetPasswordForEmail,
       updateUser,
     }),
     [
@@ -126,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithEmail,
       signUpWithEmail,
       signOut,
+      resetPasswordForEmail,
       updateUser,
     ],
   );

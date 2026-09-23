@@ -59,3 +59,10 @@ export async function signOut(): Promise<void> {
   // Nothing to tear down — there's no session to invalidate anywhere but
   // AuthContext's own in-memory state.
 }
+
+export async function resetPasswordForEmail(_email: string): Promise<void> {
+  // No real email to send on this path — mirrors signUpWithEmail's own
+  // "succeed regardless of the address" shape, since there's no backend
+  // here to check it against.
+  await delay(undefined, 700);
+}
