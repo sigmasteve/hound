@@ -21,6 +21,21 @@ create table public.organizations (
   created_at timestamptz not null default now()
 );
 
+-- Added before organizations' own RLS policy below, which references
+-- profiles.organization_id in a subquery — Postgres resolves that
+-- column reference at CREATE POLICY time, not lazily, so it has to
+-- exist first or the policy fails to create at all.
+alter table public.profiles
+  add column organization_id uuid references public.organizations (id),
+  add column org_role text check (org_role in ('member', 'admin'));
+
+-- Same reasoning as is_admin's own revoke (0021_admin_flag.sql): only a
+-- connection that bypasses grants entirely (SQL Editor, service_role, or
+-- one of the security-definer functions below, which run as their
+-- owner regardless of the caller's own grants) can change who belongs
+-- to an org or what role they hold there.
+revoke update (organization_id, org_role) on public.profiles from authenticated, anon;
+
 alter table public.organizations enable row level security;
 
 -- A member can see their own org's row; a platform admin can see every
@@ -41,17 +56,6 @@ create policy "Members and platform admins can view an organization"
 -- shape as is_admin (0021_admin_flag.sql). A client with only the
 -- authenticated role can never create or modify an organization except
 -- through those functions' own admin checks.
-
-alter table public.profiles
-  add column organization_id uuid references public.organizations (id),
-  add column org_role text check (org_role in ('member', 'admin'));
-
--- Same reasoning as is_admin's own revoke (0021_admin_flag.sql): only a
--- connection that bypasses grants entirely (SQL Editor, service_role, or
--- one of the security-definer functions below, which run as their
--- owner regardless of the caller's own grants) can change who belongs
--- to an org or what role they hold there.
-revoke update (organization_id, org_role) on public.profiles from authenticated, anon;
 
 -- Same alphabet/shape as generate_friend_code() (0019_friend_codes.sql),
 -- just a separate namespace (organizations.invite_code) rather than
