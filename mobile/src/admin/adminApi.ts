@@ -23,6 +23,12 @@ export interface AdminUserSummary {
   isAdmin: boolean;
   lastActiveAt: string | null;
   createdAt: string;
+  // From profiles.organization_id (0035_organizations.sql) — used by the
+  // org-management screen's "add member" search to grey out/block anyone
+  // already in an org, same constraint admin_add_org_member itself
+  // enforces server-side; this is just so that shows up before the tap
+  // instead of only as a thrown error after.
+  organizationId: string | null;
 }
 
 export interface AdminUserOverview {
@@ -53,7 +59,7 @@ export async function searchUsers(query: string): Promise<AdminUserSummary[]> {
   const trimmed = query.trim();
   let q = client
     .from('profiles')
-    .select('id, name, initials, username, use_username, email, is_admin, last_active_at, created_at')
+    .select('id, name, initials, username, use_username, email, is_admin, last_active_at, created_at, organization_id')
     .order('is_admin', { ascending: false })
     .order('name', { ascending: true })
     .limit(25);
@@ -72,6 +78,7 @@ export async function searchUsers(query: string): Promise<AdminUserSummary[]> {
       isAdmin: row.is_admin,
       lastActiveAt: row.last_active_at,
       createdAt: row.created_at,
+      organizationId: row.organization_id,
     };
   });
 }

@@ -18,4 +18,6 @@ export type RootStackParamList = {
     lastActiveAt: string | null;
     createdAt: string;
   };
+  OrgManagement: undefined;
+  OrgDetail: { organizationId: string };
 };

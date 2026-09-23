@@ -12,3 +12,17 @@ export interface Organization {
   createdBy: string | null;
   createdAt: string;
 }
+
+// One row of listOrgMembers — profiles.select is open to any signed-in
+// user (0001_challenges_schema.sql), same as adminApi.ts's own
+// AdminUserSummary, just scoped to one org and carrying org_role instead
+// of the platform-wide is_admin flag.
+export interface OrgMember {
+  id: string;
+  name: string;
+  initials: string;
+  displayName: string;
+  displayInitials: string;
+  email: string;
+  orgRole: 'member' | 'admin';
+}
