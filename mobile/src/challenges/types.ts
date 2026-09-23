@@ -55,6 +55,13 @@ export interface Challenge {
   distanceGoalMi: number | null;
   distanceGoalSteps: number | null;
   distanceGoalUnit: DistanceGoalUnit | null;
+  // Null (every challenge today) means a global/individual challenge,
+  // open to any friend regardless of org — see
+  // 0037_challenge_org_scope.sql / GitHub issue #158. No screen sets or
+  // reads this yet; it exists so a future Create-wizard org/global
+  // choice and friend picker have a real column to write to and filter
+  // on, not something to fake with client-side-only state.
+  organizationId: string | null;
 }
 
 export interface LeaderboardEntry {
@@ -143,6 +150,9 @@ export interface CreateChallengeInput {
   // there). Omitted means "now" — supabaseChallenges.ts's own default,
   // unchanged for any caller that doesn't pass this.
   startsAt?: string;
+  // Omitted means a global/individual challenge (today's only behavior)
+  // — see Challenge.organizationId. No caller passes this yet.
+  organizationId?: string;
 }
 
 export interface ChallengesProvider {

@@ -25,7 +25,7 @@ export async function userFromSession(session: Session, provider: AuthProviderId
   const fallbackEmail = session.user.email ?? '';
   const { data } = await client
     .from('profiles')
-    .select('name, initials, email, is_admin, username, use_username')
+    .select('name, initials, email, is_admin, username, use_username, organization_id, org_role')
     .eq('id', session.user.id)
     .single();
   if (!data) {
@@ -45,6 +45,8 @@ export async function userFromSession(session: Session, provider: AuthProviderId
     isAdmin: data.is_admin ?? false,
     username: data.username,
     useUsername: data.use_username ?? false,
+    organizationId: data.organization_id,
+    orgRole: data.org_role as AuthUser['orgRole'],
   };
 }
 
