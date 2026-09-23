@@ -367,10 +367,14 @@ function FinishedRow({
   return (
     <Pressable style={styles.finishedRow} onPress={onPress}>
       <MedalIcon size={20} color={medalColorFor(c.stat)} weight="fill" />
-      <Text style={styles.finishedTitle}>{c.name}</Text>
-      <Text style={styles.finishedMeta}>
-        {c.stat === '—' ? c.statLabel : `You placed ${c.stat} ${c.statLabel}`}
-      </Text>
+      <View style={styles.finishedTextCol}>
+        <Text style={styles.finishedTitle} numberOfLines={1}>
+          {c.name}
+        </Text>
+        <Text style={styles.finishedMeta} numberOfLines={1}>
+          {c.stat === '—' ? c.statLabel : `You placed ${c.stat} ${c.statLabel}`}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -479,7 +483,14 @@ function makeStyles(colors: Palette) {
       borderRadius: 8,
       backgroundColor: withAlpha(colors.surface, 0.6),
     },
-    finishedTitle: { flex: 1, fontSize: 14, color: colors.text },
+    // A row and its meta ("You placed 2nd of 3 · 70,164 steps") stacked
+    // vertically, not side by side — RN's default flexShrink is 0 (unlike
+    // the web's 1), so a long meta string sitting next to a flex:1 title
+    // in the same row claimed its full width and squeezed the title down
+    // to almost nothing, wrapping a name like "Let's get to 50K steps"
+    // one or two characters per line.
+    finishedTextCol: { flex: 1, gap: 2 },
+    finishedTitle: { fontSize: 14, color: colors.text },
     finishedMeta: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
   });
 }
