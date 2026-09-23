@@ -23,6 +23,14 @@ export interface AuthUser {
   // src/profiles/displayName.ts for where these actually get used.
   username?: string | null;
   useUsername?: boolean;
+  // From profiles.organization_id / org_role (see
+  // 0035_organizations.sql) — null/undefined means an "individual"
+  // profile with no org. There's no in-app way to set these directly
+  // either (same revoked-column shape as is_admin): they only change via
+  // the RPCs in src/organizations/supabaseOrganizations.ts. See GitHub
+  // issue #158 for the design this is the first piece of.
+  organizationId?: string | null;
+  orgRole?: 'member' | 'admin' | null;
 }
 
 export type AuthStatus = 'signedOut' | 'signedIn';

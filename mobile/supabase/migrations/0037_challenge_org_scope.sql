@@ -1,0 +1,23 @@
+-- Hound: tags a challenge as belonging to an organization — the other
+-- concrete piece of the org model from GitHub issue #158. Null (the
+-- default, and every existing challenge) means today's behavior
+-- unchanged: a global/individual challenge, open to any friend
+-- regardless of org.
+--
+-- Deliberately no new RLS here. Who can see/join a challenge is still
+-- governed entirely by 0001_challenges_schema.sql's existing
+-- participant/invite-based policies — organization_id doesn't change
+-- who *can* join, only which candidates a future client-side "invite a
+-- friend to this challenge" picker offers: per issue #158, an org
+-- challenge should only offer friends who share the creator's org, and
+-- a global challenge should only offer friends who don't — but that's
+-- a query-time filter over the existing friend graph (comparing two
+-- profiles' organization_id), not a constraint the database needs to
+-- enforce. Someone outside the org could still technically be added to
+-- an org challenge the same way they could always be added to any
+-- challenge today; narrowing that further, if it's ever wanted, is
+-- real follow-up work once the org model itself has been validated.
+--
+-- Run this once, after 0035, in the SQL Editor.
+
+alter table public.challenges add column organization_id uuid references public.organizations (id);
