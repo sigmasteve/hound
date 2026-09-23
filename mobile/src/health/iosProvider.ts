@@ -78,8 +78,18 @@ export const iosHealthProvider: HealthProvider = {
     // granted or denied, only whether a request was ever made) — treat
     // "not determined" as the only meaningful distinct status and
     // everything else as authorized, matching requestAuthorization below.
-    const status = authorizationStatusFor('HKQuantityTypeIdentifierStepCount');
-    return status === AuthorizationStatus.notDetermined ? 'not-determined' : 'authorized';
+    //
+    // Guarded the same way androidProvider.ts's own version now is —
+    // this is the one call RootNavigator's connect gate awaits on every
+    // fresh sign-in with no catch of its own, so a throw here (e.g.
+    // HealthKit genuinely unavailable) would leave that gate stuck on
+    // 'checking' forever instead of just treating it as unavailable.
+    try {
+      const status = authorizationStatusFor('HKQuantityTypeIdentifierStepCount');
+      return status === AuthorizationStatus.notDetermined ? 'not-determined' : 'authorized';
+    } catch {
+      return 'unavailable';
+    }
   },
 
   async requestAuthorization(): Promise<HealthAuthStatus> {

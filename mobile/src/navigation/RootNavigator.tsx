@@ -61,7 +61,17 @@ export function RootNavigator() {
       ]);
       if (cancelled) return;
       setConnectGate(seen !== 'true' && authStatus !== 'authorized' ? 'show' : 'hide');
-    })();
+    })().catch(() => {
+      // health.getAuthorizationStatus() is now guarded not to throw on
+      // both platforms (see iosProvider.ts/androidProvider.ts), but this
+      // stays as a second line of defense: an unhandled rejection here
+      // used to leave connectGate stuck on 'checking' forever — a
+      // permanent spinner that looked like a blank screen and
+      // reproduced on every relaunch. Falling back to 'hide' means the
+      // worst case is skipping the connect prompt once, not being
+      // locked out of the app.
+      if (!cancelled) setConnectGate('hide');
+    });
     return () => {
       cancelled = true;
     };
