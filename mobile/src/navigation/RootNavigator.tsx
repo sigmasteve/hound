@@ -21,6 +21,18 @@ import { useAuth } from '../auth/AuthContext';
 import { useHealthProvider } from '../health/HealthContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+// A separate, untyped single-screen navigator just for the connect-gate
+// branch below — ConnectScreen uses useFocusEffect (see its own comment:
+// it re-checks health auth status every time it's focused, not just on
+// mount), which throws "Couldn't find a navigation object" without a
+// real NavigationContainer/navigator ancestor. That branch renders
+// ConnectScreen directly, deliberately outside the main Stack.Navigator
+// below (see its own comment), so it needs its own minimal one instead
+// of borrowing that one — this was a real, always-reproducing crash the
+// moment connectGate ever actually reached 'show', just never hit
+// before now: this was the previously-fixed connectGate hang keeping it
+// permanently stuck on 'checking', so this branch never mounted at all.
+const ConnectGateStack = createNativeStackNavigator();
 
 // Once someone's dealt with this (connected, or tapped "Skip for now"),
 // it never interrupts a launch again — from then on Connect is just the
@@ -122,9 +134,17 @@ export function RootNavigator() {
   // this never interrupts a launch again.
   if (status === 'signedIn' && connectGate === 'show') {
     return (
-      <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: colors.bg }}>
-        <ConnectScreen onDone={dismissConnectPrompt} />
-      </SafeAreaView>
+      <NavigationContainer theme={navTheme}>
+        <ConnectGateStack.Navigator screenOptions={{ headerShown: false }}>
+          <ConnectGateStack.Screen name="ConnectGate">
+            {() => (
+              <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: colors.bg }}>
+                <ConnectScreen onDone={dismissConnectPrompt} />
+              </SafeAreaView>
+            )}
+          </ConnectGateStack.Screen>
+        </ConnectGateStack.Navigator>
+      </NavigationContainer>
     );
   }
 
