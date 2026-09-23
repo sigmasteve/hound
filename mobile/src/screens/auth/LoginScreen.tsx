@@ -8,13 +8,14 @@ import { withAlpha, type Palette } from '../../theme/tokens';
 import { useAuth } from '../../auth/AuthContext';
 
 export function LoginScreen({ onBack, onCreateAccount }: { onBack: () => void; onCreateAccount: () => void }) {
-  const { signInWithEmail } = useAuth();
+  const { signInWithEmail, resetPasswordForEmail } = useAuth();
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const submit = async () => {
     if (!email.trim() || !password) {
@@ -29,6 +30,31 @@ export function LoginScreen({ onBack, onCreateAccount }: { onBack: () => void; o
       setError(e instanceof Error ? e.message : 'Something went wrong. Try again.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Reuses whatever's already typed in the email field above — asking a
+  // second time for the same thing this screen already has a field for
+  // would just be annoying. Always shows the same success message
+  // whether or not that address has an account, same reasoning
+  // signUpWithEmail's own "check your email" message follows: Supabase's
+  // resetPasswordForEmail doesn't reveal that either, so echoing back
+  // "sent!" only for addresses that exist would leak which emails are
+  // registered.
+  const forgotPassword = async () => {
+    if (!email.trim()) {
+      setError('Enter your email above first, then tap "Forgot password?"');
+      return;
+    }
+    setError(null);
+    setResetting(true);
+    try {
+      await resetPasswordForEmail(email.trim());
+      Alert.alert('Check your email', `If an account exists for ${email.trim()}, we've sent a link to reset your password.`);
+    } catch (e) {
+      Alert.alert('Could not send reset email', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -71,13 +97,12 @@ export function LoginScreen({ onBack, onCreateAccount }: { onBack: () => void; o
         </View>
 
         <Button
-          label="Forgot password?"
+          label={resetting ? 'Sending…' : 'Forgot password?'}
           variant="ghost"
           small
           style={styles.forgot}
-          onPress={() =>
-            Alert.alert('Reset password', 'Password reset isn’t wired up yet — this is a UI placeholder.')
-          }
+          disabled={resetting}
+          onPress={forgotPassword}
         />
 
         <Button

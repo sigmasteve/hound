@@ -144,6 +144,18 @@
         showSignedIn(profile.name, profile.email);
       });
     }
+    // A password-reset email's link lands here by default (Supabase's
+    // Site URL), not on reset-password.html directly, unless
+    // resetPasswordForEmail's own redirectTo is set *and* allow-listed
+    // in the Supabase dashboard — this is the fallback for whichever of
+    // those hasn't happened yet, or for a reset email already sent
+    // before reset-password.html existed. Hands the same URL hash
+    // (still carrying the one-time recovery tokens) straight over
+    // instead of showing "You're in" and silently treating a password
+    // reset as an ordinary sign-in.
+    if (event === 'PASSWORD_RECOVERY') {
+      window.location.replace('/reset-password.html' + window.location.hash);
+    }
   });
 
   // ---------- OAuth ----------
