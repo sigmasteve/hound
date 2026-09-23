@@ -111,21 +111,39 @@ export const androidHealthProvider: HealthProvider = {
   },
 
   async getAuthorizationStatus(): Promise<HealthAuthStatus> {
-    if (!(await ensureInitialized())) return 'unavailable';
-    const granted = await getGrantedPermissions();
-    const haveAll = PERMISSIONS.every((p) =>
-      granted.some((g) => 'recordType' in g && g.recordType === p.recordType),
-    );
-    return haveAll ? 'authorized' : 'not-determined';
+    // Same "never throws" discipline as isAvailable() above — this
+    // didn't have it, and it's the one call RootNavigator's connect
+    // gate awaits on every fresh sign-in with no catch of its own
+    // (see that file's own comment). ensureInitialized() calling the
+    // native initialize() can throw on a device that's never touched
+    // Health Connect before (e.g. the app isn't installed at all), and
+    // an unhandled rejection here left connectGate stuck on 'checking'
+    // forever — a permanent spinner that reproduced on every relaunch,
+    // reported as "blank screen after login" on more than one Android
+    // device.
+    try {
+      if (!(await ensureInitialized())) return 'unavailable';
+      const granted = await getGrantedPermissions();
+      const haveAll = PERMISSIONS.every((p) =>
+        granted.some((g) => 'recordType' in g && g.recordType === p.recordType),
+      );
+      return haveAll ? 'authorized' : 'not-determined';
+    } catch {
+      return 'unavailable';
+    }
   },
 
   async requestAuthorization(): Promise<HealthAuthStatus> {
-    if (!(await ensureInitialized())) return 'unavailable';
-    const granted = await requestPermission(PERMISSIONS);
-    const haveAll = PERMISSIONS.every((p) =>
-      granted.some((g) => 'recordType' in g && g.recordType === p.recordType),
-    );
-    return haveAll ? 'authorized' : 'denied';
+    try {
+      if (!(await ensureInitialized())) return 'unavailable';
+      const granted = await requestPermission(PERMISSIONS);
+      const haveAll = PERMISSIONS.every((p) =>
+        granted.some((g) => 'recordType' in g && g.recordType === p.recordType),
+      );
+      return haveAll ? 'authorized' : 'denied';
+    } catch {
+      return 'denied';
+    }
   },
 
   async getSnapshot(): Promise<HealthSnapshot> {

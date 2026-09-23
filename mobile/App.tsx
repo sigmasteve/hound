@@ -15,6 +15,7 @@ import { AuthProvider } from './src/auth/AuthContext';
 import { HealthDataProvider } from './src/health/HealthContext';
 import { LabelsProvider } from './src/labels/LabelsContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -65,8 +66,10 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

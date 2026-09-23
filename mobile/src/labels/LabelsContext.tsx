@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { useAuth } from '../auth/AuthContext';
 import { getHuntLabels, setHuntLabels as saveHuntLabels } from './supabaseLabels';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from './types';
 
@@ -26,6 +27,7 @@ interface LabelsContextValue {
 const LabelsReactContext = createContext<LabelsContextValue | null>(null);
 
 export function LabelsProvider({ children }: { children: React.ReactNode }) {
+  const { user, initializing } = useAuth();
   const [labels, setLabels] = useState<HuntLabels>(DEFAULT_HUNT_LABELS);
   const [loading, setLoading] = useState(isSupabaseConfigured);
 
@@ -43,9 +45,20 @@ export function LabelsProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // app_labels' own RLS only allows an authenticated read (see
+  // 0015_app_labels.sql) — fetching before AuthProvider has finished
+  // restoring the session, or while genuinely signed out, always comes
+  // back with zero rows, which PostgREST reports as a 406 under
+  // .single(). Harmless (the catch above just keeps the defaults), but
+  // it doesn't need to happen: wait for a real signed-in user first.
   useEffect(() => {
+    if (initializing) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     refresh();
-  }, [refresh]);
+  }, [user, initializing, refresh]);
 
   const save = useCallback(async (next: HuntLabels) => {
     await saveHuntLabels(next);
