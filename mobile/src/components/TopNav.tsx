@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
+  BuildingsIcon,
   ChartLineUpIcon,
   FlagCheckeredIcon,
   HouseIcon,
@@ -28,11 +29,19 @@ export function TopNav({
   onSelect,
   onProfile,
   onAdmin,
+  onOrgManagement,
 }: {
   active: MainTab | 'hunt' | 'create';
   onSelect: (tab: MainTab) => void;
   onProfile: () => void;
   onAdmin: () => void;
+  // Passed the caller's own org id when they're only an org admin (not a
+  // platform admin) — MainScreen uses that to skip straight to
+  // OrgDetailScreen for their one org, same "no reason to pick one"
+  // shape as this icon existing at all only for someone who has
+  // somewhere to manage. Omitted (undefined) for a platform admin, who
+  // lands on the OrgManagementScreen hub instead to pick from every org.
+  onOrgManagement: (organizationId?: string) => void;
 }) {
   const { user } = useAuth();
   const { colors } = useTheme();
@@ -42,6 +51,7 @@ export function TopNav({
   // full name (Settings' account card) is right there one tap away via
   // onProfile.
   const firstName = user?.name.split(' ')[0] ?? '';
+  const canManageOrgs = !!user?.isAdmin || user?.orgRole === 'admin';
 
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
@@ -50,12 +60,25 @@ export function TopNav({
           <PawPrintIcon size={16} color={colors.accent} weight="fill" />
         </View>
         <Text style={styles.brandName}>Hound</Text>
+        {canManageOrgs && (
+          <Pressable
+            style={[styles.iconButton, styles.pushRight]}
+            onPress={() => onOrgManagement(user?.isAdmin ? undefined : user?.organizationId ?? undefined)}
+            accessibilityLabel="Organizations"
+          >
+            <BuildingsIcon size={16} color={colors.accent} />
+          </Pressable>
+        )}
         {user?.isAdmin && (
-          <Pressable style={[styles.iconButton, styles.pushRight]} onPress={onAdmin} accessibilityLabel="Admin">
+          <Pressable
+            style={[styles.iconButton, !canManageOrgs && styles.pushRight]}
+            onPress={onAdmin}
+            accessibilityLabel="Admin"
+          >
             <ShieldCheckIcon size={16} color={colors.accent} />
           </Pressable>
         )}
-        <Pressable style={[styles.profile, !user?.isAdmin && styles.pushRight]} onPress={onProfile}>
+        <Pressable style={[styles.profile, !user?.isAdmin && !canManageOrgs && styles.pushRight]} onPress={onProfile}>
           <View style={styles.profileAvatar}>
             <Text style={styles.profileInitials}>{user?.initials ?? ''}</Text>
           </View>

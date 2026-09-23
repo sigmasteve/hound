@@ -36,6 +36,11 @@ export function MainScreen({ route, navigation }: Props) {
         onSelect={setTab}
         onProfile={() => setTab('settings')}
         onAdmin={() => navigation.navigate('Admin')}
+        onOrgManagement={(organizationId) =>
+          organizationId
+            ? navigation.navigate('OrgDetail', { organizationId })
+            : navigation.navigate('OrgManagement')
+        }
       />
       <View style={styles.content}>
         {tab === 'home' && (

@@ -13,6 +13,8 @@ import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { FriendDetailScreen } from '../screens/FriendDetailScreen';
 import { AdminScreen } from '../screens/AdminScreen';
 import { AdminUserDetailScreen } from '../screens/AdminUserDetailScreen';
+import { OrgManagementScreen } from '../screens/OrgManagementScreen';
+import { OrgDetailScreen } from '../screens/OrgDetailScreen';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { WelcomeScreen } from '../screens/auth/WelcomeScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -265,6 +267,24 @@ export function RootNavigator() {
                   createdAt={route.params.createdAt}
                   onBack={() => navigation.goBack()}
                 />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="OrgManagement" options={{ animation: 'slide_from_right' }}>
+              {/* Reached from TopNav's own org icon — only for a platform
+                  admin, who picks which org to manage from here. An
+                  org's own (non-platform-admin) admin skips this screen
+                  entirely: TopNav sends them straight to OrgDetail below
+                  for their one org instead. */}
+              {({ navigation }) => (
+                <OrgManagementScreen
+                  onBack={() => navigation.goBack()}
+                  onOpenOrg={(organizationId) => navigation.navigate('OrgDetail', { organizationId })}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="OrgDetail" options={{ animation: 'slide_from_right' }}>
+              {({ navigation, route }) => (
+                <OrgDetailScreen organizationId={route.params.organizationId} onBack={() => navigation.goBack()} />
               )}
             </Stack.Screen>
           </Stack.Group>

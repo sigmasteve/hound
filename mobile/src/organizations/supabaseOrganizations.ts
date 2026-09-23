@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { HuntLabels } from '../labels/types';
-import type { Organization, OrganizationKind } from './types';
+import { displayInitials, displayName } from '../profiles/displayName';
+import type { Organization, OrganizationKind, OrgMember } from './types';
 
 // The first backend-facing client API for the organization/cross-tenancy
 // model — see 0035_organizations.sql / 0036_organization_labels.sql /
@@ -46,6 +47,55 @@ export async function getOrganization(id: string): Promise<Organization | null> 
   const { data, error } = await client.from('organizations').select('*').eq('id', id).maybeSingle();
   if (error) throw new Error(error.message);
   return data ? rowToOrganization(data) : null;
+}
+
+// Every organization the caller is allowed to see — for a platform admin,
+// that's every org (organizations' own SELECT policy makes the "or
+// platform admin" branch true for every row once it's true at all, same
+// shape adminApi.ts's searchUsers relies on for profiles); for anyone
+// else it resolves to at most their own org, since that's all the same
+// policy lets them read. Only the org-management hub (platform admins
+// only) calls this today.
+export async function listOrganizations(): Promise<Organization[]> {
+  const client = requireClient();
+  const { data, error } = await client.from('organizations').select('*').order('name', { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map(rowToOrganization);
+}
+
+interface OrgMemberRow {
+  id: string;
+  name: string;
+  initials: string;
+  username: string | null;
+  use_username: boolean;
+  email: string;
+  org_role: 'member' | 'admin';
+}
+
+// Plain profiles query, same as adminApi.ts's searchUsers — no RPC
+// needed since profiles.select is open to any signed-in user.
+export async function listOrgMembers(organizationId: string): Promise<OrgMember[]> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, name, initials, username, use_username, email, org_role')
+    .eq('organization_id', organizationId)
+    .order('org_role', { ascending: false })
+    .order('name', { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row: OrgMemberRow) => {
+    const displayable = { name: row.name, username: row.username, useUsername: row.use_username };
+    return {
+      id: row.id,
+      name: row.name,
+      initials: row.initials,
+      displayName: displayName(displayable),
+      displayInitials: displayInitials({ ...displayable, initials: row.initials }),
+      email: row.email,
+      orgRole: row.org_role,
+    };
+  });
 }
 
 // Platform-admin only (enforced server-side by admin_create_organization)
@@ -96,6 +146,16 @@ export async function leaveOrganization(): Promise<void> {
 export async function setOrgMemberRole(targetUserId: string, role: 'member' | 'admin'): Promise<void> {
   const client = requireClient();
   const { error } = await client.rpc('org_set_member_role', { target_user_id: targetUserId, role });
+  if (error) throw new Error(error.message);
+}
+
+// Callable by a platform admin, or by an existing admin of the same org —
+// enforced server-side (0038_org_remove_member.sql). Unlike leaveOrganization,
+// this is for an admin acting on someone else; there's no self-target path
+// through this one.
+export async function removeOrgMember(targetUserId: string): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.rpc('org_remove_member', { target_user_id: targetUserId });
   if (error) throw new Error(error.message);
 }
 
