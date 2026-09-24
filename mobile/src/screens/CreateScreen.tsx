@@ -203,7 +203,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const usesStepsOnly =
     draftType === 'steps' ||
     (draftType === 'hunt' && scoringMethod === 'device_steps') ||
-    (draftType === 'distance' && distanceGoalUnit === 'steps');
+    ((draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps');
 
   const start = async () => {
     // The Hunt screen still reads static sample data unconditionally —
@@ -240,9 +240,11 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
           role: roleFor(b.id),
         })),
         headStartDays: isHunt ? headStart : undefined,
-        distanceGoalUnit: draftType === 'distance' ? distanceGoalUnit : undefined,
-        distanceGoalMi: draftType === 'distance' && distanceGoalUnit === 'miles' ? distanceGoalMi : undefined,
-        distanceGoalSteps: draftType === 'distance' && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
+        distanceGoalUnit: draftType === 'distance' || draftType === 'tag' ? distanceGoalUnit : undefined,
+        distanceGoalMi:
+          (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'miles' ? distanceGoalMi : undefined,
+        distanceGoalSteps:
+          (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
         startsAt: startsAtFor(startOption).toISOString(),
         organizationId: challengeScope === 'org' && myOrgId ? myOrgId : undefined,
       });
@@ -372,7 +374,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
             />
           </View>
 
-          {draftType === 'distance' && (
+          {(draftType === 'distance' || draftType === 'tag') && (
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
                 <Text style={styles.huntBlockLabel}>Group target</Text>
@@ -412,9 +414,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                 />
               )}
               <Text style={styles.huntBlockNote}>
-                Everyone&rsquo;s logged {distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up
-                toward this one shared target — it&rsquo;s the whole group against the goal, not
-                against each other.
+                {draftType === 'tag'
+                  ? `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — once the group reaches it, the game ends right there, whoever’s It at the time.`
+                  : `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — it’s the whole group against the goal, not against each other.`}
               </Text>
             </View>
           )}
