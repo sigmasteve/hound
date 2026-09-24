@@ -31,9 +31,8 @@ const IT_AVATAR_SIZE = 60;
 const MEMBER_AVATAR_SIZE = 46;
 // Large enough that even a member placed directly below It (the tight
 // case: two members split top/bottom) clears It's own full stack — the
-// halo, its countdown badge, and the name label under it — with a
-// little breathing room, rather than the name/badge text running into
-// that member's own avatar.
+// halo and the name label under it — with a little breathing room,
+// rather than the name text running into that member's own avatar.
 const MIN_ORBIT = 80;
 const MAX_ORBIT = CENTER - MEMBER_AVATAR_SIZE / 2 - 8;
 // Just outside It's own halo (radius (IT_AVATAR_SIZE + 8) / 2 = 34) —
@@ -118,29 +117,13 @@ export function TagRadar({
       </Svg>
 
       <View style={[styles.slot, { left: CENTER - SLOT_W / 2, top: CENTER - IT_AVATAR_SIZE / 2 }]}>
-        <View style={{ width: IT_AVATAR_SIZE + 8, height: IT_AVATAR_SIZE + 8 }}>
-          <View
-            style={[
-              styles.itRing,
-              { width: IT_AVATAR_SIZE + 8, height: IT_AVATAR_SIZE + 8, borderRadius: (IT_AVATAR_SIZE + 8) / 2 },
-            ]}
-          >
-            <Avatar initials={itInitials} tint={colors.amber} size={IT_AVATAR_SIZE} fontSize={18} />
-          </View>
-          {/* Overlaps the halo's own bottom edge rather than stacking as
-              its own line below the name — a badge attached to the ring
-              instead of extra stacked text keeps It's whole info block
-              the same height it was before this existed, so MIN_ORBIT
-              only has to clear what it always cleared. */}
-          <Text
-            style={[
-              styles.clockBadge,
-              { color: clockColor, borderColor: clockColor, backgroundColor: withAlpha(clockColor, 0.16) },
-            ]}
-            numberOfLines={1}
-          >
-            {minutesLeft > 0 ? `${minutesLeft}m left` : 'time’s up'}
-          </Text>
+        <View
+          style={[
+            styles.itRing,
+            { width: IT_AVATAR_SIZE + 8, height: IT_AVATAR_SIZE + 8, borderRadius: (IT_AVATAR_SIZE + 8) / 2 },
+          ]}
+        >
+          <Avatar initials={itInitials} tint={colors.amber} size={IT_AVATAR_SIZE} fontSize={18} />
         </View>
         <Text style={styles.centerLabel} numberOfLines={1}>
           {isMeIt ? 'You · It' : `${itName} · It`}
@@ -200,18 +183,6 @@ function makeStyles(colors: Palette) {
       borderColor: withAlpha(colors.text, 0.12),
     },
     centerLabel: { width: SLOT_W, fontSize: 11, fontFamily: font.heading, color: colors.text, marginTop: 4, textAlign: 'center' },
-    clockBadge: {
-      position: 'absolute',
-      bottom: -9,
-      alignSelf: 'center',
-      fontSize: 9.5,
-      fontFamily: font.heading,
-      paddingHorizontal: 6,
-      paddingVertical: 1,
-      borderRadius: 8,
-      borderWidth: 1,
-      overflow: 'hidden',
-    },
     memberLabel: { width: SLOT_W, fontSize: 11, color: colors.text, fontFamily: font.body, marginTop: 4, textAlign: 'center' },
     memberDistance: { width: SLOT_W, fontSize: 10, color: withAlpha(colors.text, 0.55), textAlign: 'center' },
   });
