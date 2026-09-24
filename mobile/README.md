@@ -1506,6 +1506,52 @@ preview" — the underlying package's web implementation is a paid-sponsor
 feature this project doesn't have, so it's a real limitation, not
 something worth working around.
 
+### Android push notifications (FCM credentials)
+
+Turning on any push toggle (Login reminders, or either "Alerts" card's
+Push switch — see "Login reminders" above) walks through
+`registerForPushNotifications()` (`src/notifications/
+supabaseNotifications.ts`), which calls
+`Notifications.getExpoPushTokenAsync()`. On iOS that's it — EAS manages
+the APNs credential automatically, nothing to set up. On **Android**,
+that same call needs Firebase Cloud Messaging initialized natively
+first, which needs a real Firebase project of your own — without one,
+the toggle throws whatever native error Firebase itself raises
+(surfaced verbatim via this app's own `catch` blocks, e.g. `Alert.alert('Stale
+data alert', err.message)`), something like:
+
+> Unable to get Firebase Messaging instance. Did you configure
+> `googleServicesFile` path in app config? ... Default FirebaseApp is
+> not initialized in this process app.hound.mobile. Make sure to call
+> FirebaseApp.initializeApp(Context) first.
+
+Setting this up needs a real Firebase project — an account and console
+Claude can't create or click through on your behalf:
+
+1. [Firebase Console](https://console.firebase.google.com/) → create
+   (or pick) a project → **Add app → Android**, package name
+   `app.hound.mobile` (`app.json`'s `android.package`) → download the
+   resulting `google-services.json` into `mobile/` (repo root of this
+   package, alongside `app.json` — never committed, see `.gitignore`).
+2. Add `"googleServicesFile": "./google-services.json"` to `app.json`'s
+   `android` block, in the same edit as step 1 — this key makes Expo's
+   Android prebuild step fail outright if the file it points at doesn't
+   exist yet, so don't add one without the other.
+3. Same Firebase project → **Project settings → Service accounts →
+   Generate new private key** (a different JSON file — this one
+   authorizes sending, step 1's authorizes the app to receive). Upload
+   it to Expo via `eas credentials` → Android → **Push Notifications:
+   Google Service Account Key** → Upload, so Expo's push service can
+   call FCM's v1 API using *your* project rather than a shared one.
+4. Needs a native rebuild either way (`npx expo prebuild --clean` +
+   `expo run:android`, or a fresh EAS build) — `google-services.json` is
+   read at prebuild time, not just JS reload, same as every other native
+   config change in this project (see "Google Sign-In (native)" above).
+
+Not set up yet in this pass — every Android push toggle fails with the
+native error above until someone runs this checklist against a real
+Firebase project. iOS push has no equivalent gap.
+
 **Challenge data**: `src/challenges/supabaseChallenges.ts` implements
 `listMyChallenges`, `getChallenge`, `listParticipants`, `getLeaderboard`,
 `createChallenge`, and `recordProgress` against the schema above.
@@ -1884,3 +1930,8 @@ needs three OAuth clients created in Google Cloud Console, one Info.plist
 edit in `app.json`, and a native rebuild before it does anything either
 — see "The backend (Supabase)" → "Google Sign-In (native)" for the full
 checklist either way.
+
+Every Android push toggle (Login reminders, either "Alerts" card) fails
+with a native Firebase error until a real Firebase project is set up —
+see "The backend (Supabase)" → "Android push notifications (FCM
+credentials)" for the full checklist. iOS push has no equivalent gap.
