@@ -34,7 +34,7 @@ export function ChallengesScreen({
 }) {
   const { user } = useAuth();
   const { colors, text } = useTheme();
-  const { labels } = useLabels();
+  const { labelsForOrg } = useLabels();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   // null = no fetch has resolved yet, whether that's because Supabase
   // isn't configured (it never will) or because the real fetch just
@@ -79,7 +79,15 @@ export function ChallengesScreen({
             ? supabaseChallengesProvider.getLeaderboard(c.id, headStartBaselineDayKey(c))
             : Promise.resolve<LeaderboardEntry[]>([]),
         ]);
-        return toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null, headStartLeaderboard, labels);
+        return toChallengeCard(
+          c,
+          participants,
+          leaderboard,
+          bots,
+          user?.id ?? null,
+          headStartLeaderboard,
+          labelsForOrg(c.organizationId),
+        );
       }),
     );
     setLiveCards(cards);
