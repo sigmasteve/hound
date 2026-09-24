@@ -493,6 +493,10 @@ export function ChallengeDetailScreen({
   const tagMinutesLeft = tagRound
     ? Math.max(0, Math.ceil(TAG_TIME_LIMIT_MINUTES - (now - new Date(tagRound.roundStartedAt).getTime()) / 60_000))
     : 0;
+  // Same green/amber urgency threshold TagRadar's own countdown ring
+  // uses (under a fifth of the round left reads as urgent) — kept here
+  // too since the card header shows this as plain text, not the ring.
+  const tagClockColor = tagMinutesLeft / TAG_TIME_LIMIT_MINUTES > 0.2 ? colors.green : colors.amber;
   const iAmTagIt = !!tagRound && tagRound.itUserId === user?.id;
   // The one person I can't pick — whoever tagged me last (no
   // tag-backs). Doesn't matter at all unless I'm actually IT with
@@ -617,7 +621,12 @@ export function ChallengeDetailScreen({
 
       {challenge.kind === 'tag' && tagRound && (
         <Card style={{ gap: 12 }} elevated={false}>
-          <Text style={text.h4}>Tag status</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={text.h4}>Tag status</Text>
+            <Text style={[styles.footNote, { color: tagClockColor, fontFamily: font.heading }]}>
+              {tagMinutesLeft > 0 ? `${tagMinutesLeft}m left` : 'time’s up'}
+            </Text>
+          </View>
           <TagRadar
             itInitials={tagItMember?.initials ?? '?'}
             itName={tagItMember?.name ?? 'Someone'}
