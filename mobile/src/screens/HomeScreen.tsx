@@ -45,7 +45,8 @@ import { daysElapsedFraction } from '../challenges/botSimulation';
 import { syncChallengeProgressFromDevice } from '../challenges/deviceSync';
 import { boardSortFor } from '../challenges/scoring';
 import { huntKindName, ordinal } from '../challenges/present';
-import type { Challenge, LeaderboardEntry } from '../challenges/types';
+import { getTagRound } from '../challenges/tagApi';
+import type { Challenge, LeaderboardEntry, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 
@@ -223,6 +224,13 @@ export function HomeScreen({
   const [dailyRank, setDailyRank] = useState<StepRank | null>(null);
   const [weeklyRank, setWeeklyRank] = useState<StepRank | null>(null);
 
+  // Only ever populated when `primary` itself turns out to be a 'tag'
+  // challenge — see the effect below. Null otherwise, including while
+  // that fetch is still in flight, which taggedBannerActive already
+  // treats the same as "nothing to say" rather than showing a stale
+  // banner from a previous primary challenge.
+  const [primaryTagRound, setPrimaryTagRound] = useState<TagRound | null>(null);
+
   const reload = useCallback(() => {
     health.getSnapshot().then((s) => {
       setSnap(s);
@@ -326,6 +334,21 @@ export function HomeScreen({
       });
       const primaryResult = results.find((r) => r.challenge.id === primaryId);
       if (primaryResult) setPrimary({ challenge: primaryResult.challenge, board: primaryResult.board });
+      // Whether Home's own hero card needs "you've been tagged" — only
+      // ever relevant when the primary challenge itself is a Tag game,
+      // so this stays null (and skips the extra fetch) for every other
+      // kind, same as ChallengeDetailScreen's own needsTag guard.
+      if (primaryResult?.challenge.kind === 'tag') {
+        getTagRound(primaryResult.challenge.id)
+          .then((round) => {
+            if (!cancelled) setPrimaryTagRound(round);
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryTagRound(null);
+          });
+      } else {
+        setPrimaryTagRound(null);
+      }
     })()
       .catch(() => {
         // Stay on the sample fallback on any failure.
@@ -343,6 +366,25 @@ export function HomeScreen({
   // This challenge's own words, not the viewer's — see LabelsContext's
   // own comment on why those can differ.
   const hero = primary ? heroCopy(primary, user?.id ?? null, labelsForOrg(primary.challenge.organizationId)) : null;
+  // The one Tag-specific override of heroCopy's own headline — everyone
+  // else's status (chasing someone, hasn't picked yet) already reads
+  // fine as "your standing," but this specific moment (just became It,
+  // with nobody picked yet) is the "you've been tagged, pick your next
+  // target" home-screen message the game's own spec called for. Only
+  // ever true for whichever challenge is actually primary right now —
+  // same one-hero-card-at-a-time constraint every other kind already
+  // has here.
+  const taggedBannerActive = !!(
+    primary &&
+    primary.challenge.kind === 'tag' &&
+    primaryTagRound &&
+    user?.id &&
+    primaryTagRound.itUserId === user.id &&
+    !primaryTagRound.targetUserId
+  );
+  const heroHeadline = taggedBannerActive
+    ? 'You’ve been tagged — pick your next target!'
+    : (hero?.headline ?? 'Start a challenge to see your progress here.');
   // No real challenge to open yet — sends a brand-new user (or the
   // unconfigured sandbox) to where "New challenge" actually lives,
   // instead of the old fallback of opening the hardcoded Hunt demo as if
@@ -367,9 +409,7 @@ export function HomeScreen({
       <View style={styles.heroRow}>
         <View style={styles.heroText}>
           <Text style={text.eyebrow}>{hero?.eyebrow ?? 'GET STARTED'}</Text>
-          <Text style={[text.h2, styles.heroTitle]}>
-            {hero?.headline ?? 'Start a challenge to see your progress here.'}
-          </Text>
+          <Text style={[text.h2, styles.heroTitle]}>{heroHeadline}</Text>
         </View>
         <Button
           label={primary ? 'View challenge' : 'New challenge'}
