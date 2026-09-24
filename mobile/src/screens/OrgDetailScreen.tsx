@@ -33,7 +33,7 @@ import type { Organization, OrgMember } from '../organizations/types';
 // AdminScreen: canManage below is the real gate, not just who could tap
 // their way in.
 export function OrgDetailScreen({ organizationId, onBack }: { organizationId: string; onBack: () => void }) {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { text, colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -153,6 +153,14 @@ export function OrgDetailScreen({ organizationId, onBack }: { organizationId: st
       setAddQuery('');
       setAddResults([]);
       load();
+      // A platform admin can add themselves this way (as just happened in
+      // testing) — the RPC updates their profiles row, but nothing else
+      // refetches THEIR OWN session, so their own app kept reading a
+      // stale (no-org) AuthUser until a fresh sign-in. Patching it here
+      // fixes that immediately, and also cascades into LabelsContext's
+      // own effective-labels refresh (its useEffect depends on the whole
+      // user object, which this replaces) without needing anything extra.
+      if (candidate.id === user?.id) updateUser({ organizationId, orgRole: 'member' });
     } catch (e) {
       setAddError(e instanceof Error ? e.message : 'Could not add that person.');
     } finally {
