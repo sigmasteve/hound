@@ -27,6 +27,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
+import { friendEligible } from '../friends/eligibility';
 import { getOrganization } from '../organizations/supabaseOrganizations';
 import type { Organization } from '../organizations/types';
 import { BOT_FITNESS_LEVELS, BOT_PRESETS, botInitials } from '../challenges/botSimulation';
@@ -57,18 +58,6 @@ function startsAtFor(option: StartOption): Date {
 // one save path (start()), so this single constant is the whole rule —
 // there's no per-kind name validation to keep in sync.
 const NAME_MIN_LENGTH = 4;
-
-// The org-vs-global friend picker's whole rule (see GitHub issue #158's
-// design decision): "org" friends are the ones who share the creator's
-// own org — everyone else (no org, or a different org) is "global."
-// Only ever called once the creator is confirmed to actually be in an
-// org (myOrgId non-null) — someone with no org of their own has no
-// scope toggle at all, so every friend stays selectable regardless of
-// what org, if any, that friend is in.
-function friendEligible(friend: Friend, scope: 'global' | 'org', myOrgId: string): boolean {
-  const sharesMyOrg = friend.organizationId === myOrgId;
-  return scope === 'org' ? sharesMyOrg : !sharesMyOrg;
-}
 
 export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onFinish: () => void }) {
   const { user } = useAuth();
