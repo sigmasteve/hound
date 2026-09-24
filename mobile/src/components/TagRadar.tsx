@@ -41,6 +41,17 @@ const MAX_ORBIT = CENTER - MEMBER_AVATAR_SIZE / 2 - 8;
 // MIN_ORBIT so it never collides with the nearest member ring.
 const CLOCK_RADIUS = (IT_AVATAR_SIZE + 8) / 2 + 6;
 const CLOCK_CIRCUMFERENCE = 2 * Math.PI * CLOCK_RADIUS;
+// A member placed due south at MAX_ORBIT — the worst case for how far
+// down a member's own ring + two label lines can reach — lands past
+// SIZE's own bottom edge (this container is a fixed square, sized only
+// for the ring geometry, not for label text hanging below it). Absolutely
+// positioned children don't get clipped to their parent's bounds, so
+// without this the overflow doesn't just get cut off — it renders on
+// top of whatever this card shows next. Padding the container's own
+// height by this amount reserves real layout space for that overflow
+// instead, at the cost of the ring itself sitting slightly above center
+// in a taller box rather than dead center.
+const BOTTOM_LABEL_BUFFER = 44;
 
 export function TagRadar({
   itInitials,
@@ -167,7 +178,7 @@ export function TagRadar({
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
-    wrap: { width: SIZE, height: SIZE, alignSelf: 'center' },
+    wrap: { width: SIZE, height: SIZE + BOTTOM_LABEL_BUFFER, alignSelf: 'center' },
     slot: { position: 'absolute', width: SLOT_W, alignItems: 'center' },
     itRing: {
       alignItems: 'center',
