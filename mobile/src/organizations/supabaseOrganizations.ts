@@ -184,10 +184,17 @@ export async function getOrgLabels(organizationId: string): Promise<HuntLabels |
 // Callable by that org's own admin or a platform admin — enforced
 // server-side. Upserts (org_set_labels), so this works the first time
 // an org sets labels just as well as every time after.
+//
+// The RPC's first arg is p_organization_id, not organization_id — see
+// 0041_fix_org_set_labels_conflict_target.sql: that function's own
+// upsert needs an unqualified "on conflict (organization_id)", which
+// stayed ambiguous against a same-named parameter no matter how
+// everything else in the function body was qualified, so the parameter
+// itself got renamed instead.
 export async function setOrgLabels(organizationId: string, labels: HuntLabels): Promise<void> {
   const client = requireClient();
   const { error } = await client.rpc('org_set_labels', {
-    organization_id: organizationId,
+    p_organization_id: organizationId,
     hunter_label: labels.hunter,
     hunted_label: labels.hunted,
     zombie_label: labels.zombie,
