@@ -57,8 +57,13 @@ export function ChallengeDetailScreen({
   const health = useHealthProvider();
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { labels } = useLabels();
+  const { labelsForOrg } = useLabels();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
+  // This challenge's own words, not the viewer's — see LabelsContext's
+  // own comment on why those can differ (a platform admin viewing
+  // someone else's org's challenge, or a global challenge for someone
+  // who happens to be in an org).
+  const labels = labelsForOrg(challenge?.organizationId);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [bots, setBots] = useState<ChallengeBot[]>([]);

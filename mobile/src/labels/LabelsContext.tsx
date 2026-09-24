@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { useAuth } from '../auth/AuthContext';
 import { getOrgLabels } from '../organizations/supabaseOrganizations';
@@ -6,63 +6,59 @@ import { getHuntLabels } from './supabaseLabels';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from './types';
 
 interface LabelsContextValue {
-  // The effective labels for the signed-in user right now: their own
-  // org's override (organization_labels, see 0036_organization_labels.sql)
-  // when they're in an org that's set one, otherwise the app-wide
-  // app_labels default — see refresh() below for exactly how that's
-  // decided. Every screen that just displays Hound/Fox/Out copy
-  // (HomeScreen, ChallengesScreen, ChallengeDetailScreen, CreateScreen)
-  // wants this. AdminScreen's own "Chase labels" card is the one
-  // exception — it edits the raw app-wide default directly (via
-  // ../labels/supabaseLabels), not through this context, precisely
-  // because this value can differ from that default for an admin who
-  // happens to belong to an org with its own override.
-  labels: HuntLabels;
-  // True only while the very first fetch is in flight — same "don't
-  // flash the wrong content, just start on the safe default and upgrade
-  // once the real fetch resolves" shape as this app's session restore
-  // and highlighted-challenge fetch use elsewhere. Never true at all
-  // when Supabase isn't configured, since DEFAULT_HUNT_LABELS is the
+  // True only while the very first (global-default) fetch is in flight —
+  // same "don't flash the wrong content, just start on the safe default
+  // and upgrade once the real fetch resolves" shape as this app's session
+  // restore and highlighted-challenge fetch use elsewhere. Never true at
+  // all when Supabase isn't configured, since DEFAULT_HUNT_LABELS is the
   // real, permanent answer in that case, not a placeholder.
   loading: boolean;
-  // Re-resolves the effective labels above — call this on a screen that
-  // should catch a change someone else just saved (see SettingsScreen's
-  // own useFocusEffect) rather than assuming this context's one initial
-  // fetch is still current. Also what AdminScreen calls after saving the
-  // app-wide default, so anyone without their own org override sees the
-  // update without restarting the app.
+  // Re-fetches the app-wide default AND drops every cached per-org
+  // lookup, so a label change saved elsewhere (AdminScreen's own global
+  // editor, or an org admin's own OrgDetailScreen save) is picked up on
+  // the next labelsForOrg call rather than serving a stale cached value
+  // indefinitely. Call this on a screen that should catch such a change
+  // (see SettingsScreen's own useFocusEffect) or after saving one.
   refresh: () => Promise<void>;
+  // The right label set for a SPECIFIC challenge (or draft) — pass its
+  // own organizationId, not the viewer's. null/undefined means a
+  // global challenge and returns the app-wide default directly.
+  // Otherwise returns that org's own override once loaded (falling back
+  // to the app-wide default meanwhile, or permanently if that org never
+  // set one) — see GitHub issue #158. A challenge's wording is a property
+  // of the challenge itself, not of whoever's currently looking at it:
+  // two different challenges the same person is in (an org one and a
+  // global one, say) can and should read differently, and a platform
+  // admin looking at someone else's org's challenge should see that
+  // org's own words, not their own membership (or lack of one).
+  labelsForOrg: (organizationId: string | null | undefined) => HuntLabels;
 }
 
 const LabelsReactContext = createContext<LabelsContextValue | null>(null);
 
 export function LabelsProvider({ children }: { children: React.ReactNode }) {
   const { user, initializing } = useAuth();
-  const [labels, setLabels] = useState<HuntLabels>(DEFAULT_HUNT_LABELS);
+  const [globalLabels, setGlobalLabels] = useState<HuntLabels>(DEFAULT_HUNT_LABELS);
   const [loading, setLoading] = useState(isSupabaseConfigured);
+  // undefined = never fetched, null = fetched, no override (use the
+  // global default), HuntLabels = fetched, has its own override.
+  const [orgLabelsCache, setOrgLabelsCache] = useState<Record<string, HuntLabels | null>>({});
+  // A ref, not state — this only ever needs to dedupe concurrent
+  // in-flight fetches for the same org, never to trigger a render itself
+  // (orgLabelsCache already does that once the fetch resolves).
+  const fetchingOrgIds = useRef<Set<string>>(new Set());
 
-  // Org override wins when one exists; otherwise the app-wide default.
-  // The org lookup only runs for someone actually in an org — for
-  // everyone else (still the overwhelming majority) this is exactly the
-  // one query it always was.
-  const organizationId = user?.organizationId ?? null;
-  const refresh = useCallback(async () => {
+  const refreshGlobal = useCallback(async () => {
     if (!isSupabaseConfigured) return;
     try {
-      const [global, org] = await Promise.all([
-        getHuntLabels(),
-        organizationId ? getOrgLabels(organizationId) : Promise.resolve(null),
-      ]);
-      setLabels(org ?? global);
+      setGlobalLabels(await getHuntLabels());
     } catch {
-      // Stay on whatever labels are already showing (the default, or
-      // the last successful fetch) — this never shows an error state,
-      // it just quietly doesn't upgrade, same convention every other
+      // Stay on whatever's already showing — same convention every other
       // real-data fetch in this app follows.
     } finally {
       setLoading(false);
     }
-  }, [organizationId]);
+  }, []);
 
   // app_labels' own RLS only allows an authenticated read (see
   // 0015_app_labels.sql) — fetching before AuthProvider has finished
@@ -76,10 +72,44 @@ export function LabelsProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
-    refresh();
-  }, [user, initializing, refresh]);
+    refreshGlobal();
+  }, [user, initializing, refreshGlobal]);
 
-  const value = useMemo<LabelsContextValue>(() => ({ labels, loading, refresh }), [labels, loading, refresh]);
+  const ensureOrgLabels = useCallback((organizationId: string) => {
+    if (!isSupabaseConfigured) return;
+    if (organizationId in orgLabelsCache || fetchingOrgIds.current.has(organizationId)) return;
+    fetchingOrgIds.current.add(organizationId);
+    getOrgLabels(organizationId)
+      .then((org) => setOrgLabelsCache((cur) => ({ ...cur, [organizationId]: org })))
+      .catch(() => {
+        // Leave it un-cached — the next render's labelsForOrg call just
+        // tries again, same "quietly don't upgrade" convention as above.
+      })
+      .finally(() => {
+        fetchingOrgIds.current.delete(organizationId);
+      });
+  }, [orgLabelsCache]);
+
+  const labelsForOrg = useCallback(
+    (organizationId: string | null | undefined): HuntLabels => {
+      if (!organizationId) return globalLabels;
+      const cached = orgLabelsCache[organizationId];
+      if (cached !== undefined) return cached ?? globalLabels;
+      // Kicks off the fetch (deduped via fetchingOrgIds) and returns the
+      // global default for THIS render — orgLabelsCache updating once it
+      // resolves triggers a re-render that picks up the real value.
+      ensureOrgLabels(organizationId);
+      return globalLabels;
+    },
+    [globalLabels, orgLabelsCache, ensureOrgLabels],
+  );
+
+  const refresh = useCallback(async () => {
+    setOrgLabelsCache({});
+    await refreshGlobal();
+  }, [refreshGlobal]);
+
+  const value = useMemo<LabelsContextValue>(() => ({ loading, refresh, labelsForOrg }), [loading, refresh, labelsForOrg]);
 
   return <LabelsReactContext.Provider value={value}>{children}</LabelsReactContext.Provider>;
 }

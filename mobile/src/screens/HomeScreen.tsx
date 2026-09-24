@@ -191,7 +191,7 @@ export function HomeScreen({
   const { user } = useAuth();
   const health = useHealthProvider();
   const { colors, text } = useTheme();
-  const { labels } = useLabels();
+  const { labelsForOrg } = useLabels();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [snap, setSnap] = useState<HealthSnapshot | null>(null);
   const [workouts, setWorkouts] = useState<WorkoutSample[]>([]);
@@ -340,7 +340,9 @@ export function HomeScreen({
 
   const readiness = useMemo(() => computeReadiness(workouts), [workouts]);
 
-  const hero = primary ? heroCopy(primary, user?.id ?? null, labels) : null;
+  // This challenge's own words, not the viewer's — see LabelsContext's
+  // own comment on why those can differ.
+  const hero = primary ? heroCopy(primary, user?.id ?? null, labelsForOrg(primary.challenge.organizationId)) : null;
   // No real challenge to open yet — sends a brand-new user (or the
   // unconfigured sandbox) to where "New challenge" actually lives,
   // instead of the old fallback of opening the hardcoded Hunt demo as if
@@ -507,7 +509,12 @@ export function HomeScreen({
 // history to fall back to being honest about, so the honest content is
 // an explanation of what the app can actually do instead.
 function GettingStartedCards({ onGoTab, styles }: { onGoTab: (tab: MainTab) => void; styles: HomeStyles }) {
-  const { labels } = useLabels();
+  const { user } = useAuth();
+  const { labelsForOrg } = useLabels();
+  // No specific challenge to key off yet (this only ever shows before
+  // there's a real one) — previews the viewer's own org words if they
+  // have any, same as what they'd actually see once they create one.
+  const labels = labelsForOrg(user?.organizationId);
   return (
     <>
       <Card style={styles.onboardCard} elevated={false}>
@@ -671,8 +678,11 @@ function LiveMultiHuntCard({
   onOpen: () => void;
   styles: HomeStyles;
 }) {
-  const { labels } = useLabels();
+  const { labelsForOrg } = useLabels();
   const { challenge, board } = primary;
+  // This challenge's own words, not the viewer's — see LabelsContext's
+  // own comment on why those can differ.
+  const labels = labelsForOrg(challenge.organizationId);
   const hunter = board.find((r) => r.role === 'hunter');
   if (!hunter) return null;
 

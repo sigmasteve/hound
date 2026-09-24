@@ -79,7 +79,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   // friend-eligibility checks live inside .map()/.filter() callbacks.
   const myOrgId = user?.organizationId ?? null;
   const { colors, text } = useTheme();
-  const { labels } = useLabels();
+  const { labelsForOrg } = useLabels();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [draftType, setDraftType] = useState<ChallengeKind>('hunt');
@@ -115,6 +115,11 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   // createChallenge already does when organizationId is omitted.
   const [challengeScope, setChallengeScope] = useState<'global' | 'org'>('global');
   const [myOrg, setMyOrg] = useState<Organization | null>(null);
+  // The draft's own words — org-scoped once "org" is picked (live, as
+  // the toggle changes), global otherwise. Same per-challenge (here,
+  // per-draft) resolution ChallengeDetailScreen/ChallengesScreen use,
+  // not the viewer's own membership — see LabelsContext's own comment.
+  const labels = labelsForOrg(challengeScope === 'org' ? myOrgId : null);
   const [selectedBots, setSelectedBots] = useState<string[]>([]);
   // 'me', a BOT_PRESETS id, or an invited friend's userId — the one
   // Hunter; every other selected bot/invited friend (and the creator, if

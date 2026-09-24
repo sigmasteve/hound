@@ -33,11 +33,12 @@ export function AdminScreen({
   const { text, colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   // The raw app-wide default, fetched and saved directly rather than via
-  // useLabels() — that context's own `labels` is the *effective* value
-  // for whoever's viewing it (an org override wins when the viewer has
-  // one, see LabelsContext.tsx), which isn't what this card edits. This
-  // still calls that context's refresh() after saving so anyone without
-  // their own org override sees the update without restarting the app.
+  // useLabels() — that context's own labelsForOrg() resolves a SPECIFIC
+  // challenge's own words (org override if that challenge has one, see
+  // LabelsContext.tsx), which isn't what this card edits. This still
+  // calls that context's refresh() after saving, which clears its
+  // cached org lookups too, so any screen showing a global challenge
+  // picks up the change without restarting the app.
   const { refresh: refreshEffectiveLabels } = useLabels();
   const [globalLabels, setGlobalLabels] = useState<HuntLabels>(DEFAULT_HUNT_LABELS);
 
