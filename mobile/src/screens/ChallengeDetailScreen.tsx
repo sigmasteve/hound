@@ -502,15 +502,28 @@ export function ChallengeDetailScreen({
   // tag-backs). Doesn't matter at all unless I'm actually IT with
   // nobody picked yet, but harmless to compute either way.
   const myLastTaggedBy = tagMembers.find((m) => m.userId === user?.id)?.lastTaggedBy ?? null;
-  const tagTargetableMembers = tagMembers.filter((m) => m.userId !== user?.id && m.userId !== myLastTaggedBy);
+  // A given userId's own current total, in whichever unit this
+  // challenge's own distanceGoalUnit says matters — the same lookup
+  // tag_select_target itself does server-side (see 0047's own
+  // instant-catch fix), just read from the board already loaded here
+  // instead of a fresh RPC call.
+  const tagMemberTotal = (userId: string) => {
+    const row = board.find((r) => r.userId === userId);
+    if (!row) return 0;
+    return challenge.distanceGoalUnit === 'steps' ? row.totalSteps : row.totalDistanceMi;
+  };
+  const myTagMetricValue = user?.id ? tagMemberTotal(user.id) : 0;
+  // tag_select_target itself refuses a pick that isn't strictly ahead
+  // of It's own current total (0047_tag_fix_instant_catch.sql) — a
+  // "target" who's already tied or behind would either be rejected
+  // outright, or (worse) close a real gap of zero the instant they're
+  // picked. Filtering them out here means a real tap never has to round
+  // -trip to that error at all.
+  const tagTargetableMembers = tagMembers.filter(
+    (m) => m.userId !== user?.id && m.userId !== myLastTaggedBy && tagMemberTotal(m.userId) > myTagMetricValue,
+  );
   const tagItMember = tagRound ? tagMembers.find((m) => m.userId === tagRound.itUserId) : undefined;
   const tagTargetMember = tagRound?.targetUserId ? tagMembers.find((m) => m.userId === tagRound.targetUserId) : undefined;
-  const myTagMetric = board.find((r) => r.userId === user?.id);
-  const myTagMetricValue = myTagMetric
-    ? challenge.distanceGoalUnit === 'steps'
-      ? myTagMetric.totalSteps
-      : myTagMetric.totalDistanceMi
-    : 0;
   const tagCatchPct =
     tagRound?.targetSnapshotMetric && tagRound.targetSnapshotMetric > 0
       ? Math.min(100, (myTagMetricValue / tagRound.targetSnapshotMetric) * 100)
@@ -644,7 +657,11 @@ export function ChallengeDetailScreen({
               </Text>
               {tagActionError && <Text style={styles.loadError}>{tagActionError}</Text>}
               {tagTargetableMembers.length === 0 ? (
-                <Text style={styles.footNote}>Nobody eligible to tag yet — wait for more people to join.</Text>
+                <Text style={styles.footNote}>
+                  {tagMembers.length <= 1
+                    ? 'Nobody eligible to tag yet — wait for more people to join.'
+                    : 'Nobody’s ahead of you yet — you can only tag someone who’s logged more than you have.'}
+                </Text>
               ) : (
                 tagTargetableMembers.map((m) => (
                   <View key={m.userId} style={styles.inviteFriendRow}>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Line } from 'react-native-svg';
 import { Avatar } from './Avatar';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 
@@ -41,6 +41,7 @@ const MAX_ORBIT = CENTER - MEMBER_AVATAR_SIZE / 2 - 8;
 // MIN_ORBIT so it never collides with the nearest member ring.
 const CLOCK_RADIUS = (IT_AVATAR_SIZE + 8) / 2 + 6;
 const CLOCK_CIRCUMFERENCE = 2 * Math.PI * CLOCK_RADIUS;
+const MEMBER_RING_RADIUS = (MEMBER_AVATAR_SIZE + 6) / 2;
 // A member placed due south at MAX_ORBIT — the worst case for how far
 // down a member's own ring + two label lines can reach — lands past
 // SIZE's own bottom edge (this container is a fixed square, sized only
@@ -90,6 +91,18 @@ export function TagRadar({
   // for this ring.
   const clockColor = clockFraction > 0.2 ? colors.green : colors.amber;
 
+  // Computed once and reused for both the connecting line below and
+  // each member's own slot — angle is purely for spacing (see this
+  // file's own top comment), radius is the one number that actually
+  // means something.
+  const positioned = members.map((m, i) => {
+    const angle = -90 + (360 / Math.max(1, count)) * i;
+    const rad = (angle * Math.PI) / 180;
+    const radius = MIN_ORBIT + (m.distance / maxDistance) * (MAX_ORBIT - MIN_ORBIT);
+    return { ...m, dirX: Math.cos(rad), dirY: Math.sin(rad), x: CENTER + radius * Math.cos(rad), y: CENTER + radius * Math.sin(rad) };
+  });
+  const target = positioned.find((m) => m.isTarget);
+
   return (
     <View style={styles.wrap}>
       <Svg width={SIZE} height={SIZE} style={StyleSheet.absoluteFill}>
@@ -125,6 +138,22 @@ export function TagRadar({
           rotation={-90}
           origin={`${CENTER}, ${CENTER}`}
         />
+        {/* The one visual answer to "who's It actually chasing" — drawn
+            from just outside It's own countdown ring to just outside
+            the target's own ring (not center-to-center, which would run
+            underneath both avatars instead of connecting their edges). */}
+        {target && (
+          <Line
+            x1={CENTER + CLOCK_RADIUS * target.dirX}
+            y1={CENTER + CLOCK_RADIUS * target.dirY}
+            x2={target.x - MEMBER_RING_RADIUS * target.dirX}
+            y2={target.y - MEMBER_RING_RADIUS * target.dirY}
+            stroke={colors.accent}
+            strokeWidth={2}
+            strokeDasharray="6 5"
+            strokeLinecap="round"
+          />
+        )}
       </Svg>
 
       <View style={[styles.slot, { left: CENTER - SLOT_W / 2, top: CENTER - IT_AVATAR_SIZE / 2 }]}>
@@ -141,14 +170,9 @@ export function TagRadar({
         </Text>
       </View>
 
-      {members.map((m, i) => {
-        const angle = -90 + (360 / Math.max(1, count)) * i;
-        const rad = (angle * Math.PI) / 180;
-        const radius = MIN_ORBIT + (m.distance / maxDistance) * (MAX_ORBIT - MIN_ORBIT);
-        const x = CENTER + radius * Math.cos(rad);
-        const y = CENTER + radius * Math.sin(rad);
+      {positioned.map((m) => {
         return (
-          <View key={m.userId} style={[styles.slot, { left: x - SLOT_W / 2, top: y - MEMBER_AVATAR_SIZE / 2 }]}>
+          <View key={m.userId} style={[styles.slot, { left: m.x - SLOT_W / 2, top: m.y - MEMBER_AVATAR_SIZE / 2 }]}>
             <View
               style={[
                 styles.memberRing,
