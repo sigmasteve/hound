@@ -87,7 +87,15 @@ interface ChallengeRow {
 
 interface ChallengeInviteRow {
   id: string;
-  challenges: { id: string; name: string; kind: Challenge['kind']; duration_days: number } | null;
+  challenges: {
+    id: string;
+    name: string;
+    kind: Challenge['kind'];
+    duration_days: number;
+    head_start_days: number | null;
+    starts_at: string;
+    created_at: string;
+  } | null;
   inviter: { name: string; username: string | null; use_username: boolean } | null;
   role: HuntRole | null;
 }
@@ -350,13 +358,29 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     const { data, error } = await client
       .from('challenge_invites')
       .select(
-        'id, challenges(id, name, kind, duration_days), ' +
+        'id, challenges(id, name, kind, duration_days, head_start_days, starts_at, created_at), ' +
           'inviter:profiles!challenge_invites_inviter_id_fkey(name, username, use_username), role',
       )
       .eq('invitee_id', userId);
     if (error) throw new Error(error.message);
-    return ((data ?? []) as unknown as ChallengeInviteRow[])
-      .filter((row) => row.challenges)
+    const rows = ((data ?? []) as unknown as ChallengeInviteRow[]).filter((row) => row.challenges);
+
+    // Same "found it stale, delete it" shape acceptChallengeInvite
+    // already uses when someone actually taps Join on one of these —
+    // done proactively here too, so a lapsed invite disappears from the
+    // list instead of sitting there indefinitely with dead Join/Decline
+    // buttons until someone taps one and gets an error.
+    const expiredIds = rows.filter((row) => inviteWindowClosed(challengeRowToInviteWindowInput(row.challenges!))).map((row) => row.id);
+    if (expiredIds.length > 0) {
+      client
+        .from('challenge_invites')
+        .delete()
+        .in('id', expiredIds)
+        .then(() => {}, () => {});
+    }
+
+    return rows
+      .filter((row) => !expiredIds.includes(row.id))
       .map((row) => ({
         id: row.id,
         challengeId: row.challenges!.id,
