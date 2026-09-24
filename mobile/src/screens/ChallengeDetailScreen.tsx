@@ -625,6 +625,8 @@ export function ChallengeDetailScreen({
             members={tagRadarMembers}
             colors={colors}
             formatDistance={formatMetric}
+            minutesLeft={tagMinutesLeft}
+            timeLimitMinutes={TAG_TIME_LIMIT_MINUTES}
           />
           {iAmTagIt && !tagRound.targetUserId ? (
             <>
