@@ -226,7 +226,12 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
     setSaving(true);
     try {
       const isHunt = draftType === 'hunt';
-      const chosenBots = BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
+      // Tag has no bot support at all — see 0045_tag_game_state.sql's own
+      // comment (a bot has no way to "pick" a target in the UI) — so this
+      // never sends one along even if selectedBots somehow has stale
+      // entries from switching kind after picking bots, not just because
+      // the "Bot opponents" step above is hidden for it.
+      const chosenBots = draftType === 'tag' ? [] : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
       const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
       const created = await supabaseChallengesProvider.createChallenge({
         name: draftName.trim(),
@@ -546,37 +551,41 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
             link either way.
           </Text>
 
-          <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>
-          <Text style={styles.footNote}>
-            Not enough friends free to race? Add a bot — it logs a plausible number of steps every
-            day on its own, at whichever pace you pick.
-          </Text>
-          {BOT_PRESETS.map((b) => {
-            const picked = selectedBots.includes(b.id);
-            const level = BOT_FITNESS_LEVELS[b.fitnessLevel];
-            return (
-              <Pressable
-                key={b.id}
-                onPress={() => toggleBot(b.id)}
-                style={[styles.friendRow, picked && styles.friendRowOn]}
-              >
-                <Avatar initials={botInitials(b.name)} tint={colors.neutral800} size={30} fontSize={11} />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.friendName}>{b.name}</Text>
-                  <Text style={styles.botLevelDesc}>{level.desc}</Text>
-                </View>
-                <View style={styles.platformBadge}>
-                  <RobotIcon size={11} color={colors.neutral200} />
-                  <Text style={styles.platformBadgeText}>{level.label}</Text>
-                </View>
-                {picked ? (
-                  <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
-                ) : (
-                  <CircleIcon size={18} color={colors.neutral700} />
-                )}
-              </Pressable>
-            );
-          })}
+          {draftType !== 'tag' && (
+            <>
+              <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>
+              <Text style={styles.footNote}>
+                Not enough friends free to race? Add a bot — it logs a plausible number of steps every
+                day on its own, at whichever pace you pick.
+              </Text>
+              {BOT_PRESETS.map((b) => {
+                const picked = selectedBots.includes(b.id);
+                const level = BOT_FITNESS_LEVELS[b.fitnessLevel];
+                return (
+                  <Pressable
+                    key={b.id}
+                    onPress={() => toggleBot(b.id)}
+                    style={[styles.friendRow, picked && styles.friendRowOn]}
+                  >
+                    <Avatar initials={botInitials(b.name)} tint={colors.neutral800} size={30} fontSize={11} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.friendName}>{b.name}</Text>
+                      <Text style={styles.botLevelDesc}>{level.desc}</Text>
+                    </View>
+                    <View style={styles.platformBadge}>
+                      <RobotIcon size={11} color={colors.neutral200} />
+                      <Text style={styles.platformBadgeText}>{level.label}</Text>
+                    </View>
+                    {picked ? (
+                      <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
+                    ) : (
+                      <CircleIcon size={18} color={colors.neutral700} />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </>
+          )}
 
           {draftType === 'hunt' && (
             <View style={{ gap: 8, marginTop: 4 }}>

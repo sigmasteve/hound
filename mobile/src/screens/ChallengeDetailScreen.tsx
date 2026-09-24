@@ -13,7 +13,7 @@ import { ToggleRow } from '../components/Selectable';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
-import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
+import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import {
   buildBoard,
@@ -368,7 +368,10 @@ export function ChallengeDetailScreen({
   }
 
   const typeDef = CHALLENGE_TYPES.find((t) => t.id === challenge.kind);
-  const Icon = CHALLENGE_KIND_ICON[challenge.kind];
+  // challenge.kind is real server data, not this build's own
+  // CHALLENGE_TYPES list — see DEFAULT_CHALLENGE_ICON's own comment for
+  // why a kind newer than this build falls back rather than crashing.
+  const Icon = CHALLENGE_KIND_ICON[challenge.kind] ?? DEFAULT_CHALLENGE_ICON;
   const started = hasStarted(challenge, now);
   const daysElapsed = Math.min(challenge.durationDays, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1);
   const endsLabel = formatEndsLabel(challenge.endsAt, now);
