@@ -163,7 +163,12 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     const client = requireClient();
     const { data, error } = await client
       .from('challenge_participants')
-      .select('user_id, role, highlighted, profiles(name, initials, username, use_username)')
+      // profiles!user_id, not a bare profiles(...) embed — 0045 gave
+      // challenge_participants a second FK to profiles (last_tagged_by),
+      // so PostgREST can no longer auto-pick which relationship this
+      // embed means and returns a 300 "multiple relationships" error on
+      // every challenge, not just a 'tag' one, without this hint.
+      .select('user_id, role, highlighted, profiles!user_id(name, initials, username, use_username)')
       .eq('challenge_id', challengeId);
     if (error) throw new Error(error.message);
     return (data ?? []).map((row) => {
