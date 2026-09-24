@@ -277,13 +277,36 @@ export function pickPrimaryChallenge(challenges: Challenge[], highlighted: Chall
   return challenges.find((c) => new Date(c.endsAt).getTime() > Date.now()) ?? null;
 }
 
+// A 'tag' game's shared group target — reuses the exact same
+// distanceGoalMi/distanceGoalSteps/distanceGoalUnit fields Distance
+// Pool already has (see 0045_tag_game_state.sql), but unlike Distance
+// Pool (where hitting it is purely cosmetic — see ChallengeDetailScreen's
+// "Goal reached" badge, which keeps the pool running to its own
+// scheduled end regardless), a Game of Tag actually finishes the
+// instant the group as a whole reaches it — see isChallengeFinished
+// below. `board` already carries whichever of totalSteps/
+// totalDistanceMi matters for this challenge, same rows
+// ChallengeDetailScreen's own group-progress card sums.
+export function tagGroupGoalMet(challenge: Challenge, board: BoardEntry[]): boolean {
+  if (challenge.kind !== 'tag') return false;
+  const goal = challenge.distanceGoalUnit === 'steps' ? challenge.distanceGoalSteps : challenge.distanceGoalMi;
+  if (!goal) return false;
+  const total = board.reduce(
+    (sum, r) => sum + (challenge.distanceGoalUnit === 'steps' ? r.totalSteps : r.totalDistanceMi),
+    0,
+  );
+  return total >= goal;
+}
+
 // The one "is this challenge over" check shared by toChallengeCard
 // (src/challenges/present.ts, for the Challenges screen's Finished
 // section) and HomeScreen's hero card (for switching from "your
 // standing" to "who won") — a hunt ends the moment isHuntConcluded is
-// true, however many scheduled days are left; anything else just runs
-// out its clock.
+// true, however many scheduled days are left, and a tag game ends the
+// moment its group hits its shared target (tagGroupGoalMet); anything
+// else just runs out its clock.
 export function isChallengeFinished(challenge: Challenge, board: BoardEntry[]): boolean {
   if (challenge.kind === 'hunt' && isHuntConcluded(board)) return true;
+  if (tagGroupGoalMet(challenge, board)) return true;
   return new Date(challenge.endsAt).getTime() <= Date.now();
 }

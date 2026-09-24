@@ -1,4 +1,4 @@
-export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance';
+export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance' | 'tag';
 
 // A hunt has exactly one Hunter and one or more Hunted — never set for
 // any other challenge kind. 'zombie' is a one-way transition a Hunted
@@ -94,6 +94,24 @@ export interface ChallengeBot {
   name: string;
   fitnessLevel: BotFitnessLevel;
   role: HuntRole | null;
+}
+
+// Game of Tag's own live state — see 0045_tag_game_state.sql. Unlike
+// HuntRole, "who's IT" isn't a per-participant flag on Participant
+// itself: it's a single rotating pointer for the whole challenge, so
+// this is its own type rather than another Participant.role value.
+export interface TagRound {
+  challengeId: string;
+  itUserId: string;
+  // Both null until IT actually picks someone — see
+  // tagApi.ts's own comment on why only the target's snapshot needs
+  // storing, not IT's own.
+  targetUserId: string | null;
+  targetSnapshotMetric: number | null;
+  // When this IT's turn began — TAG_TIME_LIMIT_MINUTES (tagApi.ts)
+  // after this, with no catch yet, IT passes to a random other
+  // participant regardless of whether a target had even been picked.
+  roundStartedAt: string;
 }
 
 // An invite to join an existing challenge — separate from friendships:
