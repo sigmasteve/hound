@@ -29,6 +29,7 @@ import { formatStartsLabel, hasStarted, huntKindName, huntRoleLabel, HUNT_ROLE_T
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
+import { friendEligible } from '../friends/eligibility';
 import { useAuth } from '../auth/AuthContext';
 import { useHealthProvider } from '../health/HealthContext';
 import { useLabels } from '../labels/LabelsContext';
@@ -371,8 +372,23 @@ export function ChallengeDetailScreen({
           })
       : [];
 
+  // Same org-vs-global partition CreateScreen's own friend picker
+  // applies at creation time (see friends/eligibility.ts) — an org
+  // challenge only ever gets more of that org's own members invited
+  // into it later, and a global one only ever gets people outside
+  // whichever org is relevant here. That "relevant org" is the
+  // challenge's own for an org challenge (whoever's inviting, it stays
+  // that org's challenge), or the inviter's own org for a global one
+  // (matching CreateScreen's own "global excludes my org" rule) —
+  // falling back to no restriction at all when neither exists, same as
+  // someone with no org sees in the wizard.
+  const challengeOrgId = challenge?.organizationId ?? null;
+  const orgIdForEligibility = challengeOrgId ?? user?.organizationId ?? null;
   const invitableFriends = friends.filter(
-    (f) => f.status === 'accepted' && !participants.some((p) => p.userId === f.userId),
+    (f) =>
+      f.status === 'accepted' &&
+      !participants.some((p) => p.userId === f.userId) &&
+      (!orgIdForEligibility || friendEligible(f, challengeOrgId ? 'org' : 'global', orgIdForEligibility)),
   );
   // Case-insensitive substring match, applied after the eligibility
   // filter above — this narrows an already-invitable list down further,
