@@ -14,7 +14,7 @@ import { Tag } from '../components/Tag';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
-import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
+import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { headStartBaselineDayKey, pickPrimaryChallenge } from '../challenges/board';
@@ -305,7 +305,10 @@ function ChallengeRow({
   styles: ChallengesStyles;
   colors: Palette;
 }) {
-  const Icon = CHALLENGE_KIND_ICON[c.kind];
+  // c.kind is real server data, not this build's own CHALLENGE_TYPES
+  // list — a kind newer than this build (see DEFAULT_CHALLENGE_ICON's
+  // own comment) falls back rather than crashing this whole screen.
+  const Icon = CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
   return (
     <Pressable style={[styles.row, isPrimary && styles.rowPrimary]} onPress={onPress}>
       <View style={[styles.rowIcon, { backgroundColor: c.tint }]}>
