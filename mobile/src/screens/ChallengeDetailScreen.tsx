@@ -7,6 +7,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { Tag } from '../components/Tag';
+import { TagRadar, type TagRadarMember } from '../components/TagRadar';
 import { TextField } from '../components/TextField';
 import { ToggleRow } from '../components/Selectable';
 import { useTheme } from '../theme/ThemeContext';
@@ -26,7 +27,16 @@ import { daysElapsedFraction } from '../challenges/botSimulation';
 import { syncChallengeProgressFromDevice } from '../challenges/deviceSync';
 import { boardSortFor, usesDeviceSteps, usesDistanceRanking, usesWorkoutDistance } from '../challenges/scoring';
 import { formatStartsLabel, hasStarted, huntKindName, huntRoleLabel, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
-import type { Challenge, ChallengeBot, Participant, LeaderboardEntry } from '../challenges/types';
+import type { Challenge, ChallengeBot, Participant, LeaderboardEntry, TagRound } from '../challenges/types';
+import {
+  checkTagCatch,
+  getTagRound,
+  listTagMembers,
+  selectTagTarget,
+  settleTagTimeout,
+  TAG_TIME_LIMIT_MINUTES,
+  type TagMember,
+} from '../challenges/tagApi';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { friendEligible } from '../friends/eligibility';
@@ -90,6 +100,14 @@ export function ChallengeDetailScreen({
   const [logError, setLogError] = useState<string | null>(null);
   const [logSuccess, setLogSuccess] = useState(false);
 
+  // Game of Tag's own live state — both stay empty for any other kind.
+  // tagRound is null until load() resolves for a 'tag' challenge, or if
+  // this isn't one at all.
+  const [tagRound, setTagRound] = useState<TagRound | null>(null);
+  const [tagMembers, setTagMembers] = useState<TagMember[]>([]);
+  const [selectingTargetId, setSelectingTargetId] = useState<string | null>(null);
+  const [tagActionError, setTagActionError] = useState<string | null>(null);
+
   const [friends, setFriends] = useState<Friend[]>([]);
   const [invitingId, setInvitingId] = useState<string | null>(null);
   // Every friend with a pending invite to this challenge — hydrated from
@@ -107,7 +125,13 @@ export function ChallengeDetailScreen({
       // own kind/headStartDays, which isn't known until this returns.
       const c = await supabaseChallengesProvider.getChallenge(challengeId);
       const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
-      const [p, l, b, f, hs, sentInvites] = await Promise.all([
+      const needsTag = c.kind === 'tag';
+      // Settled before the round itself is fetched, not after — so a
+      // stalled turn (15 real minutes with no catch) has already moved
+      // on by the time this same load() reads who's IT, rather than
+      // showing a round that's about to change out from under it.
+      if (needsTag) await settleTagTimeout(challengeId).catch(() => {});
+      const [p, l, b, f, hs, sentInvites, tagRoundResult, tagMembersResult] = await Promise.all([
         supabaseChallengesProvider.listParticipants(challengeId),
         supabaseChallengesProvider.getLeaderboard(challengeId),
         supabaseChallengesProvider.listBots(challengeId),
@@ -116,6 +140,8 @@ export function ChallengeDetailScreen({
           ? supabaseChallengesProvider.getLeaderboard(challengeId, headStartBaselineDayKey(c))
           : Promise.resolve<LeaderboardEntry[]>([]),
         supabaseChallengesProvider.listSentChallengeInvites(challengeId),
+        needsTag ? getTagRound(challengeId) : Promise.resolve(null),
+        needsTag ? listTagMembers(challengeId) : Promise.resolve([]),
       ]);
       setChallenge(c);
       setParticipants(p);
@@ -124,6 +150,8 @@ export function ChallengeDetailScreen({
       setFriends(f);
       setHeadStartLeaderboard(hs);
       setInvitedIds(new Set(sentInvites));
+      setTagRound(tagRoundResult);
+      setTagMembers(tagMembersResult);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not load this challenge.');
     } finally {
@@ -162,6 +190,24 @@ export function ChallengeDetailScreen({
       supabaseChallengesProvider.markCaught(challenge.id).then(load).catch(() => {});
     }
   }, [challenge, participants, leaderboard, bots, headStartLeaderboard, user?.id, load]);
+
+  // Notices "I've closed the gap" while IT — mirrors the hunt
+  // catch-detection effect above, just server-verified instead of
+  // computed client-side: tag_check_catch itself re-checks IT's own
+  // current total against the target's snapshot from scratch (see
+  // tagApi.ts), so this never trusts anything read here. Runs on every
+  // load, harmless either way — once a catch actually lands, load()
+  // re-fetches a round where this user is no longer IT, and this
+  // effect's own guard below stops doing anything further.
+  useEffect(() => {
+    if (!challenge || challenge.kind !== 'tag' || !user?.id) return;
+    if (!tagRound || tagRound.itUserId !== user.id || !tagRound.targetUserId) return;
+    checkTagCatch(challenge.id)
+      .then((caught) => {
+        if (caught) load();
+      })
+      .catch(() => {});
+  }, [challenge, tagRound, user?.id, load]);
 
   const [deleting, setDeleting] = useState(false);
   const [togglingHighlight, setTogglingHighlight] = useState(false);
@@ -211,6 +257,19 @@ export function ChallengeDetailScreen({
       Alert.alert('Could not send reminder', e instanceof Error ? e.message : 'Try again.');
     } finally {
       setInvitingId(null);
+    }
+  };
+
+  const pickTagTarget = async (targetUserId: string) => {
+    setTagActionError(null);
+    setSelectingTargetId(targetUserId);
+    try {
+      await selectTagTarget(challengeId, targetUserId);
+      await load();
+    } catch (e) {
+      setTagActionError(e instanceof Error ? e.message : 'Could not pick that person — try again.');
+    } finally {
+      setSelectingTargetId(null);
     }
   };
 
@@ -405,9 +464,13 @@ export function ChallengeDetailScreen({
   // A distance pool isn't ranked at all — everyone's steps or miles
   // (whichever unit its creator picked — see CreateScreen.tsx's "Group
   // target" picker) add up toward one shared target, so this reads as
-  // the group's combined progress rather than who's ahead of whom.
+  // the group's combined progress rather than who's ahead of whom. A
+  // 'tag' game reuses this exact same field for its own shared target
+  // (see 0045_tag_game_state.sql) — unlike a distance pool, reaching it
+  // actually ends the game (isChallengeFinished/tagGroupGoalMet in
+  // board.ts), not just a cosmetic badge.
   const distanceGoal =
-    challenge.kind === 'distance'
+    challenge.kind === 'distance' || challenge.kind === 'tag'
       ? challenge.distanceGoalUnit === 'steps'
         ? challenge.distanceGoalSteps
         : challenge.distanceGoalMi
@@ -417,6 +480,67 @@ export function ChallengeDetailScreen({
     0,
   );
   const goalMet = !!distanceGoal && groupTotal >= distanceGoal;
+
+  // Game of Tag's own status. tagMinutesLeft floors at 0 rather than
+  // going negative once a round's genuinely stalled past its limit —
+  // load()'s own settleTagTimeout call already resolves that on the
+  // very next load, so this only ever reads low-but-not-negative for
+  // the brief window between the clock running out and this screen
+  // next refreshing.
+  const tagMinutesLeft = tagRound
+    ? Math.max(0, Math.ceil(TAG_TIME_LIMIT_MINUTES - (now - new Date(tagRound.roundStartedAt).getTime()) / 60_000))
+    : 0;
+  const iAmTagIt = !!tagRound && tagRound.itUserId === user?.id;
+  // The one person I can't pick — whoever tagged me last (no
+  // tag-backs). Doesn't matter at all unless I'm actually IT with
+  // nobody picked yet, but harmless to compute either way.
+  const myLastTaggedBy = tagMembers.find((m) => m.userId === user?.id)?.lastTaggedBy ?? null;
+  const tagTargetableMembers = tagMembers.filter((m) => m.userId !== user?.id && m.userId !== myLastTaggedBy);
+  const tagItMember = tagRound ? tagMembers.find((m) => m.userId === tagRound.itUserId) : undefined;
+  const tagTargetMember = tagRound?.targetUserId ? tagMembers.find((m) => m.userId === tagRound.targetUserId) : undefined;
+  const myTagMetric = board.find((r) => r.userId === user?.id);
+  const myTagMetricValue = myTagMetric
+    ? challenge.distanceGoalUnit === 'steps'
+      ? myTagMetric.totalSteps
+      : myTagMetric.totalDistanceMi
+    : 0;
+  const tagCatchPct =
+    tagRound?.targetSnapshotMetric && tagRound.targetSnapshotMetric > 0
+      ? Math.min(100, (myTagMetricValue / tagRound.targetSnapshotMetric) * 100)
+      : 0;
+
+  // It's own current total, for every non-It member's radar distance
+  // below — the actual target's ring uses the frozen snapshot instead
+  // (the real number tag_check_catch is comparing against), everyone
+  // else is just today's live gap, recomputed on every load like the
+  // rest of this board.
+  const tagItBoardRow = tagRound ? board.find((r) => r.userId === tagRound.itUserId) : undefined;
+  const tagItTotal = tagItBoardRow
+    ? challenge.distanceGoalUnit === 'steps'
+      ? tagItBoardRow.totalSteps
+      : tagItBoardRow.totalDistanceMi
+    : 0;
+  const tagRadarMembers: TagRadarMember[] = tagRound
+    ? tagMembers
+        .filter((m) => m.userId !== tagRound.itUserId)
+        .map((m) => {
+          const row = board.find((r) => r.userId === m.userId);
+          const theirTotal = row ? (challenge.distanceGoalUnit === 'steps' ? row.totalSteps : row.totalDistanceMi) : 0;
+          const isTarget = tagRound.targetUserId === m.userId;
+          const distance =
+            isTarget && tagRound.targetSnapshotMetric != null
+              ? Math.max(0, tagRound.targetSnapshotMetric - tagItTotal)
+              : Math.abs(theirTotal - tagItTotal);
+          return {
+            userId: m.userId,
+            initials: m.initials,
+            name: m.userId === user?.id ? 'You' : m.name,
+            distance,
+            isTarget,
+            isMe: m.userId === user?.id,
+          };
+        })
+    : [];
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
@@ -477,10 +601,70 @@ export function ChallengeDetailScreen({
             height={6}
           />
           <Text style={styles.footNote}>
-            {goalMet
-              ? 'The group hit its target — anything still logged from here just adds to the total.'
-              : `Everyone’s logged ${challenge.distanceGoalUnit === 'steps' ? 'steps' : 'miles'} count toward this one shared target — it’s the whole group against the goal, not against each other.`}
+            {challenge.kind === 'tag'
+              ? goalMet
+                ? 'The group hit its target — this game is over.'
+                : `Everyone’s logged ${challenge.distanceGoalUnit === 'steps' ? 'steps' : 'miles'} count toward this one shared target — once the group reaches it, the game ends, whoever’s It at the time.`
+              : goalMet
+                ? 'The group hit its target — anything still logged from here just adds to the total.'
+                : `Everyone’s logged ${challenge.distanceGoalUnit === 'steps' ? 'steps' : 'miles'} count toward this one shared target — it’s the whole group against the goal, not against each other.`}
           </Text>
+        </Card>
+      )}
+
+      {challenge.kind === 'tag' && tagRound && (
+        <Card style={{ gap: 12 }} elevated={false}>
+          <Text style={text.h4}>Tag status</Text>
+          <TagRadar
+            itInitials={tagItMember?.initials ?? '?'}
+            itName={tagItMember?.name ?? 'Someone'}
+            isMeIt={iAmTagIt}
+            members={tagRadarMembers}
+            colors={colors}
+            formatDistance={formatMetric}
+          />
+          {iAmTagIt && !tagRound.targetUserId ? (
+            <>
+              <Text style={styles.footNote}>
+                You&rsquo;re It — pick who to tag. {tagMinutesLeft > 0 ? `${tagMinutesLeft} min left to pick and catch them.` : 'Time’s almost up.'}
+              </Text>
+              {tagActionError && <Text style={styles.loadError}>{tagActionError}</Text>}
+              {tagTargetableMembers.length === 0 ? (
+                <Text style={styles.footNote}>Nobody eligible to tag yet — wait for more people to join.</Text>
+              ) : (
+                tagTargetableMembers.map((m) => (
+                  <View key={m.userId} style={styles.inviteFriendRow}>
+                    <Avatar initials={m.initials} tint={TINT_N} size={30} fontSize={11} />
+                    <Text style={[styles.friendName, { flex: 1 }]}>{m.name}</Text>
+                    <Button
+                      label={selectingTargetId === m.userId ? 'Picking…' : 'Tag'}
+                      small
+                      disabled={selectingTargetId !== null}
+                      onPress={() => pickTagTarget(m.userId)}
+                    />
+                  </View>
+                ))
+              )}
+            </>
+          ) : iAmTagIt && tagRound.targetUserId ? (
+            <>
+              <Text style={styles.footNote}>
+                Chasing {tagTargetMember?.name ?? 'someone'} —{' '}
+                {tagMinutesLeft > 0 ? `${tagMinutesLeft} min left to catch them.` : 'time’s almost up.'}
+              </Text>
+              <ProgressBar pct={tagCatchPct} fillColor={colors.accent} height={6} />
+              <Text style={styles.footNote}>
+                {formatMetric(myTagMetricValue)} of {formatMetric(tagRound.targetSnapshotMetric ?? 0)} needed to catch them.
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.footNote}>
+              {tagItMember?.name ?? 'Someone'} is It
+              {tagRound.targetUserId
+                ? `, chasing ${tagTargetMember?.userId === user?.id ? 'you' : tagTargetMember?.name ?? 'someone'}.`
+                : ' and hasn’t picked a target yet.'}
+            </Text>
+          )}
         </Card>
       )}
 
