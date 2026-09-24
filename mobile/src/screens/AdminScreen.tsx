@@ -11,7 +11,8 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { useLabels } from '../labels/LabelsContext';
-import { DEFAULT_HUNT_LABELS } from '../labels/types';
+import { getHuntLabels, setHuntLabels } from '../labels/supabaseLabels';
+import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 import { getTotalUserCount, searchUsers, type AdminUserSummary } from '../admin/adminApi';
 
 // Reachable only via TopNav's own admin icon, which is itself only
@@ -31,7 +32,14 @@ export function AdminScreen({
   const { user } = useAuth();
   const { text, colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { labels, refresh: refreshLabels, save: saveLabels } = useLabels();
+  // The raw app-wide default, fetched and saved directly rather than via
+  // useLabels() — that context's own `labels` is the *effective* value
+  // for whoever's viewing it (an org override wins when the viewer has
+  // one, see LabelsContext.tsx), which isn't what this card edits. This
+  // still calls that context's refresh() after saving so anyone without
+  // their own org override sees the update without restarting the app.
+  const { refresh: refreshEffectiveLabels } = useLabels();
+  const [globalLabels, setGlobalLabels] = useState<HuntLabels>(DEFAULT_HUNT_LABELS);
 
   const [totalUsers, setTotalUsers] = useState<number | null>(null);
   const [query, setQuery] = useState('');
@@ -67,24 +75,30 @@ export function AdminScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
-  const [hunterInput, setHunterInput] = useState(labels.hunter);
-  const [huntedInput, setHuntedInput] = useState(labels.hunted);
-  const [zombieInput, setZombieInput] = useState(labels.zombie);
+  const [hunterInput, setHunterInput] = useState(globalLabels.hunter);
+  const [huntedInput, setHuntedInput] = useState(globalLabels.hunted);
+  const [zombieInput, setZombieInput] = useState(globalLabels.zombie);
   const [savingLabels, setSavingLabels] = useState(false);
   const [labelsError, setLabelsError] = useState<string | null>(null);
   const [labelsSaved, setLabelsSaved] = useState(false);
 
   useEffect(() => {
-    setHunterInput(labels.hunter);
-    setHuntedInput(labels.hunted);
-    setZombieInput(labels.zombie);
-  }, [labels]);
+    setHunterInput(globalLabels.hunter);
+    setHuntedInput(globalLabels.hunted);
+    setZombieInput(globalLabels.zombie);
+  }, [globalLabels]);
 
   useFocusEffect(
     useCallback(() => {
-      refreshLabels();
+      if (!user?.isAdmin) return;
+      getHuntLabels()
+        .then(setGlobalLabels)
+        .catch(() => {
+          // Same "quietly stay on whatever's already showing" convention
+          // as LabelsContext's own refresh().
+        });
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
+    }, [user?.isAdmin]),
   );
 
   const submitLabels = async (next: { hunter: string; hunted: string; zombie: string }) => {
@@ -99,7 +113,9 @@ export function AdminScreen({
     setLabelsSaved(false);
     setSavingLabels(true);
     try {
-      await saveLabels({ hunter, hunted, zombie });
+      await setHuntLabels({ hunter, hunted, zombie });
+      setGlobalLabels({ hunter, hunted, zombie });
+      await refreshEffectiveLabels();
       setLabelsSaved(true);
     } catch (e) {
       setLabelsError(e instanceof Error ? e.message : 'Could not save that — try again.');
@@ -156,9 +172,9 @@ export function AdminScreen({
             <Card style={{ gap: 12 }} elevated={false}>
               <Text style={text.h4}>Chase labels</Text>
               <Text style={styles.footNote}>
-                What a chase&rsquo;s three roles are called, everywhere in the app. This changes it for
-                everyone signed in right now, not just you — there&rsquo;s no per-person version of this
-                setting yet.
+                What a chase&rsquo;s three roles are called, app-wide. This is the default for anyone not in an
+                organization with its own override &mdash; manage a specific organization&rsquo;s labels from its own page
+                instead (see the organization icon in the top bar).
               </Text>
               <TextField label="Hound" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
               <TextField label="Fox" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
