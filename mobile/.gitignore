@@ -34,6 +34,11 @@ yarn-error.*
 .env
 .env*.local
 
+# Firebase — a real per-project artifact from your own Firebase Console,
+# needed for Android push (see README.md "Android push notifications
+# (FCM credentials)"), never committed
+google-services.json
+
 # typescript
 *.tsbuildinfo
 
