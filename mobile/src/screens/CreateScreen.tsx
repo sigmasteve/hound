@@ -27,6 +27,8 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
+import { getOrganization } from '../organizations/supabaseOrganizations';
+import type { Organization } from '../organizations/types';
 import { BOT_FITNESS_LEVELS, BOT_PRESETS, botInitials } from '../challenges/botSimulation';
 import type { DistanceGoalUnit, HuntRole, ScoringMethod } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
@@ -56,8 +58,26 @@ function startsAtFor(option: StartOption): Date {
 // there's no per-kind name validation to keep in sync.
 const NAME_MIN_LENGTH = 4;
 
+// The org-vs-global friend picker's whole rule (see GitHub issue #158's
+// design decision): "org" friends are the ones who share the creator's
+// own org — everyone else (no org, or a different org) is "global."
+// Only ever called once the creator is confirmed to actually be in an
+// org (myOrgId non-null) — someone with no org of their own has no
+// scope toggle at all, so every friend stays selectable regardless of
+// what org, if any, that friend is in.
+function friendEligible(friend: Friend, scope: 'global' | 'org', myOrgId: string): boolean {
+  const sharesMyOrg = friend.organizationId === myOrgId;
+  return scope === 'org' ? sharesMyOrg : !sharesMyOrg;
+}
+
 export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onFinish: () => void }) {
   const { user } = useAuth();
+  // Pulled out once as a plain string|null rather than repeating
+  // user?.organizationId everywhere below — TypeScript doesn't carry a
+  // `user?.foo` truthiness check into a callback closure (only a plain
+  // variable narrows that way), and several of this screen's own
+  // friend-eligibility checks live inside .map()/.filter() callbacks.
+  const myOrgId = user?.organizationId ?? null;
   const { colors, text } = useTheme();
   const { labels } = useLabels();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -86,6 +106,15 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   // unconfigured) — both render the same honest empty state below,
   // never fabricated friends (see ChallengesScreen's own fix for why).
   const [liveFriends, setLiveFriends] = useState<Friend[] | null>(null);
+  // Only meaningful when user?.organizationId is set — everyone else
+  // never sees the Global/org toggle at all, so this stays 'global' and
+  // inert for them (the same, only behavior a challenge's
+  // organizationId ever had before this existed). Defaults to 'global'
+  // even for an org member: creating a challenge with everyone you know,
+  // org or not, is the more common case, and matches what
+  // createChallenge already does when organizationId is omitted.
+  const [challengeScope, setChallengeScope] = useState<'global' | 'org'>('global');
+  const [myOrg, setMyOrg] = useState<Organization | null>(null);
   const [selectedBots, setSelectedBots] = useState<string[]>([]);
   // 'me', a BOT_PRESETS id, or an invited friend's userId — the one
   // Hunter; every other selected bot/invited friend (and the creator, if
@@ -119,6 +148,37 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         // shows an error for the friend list itself.
       });
   }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !myOrgId) return;
+    getOrganization(myOrgId)
+      .then(setMyOrg)
+      .catch(() => {
+        // Same "quietly stay on whatever's already showing" convention
+        // as this file's other real-data fetches — the toggle below
+        // just falls back to a generic "Your organization" label.
+      });
+  }, [myOrgId]);
+
+  // A friend invited (or picked as Hunter) under one scope can stop being
+  // eligible the moment the scope flips — see friendEligible below. Drop
+  // them rather than silently create a challenge that includes someone
+  // the picker itself says they can't invite under the chosen scope.
+  useEffect(() => {
+    if (!myOrgId || !liveFriends) return;
+    const eligibleIds = new Set(
+      liveFriends.filter((f) => friendEligible(f, challengeScope, myOrgId)).map((f) => f.userId),
+    );
+    const droppedHunter = invited.includes(hunterId) && !eligibleIds.has(hunterId);
+    setInvited((cur) => {
+      const next = cur.filter((id) => eligibleIds.has(id));
+      return next.length === cur.length ? cur : next;
+    });
+    // hunterId is otherwise 'me' or a selectedBots id, neither of which
+    // this scope change ever affects — only a friend can be dropped here.
+    if (droppedHunter) setHunterId('me');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challengeScope]);
 
   const toggleFriend = (userId: string) => {
     setInvited((cur) => (cur.includes(userId) ? cur.filter((id) => id !== userId) : [...cur, userId]));
@@ -190,6 +250,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         distanceGoalMi: draftType === 'distance' && distanceGoalUnit === 'miles' ? distanceGoalMi : undefined,
         distanceGoalSteps: draftType === 'distance' && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
         startsAt: startsAtFor(startOption).toISOString(),
+        organizationId: challengeScope === 'org' && myOrgId ? myOrgId : undefined,
       });
       // Best-effort, same reasoning as ChallengeDetailScreen's own
       // inviteFriend: the challenge itself already saved successfully by
@@ -423,6 +484,24 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
       {step === 3 && (
         <View style={{ gap: 14 }}>
           <Text style={text.h2}>Bring friends</Text>
+          {!!myOrgId && (
+            <View style={{ gap: 8 }}>
+              <Text style={text.h4}>Who&rsquo;s this chase for?</Text>
+              <SegmentedControl
+                options={[
+                  { value: 'global' as const, label: 'Everyone' },
+                  { value: 'org' as const, label: myOrg?.name ?? 'My organization' },
+                ]}
+                value={challengeScope}
+                onChange={setChallengeScope}
+              />
+              <Text style={styles.footNote}>
+                {challengeScope === 'org'
+                  ? `Only friends in ${myOrg?.name ?? 'your organization'} can join this one.`
+                  : `Friends in ${myOrg?.name ?? 'your organization'} aren’t eligible for this one — switch above to invite them instead.`}
+              </Text>
+            </View>
+          )}
           {friendsLoading ? (
             <View style={styles.friendsLoadingRow}>
               <ActivityIndicator color={colors.accent} />
@@ -431,18 +510,27 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
             <>
               {acceptedFriends.map((f) => {
                 const picked = invited.includes(f.userId);
+                const eligible = !myOrgId || friendEligible(f, challengeScope, myOrgId);
                 return (
                   <Pressable
                     key={f.userId}
-                    onPress={() => toggleFriend(f.userId)}
-                    style={[styles.friendRow, picked && styles.friendRowOn]}
+                    onPress={() => eligible && toggleFriend(f.userId)}
+                    disabled={!eligible}
+                    style={[styles.friendRow, picked && styles.friendRowOn, !eligible && styles.friendRowDisabled]}
                   >
                     <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
-                    <Text style={[styles.friendName, { flex: 1 }]}>{f.name}</Text>
+                    <View style={{ flex: 1, gap: 1 }}>
+                      <Text style={styles.friendName}>{f.name}</Text>
+                      {!eligible && (
+                        <Text style={styles.footNote}>
+                          {challengeScope === 'org' ? `Not in ${myOrg?.name ?? 'this organization'}` : `In ${myOrg?.name ?? 'your organization'}`}
+                        </Text>
+                      )}
+                    </View>
                     {picked ? (
                       <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
                     ) : (
-                      <CircleIcon size={18} color={colors.neutral700} />
+                      <CircleIcon size={18} color={eligible ? colors.neutral700 : withAlpha(colors.neutral700, 0.4)} />
                     )}
                   </Pressable>
                 );
@@ -652,6 +740,7 @@ function makeStyles(colors: Palette) {
       backgroundColor: colors.surface,
     },
     friendRowOn: { borderWidth: 1, borderColor: colors.accent },
+    friendRowDisabled: { opacity: 0.45 },
     friendName: { flex: 1, fontSize: 14, color: colors.text },
     botLevelDesc: { fontSize: 11.5, color: withAlpha(colors.text, 0.55) },
     platformBadge: {

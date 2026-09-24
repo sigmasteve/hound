@@ -29,6 +29,12 @@ export interface Friend {
   // invite (so the UI shows "Invite sent", not "Accept/Decline") or the
   // other person did (so I get to accept or decline it).
   requestedByMe: boolean;
+  // This friend's own profiles.organization_id (0035_organizations.sql),
+  // straight through — null means they're not in an org. Friendships
+  // themselves stay global/unscoped (see GitHub issue #158): this exists
+  // so CreateScreen's own org-vs-global friend picker can tell "in my
+  // org" apart from "not," it's not a restriction on who can be friends.
+  organizationId: string | null;
 }
 
 export interface FriendsProvider {
