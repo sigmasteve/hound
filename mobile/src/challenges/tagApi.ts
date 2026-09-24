@@ -91,7 +91,12 @@ export async function listTagMembers(challengeId: string): Promise<TagMember[]> 
   const client = requireClient();
   const { data, error } = await client
     .from('challenge_participants')
-    .select('user_id, last_tagged_by, tags_made, profiles(name, initials, username, use_username)')
+    // profiles!user_id, not a bare profiles(...) embed — this table now
+    // has two FKs to profiles (user_id and last_tagged_by), which makes
+    // an unhinted embed ambiguous (PostgREST returns a 300 "multiple
+    // relationships" error) — see supabaseChallenges.ts's listParticipants
+    // for the same fix and why it broke every challenge, not just tag ones.
+    .select('user_id, last_tagged_by, tags_made, profiles!user_id(name, initials, username, use_username)')
     .eq('challenge_id', challengeId);
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => {

@@ -110,7 +110,7 @@ export function toChallengeCard(
   let stat = '—';
   let statLabel = 'no data yet';
   const distanceGoal =
-    challenge.kind === 'distance'
+    challenge.kind === 'distance' || challenge.kind === 'tag'
       ? challenge.distanceGoalUnit === 'steps'
         ? challenge.distanceGoalSteps
         : challenge.distanceGoalMi
