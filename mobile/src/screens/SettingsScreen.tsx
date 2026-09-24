@@ -17,6 +17,8 @@ import type { AuthProviderId } from '../auth/types';
 import { isSupabaseConfigured } from '../lib/supabase';
 import * as notifications from '../notifications/supabaseNotifications';
 import { setUseUsername, setUsername } from '../profiles/supabaseProfile';
+import { getOrganization, leaveOrganization, redeemOrganizationInvite } from '../organizations/supabaseOrganizations';
+import type { Organization } from '../organizations/types';
 
 const USERNAME_FORMAT = /^[A-Za-z0-9_]{3,20}$/;
 
@@ -95,6 +97,80 @@ export function SettingsScreen() {
       setSavingUseUsername(false);
     }
   };
+  // Organization membership — see GitHub issue #158. No org yet shows a
+  // join-by-code form (redeem_organization_invite); already in one shows
+  // who and a way out (leave_organization). Managing an org you admin
+  // (invite code, members, labels) lives in OrgDetailScreen instead,
+  // reached via TopNav's own org icon — this card is just the individual
+  // member's own join/leave, the same way the account row above is your
+  // own account, not account administration.
+  const [org, setOrg] = useState<Organization | null>(null);
+  const [orgLoadError, setOrgLoadError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured || !user?.organizationId) {
+        setOrg(null);
+        return;
+      }
+      getOrganization(user.organizationId)
+        .then(setOrg)
+        .catch((e) => setOrgLoadError(e instanceof Error ? e.message : 'Could not load your organization.'));
+    }, [user?.organizationId]),
+  );
+
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+
+  const submitJoin = async () => {
+    const code = inviteCodeInput.trim();
+    if (!code) {
+      setJoinError('Enter an invite code.');
+      return;
+    }
+    setJoinError(null);
+    setJoining(true);
+    try {
+      const organizationId = await redeemOrganizationInvite(code);
+      const joined = await getOrganization(organizationId);
+      setOrg(joined);
+      setInviteCodeInput('');
+      updateUser({ organizationId, orgRole: 'member' });
+    } catch (e) {
+      setJoinError(e instanceof Error ? e.message : 'Could not join with that code.');
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const [leaving, setLeaving] = useState(false);
+  const confirmLeave = () => {
+    Alert.alert(
+      `Leave ${org?.name ?? 'this organization'}?`,
+      "You'll need a new invite code to join again — challenges and friends you already have are unaffected.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            setLeaving(true);
+            try {
+              await leaveOrganization();
+              setOrg(null);
+              updateUser({ organizationId: null, orgRole: null });
+            } catch (e) {
+              Alert.alert('Could not leave', e instanceof Error ? e.message : 'Try again.');
+            } finally {
+              setLeaving(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   // This device's own real sync status, for whichever "Connected sources"
   // row matches health.platformLabel below — every other row there is
   // still SOURCES' static sample data (a different, pre-existing gap;
@@ -298,6 +374,52 @@ export function SettingsScreen() {
 
       {isSupabaseConfigured && user && (
         <Card style={{ gap: 14 }} elevated={false}>
+          <Text style={text.h4}>Organization</Text>
+          {user.organizationId ? (
+            <>
+              {orgLoadError && <Text style={styles.footNoteError}>{orgLoadError}</Text>}
+              {org ? (
+                <Text style={styles.footNote}>
+                  You&rsquo;re a {user.orgRole === 'admin' ? 'admin' : 'member'} of {org.name} (
+                  {org.kind === 'school' ? 'school' : 'company'}).
+                </Text>
+              ) : (
+                !orgLoadError && <Text style={styles.footNote}>Loading…</Text>
+              )}
+              <Button
+                label={leaving ? 'Leaving…' : 'Leave organization'}
+                small
+                variant="secondary"
+                disabled={leaving}
+                onPress={confirmLeave}
+              />
+            </>
+          ) : (
+            <>
+              <Text style={styles.footNote}>Have an invite code from a school or company? Enter it here to join.</Text>
+              <TextField
+                label="Invite code"
+                value={inviteCodeInput}
+                onChangeText={setInviteCodeInput}
+                placeholder="e.g. 7K3PQMXR"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                error={joinError ?? undefined}
+              />
+              <Button
+                label={joining ? 'Joining…' : 'Join'}
+                variant="secondary"
+                small
+                disabled={joining || !inviteCodeInput.trim()}
+                onPress={submitJoin}
+              />
+            </>
+          )}
+        </Card>
+      )}
+
+      {isSupabaseConfigured && user && (
+        <Card style={{ gap: 14 }} elevated={false}>
           <Text style={text.h4}>Username</Text>
           <Text style={styles.footNote}>
             Show a username instead of your real name in challenge leaderboards and invites.
@@ -485,6 +607,7 @@ function makeStyles(colors: Palette) {
     syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
     syncLabel: { fontSize: 12, color: colors.accent, fontFamily: font.heading },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    footNoteError: { fontSize: 12.5, color: colors.amber },
     alertGroupLabel: { fontSize: 13.5, color: colors.text, fontFamily: font.heading },
   });
 }
