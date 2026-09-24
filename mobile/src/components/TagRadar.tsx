@@ -31,6 +31,12 @@ const IT_AVATAR_SIZE = 60;
 const MEMBER_AVATAR_SIZE = 46;
 const MIN_ORBIT = 66;
 const MAX_ORBIT = CENTER - MEMBER_AVATAR_SIZE / 2 - 8;
+// Just outside It's own halo (radius (IT_AVATAR_SIZE + 8) / 2 = 34) —
+// close enough to read as "this belongs to It," with a few px of gap so
+// it doesn't run flush against the halo's own stroke, and well inside
+// MIN_ORBIT so it never collides with the nearest member ring.
+const CLOCK_RADIUS = (IT_AVATAR_SIZE + 8) / 2 + 6;
+const CLOCK_CIRCUMFERENCE = 2 * Math.PI * CLOCK_RADIUS;
 
 export function TagRadar({
   itInitials,
@@ -39,6 +45,8 @@ export function TagRadar({
   members,
   colors,
   formatDistance,
+  minutesLeft,
+  timeLimitMinutes,
 }: {
   itInitials: string;
   itName: string;
@@ -46,12 +54,26 @@ export function TagRadar({
   members: TagRadarMember[];
   colors: Palette;
   formatDistance: (value: number) => string;
+  // The same round-timeout clock regardless of whether It has picked a
+  // target yet — tag_settle_timeout (see tagApi.ts) hands It to someone
+  // else at 0 either way, whether that's a stale It who never picked
+  // anyone or an active chase that ran out the clock. One ring around
+  // It covers both cases identically since they're really the same
+  // timer.
+  minutesLeft: number;
+  timeLimitMinutes: number;
 }) {
   const styles = makeStyles(colors);
   // Floors at 1 so an all-tied board (everyone's distance is 0) puts
   // every ring at MIN_ORBIT instead of dividing by zero.
   const maxDistance = Math.max(1, ...members.map((m) => m.distance));
   const count = members.length;
+  const clockFraction = Math.max(0, Math.min(1, timeLimitMinutes > 0 ? minutesLeft / timeLimitMinutes : 0));
+  // Under a fifth of the round left reads as genuinely urgent — same
+  // green/amber status-tone vocabulary the rest of the app already uses
+  // (see theme/tokens.ts's own toneColor), not a new color language just
+  // for this ring.
+  const clockColor = clockFraction > 0.2 ? colors.green : colors.amber;
 
   return (
     <View style={styles.wrap}>
@@ -67,6 +89,27 @@ export function TagRadar({
             fill="none"
           />
         ))}
+        <Circle
+          cx={CENTER}
+          cy={CENTER}
+          r={CLOCK_RADIUS}
+          stroke={withAlpha(colors.text, 0.12)}
+          strokeWidth={3}
+          fill="none"
+        />
+        <Circle
+          cx={CENTER}
+          cy={CENTER}
+          r={CLOCK_RADIUS}
+          stroke={clockColor}
+          strokeWidth={3}
+          strokeLinecap="round"
+          fill="none"
+          strokeDasharray={`${CLOCK_CIRCUMFERENCE} ${CLOCK_CIRCUMFERENCE}`}
+          strokeDashoffset={CLOCK_CIRCUMFERENCE * (1 - clockFraction)}
+          rotation={-90}
+          origin={`${CENTER}, ${CENTER}`}
+        />
       </Svg>
 
       <View style={[styles.slot, { left: CENTER - SLOT_W / 2, top: CENTER - IT_AVATAR_SIZE / 2 }]}>
@@ -80,6 +123,9 @@ export function TagRadar({
         </View>
         <Text style={styles.centerLabel} numberOfLines={1}>
           {isMeIt ? 'You · It' : `${itName} · It`}
+        </Text>
+        <Text style={[styles.clockLabel, { color: clockColor }]} numberOfLines={1}>
+          {minutesLeft > 0 ? `${minutesLeft}m left` : 'time’s up'}
         </Text>
       </View>
 
@@ -136,6 +182,7 @@ function makeStyles(colors: Palette) {
       borderColor: withAlpha(colors.text, 0.12),
     },
     centerLabel: { width: SLOT_W, fontSize: 11, fontFamily: font.heading, color: colors.text, marginTop: 4, textAlign: 'center' },
+    clockLabel: { width: SLOT_W, fontSize: 10.5, fontFamily: font.heading, marginTop: 2, textAlign: 'center' },
     memberLabel: { width: SLOT_W, fontSize: 11, color: colors.text, fontFamily: font.body, marginTop: 4, textAlign: 'center' },
     memberDistance: { width: SLOT_W, fontSize: 10, color: withAlpha(colors.text, 0.55), textAlign: 'center' },
   });
