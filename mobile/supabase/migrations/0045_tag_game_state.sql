@@ -1,4 +1,4 @@
--- Hound: Game of Tag's actual game state — see 0043_tag_challenge_kind.sql
+-- Hound: Game of Tag's actual game state — see 0044_tag_challenge_kind.sql
 -- for the enum value this depends on (must already be committed).
 --
 -- Deliberately anti-competitive (see GitHub discussion): there's no
@@ -34,7 +34,7 @@
 -- challenge_participants row for a non-tag challenge; it just never
 -- becomes IT or gets selected here.
 --
--- Run this once, after 0043 (as its own, separately committed
+-- Run this once, after 0044 (as its own, separately committed
 -- transaction), in the SQL Editor.
 
 -- Who's chasing whom right now, for a given 'tag'-kind challenge — one
