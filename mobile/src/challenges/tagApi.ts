@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { displayInitials, displayName, type DisplayableProfile } from '../profiles/displayName';
 import type { DistanceGoalUnit, TagRound } from './types';
 
 // The client-facing half of Game of Tag — see 0044_tag_challenge_kind.sql
@@ -21,6 +22,30 @@ export const TAG_TIME_LIMIT_MINUTES = 15;
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
   return supabase;
+}
+
+// A tag-specific participant view — same identity fields
+// supabaseChallenges.ts's own listParticipants already returns, plus
+// the two tag-only facts a target picker needs: who last tagged them
+// (to grey out/exclude that one option — no tag-backs) and how many
+// people they've caught so far.
+export interface TagMember {
+  userId: string;
+  name: string;
+  initials: string;
+  lastTaggedBy: string | null;
+  tagsMade: number;
+}
+
+interface TagMemberProfileRow {
+  name: string;
+  initials: string;
+  username: string | null;
+  use_username: boolean;
+}
+
+function toDisplayable(p: TagMemberProfileRow): DisplayableProfile & { initials: string } {
+  return { name: p.name, initials: p.initials, username: p.username, useUsername: p.use_username };
 }
 
 interface TagRoundRow {
@@ -56,6 +81,29 @@ export async function getTagRound(challengeId: string): Promise<TagRound | null>
     .maybeSingle();
   if (error) throw new Error(error.message);
   return data ? rowToTagRound(data) : null;
+}
+
+// Every current participant, with the two tag-only facts above — same
+// RLS this challenge's own listParticipants already relies on
+// (challenge_participants' "Participants can view each other" policy),
+// nothing extra to bypass.
+export async function listTagMembers(challengeId: string): Promise<TagMember[]> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from('challenge_participants')
+    .select('user_id, last_tagged_by, tags_made, profiles(name, initials, username, use_username)')
+    .eq('challenge_id', challengeId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => {
+    const profile = row.profiles as unknown as TagMemberProfileRow | null;
+    return {
+      userId: row.user_id,
+      name: profile ? displayName(toDisplayable(profile)) : 'Someone',
+      initials: profile ? displayInitials(toDisplayable(profile)) : '?',
+      lastTaggedBy: row.last_tagged_by,
+      tagsMade: row.tags_made,
+    };
+  });
 }
 
 // Only the current IT can call this — enforced server-side
