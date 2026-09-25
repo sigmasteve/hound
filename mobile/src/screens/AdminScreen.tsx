@@ -6,6 +6,7 @@ import { ArrowLeftIcon, CaretRightIcon, MagnifyingGlassIcon } from 'phosphor-rea
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { RadioPill, ToggleRow } from '../components/Selectable';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
@@ -14,6 +15,7 @@ import { useLabels } from '../labels/LabelsContext';
 import { getHuntLabels, setHuntLabels } from '../labels/supabaseLabels';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 import { getTotalUserCount, searchUsers, type AdminUserSummary } from '../admin/adminApi';
+import { getAppBanner, setAppBanner, type AppBanner } from '../banner/supabaseBanner';
 
 // Reachable only via TopNav's own admin icon, which is itself only
 // rendered for user?.isAdmin — but that's a UI convenience, not real
@@ -101,6 +103,66 @@ export function AdminScreen({
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.isAdmin]),
   );
+
+  // How long a saved banner stays up from the moment it's saved — not a
+  // scheduling tool (see 0050_app_banner.sql's own comment), just "for
+  // this long from now." null means no expiry at all.
+  const BANNER_DURATIONS: { label: string; ms: number | null }[] = [
+    { label: '1 hour', ms: 60 * 60 * 1000 },
+    { label: '6 hours', ms: 6 * 60 * 60 * 1000 },
+    { label: '1 day', ms: 24 * 60 * 60 * 1000 },
+    { label: '3 days', ms: 3 * 24 * 60 * 60 * 1000 },
+    { label: '1 week', ms: 7 * 24 * 60 * 60 * 1000 },
+    { label: 'No expiry', ms: null },
+  ];
+
+  const [currentBanner, setCurrentBanner] = useState<AppBanner | null>(null);
+  const [bannerMessage, setBannerMessage] = useState('');
+  const [bannerEnabled, setBannerEnabled] = useState(false);
+  const [bannerDurationIdx, setBannerDurationIdx] = useState(2); // '1 day'
+  const [savingBanner, setSavingBanner] = useState(false);
+  const [bannerError, setBannerError] = useState<string | null>(null);
+  const [bannerSaved, setBannerSaved] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.isAdmin) return;
+      getAppBanner()
+        .then((b) => {
+          setCurrentBanner(b);
+          setBannerMessage(b.message);
+          setBannerEnabled(b.enabled);
+        })
+        .catch(() => {
+          // Same "quietly stay on whatever's already showing" convention
+          // as this screen's own Chase labels load.
+        });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.isAdmin]),
+  );
+
+  const saveBanner = async () => {
+    const message = bannerMessage.trim();
+    if (!message) {
+      setBannerError('The banner needs some text.');
+      return;
+    }
+    setBannerError(null);
+    setBannerSaved(false);
+    setSavingBanner(true);
+    try {
+      const ms = BANNER_DURATIONS[bannerDurationIdx].ms;
+      const expiresAt = ms === null ? null : new Date(Date.now() + ms).toISOString();
+      await setAppBanner({ message, enabled: bannerEnabled, expiresAt });
+      const updated = await getAppBanner();
+      setCurrentBanner(updated);
+      setBannerSaved(true);
+    } catch (e) {
+      setBannerError(e instanceof Error ? e.message : 'Could not save that — try again.');
+    } finally {
+      setSavingBanner(false);
+    }
+  };
 
   const submitLabels = async (next: { hunter: string; hunted: string; zombie: string }) => {
     const hunter = next.hunter.trim();
@@ -191,6 +253,46 @@ export function AdminScreen({
                 />
                 <Button label="Reset to default" disabled={savingLabels} onPress={() => submitLabels(DEFAULT_HUNT_LABELS)} />
               </View>
+            </Card>
+
+            <Card style={{ gap: 12 }} elevated={false}>
+              <Text style={text.h4}>Home banner</Text>
+              <Text style={styles.footNote}>
+                An announcement shown at the top of everyone&rsquo;s Home screen &mdash; dismissible with the small
+                &times; there, or it clears itself once its timeframe runs out.
+              </Text>
+              <TextField
+                label="Message"
+                value={bannerMessage}
+                onChangeText={setBannerMessage}
+                placeholder="e.g. Scheduled maintenance Sunday 2-4pm"
+              />
+              <ToggleRow
+                label="Show this banner"
+                note="Visible to every signed-in user"
+                value={bannerEnabled}
+                onChange={setBannerEnabled}
+              />
+              <Text style={styles.footNote}>Visible for, starting now</Text>
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                {BANNER_DURATIONS.map((d, i) => (
+                  <RadioPill key={d.label} label={d.label} selected={bannerDurationIdx === i} onPress={() => setBannerDurationIdx(i)} />
+                ))}
+              </View>
+              {currentBanner?.enabled && (
+                <Text style={styles.footNote}>
+                  Currently live
+                  {currentBanner.expiresAt ? ` until ${new Date(currentBanner.expiresAt).toLocaleString()}` : ' (no expiry)'}.
+                </Text>
+              )}
+              {bannerError && <Text style={styles.loadError}>{bannerError}</Text>}
+              {bannerSaved && !bannerError && <Text style={styles.successNote}>Saved.</Text>}
+              <Button
+                label={savingBanner ? 'Saving…' : 'Save'}
+                variant="primary"
+                disabled={savingBanner || !bannerMessage.trim()}
+                onPress={saveBanner}
+              />
             </Card>
           </>
         )}
