@@ -23,6 +23,9 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
   // fall back" convention as ChallengesScreen.
   const [liveFriends, setLiveFriends] = useState<Friend[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Collapsed by default — the invite-by-email/QR/add-code group is
+  // setup UI most visits don't need, unlike the friend requests above it.
+  const [addFriendsExpanded, setAddFriendsExpanded] = useState(false);
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
@@ -185,99 +188,128 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={text.h2}>Friends</Text>
 
-      <Card style={{ gap: 10 }} elevated={false}>
-        <View style={styles.inviteHeader}>
-          {/* Same accentActive icon color as the sample fallback's own
-              inviteCard above — both now sit on a theme-following
-              surface (an accent wash, in that card's case), not a fixed
-              dark chip, so neither needs the raw accent300. */}
-          <UserPlusIcon size={17} color={colors.accentActive} />
-          <Text style={styles.inviteText}>Invite by email</Text>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-          <TextField
-            label="Email"
-            value={inviteEmail}
-            onChangeText={setInviteEmail}
-            placeholder="friend@example.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            style={{ flex: 1 }}
-          />
-          <Button
-            label={inviting ? 'Sending…' : 'Send'}
-            variant="primary"
-            small
-            disabled={inviting || !inviteEmail.trim()}
-            onPress={sendInvite}
-          />
-        </View>
-        {inviteError && <Text style={styles.errorNote}>{inviteError}</Text>}
-        {inviteSuccess && !inviteError && <Text style={styles.successNote}>{inviteSuccess}</Text>}
-      </Card>
+      {/* Ahead of every invite/QR/code card below — a friend request is
+          the one thing here that actually needs a response from someone
+          else, so it shouldn't be buried under UI the viewer doesn't
+          need to touch just to accept or decline one. */}
+      {receivedInvites.length > 0 && (
+        <>
+          <Text style={styles.pendingLabel}>Friend requests</Text>
+          {receivedInvites.map((f) => (
+            <Card key={f.friendshipId} style={styles.pendingRow} elevated={false}>
+              <Avatar initials={f.initials} tint={TINT_A} />
+              <Text style={styles.friendName}>{f.name}</Text>
+              <Text style={styles.pendingMeta}>wants to be friends</Text>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <Button
+                  label="Accept"
+                  variant="primary"
+                  small
+                  disabled={busyId === f.friendshipId}
+                  onPress={() => respond(f.friendshipId, 'accept')}
+                />
+                <Button
+                  label="Decline"
+                  small
+                  disabled={busyId === f.friendshipId}
+                  onPress={() => respond(f.friendshipId, 'remove')}
+                />
+              </View>
+            </Card>
+          ))}
+        </>
+      )}
 
-      <Card style={{ gap: 12 }} elevated={false}>
-        <View style={styles.inviteHeader}>
-          <QrCodeIcon size={17} color={colors.accentActive} />
-          <Text style={styles.inviteText}>My code</Text>
-        </View>
-        {myCode && (
-          <View style={styles.qrWrap}>
-            <QRCode value={friendCodeUrl(myCode)} size={140} color={colors.text} backgroundColor={colors.surface} />
+      <Card style={{ gap: 0 }} elevated={false}>
+        <Pressable style={styles.collapsibleHeader} onPress={() => setAddFriendsExpanded((e) => !e)}>
+          <Text style={styles.collapsibleTitle}>Enjoy with Friends</Text>
+          <CaretRightIcon
+            size={16}
+            color={withAlpha(colors.text, 0.5)}
+            style={{ transform: [{ rotate: addFriendsExpanded ? '90deg' : '0deg' }] }}
+          />
+        </Pressable>
+
+        {addFriendsExpanded && (
+          <View style={{ gap: 16, marginTop: 14 }}>
+            <View style={{ gap: 10 }}>
+              <View style={styles.inviteHeader}>
+                {/* Same accentActive icon color as the sample fallback's
+                    own inviteCard above — both now sit on a theme-
+                    following surface (an accent wash, in that card's
+                    case), not a fixed dark chip, so neither needs the
+                    raw accent300. */}
+                <UserPlusIcon size={17} color={colors.accentActive} />
+                <Text style={styles.inviteText}>Invite by email</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+                <TextField
+                  label="Email"
+                  value={inviteEmail}
+                  onChangeText={setInviteEmail}
+                  placeholder="friend@example.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  label={inviting ? 'Sending…' : 'Send'}
+                  variant="primary"
+                  small
+                  disabled={inviting || !inviteEmail.trim()}
+                  onPress={sendInvite}
+                />
+              </View>
+              {inviteError && <Text style={styles.errorNote}>{inviteError}</Text>}
+              {inviteSuccess && !inviteError && <Text style={styles.successNote}>{inviteSuccess}</Text>}
+            </View>
+
+            <View style={styles.sectionDivider} />
+
+            <View style={{ gap: 12 }}>
+              <View style={styles.inviteHeader}>
+                <QrCodeIcon size={17} color={colors.accentActive} />
+                <Text style={styles.inviteText}>My code</Text>
+              </View>
+              {myCode && (
+                <View style={styles.qrWrap}>
+                  <QRCode value={friendCodeUrl(myCode)} size={140} color={colors.text} backgroundColor={colors.surface} />
+                </View>
+              )}
+              <Text style={styles.inviteLink}>{myCode ? friendCodeUrl(myCode) : '—'}</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Button label={copied ? 'Copied!' : 'Copy link'} small disabled={!myCode} onPress={copyMyLink} />
+                <Button label="Share" variant="primary" small disabled={!myCode} onPress={shareMyLink} />
+              </View>
+            </View>
+
+            <View style={styles.sectionDivider} />
+
+            <View style={{ gap: 10 }}>
+              <Text style={styles.inviteText}>Add a friend&rsquo;s code</Text>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+                <TextField
+                  label="Code or link"
+                  value={redeemInput}
+                  onChangeText={setRedeemInput}
+                  placeholder="e.g. Ab3xK9pQ"
+                  autoCapitalize="none"
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  label={redeeming ? 'Adding…' : 'Add'}
+                  variant="primary"
+                  small
+                  disabled={redeeming || !redeemInput.trim()}
+                  onPress={redeemCode}
+                />
+              </View>
+              {redeemError && <Text style={styles.errorNote}>{redeemError}</Text>}
+              {redeemSuccess && !redeemError && <Text style={styles.successNote}>{redeemSuccess}</Text>}
+            </View>
           </View>
         )}
-        <Text style={styles.inviteLink}>{myCode ? friendCodeUrl(myCode) : '—'}</Text>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Button label={copied ? 'Copied!' : 'Copy link'} small disabled={!myCode} onPress={copyMyLink} />
-          <Button label="Share" variant="primary" small disabled={!myCode} onPress={shareMyLink} />
-        </View>
       </Card>
-
-      <Card style={{ gap: 10 }} elevated={false}>
-        <Text style={styles.inviteText}>Add a friend&rsquo;s code</Text>
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-          <TextField
-            label="Code or link"
-            value={redeemInput}
-            onChangeText={setRedeemInput}
-            placeholder="e.g. Ab3xK9pQ"
-            autoCapitalize="none"
-            style={{ flex: 1 }}
-          />
-          <Button
-            label={redeeming ? 'Adding…' : 'Add'}
-            variant="primary"
-            small
-            disabled={redeeming || !redeemInput.trim()}
-            onPress={redeemCode}
-          />
-        </View>
-        {redeemError && <Text style={styles.errorNote}>{redeemError}</Text>}
-        {redeemSuccess && !redeemError && <Text style={styles.successNote}>{redeemSuccess}</Text>}
-      </Card>
-
-      {receivedInvites.map((f) => (
-        <Card key={f.friendshipId} style={styles.pendingRow} elevated={false}>
-          <Avatar initials={f.initials} tint={TINT_A} />
-          <Text style={styles.friendName}>{f.name}</Text>
-          <Text style={styles.pendingMeta}>wants to be friends</Text>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            <Button
-              label="Accept"
-              variant="primary"
-              small
-              disabled={busyId === f.friendshipId}
-              onPress={() => respond(f.friendshipId, 'accept')}
-            />
-            <Button
-              label="Decline"
-              small
-              disabled={busyId === f.friendshipId}
-              onPress={() => respond(f.friendshipId, 'remove')}
-            />
-          </View>
-        </Card>
-      ))}
 
       {accepted.map((f) => (
         <Pressable key={f.friendshipId} onPress={() => onOpenFriend(f)}>
@@ -336,6 +368,9 @@ function makeStyles(colors: Palette) {
       flexWrap: 'wrap',
     },
     inviteHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    collapsibleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    collapsibleTitle: { fontSize: 15, fontFamily: font.heading, color: colors.text },
+    sectionDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.divider },
     inviteText: { flex: 1, minWidth: 150, fontSize: 13.5, color: colors.text },
     inviteLink: { fontFamily: font.body, fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
     qrWrap: { alignItems: 'center', paddingVertical: 4 },
