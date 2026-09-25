@@ -265,10 +265,13 @@ export function ChallengeDetailScreen({
     setSelectingTargetId(targetUserId);
     try {
       await selectTagTarget(challengeId, targetUserId);
-      await load();
     } catch (e) {
       setTagActionError(e instanceof Error ? e.message : 'Could not pick that person — try again.');
     } finally {
+      // Reload even on failure: the board may be stale (e.g. the target
+      // was no longer actually ahead), and a rejected pick should drop
+      // them from the tappable list rather than leave a dead button.
+      await load();
       setSelectingTargetId(null);
     }
   };
@@ -660,7 +663,9 @@ export function ChallengeDetailScreen({
                 <Text style={styles.footNote}>
                   {tagMembers.length <= 1
                     ? 'Nobody eligible to tag yet — wait for more people to join.'
-                    : 'Nobody’s ahead of you yet — you can only tag someone who’s logged more than you have.'}
+                    : tagMinutesLeft > 0
+                      ? `Nobody’s ahead of you yet — you can only tag someone who’s logged more than you have. If nobody catches up, It passes to someone else automatically in ${tagMinutesLeft} min.`
+                      : 'Nobody’s ahead of you yet — It is about to pass to someone else automatically.'}
                 </Text>
               ) : (
                 tagTargetableMembers.map((m) => (
