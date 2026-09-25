@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, type AppStateStatus, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, type AppStateStatus, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -63,6 +63,39 @@ import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 interface PrimaryChallenge {
   challenge: Challenge;
   board: BoardEntry[];
+}
+
+// The banner's message is a single free-text field an admin types
+// (see supabaseBanner.ts) — no separate "link" field. Rather than add
+// backend/admin-console surface for that, this just auto-linkifies any
+// http(s) URL already inside the text (an admin who wants a tappable
+// link just needs to type the full https://... form, same as they'd
+// paste into a chat app that does the same thing). Deliberately no
+// bare-domain matching (e.g. "houndchallenge.net" with no scheme) —
+// that's a much easier way to false-positive on ordinary sentences.
+const URL_PATTERN = /(https?:\/\/[^\s]+)/gi;
+const URL_TRAILING_PUNCTUATION = /[.,!?)'"]+$/;
+
+function renderBannerMessage(message: string, linkColor: string): React.ReactNode[] {
+  return message.split(URL_PATTERN).map((part, i) => {
+    if (!/^https?:\/\//i.test(part)) return <Text key={i}>{part}</Text>;
+    // A URL followed directly by sentence punctuation (no space) would
+    // otherwise swallow that punctuation into the link itself.
+    const trailingMatch = part.match(URL_TRAILING_PUNCTUATION);
+    const trailing = trailingMatch?.[0] ?? '';
+    const url = trailing ? part.slice(0, -trailing.length) : part;
+    return (
+      <Text key={i}>
+        <Text
+          style={{ color: linkColor, textDecorationLine: 'underline' }}
+          onPress={() => Linking.openURL(url).catch(() => {})}
+        >
+          {url}
+        </Text>
+        {trailing}
+      </Text>
+    );
+  });
 }
 
 // Whether a two-way hunt's lead should read in miles or steps depends on
@@ -644,7 +677,7 @@ export function HomeScreen({
   const announcementBar = showBanner && banner && (
     <View style={styles.announcementBar}>
       <Text style={styles.announcementText} numberOfLines={3}>
-        {banner.message}
+        {renderBannerMessage(banner.message, colors.accent)}
       </Text>
       <Pressable onPress={dismissBanner} hitSlop={8}>
         <XIcon size={16} color={colors.text} />
