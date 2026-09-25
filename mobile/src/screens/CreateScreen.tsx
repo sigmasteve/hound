@@ -197,12 +197,10 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   // Mirrors usesDeviceSteps (src/challenges/scoring.ts) against this
   // draft's own in-progress state, not a saved Challenge — just for the
   // "Starts" picker's own footnote below, since a step-only challenge
-  // has no intraday data to distinguish "Today" from "Now" with. Daily
-  // Streak is deliberately excluded — it doesn't auto-sync at all yet
-  // (manual entry only, see scoring.ts's own usesDeviceSteps comment),
-  // so the footnote's device-granularity claim wouldn't even apply to it.
+  // has no intraday data to distinguish "Today" from "Now" with.
   const usesStepsOnly =
     draftType === 'steps' ||
+    draftType === 'streak' ||
     (draftType === 'hunt' && scoringMethod === 'device_steps') ||
     ((draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps');
 

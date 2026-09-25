@@ -1,18 +1,22 @@
 import type { Challenge } from './types';
 
-// A 'steps' challenge always auto-syncs from the device; a 'hunt' only
-// does when its creator picked 'device_steps' as what counts (see
-// CreateScreen's "What counts" picker); a 'distance' pool, or a 'tag'
-// game (which reuses that exact same distanceGoalUnit field for its own
-// catch-snapshot metric — see 0045_tag_game_state.sql), does when its
-// target is steps (CreateScreen.tsx's unit picker) — the miles case is
-// usesWorkoutDistance below instead. Every other kind/scoring
-// combination still needs the manual form (ChallengeDetailScreen) or
-// falls back to ranking by steps regardless (HomeScreen's leaderboard
-// card, which never writes progress itself).
+// A 'steps' or 'streak' challenge always auto-syncs from the device
+// (a 'streak' challenge's own dailyGoalSteps, like Step Race's ranking,
+// is a steps number — there's no equivalent "miles" streak, so this is
+// never ambiguous the way a hunt/pool/tag's own scoring choice is); a
+// 'hunt' only does when its creator picked 'device_steps' as what
+// counts (see CreateScreen's "What counts" picker); a 'distance' pool,
+// or a 'tag' game (which reuses that exact same distanceGoalUnit field
+// for its own catch-snapshot metric — see 0045_tag_game_state.sql),
+// does when its target is steps (CreateScreen.tsx's unit picker) — the
+// miles case is usesWorkoutDistance below instead. Every other
+// kind/scoring combination still needs the manual form
+// (ChallengeDetailScreen) or falls back to ranking by steps regardless
+// (HomeScreen's leaderboard card, which never writes progress itself).
 export function usesDeviceSteps(challenge: Challenge): boolean {
   return (
     challenge.kind === 'steps' ||
+    challenge.kind === 'streak' ||
     (challenge.kind === 'hunt' && challenge.scoringMethod === 'device_steps') ||
     ((challenge.kind === 'distance' || challenge.kind === 'tag') && challenge.distanceGoalUnit === 'steps')
   );
