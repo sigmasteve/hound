@@ -2,7 +2,14 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Constants from 'expo-constants';
-import { AndroidLogoIcon, ArrowsClockwiseIcon, AppleLogoIcon, ScalesIcon, SignOutIcon } from 'phosphor-react-native';
+import {
+  AndroidLogoIcon,
+  ArrowsClockwiseIcon,
+  AppleLogoIcon,
+  CaretRightIcon,
+  ScalesIcon,
+  SignOutIcon,
+} from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -349,6 +356,30 @@ export function SettingsScreen() {
     }
   };
 
+  // The six toggles above used to show as two separate cards with no
+  // single on/off switch — every user had to visit three group headers
+  // just to turn push (or email) off entirely. These two "everything at
+  // once" toggles drive all three category toggles together; the
+  // category-level controls still exist underneath, in "Advanced", for
+  // anyone who wants push for one thing but not another.
+  const [notificationsAdvancedExpanded, setNotificationsAdvancedExpanded] = useState(false);
+  const [masterToggling, setMasterToggling] = useState<'push' | 'email' | null>(null);
+  const allPushEnabled = pushEnabled === true && staleDataPushEnabled === true && dailyStandingsPushEnabled === true;
+  const allEmailEnabled =
+    emailEnabled === true && staleDataEmailEnabled === true && dailyStandingsEmailEnabled === true;
+
+  const toggleMasterPush = async (next: boolean) => {
+    setMasterToggling('push');
+    await Promise.all([togglePush(next), toggleStaleDataPush(next), toggleDailyStandingsPush(next)]);
+    setMasterToggling(null);
+  };
+
+  const toggleMasterEmail = async (next: boolean) => {
+    setMasterToggling('email');
+    await Promise.all([toggleEmail(next), toggleStaleDataEmail(next), toggleDailyStandingsEmail(next)]);
+    setMasterToggling(null);
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={text.h2}>Data & account</Text>
@@ -501,70 +532,101 @@ export function SettingsScreen() {
       </Card>
 
       {isSupabaseConfigured &&
+        pushEnabled !== null &&
+        emailEnabled !== null &&
         staleDataPushEnabled !== null &&
         staleDataEmailEnabled !== null &&
         dailyStandingsPushEnabled !== null &&
         dailyStandingsEmailEnabled !== null && (
           <Card style={{ gap: 16 }} elevated={false}>
-            <Text style={text.h4}>Alerts</Text>
-            {/* A third alert ("Someone closes within 2 miles of me")
-                belongs here too, but needs live GPS tracking this app
-                doesn't have any infrastructure for yet — left out
-                rather than shown wired to nothing. See
-                notifications/types.ts. */}
-            <View style={{ gap: 10 }}>
-              <Text style={styles.alertGroupLabel}>A friend's data goes stale mid-challenge — all challenges</Text>
-              <ToggleRow
-                label="Push notification"
-                note={savingAlert === 'staleDataPush' ? 'Saving…' : 'Sent to this device'}
-                value={staleDataPushEnabled}
-                onChange={toggleStaleDataPush}
+            <Text style={text.h4}>Notifications</Text>
+            <Text style={styles.footNote}>
+              Covers login reminders, Tag catch alerts, stale-data alerts, and daily standings.
+            </Text>
+            <ToggleRow
+              label="Push notifications"
+              note={masterToggling === 'push' ? 'Saving…' : 'Sent to this device'}
+              value={allPushEnabled}
+              onChange={toggleMasterPush}
+            />
+            <ToggleRow
+              label="Email notifications"
+              note={masterToggling === 'email' ? 'Saving…' : user?.email ?? ''}
+              value={allEmailEnabled}
+              onChange={toggleMasterEmail}
+            />
+
+            <Pressable
+              style={styles.collapsibleHeader}
+              onPress={() => setNotificationsAdvancedExpanded((e) => !e)}
+            >
+              <Text style={styles.collapsibleTitle}>Advanced</Text>
+              <CaretRightIcon
+                size={16}
+                color={withAlpha(colors.text, 0.5)}
+                style={{ transform: [{ rotate: notificationsAdvancedExpanded ? '90deg' : '0deg' }] }}
               />
-              <ToggleRow
-                label="Email"
-                note={savingAlert === 'staleDataEmail' ? 'Saving…' : user?.email ?? ''}
-                value={staleDataEmailEnabled}
-                onChange={toggleStaleDataEmail}
-              />
-            </View>
-            <View style={{ gap: 10 }}>
-              <Text style={styles.alertGroupLabel}>Daily standings at 8pm — step races</Text>
-              <ToggleRow
-                label="Push notification"
-                note={savingAlert === 'dailyStandingsPush' ? 'Saving…' : 'Sent to this device'}
-                value={dailyStandingsPushEnabled}
-                onChange={toggleDailyStandingsPush}
-              />
-              <ToggleRow
-                label="Email"
-                note={savingAlert === 'dailyStandingsEmail' ? 'Saving…' : user?.email ?? ''}
-                value={dailyStandingsEmailEnabled}
-                onChange={toggleDailyStandingsEmail}
-              />
-            </View>
+            </Pressable>
+
+            {notificationsAdvancedExpanded && (
+              <View style={{ gap: 16 }}>
+                <View style={{ gap: 10 }}>
+                  <Text style={styles.alertGroupLabel}>
+                    Login reminders &amp; Tag catch alerts — if you haven&rsquo;t opened Hound today, or
+                    someone catches you in Tag
+                  </Text>
+                  <ToggleRow
+                    label="Push notification"
+                    note={savingChannel === 'push' ? 'Saving…' : 'Sent to this device'}
+                    value={pushEnabled}
+                    onChange={togglePush}
+                  />
+                  <ToggleRow
+                    label="Email"
+                    note={savingChannel === 'email' ? 'Saving…' : user?.email ?? ''}
+                    value={emailEnabled}
+                    onChange={toggleEmail}
+                  />
+                </View>
+                {/* A third alert ("Someone closes within 2 miles of me")
+                    belongs here too, but needs live GPS tracking this app
+                    doesn't have any infrastructure for yet — left out
+                    rather than shown wired to nothing. See
+                    notifications/types.ts. */}
+                <View style={{ gap: 10 }}>
+                  <Text style={styles.alertGroupLabel}>A friend's data goes stale mid-challenge — all challenges</Text>
+                  <ToggleRow
+                    label="Push notification"
+                    note={savingAlert === 'staleDataPush' ? 'Saving…' : 'Sent to this device'}
+                    value={staleDataPushEnabled}
+                    onChange={toggleStaleDataPush}
+                  />
+                  <ToggleRow
+                    label="Email"
+                    note={savingAlert === 'staleDataEmail' ? 'Saving…' : user?.email ?? ''}
+                    value={staleDataEmailEnabled}
+                    onChange={toggleStaleDataEmail}
+                  />
+                </View>
+                <View style={{ gap: 10 }}>
+                  <Text style={styles.alertGroupLabel}>Daily standings at 8pm — step races</Text>
+                  <ToggleRow
+                    label="Push notification"
+                    note={savingAlert === 'dailyStandingsPush' ? 'Saving…' : 'Sent to this device'}
+                    value={dailyStandingsPushEnabled}
+                    onChange={toggleDailyStandingsPush}
+                  />
+                  <ToggleRow
+                    label="Email"
+                    note={savingAlert === 'dailyStandingsEmail' ? 'Saving…' : user?.email ?? ''}
+                    value={dailyStandingsEmailEnabled}
+                    onChange={toggleDailyStandingsEmail}
+                  />
+                </View>
+              </View>
+            )}
           </Card>
         )}
-
-      {isSupabaseConfigured && pushEnabled !== null && emailEnabled !== null && (
-        <Card style={{ gap: 14 }} elevated={false}>
-          <Text style={text.h4}>Login reminders</Text>
-          <Text style={styles.footNote}>
-            If you haven&rsquo;t opened Hound today, we&rsquo;ll nudge you before the day&rsquo;s over.
-          </Text>
-          <ToggleRow
-            label="Push notification"
-            note={savingChannel === 'push' ? 'Saving…' : 'Sent to this device'}
-            value={pushEnabled}
-            onChange={togglePush}
-          />
-          <ToggleRow
-            label="Email"
-            note={savingChannel === 'email' ? 'Saving…' : user?.email ?? ''}
-            value={emailEnabled}
-            onChange={toggleEmail}
-          />
-        </Card>
-      )}
 
       {isSupabaseConfigured && user?.isAdmin && (
         <Card style={{ gap: 10 }} elevated={false}>
@@ -620,6 +682,8 @@ function makeStyles(colors: Palette) {
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     footNoteError: { fontSize: 12.5, color: colors.amber },
     alertGroupLabel: { fontSize: 13.5, color: colors.text, fontFamily: font.heading },
+    collapsibleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    collapsibleTitle: { fontSize: 15, fontFamily: font.heading, color: colors.text },
     versionNote: { fontSize: 12, color: withAlpha(colors.text, 0.4), textAlign: 'center', marginTop: 4 },
   });
 }
