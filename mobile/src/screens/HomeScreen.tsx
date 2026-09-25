@@ -176,6 +176,29 @@ function heroCopy(
     return { eyebrow, headline: `${challenge.name} wrapped up — no winner, just a recap of how the chase went.` };
   }
 
+  // A Distance Pool is the group against a shared target, not against
+  // each other (see ChallengeDetailScreen's own "it's the whole group
+  // against the goal" footnote) — the same "no winner" concern Tag
+  // already had, just for a cooperative goal instead of a no-ranking
+  // game. A finished pool never gets "X won" framing here either,
+  // whether or not the group actually reached its target.
+  if (challenge.kind === 'distance' && finished) {
+    const goal = challenge.distanceGoalUnit === 'steps' ? challenge.distanceGoalSteps : challenge.distanceGoalMi;
+    const total = board.reduce(
+      (sum, r) => sum + (challenge.distanceGoalUnit === 'steps' ? r.totalSteps : r.totalDistanceMi),
+      0,
+    );
+    const totalDisplay =
+      challenge.distanceGoalUnit === 'steps' ? `${Math.round(total).toLocaleString()} steps` : `${total.toFixed(1)} mi`;
+    const met = !!goal && total >= goal;
+    return {
+      eyebrow,
+      headline: met
+        ? `${challenge.name} wrapped up — the group hit its target!`
+        : `${challenge.name} wrapped up — the group logged ${totalDisplay} together.`,
+    };
+  }
+
   // board is already sorted descending by whichever metric this
   // challenge is scored on (see buildBoard) — for a concluded hunt
   // specifically, the Hunter's total is guaranteed to be at least every

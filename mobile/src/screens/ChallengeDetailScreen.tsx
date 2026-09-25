@@ -22,6 +22,7 @@ import {
   huntEffectiveMetric,
   inviteWindowClosed,
   isChallengeFinished,
+  isHuntConcluded,
   withHuntCatches,
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
@@ -751,6 +752,25 @@ export function ChallengeDetailScreen({
           <TrophyIcon size={16} color={colors.accent} />
           <Text style={text.h4}>Leaderboard</Text>
         </View>
+        {/* A finished-challenge acknowledgment — Tag gets its own recap
+            card above instead (never "won" — see that card's own
+            comment), and this Leaderboard already looks the same live
+            or finished otherwise, with nothing marking that it's over. */}
+        {finished && challenge.kind !== 'tag' && (
+          <Text style={styles.footNote}>
+            {challenge.kind === 'hunt'
+              ? isHuntConcluded(board)
+                ? 'The chase is over — nobody’s left to catch.'
+                : 'The chase’s clock ran out.'
+              : challenge.kind === 'distance'
+                ? goalMet
+                  ? 'The group hit its target — this pool is complete.'
+                  : 'This pool has wrapped up without reaching its target.'
+                : `${board[0]?.userId === user?.id ? 'You' : board[0]?.name ?? 'Someone'} won with ${formatMetric(
+                    scoredByDistance ? board[0]?.totalDistanceMi ?? 0 : board[0]?.totalSteps ?? 0,
+                  )}.`}
+          </Text>
+        )}
         {headStartDaysLeft > 0 && (
           <Text style={styles.footNote}>
             Head start: the {labels.hunter}&rsquo;s total won&rsquo;t count toward a catch for{' '}
