@@ -149,6 +149,36 @@ export function ChallengeDetailScreen({
     });
   };
 
+  // Same one-time explainer pattern as Tag's, for Chase (challenge.kind
+  // === 'hunt' — 'hunt' is the internal identifier; see huntKindName).
+  // A separate key from Tag's since they're unrelated mechanics a player
+  // may not have encountered both of yet.
+  const CHASE_EXPLAINER_SEEN_KEY = 'chaseExplainerSeen';
+  const [showChaseExplainer, setShowChaseExplainer] = useState(false);
+
+  useEffect(() => {
+    if (challenge?.kind !== 'hunt') return;
+    let cancelled = false;
+    AsyncStorage.getItem(CHASE_EXPLAINER_SEEN_KEY)
+      .then((seen) => {
+        if (!cancelled && seen !== 'true') setShowChaseExplainer(true);
+      })
+      .catch(() => {
+        // Best-effort — if this can't be read, just don't show the
+        // explainer rather than risk showing it every single time.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [challenge?.kind]);
+
+  const dismissChaseExplainer = () => {
+    setShowChaseExplainer(false);
+    AsyncStorage.setItem(CHASE_EXPLAINER_SEEN_KEY, 'true').catch(() => {
+      // Best-effort — worst case it shows again next time.
+    });
+  };
+
   // Daily Streak's own elimination state — empty for any other kind.
   // Keyed by userId; see computeStreakStatus (src/challenges/streak.ts)
   // for how this is derived fresh on every load rather than stored.
@@ -702,6 +732,26 @@ export function ChallengeDetailScreen({
             the whole group's combined total hits the shared goal.
           </Text>
           <Button variant="primary" label="Got it" onPress={dismissTagExplainer} />
+        </Card>
+      )}
+
+      {showChaseExplainer && challenge.kind === 'hunt' && (
+        <Card style={{ gap: 12 }} elevated={false}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <InfoIcon size={18} color={colors.accent} weight="fill" />
+            <Text style={text.h4}>How {huntKindName()} works</Text>
+          </View>
+          <Text style={styles.footNote}>
+            One {labels.hunter} chases one or more {labels.hunted}. If the {labels.hunted} got
+            a head start, the {labels.hunter}&rsquo;s own progress during it doesn&rsquo;t
+            count — it starts from zero once the head start ends.
+          </Text>
+          <Text style={styles.footNote}>
+            A {labels.hunted} is caught once the {labels.hunter}&rsquo;s progress reaches their
+            total, becoming &ldquo;{labels.zombie}&rdquo;. The chase ends once everyone&rsquo;s
+            been caught, or the clock runs out — whichever comes first.
+          </Text>
+          <Button variant="primary" label="Got it" onPress={dismissChaseExplainer} />
         </Card>
       )}
 
