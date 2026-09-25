@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Notifications from 'expo-notifications';
 import {
   useFonts,
   Inter_400Regular,
@@ -18,6 +19,23 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Without this, expo-notifications' own documented default is to NOT
+// show a push at all while the app is in the foreground — every "Test:
+// ..." button in Settings' Developer tools card is tapped from inside
+// the app, so without this handler a real, successfully-delivered push
+// would silently disappear with no banner, looking exactly like a
+// delivery failure. Registered once at module load, before anything
+// could arrive — see src/notifications/supabaseNotifications.ts for
+// where the token itself gets registered.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 // Split out from App so it can call useTheme() — the provider it depends
 // on has to be above it, and App itself still needs to gate everything on
