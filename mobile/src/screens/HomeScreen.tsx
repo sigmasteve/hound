@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ArrowsClockwiseIcon,
   CaretRightIcon,
@@ -13,6 +14,7 @@ import {
   SneakerMoveIcon,
   TrophyIcon,
   UserPlusIcon,
+  XIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -32,6 +34,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
+import { getAppBanner, isBannerActive, type AppBanner } from '../banner/supabaseBanner';
 import { getMyDailyStepRank, getMyWeeklyStepRank, recordDailyStepTotal, type StepRank } from '../leaderboard/supabaseStepsRank';
 import { recordWorkoutHistory } from '../workouts/supabaseWorkoutHistory';
 import {
@@ -269,6 +272,42 @@ export function HomeScreen({
     }
   };
 
+  // The admin-controlled Home announcement — see 0050_app_banner.sql and
+  // src/banner/supabaseBanner.ts for the backend half. Dismissal is
+  // purely local (AsyncStorage), keyed on the banner's own updatedAt: an
+  // admin editing the message/timeframe bumps that, so a banner someone
+  // already dismissed comes back if it's meaningfully changed, rather
+  // than staying hidden forever once dismissed once.
+  const BANNER_DISMISSED_KEY = 'homeBannerDismissedUpdatedAt';
+  const [banner, setBanner] = useState<AppBanner | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    getAppBanner()
+      .then(async (b) => {
+        setBanner(b);
+        const dismissedAt = await AsyncStorage.getItem(BANNER_DISMISSED_KEY).catch(() => null);
+        setBannerDismissed(dismissedAt === b.updatedAt);
+      })
+      .catch(() => {
+        // Same "never break the screen" convention as the rest of
+        // Home's own fetches — the banner just never appears.
+      });
+  }, []);
+
+  const dismissBanner = () => {
+    setBannerDismissed(true);
+    if (banner) {
+      AsyncStorage.setItem(BANNER_DISMISSED_KEY, banner.updatedAt).catch(() => {
+        // Best-effort — the banner still hides for the rest of this
+        // session even if the dismissal doesn't survive a restart.
+      });
+    }
+  };
+
+  const showBanner = !!banner && isBannerActive(banner) && !bannerDismissed;
+
   // Null until both rank RPCs resolve with an actual row — see
   // 0027_daily_step_totals.sql's own comment on why an empty result
   // (nothing synced yet in that window) reads as "hide the chip", not
@@ -486,16 +525,32 @@ export function HomeScreen({
   // get swapped out once real data arrived, which on a slow connection
   // reads as a flash of someone else's fake progress rather than a loading
   // state.
+  const announcementBar = showBanner && banner && (
+    <View style={styles.announcementBar}>
+      <Text style={styles.announcementText} numberOfLines={3}>
+        {banner.message}
+      </Text>
+      <Pressable onPress={dismissBanner} hitSlop={8}>
+        <XIcon size={16} color={colors.text} />
+      </Pressable>
+    </View>
+  );
+
   if (loadingPrimary) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator color={color.accent} />
+      <View style={{ flex: 1 }}>
+        {announcementBar}
+        <View style={[styles.container, styles.loadingContainer]}>
+          <ActivityIndicator color={color.accent} />
+        </View>
       </View>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={{ flex: 1 }}>
+      {announcementBar}
+      <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.heroRow}>
         <View style={styles.heroText}>
           <Text style={text.eyebrow}>{hero?.eyebrow ?? 'GET STARTED'}</Text>
@@ -689,6 +744,7 @@ export function HomeScreen({
         )}
       </View>
     </ScrollView>
+    </View>
   );
 }
 
@@ -1100,6 +1156,17 @@ function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 20, paddingBottom: 48 },
     loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    announcementBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      backgroundColor: withAlpha(colors.accent, 0.16),
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: withAlpha(colors.accent, 0.4),
+    },
+    announcementText: { flex: 1, fontSize: 13, color: colors.text },
     heroRow: { gap: 14 },
     heroText: { gap: 6 },
     heroTitle: { fontSize: 28 },
