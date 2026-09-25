@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -12,7 +12,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Tag } from '../components/Tag';
 import { useTheme } from '../theme/ThemeContext';
-import { color, font, withAlpha, type Palette } from '../theme/tokens';
+import { color, font, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -20,8 +20,35 @@ import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { headStartBaselineDayKey, pickPrimaryChallenge } from '../challenges/board';
 import { huntKindName, toChallengeCard } from '../challenges/present';
 import { useLabels } from '../labels/LabelsContext';
-import type { ChallengeInvite, LeaderboardEntry } from '../challenges/types';
+import type { Challenge, ChallengeInvite, LeaderboardEntry } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
+
+// A minimal, fetch-free stand-in for a challenge whose schedule has
+// already ended — used until (and unless) "Finished" is actually
+// expanded (see the lazy-fetch effect below), so this screen's default
+// load doesn't pay the same participants/leaderboard/bots fetch for
+// every challenge someone's ever finished, only for what's still live.
+// FinishedRow only ever reads name/stat/statLabel, so nothing else
+// here needs to be real — same "—"/"no data yet" fallback shape
+// toChallengeCard already uses for a challenge nobody's logged
+// anything in yet.
+function placeholderFinishedCard(c: Challenge): ChallengeCard {
+  const typeDef = CHALLENGE_TYPES.find((t) => t.id === c.kind);
+  return {
+    id: c.id,
+    name: c.name,
+    kind: c.kind,
+    kindLabel: c.kind === 'hunt' ? huntKindName() : (typeDef?.name ?? c.kind),
+    sub: '',
+    stat: '—',
+    statLabel: 'tap to see final standings',
+    tint: typeDef?.tint ?? TINT_N,
+    iconColor: typeDef?.iconColor ?? '#e9e9ed',
+    people: [],
+    target: 'detail',
+    finished: true,
+  };
+}
 
 export function ChallengesScreen({
   onOpenHunt,
@@ -43,6 +70,22 @@ export function ChallengesScreen({
   // — an unconfigured backend and a configured-but-empty one render
   // identically, as honest empty states.
   const [liveCards, setLiveCards] = useState<ChallengeCard[] | null>(null);
+  // Every challenge whose schedule has already ended (see loadChallenges
+  // below) — kept as raw Challenge rows, not fetched into full cards,
+  // until "Finished" is actually expanded. Classified from
+  // listMyChallenges()'s own endsAt with no extra network call: a
+  // challenge past its own endsAt is finished regardless of kind (see
+  // isChallengeFinished, board.ts), so nothing here needs the
+  // participants/leaderboard/bots fetch just to know that much.
+  const [finishedRawChallenges, setFinishedRawChallenges] = useState<Challenge[]>([]);
+  // null = not fetched yet for this batch of finishedRawChallenges (see
+  // the lazy-fetch effect below) — every entry gets a placeholderFinishedCard
+  // instead in the meantime. Reset on every loadChallenges() call, same
+  // "refreshes on every focus" convention the rest of this screen
+  // already has, so a challenge that just crossed into "finished" isn't
+  // stuck showing stale data forever.
+  const [finishedCardOverrides, setFinishedCardOverrides] = useState<Map<string, ChallengeCard> | null>(null);
+  const [loadingFinishedDetails, setLoadingFinishedDetails] = useState(false);
   // Same convention, independently, for challenge invites.
   const [liveInvites, setLiveInvites] = useState<ChallengeInvite[] | null>(null);
   const [respondingId, setRespondingId] = useState<string | null>(null);
@@ -63,8 +106,22 @@ export function ChallengesScreen({
       supabaseChallengesProvider.getHighlightedChallenge(),
     ]);
     setPrimaryChallengeId(pickPrimaryChallenge(challenges, highlighted)?.id ?? null);
+    // Only a challenge whose schedule hasn't ended yet needs the full
+    // participants/leaderboard/bots fetch here — one still genuinely
+    // running (to show its real live stat), or a hunt/tag that *might*
+    // have concluded early (withHuntCatches/tagGroupGoalMet, both
+    // computed inside toChallengeCard, need the board to tell). Anything
+    // already past its own endsAt is finished no matter what that fetch
+    // would've returned (see isChallengeFinished, board.ts), so it's
+    // deferred instead — see finishedRawChallenges/the lazy-fetch effect
+    // below. Without this split, this screen used to pay three queries
+    // for every challenge anyone had ever finished, on every single
+    // visit, growing without bound the longer an account's history got.
+    const now = Date.now();
+    const stillScheduled = challenges.filter((c) => new Date(c.endsAt).getTime() > now);
+    const pastSchedule = challenges.filter((c) => new Date(c.endsAt).getTime() <= now);
     const cards = await Promise.all(
-      challenges.map(async (c) => {
+      stillScheduled.map(async (c) => {
         // A hunt with a head start needs one extra fetch — everyone's
         // total as of the day the head start ended, not just now — to
         // correctly tell whether it's already concluded (see
@@ -91,6 +148,8 @@ export function ChallengesScreen({
       }),
     );
     setLiveCards(cards);
+    setFinishedRawChallenges(pastSchedule);
+    setFinishedCardOverrides(null);
   };
 
   const loadInvites = async (): Promise<void> => {
@@ -143,6 +202,55 @@ export function ChallengesScreen({
     }
   };
 
+  // Pays the real per-challenge fetch for finishedRawChallenges only
+  // once the section is actually opened — never on this screen's
+  // default load. Guarded on finishedCardOverrides already being set so
+  // re-renders while expanded (or toggling closed and back open) don't
+  // re-fetch; loadChallenges() resets it to null on every focus, so a
+  // challenge that's just crossed into "finished" still gets picked up
+  // the next time this runs.
+  useEffect(() => {
+    if (!finishedExpanded || finishedCardOverrides !== null) return;
+    if (finishedRawChallenges.length === 0) {
+      setFinishedCardOverrides(new Map());
+      return;
+    }
+    let cancelled = false;
+    setLoadingFinishedDetails(true);
+    Promise.all(
+      finishedRawChallenges.map(async (c) => {
+        const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
+        const [participants, leaderboard, bots, headStartLeaderboard] = await Promise.all([
+          supabaseChallengesProvider.listParticipants(c.id),
+          supabaseChallengesProvider.getLeaderboard(c.id),
+          supabaseChallengesProvider.listBots(c.id),
+          needsHeadStart
+            ? supabaseChallengesProvider.getLeaderboard(c.id, headStartBaselineDayKey(c))
+            : Promise.resolve<LeaderboardEntry[]>([]),
+        ]);
+        return [
+          c.id,
+          toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null, headStartLeaderboard, labelsForOrg(c.organizationId)),
+        ] as const;
+      }),
+    )
+      .then((entries) => {
+        if (!cancelled) setFinishedCardOverrides(new Map(entries));
+      })
+      .catch(() => {
+        // Stay on the placeholder cards for this batch on any failure —
+        // same "never break the screen" convention as loadChallenges.
+        if (!cancelled) setFinishedCardOverrides(new Map());
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingFinishedDetails(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finishedExpanded, finishedRawChallenges, finishedCardOverrides]);
+
   // liveCards holds both still-running and finished real challenges
   // together (toChallengeCard decides `finished` per card — see
   // src/challenges/present.ts) — split them here so a caught hunt or a
@@ -151,7 +259,16 @@ export function ChallengesScreen({
   // fabricated content — see the challengesLoading comment below for why
   // that's correct even before Supabase's first fetch resolves.
   const challenges = liveCards?.filter((c) => !c.finished) ?? [];
-  const finishedChallenges = liveCards?.filter((c) => c.finished) ?? [];
+  // The early-concluded ones already came back from the eager fetch
+  // above (they were still schedule-active, so toChallengeCard ran on
+  // them); everything else past its own schedule gets either its real,
+  // lazily-fetched card (once finishedCardOverrides has it) or a
+  // placeholder in the meantime — see placeholderFinishedCard's own
+  // comment for why that's a safe stand-in for FinishedRow specifically.
+  const finishedChallenges = [
+    ...(liveCards?.filter((c) => c.finished) ?? []),
+    ...finishedRawChallenges.map((c) => finishedCardOverrides?.get(c.id) ?? placeholderFinishedCard(c)),
+  ];
   // Tally by the same `c.stat` ordinal FinishedRow/medalColorFor already
   // read — '1st'/'2nd'/'3rd' get their own medal, everything else (4th+,
   // or '—' when nobody ever logged anything) lands in "Other".
