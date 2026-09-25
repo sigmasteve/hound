@@ -4,6 +4,7 @@ import {
   ArrowsClockwiseIcon,
   CaretRightIcon,
   CrosshairIcon,
+  EnvelopeOpenIcon,
   FlagCheckeredIcon,
   FootprintsIcon,
   PathIcon,
@@ -46,7 +47,7 @@ import { syncChallengeProgressFromDevice } from '../challenges/deviceSync';
 import { boardSortFor } from '../challenges/scoring';
 import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
-import type { Challenge, LeaderboardEntry, TagRound } from '../challenges/types';
+import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 
@@ -213,9 +214,15 @@ export function HomeScreen({
   // Null until the fetch below resolves (or forever, unconfigured) —
   // the "N active · N finished" row stays hidden rather than showing a
   // misleading 0/0 while this is still loading.
-  const [challengeCounts, setChallengeCounts] = useState<{ active: number; finished: number; invited: number } | null>(
-    null,
-  );
+  const [challengeCounts, setChallengeCounts] = useState<{ active: number; finished: number } | null>(null);
+
+  // Same convention, independently, for challenge invites — the single
+  // source of truth for both the "· N invited" badge below and the
+  // actual invite cards, same shape ChallengesScreen's own liveInvites
+  // already uses (down to the same provider call), so the two screens
+  // can't quietly disagree about what's pending.
+  const [liveInvites, setLiveInvites] = useState<ChallengeInvite[] | null>(null);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
 
   // Null until both rank RPCs resolve with an actual row — see
   // 0027_daily_step_totals.sql's own comment on why an empty result
@@ -264,6 +271,21 @@ export function HomeScreen({
   }, [health, user?.id]);
 
   useEffect(reload, [reload]);
+
+  // Reusable on its own, from respondToInvite below — declining an
+  // invite only ever needs this one list refreshed, not the whole
+  // heavier effect below.
+  const loadInvites = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    setLiveInvites(await supabaseChallengesProvider.listMyChallengeInvites());
+  }, []);
+
+  // Bumped after accepting an invite (see respondToInvite) to force the
+  // effect below to re-run — a newly-accepted challenge needs its own
+  // board fetched and the active/finished counts and primary card
+  // recomputed to include it, not just the invite itself removed from
+  // the list.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -330,8 +352,8 @@ export function HomeScreen({
       setChallengeCounts({
         active: results.filter((r) => !r.finished).length,
         finished: results.filter((r) => r.finished).length,
-        invited: invites.length,
       });
+      setLiveInvites(invites);
       const primaryResult = results.find((r) => r.challenge.id === primaryId);
       if (primaryResult) setPrimary({ challenge: primaryResult.challenge, board: primaryResult.board });
       // Whether Home's own hero card needs "you've been tagged" — only
@@ -359,9 +381,32 @@ export function HomeScreen({
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [user?.id, refreshKey]);
 
   const readiness = useMemo(() => computeReadiness(workouts), [workouts]);
+
+  // Same shape as ChallengesScreen's own respondToInvite — Join re-runs
+  // the whole primary-challenge effect above (a newly-accepted challenge
+  // needs its board fetched and the counts/primary card recomputed),
+  // Decline only needs the invite list itself refreshed.
+  const respondToInvite = async (invite: ChallengeInvite, accept: boolean) => {
+    setRespondingId(invite.id);
+    try {
+      if (accept) {
+        await supabaseChallengesProvider.acceptChallengeInvite(invite.id);
+        setRefreshKey((k) => k + 1);
+      } else {
+        await supabaseChallengesProvider.declineChallengeInvite(invite.id);
+      }
+      await loadInvites();
+    } catch {
+      // No error UI for this yet — same as ChallengesScreen's own
+      // respondToInvite: a stale invite silently stops responding
+      // rather than crashing, and refocusing this tab re-fetches.
+    } finally {
+      setRespondingId(null);
+    }
+  };
 
   // This challenge's own words, not the viewer's — see LabelsContext's
   // own comment on why those can differ.
@@ -425,24 +470,60 @@ export function HomeScreen({
         />
       </View>
 
+      {/* Same card ChallengesScreen's own invite list renders — Home
+          shows the exact same pending invites (and the same Join/Decline
+          actions) instead of only the count badge below, so accepting
+          one doesn't require a trip to the Challenges tab first. */}
+      {(liveInvites ?? []).map((invite) => (
+        <Card key={invite.id} style={styles.inviteCard} elevated={false}>
+          <EnvelopeOpenIcon size={18} color={color.accent300} weight="fill" />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.inviteTitle}>
+              {invite.inviterName} invited you to &ldquo;{invite.challengeName}&rdquo;
+            </Text>
+            <Text style={styles.inviteSub}>
+              {invite.challengeKind === 'hunt'
+                ? huntKindName()
+                : CHALLENGE_TYPES.find((t) => t.id === invite.challengeKind)?.name ?? invite.challengeKind}{' '}
+              ·{' '}
+              {invite.durationDays} days
+            </Text>
+          </View>
+          <View style={{ gap: 6 }}>
+            <Button
+              label="Join"
+              variant="primary"
+              small
+              disabled={respondingId === invite.id}
+              onPress={() => respondToInvite(invite, true)}
+            />
+            <Button
+              label="Decline"
+              small
+              disabled={respondingId === invite.id}
+              onPress={() => respondToInvite(invite, false)}
+            />
+          </View>
+        </Card>
+      ))}
+
       {/* Hidden until the counts fetch resolves (or never, unconfigured/
           no challenges at all) — see challengeCounts' own state comment.
           Exists for the same reason ChallengesScreen splits its own list
           into "active" and "Finished": once there are more than a
           handful of challenges, it's not obvious at a glance how many
           are still actually running versus just sitting there finished. */}
-      {challengeCounts && challengeCounts.active + challengeCounts.finished + challengeCounts.invited > 0 && (
+      {challengeCounts && challengeCounts.active + challengeCounts.finished + (liveInvites?.length ?? 0) > 0 && (
         <Pressable style={styles.countsRow} onPress={() => onGoTab('challenges')}>
           <FlagCheckeredIcon size={13} color={color.accent} />
           <Text style={styles.countsText}>
             {challengeCounts.active} active · {challengeCounts.finished} finished
             {/* Called out in accentActive, not the row's own plain text
-                color — the whole point of surfacing this count here is
-                so a pending invite (which otherwise only shows as a
-                card at the top of the Challenges tab) is visible at a
-                glance from Today too, without opening that tab first. */}
-            {challengeCounts.invited > 0 && (
-              <Text style={styles.countsInvited}> · {challengeCounts.invited} invited</Text>
+                color — the invite cards above already surface these in
+                full, this just keeps the same at-a-glance summary the
+                Challenges tab shows. */}
+            {(liveInvites?.length ?? 0) > 0 && (
+              <Text style={styles.countsInvited}> · {liveInvites!.length} invited</Text>
             )}
           </Text>
           <CaretRightIcon size={12} color={withAlpha(colors.text, 0.4)} />
@@ -962,6 +1043,17 @@ function makeStyles(colors: Palette) {
     },
     countsText: { fontSize: 12.5, color: colors.text, fontFamily: font.heading },
     countsInvited: { color: colors.accentActive },
+    // Same shape as ChallengesScreen's own inviteCard/inviteTitle/inviteSub.
+    inviteCard: {
+      flexDirection: 'row',
+      gap: 12,
+      backgroundColor: withAlpha(colors.accent, 0.12),
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 0.4),
+      alignItems: 'center',
+    },
+    inviteTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
+    inviteSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
     readinessChip: {
       flexDirection: 'row',
       alignItems: 'center',
