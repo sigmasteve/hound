@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeftIcon, CheckCircleIcon, MagnifyingGlassIcon, RobotIcon, TrashIcon, TrophyIcon } from 'phosphor-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ArrowLeftIcon, CheckCircleIcon, InfoIcon, MagnifyingGlassIcon, RobotIcon, TrashIcon, TrophyIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -116,6 +117,37 @@ export function ChallengeDetailScreen({
   const [tagEvents, setTagEvents] = useState<TagEvent[]>([]);
   const [selectingTargetId, setSelectingTargetId] = useState<string | null>(null);
   const [tagActionError, setTagActionError] = useState<string | null>(null);
+
+  // A first-time explainer for Game of Tag's own rules — shown once,
+  // ever, the first time anyone opens any 'tag' challenge (not once
+  // per challenge — the mechanic doesn't change between them). Starts
+  // false so it never flashes on for a returning player while the
+  // AsyncStorage check below is still in flight.
+  const TAG_EXPLAINER_SEEN_KEY = 'tagExplainerSeen';
+  const [showTagExplainer, setShowTagExplainer] = useState(false);
+
+  useEffect(() => {
+    if (challenge?.kind !== 'tag') return;
+    let cancelled = false;
+    AsyncStorage.getItem(TAG_EXPLAINER_SEEN_KEY)
+      .then((seen) => {
+        if (!cancelled && seen !== 'true') setShowTagExplainer(true);
+      })
+      .catch(() => {
+        // Best-effort — if this can't be read, just don't show the
+        // explainer rather than risk showing it every single time.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [challenge?.kind]);
+
+  const dismissTagExplainer = () => {
+    setShowTagExplainer(false);
+    AsyncStorage.setItem(TAG_EXPLAINER_SEEN_KEY, 'true').catch(() => {
+      // Best-effort — worst case it shows again next time.
+    });
+  };
 
   // Daily Streak's own elimination state — empty for any other kind.
   // Keyed by userId; see computeStreakStatus (src/challenges/streak.ts)
@@ -652,6 +684,26 @@ export function ChallengeDetailScreen({
         value={myHighlighted}
         onChange={togglingHighlight ? () => {} : toggleHighlight}
       />
+
+      {showTagExplainer && challenge.kind === 'tag' && (
+        <Card style={{ gap: 12 }} elevated={false}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <InfoIcon size={18} color={colors.accent} weight="fill" />
+            <Text style={text.h4}>How Game of Tag works</Text>
+          </View>
+          <Text style={styles.footNote}>
+            One player is "IT". IT picks a target who's currently ahead of them, and catches
+            them by reaching that target's total. Whoever gets caught becomes the new IT — no
+            tagging back the person who just tagged you.
+          </Text>
+          <Text style={styles.footNote}>
+            IT has {TAG_TIME_LIMIT_MINUTES} minutes to pick and catch a target, or IT passes to
+            someone else at random. There's no overall ranking or winner — the game ends once
+            the whole group's combined total hits the shared goal.
+          </Text>
+          <Button variant="primary" label="Got it" onPress={dismissTagExplainer} />
+        </Card>
+      )}
 
       {distanceGoal && (
         <Card style={[{ gap: 10 }, goalMet ? styles.goalMetCard : {}]} elevated={false}>
