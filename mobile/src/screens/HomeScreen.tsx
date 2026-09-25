@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, AppState, type AppStateStatus, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ArrowsClockwiseIcon,
@@ -418,12 +419,53 @@ export function HomeScreen({
     setLiveInvites(await supabaseChallengesProvider.listMyChallengeInvites());
   }, []);
 
-  // Bumped after accepting an invite (see respondToInvite) to force the
-  // effect below to re-run — a newly-accepted challenge needs its own
-  // board fetched and the active/finished counts and primary card
-  // recomputed to include it, not just the invite itself removed from
-  // the list.
+  // Bumped after accepting an invite (see respondToInvite), regaining
+  // navigation focus, or the app returning to the foreground (both
+  // below) to force the effect below to re-run — a newly-accepted
+  // challenge needs its own board fetched and the active/finished
+  // counts and primary card recomputed to include it, not just the
+  // invite itself removed from the list.
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshAll = useCallback(() => {
+    reload();
+    setRefreshKey((k) => k + 1);
+  }, [reload]);
+
+  // Home is the one tab that also gets navigated *away from* onto a
+  // pushed stack screen (ChallengeDetail, Hunt) rather than only
+  // switched away from — unlike every other tab in MainScreen.tsx's own
+  // conditional rendering, which unmounts and remounts on every tab
+  // switch (a fresh mount already re-runs every effect below with no
+  // help needed), returning from one of those pushed screens comes back
+  // to this exact same, still-mounted instance. Skips its own first
+  // call — that first focus is just this screen's initial mount, which
+  // the effects below already handle on their own; refreshing again
+  // right then would just be a redundant, instant second fetch.
+  const isFirstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      refreshAll();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
+
+  // The other gap neither a tab switch nor useFocusEffect covers: the
+  // whole app backgrounded (the OS switcher, the phone locked, another
+  // app opened) and returning to it — nothing above fires just because
+  // time passed while this screen sat mounted but not actually visible,
+  // so without this, stale data from before backgrounding just sits
+  // there until something else happens to trigger a refresh.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'active') refreshAll();
+    });
+    return () => subscription.remove();
+  }, [refreshAll]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
