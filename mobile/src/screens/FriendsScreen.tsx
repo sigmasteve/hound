@@ -185,6 +185,38 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={text.h2}>Friends</Text>
 
+      {/* Ahead of every invite/QR/code card below — a friend request is
+          the one thing here that actually needs a response from someone
+          else, so it shouldn't be buried under UI the viewer doesn't
+          need to touch just to accept or decline one. */}
+      {receivedInvites.length > 0 && (
+        <>
+          <Text style={styles.pendingLabel}>Friend requests</Text>
+          {receivedInvites.map((f) => (
+            <Card key={f.friendshipId} style={styles.pendingRow} elevated={false}>
+              <Avatar initials={f.initials} tint={TINT_A} />
+              <Text style={styles.friendName}>{f.name}</Text>
+              <Text style={styles.pendingMeta}>wants to be friends</Text>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <Button
+                  label="Accept"
+                  variant="primary"
+                  small
+                  disabled={busyId === f.friendshipId}
+                  onPress={() => respond(f.friendshipId, 'accept')}
+                />
+                <Button
+                  label="Decline"
+                  small
+                  disabled={busyId === f.friendshipId}
+                  onPress={() => respond(f.friendshipId, 'remove')}
+                />
+              </View>
+            </Card>
+          ))}
+        </>
+      )}
+
       <Card style={{ gap: 10 }} elevated={false}>
         <View style={styles.inviteHeader}>
           {/* Same accentActive icon color as the sample fallback's own
@@ -255,29 +287,6 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
         {redeemError && <Text style={styles.errorNote}>{redeemError}</Text>}
         {redeemSuccess && !redeemError && <Text style={styles.successNote}>{redeemSuccess}</Text>}
       </Card>
-
-      {receivedInvites.map((f) => (
-        <Card key={f.friendshipId} style={styles.pendingRow} elevated={false}>
-          <Avatar initials={f.initials} tint={TINT_A} />
-          <Text style={styles.friendName}>{f.name}</Text>
-          <Text style={styles.pendingMeta}>wants to be friends</Text>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            <Button
-              label="Accept"
-              variant="primary"
-              small
-              disabled={busyId === f.friendshipId}
-              onPress={() => respond(f.friendshipId, 'accept')}
-            />
-            <Button
-              label="Decline"
-              small
-              disabled={busyId === f.friendshipId}
-              onPress={() => respond(f.friendshipId, 'remove')}
-            />
-          </View>
-        </Card>
-      ))}
 
       {accepted.map((f) => (
         <Pressable key={f.friendshipId} onPress={() => onOpenFriend(f)}>

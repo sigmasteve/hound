@@ -30,6 +30,8 @@ import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
+import { supabaseFriendsProvider } from '../friends/supabaseFriends';
+import type { Friend } from '../friends/types';
 import { getMyDailyStepRank, getMyWeeklyStepRank, recordDailyStepTotal, type StepRank } from '../leaderboard/supabaseStepsRank';
 import { recordWorkoutHistory } from '../workouts/supabaseWorkoutHistory';
 import {
@@ -233,6 +235,39 @@ export function HomeScreen({
   // can't quietly disagree about what's pending.
   const [liveInvites, setLiveInvites] = useState<ChallengeInvite[] | null>(null);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+
+  // Incoming friend requests — surfaced here too (not just buried at the
+  // bottom of the Friends tab, under the invite-by-email/QR/code cards)
+  // since responding to one doesn't need any of that other UI. Loaded
+  // independently of the primary-challenge effect below: this list has
+  // nothing to do with challenges, so it shouldn't wait on (or force a
+  // re-run of) that heavier fetch.
+  const [friendRequests, setFriendRequests] = useState<Friend[] | null>(null);
+  const [respondingFriendId, setRespondingFriendId] = useState<string | null>(null);
+
+  const loadFriendRequests = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    const friends = await supabaseFriendsProvider.listFriends();
+    setFriendRequests(friends.filter((f) => f.status === 'pending' && !f.requestedByMe));
+  }, []);
+
+  useEffect(() => {
+    loadFriendRequests();
+  }, [loadFriendRequests]);
+
+  const respondToFriendRequest = async (friendshipId: string, accept: boolean) => {
+    setRespondingFriendId(friendshipId);
+    try {
+      if (accept) await supabaseFriendsProvider.acceptFriendRequest(friendshipId);
+      else await supabaseFriendsProvider.removeFriendship(friendshipId);
+      await loadFriendRequests();
+    } catch {
+      // Same "no error UI yet" convention as respondToInvite below — a
+      // stale request silently stops responding rather than crashing.
+    } finally {
+      setRespondingFriendId(null);
+    }
+  };
 
   // Null until both rank RPCs resolve with an actual row — see
   // 0027_daily_step_totals.sql's own comment on why an empty result
@@ -479,6 +514,33 @@ export function HomeScreen({
           onPress={openPrimary}
         />
       </View>
+
+      {/* Incoming friend requests, ahead of challenge invites below —
+          the same Accept/Decline actions the Friends tab's own pending
+          list has, so responding doesn't need a trip there first. */}
+      {(friendRequests ?? []).map((f) => (
+        <Card key={f.friendshipId} style={styles.inviteCard} elevated={false}>
+          <UserPlusIcon size={18} color={color.accent300} weight="fill" />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.inviteTitle}>{f.name} wants to be friends</Text>
+          </View>
+          <View style={{ gap: 6 }}>
+            <Button
+              label="Accept"
+              variant="primary"
+              small
+              disabled={respondingFriendId === f.friendshipId}
+              onPress={() => respondToFriendRequest(f.friendshipId, true)}
+            />
+            <Button
+              label="Decline"
+              small
+              disabled={respondingFriendId === f.friendshipId}
+              onPress={() => respondToFriendRequest(f.friendshipId, false)}
+            />
+          </View>
+        </Card>
+      ))}
 
       {/* Same card ChallengesScreen's own invite list renders — Home
           shows the exact same pending invites (and the same Join/Decline
