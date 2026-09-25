@@ -77,6 +77,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>('miles');
   const [distanceGoalMi, setDistanceGoalMi] = useState(100);
   const [distanceGoalSteps, setDistanceGoalSteps] = useState(500_000);
+  const [dailyGoalSteps, setDailyGoalSteps] = useState(10_000);
   const [length, setLength] = useState('21');
   // Defaults to 'today' (retroactive to midnight) — matches what people
   // reasonably expect "I started this today" to mean, without needing to
@@ -250,6 +251,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
           (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'miles' ? distanceGoalMi : undefined,
         distanceGoalSteps:
           (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
+        dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
         startsAt: startsAtFor(startOption).toISOString(),
         organizationId: challengeScope === 'org' && myOrgId ? myOrgId : undefined,
       });
@@ -422,6 +424,28 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                 {draftType === 'tag'
                   ? `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — once the group reaches it, the game ends right there, whoever’s It at the time.`
                   : `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — it’s the whole group against the goal, not against each other.`}
+              </Text>
+            </View>
+          )}
+
+          {draftType === 'streak' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Daily goal</Text>
+                <Text style={styles.huntBlockValue}>{dailyGoalSteps.toLocaleString()} steps</Text>
+              </View>
+              <Slider
+                minimumValue={2_000}
+                maximumValue={25_000}
+                step={500}
+                value={dailyGoalSteps}
+                onValueChange={(v) => setDailyGoalSteps(Math.round(v))}
+                minimumTrackTintColor={colors.accent}
+                maximumTrackTintColor={colors.neutral700}
+                thumbTintColor={colors.accent}
+              />
+              <Text style={styles.huntBlockNote}>
+                Miss this on any day (including days you don&rsquo;t log anything) and you&rsquo;re out — everyone else keeps going.
               </Text>
             </View>
           )}
