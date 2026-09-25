@@ -141,7 +141,11 @@ export function TagRadar({
         {/* The one visual answer to "who's It actually chasing" — drawn
             from just outside It's own countdown ring to just outside
             the target's own ring (not center-to-center, which would run
-            underneath both avatars instead of connecting their edges). */}
+            underneath both avatars instead of connecting their edges).
+            Solid and fairly thick on purpose — a thin dashed line here
+            was too easy to lose against the guide circles crossing the
+            same space, especially for a target sitting due north/south
+            where the segment is short to begin with. */}
         {target && (
           <Line
             x1={CENTER + CLOCK_RADIUS * target.dirX}
@@ -149,8 +153,7 @@ export function TagRadar({
             x2={target.x - MEMBER_RING_RADIUS * target.dirX}
             y2={target.y - MEMBER_RING_RADIUS * target.dirY}
             stroke={colors.accent}
-            strokeWidth={2}
-            strokeDasharray="6 5"
+            strokeWidth={3}
             strokeLinecap="round"
           />
         )}
