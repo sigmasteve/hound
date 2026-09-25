@@ -52,6 +52,8 @@ import { syncChallengeProgressFromDevice } from '../challenges/deviceSync';
 import { boardSortFor } from '../challenges/scoring';
 import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
+import { computeStreakStatus, type StreakStatus } from '../challenges/streak';
+import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
 import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
@@ -99,6 +101,7 @@ function heroCopy(
   primary: PrimaryChallenge,
   userId: string | null,
   labels: HuntLabels = DEFAULT_HUNT_LABELS,
+  streakStatuses: Map<string, StreakStatus> = new Map(),
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = Math.min(
@@ -197,6 +200,28 @@ function heroCopy(
         ? `${challenge.name} wrapped up — the group hit its target!`
         : `${challenge.name} wrapped up — the group logged ${totalDisplay} together.`,
     };
+  }
+
+  // Daily Streak: "X won" by raw total is just as wrong here as it was
+  // for the other two — someone eliminated early could still have
+  // logged the single biggest total from one binge day, and if nobody
+  // ever missed, there's no single winner at all, just co-survivors.
+  // Guarded on streakStatuses actually having data (not just an empty
+  // default) — same "nothing to say yet" treatment primaryTagRound
+  // gets before its own fetch resolves.
+  if (challenge.kind === 'streak' && finished && streakStatuses.size > 0) {
+    const survivors = board.filter((r) => streakStatuses.get(r.userId)?.eliminatedOnDay == null);
+    if (survivors.length === 0) {
+      return { eyebrow, headline: `${challenge.name} wrapped up — everyone’s streak ended.` };
+    }
+    if (survivors.length === 1) {
+      const only = survivors[0];
+      return {
+        eyebrow,
+        headline: only.userId === userId ? `You won ${challenge.name} — the last one still on your streak!` : `${only.name} won ${challenge.name} — the last one still on their streak!`,
+      };
+    }
+    return { eyebrow, headline: `${challenge.name} wrapped up — ${survivors.length} people made it the whole way.` };
   }
 
   // board is already sorted descending by whichever metric this
@@ -345,6 +370,12 @@ export function HomeScreen({
   // banner from a previous primary challenge.
   const [primaryTagRound, setPrimaryTagRound] = useState<TagRound | null>(null);
 
+  // Only ever populated when `primary` is a finished 'streak' challenge
+  // — see the effect below. Empty otherwise (including while the fetch
+  // is in flight), which heroCopy's own streak branch already treats
+  // as "nothing to say yet."
+  const [primaryStreakStatuses, setPrimaryStreakStatuses] = useState<Map<string, StreakStatus>>(new Map());
+
   const reload = useCallback(() => {
     health.getSnapshot().then((s) => {
       setSnap(s);
@@ -478,6 +509,23 @@ export function HomeScreen({
       } else {
         setPrimaryTagRound(null);
       }
+
+      // Same shape as the tag round fetch above, for Daily Streak's own
+      // finished-headline framing — only worth fetching once the
+      // challenge is actually over (heroCopy's streak branch is itself
+      // gated on `finished`), so a still-running streak never pays for
+      // this extra round trip.
+      if (primaryResult?.challenge.kind === 'streak' && isChallengeFinished(primaryResult.challenge, primaryResult.board)) {
+        Promise.all([listDailyProgress(primaryResult.challenge.id), listParticipantJoinDates(primaryResult.challenge.id)])
+          .then(([dailyRows, joinDates]) => {
+            if (!cancelled) setPrimaryStreakStatuses(computeStreakStatus(primaryResult.challenge, joinDates, dailyRows));
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryStreakStatuses(new Map());
+          });
+      } else {
+        setPrimaryStreakStatuses(new Map());
+      }
     })()
       .catch(() => {
         // Stay on the sample fallback on any failure.
@@ -517,7 +565,9 @@ export function HomeScreen({
 
   // This challenge's own words, not the viewer's — see LabelsContext's
   // own comment on why those can differ.
-  const hero = primary ? heroCopy(primary, user?.id ?? null, labelsForOrg(primary.challenge.organizationId)) : null;
+  const hero = primary
+    ? heroCopy(primary, user?.id ?? null, labelsForOrg(primary.challenge.organizationId), primaryStreakStatuses)
+    : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
   // else's status (chasing someone, hasn't picked yet) already reads
   // fine as "your standing," but this specific moment (just became It,

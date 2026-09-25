@@ -42,6 +42,8 @@ import {
   type TagEvent,
   type TagMember,
 } from '../challenges/tagApi';
+import { computeStreakStatus, streakConcluded, type StreakStatus } from '../challenges/streak';
+import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { friendEligible } from '../friends/eligibility';
@@ -114,6 +116,11 @@ export function ChallengeDetailScreen({
   const [selectingTargetId, setSelectingTargetId] = useState<string | null>(null);
   const [tagActionError, setTagActionError] = useState<string | null>(null);
 
+  // Daily Streak's own elimination state — empty for any other kind.
+  // Keyed by userId; see computeStreakStatus (src/challenges/streak.ts)
+  // for how this is derived fresh on every load rather than stored.
+  const [streakStatuses, setStreakStatuses] = useState<Map<string, StreakStatus>>(new Map());
+
   const [friends, setFriends] = useState<Friend[]>([]);
   const [invitingId, setInvitingId] = useState<string | null>(null);
   // Every friend with a pending invite to this challenge — hydrated from
@@ -132,24 +139,28 @@ export function ChallengeDetailScreen({
       const c = await supabaseChallengesProvider.getChallenge(challengeId);
       const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
       const needsTag = c.kind === 'tag';
+      const needsStreak = c.kind === 'streak';
       // Settled before the round itself is fetched, not after — so a
       // stalled turn (15 real minutes with no catch) has already moved
       // on by the time this same load() reads who's IT, rather than
       // showing a round that's about to change out from under it.
       if (needsTag) await settleTagTimeout(challengeId).catch(() => {});
-      const [p, l, b, f, hs, sentInvites, tagRoundResult, tagMembersResult, tagEventsResult] = await Promise.all([
-        supabaseChallengesProvider.listParticipants(challengeId),
-        supabaseChallengesProvider.getLeaderboard(challengeId),
-        supabaseChallengesProvider.listBots(challengeId),
-        supabaseFriendsProvider.listFriends(),
-        needsHeadStart
-          ? supabaseChallengesProvider.getLeaderboard(challengeId, headStartBaselineDayKey(c))
-          : Promise.resolve<LeaderboardEntry[]>([]),
-        supabaseChallengesProvider.listSentChallengeInvites(challengeId),
-        needsTag ? getTagRound(challengeId) : Promise.resolve(null),
-        needsTag ? listTagMembers(challengeId) : Promise.resolve([]),
-        needsTag ? listTagEvents(challengeId) : Promise.resolve([]),
-      ]);
+      const [p, l, b, f, hs, sentInvites, tagRoundResult, tagMembersResult, tagEventsResult, dailyRows, joinDates] =
+        await Promise.all([
+          supabaseChallengesProvider.listParticipants(challengeId),
+          supabaseChallengesProvider.getLeaderboard(challengeId),
+          supabaseChallengesProvider.listBots(challengeId),
+          supabaseFriendsProvider.listFriends(),
+          needsHeadStart
+            ? supabaseChallengesProvider.getLeaderboard(challengeId, headStartBaselineDayKey(c))
+            : Promise.resolve<LeaderboardEntry[]>([]),
+          supabaseChallengesProvider.listSentChallengeInvites(challengeId),
+          needsTag ? getTagRound(challengeId) : Promise.resolve(null),
+          needsTag ? listTagMembers(challengeId) : Promise.resolve([]),
+          needsTag ? listTagEvents(challengeId) : Promise.resolve([]),
+          needsStreak ? listDailyProgress(challengeId) : Promise.resolve([]),
+          needsStreak ? listParticipantJoinDates(challengeId) : Promise.resolve(new Map<string, Date>()),
+        ]);
       setChallenge(c);
       setParticipants(p);
       setLeaderboard(l);
@@ -160,6 +171,7 @@ export function ChallengeDetailScreen({
       setTagRound(tagRoundResult);
       setTagMembers(tagMembersResult);
       setTagEvents(tagEventsResult);
+      setStreakStatuses(needsStreak ? computeStreakStatus(c, joinDates, dailyRows) : new Map());
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not load this challenge.');
     } finally {
@@ -408,6 +420,26 @@ export function ChallengeDetailScreen({
     ...row,
     name: row.userId === user?.id ? 'You' : row.name,
   }));
+
+  // Only for display — board itself (and board[0] elsewhere on this
+  // screen) stays sorted by raw total, same as every other kind. A
+  // Daily Streak ranked that way would put someone eliminated on day
+  // one, who happened to binge-log a huge total that same day, above
+  // someone still alive on a modest but unbroken streak — exactly the
+  // consistency-over-volume point of the whole mechanic. Alive rows
+  // first (longer current streak first), then eliminated rows (whoever
+  // lasted longest first).
+  const streakBoard =
+    challenge.kind === 'streak'
+      ? [...board].sort((a, b) => {
+          const sa = streakStatuses.get(a.userId);
+          const sb = streakStatuses.get(b.userId);
+          const aAlive = !sa || sa.eliminatedOnDay === null;
+          const bAlive = !sb || sb.eliminatedOnDay === null;
+          if (aAlive !== bAlive) return aAlive ? -1 : 1;
+          return (sb?.streakDays ?? 0) - (sa?.streakDays ?? 0);
+        })
+      : board;
 
   // Days left in the Hunted's head start, for the leaderboard note below
   // — 0 once it's run out or this hunt never had one.
@@ -766,9 +798,19 @@ export function ChallengeDetailScreen({
                 ? goalMet
                   ? 'The group hit its target — this pool is complete.'
                   : 'This pool has wrapped up without reaching its target.'
-                : `${board[0]?.userId === user?.id ? 'You' : board[0]?.name ?? 'Someone'} won with ${formatMetric(
-                    scoredByDistance ? board[0]?.totalDistanceMi ?? 0 : board[0]?.totalSteps ?? 0,
-                  )}.`}
+                : challenge.kind === 'streak'
+                  ? (() => {
+                      const survivors = board.filter((r) => streakStatuses.get(r.userId)?.eliminatedOnDay == null);
+                      if (survivors.length === 0) return 'Everyone’s streak ended before this one wrapped up.';
+                      if (survivors.length === 1) {
+                        const only = survivors[0];
+                        return `${only.userId === user?.id ? 'You' : only.name} won — the last one still on their streak!`;
+                      }
+                      return `${survivors.length} people made it the whole way without missing a day.`;
+                    })()
+                  : `${board[0]?.userId === user?.id ? 'You' : board[0]?.name ?? 'Someone'} won with ${formatMetric(
+                      scoredByDistance ? board[0]?.totalDistanceMi ?? 0 : board[0]?.totalSteps ?? 0,
+                    )}.`}
           </Text>
         )}
         {headStartDaysLeft > 0 && (
@@ -778,7 +820,7 @@ export function ChallengeDetailScreen({
           </Text>
         )}
         {hunterEffectiveNote && <Text style={styles.footNote}>{hunterEffectiveNote}</Text>}
-        {board.map((row, i) => {
+        {streakBoard.map((row, i) => {
           // The Hunter's row shows their credited progress
           // (huntEffectiveMetric), not their raw total — showing 50,610
           // here while the Chase progress card below says only 34,895 of
@@ -789,6 +831,7 @@ export function ChallengeDetailScreen({
           // for everyone else on the board.
           const displaySteps = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'steps') : row.totalSteps;
           const displayMi = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'distance') : row.totalDistanceMi;
+          const streakStatus = challenge.kind === 'streak' ? streakStatuses.get(row.userId) : undefined;
           return (
             <View key={row.userId} style={styles.boardRow}>
               <Text style={styles.boardRank}>{i + 1}</Text>
@@ -797,6 +840,12 @@ export function ChallengeDetailScreen({
                 <Text style={styles.boardName}>{row.name}</Text>
                 {row.isBot && <RobotIcon size={13} color={withAlpha(colors.text, 0.55)} />}
                 {row.role && <Tag label={huntRoleLabel(row.role, labels)} variant={HUNT_ROLE_TAG_VARIANT[row.role]} />}
+                {streakStatus && (
+                  <Tag
+                    label={streakStatus.eliminatedOnDay == null ? `${streakStatus.streakDays}‑day streak` : 'Out'}
+                    variant={streakStatus.eliminatedOnDay == null ? 'accent' : 'outline'}
+                  />
+                )}
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 {scoredByDistance ? (
