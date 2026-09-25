@@ -667,7 +667,9 @@ export function ChallengeDetailScreen({
               <View style={{ flex: 1 }}>
                 <Text style={styles.friendName}>{r.name}</Text>
                 <Text style={styles.footNote}>
-                  It {r.stats.timesIt}× · Tagged {r.stats.timesTagged}× · Caught someone {r.stats.tagsMade}×
+                  <Text style={styles.tagRecapLabel}>IT</Text> {r.stats.timesIt}× ·{' '}
+                  <Text style={styles.tagRecapLabel}>Tagged</Text> {r.stats.timesTagged}× ·{' '}
+                  <Text style={styles.tagRecapLabel}>Caught</Text> {r.stats.tagsMade}×
                 </Text>
               </View>
             </View>
@@ -967,6 +969,7 @@ function makeStyles(colors: Palette) {
     boardSteps: { fontSize: 14, color: colors.text, fontFamily: font.heading },
     boardDistance: { fontSize: 11, color: withAlpha(colors.text, 0.55) },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    tagRecapLabel: { fontFamily: font.heading, color: colors.accent },
     inviteFriendRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     friendName: { fontSize: 14, color: colors.text, fontFamily: font.body },
     loadError: { fontSize: 12.5, color: colors.amber, textAlign: 'center' },
