@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Share, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
 import { AndroidLogoIcon, AppleLogoIcon, CaretRightIcon, HourglassIcon, QrCodeIcon, UserPlusIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { LoadingView } from '../components/LoadingView';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
@@ -125,7 +126,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
     if (isSupabaseConfigured) {
       return (
         <View style={styles.loadingScreen}>
-          <ActivityIndicator color={colors.accent} />
+          <LoadingView />
         </View>
       );
     }
