@@ -6,6 +6,7 @@ import { ArrowLeftIcon, ArrowsClockwiseIcon, MagnifyingGlassIcon, XIcon } from '
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { LoadingView } from '../components/LoadingView';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
@@ -218,7 +219,7 @@ export function OrgDetailScreen({ organizationId, onBack }: { organizationId: st
         <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
         {loading && !org ? (
-          <ActivityIndicator color={colors.accent} />
+          <LoadingView />
         ) : loadError ? (
           <Text style={styles.loadError}>{loadError}</Text>
         ) : !org ? (

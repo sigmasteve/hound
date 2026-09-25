@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeftIcon, CheckCircleIcon, MagnifyingGlassIcon, RobotIcon, TrashIcon, TrophyIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { LoadingView } from '../components/LoadingView';
 import { ProgressBar } from '../components/ProgressBar';
 import { Tag } from '../components/Tag';
 import { TagRadar, type TagRadarMember } from '../components/TagRadar';
@@ -374,7 +375,7 @@ export function ChallengeDetailScreen({
   if (loading) {
     return (
       <SafeAreaView edges={['top']} style={[styles.container, styles.centered]}>
-        <ActivityIndicator color={colors.accent} />
+        <LoadingView />
       </SafeAreaView>
     );
   }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   CaretRightIcon,
@@ -10,6 +10,7 @@ import {
 } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { LoadingView } from '../components/LoadingView';
 import { Tag } from '../components/Tag';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, TINT_N, withAlpha, type Palette } from '../theme/tokens';
@@ -344,7 +345,7 @@ export function ChallengesScreen({
 
       {challengesLoading ? (
         <View style={styles.loadingRow}>
-          <ActivityIndicator color={color.accent} />
+          <LoadingView />
         </View>
       ) : (
         <>

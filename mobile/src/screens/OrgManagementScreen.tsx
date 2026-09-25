@@ -1,10 +1,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeftIcon, BuildingsIcon, CaretRightIcon } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { LoadingView } from '../components/LoadingView';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
@@ -90,7 +91,7 @@ export function OrgManagementScreen({
               <Text style={text.h4}>All organizations</Text>
               {loadError && <Text style={styles.loadError}>{loadError}</Text>}
               {loading && orgs.length === 0 ? (
-                <ActivityIndicator color={colors.accent} />
+                <LoadingView />
               ) : orgs.length === 0 ? (
                 <Text style={styles.footNote}>No organizations yet — create the first one below.</Text>
               ) : (

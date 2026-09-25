@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, type AppStateStatus, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, type AppStateStatus, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -18,6 +18,7 @@ import {
   XIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
+import { LoadingView } from '../components/LoadingView';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
@@ -656,7 +657,7 @@ export function HomeScreen({
       <View style={{ flex: 1 }}>
         {announcementBar}
         <View style={[styles.container, styles.loadingContainer]}>
-          <ActivityIndicator color={color.accent} />
+          <LoadingView />
         </View>
       </View>
     );
