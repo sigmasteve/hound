@@ -149,6 +149,71 @@ export async function settleTagTimeout(challengeId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+// Every "who becomes It" transition for this challenge — see
+// 0049_tag_events_stats.sql. tagged_id doubles as "who becomes It as of
+// this event" across all three kinds: for 'catch' it's literally who
+// got tagged (and is now It); for 'timeout'/'start' there was no tag,
+// just a new It, so taggerId is null there.
+export interface TagEvent {
+  kind: 'catch' | 'timeout' | 'start';
+  taggerId: string | null;
+  newItUserId: string;
+}
+
+interface TagEventRow {
+  kind: string;
+  tagger_id: string | null;
+  tagged_id: string;
+}
+
+// RLS-gated the same way tag_rounds/tag_events themselves are (any
+// participant can read their own challenge's rows) — see
+// 0049_tag_events_stats.sql. Ordered oldest-first so a future "recap
+// timeline" view doesn't need to re-sort.
+export async function listTagEvents(challengeId: string): Promise<TagEvent[]> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from('tag_events')
+    .select('kind, tagger_id, tagged_id')
+    .eq('challenge_id', challengeId)
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data as TagEventRow[] ?? []).map((row) => ({
+    kind: row.kind as TagEvent['kind'],
+    taggerId: row.tagger_id,
+    newItUserId: row.tagged_id,
+  }));
+}
+
+// Per-participant recap stats — deliberately not a ranking (see
+// 0045_tag_game_state.sql's own "no Hunter/Hunted-style ranking"), just
+// the three counts a "how did this game actually go" recap needs.
+export interface TagPersonStats {
+  timesIt: number;
+  timesTagged: number;
+  tagsMade: number;
+}
+
+export function computeTagStats(events: TagEvent[]): Map<string, TagPersonStats> {
+  const stats = new Map<string, TagPersonStats>();
+  const ensure = (userId: string) => {
+    let s = stats.get(userId);
+    if (!s) {
+      s = { timesIt: 0, timesTagged: 0, tagsMade: 0 };
+      stats.set(userId, s);
+    }
+    return s;
+  };
+  for (const e of events) {
+    ensure(e.newItUserId).timesIt += 1;
+    if (e.kind === 'catch') {
+      ensure(e.newItUserId).timesTagged += 1;
+      if (e.taggerId) ensure(e.taggerId).tagsMade += 1;
+    }
+  }
+  return stats;
+}
+
 // A participant's own current cumulative total for this challenge, in
 // whichever unit its own distanceGoalUnit says matters — the same
 // number tag_check_catch itself compares against, exposed directly so

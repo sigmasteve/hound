@@ -21,6 +21,7 @@ import {
   headStartBaselineDayKey,
   huntEffectiveMetric,
   inviteWindowClosed,
+  isChallengeFinished,
   withHuntCatches,
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
@@ -30,11 +31,14 @@ import { formatStartsLabel, hasStarted, huntKindName, huntRoleLabel, HUNT_ROLE_T
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry, TagRound } from '../challenges/types';
 import {
   checkTagCatch,
+  computeTagStats,
   getTagRound,
+  listTagEvents,
   listTagMembers,
   selectTagTarget,
   settleTagTimeout,
   TAG_TIME_LIMIT_MINUTES,
+  type TagEvent,
   type TagMember,
 } from '../challenges/tagApi';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
@@ -105,6 +109,7 @@ export function ChallengeDetailScreen({
   // this isn't one at all.
   const [tagRound, setTagRound] = useState<TagRound | null>(null);
   const [tagMembers, setTagMembers] = useState<TagMember[]>([]);
+  const [tagEvents, setTagEvents] = useState<TagEvent[]>([]);
   const [selectingTargetId, setSelectingTargetId] = useState<string | null>(null);
   const [tagActionError, setTagActionError] = useState<string | null>(null);
 
@@ -131,7 +136,7 @@ export function ChallengeDetailScreen({
       // on by the time this same load() reads who's IT, rather than
       // showing a round that's about to change out from under it.
       if (needsTag) await settleTagTimeout(challengeId).catch(() => {});
-      const [p, l, b, f, hs, sentInvites, tagRoundResult, tagMembersResult] = await Promise.all([
+      const [p, l, b, f, hs, sentInvites, tagRoundResult, tagMembersResult, tagEventsResult] = await Promise.all([
         supabaseChallengesProvider.listParticipants(challengeId),
         supabaseChallengesProvider.getLeaderboard(challengeId),
         supabaseChallengesProvider.listBots(challengeId),
@@ -142,6 +147,7 @@ export function ChallengeDetailScreen({
         supabaseChallengesProvider.listSentChallengeInvites(challengeId),
         needsTag ? getTagRound(challengeId) : Promise.resolve(null),
         needsTag ? listTagMembers(challengeId) : Promise.resolve([]),
+        needsTag ? listTagEvents(challengeId) : Promise.resolve([]),
       ]);
       setChallenge(c);
       setParticipants(p);
@@ -152,6 +158,7 @@ export function ChallengeDetailScreen({
       setInvitedIds(new Set(sentInvites));
       setTagRound(tagRoundResult);
       setTagMembers(tagMembersResult);
+      setTagEvents(tagEventsResult);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not load this challenge.');
     } finally {
@@ -486,6 +493,7 @@ export function ChallengeDetailScreen({
     0,
   );
   const goalMet = !!distanceGoal && groupTotal >= distanceGoal;
+  const finished = isChallengeFinished(challenge, board);
 
   // Game of Tag's own status. tagMinutesLeft floors at 0 rather than
   // going negative once a round's genuinely stalled past its limit —
@@ -531,6 +539,18 @@ export function ChallengeDetailScreen({
     tagRound?.targetSnapshotMetric && tagRound.targetSnapshotMetric > 0
       ? Math.min(100, (myTagMetricValue / tagRound.targetSnapshotMetric) * 100)
       : 0;
+
+  // A finished tag game's recap — no ranking (see 0045_tag_game_state.sql's
+  // own "deliberately anti-competitive" note), just each participant's own
+  // three counts. Kept in tagMembers' own order rather than sorted by any
+  // of these numbers, so this doesn't read as a leaderboard by another name.
+  const tagStatsById = computeTagStats(tagEvents);
+  const tagRecapRows = tagMembers.map((m) => ({
+    userId: m.userId,
+    name: m.name,
+    initials: m.initials,
+    stats: tagStatsById.get(m.userId) ?? { timesIt: 0, timesTagged: 0, tagsMade: 0 },
+  }));
 
   // It's own current total, for every non-It member's radar distance
   // below — the actual target's ring uses the frozen snapshot instead
@@ -635,7 +655,27 @@ export function ChallengeDetailScreen({
         </Card>
       )}
 
-      {challenge.kind === 'tag' && tagRound && (
+      {challenge.kind === 'tag' && finished && (
+        <Card style={{ gap: 12 }} elevated={false}>
+          <Text style={text.h4}>Tag recap</Text>
+          <Text style={styles.footNote}>
+            No winner here — Game of Tag isn&rsquo;t ranked. Here&rsquo;s how the chase went for everyone.
+          </Text>
+          {tagRecapRows.map((r) => (
+            <View key={r.userId} style={[styles.inviteFriendRow, { alignItems: 'flex-start' }]}>
+              <Avatar initials={r.initials} tint={TINT_N} size={30} fontSize={11} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.friendName}>{r.name}</Text>
+                <Text style={styles.footNote}>
+                  It {r.stats.timesIt}× · Tagged {r.stats.timesTagged}× · Caught someone {r.stats.tagsMade}×
+                </Text>
+              </View>
+            </View>
+          ))}
+        </Card>
+      )}
+
+      {challenge.kind === 'tag' && tagRound && !finished && (
         <Card style={{ gap: 12 }} elevated={false}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={text.h4}>Tag status</Text>

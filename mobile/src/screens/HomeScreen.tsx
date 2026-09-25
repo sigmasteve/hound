@@ -161,6 +161,16 @@ function heroCopy(
     };
   }
 
+  // Game of Tag is deliberately anti-competitive (see
+  // 0045_tag_game_state.sql's own "no Hunter/Hunted-style ranking" note)
+  // — a finished game never gets "who won" framing, even by proxy via
+  // board rank. The recap of who was It, who got tagged, and who tagged
+  // someone lives on the challenge's own detail screen instead (see
+  // ChallengeDetailScreen's "Tag recap" card).
+  if (challenge.kind === 'tag' && finished) {
+    return { eyebrow, headline: `${challenge.name} wrapped up — no winner, just a recap of how the chase went.` };
+  }
+
   // board is already sorted descending by whichever metric this
   // challenge is scored on (see buildBoard) — for a concluded hunt
   // specifically, the Hunter's total is guaranteed to be at least every
