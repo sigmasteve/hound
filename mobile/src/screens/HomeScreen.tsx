@@ -57,6 +57,8 @@ import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
 import { computeStreakStatus, type StreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
+import { BINGO_CATEGORIES, BINGO_CATEGORY_LABEL, type BingoCategory } from '../challenges/bingo';
+import { listBingoProgress } from '../challenges/bingoApi';
 import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
@@ -149,6 +151,7 @@ function heroCopy(
   userId: string | null,
   labels: HuntLabels = DEFAULT_HUNT_LABELS,
   streakStatuses: Map<string, StreakStatus> = new Map(),
+  bingoFilled: Set<BingoCategory> = new Set(),
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = Math.min(
@@ -157,6 +160,21 @@ function heroCopy(
   );
   const kindLabel = challenge.kind === 'hunt' ? huntKindName() : CHALLENGE_TYPES.find((t) => t.id === challenge.kind)?.name ?? challenge.kind;
   const eyebrow = `DAY ${daysElapsed} OF ${challenge.durationDays} · ${kindLabel.toUpperCase()}`;
+
+  // Bingo's own progress isn't steps/distance at all (board is always
+  // all-zero for it — see bingoApi.ts), so it needs its own headline
+  // rather than falling through to the generic rank/"no one's logged
+  // anything" framing below, which would otherwise never change no
+  // matter how many squares get filled.
+  if (challenge.kind === 'bingo') {
+    return {
+      eyebrow,
+      headline:
+        bingoFilled.size === BINGO_CATEGORIES.length
+          ? `Blackout! You’ve filled every square in ${challenge.name}.`
+          : `You’ve filled ${bingoFilled.size} of ${BINGO_CATEGORIES.length} squares in ${challenge.name}.`,
+    };
+  }
 
   const me = userId ? board.find((r) => r.userId === userId) : undefined;
   const rival = board.find((r) => r.userId !== userId);
@@ -423,6 +441,12 @@ export function HomeScreen({
   // as "nothing to say yet."
   const [primaryStreakStatuses, setPrimaryStreakStatuses] = useState<Map<string, StreakStatus>>(new Map());
 
+  // Only ever populated when `primary` is a 'bingo' challenge — see the
+  // effect below. The viewer's own filled categories, not the whole
+  // group's (that full leaderboard lives on the detail screen) — Home
+  // only ever needs "your own card" for its hero copy and mini preview.
+  const [primaryBingoFilled, setPrimaryBingoFilled] = useState<Set<BingoCategory>>(new Set());
+
   const reload = useCallback(() => {
     health.getSnapshot().then((s) => {
       setSnap(s);
@@ -615,6 +639,23 @@ export function HomeScreen({
       } else {
         setPrimaryStreakStatuses(new Map());
       }
+
+      // Same shape as the tag/streak fetches above, for Bingo's own hero
+      // copy and mini card preview — listBingoProgress returns every
+      // participant's rows, filtered down to just the viewer's own (see
+      // primaryBingoFilled's own comment).
+      if (primaryResult?.challenge.kind === 'bingo' && user?.id) {
+        const myId = user.id;
+        listBingoProgress(primaryResult.challenge.id)
+          .then((rows) => {
+            if (!cancelled) setPrimaryBingoFilled(new Set(rows.filter((r) => r.userId === myId).map((r) => r.category)));
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryBingoFilled(new Set());
+          });
+      } else {
+        setPrimaryBingoFilled(new Set());
+      }
     })()
       .catch(() => {
         // Stay on the sample fallback on any failure.
@@ -655,7 +696,7 @@ export function HomeScreen({
   // This challenge's own words, not the viewer's — see LabelsContext's
   // own comment on why those can differ.
   const hero = primary
-    ? heroCopy(primary, user?.id ?? null, labelsForOrg(primary.challenge.organizationId), primaryStreakStatuses)
+    ? heroCopy(primary, user?.id ?? null, labelsForOrg(primary.challenge.organizationId), primaryStreakStatuses, primaryBingoFilled)
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
   // else's status (chasing someone, hasn't picked yet) already reads
@@ -896,6 +937,8 @@ export function HomeScreen({
             <LiveHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
           ) : primary.challenge.kind === 'hunt' ? (
             <LiveMultiHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
+          ) : primary.challenge.kind === 'bingo' ? (
+            <BingoCardPreview primary={primary} filled={primaryBingoFilled} onOpen={openPrimary} styles={styles} />
           ) : (
             <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} colors={colors} />
           )
@@ -1268,6 +1311,53 @@ function LiveLeaderboardCard({
   );
 }
 
+// A compact version of ChallengeDetailScreen's own "Your bingo card" grid
+// — the viewer's own 9 squares, not the whole group's (that ranked
+// leaderboard, and everyone else's cards, live on the detail screen; Home
+// only ever shows "your own standing" for every other kind too).
+function BingoCardPreview({
+  primary,
+  filled,
+  onOpen,
+  styles,
+}: {
+  primary: PrimaryChallenge;
+  filled: Set<BingoCategory>;
+  onOpen: () => void;
+  styles: HomeStyles;
+}) {
+  const { challenge, board } = primary;
+  const daysLeft = Math.max(0, Math.ceil((new Date(challenge.endsAt).getTime() - Date.now()) / 86_400_000));
+
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+        <Text style={styles.raceMeta}>
+          {board.length} {board.length === 1 ? 'person' : 'people'} · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+        </Text>
+      </View>
+      <View style={styles.bingoMiniGrid}>
+        {BINGO_CATEGORIES.map((category) => {
+          const isFilled = filled.has(category);
+          return (
+            <View key={category} style={[styles.bingoMiniSquare, isFilled && styles.bingoMiniSquareFilled]}>
+              <Text style={[styles.bingoMiniLabel, isFilled && styles.bingoMiniLabelFilled]} numberOfLines={2}>
+                {BINGO_CATEGORY_LABEL[category]}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+      <Text style={styles.tileSub}>
+        {filled.size} of {BINGO_CATEGORIES.length} squares filled.
+      </Text>
+      <Button label="Full leaderboard" variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
 function MetricTile({
   label,
   Icon,
@@ -1465,6 +1555,20 @@ function makeStyles(colors: Palette) {
     raceHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     raceTitle: { fontFamily: font.heading, fontSize: 16, color: colors.text, flex: 1 },
     raceMeta: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    bingoMiniGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    bingoMiniSquare: {
+      width: '31%',
+      aspectRatio: 1,
+      borderRadius: 10,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: withAlpha(colors.text, 0.15),
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 4,
+    },
+    bingoMiniSquareFilled: { backgroundColor: withAlpha(colors.green, 0.15), borderColor: colors.green },
+    bingoMiniLabel: { fontSize: 9.5, color: withAlpha(colors.text, 0.7), textAlign: 'center' },
+    bingoMiniLabelFilled: { color: colors.text, fontFamily: font.heading },
     raceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
     raceRank: { width: 14, fontSize: 12, color: withAlpha(colors.text, 0.55) },
     raceName: { fontSize: 13.5, color: colors.text, width: 62 },
