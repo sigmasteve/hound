@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import {
   AndroidLogoIcon,
@@ -9,6 +10,7 @@ import {
   CaretRightIcon,
   ScalesIcon,
   SignOutIcon,
+  XIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -215,6 +217,37 @@ export function SettingsScreen() {
         .catch(() => setHoundScore(null));
     }, [user?.id]),
   );
+
+  // A one-line explainer under the Hound Score card, dismissed for good
+  // once tapped away — same local (AsyncStorage), per-device, shown-once
+  // shape as ChallengeDetailScreen's own Tag/Chase explainers, just an
+  // X-dismiss row (HomeScreen's own version-update banner) rather than a
+  // whole card with a "Got it" button, since this is one sentence, not a
+  // multi-paragraph mechanic to teach.
+  const SCORE_EXPLAINER_DISMISSED_KEY = 'houndScoreExplainerDismissed';
+  const [showScoreExplainer, setShowScoreExplainer] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      AsyncStorage.getItem(SCORE_EXPLAINER_DISMISSED_KEY)
+        .then((dismissed) => {
+          if (!cancelled && dismissed !== 'true') setShowScoreExplainer(true);
+        })
+        .catch(() => {
+          // Best-effort — if this can't be read, just don't show it
+          // rather than risk showing it every single time.
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+  const dismissScoreExplainer = () => {
+    setShowScoreExplainer(false);
+    AsyncStorage.setItem(SCORE_EXPLAINER_DISMISSED_KEY, 'true').catch(() => {
+      // Best-effort — worst case it shows again next time.
+    });
+  };
 
   // Login-reminder preferences live on the real profiles row — there's no
   // sample-fallback version of this like other screens have, since
@@ -424,6 +457,17 @@ export function SettingsScreen() {
               {levelProgress.level + 1}
             </Text>
           </View>
+          {showScoreExplainer && (
+            <View style={styles.scoreExplainerRow}>
+              <Text style={styles.scoreExplainerText}>
+                Hound Score reflects how much you&rsquo;ve won across challenges. Level and XP track how much you&rsquo;ve
+                played, win or lose.
+              </Text>
+              <Pressable onPress={dismissScoreExplainer} hitSlop={8}>
+                <XIcon size={14} color={withAlpha(colors.text, 0.5)} />
+              </Pressable>
+            </View>
+          )}
         </Card>
       )}
 
@@ -778,6 +822,15 @@ function makeStyles(colors: Palette) {
       backgroundColor: withAlpha(color.accent, 0.14),
     },
     levelBadgeText: { fontFamily: font.heading, fontSize: 13, color: color.accent },
+    scoreExplainerRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      paddingTop: 10,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.divider,
+    },
+    scoreExplainerText: { flex: 1, fontSize: 12.5, lineHeight: 17, color: withAlpha(colors.text, 0.65) },
     goalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     goalValue: { fontSize: 14.5, color: colors.accent, fontFamily: font.heading },
     footNoteError: { fontSize: 12.5, color: colors.amber },
