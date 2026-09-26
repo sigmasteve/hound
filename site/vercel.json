@@ -2,13 +2,6 @@
   "rewrites": [
     { "source": "/f/:code", "destination": "/f.html" },
     { "source": "/get", "destination": "/download.html" },
-    { "source": "/downloads/hound_1.0.apk", "destination": "https://mslk7fkl2shujmoj.public.blob.vercel-storage.com/application-a1c4e089-fb44-450e-a241-fe42e2f1cbb8.apk" },
-    { "source": "/downloads/hound_1.0.apk", "destination": "https://mslk7fkl2shujmoj.public.blob.vercel-storage.com/application-a1c4e089-fb44-450e-a241-fe42e2f1cbb8.apk" },
-    { "source": "/downloads/hound_1.0.apk", "destination": "https://mslk7fkl2shujmoj.public.blob.vercel-storage.com/application-a1c4e089-fb44-450e-a241-fe42e2f1cbb8.apk" },
-    { "source": "/downloads/hound_0_2.apk", "destination": "https://mslk7fkl2shujmoj.public.blob.vercel-storage.com/application-d29704a4-b965-4dab-bb78-1b23f2b5a4c8.apk" },
-    { "source": "/downloads/hound_0_3.apk", "destination": "https://mslk7fkl2shujmoj.public.blob.vercel-storage.com/application-2f2f9775-c30c-4a48-b51f-478a79695039.apk" },
-    { "source": "/downloads/hound_0_4.apk", "destination": "https://mslk7fkl2shujmoj.public.blob.vercel-storage.com/application-dbbafcdc-f09e-4cdd-ac1a-a83534351d17.apk" },
-    { "source": "/downloads/hound_0_6.apk", "destination": "https://mslk7fkl2shujmoj.public.blob.vercel-storage.com/application-4129eb9d-89de-49b1-bf03-af41aa18c74f.apk" },
-    { "source": "/downloads/hound_0_8.apk", "destination": "https://mslk7fkl2shujmoj.public.blob.vercel-storage.com/application-1c490ec0-93d9-4234-8b85-401984cf36c4.apk" }
+    { "source": "/downloads/hound_0_9.apk", "destination": "https://mslk7fkl2shujmoj.public.blob.vercel-storage.com/application-8299fd05-fd8b-4246-9134-890b88816102.apk" }
   ]
 }
