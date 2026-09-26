@@ -162,7 +162,6 @@ export const androidHealthProvider: HealthProvider = {
 
     return {
       stepsToday: Math.round(totalSteps),
-      stepsGoal: 10000,
       distanceTodayMi: Math.round(totalDistanceMi * 10) / 10,
       restingHeartRateBpm: restingSamples.length
         ? Math.round(restingSamples.reduce((a, b) => a + b, 0) / restingSamples.length)

@@ -52,7 +52,6 @@ export interface WorkoutSample {
 
 export interface HealthSnapshot {
   stepsToday: number;
-  stepsGoal: number;
   distanceTodayMi: number;
   restingHeartRateBpm: number | null;
   latestWeightLb: number | null;

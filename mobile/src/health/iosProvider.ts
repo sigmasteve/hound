@@ -160,7 +160,6 @@ export const iosHealthProvider: HealthProvider = {
 
     return {
       stepsToday: Math.round(steps.get(todayKey) ?? 0),
-      stepsGoal: 10000,
       distanceTodayMi: Math.round((distance.get(todayKey) ?? 0) * 10) / 10,
       restingHeartRateBpm: restingHr ? Math.round(restingHr.quantity) : null,
       latestWeightLb: weight ? Math.round(weight.quantity * 10) / 10 : null,
