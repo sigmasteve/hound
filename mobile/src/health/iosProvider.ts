@@ -277,6 +277,16 @@ export const iosHealthProvider: HealthProvider = {
     }
     return out;
   },
+
+  async getStepsSince(since: Date): Promise<number> {
+    // Same collection query as the day totals above, just anchored at
+    // `since` instead of midnight, so a step sample straddling `since`
+    // is split proportionally rather than counted in full.
+    const totals = await dailyStepTotals(since, new Date());
+    let sum = 0;
+    for (const v of totals.values()) sum += v;
+    return Math.round(sum);
+  },
 };
 
 function dateKey(d: Date): string {

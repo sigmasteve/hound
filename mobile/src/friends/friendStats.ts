@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { buildBoard, headStartBaselineDayKey, huntEffectiveMetric, isChallengeFinished, withHuntCatches } from '../challenges/board';
 import { boardSortFor } from '../challenges/scoring';
+import { getTicTacGoGame } from '../challenges/tictacgoApi';
 
 export interface HeadToHeadRecord {
   // Every challenge the two of you have both ever been a real
@@ -49,6 +50,17 @@ export async function getHeadToHeadRecord(friendUserId: string): Promise<HeadToH
 
   for (const challengeId of challengeIds) {
     const challenge = await supabaseChallengesProvider.getChallenge(challengeId);
+
+    // Tic-Tac-Go has a real winner on the board, not a steps ranking.
+    if (challenge.kind === 'tictacgo') {
+      const game = await getTicTacGoGame(challengeId);
+      if (!game || (game.status !== 'won' && game.status !== 'draw')) continue;
+      if (game.status === 'draw') record.ties++;
+      else if (game.winnerUserId === myId) record.wins++;
+      else if (game.winnerUserId === friendUserId) record.losses++;
+      continue;
+    }
+
     const [participants, leaderboard] = await Promise.all([
       supabaseChallengesProvider.listParticipants(challengeId),
       supabaseChallengesProvider.getLeaderboard(challengeId),
