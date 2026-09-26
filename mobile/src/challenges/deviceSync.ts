@@ -1,5 +1,7 @@
 import { supabaseChallengesProvider } from './supabaseChallenges';
 import { usesDeviceSteps, usesWorkoutDistance } from './scoring';
+import { classifyWorkout } from './bingo';
+import { recordBingoProgress } from './bingoApi';
 import type { Challenge } from './types';
 import type { HealthProvider } from '../health/types';
 
@@ -113,5 +115,35 @@ export async function syncChallengeProgressFromDevice(challenge: Challenge, heal
     // as silent (ChallengeDetailScreen's own screen has no "Your
     // progress" card left to surface an error on; HomeScreen's own load
     // already swallows failures the same way for its other fetches).
+  }
+}
+
+// Variety Bingo's own sync path — deliberately separate from
+// syncChallengeProgressFromDevice above rather than folded into
+// usesWorkoutDistance: a bingo challenge isn't steps- or
+// distance-ranked at all (see scoring.ts), it just needs to know which
+// of the 9 categories (bingo.ts's BINGO_CATEGORIES) each recent workout
+// classifies into. Shared by the same two call sites as the function
+// above (ChallengeDetailScreen's syncFromDevice, HomeScreen's per-active-
+// challenge sync loop).
+export async function syncBingoProgressFromDevice(challenge: Challenge, health: HealthProvider): Promise<void> {
+  if (challenge.kind !== 'bingo') return;
+  try {
+    const since = new Date(challenge.startsAt);
+    const endsAt = new Date(challenge.endsAt);
+    const workouts = await health.getRecentWorkouts(200);
+    const categories = new Set(
+      workouts.filter((w) => w.when >= since && w.when <= endsAt).map((w) => classifyWorkout(w.name)),
+    );
+    // Re-attempts every category found in this window on every sync, even
+    // ones already filled — recordBingoProgress's own upsert makes an
+    // already-filled square a cheap no-op, same "re-running this is
+    // deliberate and harmless" reasoning the steps/distance sync above
+    // already relies on, rather than tracking which categories this
+    // device has already reported.
+    await Promise.all(Array.from(categories).map((category) => recordBingoProgress(challenge.id, category)));
+  } catch {
+    // Best-effort, same reasoning as syncChallengeProgressFromDevice's own
+    // catch above.
   }
 }

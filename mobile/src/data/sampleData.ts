@@ -60,7 +60,7 @@ export const TALLY: TallyRow[] = [
   { label: 'Marcus · dog walk', meta: 'Saturday 6:15pm · Health Connect', dist: '3.2 mi', tint: TINT_N, iconKind: 'dog' },
 ];
 
-export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance' | 'tag';
+export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance' | 'tag' | 'bingo';
 
 export interface ChallengeCard {
   id: string;
@@ -156,6 +156,7 @@ export const CHALLENGE_TYPES: {
   { id: 'steps', name: 'Step Race', desc: 'Most steps over the window. Everyone against everyone.', tint: TINT_N, iconColor: '#e9e9ed' },
   { id: 'distance', name: 'Group Distance Target', desc: 'Add every mile the group covers toward one shared target.', tint: TINT_N, iconColor: '#e9e9ed' },
   { id: 'streak', name: 'Daily Streak', desc: 'Hit a daily goal every day. One miss and you are out.', tint: TINT_N, iconColor: '#e9e9ed' },
+  { id: 'bingo', name: 'Variety Bingo', desc: 'Log 9 different kinds of workouts to fill your own card. No two cards race each other — just you against the board.', tint: '#1f6b4f', iconColor: '#c9fbe8' },
 ];
 
 export interface DataSource {

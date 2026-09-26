@@ -4,6 +4,7 @@ import {
   FlagCheckeredIcon,
   FlameIcon,
   FootprintsIcon,
+  GridNineIcon,
   HandTapIcon,
   PawPrintIcon,
 } from 'phosphor-react-native';
@@ -15,6 +16,7 @@ export const CHALLENGE_KIND_ICON: Record<ChallengeKind, React.ComponentType<any>
   streak: FlameIcon,
   distance: FlagCheckeredIcon,
   tag: HandTapIcon,
+  bingo: GridNineIcon,
 };
 
 // A build only ever ships knowing the challenge kinds that existed when

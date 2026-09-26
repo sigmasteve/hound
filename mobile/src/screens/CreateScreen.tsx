@@ -225,12 +225,15 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
     setSaving(true);
     try {
       const isHunt = draftType === 'hunt';
-      // Tag has no bot support at all — see 0045_tag_game_state.sql's own
-      // comment (a bot has no way to "pick" a target in the UI) — so this
-      // never sends one along even if selectedBots somehow has stale
-      // entries from switching kind after picking bots, not just because
-      // the "Bot opponents" step above is hidden for it.
-      const chosenBots = draftType === 'tag' ? [] : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
+      // Neither Tag nor Variety Bingo has any bot support — Tag because a
+      // bot has no way to "pick" a target in the UI (see
+      // 0045_tag_game_state.sql's own comment), Bingo because a bot's
+      // steps/distance are simulated numbers (botSimulation.ts), never a
+      // real, classifiable workout. Never sends one along even if
+      // selectedBots somehow has stale entries from switching kind after
+      // picking bots, not just because the "Bot opponents" step above is
+      // hidden for both.
+      const chosenBots = draftType === 'tag' || draftType === 'bingo' ? [] : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
       const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
       const created = await supabaseChallengesProvider.createChallenge({
         name: draftName.trim(),
@@ -573,7 +576,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
             link either way.
           </Text>
 
-          {draftType !== 'tag' && (
+          {draftType !== 'tag' && draftType !== 'bingo' && (
             <>
               <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>
               <Text style={styles.footNote}>
