@@ -10,6 +10,7 @@ export function TextField({
   secureToggle,
   error,
   style,
+  multiline,
   ...inputProps
 }: {
   label: string;
@@ -24,12 +25,14 @@ export function TextField({
   return (
     <View style={style}>
       <Text style={styles.label}>{label}</Text>
-      <View style={[styles.row, error && styles.rowError]}>
+      <View style={[styles.row, multiline && styles.rowMultiline, error && styles.rowError]}>
         {icon}
         <TextInput
           placeholderTextColor={withAlpha(colors.text, 0.4)}
-          style={styles.input}
+          style={[styles.input, multiline && styles.inputMultiline]}
           secureTextEntry={secureToggle ? hidden : inputProps.secureTextEntry}
+          multiline={multiline}
+          textAlignVertical={multiline ? 'top' : undefined}
           {...inputProps}
         />
         {secureToggle && (
@@ -62,7 +65,15 @@ function makeStyles(colors: Palette) {
       borderColor: colors.divider,
     },
     rowError: { borderColor: colors.amber },
+    // Centering vertically (the single-line default) looks wrong once a
+    // field can grow past one line — align to the top instead, and give
+    // the row its own vertical padding since minHeight alone would just
+    // stretch a short value to the middle of a tall box.
+    rowMultiline: { alignItems: 'flex-start', paddingVertical: 10 },
     input: { flex: 1, color: colors.text, fontSize: 15, fontFamily: font.body, paddingVertical: space[2] },
+    // ~3 lines at this fontSize/line-height, so a multiline field never
+    // renders shorter than that even empty or with a one-line value.
+    inputMultiline: { minHeight: 60, paddingVertical: 0 },
     error: { fontSize: 12, color: colors.amber, marginTop: 4 },
   });
 }

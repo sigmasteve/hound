@@ -208,6 +208,8 @@ export function AdminScreen({
                 value={bannerMessage}
                 onChangeText={setBannerMessage}
                 placeholder="e.g. Scheduled maintenance Sunday 2-4pm"
+                multiline
+                numberOfLines={3}
               />
               <ToggleRow
                 label="Show this banner"
