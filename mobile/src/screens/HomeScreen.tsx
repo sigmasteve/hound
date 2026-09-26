@@ -65,6 +65,9 @@ import {
   type BingoCategory,
 } from '../challenges/bingo';
 import { listBingoProgress } from '../challenges/bingoApi';
+import { formatTimeLeft, turnDeadline } from '../challenges/tictacgo';
+import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
+import { TicTacGoBoard } from '../components/TicTacGoCard';
 import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
 import { useGoals } from '../goals/GoalsContext';
@@ -147,6 +150,21 @@ function formatLead(value: number, unit: 'mi' | 'steps'): string {
   return unit === 'mi' ? `${value.toFixed(1)} mi` : `${Math.round(value).toLocaleString()} steps`;
 }
 
+function ticTacGoHeadline(name: string, game: TicTacGoGame | null, userId: string | null, board: BoardEntry[]): string {
+  const nameOf = (id: string | null) => board.find((r) => r.userId === id)?.name ?? 'Your opponent';
+  if (!game) return `Getting ${name} ready.`;
+  if (game.status === 'waiting') return `Waiting for your opponent to join ${name}.`;
+  if (game.status === 'won') {
+    return game.winnerUserId === userId ? `You won ${name} with three in a row!` : `${nameOf(game.winnerUserId)} won ${name}.`;
+  }
+  if (game.status === 'draw') return `${name} ended in a draw.`;
+  if (!game.turnStartedAt || new Date(game.turnStartedAt).getTime() > Date.now()) return `${name} starts soon.`;
+  const timeLeft = formatTimeLeft(turnDeadline(game.turnStartedAt));
+  return game.turnUserId === userId
+    ? `Your move in ${name} — ${timeLeft}.`
+    : `${nameOf(game.turnUserId)}’s move in ${name} — ${timeLeft}.`;
+}
+
 // The headline sentence + eyebrow for whichever real challenge Home
 // decided to lead with — "Marcus is 7.4 mi behind you" was hand-authored
 // for one specific hardcoded matchup, so a real version has to cover
@@ -159,6 +177,7 @@ function heroCopy(
   labels: HuntLabels = DEFAULT_HUNT_LABELS,
   streakStatuses: Map<string, StreakStatus> = new Map(),
   bingoFilled: Set<BingoCategory> = new Set(),
+  tttGame: TicTacGoGame | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = Math.min(
@@ -181,6 +200,10 @@ function heroCopy(
           ? `Blackout! You’ve filled every square in ${challenge.name}.`
           : `You’ve filled ${bingoFilled.size} of ${BINGO_SQUARE_COUNT} squares in ${challenge.name}.`,
     };
+  }
+
+  if (challenge.kind === 'tictacgo') {
+    return { eyebrow, headline: ticTacGoHeadline(challenge.name, tttGame, userId, board) };
   }
 
   const me = userId ? board.find((r) => r.userId === userId) : undefined;
@@ -454,6 +477,8 @@ export function HomeScreen({
   // group's (that full leaderboard lives on the detail screen) — Home
   // only ever needs "your own card" for its hero copy and mini preview.
   const [primaryBingoFilled, setPrimaryBingoFilled] = useState<Set<BingoCategory>>(new Set());
+  // Only populated when `primary` is a Tic-Tac-Go game.
+  const [primaryTttGame, setPrimaryTttGame] = useState<TicTacGoGame | null>(null);
 
   const reload = useCallback(() => {
     health.getSnapshot().then((s) => {
@@ -664,6 +689,20 @@ export function HomeScreen({
       } else {
         setPrimaryBingoFilled(new Set());
       }
+      if (primaryResult?.challenge.kind === 'tictacgo') {
+        const tttId = primaryResult.challenge.id;
+        settleTicTacGo(tttId)
+          .catch(() => {})
+          .then(() => getTicTacGoGame(tttId))
+          .then((game) => {
+            if (!cancelled) setPrimaryTttGame(game);
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryTttGame(null);
+          });
+      } else {
+        setPrimaryTttGame(null);
+      }
     })()
       .catch(() => {
         // Stay on the sample fallback on any failure.
@@ -715,7 +754,14 @@ export function HomeScreen({
   // This challenge's own words, not the viewer's — see LabelsContext's
   // own comment on why those can differ.
   const hero = primary
-    ? heroCopy(primary, user?.id ?? null, labelsForOrg(primary.challenge.organizationId), primaryStreakStatuses, primaryBingoFilled)
+    ? heroCopy(
+        primary,
+        user?.id ?? null,
+        labelsForOrg(primary.challenge.organizationId),
+        primaryStreakStatuses,
+        primaryBingoFilled,
+        primaryTttGame,
+      )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
   // else's status (chasing someone, hasn't picked yet) already reads
@@ -962,6 +1008,8 @@ export function HomeScreen({
             <LiveMultiHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
           ) : primary.challenge.kind === 'bingo' ? (
             <BingoCardPreview primary={primary} filled={primaryBingoFilled} onOpen={openPrimary} styles={styles} />
+          ) : primary.challenge.kind === 'tictacgo' ? (
+            <TicTacGoPreview primary={primary} game={primaryTttGame} onOpen={openPrimary} styles={styles} />
           ) : (
             <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} colors={colors} />
           )
@@ -1378,6 +1426,38 @@ function BingoCardPreview({
         {filled.size} of {BINGO_SQUARE_COUNT} squares filled.
       </Text>
       <Button label="Full leaderboard" variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+// Home's compact view of a Tic-Tac-Go game — the live board, no goal
+// labels under claimed marks; the full game (and claiming) lives on the
+// detail screen.
+function TicTacGoPreview({
+  primary,
+  game,
+  onOpen,
+  styles,
+}: {
+  primary: PrimaryChallenge;
+  game: TicTacGoGame | null;
+  onOpen: () => void;
+  styles: HomeStyles;
+}) {
+  const { challenge } = primary;
+  const daysLeft = Math.max(0, Math.ceil((new Date(challenge.endsAt).getTime() - Date.now()) / 86_400_000));
+
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+        <Text style={styles.raceMeta}>
+          1v1 · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+        </Text>
+      </View>
+      {game ? <TicTacGoBoard game={game} compact /> : <Text style={styles.tileSub}>Loading the board…</Text>}
+      <Button label="Open game" variant="ghost" small onPress={onOpen} />
     </Card>
   );
 }

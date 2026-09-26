@@ -126,6 +126,11 @@ export function toChallengeCard(
     // card — the real per-square state lives on the detail screen.
     stat = String(BINGO_SQUARE_COUNT);
     statLabel = 'categories to fill';
+  } else if (challenge.kind === 'tictacgo') {
+    // Board state lives in tictacgo_games, not progress_snapshots — the
+    // live board is on the detail screen.
+    stat = '1v1';
+    statLabel = 'three in a row wins';
   } else if (distanceGoal) {
     // A distance pool isn't a ranked leaderboard at all — everyone's
     // steps or miles (whichever unit its creator picked — see

@@ -79,4 +79,7 @@ export interface HealthProvider {
   // practice (a challenge's own duration, capped at 30 days by
   // CreateScreen), not an open-ended history query.
   getDailyStepsSince(since: Date): Promise<DailyStepsWithDate[]>;
+  // Total steps from an exact moment (not a day boundary) until now —
+  // Tic-Tac-Go's step goals count only steps taken since your turn began.
+  getStepsSince(since: Date): Promise<number>;
 }
