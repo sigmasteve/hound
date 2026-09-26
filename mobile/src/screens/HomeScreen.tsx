@@ -67,7 +67,8 @@ import {
 import { listBingoProgress } from '../challenges/bingoApi';
 import { formatTimeLeft, turnDeadline } from '../challenges/tictacgo';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
-import { settleChallengeScore } from '../challenges/scoreApi';
+import { getMyHoundScore, settleChallengeScore, type HoundScore } from '../challenges/scoreApi';
+import { levelProgressForXp } from '../challenges/leveling';
 import { TicTacGoBoard } from '../components/TicTacGoCard';
 import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
@@ -460,6 +461,12 @@ export function HomeScreen({
   const [dailyRank, setDailyRank] = useState<StepRank | null>(null);
   const [weeklyRank, setWeeklyRank] = useState<StepRank | null>(null);
 
+  // Null covers both "hasn't loaded yet" and "failed to load" — same
+  // "never show a confident wrong number" reasoning as Settings' own copy
+  // of this fetch. The tile below just doesn't render until this
+  // resolves with a real value.
+  const [houndScore, setHoundScore] = useState<HoundScore | null>(null);
+
   // Only ever populated when `primary` itself turns out to be a 'tag'
   // challenge — see the effect below. Null otherwise, including while
   // that fetch is still in flight, which taggedBannerActive already
@@ -482,6 +489,13 @@ export function HomeScreen({
   const [primaryTttGame, setPrimaryTttGame] = useState<TicTacGoGame | null>(null);
 
   const reload = useCallback(() => {
+    if (isSupabaseConfigured && user?.id) {
+      getMyHoundScore(user.id)
+        .then(setHoundScore)
+        .catch(() => setHoundScore(null));
+    } else {
+      setHoundScore(null);
+    }
     health.getSnapshot().then((s) => {
       setSnap(s);
       if (!isSupabaseConfigured || !user?.id) return;
@@ -755,6 +769,8 @@ export function HomeScreen({
     }
   };
 
+  const houndLevel = houndScore ? levelProgressForXp(houndScore.xpTotal) : null;
+
   // This challenge's own words, not the viewer's — see LabelsContext's
   // own comment on why those can differ.
   const hero = primary
@@ -955,6 +971,24 @@ export function HomeScreen({
           styles={styles}
         />
       </View>
+
+      {houndScore && houndLevel && (
+        <Pressable style={styles.scoreCard} onPress={() => onGoTab('settings')}>
+          <View style={{ gap: 2 }}>
+            <Text style={styles.scoreCardLabel}>Hound Score</Text>
+            <Text style={styles.scoreCardValue}>{houndScore.houndScore.toLocaleString()}</Text>
+          </View>
+          <View style={styles.scoreCardLevel}>
+            <View style={styles.scoreCardLevelBadge}>
+              <Text style={styles.scoreCardLevelBadgeText}>Lv {houndLevel.level}</Text>
+            </View>
+            <View style={{ width: 84 }}>
+              <ProgressBar pct={houndLevel.pctToNextLevel} fillColor={color.accent} height={4} />
+            </View>
+          </View>
+          <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+        </Pressable>
+      )}
 
       {/* One-line pointer to the Data tab's own Readiness card (see the
           readiness plan doc) — Home is the screen someone actually opens
@@ -1555,6 +1589,25 @@ function makeStyles(colors: Palette) {
     },
     inviteTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
     inviteSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    scoreCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+    },
+    scoreCardLabel: { fontSize: 11.5, letterSpacing: 0.4, color: withAlpha(colors.text, 0.55) },
+    scoreCardValue: { fontFamily: font.headingSemibold, fontSize: 20, color: colors.text },
+    scoreCardLevel: { marginLeft: 'auto', alignItems: 'flex-end', gap: 5 },
+    scoreCardLevelBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 3,
+      borderRadius: 999,
+      backgroundColor: withAlpha(color.accent, 0.14),
+    },
+    scoreCardLevelBadgeText: { fontFamily: font.heading, fontSize: 12, color: color.accent },
     readinessChip: {
       flexDirection: 'row',
       alignItems: 'center',
