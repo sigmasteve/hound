@@ -20,7 +20,7 @@ export async function listBingoProgress(challengeId: string): Promise<BingoProgr
   const client = requireClient();
   const { data, error } = await client
     .from('bingo_progress')
-    .select('user_id, category, first_logged_at, source, workout_name, workout_at')
+    .select('user_id, category, first_logged_at, source, workout_name, workout_at, workout_key')
     .eq('challenge_id', challengeId);
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => ({
@@ -30,12 +30,16 @@ export async function listBingoProgress(challengeId: string): Promise<BingoProgr
     source: (row.source as BingoFillSource | null) ?? 'auto',
     workoutName: row.workout_name as string | null,
     workoutAt: row.workout_at as string | null,
+    workoutKey: row.workout_key as string | null,
   }));
 }
 
 // Fills the caller's own square — `workout` is a snapshot of whichever
 // WorkoutSample is responsible, for both fill sources (see
-// BingoProgressRow's own comment).
+// BingoProgressRow's own comment). `workout.id` (WorkoutSample.id) is
+// what actually stops the same real workout filling two different
+// squares (0054_bingo_workout_key.sql's own unique index) — `when` is
+// stored too, but only ever for display, not as an identity check.
 //
 // The two sources behave differently on a repeat call for the same
 // category, by design: 'auto' (syncBingoProgressFromDevice, which
@@ -50,7 +54,7 @@ export async function recordBingoProgress(
   challengeId: string,
   category: BingoCategory,
   source: BingoFillSource,
-  workout: { name: string; when: Date },
+  workout: { id: string; name: string; when: Date },
 ): Promise<void> {
   const client = requireClient();
   const userId = await requireUserId();
@@ -61,6 +65,7 @@ export async function recordBingoProgress(
     source,
     workout_name: workout.name,
     workout_at: workout.when.toISOString(),
+    workout_key: workout.id,
   };
   const { error } = await client
     .from('bingo_progress')

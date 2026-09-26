@@ -83,10 +83,15 @@ export type BingoFillSource = 'auto' | 'manual';
 
 // One row per category a participant has ever filled for a given
 // challenge — see bingoApi.ts's listBingoProgress, backed by
-// 0052/0053_bingo_progress's upsert-once-per-category shape.
-// workoutName/workoutAt are set for both fill sources (see
+// 0052/0053/0054_bingo_progress's upsert-once-per-category shape.
+// workoutName/workoutAt/workoutKey are set for both fill sources (see
 // syncBingoProgressFromDevice), not just a manual link — null only for a
-// row written before 0053 existed.
+// row written before 0053/0054 existed. workoutKey is the workout's own
+// stable id (WorkoutSample.id — HealthKit's real w.uuid, Health Connect's
+// own record id), the thing 0054_bingo_workout_key.sql's anti-double-link
+// index actually keys on — workoutAt is display-only now, not a real
+// identity (see that migration's own comment for why a timestamp turned
+// out not to be safe for this).
 export interface BingoProgressRow {
   userId: string;
   category: BingoCategory;
@@ -94,6 +99,7 @@ export interface BingoProgressRow {
   source: BingoFillSource;
   workoutName: string | null;
   workoutAt: string | null;
+  workoutKey: string | null;
 }
 
 export interface BingoCard {

@@ -257,7 +257,7 @@ export function ChallengeDetailScreen({
     setLinkingWorkoutId(workout.id);
     setLinkError(null);
     try {
-      await recordBingoProgress(challenge.id, category, 'manual', { name: workout.name, when: workout.when });
+      await recordBingoProgress(challenge.id, category, 'manual', { id: workout.id, name: workout.name, when: workout.when });
       setLinkingCategory(null);
       await load();
     } catch (e) {
