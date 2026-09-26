@@ -20,6 +20,7 @@ import { LoadingView } from '../components/LoadingView';
 import { ProgressBar } from '../components/ProgressBar';
 import { Tag } from '../components/Tag';
 import { TagRadar, type TagRadarMember } from '../components/TagRadar';
+import { TicTacGoCard } from '../components/TicTacGoCard';
 import { TextField } from '../components/TextField';
 import { ToggleRow } from '../components/Selectable';
 import { useTheme } from '../theme/ThemeContext';
@@ -51,6 +52,7 @@ import {
   type BingoProgressRow,
 } from '../challenges/bingo';
 import { listBingoProgress, recordBingoProgress, unlinkBingoProgress } from '../challenges/bingoApi';
+import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import type { WorkoutSample } from '../health/types';
 import { boardSortFor, usesDeviceSteps, usesDistanceRanking, usesWorkoutDistance } from '../challenges/scoring';
 import { formatStartsLabel, hasStarted, huntKindName, huntRoleLabel, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
@@ -212,6 +214,10 @@ export function ChallengeDetailScreen({
   // "fetch flat rows, compute fresh on every load" shape as Daily Streak.
   const [bingoRows, setBingoRows] = useState<BingoProgressRow[]>([]);
 
+  // Tic-Tac-Go's board — null for any other kind, or a game whose board
+  // was never set up.
+  const [tttGame, setTttGame] = useState<TicTacGoGame | null>(null);
+
   // Which square (if any) is currently showing its "pick a workout to
   // link" panel — see the effect below and the "Your bingo card" render.
   // Null means the panel is closed.
@@ -310,12 +316,16 @@ export function ChallengeDetailScreen({
       const needsTag = c.kind === 'tag';
       const needsStreak = c.kind === 'streak';
       const needsBingo = c.kind === 'bingo';
+      const needsTicTacGo = c.kind === 'tictacgo';
       // Settled before the round itself is fetched, not after — so a
       // stalled turn (15 real minutes with no catch) has already moved
       // on by the time this same load() reads who's IT, rather than
       // showing a round that's about to change out from under it.
       if (needsTag) await settleTagTimeout(challengeId).catch(() => {});
-      const [p, l, b, f, hs, sentInvites, tagRoundResult, tagMembersResult, tagEventsResult, dailyRows, joinDates, bingoRowsResult] =
+      // Same idea for Tic-Tac-Go: pass a turn that's run past 24 hours
+      // (or end a game whose time is up) before reading the board.
+      if (needsTicTacGo) await settleTicTacGo(challengeId).catch(() => {});
+      const [p, l, b, f, hs, sentInvites, tagRoundResult, tagMembersResult, tagEventsResult, dailyRows, joinDates, bingoRowsResult, tttGameResult] =
         await Promise.all([
           supabaseChallengesProvider.listParticipants(challengeId),
           supabaseChallengesProvider.getLeaderboard(challengeId),
@@ -331,6 +341,7 @@ export function ChallengeDetailScreen({
           needsStreak ? listDailyProgress(challengeId) : Promise.resolve([]),
           needsStreak ? listParticipantJoinDates(challengeId) : Promise.resolve(new Map<string, Date>()),
           needsBingo ? listBingoProgress(challengeId) : Promise.resolve<BingoProgressRow[]>([]),
+          needsTicTacGo ? getTicTacGoGame(challengeId) : Promise.resolve(null),
         ]);
       setChallenge(c);
       setParticipants(p);
@@ -344,6 +355,7 @@ export function ChallengeDetailScreen({
       setTagEvents(tagEventsResult);
       setStreakStatuses(needsStreak ? computeStreakStatus(c, joinDates, dailyRows) : new Map());
       setBingoRows(bingoRowsResult);
+      setTttGame(tttGameResult);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not load this challenge.');
     } finally {
@@ -1018,6 +1030,17 @@ export function ChallengeDetailScreen({
         </Card>
       )}
 
+      {challenge.kind === 'tictacgo' && (
+        <TicTacGoCard
+          game={tttGame}
+          participants={participants}
+          userId={user?.id}
+          health={health}
+          now={now}
+          onChanged={load}
+        />
+      )}
+
       {challenge.kind === 'bingo' && (
         <Card style={{ gap: 12 }} elevated={false}>
           <Text style={text.h4}>Your {BINGO_CARD_TYPE_NAME[bingoCardType]} card</Text>
@@ -1103,115 +1126,117 @@ export function ChallengeDetailScreen({
         </Card>
       )}
 
-      <Card style={{ gap: 12 }} elevated={false}>
-        <View style={styles.leaderboardHeader}>
-          <TrophyIcon size={16} color={colors.accent} />
-          <Text style={text.h4}>Leaderboard</Text>
-        </View>
-        {/* A finished-challenge acknowledgment — Tag gets its own recap
-            card above instead (never "won" — see that card's own
-            comment), and this Leaderboard already looks the same live
-            or finished otherwise, with nothing marking that it's over. */}
-        {finished && challenge.kind !== 'tag' && (
-          <Text style={styles.footNote}>
-            {challenge.kind === 'hunt'
-              ? isHuntConcluded(board)
-                ? 'The chase is over — nobody’s left to catch.'
-                : 'The chase’s clock ran out.'
-              : challenge.kind === 'distance'
-                ? goalMet
-                  ? 'The group hit its target — this pool is complete.'
-                  : 'This pool has wrapped up without reaching its target.'
-                : challenge.kind === 'streak'
-                  ? (() => {
-                      const survivors = board.filter((r) => streakStatuses.get(r.userId)?.eliminatedOnDay == null);
-                      if (survivors.length === 0) return 'Everyone’s streak ended before this one wrapped up.';
-                      if (survivors.length === 1) {
-                        const only = survivors[0];
-                        return `${only.userId === user?.id ? 'You' : only.name} won — the last one still on their streak!`;
-                      }
-                      return `${survivors.length} people made it the whole way without missing a day.`;
-                    })()
-                  : challenge.kind === 'bingo'
+      {challenge.kind !== 'tictacgo' && (
+        <Card style={{ gap: 12 }} elevated={false}>
+          <View style={styles.leaderboardHeader}>
+            <TrophyIcon size={16} color={colors.accent} />
+            <Text style={text.h4}>Leaderboard</Text>
+          </View>
+          {/* A finished-challenge acknowledgment — Tag gets its own recap
+              card above instead (never "won" — see that card's own
+              comment), and this Leaderboard already looks the same live
+              or finished otherwise, with nothing marking that it's over. */}
+          {finished && challenge.kind !== 'tag' && (
+            <Text style={styles.footNote}>
+              {challenge.kind === 'hunt'
+                ? isHuntConcluded(board)
+                  ? 'The chase is over — nobody’s left to catch.'
+                  : 'The chase’s clock ran out.'
+                : challenge.kind === 'distance'
+                  ? goalMet
+                    ? 'The group hit its target — this pool is complete.'
+                    : 'This pool has wrapped up without reaching its target.'
+                  : challenge.kind === 'streak'
                     ? (() => {
-                        const top = bingoBoardRows[0];
-                        if (!top || top.squaresFilled === 0) return 'Nobody filled a square before time ran out.';
-                        const label = top.userId === user?.id ? 'You' : top.name;
-                        return top.blackout
-                          ? `${label} filled the whole card — blackout!`
-                          : `${label} led with ${top.squaresFilled} of ${BINGO_SQUARE_COUNT} squares.`;
+                        const survivors = board.filter((r) => streakStatuses.get(r.userId)?.eliminatedOnDay == null);
+                        if (survivors.length === 0) return 'Everyone’s streak ended before this one wrapped up.';
+                        if (survivors.length === 1) {
+                          const only = survivors[0];
+                          return `${only.userId === user?.id ? 'You' : only.name} won — the last one still on their streak!`;
+                        }
+                        return `${survivors.length} people made it the whole way without missing a day.`;
                       })()
-                    : `${board[0]?.userId === user?.id ? 'You' : board[0]?.name ?? 'Someone'} won with ${formatMetric(
-                        scoredByDistance ? board[0]?.totalDistanceMi ?? 0 : board[0]?.totalSteps ?? 0,
-                      )}.`}
-          </Text>
-        )}
-        {headStartDaysLeft > 0 && (
-          <Text style={styles.footNote}>
-            Head start: the {labels.hunter}&rsquo;s total won&rsquo;t count toward a catch for{' '}
-            {headStartDaysLeft} more {headStartDaysLeft === 1 ? 'day' : 'days'}.
-          </Text>
-        )}
-        {hunterEffectiveNote && <Text style={styles.footNote}>{hunterEffectiveNote}</Text>}
-        {challenge.kind === 'bingo'
-          ? bingoBoardRows.map((card, i) => (
-              <View key={card.userId} style={styles.boardRow}>
-                <Text style={styles.boardRank}>{i + 1}</Text>
-                <Avatar initials={card.initials} tint={card.userId === user?.id ? TINT_A : TINT_N} size={30} fontSize={11} />
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-                  <Text style={styles.boardName}>{card.userId === user?.id ? 'You' : card.name}</Text>
-                  {card.blackout && <Tag label="Blackout" variant="accent" />}
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.boardSteps}>
-                    {card.squaresFilled} of {BINGO_SQUARE_COUNT}
-                  </Text>
-                </View>
-              </View>
-            ))
-          : streakBoard.map((row, i) => {
-              // The Hunter's row shows their credited progress
-              // (huntEffectiveMetric), not their raw total — showing
-              // 50,610 here while the Chase progress card below says
-              // only 34,895 of it counts is confusing on its own
-              // screen: two different numbers for the same person,
-              // only one of which means anything toward a catch.
-              // huntEffectiveMetric already no-ops for every
-              // non-Hunter role, so this is exactly the raw total for
-              // everyone else on the board.
-              const displaySteps = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'steps') : row.totalSteps;
-              const displayMi = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'distance') : row.totalDistanceMi;
-              const streakStatus = challenge.kind === 'streak' ? streakStatuses.get(row.userId) : undefined;
-              return (
-                <View key={row.userId} style={styles.boardRow}>
+                    : challenge.kind === 'bingo'
+                      ? (() => {
+                          const top = bingoBoardRows[0];
+                          if (!top || top.squaresFilled === 0) return 'Nobody filled a square before time ran out.';
+                          const label = top.userId === user?.id ? 'You' : top.name;
+                          return top.blackout
+                            ? `${label} filled the whole card — blackout!`
+                            : `${label} led with ${top.squaresFilled} of ${BINGO_SQUARE_COUNT} squares.`;
+                        })()
+                      : `${board[0]?.userId === user?.id ? 'You' : board[0]?.name ?? 'Someone'} won with ${formatMetric(
+                          scoredByDistance ? board[0]?.totalDistanceMi ?? 0 : board[0]?.totalSteps ?? 0,
+                        )}.`}
+            </Text>
+          )}
+          {headStartDaysLeft > 0 && (
+            <Text style={styles.footNote}>
+              Head start: the {labels.hunter}&rsquo;s total won&rsquo;t count toward a catch for{' '}
+              {headStartDaysLeft} more {headStartDaysLeft === 1 ? 'day' : 'days'}.
+            </Text>
+          )}
+          {hunterEffectiveNote && <Text style={styles.footNote}>{hunterEffectiveNote}</Text>}
+          {challenge.kind === 'bingo'
+            ? bingoBoardRows.map((card, i) => (
+                <View key={card.userId} style={styles.boardRow}>
                   <Text style={styles.boardRank}>{i + 1}</Text>
-                  <Avatar initials={row.initials} tint={row.userId === user?.id ? TINT_A : TINT_N} size={30} fontSize={11} />
+                  <Avatar initials={card.initials} tint={card.userId === user?.id ? TINT_A : TINT_N} size={30} fontSize={11} />
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-                    <Text style={styles.boardName}>{row.name}</Text>
-                    {row.isBot && <RobotIcon size={13} color={withAlpha(colors.text, 0.55)} />}
-                    {row.role && <Tag label={huntRoleLabel(row.role, labels)} variant={HUNT_ROLE_TAG_VARIANT[row.role]} />}
-                    {streakStatus && (
-                      <Tag
-                        label={streakStatus.eliminatedOnDay == null ? `${streakStatus.streakDays}‑day streak` : 'Out'}
-                        variant={streakStatus.eliminatedOnDay == null ? 'accent' : 'outline'}
-                      />
-                    )}
+                    <Text style={styles.boardName}>{card.userId === user?.id ? 'You' : card.name}</Text>
+                    {card.blackout && <Tag label="Blackout" variant="accent" />}
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    {scoredByDistance ? (
-                      <Text style={styles.boardSteps}>{displayMi.toFixed(1)} mi</Text>
-                    ) : (
-                      <>
-                        <Text style={styles.boardSteps}>{displaySteps.toLocaleString()} steps</Text>
-                        {displayMi > 0 && <Text style={styles.boardDistance}>{displayMi.toFixed(1)} mi</Text>}
-                      </>
-                    )}
+                    <Text style={styles.boardSteps}>
+                      {card.squaresFilled} of {BINGO_SQUARE_COUNT}
+                    </Text>
                   </View>
                 </View>
-              );
-            })}
-        {board.length === 0 && <Text style={styles.footNote}>No participants found.</Text>}
-      </Card>
+              ))
+            : streakBoard.map((row, i) => {
+                // The Hunter's row shows their credited progress
+                // (huntEffectiveMetric), not their raw total — showing
+                // 50,610 here while the Chase progress card below says
+                // only 34,895 of it counts is confusing on its own
+                // screen: two different numbers for the same person,
+                // only one of which means anything toward a catch.
+                // huntEffectiveMetric already no-ops for every
+                // non-Hunter role, so this is exactly the raw total for
+                // everyone else on the board.
+                const displaySteps = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'steps') : row.totalSteps;
+                const displayMi = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'distance') : row.totalDistanceMi;
+                const streakStatus = challenge.kind === 'streak' ? streakStatuses.get(row.userId) : undefined;
+                return (
+                  <View key={row.userId} style={styles.boardRow}>
+                    <Text style={styles.boardRank}>{i + 1}</Text>
+                    <Avatar initials={row.initials} tint={row.userId === user?.id ? TINT_A : TINT_N} size={30} fontSize={11} />
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                      <Text style={styles.boardName}>{row.name}</Text>
+                      {row.isBot && <RobotIcon size={13} color={withAlpha(colors.text, 0.55)} />}
+                      {row.role && <Tag label={huntRoleLabel(row.role, labels)} variant={HUNT_ROLE_TAG_VARIANT[row.role]} />}
+                      {streakStatus && (
+                        <Tag
+                          label={streakStatus.eliminatedOnDay == null ? `${streakStatus.streakDays}‑day streak` : 'Out'}
+                          variant={streakStatus.eliminatedOnDay == null ? 'accent' : 'outline'}
+                        />
+                      )}
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      {scoredByDistance ? (
+                        <Text style={styles.boardSteps}>{displayMi.toFixed(1)} mi</Text>
+                      ) : (
+                        <>
+                          <Text style={styles.boardSteps}>{displaySteps.toLocaleString()} steps</Text>
+                          {displayMi > 0 && <Text style={styles.boardDistance}>{displayMi.toFixed(1)} mi</Text>}
+                        </>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+          {board.length === 0 && <Text style={styles.footNote}>No participants found.</Text>}
+        </Card>
+      )}
 
       {chaseRows.length > 0 && (
         <Card style={{ gap: 12 }} elevated={false}>
@@ -1246,7 +1271,7 @@ export function ChallengeDetailScreen({
           manually. Neither does Bingo: it's scored purely by filled
           squares (bingo_progress, see src/challenges/bingoApi.ts), so
           steps logged here would never show up anywhere for it. */}
-      {!usesDeviceSteps(challenge) && !usesWorkoutDistance(challenge) && challenge.kind !== 'bingo' && (
+      {!usesDeviceSteps(challenge) && !usesWorkoutDistance(challenge) && challenge.kind !== 'tictacgo' && challenge.kind !== 'bingo' && (
         <Card style={{ gap: 14 }} elevated={false}>
           <Text style={text.h4}>Log your progress</Text>
           <Text style={styles.footNote}>
@@ -1283,54 +1308,56 @@ export function ChallengeDetailScreen({
         </Card>
       )}
 
-      <Card style={{ gap: 10 }} elevated={false}>
-        <Text style={text.h4}>Invite a friend</Text>
-        {inviteLocked ? (
-          <Text style={styles.footNote}>
-            {challenge.kind === 'hunt' && challenge.headStartDays
-              ? `This chase’s head start has already ended — a newly invited friend would join with no head start of their own, so new invites are closed for the rest of this chase.`
-              : `It’s been more than 24 hours since this challenge started, so new invites are closed — joining this late would give someone an unfair read on where everyone else already stands.`}
-          </Text>
-        ) : invitableFriends.length === 0 ? (
-          <Text style={styles.footNote}>
-            {friends.length === 0
-              ? 'Add friends from the Friends tab, then invite them here.'
-              : 'Everyone you’re friends with is already in this challenge.'}
-          </Text>
-        ) : (
-          <>
-            <TextField
-              label="Search friends"
-              value={friendSearch}
-              onChangeText={setFriendSearch}
-              placeholder="Search by name"
-              icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
-              autoCapitalize="none"
-            />
-            {searchedFriends.length === 0 ? (
-              <Text style={styles.footNote}>No friends match “{friendSearch.trim()}”.</Text>
-            ) : (
-              searchedFriends.map((f) => {
-                const invited = invitedIds.has(f.userId);
-                const busy = invitingId === f.userId;
-                return (
-                  <View key={f.userId} style={styles.inviteFriendRow}>
-                    <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
-                    <Text style={[styles.friendName, { flex: 1 }]}>{f.name}</Text>
-                    <Button
-                      label={busy ? (invited ? 'Reminding…' : 'Inviting…') : invited ? 'Remind' : 'Invite'}
-                      variant={invited ? 'ghost' : 'secondary'}
-                      small
-                      disabled={busy}
-                      onPress={() => (invited ? remindFriend(f) : inviteFriend(f))}
-                    />
-                  </View>
-                );
-              })
-            )}
-          </>
-        )}
-      </Card>
+      {!(challenge.kind === 'tictacgo' && participants.length >= 2) && (
+        <Card style={{ gap: 10 }} elevated={false}>
+          <Text style={text.h4}>{challenge.kind === 'tictacgo' ? 'Invite your opponent' : 'Invite a friend'}</Text>
+          {inviteLocked ? (
+            <Text style={styles.footNote}>
+              {challenge.kind === 'hunt' && challenge.headStartDays
+                ? `This chase’s head start has already ended — a newly invited friend would join with no head start of their own, so new invites are closed for the rest of this chase.`
+                : `It’s been more than 24 hours since this challenge started, so new invites are closed — joining this late would give someone an unfair read on where everyone else already stands.`}
+            </Text>
+          ) : invitableFriends.length === 0 ? (
+            <Text style={styles.footNote}>
+              {friends.length === 0
+                ? 'Add friends from the Friends tab, then invite them here.'
+                : 'Everyone you’re friends with is already in this challenge.'}
+            </Text>
+          ) : (
+            <>
+              <TextField
+                label="Search friends"
+                value={friendSearch}
+                onChangeText={setFriendSearch}
+                placeholder="Search by name"
+                icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
+                autoCapitalize="none"
+              />
+              {searchedFriends.length === 0 ? (
+                <Text style={styles.footNote}>No friends match “{friendSearch.trim()}”.</Text>
+              ) : (
+                searchedFriends.map((f) => {
+                  const invited = invitedIds.has(f.userId);
+                  const busy = invitingId === f.userId;
+                  return (
+                    <View key={f.userId} style={styles.inviteFriendRow}>
+                      <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
+                      <Text style={[styles.friendName, { flex: 1 }]}>{f.name}</Text>
+                      <Button
+                        label={busy ? (invited ? 'Reminding…' : 'Inviting…') : invited ? 'Remind' : 'Invite'}
+                        variant={invited ? 'ghost' : 'secondary'}
+                        small
+                        disabled={busy}
+                        onPress={() => (invited ? remindFriend(f) : inviteFriend(f))}
+                      />
+                    </View>
+                  );
+                })
+              )}
+            </>
+          )}
+        </Card>
+      )}
 
       {challenge.createdBy === user?.id && (
         <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteRow}>

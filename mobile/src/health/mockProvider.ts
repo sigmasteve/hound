@@ -88,6 +88,13 @@ export const mockProvider: HealthProvider = {
     }
     return out;
   },
+
+  async getStepsSince(since: Date): Promise<number> {
+    // Roughly 600 steps an hour, so a sample-data turn fills up at a
+    // believable pace.
+    const hours = Math.max(0, (Date.now() - since.getTime()) / 3_600_000);
+    return Math.round(hours * 600);
+  },
 };
 
 function dateOnly(d: Date): Date {

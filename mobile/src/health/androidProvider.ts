@@ -284,6 +284,16 @@ export const androidHealthProvider: HealthProvider = {
     }
     return out;
   },
+
+  async getStepsSince(since: Date): Promise<number> {
+    await ensureInitialized();
+    const total = await aggregateStepsTotal({
+      operator: 'between',
+      startTime: since.toISOString(),
+      endTime: new Date().toISOString(),
+    });
+    return Math.round(total);
+  },
 };
 
 function dateOnly(d: Date): Date {

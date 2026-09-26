@@ -32,6 +32,15 @@ import { getOrganization } from '../organizations/supabaseOrganizations';
 import type { Organization } from '../organizations/types';
 import { BOT_FITNESS_LEVELS, BOT_PRESETS, botInitials } from '../challenges/botSimulation';
 import { BINGO_CARD_TYPE_DESC, BINGO_CARD_TYPE_NAME, DEFAULT_BINGO_CARD_TYPE, type BingoCardType } from '../challenges/bingo';
+import {
+  drawBoard,
+  goalById,
+  TICTACGO_DIFFICULTIES,
+  TICTACGO_DIFFICULTY_DESC,
+  TICTACGO_DIFFICULTY_NAME,
+  type TicTacGoDifficulty,
+} from '../challenges/tictacgo';
+import { setupTicTacGoBoard } from '../challenges/tictacgoApi';
 import type { DistanceGoalUnit, HuntRole, ScoringMethod } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
 
@@ -77,6 +86,8 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const [headStart, setHeadStart] = useState(2);
   const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>('miles');
   const [bingoCardType, setBingoCardType] = useState<BingoCardType>(DEFAULT_BINGO_CARD_TYPE);
+  const [tictacgoDifficulty, setTictacgoDifficulty] = useState<TicTacGoDifficulty>('easy');
+  const [tictacgoBoard, setTictacgoBoard] = useState<string[]>(() => drawBoard('easy'));
   const [distanceGoalMi, setDistanceGoalMi] = useState(100);
   const [distanceGoalSteps, setDistanceGoalSteps] = useState(500_000);
   const [dailyGoalSteps, setDailyGoalSteps] = useState(10_000);
@@ -178,6 +189,11 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   }, [challengeScope]);
 
   const toggleFriend = (userId: string) => {
+    // Tic-Tac-Go is strictly 1v1 — picking someone replaces the last pick.
+    if (draftType === 'tictacgo') {
+      setInvited((cur) => (cur.includes(userId) ? [] : [userId]));
+      return;
+    }
     setInvited((cur) => (cur.includes(userId) ? cur.filter((id) => id !== userId) : [...cur, userId]));
     // Deselecting the friend currently picked as Hunter would leave
     // hunterId pointing at someone no longer invited — fall back to
@@ -223,6 +239,10 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
       onFinish();
       return;
     }
+    if (draftType === 'tictacgo' && invited.length !== 1) {
+      setSaveError('Pick one friend to play against.');
+      return;
+    }
     setSaveError(null);
     setSaving(true);
     try {
@@ -235,7 +255,10 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
       // selectedBots somehow has stale entries from switching kind after
       // picking bots, not just because the "Bot opponents" step above is
       // hidden for both.
-      const chosenBots = draftType === 'tag' || draftType === 'bingo' ? [] : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
+      const chosenBots =
+        draftType === 'tag' || draftType === 'bingo' || draftType === 'tictacgo'
+          ? []
+          : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
       const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
       const created = await supabaseChallengesProvider.createChallenge({
         name: draftName.trim(),
@@ -259,6 +282,15 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         startsAt: startsAtFor(startOption).toISOString(),
         organizationId: challengeScope === 'org' && myOrgId ? myOrgId : undefined,
       });
+      if (draftType === 'tictacgo') {
+        try {
+          await setupTicTacGoBoard(created.id, tictacgoDifficulty, tictacgoBoard);
+        } catch (e) {
+          // A game with no board can't be played — don't leave it behind.
+          await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
+          throw e;
+        }
+      }
       // Best-effort, same reasoning as ChallengeDetailScreen's own
       // inviteFriend: the challenge itself already saved successfully by
       // this point, so one invite failing (a stale friendship row,
@@ -451,6 +483,37 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
             </View>
           )}
 
+          {draftType === 'tictacgo' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Difficulty</Text>
+                <Text style={styles.huntBlockValue}>{TICTACGO_DIFFICULTY_NAME[tictacgoDifficulty]}</Text>
+              </View>
+              <SegmentedControl
+                options={TICTACGO_DIFFICULTIES.map((d) => ({ value: d, label: TICTACGO_DIFFICULTY_NAME[d] }))}
+                value={tictacgoDifficulty}
+                onChange={(d) => {
+                  setTictacgoDifficulty(d);
+                  setTictacgoBoard(drawBoard(d));
+                }}
+              />
+              <Text style={styles.huntBlockNote}>{TICTACGO_DIFFICULTY_DESC[tictacgoDifficulty]}</Text>
+              <View style={styles.tttGrid}>
+                {tictacgoBoard.map((id) => (
+                  <View key={id} style={styles.tttCell}>
+                    <Text style={styles.tttCellText} numberOfLines={2}>
+                      {goalById(id)?.label ?? '—'}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              <Button label="Reshuffle board" variant="ghost" small onPress={() => setTictacgoBoard(drawBoard(tictacgoDifficulty))} />
+              <Text style={styles.huntBlockNote}>
+                Each player gets 24 hours per turn. Only activity after your turn starts counts toward a square.
+              </Text>
+            </View>
+          )}
+
           {draftType === 'streak' && (
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
@@ -531,7 +594,13 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
 
       {step === 3 && (
         <View style={{ gap: 14 }}>
-          <Text style={text.h2}>Bring friends</Text>
+          <Text style={text.h2}>{draftType === 'tictacgo' ? 'Pick your opponent' : 'Bring friends'}</Text>
+          {draftType === 'tictacgo' && (
+            <Text style={styles.footNote}>
+              Tic-Tac-Go is one-on-one. The game starts when they accept — a coin flip decides who&rsquo;s X and
+              goes first.
+            </Text>
+          )}
           {!!myOrgId && (
             <View style={{ gap: 8 }}>
               <Text style={text.h4}>Who&rsquo;s this chase for?</Text>
@@ -598,7 +667,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
             link either way.
           </Text>
 
-          {draftType !== 'tag' && draftType !== 'bingo' && (
+          {draftType !== 'tag' && draftType !== 'bingo' && draftType !== 'tictacgo' && (
             <>
               <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>
               <Text style={styles.footNote}>
@@ -771,6 +840,19 @@ function makeStyles(colors: Palette) {
     // way (see tokens.ts), so one color works in both places.
     huntBlockValue: { fontFamily: font.heading, fontSize: 20, color: colors.accentActive },
     huntBlockNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    tttGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    tttCell: {
+      width: '31.5%',
+      aspectRatio: 1,
+      borderRadius: 10,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.divider,
+      backgroundColor: withAlpha(colors.text, 0.04),
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 6,
+    },
+    tttCellText: { fontSize: 12.5, textAlign: 'center', color: colors.text, fontFamily: font.heading },
     // Same accent-wash-over-the-theme approach huntBlock uses above, just
     // at a lighter alpha since this sits inline rather than being its own
     // spotlight card.
