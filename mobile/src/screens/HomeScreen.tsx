@@ -688,9 +688,7 @@ export function HomeScreen({
   // state.
   const announcementBar = showBanner && banner && (
     <View style={styles.announcementBar}>
-      <Text style={styles.announcementText} numberOfLines={3}>
-        {renderBannerMessage(banner.message, colors.accent)}
-      </Text>
+      <Text style={styles.announcementText}>{renderBannerMessage(banner.message, colors.accent)}</Text>
       <Pressable onPress={dismissBanner} hitSlop={8}>
         <XIcon size={16} color={colors.text} />
       </Pressable>
@@ -1319,7 +1317,11 @@ function makeStyles(colors: Palette) {
     loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     announcementBar: {
       flexDirection: 'row',
-      alignItems: 'center',
+      // flex-start, not center — now that the message can wrap to as
+      // many lines as it needs (see announcementText), a growing block
+      // would otherwise carry the dismiss "x" down to its vertical
+      // middle instead of keeping it pinned to the top corner.
+      alignItems: 'flex-start',
       gap: 10,
       paddingHorizontal: 16,
       paddingVertical: 10,
