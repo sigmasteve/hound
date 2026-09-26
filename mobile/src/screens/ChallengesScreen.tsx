@@ -20,6 +20,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { headStartBaselineDayKey, pickPrimaryChallenge } from '../challenges/board';
 import { huntKindName, toChallengeCard } from '../challenges/present';
+import { settleChallengeScore } from '../challenges/scoreApi';
 import { useLabels } from '../labels/LabelsContext';
 import type { Challenge, ChallengeInvite, LeaderboardEntry } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
@@ -151,6 +152,20 @@ export function ChallengesScreen({
     setLiveCards(cards);
     setFinishedRawChallenges(pastSchedule);
     setFinishedCardOverrides(null);
+
+    // Best-effort, unawaited — settle_challenge_score (0058_hound_score.sql)
+    // no-ops instantly unless this exact challenge just genuinely
+    // concluded and hasn't been awarded yet, same "safe to call
+    // speculatively" shape as settleTagTimeout/settleTicTacGo. Limited to
+    // stillScheduled (this call already just paid for their full board
+    // fetch above) rather than every past-schedule challenge in an
+    // account's whole history — ChallengeDetailScreen's own load() covers
+    // settling an older one, the moment someone actually reopens it,
+    // without reintroducing the unbounded per-visit cost this screen's
+    // own lazy Finished-details fetch was built to avoid.
+    for (const c of stillScheduled) {
+      settleChallengeScore(c.id).catch(() => {});
+    }
   };
 
   const loadInvites = async (): Promise<void> => {

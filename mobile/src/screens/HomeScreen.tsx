@@ -67,6 +67,7 @@ import {
 import { listBingoProgress } from '../challenges/bingoApi';
 import { formatTimeLeft, turnDeadline } from '../challenges/tictacgo';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
+import { settleChallengeScore } from '../challenges/scoreApi';
 import { TicTacGoBoard } from '../components/TicTacGoCard';
 import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
@@ -640,6 +641,9 @@ export function HomeScreen({
       setLiveInvites(invites);
       const primaryResult = results.find((r) => r.challenge.id === primaryId);
       if (primaryResult) setPrimary({ challenge: primaryResult.challenge, board: primaryResult.board });
+      // Best-effort, unawaited — same "safe to call on every load" shape
+      // as ChallengesScreen/ChallengeDetailScreen's own call sites.
+      if (primaryResult) settleChallengeScore(primaryResult.challenge.id).catch(() => {});
       // Whether Home's own hero card needs "you've been tagged" — only
       // ever relevant when the primary challenge itself is a Tag game,
       // so this stays null (and skips the extra fetch) for every other

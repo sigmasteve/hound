@@ -53,6 +53,7 @@ import {
 } from '../challenges/bingo';
 import { listBingoProgress, recordBingoProgress, unlinkBingoProgress } from '../challenges/bingoApi';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
+import { settleChallengeScore } from '../challenges/scoreApi';
 import type { WorkoutSample } from '../health/types';
 import { boardSortFor, usesDeviceSteps, usesDistanceRanking, usesWorkoutDistance } from '../challenges/scoring';
 import { formatStartsLabel, hasStarted, huntKindName, huntRoleLabel, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
@@ -312,6 +313,10 @@ export function ChallengeDetailScreen({
       // head-start-baseline fetch is even worth making depends on its
       // own kind/headStartDays, which isn't known until this returns.
       const c = await supabaseChallengesProvider.getChallenge(challengeId);
+      // Best-effort, unawaited — see ChallengesScreen's own call site for
+      // why this is safe to fire on every load regardless of whether this
+      // challenge has actually concluded.
+      settleChallengeScore(challengeId).catch(() => {});
       const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
       const needsTag = c.kind === 'tag';
       const needsStreak = c.kind === 'streak';
