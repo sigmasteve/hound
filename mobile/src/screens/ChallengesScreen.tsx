@@ -270,10 +270,25 @@ export function ChallengesScreen({
     ...(liveCards?.filter((c) => c.finished) ?? []),
     ...finishedRawChallenges.map((c) => finishedCardOverrides?.get(c.id) ?? placeholderFinishedCard(c)),
   ];
+  // Every finished challenge whose real stat is actually known — the
+  // early-concluded ones (already resolved by the eager fetch above) plus
+  // whichever past-schedule ones finishedCardOverrides has resolved so
+  // far. Deliberately excludes an unresolved placeholder (stat: '—',
+  // meaning "not fetched yet," not "nobody logged anything") — tallying
+  // those into medalCounts as "Other" was the actual bug here: every
+  // finished challenge silently miscounted as Other until Finished was
+  // expanded once and its real placement came back. Better to undercount
+  // honestly (and let it self-correct once resolved) than confidently
+  // show a wrong breakdown.
+  const resolvedFinishedChallenges = [
+    ...(liveCards?.filter((c) => c.finished) ?? []),
+    ...finishedRawChallenges.map((c) => finishedCardOverrides?.get(c.id)).filter((c): c is ChallengeCard => !!c),
+  ];
+  const unresolvedFinishedCount = finishedChallenges.length - resolvedFinishedChallenges.length;
   // Tally by the same `c.stat` ordinal FinishedRow/medalColorFor already
   // read — '1st'/'2nd'/'3rd' get their own medal, everything else (4th+,
   // or '—' when nobody ever logged anything) lands in "Other".
-  const medalCounts = finishedChallenges.reduce(
+  const medalCounts = resolvedFinishedChallenges.reduce(
     (acc, c) => {
       if (c.stat === '1st') acc.gold += 1;
       else if (c.stat === '2nd') acc.silver += 1;
@@ -386,6 +401,16 @@ export function ChallengesScreen({
                 <MedalTile tint={color.bronze} count={medalCounts.bronze} label="Bronze" styles={styles} />
                 <MedalTile tint={color.neutral500} count={medalCounts.other} label="Other" styles={styles} />
               </View>
+              {/* unresolvedFinishedCount is only ever nonzero before
+                  Finished has been expanded at least once this visit (see
+                  its own comment) — the placement for that many finished
+                  challenges hasn't been fetched yet, so the tally above is
+                  a real but partial count, not the final one. */}
+              {unresolvedFinishedCount > 0 && (
+                <Text style={styles.medalsPendingNote}>
+                  Tap to count {unresolvedFinishedCount} more.
+                </Text>
+              )}
             </Pressable>
             {finishedExpanded && (
               <View style={styles.finishedList}>
@@ -593,6 +618,7 @@ function makeStyles(colors: Palette) {
     finishedCount: { fontSize: 13, color: withAlpha(colors.text, 0.5) },
     medalsCaretOpen: { transform: [{ rotate: '90deg' }] },
     medalsRow: { flexDirection: 'row', gap: 8 },
+    medalsPendingNote: { fontSize: 11.5, color: withAlpha(colors.text, 0.45) },
     medalTile: {
       flex: 1,
       alignItems: 'center',
