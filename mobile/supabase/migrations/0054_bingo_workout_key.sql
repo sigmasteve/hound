@@ -36,3 +36,31 @@ create unique index bingo_progress_workout_once
 -- possible from here (the original WorkoutSample.id was never stored),
 -- so any bad double-link already in the database from before this fix
 -- needs cleaning up by hand, not something this migration can undo.
+--
+-- One narrow case this CAN safely clean up on its own: an 'auto' row
+-- with source='auto' and BOTH workout_name and workout_at still null —
+-- that only happens for a square filled by the original
+-- syncBingoProgressFromDevice, before it tracked which workout filled a
+-- square at all (see PR that introduced workout_name/workout_at). Because
+-- auto-fill's own upsert always ignores a conflict rather than
+-- overwriting, a square filled that way stays stuck with no workout
+-- record forever — this deletes exactly those rows (never a 'manual' row,
+-- which has always required picking a real workout, and never an 'auto'
+-- row that already has real workout_name/workout_at) so the next device
+-- sync re-fills them fresh, this time with a real workout_key attached.
+-- A square with no matching workout still in range simply goes back to
+-- unfilled instead of silently keeping an unverifiable old fill.
+delete from public.bingo_progress
+where source = 'auto' and workout_name is null and workout_at is null;
+
+-- Lets someone undo an accidental manual link — tap the square, remove
+-- it, it goes back to unfilled (or whatever the next auto-sync finds for
+-- that category on its own). Deliberately scoped to source = 'manual' in
+-- the policy itself, not just the app's own UI: an 'auto' row should
+-- never be deletable this way at all — the next sync would just refill it
+-- from the same classification anyway, so "removing" one would only ever
+-- be confusing, never actually undo anything.
+create policy "Users can remove their own manual bingo link"
+  on public.bingo_progress for delete
+  to authenticated
+  using (user_id = auth.uid() and source = 'manual');

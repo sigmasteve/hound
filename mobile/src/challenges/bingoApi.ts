@@ -72,3 +72,23 @@ export async function recordBingoProgress(
     .upsert(row, { onConflict: 'challenge_id,user_id,category', ignoreDuplicates: source === 'auto' });
   if (error) throw new Error(error.message);
 }
+
+// Undoes an accidental manual link — the square goes back to unfilled,
+// or to whatever the next device sync classifies for that category on
+// its own if a matching workout is still in range by then (removing a
+// manual link un-does the override, it doesn't block auto-fill from
+// ever touching that category again). RLS itself (0054's own delete
+// policy) refuses this for anything but the caller's own 'manual' rows
+// — an 'auto' fill was never something a person "added" to begin with,
+// and the very next sync would just put it right back regardless.
+export async function unlinkBingoProgress(challengeId: string, category: BingoCategory): Promise<void> {
+  const client = requireClient();
+  const userId = await requireUserId();
+  const { error } = await client
+    .from('bingo_progress')
+    .delete()
+    .eq('challenge_id', challengeId)
+    .eq('user_id', userId)
+    .eq('category', category);
+  if (error) throw new Error(error.message);
+}

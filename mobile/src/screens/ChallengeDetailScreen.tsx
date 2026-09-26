@@ -47,7 +47,7 @@ import {
   type BingoCategory,
   type BingoProgressRow,
 } from '../challenges/bingo';
-import { listBingoProgress, recordBingoProgress } from '../challenges/bingoApi';
+import { listBingoProgress, recordBingoProgress, unlinkBingoProgress } from '../challenges/bingoApi';
 import type { WorkoutSample } from '../health/types';
 import { boardSortFor, usesDeviceSteps, usesDistanceRanking, usesWorkoutDistance } from '../challenges/scoring';
 import { formatStartsLabel, hasStarted, huntKindName, huntRoleLabel, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
@@ -264,6 +264,26 @@ export function ChallengeDetailScreen({
       setLinkError(e instanceof Error ? e.message : 'Could not link that workout — try again.');
     } finally {
       setLinkingWorkoutId(null);
+    }
+  };
+
+  const [removingLink, setRemovingLink] = useState(false);
+
+  // Undoes an accidental manual link — only ever offered for a 'manual'
+  // row (see the render below); the RLS policy backing this refuses an
+  // 'auto' one anyway (unlinkBingoProgress's own comment).
+  const removeLink = async (category: BingoCategory) => {
+    if (!challenge) return;
+    setRemovingLink(true);
+    setLinkError(null);
+    try {
+      await unlinkBingoProgress(challenge.id, category);
+      setLinkingCategory(null);
+      await load();
+    } catch (e) {
+      setLinkError(e instanceof Error ? e.message : 'Could not remove that link — try again.');
+    } finally {
+      setRemovingLink(false);
     }
   };
 
@@ -1031,9 +1051,18 @@ export function ChallengeDetailScreen({
                 </Pressable>
               </View>
               {myBingoCard?.entries.get(linkingCategory)?.workoutName && (
-                <Text style={styles.footNote}>
-                  Currently linked to {myBingoCard.entries.get(linkingCategory)?.workoutName}.
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <Text style={styles.footNote}>
+                    Currently linked to {myBingoCard.entries.get(linkingCategory)?.workoutName}.
+                  </Text>
+                  {myBingoCard.entries.get(linkingCategory)?.source === 'manual' && (
+                    <Pressable onPress={() => removeLink(linkingCategory)} disabled={removingLink} hitSlop={4}>
+                      <Text style={[styles.footNote, { color: colors.amber, fontFamily: font.heading }]}>
+                        {removingLink ? 'Removing…' : 'Remove link'}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
               )}
               {linkError && <Text style={styles.loadError}>{linkError}</Text>}
               {loadingTodaysWorkouts ? (
