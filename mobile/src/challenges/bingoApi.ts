@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { BingoCategory, BingoFillSource, BingoProgressRow } from './bingo';
+import { BINGO_CATEGORY_LABEL, type BingoCategory, type BingoFillSource, type BingoProgressRow } from './bingo';
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -70,7 +70,32 @@ export async function recordBingoProgress(
   const { error } = await client
     .from('bingo_progress')
     .upsert(row, { onConflict: 'challenge_id,user_id,category', ignoreDuplicates: source === 'auto' });
-  if (error) throw new Error(error.message);
+  if (error) {
+    // The one error someone can actually cause on purpose here — trying
+    // to link a workout that's already filling a different square (see
+    // 0054_bingo_workout_key.sql's own unique index). Postgres's raw
+    // "duplicate key value violates unique constraint..." means nothing
+    // to a person tapping a workout in a list, so this looks up which
+    // category already has it and says that instead. Every other error
+    // (network, RLS, a genuinely unexpected one) just passes through —
+    // there's no better guess to make for those.
+    if (error.code === '23505' && error.message.includes('bingo_progress_workout_once')) {
+      const { data: existing } = await client
+        .from('bingo_progress')
+        .select('category')
+        .eq('challenge_id', challengeId)
+        .eq('user_id', userId)
+        .eq('workout_key', workout.id)
+        .maybeSingle();
+      const existingCategory = existing?.category as BingoCategory | undefined;
+      throw new Error(
+        existingCategory
+          ? `That workout is already linked to ${BINGO_CATEGORY_LABEL[existingCategory]} — remove it there first, or pick a different workout.`
+          : 'That workout is already linked to a different square.',
+      );
+    }
+    throw new Error(error.message);
+  }
 }
 
 // Undoes an accidental manual link — the square goes back to unfilled,
