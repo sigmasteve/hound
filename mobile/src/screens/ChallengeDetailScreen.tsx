@@ -1,8 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ArrowLeftIcon, CheckCircleIcon, InfoIcon, MagnifyingGlassIcon, RobotIcon, TrashIcon, TrophyIcon } from 'phosphor-react-native';
+import {
+  ArrowLeftIcon,
+  CaretRightIcon,
+  CheckCircleIcon,
+  InfoIcon,
+  MagnifyingGlassIcon,
+  RobotIcon,
+  TrashIcon,
+  TrophyIcon,
+  XIcon,
+} from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -29,8 +39,16 @@ import {
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { syncChallengeProgressFromDevice, syncBingoProgressFromDevice } from '../challenges/deviceSync';
-import { BINGO_CATEGORIES, BINGO_CATEGORY_LABEL, computeBingoCards, type BingoCard, type BingoProgressRow } from '../challenges/bingo';
-import { listBingoProgress } from '../challenges/bingoApi';
+import {
+  BINGO_CATEGORIES,
+  BINGO_CATEGORY_LABEL,
+  computeBingoCards,
+  type BingoCard,
+  type BingoCategory,
+  type BingoProgressRow,
+} from '../challenges/bingo';
+import { listBingoProgress, recordBingoProgress } from '../challenges/bingoApi';
+import type { WorkoutSample } from '../health/types';
 import { boardSortFor, usesDeviceSteps, usesDistanceRanking, usesWorkoutDistance } from '../challenges/scoring';
 import { formatStartsLabel, hasStarted, huntKindName, huntRoleLabel, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
 import type { Challenge, ChallengeBot, Participant, LeaderboardEntry, TagRound } from '../challenges/types';
@@ -190,6 +208,64 @@ export function ChallengeDetailScreen({
   // into per-participant BingoCards below (see computeBingoCards), same
   // "fetch flat rows, compute fresh on every load" shape as Daily Streak.
   const [bingoRows, setBingoRows] = useState<BingoProgressRow[]>([]);
+
+  // Which square (if any) is currently showing its "pick a workout to
+  // link" panel — see the effect below and the "Your bingo card" render.
+  // Null means the panel is closed.
+  const [linkingCategory, setLinkingCategory] = useState<BingoCategory | null>(null);
+  const [todaysWorkouts, setTodaysWorkouts] = useState<WorkoutSample[]>([]);
+  const [loadingTodaysWorkouts, setLoadingTodaysWorkouts] = useState(false);
+  const [linkingWorkoutId, setLinkingWorkoutId] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  // Fetched fresh every time a square is tapped, rather than kept around —
+  // "today" only ever needs to be right at the moment someone opens the
+  // picker, and a stale list from minutes ago risks missing a workout
+  // they just finished logging.
+  useEffect(() => {
+    if (!linkingCategory || !challenge) return;
+    let cancelled = false;
+    setLoadingTodaysWorkouts(true);
+    setLinkError(null);
+    const since = new Date(challenge.startsAt);
+    const endsAt = new Date(challenge.endsAt);
+    const todayKey = dateKey(new Date());
+    health
+      .getRecentWorkouts(50)
+      .then((workouts) => {
+        if (cancelled) return;
+        setTodaysWorkouts(workouts.filter((w) => dateKey(w.when) === todayKey && w.when >= since && w.when <= endsAt));
+      })
+      .catch(() => {
+        if (!cancelled) setTodaysWorkouts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingTodaysWorkouts(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [linkingCategory, challenge, health]);
+
+  // Links one of today's real workouts to a square — a 'manual' fill, so
+  // it overwrites whatever was there before (an earlier manual pick, or
+  // an auto-classified guess) rather than being refused as a duplicate.
+  // See recordBingoProgress's own comment for why 'manual' behaves this
+  // way and 'auto' doesn't.
+  const linkWorkout = async (category: BingoCategory, workout: WorkoutSample) => {
+    if (!challenge) return;
+    setLinkingWorkoutId(workout.id);
+    setLinkError(null);
+    try {
+      await recordBingoProgress(challenge.id, category, 'manual', { name: workout.name, when: workout.when });
+      setLinkingCategory(null);
+      await load();
+    } catch (e) {
+      setLinkError(e instanceof Error ? e.message : 'Could not link that workout — try again.');
+    } finally {
+      setLinkingWorkoutId(null);
+    }
+  };
 
   const [friends, setFriends] = useState<Friend[]>([]);
   const [invitingId, setInvitingId] = useState<string | null>(null);
@@ -919,16 +995,24 @@ export function ChallengeDetailScreen({
       {challenge.kind === 'bingo' && (
         <Card style={{ gap: 12 }} elevated={false}>
           <Text style={text.h4}>Your bingo card</Text>
+          <Text style={styles.footNote}>
+            Fills itself from a matching workout, or tap a square to link one yourself — handy for a workout the
+            app can&rsquo;t guess a category for on its own.
+          </Text>
           <View style={styles.bingoGrid}>
             {BINGO_CATEGORIES.map((category) => {
               const filled = myBingoCard?.filled.has(category) ?? false;
               return (
-                <View key={category} style={[styles.bingoSquare, filled && styles.bingoSquareFilled]}>
+                <Pressable
+                  key={category}
+                  onPress={() => setLinkingCategory(category)}
+                  style={[styles.bingoSquare, filled && styles.bingoSquareFilled]}
+                >
                   {filled && <CheckCircleIcon size={16} color={colors.green} weight="fill" />}
                   <Text style={[styles.bingoSquareLabel, filled && styles.bingoSquareLabelFilled]}>
                     {BINGO_CATEGORY_LABEL[category]}
                   </Text>
-                </View>
+                </Pressable>
               );
             })}
           </View>
@@ -937,6 +1021,50 @@ export function ChallengeDetailScreen({
               ? 'Blackout! You’ve filled every square.'
               : `${myBingoCard?.squaresFilled ?? 0} of ${BINGO_CATEGORIES.length} squares filled.`}
           </Text>
+
+          {linkingCategory && (
+            <View style={styles.bingoLinkPanel}>
+              <View style={styles.bingoLinkHeader}>
+                <Text style={styles.bingoLinkTitle}>Link a workout to {BINGO_CATEGORY_LABEL[linkingCategory]}</Text>
+                <Pressable onPress={() => setLinkingCategory(null)} hitSlop={8}>
+                  <XIcon size={16} color={withAlpha(colors.text, 0.5)} />
+                </Pressable>
+              </View>
+              {myBingoCard?.entries.get(linkingCategory)?.workoutName && (
+                <Text style={styles.footNote}>
+                  Currently linked to {myBingoCard.entries.get(linkingCategory)?.workoutName}.
+                </Text>
+              )}
+              {linkError && <Text style={styles.loadError}>{linkError}</Text>}
+              {loadingTodaysWorkouts ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : todaysWorkouts.length === 0 ? (
+                <Text style={styles.footNote}>No workouts logged today yet — log one on your device, then come back.</Text>
+              ) : (
+                todaysWorkouts.map((w) => (
+                  <Pressable
+                    key={w.id}
+                    onPress={() => linkWorkout(linkingCategory, w)}
+                    disabled={linkingWorkoutId !== null}
+                    style={styles.bingoWorkoutRow}
+                  >
+                    <View style={{ flex: 1, gap: 1 }}>
+                      <Text style={styles.boardName}>{w.name}</Text>
+                      <Text style={styles.footNote}>
+                        {formatWorkoutTime(w.when)}
+                        {w.distanceMi ? ` · ${w.distanceMi.toFixed(1)} mi` : ''}
+                      </Text>
+                    </View>
+                    {linkingWorkoutId === w.id ? (
+                      <ActivityIndicator color={colors.accent} />
+                    ) : (
+                      <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+                    )}
+                  </Pressable>
+                ))
+              )}
+            </View>
+          )}
         </Card>
       )}
 
@@ -1196,6 +1324,17 @@ function formatEndsLabel(endsAt: string, now: number): string {
   return hours > 0 ? `ends in ${hours}h ${minutes}m` : `ends in ${Math.max(1, minutes)}m`;
 }
 
+// Local-calendar day key, same convention as deviceSync.ts's own —
+// "today's workouts" for linking has to agree with what someone's phone
+// itself calls today, not a UTC day that can be off by one near midnight.
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function formatWorkoutTime(d: Date): string {
+  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 16, paddingBottom: 48 },
@@ -1239,6 +1378,23 @@ function makeStyles(colors: Palette) {
     bingoSquareFilled: { backgroundColor: withAlpha(colors.green, 0.15), borderColor: colors.green },
     bingoSquareLabel: { fontSize: 11, color: withAlpha(colors.text, 0.7), textAlign: 'center' },
     bingoSquareLabelFilled: { color: colors.text, fontFamily: font.heading },
+    bingoLinkPanel: {
+      gap: 10,
+      marginTop: 4,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: withAlpha(colors.text, 0.1),
+    },
+    bingoLinkHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    bingoLinkTitle: { fontSize: 15, fontFamily: font.heading, color: colors.text },
+    bingoWorkoutRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: withAlpha(colors.text, 0.07),
+    },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     tagRecapLabel: { fontFamily: font.heading, color: colors.accent },
     inviteFriendRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
