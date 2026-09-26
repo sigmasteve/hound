@@ -675,6 +675,17 @@ export function HomeScreen({
   }, [user?.id, refreshKey]);
 
   const readiness = useMemo(() => computeReadiness(workouts), [workouts]);
+  // Local calendar day, same rule as MetricsScreen's "Today's Workouts" list,
+  // so the two screens always count the same workouts.
+  const todaysWorkoutCount = useMemo(() => {
+    const now = new Date();
+    return workouts.filter(
+      (w) =>
+        w.when.getFullYear() === now.getFullYear() &&
+        w.when.getMonth() === now.getMonth() &&
+        w.when.getDate() === now.getDate(),
+    ).length;
+  }, [workouts]);
 
   // Same shape as ChallengesScreen's own respondToInvite — Join re-runs
   // the whole primary-challenge effect above (a newly-accepted challenge
@@ -882,7 +893,11 @@ export function HomeScreen({
           label="Distance"
           Icon={PathIcon}
           value={`${(snap?.distanceTodayMi ?? 0).toFixed(1)} mi`}
-          sub="1 walk, 1 run logged"
+          sub={
+            todaysWorkoutCount === 0
+              ? 'No workouts logged yet today'
+              : `${todaysWorkoutCount} ${todaysWorkoutCount === 1 ? 'workout' : 'workouts'} logged today`
+          }
           pct={63}
           onPress={() => onGoTab('metrics')}
           styles={styles}
