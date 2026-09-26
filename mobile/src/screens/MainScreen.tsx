@@ -70,7 +70,7 @@ export function MainScreen({ route, navigation }: Props) {
             }
           />
         )}
-        {tab === 'settings' && <SettingsScreen />}
+        {tab === 'settings' && <SettingsScreen onOpenLocker={() => navigation.navigate('Locker')} />}
         {tab === 'connect' && <ConnectScreen onDone={() => setTab('home')} />}
       </View>
     </View>
