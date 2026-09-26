@@ -4,7 +4,6 @@ import {
   getMostRecentQuantitySample,
   isHealthDataAvailableAsync,
   queryQuantitySamples,
-  queryStatisticsCollectionForQuantity,
   queryStatisticsForQuantity,
   queryWorkoutSamples,
   requestAuthorization,
@@ -51,6 +50,55 @@ function startOfDay(d: Date): Date {
   const copy = new Date(d);
   copy.setHours(0, 0, 0, 0);
   return copy;
+}
+
+// Local midnight the day after `d` — via setDate (calendar arithmetic),
+// not a fixed +24h offset, so a DST transition day still lands on the
+// right wall-clock midnight instead of drifting an hour.
+function startOfNextDay(d: Date): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + 1);
+  return next;
+}
+
+// Sums one quantity type over an explicit [startDate, endDate) instant
+// range. Every "today"/per-day figure in this file goes through one of
+// these two functions rather than HealthKit's own day-bucketed
+// queryStatisticsCollectionForQuantity — that query's bucket boundaries
+// come from a calendar HealthKit picks internally, which in practice
+// lands on UTC day boundaries rather than the device's local ones unless
+// the request also attaches an explicit local Calendar (this library's
+// native binding never does — see QuantityTypeModule.swift's
+// queryStatisticsCollectionForQuantityInternal, which builds its
+// DateComponents with no `.calendar` set). For anyone not in UTC that
+// silently shifted every multi-day bucket by the device's UTC offset,
+// which is exactly why Home's "today" steps tile (a single explicit-
+// range query) and Metrics' weekly chart (previously the bucketed
+// query's last entry) could disagree about the same device's own
+// "today." Querying one exact range per day costs nothing at this scale
+// (getDailyStepsSince is capped at 30 days by CreateScreen) and
+// guarantees every day lines up with the same local midnight getSnapshot
+// already used.
+async function stepsSum(startDate: Date, endDate: Date): Promise<number> {
+  const stats = await orDefault(
+    queryStatisticsForQuantity('HKQuantityTypeIdentifierStepCount', ['cumulativeSum'], {
+      filter: { date: { startDate, endDate } },
+      unit: 'count',
+    }),
+    { sources: [] },
+  );
+  return stats.sumQuantity?.quantity ?? 0;
+}
+
+async function distanceSumMi(startDate: Date, endDate: Date): Promise<number> {
+  const stats = await orDefault(
+    queryStatisticsForQuantity('HKQuantityTypeIdentifierDistanceWalkingRunning', ['cumulativeSum'], {
+      filter: { date: { startDate, endDate } },
+      unit: 'mi',
+    }),
+    { sources: [] },
+  );
+  return stats.sumQuantity?.quantity ?? 0;
 }
 
 // HealthKit throws (`Error Domain=com.apple.healthkit Code=5 "Authorization
@@ -105,31 +153,17 @@ export const iosHealthProvider: HealthProvider = {
     const todayStart = startOfDay(new Date());
     const now = new Date();
 
-    const [stepsStats, distanceStats, restingHr, weight] = await Promise.all([
-      orDefault(
-        queryStatisticsForQuantity(
-          'HKQuantityTypeIdentifierStepCount',
-          ['cumulativeSum'],
-          { filter: { date: { startDate: todayStart, endDate: now } }, unit: 'count' },
-        ),
-        { sources: [] },
-      ),
-      orDefault(
-        queryStatisticsForQuantity(
-          'HKQuantityTypeIdentifierDistanceWalkingRunning',
-          ['cumulativeSum'],
-          { filter: { date: { startDate: todayStart, endDate: now } }, unit: 'mi' },
-        ),
-        { sources: [] },
-      ),
+    const [stepsToday, distanceTodayMi, restingHr, weight] = await Promise.all([
+      stepsSum(todayStart, now),
+      distanceSumMi(todayStart, now),
       orDefault(getMostRecentQuantitySample('HKQuantityTypeIdentifierRestingHeartRate', 'count/min'), undefined),
       orDefault(getMostRecentQuantitySample('HKQuantityTypeIdentifierBodyMass', 'lb'), undefined),
     ]);
 
     return {
-      stepsToday: Math.round(stepsStats.sumQuantity?.quantity ?? 0),
+      stepsToday: Math.round(stepsToday),
       stepsGoal: 10000,
-      distanceTodayMi: Math.round((distanceStats.sumQuantity?.quantity ?? 0) * 10) / 10,
+      distanceTodayMi: Math.round(distanceTodayMi * 10) / 10,
       restingHeartRateBpm: restingHr ? Math.round(restingHr.quantity) : null,
       latestWeightLb: weight ? Math.round(weight.quantity * 10) / 10 : null,
       source: 'Apple Health',
@@ -138,24 +172,22 @@ export const iosHealthProvider: HealthProvider = {
   },
 
   async getWeeklySteps(): Promise<DailySteps[]> {
-    const endDate = new Date();
-    const startDate = startOfDay(new Date());
-    startDate.setDate(startDate.getDate() - 6);
+    const now = new Date();
+    const today = startOfDay(now);
+    const days: Date[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      days.push(d);
+    }
 
-    const buckets = await orDefault(
-      queryStatisticsCollectionForQuantity(
-        'HKQuantityTypeIdentifierStepCount',
-        ['cumulativeSum'],
-        startDate,
-        { day: 1 },
-        { filter: { date: { startDate, endDate } }, unit: 'count' },
-      ),
-      [],
+    const totals = await Promise.all(
+      days.map((dayStart) => stepsSum(dayStart, dayStart.getTime() === today.getTime() ? now : startOfNextDay(dayStart))),
     );
 
-    return buckets.map((b) => ({
-      date: (b.startDate ?? startDate).toLocaleDateString(undefined, { weekday: 'short' }),
-      steps: Math.round(b.sumQuantity?.quantity ?? 0),
+    return days.map((d, i) => ({
+      date: d.toLocaleDateString(undefined, { weekday: 'short' }),
+      steps: Math.round(totals[i]),
     }));
   },
 
@@ -235,45 +267,26 @@ export const iosHealthProvider: HealthProvider = {
   },
 
   async getDailyStepsSince(since: Date): Promise<DailyStepsWithDate[]> {
-    const endDate = new Date();
-    const startDate = startOfDay(since);
+    const now = new Date();
+    const today = startOfDay(now);
+    const start = startOfDay(since);
 
-    const [stepBuckets, distanceBuckets] = await Promise.all([
-      orDefault(
-        queryStatisticsCollectionForQuantity(
-          'HKQuantityTypeIdentifierStepCount',
-          ['cumulativeSum'],
-          startDate,
-          { day: 1 },
-          { filter: { date: { startDate, endDate } }, unit: 'count' },
-        ),
-        [],
-      ),
-      orDefault(
-        queryStatisticsCollectionForQuantity(
-          'HKQuantityTypeIdentifierDistanceWalkingRunning',
-          ['cumulativeSum'],
-          startDate,
-          { day: 1 },
-          { filter: { date: { startDate, endDate } }, unit: 'mi' },
-        ),
-        [],
-      ),
-    ]);
-
-    const distanceByDate = new Map<string, number>();
-    for (const b of distanceBuckets) {
-      distanceByDate.set(dateKey(b.startDate ?? startDate), b.sumQuantity?.quantity ?? 0);
+    const days: Date[] = [];
+    for (const cursor = new Date(start); cursor.getTime() <= today.getTime(); cursor.setDate(cursor.getDate() + 1)) {
+      days.push(new Date(cursor));
     }
 
-    return stepBuckets.map((b) => {
-      const date = dateKey(b.startDate ?? startDate);
-      return {
-        date,
-        steps: Math.round(b.sumQuantity?.quantity ?? 0),
-        distanceMi: Math.round((distanceByDate.get(date) ?? 0) * 10) / 10,
-      };
-    });
+    return Promise.all(
+      days.map(async (dayStart) => {
+        const dayEnd = dayStart.getTime() === today.getTime() ? now : startOfNextDay(dayStart);
+        const [steps, distanceMi] = await Promise.all([stepsSum(dayStart, dayEnd), distanceSumMi(dayStart, dayEnd)]);
+        return {
+          date: dateKey(dayStart),
+          steps: Math.round(steps),
+          distanceMi: Math.round(distanceMi * 10) / 10,
+        };
+      }),
+    );
   },
 };
 
