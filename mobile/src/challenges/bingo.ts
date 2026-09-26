@@ -73,13 +73,27 @@ export function classifyWorkout(name: string): BingoCategory {
   return 'other';
 }
 
-// One row per category a participant has ever logged for a given
+// Whether a square filled itself from real-time device classification, or
+// a person explicitly picked a workout from today's history and told the
+// app which square it means — see bingoApi.ts's recordBingoProgress and
+// 0053_bingo_manual_link.sql's own comment for why this exists: some
+// future card's categories (a Strength card's Arms/Legs/Chest/Back) have
+// no automatic signal at all, only a person's own say-so.
+export type BingoFillSource = 'auto' | 'manual';
+
+// One row per category a participant has ever filled for a given
 // challenge — see bingoApi.ts's listBingoProgress, backed by
-// 0052_bingo_progress.sql's upsert-once-per-category shape.
+// 0052/0053_bingo_progress's upsert-once-per-category shape.
+// workoutName/workoutAt are set for both fill sources (see
+// syncBingoProgressFromDevice), not just a manual link — null only for a
+// row written before 0053 existed.
 export interface BingoProgressRow {
   userId: string;
   category: BingoCategory;
   firstLoggedAt: string;
+  source: BingoFillSource;
+  workoutName: string | null;
+  workoutAt: string | null;
 }
 
 export interface BingoCard {
@@ -87,6 +101,12 @@ export interface BingoCard {
   name: string;
   initials: string;
   filled: Set<BingoCategory>;
+  // The full row per filled category, for anything that wants to show
+  // which workout actually filled a square (e.g. "Legs — linked to Leg
+  // day, 6:15pm") — filled is just this map's own keys, kept as a
+  // separate Set since most callers (the leaderboard, Home's mini
+  // preview) only ever need the count, not the detail.
+  entries: Map<BingoCategory, BingoProgressRow>;
   squaresFilled: number;
   blackout: boolean;
 }
@@ -98,22 +118,23 @@ export interface BingoCard {
 // numbers (botSimulation.ts), never a real, classifiable workout — same
 // reasoning Tag excludes them for (0045_tag_game_state.sql).
 export function computeBingoCards(participants: Participant[], rows: BingoProgressRow[]): Map<string, BingoCard> {
-  const byUser = new Map<string, Set<BingoCategory>>();
+  const byUser = new Map<string, Map<BingoCategory, BingoProgressRow>>();
   for (const row of rows) {
-    const set = byUser.get(row.userId) ?? new Set<BingoCategory>();
-    set.add(row.category);
-    byUser.set(row.userId, set);
+    const entries = byUser.get(row.userId) ?? new Map<BingoCategory, BingoProgressRow>();
+    entries.set(row.category, row);
+    byUser.set(row.userId, entries);
   }
   const cards = new Map<string, BingoCard>();
   for (const p of participants) {
-    const filled = byUser.get(p.userId) ?? new Set<BingoCategory>();
+    const entries = byUser.get(p.userId) ?? new Map<BingoCategory, BingoProgressRow>();
     cards.set(p.userId, {
       userId: p.userId,
       name: p.name,
       initials: p.initials,
-      filled,
-      squaresFilled: filled.size,
-      blackout: filled.size === BINGO_CATEGORIES.length,
+      filled: new Set(entries.keys()),
+      entries,
+      squaresFilled: entries.size,
+      blackout: entries.size === BINGO_CATEGORIES.length,
     });
   }
   return cards;

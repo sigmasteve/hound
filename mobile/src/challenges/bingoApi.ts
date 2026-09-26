@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { BingoCategory, BingoProgressRow } from './bingo';
+import type { BingoCategory, BingoFillSource, BingoProgressRow } from './bingo';
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -20,29 +20,50 @@ export async function listBingoProgress(challengeId: string): Promise<BingoProgr
   const client = requireClient();
   const { data, error } = await client
     .from('bingo_progress')
-    .select('user_id, category, first_logged_at')
+    .select('user_id, category, first_logged_at, source, workout_name, workout_at')
     .eq('challenge_id', challengeId);
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => ({
     userId: row.user_id,
     category: row.category as BingoCategory,
     firstLoggedAt: row.first_logged_at as string,
+    source: (row.source as BingoFillSource | null) ?? 'auto',
+    workoutName: row.workout_name as string | null,
+    workoutAt: row.workout_at as string | null,
   }));
 }
 
-// Marks the caller's own square filled — a no-op if it's already filled
-// (ignoreDuplicates, backed by the table's own (challenge_id, user_id,
-// category) primary key), since syncBingoProgressFromDevice
-// (deviceSync.ts) re-classifies every recent workout on every sync rather
-// than tracking which ones it's already seen.
-export async function recordBingoProgress(challengeId: string, category: BingoCategory): Promise<void> {
+// Fills the caller's own square — `workout` is a snapshot of whichever
+// WorkoutSample is responsible, for both fill sources (see
+// BingoProgressRow's own comment).
+//
+// The two sources behave differently on a repeat call for the same
+// category, by design: 'auto' (syncBingoProgressFromDevice, which
+// re-classifies every recent workout on every sync rather than tracking
+// which ones it's already seen) ignores the conflict — it must never
+// clobber a person's own manual correction just because a later sync
+// reclassifies something. 'manual' (someone tapping a square and picking
+// a workout) is a real update — re-picking a different workout for an
+// already-filled square is exactly the point of letting them tap it
+// again, not something to silently refuse.
+export async function recordBingoProgress(
+  challengeId: string,
+  category: BingoCategory,
+  source: BingoFillSource,
+  workout: { name: string; when: Date },
+): Promise<void> {
   const client = requireClient();
   const userId = await requireUserId();
+  const row = {
+    challenge_id: challengeId,
+    user_id: userId,
+    category,
+    source,
+    workout_name: workout.name,
+    workout_at: workout.when.toISOString(),
+  };
   const { error } = await client
     .from('bingo_progress')
-    .upsert(
-      { challenge_id: challengeId, user_id: userId, category },
-      { onConflict: 'challenge_id,user_id,category', ignoreDuplicates: true },
-    );
+    .upsert(row, { onConflict: 'challenge_id,user_id,category', ignoreDuplicates: source === 'auto' });
   if (error) throw new Error(error.message);
 }

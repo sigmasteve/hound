@@ -1,9 +1,9 @@
 import { supabaseChallengesProvider } from './supabaseChallenges';
 import { usesDeviceSteps, usesWorkoutDistance } from './scoring';
-import { classifyWorkout } from './bingo';
+import { classifyWorkout, type BingoCategory } from './bingo';
 import { recordBingoProgress } from './bingoApi';
 import type { Challenge } from './types';
-import type { HealthProvider } from '../health/types';
+import type { HealthProvider, WorkoutSample } from '../health/types';
 
 function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -132,16 +132,28 @@ export async function syncBingoProgressFromDevice(challenge: Challenge, health: 
     const since = new Date(challenge.startsAt);
     const endsAt = new Date(challenge.endsAt);
     const workouts = await health.getRecentWorkouts(200);
-    const categories = new Set(
-      workouts.filter((w) => w.when >= since && w.when <= endsAt).map((w) => classifyWorkout(w.name)),
-    );
+    const inRange = workouts.filter((w) => w.when >= since && w.when <= endsAt);
+    // First match per category wins — which specific workout gets
+    // credited only matters for the "linked to <name>" caption a filled
+    // square shows (see BingoProgressRow), not for whether the square is
+    // filled at all.
+    const byCategory = new Map<BingoCategory, WorkoutSample>();
+    for (const w of inRange) {
+      const category = classifyWorkout(w.name);
+      if (!byCategory.has(category)) byCategory.set(category, w);
+    }
     // Re-attempts every category found in this window on every sync, even
     // ones already filled — recordBingoProgress's own upsert makes an
-    // already-filled square a cheap no-op, same "re-running this is
-    // deliberate and harmless" reasoning the steps/distance sync above
-    // already relies on, rather than tracking which categories this
-    // device has already reported.
-    await Promise.all(Array.from(categories).map((category) => recordBingoProgress(challenge.id, category)));
+    // already-filled square a cheap no-op (and, critically, never
+    // overwrites a manual link — see that function's own comment), same
+    // "re-running this is deliberate and harmless" reasoning the
+    // steps/distance sync above already relies on, rather than tracking
+    // which categories this device has already reported.
+    await Promise.all(
+      Array.from(byCategory.entries()).map(([category, w]) =>
+        recordBingoProgress(challenge.id, category, 'auto', { name: w.name, when: w.when }),
+      ),
+    );
   } catch {
     // Best-effort, same reasoning as syncChallengeProgressFromDevice's own
     // catch above.
