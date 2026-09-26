@@ -57,7 +57,13 @@ import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
 import { computeStreakStatus, type StreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
-import { BINGO_CATEGORIES, BINGO_CATEGORY_LABEL, type BingoCategory } from '../challenges/bingo';
+import {
+  BINGO_CATEGORY_LABEL,
+  BINGO_SQUARE_COUNT,
+  categoriesForCardType,
+  DEFAULT_BINGO_CARD_TYPE,
+  type BingoCategory,
+} from '../challenges/bingo';
 import { listBingoProgress } from '../challenges/bingoApi';
 import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
@@ -170,9 +176,9 @@ function heroCopy(
     return {
       eyebrow,
       headline:
-        bingoFilled.size === BINGO_CATEGORIES.length
+        bingoFilled.size === BINGO_SQUARE_COUNT
           ? `Blackout! You’ve filled every square in ${challenge.name}.`
-          : `You’ve filled ${bingoFilled.size} of ${BINGO_CATEGORIES.length} squares in ${challenge.name}.`,
+          : `You’ve filled ${bingoFilled.size} of ${BINGO_SQUARE_COUNT} squares in ${challenge.name}.`,
     };
   }
 
@@ -1328,6 +1334,7 @@ function BingoCardPreview({
 }) {
   const { challenge, board } = primary;
   const daysLeft = Math.max(0, Math.ceil((new Date(challenge.endsAt).getTime() - Date.now()) / 86_400_000));
+  const bingoCategories = categoriesForCardType(challenge.bingoCardType ?? DEFAULT_BINGO_CARD_TYPE);
 
   return (
     <Card style={styles.raceCard} elevated={false}>
@@ -1339,7 +1346,7 @@ function BingoCardPreview({
         </Text>
       </View>
       <View style={styles.bingoMiniGrid}>
-        {BINGO_CATEGORIES.map((category) => {
+        {bingoCategories.map((category) => {
           const isFilled = filled.has(category);
           return (
             <View key={category} style={[styles.bingoMiniSquare, isFilled && styles.bingoMiniSquareFilled]}>
@@ -1351,7 +1358,7 @@ function BingoCardPreview({
         })}
       </View>
       <Text style={styles.tileSub}>
-        {filled.size} of {BINGO_CATEGORIES.length} squares filled.
+        {filled.size} of {BINGO_SQUARE_COUNT} squares filled.
       </Text>
       <Button label="Full leaderboard" variant="ghost" small onPress={onOpen} />
     </Card>

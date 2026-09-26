@@ -65,7 +65,7 @@ function challengeRowToInviteWindowInput(row: {
 }
 
 const CHALLENGE_COLUMNS =
-  'id, name, kind, created_by, duration_days, starts_at, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit, organization_id';
+  'id, name, kind, created_by, duration_days, starts_at, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit, bingo_card_type, organization_id';
 
 interface ChallengeRow {
   id: string;
@@ -82,6 +82,7 @@ interface ChallengeRow {
   distance_goal_mi: number | null;
   distance_goal_steps: number | null;
   distance_goal_unit: Challenge['distanceGoalUnit'];
+  bingo_card_type: Challenge['bingoCardType'];
   organization_id: string | null;
 }
 
@@ -119,6 +120,7 @@ function rowToChallenge(row: ChallengeRow): Challenge {
     // distance_goal_mi with no unit at all, in miles — read that
     // exactly as it already meant, rather than as "no goal."
     distanceGoalUnit: row.distance_goal_unit ?? (row.distance_goal_mi != null ? 'miles' : null),
+    bingoCardType: row.bingo_card_type,
     organizationId: row.organization_id,
   };
 }
@@ -245,6 +247,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     distanceGoalMi,
     distanceGoalSteps,
     distanceGoalUnit,
+    bingoCardType,
     startsAt: startsAtInput,
     organizationId,
   }: CreateChallengeInput): Promise<Challenge> {
@@ -268,6 +271,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         distance_goal_mi: distanceGoalMi ?? null,
         distance_goal_steps: distanceGoalSteps ?? null,
         distance_goal_unit: distanceGoalUnit ?? null,
+        bingo_card_type: bingoCardType ?? null,
         organization_id: organizationId ?? null,
       })
       .select(CHALLENGE_COLUMNS)

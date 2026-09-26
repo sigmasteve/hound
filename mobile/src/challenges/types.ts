@@ -23,6 +23,14 @@ export type ScoringMethod = 'gps_distance' | 'any_workout' | 'device_steps';
 // and CreateScreen.tsx's unit picker.
 export type DistanceGoalUnit = 'miles' | 'steps';
 
+// Only meaningful for kind 'bingo' — see src/challenges/bingo.ts for what
+// this actually changes (which 9 categories the card has, and how its
+// classifier works) and CreateScreen.tsx's card-type picker. Lives here
+// rather than in bingo.ts itself so that file can import it back from
+// types.ts (which every challenges/ file already does) without the two
+// importing each other.
+export type BingoCardType = 'variety' | 'strength' | 'sports';
+
 export interface Challenge {
   id: string;
   name: string;
@@ -55,6 +63,10 @@ export interface Challenge {
   distanceGoalMi: number | null;
   distanceGoalSteps: number | null;
   distanceGoalUnit: DistanceGoalUnit | null;
+  // Only meaningful for kind 'bingo' — see BingoCardType's own comment.
+  // Null means 'variety', the only type that existed before the picker
+  // did.
+  bingoCardType: BingoCardType | null;
   // Null (every challenge today) means a global/individual challenge,
   // open to any friend regardless of org — see
   // 0037_challenge_org_scope.sql / GitHub issue #158. No screen sets or
@@ -158,6 +170,8 @@ export interface CreateChallengeInput {
   distanceGoalMi?: number;
   distanceGoalSteps?: number;
   distanceGoalUnit?: DistanceGoalUnit;
+  // Only meaningful for kind 'bingo' — see Challenge.bingoCardType.
+  bingoCardType?: BingoCardType;
   // ISO timestamp for when this challenge actually starts counting real
   // device data from — see CreateScreen.tsx's "Starts" picker for the
   // three choices this ever gets set to (start of today / this exact

@@ -1,6 +1,6 @@
 import { botToLeaderboardEntry, botToParticipant, daysElapsedFraction } from './botSimulation';
 import { buildBoard, headStartDaysLeft, isChallengeFinished, withHuntCatches } from './board';
-import { BINGO_CATEGORIES } from './bingo';
+import { BINGO_SQUARE_COUNT } from './bingo';
 import { boardSortFor } from './scoring';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { TINT_A, TINT_N } from '../theme/tokens';
@@ -124,7 +124,7 @@ export function toChallengeCard(
     // would need this list's own caller to fetch bingo_progress per
     // bingo challenge shown, which isn't worth it just for this compact
     // card — the real per-square state lives on the detail screen.
-    stat = String(BINGO_CATEGORIES.length);
+    stat = String(BINGO_SQUARE_COUNT);
     statLabel = 'categories to fill';
   } else if (distanceGoal) {
     // A distance pool isn't a ranked leaderboard at all — everyone's
