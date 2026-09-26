@@ -4,7 +4,7 @@ import {
   getMostRecentQuantitySample,
   isHealthDataAvailableAsync,
   queryQuantitySamples,
-  queryStatisticsForQuantity,
+  queryStatisticsCollectionForQuantity,
   queryWorkoutSamples,
   requestAuthorization,
   WorkoutActivityType,
@@ -52,53 +52,50 @@ function startOfDay(d: Date): Date {
   return copy;
 }
 
-// Local midnight the day after `d` — via setDate (calendar arithmetic),
-// not a fixed +24h offset, so a DST transition day still lands on the
-// right wall-clock midnight instead of drifting an hour.
-function startOfNextDay(d: Date): Date {
-  const next = new Date(d);
-  next.setDate(next.getDate() + 1);
-  return next;
-}
-
-// Sums one quantity type over an explicit [startDate, endDate) instant
-// range. Every "today"/per-day figure in this file goes through one of
-// these two functions rather than HealthKit's own day-bucketed
-// queryStatisticsCollectionForQuantity — that query's bucket boundaries
-// come from a calendar HealthKit picks internally, which in practice
-// lands on UTC day boundaries rather than the device's local ones unless
-// the request also attaches an explicit local Calendar (this library's
-// native binding never does — see QuantityTypeModule.swift's
-// queryStatisticsCollectionForQuantityInternal, which builds its
-// DateComponents with no `.calendar` set). For anyone not in UTC that
-// silently shifted every multi-day bucket by the device's UTC offset,
-// which is exactly why Home's "today" steps tile (a single explicit-
-// range query) and Metrics' weekly chart (previously the bucketed
-// query's last entry) could disagree about the same device's own
-// "today." Querying one exact range per day costs nothing at this scale
-// (getDailyStepsSince is capped at 30 days by CreateScreen) and
-// guarantees every day lines up with the same local midnight getSnapshot
-// already used.
-async function stepsSum(startDate: Date, endDate: Date): Promise<number> {
-  const stats = await orDefault(
-    queryStatisticsForQuantity('HKQuantityTypeIdentifierStepCount', ['cumulativeSum'], {
-      filter: { date: { startDate, endDate } },
+// Every steps/distance figure in this file (Home's "today", Metrics' 7-day
+// chart, challenge backfill) comes from these per-local-day totals, so
+// they can't disagree with each other. They use HealthKit's statistics
+// *collection* query — what the Health app's own day totals are built on —
+// because it splits a sample that crosses a day boundary proportionally
+// between the two days. A plain queryStatisticsForQuantity over one day's
+// range instead counts any sample that merely overlaps the range in full,
+// so a source that writes long step samples (common for third-party
+// trackers) inflates every day it touches. Anchored at local midnight, so
+// each bucket is a local calendar day.
+async function dailyStepTotals(start: Date, end: Date): Promise<Map<string, number>> {
+  const buckets = await orDefault(
+    queryStatisticsCollectionForQuantity('HKQuantityTypeIdentifierStepCount', ['cumulativeSum'], start, { day: 1 }, {
+      filter: { date: { startDate: start, endDate: end } },
       unit: 'count',
     }),
-    { sources: [] },
+    [],
   );
-  return stats.sumQuantity?.quantity ?? 0;
+  return totalsByDay(buckets, start);
 }
 
-async function distanceSumMi(startDate: Date, endDate: Date): Promise<number> {
-  const stats = await orDefault(
-    queryStatisticsForQuantity('HKQuantityTypeIdentifierDistanceWalkingRunning', ['cumulativeSum'], {
-      filter: { date: { startDate, endDate } },
+async function dailyDistanceTotalsMi(start: Date, end: Date): Promise<Map<string, number>> {
+  const buckets = await orDefault(
+    queryStatisticsCollectionForQuantity('HKQuantityTypeIdentifierDistanceWalkingRunning', ['cumulativeSum'], start, { day: 1 }, {
+      filter: { date: { startDate: start, endDate: end } },
       unit: 'mi',
     }),
-    { sources: [] },
+    [],
   );
-  return stats.sumQuantity?.quantity ?? 0;
+  return totalsByDay(buckets, start);
+}
+
+// A sample straddling `start` makes HealthKit return an extra bucket for
+// the day before it (the old chart's stray eighth bar) — dropped here.
+function totalsByDay(
+  buckets: readonly { startDate?: Date; sumQuantity?: { quantity: number } }[],
+  start: Date,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const b of buckets) {
+    if (!b.startDate || b.startDate.getTime() < start.getTime()) continue;
+    out.set(dateKey(b.startDate), b.sumQuantity?.quantity ?? 0);
+  }
+  return out;
 }
 
 // HealthKit throws (`Error Domain=com.apple.healthkit Code=5 "Authorization
@@ -153,17 +150,18 @@ export const iosHealthProvider: HealthProvider = {
     const todayStart = startOfDay(new Date());
     const now = new Date();
 
-    const [stepsToday, distanceTodayMi, restingHr, weight] = await Promise.all([
-      stepsSum(todayStart, now),
-      distanceSumMi(todayStart, now),
+    const [steps, distance, restingHr, weight] = await Promise.all([
+      dailyStepTotals(todayStart, now),
+      dailyDistanceTotalsMi(todayStart, now),
       orDefault(getMostRecentQuantitySample('HKQuantityTypeIdentifierRestingHeartRate', 'count/min'), undefined),
       orDefault(getMostRecentQuantitySample('HKQuantityTypeIdentifierBodyMass', 'lb'), undefined),
     ]);
+    const todayKey = dateKey(todayStart);
 
     return {
-      stepsToday: Math.round(stepsToday),
+      stepsToday: Math.round(steps.get(todayKey) ?? 0),
       stepsGoal: 10000,
-      distanceTodayMi: Math.round(distanceTodayMi * 10) / 10,
+      distanceTodayMi: Math.round((distance.get(todayKey) ?? 0) * 10) / 10,
       restingHeartRateBpm: restingHr ? Math.round(restingHr.quantity) : null,
       latestWeightLb: weight ? Math.round(weight.quantity * 10) / 10 : null,
       source: 'Apple Health',
@@ -174,21 +172,18 @@ export const iosHealthProvider: HealthProvider = {
   async getWeeklySteps(): Promise<DailySteps[]> {
     const now = new Date();
     const today = startOfDay(now);
-    const days: Date[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      days.push(d);
+    const start = new Date(today);
+    start.setDate(start.getDate() - 6);
+    const totals = await dailyStepTotals(start, now);
+
+    const out: DailySteps[] = [];
+    for (const d = new Date(start); d.getTime() <= today.getTime(); d.setDate(d.getDate() + 1)) {
+      out.push({
+        date: d.toLocaleDateString(undefined, { weekday: 'short' }),
+        steps: Math.round(totals.get(dateKey(d)) ?? 0),
+      });
     }
-
-    const totals = await Promise.all(
-      days.map((dayStart) => stepsSum(dayStart, dayStart.getTime() === today.getTime() ? now : startOfNextDay(dayStart))),
-    );
-
-    return days.map((d, i) => ({
-      date: d.toLocaleDateString(undefined, { weekday: 'short' }),
-      steps: Math.round(totals[i]),
-    }));
+    return out;
   },
 
   async getHeartRateSeries(days: number): Promise<number[]> {
@@ -270,23 +265,18 @@ export const iosHealthProvider: HealthProvider = {
     const now = new Date();
     const today = startOfDay(now);
     const start = startOfDay(since);
+    const [steps, distance] = await Promise.all([dailyStepTotals(start, now), dailyDistanceTotalsMi(start, now)]);
 
-    const days: Date[] = [];
-    for (const cursor = new Date(start); cursor.getTime() <= today.getTime(); cursor.setDate(cursor.getDate() + 1)) {
-      days.push(new Date(cursor));
+    const out: DailyStepsWithDate[] = [];
+    for (const d = new Date(start); d.getTime() <= today.getTime(); d.setDate(d.getDate() + 1)) {
+      const key = dateKey(d);
+      out.push({
+        date: key,
+        steps: Math.round(steps.get(key) ?? 0),
+        distanceMi: Math.round((distance.get(key) ?? 0) * 10) / 10,
+      });
     }
-
-    return Promise.all(
-      days.map(async (dayStart) => {
-        const dayEnd = dayStart.getTime() === today.getTime() ? now : startOfNextDay(dayStart);
-        const [steps, distanceMi] = await Promise.all([stepsSum(dayStart, dayEnd), distanceSumMi(dayStart, dayEnd)]);
-        return {
-          date: dateKey(dayStart),
-          steps: Math.round(steps),
-          distanceMi: Math.round(distanceMi * 10) / 10,
-        };
-      }),
-    );
+    return out;
   },
 };
 
