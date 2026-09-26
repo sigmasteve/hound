@@ -151,7 +151,7 @@ export async function syncBingoProgressFromDevice(challenge: Challenge, health: 
     // which categories this device has already reported.
     await Promise.all(
       Array.from(byCategory.entries()).map(([category, w]) =>
-        recordBingoProgress(challenge.id, category, 'auto', { name: w.name, when: w.when }),
+        recordBingoProgress(challenge.id, category, 'auto', { id: w.id, name: w.name, when: w.when }),
       ),
     );
   } catch {
