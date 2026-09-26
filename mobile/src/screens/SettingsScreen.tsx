@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import Slider from '@react-native-community/slider';
 import {
   AndroidLogoIcon,
   ArrowsClockwiseIcon,
@@ -15,6 +16,7 @@ import { Card } from '../components/Card';
 import { ToggleRow } from '../components/Selectable';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
+import { useGoals } from '../goals/GoalsContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { SOURCES } from '../data/sampleData';
 import { useHealthProvider } from '../health/HealthContext';
@@ -59,6 +61,10 @@ export function SettingsScreen() {
   const health = useHealthProvider();
   const { user, signOut, updateUser } = useAuth();
   const { colors, text, mode, setMode } = useTheme();
+  const { stepsGoal, distanceGoalMi, setStepsGoal, setDistanceGoalMi } = useGoals();
+  // Shown while a slider is mid-drag; the goal itself only saves on release.
+  const [stepsDraft, setStepsDraft] = useState<number | null>(null);
+  const [distanceDraft, setDistanceDraft] = useState<number | null>(null);
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   // Seeded from the signed-in user, not a separate fetch — profiles.username
@@ -386,6 +392,51 @@ export function SettingsScreen() {
         />
       </Card>
 
+      <Card style={{ gap: 14 }} elevated={false}>
+        <Text style={text.h4}>Daily goals</Text>
+        <View style={{ gap: 4 }}>
+          <View style={styles.goalRow}>
+            <Text style={styles.sourceName}>Steps</Text>
+            <Text style={styles.goalValue}>{(stepsDraft ?? stepsGoal).toLocaleString()}</Text>
+          </View>
+          <Slider
+            minimumValue={2_000}
+            maximumValue={30_000}
+            step={500}
+            value={stepsGoal}
+            onValueChange={(v) => setStepsDraft(Math.round(v))}
+            onSlidingComplete={(v) => {
+              setStepsGoal(Math.round(v));
+              setStepsDraft(null);
+            }}
+            minimumTrackTintColor={colors.accent}
+            maximumTrackTintColor={colors.neutral700}
+            thumbTintColor={colors.accent}
+          />
+        </View>
+        <View style={{ gap: 4 }}>
+          <View style={styles.goalRow}>
+            <Text style={styles.sourceName}>Distance</Text>
+            <Text style={styles.goalValue}>{distanceDraft ?? distanceGoalMi} mi</Text>
+          </View>
+          <Slider
+            minimumValue={0.5}
+            maximumValue={15}
+            step={0.5}
+            value={distanceGoalMi}
+            onValueChange={(v) => setDistanceDraft(Math.round(v * 2) / 2)}
+            onSlidingComplete={(v) => {
+              setDistanceGoalMi(Math.round(v * 2) / 2);
+              setDistanceDraft(null);
+            }}
+            minimumTrackTintColor={colors.accent}
+            maximumTrackTintColor={colors.neutral700}
+            thumbTintColor={colors.accent}
+          />
+        </View>
+        <Text style={styles.footNote}>Home&rsquo;s Steps and Distance bars fill toward these each day.</Text>
+      </Card>
+
       {user && (
         <Card style={styles.accountRow} elevated={false}>
           <Avatar initials={user.initials} tint={colors.accent800} size={40} fontSize={14} />
@@ -672,6 +723,8 @@ function makeStyles(colors: Palette) {
     syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
     syncLabel: { fontSize: 12, color: colors.accent, fontFamily: font.heading },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    goalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    goalValue: { fontSize: 14.5, color: colors.accent, fontFamily: font.heading },
     footNoteError: { fontSize: 12.5, color: colors.amber },
     alertGroupLabel: { fontSize: 13.5, color: colors.text, fontFamily: font.heading },
     collapsibleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

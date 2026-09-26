@@ -21,7 +21,6 @@ export const mockProvider: HealthProvider = {
   async getSnapshot(): Promise<HealthSnapshot> {
     return {
       stepsToday: 8432,
-      stepsGoal: 10000,
       distanceTodayMi: 3.8,
       restingHeartRateBpm: 58,
       latestWeightLb: 178.4,

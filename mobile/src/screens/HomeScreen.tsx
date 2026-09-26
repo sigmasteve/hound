@@ -67,6 +67,7 @@ import {
 import { listBingoProgress } from '../challenges/bingoApi';
 import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
+import { useGoals } from '../goals/GoalsContext';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 
 interface PrimaryChallenge {
@@ -328,6 +329,7 @@ export function HomeScreen({
   const health = useHealthProvider();
   const { colors, text } = useTheme();
   const { labelsForOrg } = useLabels();
+  const { stepsGoal, distanceGoalMi } = useGoals();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [snap, setSnap] = useState<HealthSnapshot | null>(null);
   const [workouts, setWorkouts] = useState<WorkoutSample[]>([]);
@@ -675,6 +677,17 @@ export function HomeScreen({
   }, [user?.id, refreshKey]);
 
   const readiness = useMemo(() => computeReadiness(workouts), [workouts]);
+  // Local calendar day, same rule as MetricsScreen's "Today's Workouts" list,
+  // so the two screens always count the same workouts.
+  const todaysWorkoutCount = useMemo(() => {
+    const now = new Date();
+    return workouts.filter(
+      (w) =>
+        w.when.getFullYear() === now.getFullYear() &&
+        w.when.getMonth() === now.getMonth() &&
+        w.when.getDate() === now.getDate(),
+    ).length;
+  }, [workouts]);
 
   // Same shape as ChallengesScreen's own respondToInvite — Join re-runs
   // the whole primary-challenge effect above (a newly-accepted challenge
@@ -873,8 +886,8 @@ export function HomeScreen({
           label="Steps"
           Icon={FootprintsIcon}
           value={(snap?.stepsToday ?? 0).toLocaleString()}
-          sub={`${Math.round(((snap?.stepsToday ?? 0) / (snap?.stepsGoal ?? 10000)) * 100)}% of ${(snap?.stepsGoal ?? 10000).toLocaleString()} · ${snap?.source ?? ''}`}
-          pct={((snap?.stepsToday ?? 0) / (snap?.stepsGoal ?? 10000)) * 100}
+          sub={`${Math.round(((snap?.stepsToday ?? 0) / stepsGoal) * 100)}% of ${stepsGoal.toLocaleString()} · ${snap?.source ?? ''}`}
+          pct={((snap?.stepsToday ?? 0) / stepsGoal) * 100}
           onPress={() => onGoTab('metrics')}
           styles={styles}
         />
@@ -882,8 +895,12 @@ export function HomeScreen({
           label="Distance"
           Icon={PathIcon}
           value={`${(snap?.distanceTodayMi ?? 0).toFixed(1)} mi`}
-          sub="1 walk, 1 run logged"
-          pct={63}
+          sub={`${Math.round(((snap?.distanceTodayMi ?? 0) / distanceGoalMi) * 100)}% of ${distanceGoalMi} mi · ${
+            todaysWorkoutCount === 0
+              ? 'no workouts yet'
+              : `${todaysWorkoutCount} ${todaysWorkoutCount === 1 ? 'workout' : 'workouts'} today`
+          }`}
+          pct={((snap?.distanceTodayMi ?? 0) / distanceGoalMi) * 100}
           onPress={() => onGoTab('metrics')}
           styles={styles}
         />

@@ -15,6 +15,7 @@ import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { AuthProvider } from './src/auth/AuthContext';
 import { HealthDataProvider } from './src/health/HealthContext';
 import { LabelsProvider } from './src/labels/LabelsContext';
+import { GoalsProvider } from './src/goals/GoalsContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 
@@ -48,11 +49,13 @@ function AppContent() {
         <AuthProvider>
           <HealthDataProvider>
             <LabelsProvider>
-              {/* Light mode's page is bright enough that light (white)
-                  status bar icons would disappear into it — dark icons only
-                  make sense against Dark's own near-black bg. */}
-              <StatusBar style={mode === 'light' ? 'dark' : 'light'} />
-              <RootNavigator />
+              <GoalsProvider>
+                {/* Light mode's page is bright enough that light (white)
+                    status bar icons would disappear into it — dark icons only
+                    make sense against Dark's own near-black bg. */}
+                <StatusBar style={mode === 'light' ? 'dark' : 'light'} />
+                <RootNavigator />
+              </GoalsProvider>
             </LabelsProvider>
           </HealthDataProvider>
         </AuthProvider>
