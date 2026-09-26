@@ -149,7 +149,15 @@ export async function syncBingoProgressFromDevice(challenge: Challenge, health: 
     // "re-running this is deliberate and harmless" reasoning the
     // steps/distance sync above already relies on, rather than tracking
     // which categories this device has already reported.
-    await Promise.all(
+    //
+    // allSettled, not all — one category's workout already belonging to a
+    // different square (0054_bingo_workout_key.sql's own unique index)
+    // rejects that one write, and Promise.all would otherwise cancel every
+    // other category's write in this same pass over one already-known,
+    // recoverable conflict. There's nothing to surface for an individual
+    // rejection here (this whole function is best-effort, see the catch
+    // below) — the next sync tries again regardless.
+    await Promise.allSettled(
       Array.from(byCategory.entries()).map(([category, w]) =>
         recordBingoProgress(challenge.id, category, 'auto', { id: w.id, name: w.name, when: w.when }),
       ),
