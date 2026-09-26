@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import Constants from 'expo-constants';
 import {
   AndroidLogoIcon,
   ArrowsClockwiseIcon,
@@ -23,6 +22,7 @@ import type { HealthSnapshot } from '../health/types';
 import { useAuth } from '../auth/AuthContext';
 import type { AuthProviderId } from '../auth/types';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { APP_VERSION } from '../lib/appVersion';
 import * as notifications from '../notifications/supabaseNotifications';
 import { setUseUsername, setUsername } from '../profiles/supabaseProfile';
 import { getOrganization, leaveOrganization, redeemOrganizationInvite } from '../organizations/supabaseOrganizations';
@@ -54,14 +54,6 @@ const PROVIDER_LABEL: Record<AuthProviderId, string> = {
   apple: 'Apple',
   email: 'Email & password',
 };
-
-// app.json's own "version" — bump that alongside every APK cut on the
-// download page (see site/download.html) to keep the two in sync;
-// nothing enforces that automatically. Never null in a real build (only
-// Constants.expoConfig itself can be, e.g. some bare/dev-client setups),
-// but falls back rather than showing "undefined" on the one screen
-// meant to make this legible to whoever's reporting a bug.
-const APP_VERSION = Constants.expoConfig?.version ?? 'unknown';
 
 export function SettingsScreen() {
   const health = useHealthProvider();

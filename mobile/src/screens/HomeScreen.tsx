@@ -33,6 +33,7 @@ import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { APP_VERSION } from '../lib/appVersion';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
@@ -76,26 +77,37 @@ interface PrimaryChallenge {
 const URL_PATTERN = /(https?:\/\/[^\s]+)/gi;
 const URL_TRAILING_PUNCTUATION = /[.,!?)'"]+$/;
 
+// Lets an admin write "{version}" in the banner message (see
+// AdminScreen's "Home banner" card) and have it read as this device's
+// own installed app version — the same value SettingsScreen shows as
+// "Hound v{APP_VERSION}" — rather than a version the admin has to
+// remember to type by hand and then update again on every release.
+function withVersionPlaceholder(message: string): string {
+  return message.replace(/\{version\}/g, APP_VERSION);
+}
+
 function renderBannerMessage(message: string, linkColor: string): React.ReactNode[] {
-  return message.split(URL_PATTERN).map((part, i) => {
-    if (!/^https?:\/\//i.test(part)) return <Text key={i}>{part}</Text>;
-    // A URL followed directly by sentence punctuation (no space) would
-    // otherwise swallow that punctuation into the link itself.
-    const trailingMatch = part.match(URL_TRAILING_PUNCTUATION);
-    const trailing = trailingMatch?.[0] ?? '';
-    const url = trailing ? part.slice(0, -trailing.length) : part;
-    return (
-      <Text key={i}>
-        <Text
-          style={{ color: linkColor, textDecorationLine: 'underline' }}
-          onPress={() => Linking.openURL(url).catch(() => {})}
-        >
-          {url}
+  return withVersionPlaceholder(message)
+    .split(URL_PATTERN)
+    .map((part, i) => {
+      if (!/^https?:\/\//i.test(part)) return <Text key={i}>{part}</Text>;
+      // A URL followed directly by sentence punctuation (no space) would
+      // otherwise swallow that punctuation into the link itself.
+      const trailingMatch = part.match(URL_TRAILING_PUNCTUATION);
+      const trailing = trailingMatch?.[0] ?? '';
+      const url = trailing ? part.slice(0, -trailing.length) : part;
+      return (
+        <Text key={i}>
+          <Text
+            style={{ color: linkColor, textDecorationLine: 'underline' }}
+            onPress={() => Linking.openURL(url).catch(() => {})}
+          >
+            {url}
+          </Text>
+          {trailing}
         </Text>
-        {trailing}
-      </Text>
-    );
-  });
+      );
+    });
 }
 
 // Whether a two-way hunt's lead should read in miles or steps depends on
