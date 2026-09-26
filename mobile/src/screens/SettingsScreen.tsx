@@ -14,6 +14,7 @@ import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ToggleRow } from '../components/Selectable';
+import { ProgressBar } from '../components/ProgressBar';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { useGoals } from '../goals/GoalsContext';
@@ -28,6 +29,8 @@ import { APP_VERSION } from '../lib/appVersion';
 import * as notifications from '../notifications/supabaseNotifications';
 import { setUseUsername, setUsername } from '../profiles/supabaseProfile';
 import { getOrganization, leaveOrganization, redeemOrganizationInvite } from '../organizations/supabaseOrganizations';
+import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
+import { levelProgressForXp } from '../challenges/leveling';
 import type { Organization } from '../organizations/types';
 
 const USERNAME_FORMAT = /^[A-Za-z0-9_]{3,20}$/;
@@ -194,6 +197,24 @@ export function SettingsScreen() {
     health.getSnapshot().then(setSnap);
   }, [health]);
   useFocusEffect(reloadSnap);
+
+  // Null covers both "hasn't loaded yet" and "failed to load" — same
+  // "never show a confident wrong number" reasoning as every other
+  // real-data fetch in this app. The card below just doesn't render
+  // rather than showing a guessed 0, which could otherwise misread as a
+  // genuine (if unfortunate) score.
+  const [houndScore, setHoundScore] = useState<HoundScore | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured || !user?.id) {
+        setHoundScore(null);
+        return;
+      }
+      getMyHoundScore(user.id)
+        .then(setHoundScore)
+        .catch(() => setHoundScore(null));
+    }, [user?.id]),
+  );
 
   // Login-reminder preferences live on the real profiles row — there's no
   // sample-fallback version of this like other screens have, since
@@ -378,9 +399,33 @@ export function SettingsScreen() {
     setMasterToggling(null);
   };
 
+  const levelProgress = levelProgressForXp(houndScore?.xpTotal ?? 0);
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={text.h2}>Data & account</Text>
+
+      {houndScore && (
+        <Card style={{ gap: 12 }} elevated={false}>
+          <View style={styles.scoreHeader}>
+            <View style={{ gap: 2 }}>
+              <Text style={styles.scoreLabel}>Hound Score</Text>
+              <Text style={styles.scoreValue}>{houndScore.houndScore.toLocaleString()}</Text>
+            </View>
+            <View style={styles.levelBadge}>
+              <Text style={styles.levelBadgeText}>Lv {levelProgress.level}</Text>
+            </View>
+          </View>
+          <View style={{ gap: 4 }}>
+            <ProgressBar pct={levelProgress.pctToNextLevel} fillColor={color.accent} height={5} />
+            <Text style={styles.footNote}>
+              {levelProgress.xpIntoLevel.toLocaleString()} /{' '}
+              {(levelProgress.xpIntoLevel + levelProgress.xpToNextLevel).toLocaleString()} XP to level{' '}
+              {levelProgress.level + 1}
+            </Text>
+          </View>
+        </Card>
+      )}
 
       <Card style={{ gap: 14 }} elevated={false}>
         <Text style={text.h4}>Appearance</Text>
@@ -723,6 +768,16 @@ function makeStyles(colors: Palette) {
     syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
     syncLabel: { fontSize: 12, color: colors.accent, fontFamily: font.heading },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    scoreHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    scoreLabel: { fontSize: 12, letterSpacing: 0.5, color: withAlpha(colors.text, 0.55) },
+    scoreValue: { fontFamily: font.headingSemibold, fontSize: 26, color: colors.text },
+    levelBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 999,
+      backgroundColor: withAlpha(color.accent, 0.14),
+    },
+    levelBadgeText: { fontFamily: font.heading, fontSize: 13, color: color.accent },
     goalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     goalValue: { fontSize: 14.5, color: colors.accent, fontFamily: font.heading },
     footNoteError: { fontSize: 12.5, color: colors.amber },
