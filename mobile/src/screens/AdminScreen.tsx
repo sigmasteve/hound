@@ -198,64 +198,6 @@ export function AdminScreen({
         ) : (
           <>
             <Card style={{ gap: 12 }} elevated={false}>
-              <View style={styles.directoryHeader}>
-                <Text style={text.h4}>User directory</Text>
-                {totalUsers !== null && <Text style={styles.footNote}>{totalUsers} registered</Text>}
-              </View>
-              <TextField
-                label="Search"
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Name or email"
-                icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
-                autoCapitalize="none"
-              />
-              {searchError && <Text style={styles.loadError}>{searchError}</Text>}
-              {searching && results.length === 0 ? (
-                <ActivityIndicator color={colors.accent} />
-              ) : results.length === 0 ? (
-                <Text style={styles.footNote}>No users match that search.</Text>
-              ) : (
-                results.map((u) => (
-                  <Pressable key={u.id} onPress={() => onOpenUser(u)} style={styles.userRow}>
-                    <Avatar initials={u.displayInitials} tint={TINT_A} size={34} fontSize={12} />
-                    <View style={{ flex: 1, gap: 1 }}>
-                      <Text style={styles.userName}>
-                        {u.displayName}
-                        {u.isAdmin ? ' · Admin' : ''}
-                      </Text>
-                      <Text style={styles.footNote}>{u.email}</Text>
-                    </View>
-                    <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
-                  </Pressable>
-                ))
-              )}
-            </Card>
-
-            <Card style={{ gap: 12 }} elevated={false}>
-              <Text style={text.h4}>Chase labels</Text>
-              <Text style={styles.footNote}>
-                What a chase&rsquo;s three roles are called, app-wide. This is the default for anyone not in an
-                organization with its own override &mdash; manage a specific organization&rsquo;s labels from its own page
-                instead (see the organization icon in the top bar).
-              </Text>
-              <TextField label="Hound" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
-              <TextField label="Fox" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
-              <TextField label="Out" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
-              {labelsError && <Text style={styles.loadError}>{labelsError}</Text>}
-              {labelsSaved && !labelsError && <Text style={styles.successNote}>Saved — updated everywhere.</Text>}
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Button
-                  label={savingLabels ? 'Saving…' : 'Save'}
-                  variant="primary"
-                  disabled={savingLabels}
-                  onPress={() => submitLabels({ hunter: hunterInput, hunted: huntedInput, zombie: zombieInput })}
-                />
-                <Button label="Reset to default" disabled={savingLabels} onPress={() => submitLabels(DEFAULT_HUNT_LABELS)} />
-              </View>
-            </Card>
-
-            <Card style={{ gap: 12 }} elevated={false}>
               <Text style={text.h4}>Home banner</Text>
               <Text style={styles.footNote}>
                 An announcement shown at the top of everyone&rsquo;s Home screen &mdash; dismissible with the small
@@ -294,6 +236,70 @@ export function AdminScreen({
                 onPress={saveBanner}
               />
             </Card>
+
+            <Card style={{ gap: 12 }} elevated={false}>
+              <View style={styles.directoryHeader}>
+                <Text style={text.h4}>User directory</Text>
+                {totalUsers !== null && <Text style={styles.footNote}>{totalUsers} registered</Text>}
+              </View>
+              <TextField
+                label="Search"
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Name or email"
+                icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
+                autoCapitalize="none"
+              />
+              {searchError && <Text style={styles.loadError}>{searchError}</Text>}
+              {searching && results.length === 0 ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : results.length === 0 ? (
+                <Text style={styles.footNote}>No users match that search.</Text>
+              ) : (
+                // Fixed to roughly 10 rows tall so a long directory (up
+                // to searchUsers' own 25-row server cap) doesn't push
+                // the rest of this screen's cards further and further
+                // down — scroll within the box to see the rest instead.
+                <ScrollView style={styles.directoryScroll} nestedScrollEnabled>
+                  {results.map((u) => (
+                    <Pressable key={u.id} onPress={() => onOpenUser(u)} style={styles.userRow}>
+                      <Avatar initials={u.displayInitials} tint={TINT_A} size={34} fontSize={12} />
+                      <View style={{ flex: 1, gap: 1 }}>
+                        <Text style={styles.userName}>
+                          {u.displayName}
+                          {u.isAdmin ? ' · Admin' : ''}
+                        </Text>
+                        <Text style={styles.footNote}>{u.email}</Text>
+                      </View>
+                      <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
+            </Card>
+
+            <Card style={{ gap: 12 }} elevated={false}>
+              <Text style={text.h4}>Chase labels</Text>
+              <Text style={styles.footNote}>
+                What a chase&rsquo;s three roles are called, app-wide. This is the default for anyone not in an
+                organization with its own override &mdash; manage a specific organization&rsquo;s labels from its own page
+                instead (see the organization icon in the top bar).
+              </Text>
+              <TextField label="Hound" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
+              <TextField label="Fox" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
+              <TextField label="Out" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
+              {labelsError && <Text style={styles.loadError}>{labelsError}</Text>}
+              {labelsSaved && !labelsError && <Text style={styles.successNote}>Saved — updated everywhere.</Text>}
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Button
+                  label={savingLabels ? 'Saving…' : 'Save'}
+                  variant="primary"
+                  disabled={savingLabels}
+                  onPress={() => submitLabels({ hunter: hunterInput, hunted: huntedInput, zombie: zombieInput })}
+                />
+                <Button label="Reset to default" disabled={savingLabels} onPress={() => submitLabels(DEFAULT_HUNT_LABELS)} />
+              </View>
+            </Card>
           </>
         )}
       </ScrollView>
@@ -308,6 +314,7 @@ function makeStyles(colors: Palette) {
     loadError: { fontSize: 12.5, color: colors.amber },
     successNote: { fontSize: 12.5, color: colors.green },
     directoryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    directoryScroll: { maxHeight: 520 },
     userRow: {
       flexDirection: 'row',
       alignItems: 'center',
