@@ -31,6 +31,7 @@ import { friendEligible } from '../friends/eligibility';
 import { getOrganization } from '../organizations/supabaseOrganizations';
 import type { Organization } from '../organizations/types';
 import { BOT_FITNESS_LEVELS, BOT_PRESETS, botInitials } from '../challenges/botSimulation';
+import { BINGO_CARD_TYPE_DESC, BINGO_CARD_TYPE_NAME, DEFAULT_BINGO_CARD_TYPE, type BingoCardType } from '../challenges/bingo';
 import type { DistanceGoalUnit, HuntRole, ScoringMethod } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
 
@@ -75,6 +76,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const [draftName, setDraftName] = useState('');
   const [headStart, setHeadStart] = useState(2);
   const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>('miles');
+  const [bingoCardType, setBingoCardType] = useState<BingoCardType>(DEFAULT_BINGO_CARD_TYPE);
   const [distanceGoalMi, setDistanceGoalMi] = useState(100);
   const [distanceGoalSteps, setDistanceGoalSteps] = useState(500_000);
   const [dailyGoalSteps, setDailyGoalSteps] = useState(10_000);
@@ -253,6 +255,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         distanceGoalSteps:
           (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
         dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
+        bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
         startsAt: startsAtFor(startOption).toISOString(),
         organizationId: challengeScope === 'org' && myOrgId ? myOrgId : undefined,
       });
@@ -426,6 +429,25 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                   ? `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — once the group reaches it, the game ends right there, whoever’s It at the time.`
                   : `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — it’s the whole group against the goal, not against each other.`}
               </Text>
+            </View>
+          )}
+
+          {draftType === 'bingo' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Card type</Text>
+                <Text style={styles.huntBlockValue}>{BINGO_CARD_TYPE_NAME[bingoCardType]}</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: 'variety', label: 'Variety' },
+                  { value: 'strength', label: 'Strength' },
+                  { value: 'sports', label: 'Sports' },
+                ]}
+                value={bingoCardType}
+                onChange={setBingoCardType}
+              />
+              <Text style={styles.huntBlockNote}>{BINGO_CARD_TYPE_DESC[bingoCardType]}</Text>
             </View>
           )}
 

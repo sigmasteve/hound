@@ -40,9 +40,12 @@ import {
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { syncChallengeProgressFromDevice, syncBingoProgressFromDevice } from '../challenges/deviceSync';
 import {
-  BINGO_CATEGORIES,
+  BINGO_CARD_TYPE_NAME,
   BINGO_CATEGORY_LABEL,
+  BINGO_SQUARE_COUNT,
+  categoriesForCardType,
   computeBingoCards,
+  DEFAULT_BINGO_CARD_TYPE,
   type BingoCard,
   type BingoCategory,
   type BingoProgressRow,
@@ -590,6 +593,9 @@ export function ChallengeDetailScreen({
 
   const myHighlighted = participants.find((p) => p.userId === user?.id)?.highlighted ?? false;
 
+  const bingoCardType = challenge.bingoCardType ?? DEFAULT_BINGO_CARD_TYPE;
+  const bingoCategories = categoriesForCardType(bingoCardType);
+
   const scoredByDistance = usesDistanceRanking(challenge);
   const sortBy = boardSortFor(challenge);
   const rawBoard = buildBoard(
@@ -1014,13 +1020,13 @@ export function ChallengeDetailScreen({
 
       {challenge.kind === 'bingo' && (
         <Card style={{ gap: 12 }} elevated={false}>
-          <Text style={text.h4}>Your bingo card</Text>
+          <Text style={text.h4}>Your {BINGO_CARD_TYPE_NAME[bingoCardType]} card</Text>
           <Text style={styles.footNote}>
             Fills itself from a matching workout, or tap a square to link one yourself — handy for a workout the
             app can&rsquo;t guess a category for on its own.
           </Text>
           <View style={styles.bingoGrid}>
-            {BINGO_CATEGORIES.map((category) => {
+            {bingoCategories.map((category) => {
               const filled = myBingoCard?.filled.has(category) ?? false;
               return (
                 <Pressable
@@ -1039,7 +1045,7 @@ export function ChallengeDetailScreen({
           <Text style={styles.footNote}>
             {myBingoCard?.blackout
               ? 'Blackout! You’ve filled every square.'
-              : `${myBingoCard?.squaresFilled ?? 0} of ${BINGO_CATEGORIES.length} squares filled.`}
+              : `${myBingoCard?.squaresFilled ?? 0} of ${BINGO_SQUARE_COUNT} squares filled.`}
           </Text>
 
           {linkingCategory && (
@@ -1133,7 +1139,7 @@ export function ChallengeDetailScreen({
                         const label = top.userId === user?.id ? 'You' : top.name;
                         return top.blackout
                           ? `${label} filled the whole card — blackout!`
-                          : `${label} led with ${top.squaresFilled} of ${BINGO_CATEGORIES.length} squares.`;
+                          : `${label} led with ${top.squaresFilled} of ${BINGO_SQUARE_COUNT} squares.`;
                       })()
                     : `${board[0]?.userId === user?.id ? 'You' : board[0]?.name ?? 'Someone'} won with ${formatMetric(
                         scoredByDistance ? board[0]?.totalDistanceMi ?? 0 : board[0]?.totalSteps ?? 0,
@@ -1158,7 +1164,7 @@ export function ChallengeDetailScreen({
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={styles.boardSteps}>
-                    {card.squaresFilled} of {BINGO_CATEGORIES.length}
+                    {card.squaresFilled} of {BINGO_SQUARE_COUNT}
                   </Text>
                 </View>
               </View>

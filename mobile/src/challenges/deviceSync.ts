@@ -1,6 +1,6 @@
 import { supabaseChallengesProvider } from './supabaseChallenges';
 import { usesDeviceSteps, usesWorkoutDistance } from './scoring';
-import { classifyWorkout, type BingoCategory } from './bingo';
+import { classifyWorkout, DEFAULT_BINGO_CARD_TYPE, type BingoCategory } from './bingo';
 import { recordBingoProgress } from './bingoApi';
 import type { Challenge } from './types';
 import type { HealthProvider, WorkoutSample } from '../health/types';
@@ -118,17 +118,19 @@ export async function syncChallengeProgressFromDevice(challenge: Challenge, heal
   }
 }
 
-// Variety Bingo's own sync path — deliberately separate from
+// Bingo's own sync path — deliberately separate from
 // syncChallengeProgressFromDevice above rather than folded into
 // usesWorkoutDistance: a bingo challenge isn't steps- or
 // distance-ranked at all (see scoring.ts), it just needs to know which
-// of the 9 categories (bingo.ts's BINGO_CATEGORIES) each recent workout
-// classifies into. Shared by the same two call sites as the function
-// above (ChallengeDetailScreen's syncFromDevice, HomeScreen's per-active-
+// of its 9 categories (bingo.ts's BINGO_CARD_CATEGORIES, keyed by the
+// challenge's own bingoCardType) each recent workout classifies into.
+// Shared by the same two call sites as the function above
+// (ChallengeDetailScreen's syncFromDevice, HomeScreen's per-active-
 // challenge sync loop).
 export async function syncBingoProgressFromDevice(challenge: Challenge, health: HealthProvider): Promise<void> {
   if (challenge.kind !== 'bingo') return;
   try {
+    const cardType = challenge.bingoCardType ?? DEFAULT_BINGO_CARD_TYPE;
     const since = new Date(challenge.startsAt);
     const endsAt = new Date(challenge.endsAt);
     const workouts = await health.getRecentWorkouts(200);
@@ -139,7 +141,7 @@ export async function syncBingoProgressFromDevice(challenge: Challenge, health: 
     // filled at all.
     const byCategory = new Map<BingoCategory, WorkoutSample>();
     for (const w of inRange) {
-      const category = classifyWorkout(w.name);
+      const category = classifyWorkout(w.name, cardType);
       if (!byCategory.has(category)) byCategory.set(category, w);
     }
     // Re-attempts every category found in this window on every sync, even
