@@ -460,8 +460,8 @@ export function SettingsScreen() {
           {showScoreExplainer && (
             <View style={styles.scoreExplainerRow}>
               <Text style={styles.scoreExplainerText}>
-                Hound Score reflects how much you&rsquo;ve won across challenges. Level and XP track how much you&rsquo;ve
-                played, win or lose.
+                Hound Score reflects how much you&rsquo;ve played and won, across challenges. Level and XP track your
+                participation, as well as rankings (win, lose, or draw).
               </Text>
               <Pressable onPress={dismissScoreExplainer} hitSlop={8}>
                 <XIcon size={14} color={withAlpha(colors.text, 0.5)} />
