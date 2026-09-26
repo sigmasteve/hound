@@ -51,7 +51,7 @@ import {
   type BoardEntry,
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
-import { syncChallengeProgressFromDevice } from '../challenges/deviceSync';
+import { syncChallengeProgressFromDevice, syncBingoProgressFromDevice } from '../challenges/deviceSync';
 import { boardSortFor } from '../challenges/scoring';
 import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
@@ -545,6 +545,7 @@ export function HomeScreen({
       // failures — there's nothing here to catch.
       challenges.forEach((c) => {
         syncChallengeProgressFromDevice(c, health);
+        syncBingoProgressFromDevice(c, health);
       });
 
       // One board per challenge, not just the primary one — needed for
