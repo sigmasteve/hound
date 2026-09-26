@@ -1268,8 +1268,10 @@ export function ChallengeDetailScreen({
           automatically in the background (see the auto-sync effect
           above) once Health Connect/HealthKit is connected, so there's
           nothing for this screen to show or for the person to trigger
-          manually. */}
-      {!usesDeviceSteps(challenge) && !usesWorkoutDistance(challenge) && challenge.kind !== 'tictacgo' && (
+          manually. Neither does Bingo: it's scored purely by filled
+          squares (bingo_progress, see src/challenges/bingoApi.ts), so
+          steps logged here would never show up anywhere for it. */}
+      {!usesDeviceSteps(challenge) && !usesWorkoutDistance(challenge) && challenge.kind !== 'tictacgo' && challenge.kind !== 'bingo' && (
         <Card style={{ gap: 14 }} elevated={false}>
           <Text style={text.h4}>Log your progress</Text>
           <Text style={styles.footNote}>
