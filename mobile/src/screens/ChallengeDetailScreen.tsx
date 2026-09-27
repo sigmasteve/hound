@@ -1501,7 +1501,17 @@ export function ChallengeDetailScreen({
         </Card>
       )}
 
-      {!(challenge.kind === 'tictacgo' && participants.length >= 2) && (
+      {/* Tic-Tac-Go is strictly 1v1 (CreateScreen's own toggleFriend already
+          enforces this at creation) — participants.length >= 2 alone only
+          closes this once someone has actually accepted, leaving a window
+          where a second, then a third, invite could go out while the first
+          is still pending and unanswered. invitedIds.size > 0 closes it the
+          moment even one invite is outstanding, so at most one ever exists
+          at a time; it reopens on its own once that invite is declined or
+          expires (see load()'s own invitedIds refresh, sourced from
+          listSentChallengeInvites — a no-longer-pending invite just drops
+          out of that list). */}
+      {!(challenge.kind === 'tictacgo' && (participants.length >= 2 || invitedIds.size > 0)) && (
         <Card style={{ gap: 10 }} elevated={false}>
           <Text style={text.h4}>{challenge.kind === 'tictacgo' ? 'Invite your opponent' : 'Invite a friend'}</Text>
           {inviteLocked ? (
