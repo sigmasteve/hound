@@ -161,6 +161,23 @@ export const CHALLENGE_TYPES: {
   { id: 'seventyfive', name: '75 Day Challenge', desc: 'A daily checklist — two workouts (one outdoors), a diet, water, reading, and a progress photo. Miss a day and your streak resets, but you keep going the whole way.', tint: '#1f4f6b', iconColor: '#c9e8fb' },
 ];
 
+// Groups CHALLENGE_TYPES by play structure for "Pick the game" (step 1 of
+// CreateScreen's wizard) — a flat list of 8+ kinds stopped being
+// something you could scan at a glance, so this sorts them into "what
+// kind of game is this" sections instead: chase-and-evade, ranked by a
+// number, one shared group goal, head-to-head on a board, or a personal
+// checklist nobody else is racing you on. Every id here must exist in
+// CHALLENGE_TYPES — CreateScreen renders by walking this list of groups,
+// not CHALLENGE_TYPES directly, so a kind left out of every group here
+// would silently never appear in the picker at all.
+export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
+  { label: 'Chase & Catch', kinds: ['hunt', 'tag'] },
+  { label: 'Head-to-Head', kinds: ['tictacgo'] },
+  { label: 'Solo Challenge', kinds: ['streak', 'bingo', 'seventyfive'] },
+  { label: 'Leaderboard', kinds: ['steps'] },
+  { label: 'Group Goal', kinds: ['distance'] },
+];
+
 export interface DataSource {
   name: string;
   tint: string;
