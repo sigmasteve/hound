@@ -34,6 +34,31 @@ import { useAuth } from '../auth/AuthContext';
 // here needs to be real — same "—"/"no data yet" fallback shape
 // toChallengeCard already uses for a challenge nobody's logged
 // anything in yet.
+// This screen fully unmounts and remounts on every tab switch away and
+// back (MainScreen.tsx renders each tab conditionally — unlike Home,
+// which stays mounted for the app's own lifetime; see that screen's own
+// comment on the difference). Without this, every single switch back to
+// Challenges reset every piece of state to null/empty, showing the full
+// loading spinner and re-running the whole participants/leaderboard/bots
+// fetch for every active challenge from scratch — even for a switch that
+// happened half a second ago with nothing changed in between. A
+// module-level variable (not React state) survives exactly that
+// unmount/remount, since it isn't torn down until the JS engine itself
+// is (app backgrounded or killed, not just a tab switch) — the next
+// mount seeds its initial state from here instead of null, paints
+// immediately, and the useFocusEffect fetch below still runs and
+// silently corrects anything actually stale, same "keep showing the old
+// good data while a fresh fetch is in flight" shape this screen already
+// used for a same-mount refocus. Never read after the module first
+// loads except to seed a fresh mount's initial state — nothing here
+// substitutes for a real fetch.
+let cachedChallengesState: {
+  liveCards: ChallengeCard[];
+  finishedRawChallenges: Challenge[];
+  primaryChallengeId: string | null;
+} | null = null;
+let cachedInvites: ChallengeInvite[] | null = null;
+
 function placeholderFinishedCard(c: Challenge): ChallengeCard {
   const typeDef = CHALLENGE_TYPES.find((t) => t.id === c.kind);
   return {
@@ -71,7 +96,7 @@ export function ChallengesScreen({
   // Either way this screen never fabricates challenges to fill the gap
   // — an unconfigured backend and a configured-but-empty one render
   // identically, as honest empty states.
-  const [liveCards, setLiveCards] = useState<ChallengeCard[] | null>(null);
+  const [liveCards, setLiveCards] = useState<ChallengeCard[] | null>(cachedChallengesState?.liveCards ?? null);
   // Every challenge whose schedule has already ended (see loadChallenges
   // below) — kept as raw Challenge rows, not fetched into full cards,
   // until "Finished" is actually expanded. Classified from
@@ -79,7 +104,9 @@ export function ChallengesScreen({
   // challenge past its own endsAt is finished regardless of kind (see
   // isChallengeFinished, board.ts), so nothing here needs the
   // participants/leaderboard/bots fetch just to know that much.
-  const [finishedRawChallenges, setFinishedRawChallenges] = useState<Challenge[]>([]);
+  const [finishedRawChallenges, setFinishedRawChallenges] = useState<Challenge[]>(
+    cachedChallengesState?.finishedRawChallenges ?? [],
+  );
   // null = not fetched yet for this batch of finishedRawChallenges (see
   // the lazy-fetch effect below) — every entry gets a placeholderFinishedCard
   // instead in the meantime. Reset on every loadChallenges() call, same
@@ -89,14 +116,16 @@ export function ChallengesScreen({
   const [finishedCardOverrides, setFinishedCardOverrides] = useState<Map<string, ChallengeCard> | null>(null);
   const [loadingFinishedDetails, setLoadingFinishedDetails] = useState(false);
   // Same convention, independently, for challenge invites.
-  const [liveInvites, setLiveInvites] = useState<ChallengeInvite[] | null>(null);
+  const [liveInvites, setLiveInvites] = useState<ChallengeInvite[] | null>(cachedInvites);
   const [respondingId, setRespondingId] = useState<string | null>(null);
   // Whichever challenge Home is currently showing as its own hero card —
   // pickPrimaryChallenge (src/challenges/board.ts) is the one place that
   // decision gets made, so this list can mark the exact same row instead
   // of a parallel guess. Null both before the first fetch resolves and
   // when nothing qualifies (no active challenges at all).
-  const [primaryChallengeId, setPrimaryChallengeId] = useState<string | null>(null);
+  const [primaryChallengeId, setPrimaryChallengeId] = useState<string | null>(
+    cachedChallengesState?.primaryChallengeId ?? null,
+  );
   // Collapsed by default — the medal tally is the headline, the finished
   // challenges themselves are detail you dig into, same "summary first,
   // list on demand" shape as MetricsScreen's Today's Workouts card.
@@ -107,7 +136,8 @@ export function ChallengesScreen({
       supabaseChallengesProvider.listMyChallenges(),
       supabaseChallengesProvider.getHighlightedChallenge(),
     ]);
-    setPrimaryChallengeId(pickPrimaryChallenge(challenges, highlighted)?.id ?? null);
+    const primaryId = pickPrimaryChallenge(challenges, highlighted)?.id ?? null;
+    setPrimaryChallengeId(primaryId);
     // Only a challenge whose schedule hasn't ended yet needs the full
     // participants/leaderboard/bots fetch here — one still genuinely
     // running (to show its real live stat), or a hunt/tag that *might*
@@ -152,6 +182,10 @@ export function ChallengesScreen({
     setLiveCards(cards);
     setFinishedRawChallenges(pastSchedule);
     setFinishedCardOverrides(null);
+    // Seeds the next mount's initial state (see cachedChallengesState's
+    // own comment) — written only after a real fetch actually succeeded,
+    // never speculatively.
+    cachedChallengesState = { liveCards: cards, finishedRawChallenges: pastSchedule, primaryChallengeId: primaryId };
 
     // Best-effort, unawaited — settle_challenge_score (0058_hound_score.sql)
     // no-ops instantly unless this exact challenge just genuinely
@@ -169,7 +203,10 @@ export function ChallengesScreen({
   };
 
   const loadInvites = async (): Promise<void> => {
-    setLiveInvites(await supabaseChallengesProvider.listMyChallengeInvites());
+    const invites = await supabaseChallengesProvider.listMyChallengeInvites();
+    setLiveInvites(invites);
+    // Same seed-the-next-mount purpose as cachedChallengesState above.
+    cachedInvites = invites;
   };
 
   // useFocusEffect, not a plain mount-time useEffect: creating a challenge
