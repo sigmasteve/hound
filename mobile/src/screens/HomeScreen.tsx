@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ArrowsClockwiseIcon,
+  BellRingingIcon,
   CaretRightIcon,
   CrosshairIcon,
   EnvelopeOpenIcon,
@@ -34,7 +35,7 @@ import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { APP_VERSION } from '../lib/appVersion';
-import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
+import { supabaseChallengesProvider, hasLoggedProgressToday } from '../challenges/supabaseChallenges';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { getAppBanner, isBannerActive, type AppBanner } from '../banner/supabaseBanner';
@@ -59,6 +60,8 @@ import {
 import { boardSortFor } from '../challenges/scoring';
 import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
+import { computePendingActions, needsManualEntry, type PendingAction } from '../challenges/pendingActions';
+import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
 import { computeStreakStatus, type StreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
 import {
@@ -492,6 +495,14 @@ export function HomeScreen({
   // Only populated when `primary` is a Tic-Tac-Go game.
   const [primaryTttGame, setPrimaryTttGame] = useState<TicTacGoGame | null>(null);
 
+  // "What do I need to do right now" across every active challenge, not
+  // just the primary one — Tag's "you're It," Tic-Tac-Go's "your move,"
+  // an unfinished 75 Day checklist, or a manual-entry challenge nobody's
+  // logged today. See pendingActions.ts's own comment on why this is a
+  // pure reduction over already-fetched per-kind state, computed fresh
+  // in the load effect below rather than stored.
+  const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
+
   const reload = useCallback(() => {
     if (isSupabaseConfigured && user?.id) {
       getMyHoundScore(user.id)
@@ -658,6 +669,71 @@ export function HomeScreen({
         finished: results.filter((r) => r.finished).length,
       });
       setLiveInvites(invites);
+
+      // Every active challenge, not just primary — pendingActions.ts's
+      // whole point is answering "what do I need to do" across
+      // everything at once, which the primary-only fetches below can't.
+      // Each per-kind fetch below only runs for the challenges of that
+      // kind, same as the primary-only versions further down, just
+      // fanned out over every active one instead of one.
+      const activeResults = results.filter((r) => !r.finished);
+      if (user?.id) {
+        const myId = user.id;
+        const [tagEntries, tictacgoEntries, seventyfiveEntries, manualEntries] = await Promise.all([
+          Promise.all(
+            activeResults
+              .filter((r) => r.challenge.kind === 'tag')
+              .map(async (r): Promise<readonly [string, TagRound | null]> => [
+                r.challenge.id,
+                await getTagRound(r.challenge.id).catch(() => null),
+              ]),
+          ),
+          Promise.all(
+            activeResults
+              .filter((r) => r.challenge.kind === 'tictacgo')
+              .map(async (r): Promise<readonly [string, TicTacGoGame | null]> => {
+                await settleTicTacGo(r.challenge.id).catch(() => {});
+                return [r.challenge.id, await getTicTacGoGame(r.challenge.id).catch(() => null)];
+              }),
+          ),
+          Promise.all(
+            activeResults
+              .filter((r) => r.challenge.kind === 'seventyfive')
+              .map(async (r): Promise<readonly [string, boolean]> => [
+                r.challenge.id,
+                // Fails toward "complete" (no action shown) rather than
+                // a false "you're behind" on a network hiccup — same
+                // "fail toward showing nothing" reasoning
+                // pendingActions.ts documents for its own maps.
+                await isMySeventyFiveTodayComplete(r.challenge.id, myId).catch(() => true),
+              ]),
+          ),
+          Promise.all(
+            activeResults
+              .filter((r) => needsManualEntry(r.challenge))
+              .map(async (r): Promise<readonly [string, boolean]> => [
+                r.challenge.id,
+                await hasLoggedProgressToday(r.challenge.id, myId).catch(() => true),
+              ]),
+          ),
+        ]);
+        if (!cancelled) {
+          setPendingActions(
+            computePendingActions({
+              myUserId: myId,
+              now: new Date(),
+              challenges: activeResults.map((r) => r.challenge),
+              tagRounds: new Map(tagEntries.filter((e): e is readonly [string, TagRound] => e[1] !== null)),
+              tictacgoGames: new Map(tictacgoEntries.filter((e): e is readonly [string, TicTacGoGame] => e[1] !== null)),
+              seventyfiveTodayComplete: new Map(seventyfiveEntries),
+              loggedProgressToday: new Map(manualEntries),
+            }),
+          );
+        }
+      } else if (!cancelled) {
+        setPendingActions([]);
+      }
+
       const primaryResult = results.find((r) => r.challenge.id === primaryId);
       if (primaryResult) setPrimary({ challenge: primaryResult.challenge, board: primaryResult.board });
       // Best-effort, unawaited — same "safe to call on every load" shape
@@ -923,6 +999,27 @@ export function HomeScreen({
             />
           </View>
         </Card>
+      ))}
+
+      {/* "What do I need to do right now" across every active challenge —
+          Tag's own turn, Tic-Tac-Go's own turn, an unfinished 75 Day
+          checklist, or a manual-entry challenge nobody's logged today.
+          Same card shape as the invite/friend-request lists above, so
+          all three read as one "things needing you" area instead of
+          requiring a trip into each challenge individually to find out.
+          The whole card is tappable (there's only ever one thing to do
+          here, unlike Accept/Decline above), straight into that
+          challenge. */}
+      {pendingActions.map((action) => (
+        <Pressable key={`${action.challengeId}-${action.kind}`} onPress={() => onOpenChallenge(action.challengeId)}>
+          <Card style={styles.inviteCard} elevated={false}>
+            <BellRingingIcon size={18} color={color.accent300} weight="fill" />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.inviteTitle}>{action.label}</Text>
+            </View>
+            <CaretRightIcon size={16} color={withAlpha(colors.text, 0.5)} />
+          </Card>
+        </Pressable>
       ))}
 
       {/* Hidden until the counts fetch resolves (or never, unconfigured/

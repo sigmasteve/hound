@@ -547,3 +547,24 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     if (error) throw new Error(error.message);
   },
 };
+
+// A single-row existence check for "have I logged progress today" —
+// standalone rather than part of ChallengesProvider above, same shape as
+// seventyFiveApi.ts's isMySeventyFiveTodayComplete: built for the Home
+// screen's pending-actions aggregator, which only needs a yes/no per
+// manual-entry challenge, not a full leaderboard read. No row for today
+// reads as "not logged" — recordProgress always upserts a real row
+// (including an explicit zero), so presence alone is the right signal,
+// not the values inside it.
+export async function hasLoggedProgressToday(challengeId: string, userId: string): Promise<boolean> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from('progress_snapshots')
+    .select('challenge_id')
+    .eq('challenge_id', challengeId)
+    .eq('user_id', userId)
+    .eq('day', localDateKey(new Date()))
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return !!data;
+}
