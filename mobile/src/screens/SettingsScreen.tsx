@@ -33,6 +33,7 @@ import { setUseUsername, setUsername } from '../profiles/supabaseProfile';
 import { getOrganization, leaveOrganization, redeemOrganizationInvite } from '../organizations/supabaseOrganizations';
 import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
 import { levelProgressForXp } from '../challenges/leveling';
+import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import type { Organization } from '../organizations/types';
 
 const USERNAME_FORMAT = /^[A-Za-z0-9_]{3,20}$/;
@@ -62,7 +63,7 @@ const PROVIDER_LABEL: Record<AuthProviderId, string> = {
   email: 'Email & password',
 };
 
-export function SettingsScreen() {
+export function SettingsScreen({ onOpenLocker }: { onOpenLocker: () => void }) {
   const health = useHealthProvider();
   const { user, signOut, updateUser } = useAuth();
   const { colors, text, mode, setMode } = useTheme();
@@ -215,6 +216,22 @@ export function SettingsScreen() {
       getMyHoundScore(user.id)
         .then(setHoundScore)
         .catch(() => setHoundScore(null));
+    }, [user?.id]),
+  );
+
+  // Same null-means-unresolved-or-failed shape as houndScore above — the
+  // account row's Avatar below just renders its plain default look until
+  // this actually resolves, rather than a guessed empty state.
+  const [equipped, setEquipped] = useState<EquippedCosmetics | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured || !user?.id) {
+        setEquipped(null);
+        return;
+      }
+      getMyEquippedCosmetics(user.id)
+        .then(setEquipped)
+        .catch(() => setEquipped(null));
     }, [user?.id]),
   );
 
@@ -468,6 +485,10 @@ export function SettingsScreen() {
               </Pressable>
             </View>
           )}
+          <Pressable style={styles.lockerRow} onPress={onOpenLocker}>
+            <Text style={styles.lockerRowLabel}>Customize your look</Text>
+            <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+          </Pressable>
         </Card>
       )}
 
@@ -528,7 +549,14 @@ export function SettingsScreen() {
 
       {user && (
         <Card style={styles.accountRow} elevated={false}>
-          <Avatar initials={user.initials} tint={colors.accent800} size={40} fontSize={14} />
+          <Avatar
+            initials={user.initials}
+            tint={colors.accent800}
+            size={40}
+            fontSize={14}
+            frameId={equipped?.frameId}
+            backgroundId={equipped?.backgroundId}
+          />
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={styles.sourceName}>{user.name}</Text>
             <Text style={styles.footNote}>
@@ -831,6 +859,15 @@ function makeStyles(colors: Palette) {
       borderTopColor: colors.divider,
     },
     scoreExplainerText: { flex: 1, fontSize: 12.5, lineHeight: 17, color: withAlpha(colors.text, 0.65) },
+    lockerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingTop: 10,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.divider,
+    },
+    lockerRowLabel: { fontSize: 14, color: colors.text, fontFamily: font.heading },
     goalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     goalValue: { fontSize: 14.5, color: colors.accent, fontFamily: font.heading },
     footNoteError: { fontSize: 12.5, color: colors.amber },

@@ -12,6 +12,7 @@ import { HuntScreen } from '../screens/HuntScreen';
 import { CreateScreen } from '../screens/CreateScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { FriendDetailScreen } from '../screens/FriendDetailScreen';
+import { LockerScreen } from '../screens/LockerScreen';
 import { AdminScreen } from '../screens/AdminScreen';
 import { AdminUserDetailScreen } from '../screens/AdminUserDetailScreen';
 import { OrgManagementScreen } from '../screens/OrgManagementScreen';
@@ -234,6 +235,9 @@ export function RootNavigator() {
                   onBack={() => navigation.navigate('Main', { tab: 'friends' })}
                 />
               )}
+            </Stack.Screen>
+            <Stack.Screen name="Locker" options={{ animation: 'slide_from_right' }}>
+              {({ navigation }) => <LockerScreen onBack={() => navigation.navigate('Main', { tab: 'settings' })} />}
             </Stack.Screen>
             <Stack.Screen name="Admin" options={{ animation: 'slide_from_right' }}>
               {/* Reached from TopNav's own admin icon, visible on every
