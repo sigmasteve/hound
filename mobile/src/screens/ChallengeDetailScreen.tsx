@@ -39,7 +39,7 @@ import {
   withHuntCatches,
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
-import { syncChallengeProgressFromDevice, syncBingoProgressFromDevice } from '../challenges/deviceSync';
+import { syncChallengeProgressFromDevice, syncBingoProgressFromDevice, syncSeventyFiveFromDevice } from '../challenges/deviceSync';
 import {
   BINGO_CARD_TYPE_NAME,
   BINGO_CATEGORY_LABEL,
@@ -72,6 +72,13 @@ import {
 } from '../challenges/tagApi';
 import { computeStreakStatus, streakConcluded, type StreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
+import { computeSeventyFiveStatus, isSeventyFiveDayComplete, type SeventyFiveCheckin, type SeventyFiveStatus } from '../challenges/seventyFive';
+import {
+  listSeventyFiveCheckins,
+  listSeventyFiveJoinDates,
+  setSelfReportCheckin,
+  type SelfReportItem,
+} from '../challenges/seventyFiveApi';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { friendEligible } from '../friends/eligibility';
@@ -215,6 +222,15 @@ export function ChallengeDetailScreen({
   // "fetch flat rows, compute fresh on every load" shape as Daily Streak.
   const [bingoRows, setBingoRows] = useState<BingoProgressRow[]>([]);
 
+  // 75 Day Challenge's own checklist rows and derived streak state —
+  // empty/blank for any other kind. Same "fetch flat rows, compute fresh
+  // on every load" shape as Daily Streak's streakStatuses above, just
+  // with a reset-not-eliminate streak instead (see
+  // computeSeventyFiveStatus's own comment).
+  const [seventyFiveCheckins, setSeventyFiveCheckins] = useState<SeventyFiveCheckin[]>([]);
+  const [seventyFiveStatuses, setSeventyFiveStatuses] = useState<Map<string, SeventyFiveStatus>>(new Map());
+  const [seventyFiveSaving, setSeventyFiveSaving] = useState<SelfReportItem | null>(null);
+
   // Tic-Tac-Go's board — null for any other kind, or a game whose board
   // was never set up.
   const [tttGame, setTttGame] = useState<TicTacGoGame | null>(null);
@@ -322,6 +338,7 @@ export function ChallengeDetailScreen({
       const needsStreak = c.kind === 'streak';
       const needsBingo = c.kind === 'bingo';
       const needsTicTacGo = c.kind === 'tictacgo';
+      const needsSeventyFive = c.kind === 'seventyfive';
       // Settled before the round itself is fetched, not after — so a
       // stalled turn (15 real minutes with no catch) has already moved
       // on by the time this same load() reads who's IT, rather than
@@ -330,24 +347,41 @@ export function ChallengeDetailScreen({
       // Same idea for Tic-Tac-Go: pass a turn that's run past 24 hours
       // (or end a game whose time is up) before reading the board.
       if (needsTicTacGo) await settleTicTacGo(challengeId).catch(() => {});
-      const [p, l, b, f, hs, sentInvites, tagRoundResult, tagMembersResult, tagEventsResult, dailyRows, joinDates, bingoRowsResult, tttGameResult] =
-        await Promise.all([
-          supabaseChallengesProvider.listParticipants(challengeId),
-          supabaseChallengesProvider.getLeaderboard(challengeId),
-          supabaseChallengesProvider.listBots(challengeId),
-          supabaseFriendsProvider.listFriends(),
-          needsHeadStart
-            ? supabaseChallengesProvider.getLeaderboard(challengeId, headStartBaselineDayKey(c))
-            : Promise.resolve<LeaderboardEntry[]>([]),
-          supabaseChallengesProvider.listSentChallengeInvites(challengeId),
-          needsTag ? getTagRound(challengeId) : Promise.resolve(null),
-          needsTag ? listTagMembers(challengeId) : Promise.resolve([]),
-          needsTag ? listTagEvents(challengeId) : Promise.resolve([]),
-          needsStreak ? listDailyProgress(challengeId) : Promise.resolve([]),
-          needsStreak ? listParticipantJoinDates(challengeId) : Promise.resolve(new Map<string, Date>()),
-          needsBingo ? listBingoProgress(challengeId) : Promise.resolve<BingoProgressRow[]>([]),
-          needsTicTacGo ? getTicTacGoGame(challengeId) : Promise.resolve(null),
-        ]);
+      const [
+        p,
+        l,
+        b,
+        f,
+        hs,
+        sentInvites,
+        tagRoundResult,
+        tagMembersResult,
+        tagEventsResult,
+        dailyRows,
+        joinDates,
+        bingoRowsResult,
+        tttGameResult,
+        seventyFiveCheckinsResult,
+        seventyFiveJoinDates,
+      ] = await Promise.all([
+        supabaseChallengesProvider.listParticipants(challengeId),
+        supabaseChallengesProvider.getLeaderboard(challengeId),
+        supabaseChallengesProvider.listBots(challengeId),
+        supabaseFriendsProvider.listFriends(),
+        needsHeadStart
+          ? supabaseChallengesProvider.getLeaderboard(challengeId, headStartBaselineDayKey(c))
+          : Promise.resolve<LeaderboardEntry[]>([]),
+        supabaseChallengesProvider.listSentChallengeInvites(challengeId),
+        needsTag ? getTagRound(challengeId) : Promise.resolve(null),
+        needsTag ? listTagMembers(challengeId) : Promise.resolve([]),
+        needsTag ? listTagEvents(challengeId) : Promise.resolve([]),
+        needsStreak ? listDailyProgress(challengeId) : Promise.resolve([]),
+        needsStreak ? listParticipantJoinDates(challengeId) : Promise.resolve(new Map<string, Date>()),
+        needsBingo ? listBingoProgress(challengeId) : Promise.resolve<BingoProgressRow[]>([]),
+        needsTicTacGo ? getTicTacGoGame(challengeId) : Promise.resolve(null),
+        needsSeventyFive ? listSeventyFiveCheckins(challengeId) : Promise.resolve<SeventyFiveCheckin[]>([]),
+        needsSeventyFive ? listSeventyFiveJoinDates(challengeId) : Promise.resolve(new Map<string, Date>()),
+      ]);
       setChallenge(c);
       setParticipants(p);
       setLeaderboard(l);
@@ -361,6 +395,10 @@ export function ChallengeDetailScreen({
       setStreakStatuses(needsStreak ? computeStreakStatus(c, joinDates, dailyRows) : new Map());
       setBingoRows(bingoRowsResult);
       setTttGame(tttGameResult);
+      setSeventyFiveCheckins(seventyFiveCheckinsResult);
+      setSeventyFiveStatuses(
+        needsSeventyFive ? computeSeventyFiveStatus(c, seventyFiveJoinDates, seventyFiveCheckinsResult) : new Map(),
+      );
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not load this challenge.');
     } finally {
@@ -549,6 +587,42 @@ export function ChallengeDetailScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challenge?.id, challenge?.kind]);
 
+  // 75 Day Challenge's own device sync — separate from syncFromDevice
+  // above for the same reason Bingo's is: it's a per-day presence check
+  // (did a workout happen today, was a second one outdoor), not a single
+  // steps-or-distance total (see syncSeventyFiveFromDevice's own comment
+  // in deviceSync.ts).
+  const syncSeventyFiveDevice = useCallback(async () => {
+    if (!challenge) return;
+    await syncSeventyFiveFromDevice(challenge, health);
+    await load();
+  }, [challenge, health, load]);
+
+  useEffect(() => {
+    if (challenge && challenge.kind === 'seventyfive') {
+      syncSeventyFiveDevice();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challenge?.id, challenge?.kind]);
+
+  // Today's own self-report toggle — diet/water/reading/photo only; the
+  // two workout items are read-only here, filled by
+  // syncSeventyFiveFromDevice above. A past day's checklist isn't
+  // editable at all (this only ever writes today's row — see
+  // setSelfReportCheckin's own default-to-today parameter).
+  const toggleSeventyFiveItem = async (item: SelfReportItem, next: boolean) => {
+    if (!challenge) return;
+    setSeventyFiveSaving(item);
+    try {
+      await setSelfReportCheckin(challenge.id, item, next);
+      await load();
+    } catch (e) {
+      Alert.alert('Could not save that', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setSeventyFiveSaving(null);
+    }
+  };
+
   const logProgress = async () => {
     const steps = Number(stepsInput);
     if (!Number.isFinite(steps) || steps < 0) {
@@ -656,6 +730,24 @@ export function ChallengeDetailScreen({
   const bingoCards: Map<string, BingoCard> = challenge.kind === 'bingo' ? computeBingoCards(participants, bingoRows) : new Map();
   const bingoBoardRows = Array.from(bingoCards.values()).sort((a, b) => b.squaresFilled - a.squaresFilled);
   const myBingoCard = user?.id ? bingoCards.get(user.id) : undefined;
+
+  // 75 Day Challenge isn't steps/distance-ranked either (and isn't
+  // ranked at all — personal accountability, not head-to-head) — its own
+  // checklist and streaks live in their own dedicated cards below rather
+  // than the shared Leaderboard.
+  const seventyFiveTodayKey = dateKey(new Date());
+  const mySeventyFiveToday = seventyFiveCheckins.find((c) => c.userId === user?.id && c.day === seventyFiveTodayKey);
+  const mySeventyFiveStatus = user?.id ? seventyFiveStatuses.get(user.id) : undefined;
+  // Sorted by current streak, longest as a tiebreak — a ranking-looking
+  // order for what's still meant to read as "how's everyone doing," not
+  // a competition; there's no place/medal shown, just each person's own
+  // two numbers.
+  const seventyFiveBoard = participants
+    .map((p) => ({ ...p, status: seventyFiveStatuses.get(p.userId) }))
+    .sort((a, b) => {
+      const streakDiff = (b.status?.currentStreak ?? 0) - (a.status?.currentStreak ?? 0);
+      return streakDiff !== 0 ? streakDiff : (b.status?.longestStreak ?? 0) - (a.status?.longestStreak ?? 0);
+    });
 
   // Days left in the Hunted's head start, for the leaderboard note below
   // — 0 once it's run out or this hunt never had one.
@@ -1131,7 +1223,99 @@ export function ChallengeDetailScreen({
         </Card>
       )}
 
-      {challenge.kind !== 'tictacgo' && (
+      {challenge.kind === 'seventyfive' && (
+        <Card style={{ gap: 12 }} elevated={false}>
+          <Text style={text.h4}>Today&rsquo;s checklist</Text>
+          <View style={{ gap: 2 }}>
+            <SeventyFiveRow
+              label="Workout 1"
+              done={mySeventyFiveToday?.workout1Done ?? false}
+              readOnly
+              styles={styles}
+              colors={colors}
+            />
+            <SeventyFiveRow
+              label="Workout 2 (outdoors)"
+              done={mySeventyFiveToday?.workout2OutdoorDone ?? false}
+              readOnly
+              styles={styles}
+              colors={colors}
+            />
+            <SeventyFiveRow
+              label="Followed your diet"
+              done={mySeventyFiveToday?.dietDone ?? false}
+              busy={seventyFiveSaving === 'diet'}
+              onToggle={(next) => toggleSeventyFiveItem('diet', next)}
+              styles={styles}
+              colors={colors}
+            />
+            <SeventyFiveRow
+              label="Drank a gallon of water"
+              done={mySeventyFiveToday?.waterDone ?? false}
+              busy={seventyFiveSaving === 'water'}
+              onToggle={(next) => toggleSeventyFiveItem('water', next)}
+              styles={styles}
+              colors={colors}
+            />
+            <SeventyFiveRow
+              label="Read 10 pages"
+              done={mySeventyFiveToday?.readingDone ?? false}
+              busy={seventyFiveSaving === 'reading'}
+              onToggle={(next) => toggleSeventyFiveItem('reading', next)}
+              styles={styles}
+              colors={colors}
+            />
+            <SeventyFiveRow
+              label="Progress photo"
+              done={mySeventyFiveToday?.photoDone ?? false}
+              busy={seventyFiveSaving === 'photo'}
+              onToggle={(next) => toggleSeventyFiveItem('photo', next)}
+              styles={styles}
+              colors={colors}
+            />
+          </View>
+          <Text style={styles.footNote}>
+            {mySeventyFiveToday && isSeventyFiveDayComplete(mySeventyFiveToday)
+              ? 'All done for today!'
+              : 'The two workouts fill in on their own once logged on your device.'}
+          </Text>
+          <View style={styles.leaderboardHeader}>
+            <Text style={styles.footNote}>
+              Current streak: {mySeventyFiveStatus?.currentStreak ?? 0} day
+              {mySeventyFiveStatus?.currentStreak === 1 ? '' : 's'} · Longest:{' '}
+              {mySeventyFiveStatus?.longestStreak ?? 0} day{mySeventyFiveStatus?.longestStreak === 1 ? '' : 's'}
+            </Text>
+          </View>
+        </Card>
+      )}
+
+      {challenge.kind === 'seventyfive' && (
+        <Card style={{ gap: 10 }} elevated={false}>
+          <View style={styles.leaderboardHeader}>
+            <TrophyIcon size={16} color={colors.accent} />
+            <Text style={text.h4}>Everyone&rsquo;s streak</Text>
+          </View>
+          {seventyFiveBoard.map((row) => (
+            <View key={row.userId} style={styles.boardRow}>
+              <Avatar
+                initials={row.initials}
+                tint={row.userId === user?.id ? TINT_A : TINT_N}
+                size={30}
+                fontSize={11}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.boardName}>{row.userId === user?.id ? 'You' : row.name}</Text>
+              </View>
+              <Tag
+                label={`${row.status?.currentStreak ?? 0}-day streak`}
+                variant={(row.status?.currentStreak ?? 0) > 0 ? 'accent' : 'outline'}
+              />
+            </View>
+          ))}
+        </Card>
+      )}
+
+      {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && (
         <Card style={{ gap: 12 }} elevated={false}>
           <View style={styles.leaderboardHeader}>
             <TrophyIcon size={16} color={colors.accent} />
@@ -1276,7 +1460,11 @@ export function ChallengeDetailScreen({
           manually. Neither does Bingo: it's scored purely by filled
           squares (bingo_progress, see src/challenges/bingoApi.ts), so
           steps logged here would never show up anywhere for it. */}
-      {!usesDeviceSteps(challenge) && !usesWorkoutDistance(challenge) && challenge.kind !== 'tictacgo' && challenge.kind !== 'bingo' && (
+      {!usesDeviceSteps(challenge) &&
+        !usesWorkoutDistance(challenge) &&
+        challenge.kind !== 'tictacgo' &&
+        challenge.kind !== 'bingo' &&
+        challenge.kind !== 'seventyfive' && (
         <Card style={{ gap: 14 }} elevated={false}>
           <Text style={text.h4}>Log your progress</Text>
           <Text style={styles.footNote}>
@@ -1404,6 +1592,48 @@ function formatWorkoutTime(d: Date): string {
   return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+// One row of the "Today's checklist" card — a plain checkbox for the 4
+// self-report items, or a read-only indicator (no onPress at all) for
+// the 2 device-tracked ones, which only ever change via
+// syncSeventyFiveFromDevice, never a tap.
+function SeventyFiveRow({
+  label,
+  done,
+  readOnly,
+  busy,
+  onToggle,
+  styles,
+  colors,
+}: {
+  label: string;
+  done: boolean;
+  readOnly?: boolean;
+  busy?: boolean;
+  onToggle?: (next: boolean) => void;
+  styles: ReturnType<typeof makeStyles>;
+  colors: Palette;
+}) {
+  const content = (
+    <View style={styles.seventyFiveRow}>
+      {busy ? (
+        <ActivityIndicator color={colors.accent} />
+      ) : (
+        <View style={[styles.seventyFiveCheckbox, done && styles.seventyFiveCheckboxOn]}>
+          {done && <CheckCircleIcon size={13} color="#fff" weight="fill" />}
+        </View>
+      )}
+      <Text style={styles.seventyFiveLabel}>{label}</Text>
+      {readOnly && <Text style={styles.footNote}>Auto</Text>}
+    </View>
+  );
+  if (readOnly || !onToggle) return content;
+  return (
+    <Pressable disabled={busy} onPress={() => onToggle(!done)}>
+      {content}
+    </Pressable>
+  );
+}
+
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 16, paddingBottom: 48 },
@@ -1432,6 +1662,23 @@ function makeStyles(colors: Palette) {
     boardName: { flex: 1, fontSize: 14, color: colors.text, fontFamily: font.body },
     boardSteps: { fontSize: 14, color: colors.text, fontFamily: font.heading },
     boardDistance: { fontSize: 11, color: withAlpha(colors.text, 0.55) },
+    seventyFiveRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 7,
+    },
+    seventyFiveCheckbox: {
+      width: 20,
+      height: 20,
+      borderRadius: 5,
+      borderWidth: 1.5,
+      borderColor: colors.divider,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    seventyFiveCheckboxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+    seventyFiveLabel: { flex: 1, fontSize: 14, color: colors.text, fontFamily: font.body },
     bingoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     bingoSquare: {
       width: '31%',
