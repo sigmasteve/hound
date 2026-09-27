@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { SeventyFiveCheckin } from './seventyFive';
+import { isSeventyFiveDayComplete, type SeventyFiveCheckin } from './seventyFive';
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -62,6 +62,34 @@ export async function listSeventyFiveJoinDates(challengeId: string): Promise<Map
   const map = new Map<string, Date>();
   for (const row of data ?? []) map.set(row.user_id, new Date(row.joined_at as string));
   return map;
+}
+
+// A single-row lookup for "have I finished today's checklist" — unlike
+// listSeventyFiveCheckins above, this never fetches every participant's
+// whole history, just the caller's own row for today. Built for the
+// Home screen's pending-actions aggregator, which needs this answer for
+// every active 75 Day Challenge the person is in, not the full detail
+// screen's per-participant breakdown. No row yet today means trivially
+// incomplete, not an error.
+export async function isMySeventyFiveTodayComplete(challengeId: string, userId: string): Promise<boolean> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from('seventyfive_checkins')
+    .select('workout1_done, workout2_outdoor_done, diet_done, water_done, reading_done, photo_done')
+    .eq('challenge_id', challengeId)
+    .eq('user_id', userId)
+    .eq('day', localDateKey(new Date()))
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return false;
+  return isSeventyFiveDayComplete({
+    workout1Done: data.workout1_done,
+    workout2OutdoorDone: data.workout2_outdoor_done,
+    dietDone: data.diet_done,
+    waterDone: data.water_done,
+    readingDone: data.reading_done,
+    photoDone: data.photo_done,
+  });
 }
 
 export type SelfReportItem = 'diet' | 'water' | 'reading' | 'photo';
