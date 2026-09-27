@@ -131,6 +131,13 @@ export function toChallengeCard(
     // live board is on the detail screen.
     stat = '1v1';
     statLabel = 'three in a row wins';
+  } else if (challenge.kind === 'seventyfive') {
+    // Same reasoning as bingo above — the real per-day checklist and
+    // streak state live on the detail screen; this compact card just
+    // states the format rather than fetching seventyfive_checkins per
+    // card shown.
+    stat = '6';
+    statLabel = 'checklist items a day';
   } else if (distanceGoal) {
     // A distance pool isn't a ranked leaderboard at all — everyone's
     // steps or miles (whichever unit its creator picked — see

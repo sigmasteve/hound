@@ -188,6 +188,16 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challengeScope]);
 
+  // No other kind needs a default length beyond the generic '21' — 75 Day
+  // Challenge's own name is specifically about the number, so seed the
+  // picker the moment it's picked. Still just seeds `length`'s starting
+  // value: the segmented control and slider above work exactly the same
+  // afterward, so this never locks anyone out of a shorter or longer run.
+  useEffect(() => {
+    if (draftType === 'seventyfive') setLength('75');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftType]);
+
   const toggleFriend = (userId: string) => {
     // Tic-Tac-Go is strictly 1v1 — picking someone replaces the last pick.
     if (draftType === 'tictacgo') {
@@ -251,12 +261,15 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
       // bot has no way to "pick" a target in the UI (see
       // 0045_tag_game_state.sql's own comment), Bingo because a bot's
       // steps/distance are simulated numbers (botSimulation.ts), never a
-      // real, classifiable workout. Never sends one along even if
-      // selectedBots somehow has stale entries from switching kind after
-      // picking bots, not just because the "Bot opponents" step above is
-      // hidden for both.
+      // real, classifiable workout. 75 Day Challenge is personal
+      // accountability run alongside real friends, not against an
+      // opponent at all — a bot "doing" a diet/water/reading checklist
+      // means nothing. Never sends one along even if selectedBots somehow
+      // has stale entries from switching kind after picking bots, not
+      // just because the "Bot opponents" step above is hidden for all of
+      // these.
       const chosenBots =
-        draftType === 'tag' || draftType === 'bingo' || draftType === 'tictacgo'
+        draftType === 'tag' || draftType === 'bingo' || draftType === 'tictacgo' || draftType === 'seventyfive'
           ? []
           : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
       const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
@@ -407,7 +420,10 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
             </View>
             <Slider
               minimumValue={1}
-              maximumValue={45}
+              // Every other kind keeps its existing 45-day ceiling
+              // unchanged — only 75 Day Challenge needs to reach past it,
+              // since its own default (seeded below) is 75.
+              maximumValue={draftType === 'seventyfive' ? 100 : 45}
               step={1}
               value={customLength}
               onValueChange={(v) => setLength(String(Math.round(v)))}
@@ -667,7 +683,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
             link either way.
           </Text>
 
-          {draftType !== 'tag' && draftType !== 'bingo' && draftType !== 'tictacgo' && (
+          {draftType !== 'tag' && draftType !== 'bingo' && draftType !== 'tictacgo' && draftType !== 'seventyfive' && (
             <>
               <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>
               <Text style={styles.footNote}>

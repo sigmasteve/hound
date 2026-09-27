@@ -7,6 +7,7 @@ import {
   GridNineIcon,
   HandTapIcon,
   HashIcon,
+  ListChecksIcon,
   PawPrintIcon,
 } from 'phosphor-react-native';
 import type { ChallengeKind } from './sampleData';
@@ -19,6 +20,7 @@ export const CHALLENGE_KIND_ICON: Record<ChallengeKind, React.ComponentType<any>
   tag: HandTapIcon,
   bingo: GridNineIcon,
   tictacgo: HashIcon,
+  seventyfive: ListChecksIcon,
 };
 
 // A build only ever ships knowing the challenge kinds that existed when

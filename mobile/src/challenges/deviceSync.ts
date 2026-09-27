@@ -2,6 +2,7 @@ import { supabaseChallengesProvider } from './supabaseChallenges';
 import { usesDeviceSteps, usesWorkoutDistance } from './scoring';
 import { classifyWorkout, DEFAULT_BINGO_CARD_TYPE, type BingoCategory } from './bingo';
 import { recordBingoProgress } from './bingoApi';
+import { recordSeventyFiveWorkouts } from './seventyFiveApi';
 import type { Challenge } from './types';
 import type { HealthProvider, WorkoutSample } from '../health/types';
 
@@ -163,6 +164,58 @@ export async function syncBingoProgressFromDevice(challenge: Challenge, health: 
       Array.from(byCategory.entries()).map(([category, w]) =>
         recordBingoProgress(challenge.id, category, 'auto', { id: w.id, name: w.name, when: w.when }),
       ),
+    );
+  } catch {
+    // Best-effort, same reasoning as syncChallengeProgressFromDevice's own
+    // catch above.
+  }
+}
+
+// A 75 Day Challenge's own two device-tracked checklist items —
+// deliberately separate from syncChallengeProgressFromDevice above, same
+// reasoning syncBingoProgressFromDevice's own comment gives: this isn't a
+// single steps-or-distance total for the whole challenge, it's "did at
+// least one/two workouts happen on this specific day," a per-day
+// presence check rather than an aggregate. workout1Done just needs any
+// workout that day; workout2Outdoor additionally needs a second workout
+// AND at least one of the day's workouts flagged (or guessed) outdoor —
+// same isOutdoor-or-name-heuristic signal a 'gps_distance' challenge
+// already relies on (see syncChallengeProgressFromDevice's own comment).
+// The four self-report items (diet/water/reading/photo) have no device
+// signal at all and are never touched here — only
+// setSelfReportCheckin (seventyFiveApi.ts) ever writes those columns, so
+// this function's upserts can never clobber them.
+export async function syncSeventyFiveFromDevice(challenge: Challenge, health: HealthProvider): Promise<void> {
+  if (challenge.kind !== 'seventyfive') return;
+  try {
+    const since = new Date(challenge.startsAt);
+    const startDayKey = dateKey(since);
+    const endCap = dateKey(new Date(challenge.endsAt));
+    const todayKey = dateKey(new Date());
+
+    const workouts = await health.getRecentWorkouts(200);
+    const inRange = workouts.filter((w) => w.when >= since);
+
+    const byDay = new Map<string, WorkoutSample[]>();
+    for (const w of inRange) {
+      const key = dateKey(w.when);
+      if (key < startDayKey || key > endCap) continue;
+      const existing = byDay.get(key);
+      if (existing) existing.push(w);
+      else byDay.set(key, [w]);
+    }
+    // Today always gets an explicit (possibly all-false) row, same as
+    // syncChallengeProgressFromDevice's own todayKey handling — otherwise
+    // a day with no workout logged yet would just never sync at all.
+    if (!byDay.has(todayKey) && todayKey <= endCap) byDay.set(todayKey, []);
+
+    await Promise.all(
+      Array.from(byDay.entries()).map(([day, dayWorkouts]) => {
+        const workout1Done = dayWorkouts.length >= 1;
+        const workout2OutdoorDone =
+          dayWorkouts.length >= 2 && dayWorkouts.some((w) => w.isOutdoor ?? /run|walk|jog|hike/i.test(w.name));
+        return recordSeventyFiveWorkouts(challenge.id, day, workout1Done, workout2OutdoorDone);
+      }),
     );
   } catch {
     // Best-effort, same reasoning as syncChallengeProgressFromDevice's own
