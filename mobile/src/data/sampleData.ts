@@ -172,10 +172,10 @@ export const CHALLENGE_TYPES: {
 // would silently never appear in the picker at all.
 export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
   { label: 'Chase & Catch', kinds: ['hunt', 'tag'] },
-  { label: 'Leaderboard', kinds: ['steps'] },
-  { label: 'Group Goal', kinds: ['distance'] },
   { label: 'Head-to-Head', kinds: ['tictacgo'] },
   { label: 'Solo Challenge', kinds: ['streak', 'bingo', 'seventyfive'] },
+  { label: 'Leaderboard', kinds: ['steps'] },
+  { label: 'Group Goal', kinds: ['distance'] },
 ];
 
 export interface DataSource {
