@@ -1,0 +1,105 @@
+// Credits a real-money Bones purchase right after the client's own
+// purchasePackage() call resolves — the fast, synchronous half of the
+// two-path design (see revenuecat-webhook's own comment for the other
+// half, which exists as a safety net when this call never happens, e.g.
+// the app is killed right after purchase).
+//
+// A client claiming "I just bought bones_pack_medium, transaction abc123"
+// is never trusted on its own — same "server re-derives, never trusts
+// the client" rule purchase_cosmetic (0060_bones_shop.sql) already
+// follows. This function re-checks the transaction against RevenueCat's
+// own subscriber record before crediting anything, so a made-up
+// transaction id can't get free Bones.
+//
+// credit_bones_purchase itself is idempotent (0064_bones_purchases.sql's
+// unique (store, transaction_id) constraint), so this racing with
+// revenuecat-webhook processing the same purchase is harmless — whichever
+// arrives first credits it, the other is a no-op.
+//
+// Deploy with the Supabase CLI:
+//   supabase functions deploy sync-purchase
+// Requires the REVENUECAT_SECRET_API_KEY function secret (RevenueCat
+// dashboard: Project Settings > API Keys > Secret API key — never the
+// public SDK key, which has no access to the subscriber-verification
+// endpoint used below).
+
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+};
+
+function jsonError(message: string, status: number) {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+  });
+}
+
+interface SyncBody {
+  productId?: string;
+  transactionId?: string;
+  store?: string;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
+
+  try {
+    const { productId, transactionId, store } = (await req.json()) as SyncBody;
+    if (
+      typeof productId !== 'string' ||
+      !productId ||
+      typeof transactionId !== 'string' ||
+      !transactionId ||
+      (store !== 'app_store' && store !== 'play_store')
+    ) {
+      return jsonError('productId, transactionId and a valid store are required.', 400);
+    }
+
+    const callerClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
+    });
+    const {
+      data: { user: caller },
+    } = await callerClient.auth.getUser();
+    if (!caller) return jsonError('Sign in to do that.', 401);
+
+    // Assumes Purchases.configure({ appUserID: <supabase user id> }) on
+    // the client (Phase A/C setup) — RevenueCat's own anonymous id would
+    // never line up with a real profile here.
+    const verifyRes = await fetch(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(caller.id)}`, {
+      headers: { Authorization: `Bearer ${Deno.env.get('REVENUECAT_SECRET_API_KEY')}` },
+    });
+    if (!verifyRes.ok) {
+      return jsonError('Could not verify this purchase with RevenueCat right now.', 502);
+    }
+
+    // Shape per RevenueCat's REST API "non-subscription purchases" docs
+    // as of when this was written — re-check subscriber.non_subscriptions'
+    // exact shape against current docs before relying on this in
+    // production, since third-party API surfaces move.
+    const payload = await verifyRes.json();
+    const records: Array<{ id?: string }> = payload?.subscriber?.non_subscriptions?.[productId] ?? [];
+    const matched = records.some((r) => r.id === transactionId);
+    if (!matched) {
+      return jsonError('That purchase could not be verified for this account.', 403);
+    }
+
+    const adminClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { error } = await adminClient.rpc('credit_bones_purchase', {
+      p_user_id: caller.id,
+      p_store: store,
+      p_product_id: productId,
+      p_transaction_id: transactionId,
+    });
+    if (error) return jsonError(error.message, 400);
+
+    return new Response(JSON.stringify({ credited: true }), {
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
+  } catch (e) {
+    return jsonError(e instanceof Error ? e.message : 'Unexpected error.', 500);
+  }
+});
