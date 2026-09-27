@@ -12,10 +12,15 @@ export interface CosmeticItem {
   id: string;
   slot: CosmeticSlot;
   name: string;
-  // Must match the row's own unlock_xp in 0059_cosmetics.sql exactly —
-  // equip_cosmetic() is the real gate; this is only for showing "Lv X"
-  // in the Locker before that RPC is ever called.
-  unlockXp: number;
+  // Exactly one of these is ever set per item, mirroring cosmetic_items'
+  // own unlock_xp/cost_bones XOR constraint (0060_bones_shop.sql): a
+  // leveled item unlocks by reaching unlockXp; a shop item is bought
+  // outright for costBones and no level ever unlocks it. Must match the
+  // row's own values exactly — equip_cosmetic()/purchase_cosmetic() are
+  // the real gates; these are only for what the Locker shows before
+  // either RPC is ever called.
+  unlockXp: number | null;
+  costBones: number | null;
 }
 
 export interface FrameStyle extends CosmeticItem {
@@ -32,19 +37,82 @@ export interface BackgroundStyle extends CosmeticItem {
 }
 
 export const FRAMES: FrameStyle[] = [
-  { id: 'frame_bronze', slot: 'frame', name: 'Bronze Ring', unlockXp: 450, ringColor: '#c17f4f' },
-  { id: 'frame_silver', slot: 'frame', name: 'Silver Ring', unlockXp: 2450, ringColor: '#c4c8d6' },
-  { id: 'frame_gold', slot: 'frame', name: 'Gold Ring', unlockXp: 7200, ringColor: '#e0b84f' },
-  { id: 'frame_glow', slot: 'frame', name: 'Accent Glow', unlockXp: 16200, ringColor: '#9184d9' },
-  { id: 'frame_diamond', slot: 'frame', name: 'Diamond Ring', unlockXp: 31250, ringColor: '#bdeafd' },
+  { id: 'frame_bronze', slot: 'frame', name: 'Bronze Ring', unlockXp: 450, costBones: null, ringColor: '#c17f4f' },
+  { id: 'frame_silver', slot: 'frame', name: 'Silver Ring', unlockXp: 2450, costBones: null, ringColor: '#c4c8d6' },
+  { id: 'frame_gold', slot: 'frame', name: 'Gold Ring', unlockXp: 7200, costBones: null, ringColor: '#e0b84f' },
+  { id: 'frame_glow', slot: 'frame', name: 'Accent Glow', unlockXp: 16200, costBones: null, ringColor: '#9184d9' },
+  { id: 'frame_diamond', slot: 'frame', name: 'Diamond Ring', unlockXp: 31250, costBones: null, ringColor: '#bdeafd' },
+  // Shop-only — see 0060_bones_shop.sql. Bought outright with Bones, no
+  // level ever unlocks these.
+  { id: 'frame_neon', slot: 'frame', name: 'Neon Ring', unlockXp: null, costBones: 250, ringColor: '#39ff88' },
+  { id: 'frame_shadow', slot: 'frame', name: 'Shadow Ring', unlockXp: null, costBones: 600, ringColor: '#2b2b33' },
 ];
 
 export const BACKGROUNDS: BackgroundStyle[] = [
-  { id: 'bg_sunset', slot: 'background', name: 'Sunset', unlockXp: 1250, gradientFrom: '#e0a94f', gradientTo: '#c1507f' },
-  { id: 'bg_ocean', slot: 'background', name: 'Ocean', unlockXp: 5000, gradientFrom: '#4f9fe0', gradientTo: '#4fd3c4' },
-  { id: 'bg_forest', slot: 'background', name: 'Forest', unlockXp: 11250, gradientFrom: '#4fbf7a', gradientTo: '#2f8f6a' },
-  { id: 'bg_aurora', slot: 'background', name: 'Aurora', unlockXp: 20000, gradientFrom: '#9184d9', gradientTo: '#e04fb0' },
-  { id: 'bg_midnight', slot: 'background', name: 'Midnight', unlockXp: 45000, gradientFrom: '#232532', gradientTo: '#0d0e14' },
+  {
+    id: 'bg_sunset',
+    slot: 'background',
+    name: 'Sunset',
+    unlockXp: 1250,
+    costBones: null,
+    gradientFrom: '#e0a94f',
+    gradientTo: '#c1507f',
+  },
+  {
+    id: 'bg_ocean',
+    slot: 'background',
+    name: 'Ocean',
+    unlockXp: 5000,
+    costBones: null,
+    gradientFrom: '#4f9fe0',
+    gradientTo: '#4fd3c4',
+  },
+  {
+    id: 'bg_forest',
+    slot: 'background',
+    name: 'Forest',
+    unlockXp: 11250,
+    costBones: null,
+    gradientFrom: '#4fbf7a',
+    gradientTo: '#2f8f6a',
+  },
+  {
+    id: 'bg_aurora',
+    slot: 'background',
+    name: 'Aurora',
+    unlockXp: 20000,
+    costBones: null,
+    gradientFrom: '#9184d9',
+    gradientTo: '#e04fb0',
+  },
+  {
+    id: 'bg_midnight',
+    slot: 'background',
+    name: 'Midnight',
+    unlockXp: 45000,
+    costBones: null,
+    gradientFrom: '#232532',
+    gradientTo: '#0d0e14',
+  },
+  // Shop-only — see 0060_bones_shop.sql.
+  {
+    id: 'bg_galaxy',
+    slot: 'background',
+    name: 'Galaxy',
+    unlockXp: null,
+    costBones: 400,
+    gradientFrom: '#1b1035',
+    gradientTo: '#6a3fd1',
+  },
+  {
+    id: 'bg_lava',
+    slot: 'background',
+    name: 'Lava',
+    unlockXp: null,
+    costBones: 900,
+    gradientFrom: '#3a0d02',
+    gradientTo: '#ff4d1c',
+  },
 ];
 
 const FRAMES_BY_ID = new Map(FRAMES.map((f) => [f.id, f] as const));
