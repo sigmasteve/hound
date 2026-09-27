@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -19,6 +19,7 @@ import {
 } from '../cosmetics/cosmeticsApi';
 import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
 import { levelProgressForXp } from '../challenges/leveling';
+import { listBonesPackOffers, purchaseBonesPack, type BonesPackOffer } from '../bones/purchasesApi';
 
 type LockerTab = 'locker' | 'shop';
 
@@ -40,6 +41,15 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [equippingId, setEquippingId] = useState<string | null>(null);
   const [buyingId, setBuyingId] = useState<string | null>(null);
+
+  // Real-money packs — separate from the cosmetics catalog above, and
+  // loaded lazily (only once the Shop tab is actually open) since
+  // fetching it touches the RevenueCat SDK, not just Supabase. null
+  // means "hasn't loaded yet"; a load failure sets bonesOffersError
+  // instead of leaving this stuck on null forever.
+  const [bonesOffers, setBonesOffers] = useState<BonesPackOffer[] | null>(null);
+  const [bonesOffersError, setBonesOffersError] = useState<string | null>(null);
+  const [buyingProductId, setBuyingProductId] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     if (!user?.id) return;
@@ -95,6 +105,39 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
       Alert.alert('Could not buy that', e instanceof Error ? e.message : 'Try again.');
     } finally {
       setBuyingId(null);
+    }
+  };
+
+  // Loads once per time the Shop tab is opened, not on every focus like
+  // reload() above — this hits the RevenueCat SDK (a native/network call
+  // beyond Supabase), so it shouldn't re-run just because the user
+  // switched tabs and back.
+  useEffect(() => {
+    if (tab !== 'shop' || !user?.id || bonesOffers !== null || bonesOffersError) return;
+    listBonesPackOffers(user.id)
+      .then(setBonesOffers)
+      .catch((e) => setBonesOffersError(e instanceof Error ? e.message : 'Could not load Bones packs.'));
+  }, [tab, user?.id, bonesOffers, bonesOffersError]);
+
+  const buyBonesPack = async (offer: BonesPackOffer) => {
+    if (!user?.id) return;
+    setBuyingProductId(offer.productId);
+    try {
+      const { credited } = await purchaseBonesPack(user.id, offer);
+      if (credited) {
+        setHoundScore((prev) => (prev ? { ...prev, bonesBalance: prev.bonesBalance + offer.bonesAmount } : prev));
+      } else {
+        // The purchase went through — only the immediate balance update
+        // failed, so this isn't the "could not buy that" error path
+        // below. revenuecat-webhook (0064_bones_purchases.sql) still
+        // credits it shortly; reopening the Shop tab will show the
+        // correct balance either way.
+        Alert.alert('Purchase complete', 'Your Bones may take a minute to show up.');
+      }
+    } catch (e) {
+      Alert.alert('Could not buy that', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setBuyingProductId(null);
     }
   };
 
@@ -224,6 +267,35 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
                 </View>
               </View>
               <Text style={styles.footNote}>Earned from finishing challenges and leveling up.</Text>
+            </Card>
+
+            <Card style={{ gap: 4 }} elevated={false}>
+              <Text style={text.h4}>Buy Bones</Text>
+              {bonesOffersError ? (
+                <Text style={styles.errorNote}>{bonesOffersError}</Text>
+              ) : bonesOffers === null ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : bonesOffers.length === 0 ? (
+                <Text style={styles.footNote}>No Bones packs available right now.</Text>
+              ) : (
+                bonesOffers.map((offer) => {
+                  const busy = buyingProductId === offer.productId;
+                  return (
+                    <Pressable
+                      key={offer.productId}
+                      style={styles.itemRow}
+                      disabled={buyingProductId !== null}
+                      onPress={() => buyBonesPack(offer)}
+                    >
+                      <BoneIcon size={22} color={color.accent} weight="fill" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.itemName}>{offer.bonesAmount.toLocaleString()} Bones</Text>
+                      </View>
+                      {busy ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.itemNote}>{offer.priceString}</Text>}
+                    </Pressable>
+                  );
+                })
+              )}
             </Card>
 
             <Card style={{ gap: 4 }} elevated={false}>
