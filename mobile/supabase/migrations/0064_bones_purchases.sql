@@ -18,15 +18,10 @@
 -- Run this once, in the SQL Editor.
 
 -- The purchasable catalog — one row per store product id, mirroring
--- cosmetic_items' own "table as catalog" shape. Deliberately seeded with
--- no rows yet: the actual pack sizes/prices are a pricing decision, not
--- an engineering one, and inserting placeholder rows here risks a real
--- store product id later not matching whatever got typed in by hand.
--- Add real rows once the packs are defined in App Store Connect/Play
--- Console, using the same product id string on both stores so no
--- per-platform mapping is ever needed:
---   insert into public.bones_products (id, bones_amount) values
---     ('bones_pack_small', 100), ('bones_pack_medium', 550), ('bones_pack_large', 1200);
+-- cosmetic_items' own "table as catalog" shape. No price column: the
+-- price string shown in the shop always comes from the store/RevenueCat
+-- offering at runtime (correct per-region currency for free), not from
+-- anything stored here.
 create table public.bones_products (
   id text primary key,
   bones_amount int not null check (bones_amount > 0),
@@ -39,6 +34,24 @@ create policy "Anyone signed in can browse the Bones packs"
   on public.bones_products for select
   to authenticated
   using (true);
+
+-- Placeholder tiers (Phase A) — a rough small/medium/large curve, not a
+-- final pricing decision. These ids must be created as consumable IAPs
+-- with this exact identifier string in BOTH App Store Connect and Play
+-- Console before any of this is usable — RevenueCat proxies whichever
+-- store product the device reports, so one shared id per pack avoids
+-- ever needing a per-platform mapping table. Suggested list prices, to
+-- be set in each store's own console (not stored here — see above):
+--   bones_pack_small   100 Bones   $0.99
+--   bones_pack_medium  550 Bones   $4.99   (best-value framing: +10%)
+--   bones_pack_large  1200 Bones   $9.99   (+20%)
+-- Update bones_amount below (and re-run as a follow-up migration, never
+-- edit a row a real purchase may already reference) if the actual tiers
+-- end up different once they're set for real in the stores.
+insert into public.bones_products (id, bones_amount) values
+  ('bones_pack_small', 100),
+  ('bones_pack_medium', 550),
+  ('bones_pack_large', 1200);
 
 -- Append-only, same shape as cosmetic_purchases: once credited, always
 -- on the record. `unique (store, transaction_id)` is the actual
