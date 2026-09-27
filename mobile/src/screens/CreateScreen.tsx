@@ -21,7 +21,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { huntKindName } from '../challenges/present';
 import { useLabels } from '../labels/LabelsContext';
 import { font, TINT_N, withAlpha, type Palette } from '../theme/tokens';
-import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
+import { CHALLENGE_GROUPS, CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
@@ -335,32 +335,41 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
       <Text style={text.eyebrow}>STEP {step} OF 3</Text>
 
       {step === 1 && (
-        <View style={{ gap: 14 }}>
+        <View style={{ gap: 20 }}>
           <Text style={text.h2}>Pick the game</Text>
-          {CHALLENGE_TYPES.map((t) => {
-            const picked = draftType === t.id;
-            const TypeIcon = CHALLENGE_KIND_ICON[t.id];
-            return (
-              <Pressable
-                key={t.id}
-                onPress={() => setDraftType(t.id)}
-                style={[styles.typeRow, picked && styles.typeRowOn]}
-              >
-                <View style={[styles.typeIcon, { backgroundColor: t.tint }]}>
-                  <TypeIcon size={19} color={t.iconColor} weight={t.id === 'hunt' ? 'fill' : 'regular'} />
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName() : t.name}</Text>
-                  <Text style={styles.typeDesc}>{t.desc}</Text>
-                </View>
-                {picked ? (
-                  <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
-                ) : (
-                  <CircleIcon size={18} color={colors.neutral700} />
-                )}
-              </Pressable>
-            );
-          })}
+          {CHALLENGE_GROUPS.map((group) => (
+            <View key={group.label} style={{ gap: 10 }}>
+              <Text style={styles.groupLabel}>{group.label}</Text>
+              <View style={{ gap: 14 }}>
+                {group.kinds.map((kindId) => {
+                  const t = CHALLENGE_TYPES.find((ct) => ct.id === kindId);
+                  if (!t) return null;
+                  const picked = draftType === t.id;
+                  const TypeIcon = CHALLENGE_KIND_ICON[t.id];
+                  return (
+                    <Pressable
+                      key={t.id}
+                      onPress={() => setDraftType(t.id)}
+                      style={[styles.typeRow, picked && styles.typeRowOn]}
+                    >
+                      <View style={[styles.typeIcon, { backgroundColor: t.tint }]}>
+                        <TypeIcon size={19} color={t.iconColor} weight={t.id === 'hunt' ? 'fill' : 'regular'} />
+                      </View>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName() : t.name}</Text>
+                        <Text style={styles.typeDesc}>{t.desc}</Text>
+                      </View>
+                      {picked ? (
+                        <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
+                      ) : (
+                        <CircleIcon size={18} color={colors.neutral700} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
         </View>
       )}
 
@@ -835,6 +844,13 @@ function makeStyles(colors: Palette) {
     typeIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
     typeName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
     typeDesc: { fontSize: 13, color: withAlpha(colors.text, 0.7) },
+    groupLabel: {
+      fontSize: 11,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
+      fontFamily: font.heading,
+      color: withAlpha(colors.text, 0.45),
+    },
     fieldLabel: { fontSize: 12, color: withAlpha(colors.text, 0.7) },
     // An accent wash over this theme's own colors, not a fixed dark
     // background — same "spotlight card that actually follows the theme"
