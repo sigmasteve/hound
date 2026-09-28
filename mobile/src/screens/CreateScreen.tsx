@@ -9,6 +9,7 @@ import {
   CircleIcon,
   DevicesIcon,
   LinkIcon,
+  LockSimpleIcon,
   RobotIcon,
   XIcon,
 } from 'phosphor-react-native';
@@ -21,7 +22,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { huntKindName } from '../challenges/present';
 import { useLabels } from '../labels/LabelsContext';
 import { font, TINT_N, withAlpha, type Palette } from '../theme/tokens';
-import { CHALLENGE_GROUPS, CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
+import { CHALLENGE_GROUPS, CHALLENGE_TYPES, CHALLENGE_UNLOCK_BONES, type ChallengeKind } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
@@ -43,6 +44,7 @@ import {
 import { setupTicTacGoBoard } from '../challenges/tictacgoApi';
 import type { DistanceGoalUnit, HuntRole, ScoringMethod } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
+import { getMyHoundScore } from '../challenges/scoreApi';
 
 const SCORING_METHODS: { id: ScoringMethod; label: string }[] = [
   { id: 'gps_distance', label: 'GPS distance from runs & walks' },
@@ -118,6 +120,11 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   // createChallenge already does when organizationId is omitted.
   const [challengeScope, setChallengeScope] = useState<'global' | 'org'>('global');
   const [myOrg, setMyOrg] = useState<Organization | null>(null);
+  // null = real fetch hasn't resolved (or never will, unconfigured) — the
+  // Bones-gated kinds below stay locked until this is a real number,
+  // same fail-closed convention LockerScreen's own xpTotal/bonesBalance
+  // already use for its unlock/afford checks.
+  const [bonesEarnedTotal, setBonesEarnedTotal] = useState<number | null>(null);
   // The draft's own words — org-scoped once "org" is picked (live, as
   // the toggle changes), global otherwise. Same per-challenge (here,
   // per-draft) resolution ChallengeDetailScreen/ChallengesScreen use,
@@ -167,6 +174,16 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         // just falls back to a generic "Your organization" label.
       });
   }, [myOrgId]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    getMyHoundScore(user.id)
+      .then((s) => setBonesEarnedTotal(s.bonesEarnedTotal))
+      .catch(() => {
+        // Stay locked on failure — same reasoning as this file's other
+        // real-data fetches above.
+      });
+  }, [user?.id]);
 
   // A friend invited (or picked as Hunter) under one scope can stop being
   // eligible the moment the scope flips — see friendEligible below. Drop
@@ -344,22 +361,27 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                 {group.kinds.map((kindId) => {
                   const t = CHALLENGE_TYPES.find((ct) => ct.id === kindId);
                   if (!t) return null;
+                  const unlockBones = CHALLENGE_UNLOCK_BONES[t.id];
+                  const locked = unlockBones !== undefined && (bonesEarnedTotal === null || bonesEarnedTotal < unlockBones);
                   const picked = draftType === t.id;
                   const TypeIcon = CHALLENGE_KIND_ICON[t.id];
                   return (
                     <Pressable
                       key={t.id}
+                      disabled={locked}
                       onPress={() => setDraftType(t.id)}
-                      style={[styles.typeRow, picked && styles.typeRowOn]}
+                      style={[styles.typeRow, picked && styles.typeRowOn, locked && styles.typeRowLocked]}
                     >
-                      <View style={[styles.typeIcon, { backgroundColor: t.tint }]}>
+                      <View style={[styles.typeIcon, { backgroundColor: t.tint }, locked && styles.typeIconLocked]}>
                         <TypeIcon size={19} color={t.iconColor} weight={t.id === 'hunt' ? 'fill' : 'regular'} />
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
                         <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName() : t.name}</Text>
-                        <Text style={styles.typeDesc}>{t.desc}</Text>
+                        <Text style={styles.typeDesc}>{locked ? `Unlocks at ${unlockBones} Bones earned` : t.desc}</Text>
                       </View>
-                      {picked ? (
+                      {locked ? (
+                        <LockSimpleIcon size={16} color={withAlpha(colors.text, 0.4)} />
+                      ) : picked ? (
                         <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
                       ) : (
                         <CircleIcon size={18} color={colors.neutral700} />
@@ -841,7 +863,9 @@ function makeStyles(colors: Palette) {
       backgroundColor: colors.surface,
     },
     typeRowOn: { borderWidth: 1, borderColor: colors.accent },
+    typeRowLocked: { opacity: 0.5 },
     typeIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+    typeIconLocked: { opacity: 0.6 },
     typeName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
     typeDesc: { fontSize: 13, color: withAlpha(colors.text, 0.7) },
     groupLabel: {

@@ -178,6 +178,20 @@ export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
   { label: 'Group Goal', kinds: ['distance'] },
 ];
 
+// Gates the newer, more involved game modes behind Bones earned through
+// play (HoundScore.bonesEarnedTotal — 0066_bones_earned_total.sql) so a
+// brand-new player meets the core loop (Chase, Tag, Step Race, Group
+// Distance, Daily Streak) first, then unlocks the rest as a reward for
+// sticking around — never a real-money purchase, since bonesEarnedTotal
+// deliberately excludes those. A kind left out of this map is always
+// available, unlocked from the start. CreateScreen's picker (step 1) is
+// the only place this is read.
+export const CHALLENGE_UNLOCK_BONES: Partial<Record<ChallengeKind, number>> = {
+  bingo: 100,
+  tictacgo: 150,
+  seventyfive: 200,
+};
+
 export interface DataSource {
   name: string;
   tint: string;
