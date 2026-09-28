@@ -8,7 +8,14 @@ export type RootStackParamList = {
   Hunt: undefined;
   Create: undefined;
   ChallengeDetail: { challengeId: string };
-  FriendDetail: { friendshipId: string; friendUserId: string; friendName: string; friendInitials: string };
+  FriendDetail: {
+    friendshipId: string;
+    friendUserId: string;
+    friendName: string;
+    friendInitials: string;
+    friendFrameId: string | null;
+    friendBackgroundId: string | null;
+  };
   Admin: undefined;
   AdminUserDetail: {
     userId: string;

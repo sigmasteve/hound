@@ -232,6 +232,8 @@ export function RootNavigator() {
                   friendUserId={route.params.friendUserId}
                   friendName={route.params.friendName}
                   friendInitials={route.params.friendInitials}
+                  friendFrameId={route.params.friendFrameId}
+                  friendBackgroundId={route.params.friendBackgroundId}
                   onBack={() => navigation.navigate('Main', { tab: 'friends' })}
                 />
               )}

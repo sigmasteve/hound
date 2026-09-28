@@ -16,12 +16,16 @@ export function FriendDetailScreen({
   friendUserId,
   friendName,
   friendInitials,
+  friendFrameId,
+  friendBackgroundId,
   onBack,
 }: {
   friendshipId: string;
   friendUserId: string;
   friendName: string;
   friendInitials: string;
+  friendFrameId?: string | null;
+  friendBackgroundId?: string | null;
   onBack: () => void;
 }) {
   const { colors, text } = useTheme();
@@ -95,7 +99,14 @@ export function FriendDetailScreen({
         <Button label="Friends" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
         <View style={styles.headerRow}>
-          <Avatar initials={friendInitials} tint={TINT_A} size={56} fontSize={18} />
+          <Avatar
+            initials={friendInitials}
+            tint={TINT_A}
+            size={56}
+            fontSize={18}
+            frameId={friendFrameId}
+            backgroundId={friendBackgroundId}
+          />
           <Text style={text.h2}>{friendName}</Text>
         </View>
 

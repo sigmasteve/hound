@@ -890,6 +890,8 @@ export function ChallengeDetailScreen({
     userId: m.userId,
     name: m.name,
     initials: m.initials,
+    frameId: m.frameId,
+    backgroundId: m.backgroundId,
     stats: tagStatsById.get(m.userId) ?? { timesIt: 0, timesTagged: 0, tagsMade: 0 },
   }));
 
@@ -922,6 +924,8 @@ export function ChallengeDetailScreen({
             distance,
             isTarget,
             isMe: m.userId === user?.id,
+            frameId: m.frameId,
+            backgroundId: m.backgroundId,
           };
         })
     : [];
@@ -1044,7 +1048,7 @@ export function ChallengeDetailScreen({
           </Text>
           {tagRecapRows.map((r) => (
             <View key={r.userId} style={[styles.inviteFriendRow, { alignItems: 'flex-start' }]}>
-              <Avatar initials={r.initials} tint={TINT_N} size={30} fontSize={11} />
+              <Avatar initials={r.initials} tint={TINT_N} size={30} fontSize={11} frameId={r.frameId} backgroundId={r.backgroundId} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.friendName}>{r.name}</Text>
                 <Text style={styles.footNote}>
@@ -1069,6 +1073,8 @@ export function ChallengeDetailScreen({
           <TagRadar
             itInitials={tagItMember?.initials ?? '?'}
             itName={tagItMember?.name ?? 'Someone'}
+            itFrameId={tagItMember?.frameId}
+            itBackgroundId={tagItMember?.backgroundId}
             isMeIt={iAmTagIt}
             members={tagRadarMembers}
             colors={colors}
@@ -1093,7 +1099,7 @@ export function ChallengeDetailScreen({
               ) : (
                 tagTargetableMembers.map((m) => (
                   <View key={m.userId} style={styles.inviteFriendRow}>
-                    <Avatar initials={m.initials} tint={TINT_N} size={30} fontSize={11} />
+                    <Avatar initials={m.initials} tint={TINT_N} size={30} fontSize={11} frameId={m.frameId} backgroundId={m.backgroundId} />
                     <Text style={[styles.friendName, { flex: 1 }]}>{m.name}</Text>
                     <Button
                       label={selectingTargetId === m.userId ? 'Picking…' : 'Tag'}
@@ -1302,6 +1308,8 @@ export function ChallengeDetailScreen({
                 tint={row.userId === user?.id ? TINT_A : TINT_N}
                 size={30}
                 fontSize={11}
+                frameId={row.frameId}
+                backgroundId={row.backgroundId}
               />
               <View style={{ flex: 1 }}>
                 <Text style={styles.boardName}>{row.userId === user?.id ? 'You' : row.name}</Text>
@@ -1370,7 +1378,14 @@ export function ChallengeDetailScreen({
             ? bingoBoardRows.map((card, i) => (
                 <View key={card.userId} style={styles.boardRow}>
                   <Text style={styles.boardRank}>{i + 1}</Text>
-                  <Avatar initials={card.initials} tint={card.userId === user?.id ? TINT_A : TINT_N} size={30} fontSize={11} />
+                  <Avatar
+                    initials={card.initials}
+                    tint={card.userId === user?.id ? TINT_A : TINT_N}
+                    size={30}
+                    fontSize={11}
+                    frameId={card.frameId}
+                    backgroundId={card.backgroundId}
+                  />
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                     <Text style={styles.boardName}>{card.userId === user?.id ? 'You' : card.name}</Text>
                     {card.blackout && <Tag label="Blackout" variant="accent" />}
@@ -1398,7 +1413,14 @@ export function ChallengeDetailScreen({
                 return (
                   <View key={row.userId} style={styles.boardRow}>
                     <Text style={styles.boardRank}>{i + 1}</Text>
-                    <Avatar initials={row.initials} tint={row.userId === user?.id ? TINT_A : TINT_N} size={30} fontSize={11} />
+                    <Avatar
+                      initials={row.initials}
+                      tint={row.userId === user?.id ? TINT_A : TINT_N}
+                      size={30}
+                      fontSize={11}
+                      frameId={row.frameId}
+                      backgroundId={row.backgroundId}
+                    />
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                       <Text style={styles.boardName}>{row.name}</Text>
                       {row.isBot && <RobotIcon size={13} color={withAlpha(colors.text, 0.55)} />}
@@ -1544,7 +1566,7 @@ export function ChallengeDetailScreen({
                   const busy = invitingId === f.userId;
                   return (
                     <View key={f.userId} style={styles.inviteFriendRow}>
-                      <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
+                      <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} frameId={f.frameId} backgroundId={f.backgroundId} />
                       <Text style={[styles.friendName, { flex: 1 }]}>{f.name}</Text>
                       <Button
                         label={busy ? (invited ? 'Reminding…' : 'Inviting…') : invited ? 'Remind' : 'Invite'}

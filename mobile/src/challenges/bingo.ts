@@ -210,6 +210,8 @@ export interface BingoCard {
   userId: string;
   name: string;
   initials: string;
+  frameId: string | null;
+  backgroundId: string | null;
   filled: Set<BingoCategory>;
   // The full row per filled category, for anything that wants to show
   // which workout actually filled a square (e.g. "Legs — linked to Leg
@@ -244,6 +246,8 @@ export function computeBingoCards(participants: Participant[], rows: BingoProgre
       userId: p.userId,
       name: p.name,
       initials: p.initials,
+      frameId: p.frameId,
+      backgroundId: p.backgroundId,
       filled: new Set(entries.keys()),
       entries,
       squaresFilled: entries.size,

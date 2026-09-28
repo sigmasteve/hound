@@ -198,7 +198,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
           <Text style={styles.pendingLabel}>Friend requests</Text>
           {receivedInvites.map((f) => (
             <Card key={f.friendshipId} style={styles.pendingRow} elevated={false}>
-              <Avatar initials={f.initials} tint={TINT_A} />
+              <Avatar initials={f.initials} tint={TINT_A} frameId={f.frameId} backgroundId={f.backgroundId} />
               <Text style={styles.friendName}>{f.name}</Text>
               <Text style={styles.pendingMeta}>wants to be friends</Text>
               <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -315,7 +315,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
       {accepted.map((f) => (
         <Pressable key={f.friendshipId} onPress={() => onOpenFriend(f)}>
           <Card style={styles.friendRow} elevated={false}>
-            <Avatar initials={f.initials} tint={TINT_N} />
+            <Avatar initials={f.initials} tint={TINT_N} frameId={f.frameId} backgroundId={f.backgroundId} />
             <View style={{ flex: 1, gap: 2, minWidth: 120 }}>
               <Text style={styles.friendName}>{f.name}</Text>
             </View>
