@@ -20,8 +20,7 @@ import {
 import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
 import { levelProgressForXp } from '../challenges/leveling';
 import { listBonesPackOffers, purchaseBonesPack, type BonesPackOffer } from '../bones/purchasesApi';
-import { getOrganization } from '../organizations/supabaseOrganizations';
-import { currencyNameOrDefault } from '../organizations/types';
+import { useCurrencyName } from '../organizations/useCurrencyName';
 
 type LockerTab = 'locker' | 'shop';
 
@@ -53,22 +52,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   const [bonesOffersError, setBonesOffersError] = useState<string | null>(null);
   const [buyingProductId, setBuyingProductId] = useState<string | null>(null);
 
-  // This viewer's own org may have renamed "Bones" to something of its
-  // own (organizations.currency_name, 0068_org_currency_name.sql) — a
-  // school or company's own word for it, shown everywhere this screen
-  // would otherwise say "Bones." Stays 'Bones' (the real, permanent
-  // answer, not a placeholder) for anyone with no org, or while
-  // Supabase isn't configured.
-  const [currencyName, setCurrencyName] = useState('Bones');
-  useEffect(() => {
-    if (!user?.organizationId) return;
-    getOrganization(user.organizationId)
-      .then((org) => setCurrencyName(currencyNameOrDefault(org?.currencyName)))
-      .catch(() => {
-        // Stay on 'Bones' on any failure — same convention every other
-        // real-data fetch in this app follows.
-      });
-  }, [user?.organizationId]);
+  const currencyName = useCurrencyName();
 
   const reload = useCallback(() => {
     if (!user?.id) return;

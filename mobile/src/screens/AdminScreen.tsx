@@ -24,6 +24,7 @@ import {
   setChallengeUnlockGate,
   type ChallengeUnlockGates,
 } from '../challenges/unlockGatesApi';
+import { getDailyBonusConfig, setDailyBonusConfig } from '../bones/dailyBonusApi';
 
 // Reachable only via TopNav's own admin icon, which is itself only
 // rendered for user?.isAdmin — but that's a UI convenience, not real
@@ -279,6 +280,49 @@ export function AdminScreen({
     }
   };
 
+  // The daily open bonus amounts (daily_bonus_config, 0070_daily_bonus.sql)
+  // — takes effect on everyone's next claim, no code change or OTA.
+  const [bonusDailyInput, setBonusDailyInput] = useState('');
+  const [bonusWeeklyInput, setBonusWeeklyInput] = useState('');
+  const [savingBonus, setSavingBonus] = useState(false);
+  const [bonusError, setBonusError] = useState<string | null>(null);
+  const [bonusSaved, setBonusSaved] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.isAdmin) return;
+      getDailyBonusConfig()
+        .then((c) => {
+          setBonusDailyInput(String(c.dailyBones));
+          setBonusWeeklyInput(String(c.weeklyBones));
+        })
+        .catch(() => {
+          // Same "quietly stay on whatever's already showing" convention
+          // as this screen's other real-data fetches.
+        });
+    }, [user?.isAdmin]),
+  );
+
+  const saveBonus = async () => {
+    const dailyBones = Number(bonusDailyInput);
+    const weeklyBones = Number(bonusWeeklyInput);
+    if (!Number.isInteger(dailyBones) || dailyBones < 1 || !Number.isInteger(weeklyBones) || weeklyBones < 1) {
+      setBonusError('Both amounts need to be whole numbers of at least 1.');
+      return;
+    }
+    setBonusError(null);
+    setBonusSaved(false);
+    setSavingBonus(true);
+    try {
+      await setDailyBonusConfig({ dailyBones, weeklyBones });
+      setBonusSaved(true);
+    } catch (e) {
+      setBonusError(e instanceof Error ? e.message : 'Could not save that — try again.');
+    } finally {
+      setSavingBonus(false);
+    }
+  };
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -404,6 +448,38 @@ export function AdminScreen({
                 />
                 <Button label="Reset to default" disabled={savingLabels} onPress={() => submitLabels(DEFAULT_HUNT_LABELS)} />
               </View>
+            </Card>
+
+            <Card style={{ gap: 12 }} elevated={false}>
+              <Text style={text.h4}>Daily bonus</Text>
+              <Text style={styles.footNote}>
+                What opening the app once a day pays. Every 7th day in a row pays the weekly amount instead; missing a
+                day starts the streak over. Changes apply to everyone&rsquo;s next claim. Daily bonus Bones never count
+                toward challenge unlocks.
+              </Text>
+              <TextField
+                label="Each day"
+                value={bonusDailyInput}
+                onChangeText={(v) => {
+                  setBonusDailyInput(v);
+                  setBonusSaved(false);
+                }}
+                placeholder="e.g. 1"
+                keyboardType="number-pad"
+              />
+              <TextField
+                label="Every 7th day"
+                value={bonusWeeklyInput}
+                onChangeText={(v) => {
+                  setBonusWeeklyInput(v);
+                  setBonusSaved(false);
+                }}
+                placeholder="e.g. 25"
+                keyboardType="number-pad"
+              />
+              {bonusError && <Text style={styles.loadError}>{bonusError}</Text>}
+              {bonusSaved && !bonusError && <Text style={styles.successNote}>Saved.</Text>}
+              <Button label={savingBonus ? 'Saving…' : 'Save'} variant="primary" disabled={savingBonus} onPress={saveBonus} />
             </Card>
 
             <Card style={{ gap: 12 }} elevated={false}>
