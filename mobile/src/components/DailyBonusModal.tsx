@@ -4,7 +4,7 @@ import { BoneIcon } from 'phosphor-react-native';
 import { Button } from './Button';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
-import { DAILY_BONUS_CYCLE, DAILY_BONUS_WEEKLY, dailyBonusForStreak, dayInCycle } from '../bones/dailyBonus';
+import { DAILY_BONUS_CYCLE, dayInCycle } from '../bones/dailyBonus';
 import {
   getLocalRemindersEnabled,
   getReminderPermission,
@@ -18,18 +18,25 @@ import {
 export function DailyBonusModal({
   bonesAwarded,
   streak,
+  nextBonus,
+  weeklyBonus,
   currencyName,
   onClose,
 }: {
   bonesAwarded: number;
   streak: number;
+  // Both straight from claim_daily_bonus — the amounts are
+  // admin-configurable (daily_bonus_config), never hardcoded here.
+  nextBonus: number;
+  weeklyBonus: number;
   currencyName: string;
   onClose: () => void;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const nextBonus = dailyBonusForStreak(streak + 1);
   const today = dayInCycle(streak);
+  // Tomorrow is the 7th day of the cycle — worth calling out by name.
+  const tomorrowIsWeekly = dayInCycle(streak + 1) === DAILY_BONUS_CYCLE;
 
   // The contextual moment to ask for notification permission: someone who
   // just got a streak reward is the most likely to want tomorrow's nudge.
@@ -83,7 +90,7 @@ export function DailyBonusModal({
                   <View style={[styles.dot, weekly && styles.dotWeekly, filled && styles.dotFilled]}>
                     {weekly && <BoneIcon size={11} color={filled ? '#fff' : color.accent} weight="fill" />}
                   </View>
-                  <Text style={styles.dotLabel}>{weekly ? `+${DAILY_BONUS_WEEKLY}` : day}</Text>
+                  <Text style={styles.dotLabel}>{weekly ? `+${weeklyBonus}` : day}</Text>
                 </View>
               );
             })}
@@ -91,7 +98,7 @@ export function DailyBonusModal({
 
           <Text style={styles.footNote}>
             Tomorrow: +{nextBonus} {currencyName}
-            {nextBonus === DAILY_BONUS_WEEKLY ? ' — the weekly bonus!' : ''}
+            {tomorrowIsWeekly ? ' — the weekly bonus!' : ''}
           </Text>
 
           <View style={styles.buttons}>

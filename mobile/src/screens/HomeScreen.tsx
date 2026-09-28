@@ -77,7 +77,6 @@ import { formatTimeLeft, turnDeadline } from '../challenges/tictacgo';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { getMyHoundScore, settleChallengeScore, type HoundScore } from '../challenges/scoreApi';
 import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
-import { dailyBonusForStreak } from '../bones/dailyBonus';
 import { DailyBonusModal } from '../components/DailyBonusModal';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { scheduleDailyBonusReminder, schedulePendingActionsNudge } from '../notifications/localReminders';
@@ -532,13 +531,17 @@ export function HomeScreen({
   // 0070_daily_bonus.sql) — drives the one-per-day popup; every later
   // claim the same day comes back awarded: false and leaves this alone.
   const [dailyBonus, setDailyBonus] = useState<DailyBonusResult | null>(null);
-  // The streak as of the latest claim, awarded or not — what tomorrow's
-  // local "your bonus is waiting" reminder is scheduled against.
-  const [claimedStreak, setClaimedStreak] = useState<number | null>(null);
+  // The latest claim, awarded or not — its streak and nextBones are what
+  // tomorrow's local "your bonus is waiting" reminder is scheduled
+  // against. Keyed on the two numbers, not the object, so a repeat
+  // same-day claim doesn't needlessly reschedule an identical reminder.
+  const [lastClaim, setLastClaim] = useState<DailyBonusResult | null>(null);
+  const lastClaimStreak = lastClaim?.streak ?? null;
+  const lastClaimNextBones = lastClaim?.nextBones ?? null;
   useEffect(() => {
-    if (claimedStreak === null) return;
-    scheduleDailyBonusReminder(claimedStreak + 1, dailyBonusForStreak(claimedStreak + 1), currencyName);
-  }, [claimedStreak, currencyName]);
+    if (lastClaimStreak === null || lastClaimNextBones === null) return;
+    scheduleDailyBonusReminder(lastClaimStreak + 1, lastClaimNextBones, currencyName);
+  }, [lastClaimStreak, lastClaimNextBones, currencyName]);
 
   // Only ever populated when `primary` itself turns out to be a 'tag'
   // challenge — see the effect below. Null otherwise, including while
@@ -580,7 +583,7 @@ export function HomeScreen({
       claimDailyBonus()
         .then((result) => {
           if (result.awarded) setDailyBonus(result);
-          setClaimedStreak(result.streak);
+          setLastClaim(result);
         })
         .catch(() => {})
         .then(() => getMyHoundScore(userId))
@@ -1250,6 +1253,8 @@ export function HomeScreen({
       <DailyBonusModal
         bonesAwarded={dailyBonus.bonesAwarded}
         streak={dailyBonus.streak}
+        nextBonus={dailyBonus.nextBones}
+        weeklyBonus={dailyBonus.weeklyBones}
         currencyName={currencyName}
         onClose={() => setDailyBonus(null)}
       />

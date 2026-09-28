@@ -1,16 +1,10 @@
-// Pure daily-bonus math — no Supabase/RN imports. Must match
-// claim_daily_bonus's own reward schedule in 0070_daily_bonus.sql by
-// hand; the server is the real authority (it's what actually credits
-// Bones), this copy only exists so the popup can preview tomorrow's
-// reward and draw the week's progress without another round-trip.
+// Pure daily-bonus streak math — no Supabase/RN imports. The amounts
+// themselves are admin-configurable (daily_bonus_config,
+// 0070_daily_bonus.sql) and come back from claim_daily_bonus, so nothing
+// here hardcodes them; only the fixed 7-day cycle lives in code, and must
+// match that migration's own `% 7`.
 
-export const DAILY_BONUS_BASE = 5;
-export const DAILY_BONUS_WEEKLY = 25;
 export const DAILY_BONUS_CYCLE = 7;
-
-export function dailyBonusForStreak(streak: number): number {
-  return streak > 0 && streak % DAILY_BONUS_CYCLE === 0 ? DAILY_BONUS_WEEKLY : DAILY_BONUS_BASE;
-}
 
 // 1..7 — which dot of the current week this streak day lands on.
 export function dayInCycle(streak: number): number {
