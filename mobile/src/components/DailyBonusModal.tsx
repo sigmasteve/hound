@@ -95,7 +95,7 @@ export function DailyBonusModal({
           </Text>
 
           <View style={styles.buttons}>
-            {offerReminder && <Button label="Remind me tomorrow" onPress={remindMe} />}
+            {offerReminder && <Button label="Remind me tomorrow" variant="ghost" onPress={remindMe} />}
             <Button label="Nice!" variant="primary" onPress={onClose} />
           </View>
         </View>
