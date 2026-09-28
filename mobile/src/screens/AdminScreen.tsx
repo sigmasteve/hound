@@ -16,6 +16,14 @@ import { getHuntLabels, setHuntLabels } from '../labels/supabaseLabels';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 import { getTotalUserCount, searchUsers, type AdminUserSummary } from '../admin/adminApi';
 import { getAppBanner, setAppBanner, type AppBanner } from '../banner/supabaseBanner';
+import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
+import { huntKindName } from '../challenges/present';
+import {
+  listChallengeUnlockGates,
+  removeChallengeUnlockGate,
+  setChallengeUnlockGate,
+  type ChallengeUnlockGates,
+} from '../challenges/unlockGatesApi';
 
 // Reachable only via TopNav's own admin icon, which is itself only
 // rendered for user?.isAdmin — but that's a UI convenience, not real
@@ -187,6 +195,90 @@ export function AdminScreen({
     }
   };
 
+  // Which challenge kinds require Bones earned through play to unlock in
+  // CreateScreen's picker, and how much (challenge_unlock_gates,
+  // 0067_challenge_unlock_gates.sql). savedGates is what the server last
+  // confirmed; gatedKinds/gateBonesInput are this card's own draft,
+  // diffed against savedGates on Save rather than writing on every
+  // toggle — same "edit freely, one Save button" shape as Chase labels
+  // and the banner above.
+  const [savedGates, setSavedGates] = useState<ChallengeUnlockGates>({});
+  const [gatedKinds, setGatedKinds] = useState<Set<ChallengeKind>>(new Set());
+  const [gateBonesInput, setGateBonesInput] = useState<Record<ChallengeKind, string>>(
+    () => Object.fromEntries(CHALLENGE_TYPES.map((t) => [t.id, ''])) as Record<ChallengeKind, string>,
+  );
+  const [savingGates, setSavingGates] = useState(false);
+  const [gatesError, setGatesError] = useState<string | null>(null);
+  const [gatesSaved, setGatesSaved] = useState(false);
+
+  const applyLoadedGates = (gates: ChallengeUnlockGates) => {
+    setSavedGates(gates);
+    setGatedKinds(new Set(Object.keys(gates) as ChallengeKind[]));
+    setGateBonesInput(
+      Object.fromEntries(
+        CHALLENGE_TYPES.map((t) => [t.id, gates[t.id] !== undefined ? String(gates[t.id]) : '']),
+      ) as Record<ChallengeKind, string>,
+    );
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.isAdmin) return;
+      listChallengeUnlockGates()
+        .then(applyLoadedGates)
+        .catch(() => {
+          // Same "quietly stay on whatever's already showing" convention
+          // as this screen's other real-data fetches.
+        });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.isAdmin]),
+  );
+
+  const toggleGateKind = (kind: ChallengeKind) => {
+    setGatesSaved(false);
+    setGatedKinds((cur) => {
+      const next = new Set(cur);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+  };
+
+  const saveGates = async () => {
+    setGatesError(null);
+    setGatesSaved(false);
+    const toSet: [ChallengeKind, number][] = [];
+    const toRemove: ChallengeKind[] = [];
+    for (const t of CHALLENGE_TYPES) {
+      const isGated = gatedKinds.has(t.id);
+      const wasGated = savedGates[t.id] !== undefined;
+      if (isGated) {
+        const n = Number(gateBonesInput[t.id]);
+        if (!Number.isFinite(n) || n <= 0) {
+          setGatesError(`Enter a positive Bones amount for ${t.id === 'hunt' ? huntKindName() : t.name}.`);
+          return;
+        }
+        if (!wasGated || savedGates[t.id] !== n) toSet.push([t.id, n]);
+      } else if (wasGated) {
+        toRemove.push(t.id);
+      }
+    }
+    setSavingGates(true);
+    try {
+      await Promise.all([
+        ...toSet.map(([kind, bones]) => setChallengeUnlockGate(kind, bones)),
+        ...toRemove.map((kind) => removeChallengeUnlockGate(kind)),
+      ]);
+      const updated = await listChallengeUnlockGates();
+      applyLoadedGates(updated);
+      setGatesSaved(true);
+    } catch (e) {
+      setGatesError(e instanceof Error ? e.message : 'Could not save that — try again.');
+    } finally {
+      setSavingGates(false);
+    }
+  };
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -304,6 +396,42 @@ export function AdminScreen({
                 />
                 <Button label="Reset to default" disabled={savingLabels} onPress={() => submitLabels(DEFAULT_HUNT_LABELS)} />
               </View>
+            </Card>
+
+            <Card style={{ gap: 12 }} elevated={false}>
+              <Text style={text.h4}>Challenge unlocks</Text>
+              <Text style={styles.footNote}>
+                Gate a challenge kind behind Bones earned through play, so new players meet the core loop first
+                and unlock the rest as a reward for sticking around &mdash; a real-money Bones purchase never
+                counts toward this. Leave a kind unchecked to keep it always available.
+              </Text>
+              <View style={{ gap: 12 }}>
+                {CHALLENGE_TYPES.map((t) => {
+                  const gated = gatedKinds.has(t.id);
+                  return (
+                    <View key={t.id} style={{ gap: 8 }}>
+                      <ToggleRow
+                        label={t.id === 'hunt' ? huntKindName() : t.name}
+                        note={gated ? 'Gated' : 'Always available'}
+                        value={gated}
+                        onChange={() => toggleGateKind(t.id)}
+                      />
+                      {gated && (
+                        <TextField
+                          label="Bones required"
+                          value={gateBonesInput[t.id]}
+                          onChangeText={(v) => setGateBonesInput((cur) => ({ ...cur, [t.id]: v }))}
+                          placeholder="e.g. 250"
+                          keyboardType="number-pad"
+                        />
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+              {gatesError && <Text style={styles.loadError}>{gatesError}</Text>}
+              {gatesSaved && !gatesError && <Text style={styles.successNote}>Saved.</Text>}
+              <Button label={savingGates ? 'Saving…' : 'Save'} variant="primary" disabled={savingGates} onPress={saveGates} />
             </Card>
           </>
         )}

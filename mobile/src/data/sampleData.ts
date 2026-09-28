@@ -161,36 +161,20 @@ export const CHALLENGE_TYPES: {
   { id: 'seventyfive', name: '75 Day Challenge', desc: 'A daily checklist — two workouts (one outdoors), a diet, water, reading, and a progress photo. Miss a day and your streak resets, but you keep going the whole way.', tint: '#1f4f6b', iconColor: '#c9e8fb' },
 ];
 
-// Groups CHALLENGE_TYPES by play structure for "Pick the game" (step 1 of
-// CreateScreen's wizard) — a flat list of 8+ kinds stopped being
-// something you could scan at a glance, so this sorts them into "what
-// kind of game is this" sections instead: chase-and-evade, ranked by a
-// number, one shared group goal, head-to-head on a board, or a personal
-// checklist nobody else is racing you on. Every id here must exist in
-// CHALLENGE_TYPES — CreateScreen renders by walking this list of groups,
-// not CHALLENGE_TYPES directly, so a kind left out of every group here
-// would silently never appear in the picker at all.
+// Walk order for "Pick the game" (step 1 of CreateScreen's wizard) —
+// previously grouped by play structure (chase-and-evade, leaderboard,
+// etc.), but that grouping couldn't express a single deliberate ordering
+// once Bones-gating (below) made "always available vs. earned" the more
+// important distinction: the six core kinds up front, in this exact
+// order, then the two currently-gated kinds after. A single, unlabeled
+// group — see CreateScreen's own render, which skips the group-label row
+// entirely when there's only one. Every id here must exist in
+// CHALLENGE_TYPES — CreateScreen renders by walking this list, not
+// CHALLENGE_TYPES directly, so a kind left out here would silently never
+// appear in the picker at all.
 export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
-  { label: 'Chase & Catch', kinds: ['hunt', 'tag'] },
-  { label: 'Head-to-Head', kinds: ['tictacgo'] },
-  { label: 'Solo Challenge', kinds: ['streak', 'bingo', 'seventyfive'] },
-  { label: 'Leaderboard', kinds: ['steps'] },
-  { label: 'Group Goal', kinds: ['distance'] },
+  { label: '', kinds: ['hunt', 'tictacgo', 'steps', 'tag', 'distance', 'streak', 'bingo', 'seventyfive'] },
 ];
-
-// Gates the newer, more involved game modes behind Bones earned through
-// play (HoundScore.bonesEarnedTotal — 0066_bones_earned_total.sql) so a
-// brand-new player meets the core loop (Chase, Tag, Step Race, Group
-// Distance, Daily Streak) first, then unlocks the rest as a reward for
-// sticking around — never a real-money purchase, since bonesEarnedTotal
-// deliberately excludes those. A kind left out of this map is always
-// available, unlocked from the start. CreateScreen's picker (step 1) is
-// the only place this is read.
-export const CHALLENGE_UNLOCK_BONES: Partial<Record<ChallengeKind, number>> = {
-  bingo: 100,
-  tictacgo: 150,
-  seventyfive: 200,
-};
 
 export interface DataSource {
   name: string;

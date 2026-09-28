@@ -22,7 +22,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { huntKindName } from '../challenges/present';
 import { useLabels } from '../labels/LabelsContext';
 import { font, TINT_N, withAlpha, type Palette } from '../theme/tokens';
-import { CHALLENGE_GROUPS, CHALLENGE_TYPES, CHALLENGE_UNLOCK_BONES, type ChallengeKind } from '../data/sampleData';
+import { CHALLENGE_GROUPS, CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
@@ -45,6 +45,7 @@ import { setupTicTacGoBoard } from '../challenges/tictacgoApi';
 import type { DistanceGoalUnit, HuntRole, ScoringMethod } from '../challenges/types';
 import { useAuth } from '../auth/AuthContext';
 import { getMyHoundScore } from '../challenges/scoreApi';
+import { listChallengeUnlockGates, type ChallengeUnlockGates } from '../challenges/unlockGatesApi';
 
 const SCORING_METHODS: { id: ScoringMethod; label: string }[] = [
   { id: 'gps_distance', label: 'GPS distance from runs & walks' },
@@ -125,6 +126,14 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   // same fail-closed convention LockerScreen's own xpTotal/bonesBalance
   // already use for its unlock/afford checks.
   const [bonesEarnedTotal, setBonesEarnedTotal] = useState<number | null>(null);
+  // Which kinds are gated and at what threshold — admin-configurable
+  // (challenge_unlock_gates, 0067_challenge_unlock_gates.sql), fetched
+  // once on mount rather than hardcoded. Starts empty (nothing gated)
+  // rather than null: unlike bonesEarnedTotal above, briefly rendering a
+  // kind as unlocked before this resolves is the acceptable failure mode
+  // here — there's no static fallback list of "which kinds are gated" to
+  // fail closed against anymore.
+  const [unlockGates, setUnlockGates] = useState<ChallengeUnlockGates>({});
   // The draft's own words — org-scoped once "org" is picked (live, as
   // the toggle changes), global otherwise. Same per-challenge (here,
   // per-draft) resolution ChallengeDetailScreen/ChallengesScreen use,
@@ -184,6 +193,16 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         // real-data fetches above.
       });
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    listChallengeUnlockGates()
+      .then(setUnlockGates)
+      .catch(() => {
+        // Stay on whatever's already showing — same convention as this
+        // file's other real-data fetches.
+      });
+  }, []);
 
   // A friend invited (or picked as Hunter) under one scope can stop being
   // eligible the moment the scope flips — see friendEligible below. Drop
@@ -354,14 +373,14 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
       {step === 1 && (
         <View style={{ gap: 20 }}>
           <Text style={text.h2}>Pick the game</Text>
-          {CHALLENGE_GROUPS.map((group) => (
-            <View key={group.label} style={{ gap: 10 }}>
-              <Text style={styles.groupLabel}>{group.label}</Text>
+          {CHALLENGE_GROUPS.map((group, i) => (
+            <View key={group.label || i} style={{ gap: 10 }}>
+              {!!group.label && <Text style={styles.groupLabel}>{group.label}</Text>}
               <View style={{ gap: 14 }}>
                 {group.kinds.map((kindId) => {
                   const t = CHALLENGE_TYPES.find((ct) => ct.id === kindId);
                   if (!t) return null;
-                  const unlockBones = CHALLENGE_UNLOCK_BONES[t.id];
+                  const unlockBones = unlockGates[t.id];
                   const locked = unlockBones !== undefined && (bonesEarnedTotal === null || bonesEarnedTotal < unlockBones);
                   const picked = draftType === t.id;
                   const TypeIcon = CHALLENGE_KIND_ICON[t.id];
