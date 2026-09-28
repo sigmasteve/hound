@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   BuildingsIcon,
   ChartLineUpIcon,
@@ -15,6 +16,9 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
 import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
+import { Avatar } from './Avatar';
+import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 const NAV: { id: MainTab; label: string; Icon: React.ComponentType<any> }[] = [
   { id: 'home', label: 'Today', Icon: HouseIcon },
@@ -53,6 +57,25 @@ export function TopNav({
   const firstName = user?.name.split(' ')[0] ?? '';
   const canManageOrgs = !!user?.isAdmin || user?.orgRole === 'admin';
 
+  // Re-fetched every time the Main screen regains focus (not just on
+  // mount) — TopNav stays mounted the whole time a stack screen like
+  // Locker is pushed on top of it, so a fetch-once-on-mount would go
+  // stale the moment someone equips something there and comes back.
+  // useFocusEffect fires on that return even though TopNav itself was
+  // never unmounted, same as every other screen's own refetch-on-focus.
+  const [equipped, setEquipped] = useState<EquippedCosmetics | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured || !user?.id) return;
+      getMyEquippedCosmetics(user.id)
+        .then(setEquipped)
+        .catch(() => {
+          // Stay on whatever's already showing — same convention every
+          // other real-data fetch in this app follows.
+        });
+    }, [user?.id]),
+  );
+
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
       <View style={styles.brandRow}>
@@ -79,9 +102,15 @@ export function TopNav({
           </Pressable>
         )}
         <Pressable style={[styles.profile, !user?.isAdmin && !canManageOrgs && styles.pushRight]} onPress={onProfile}>
-          <View style={styles.profileAvatar}>
-            <Text style={styles.profileInitials}>{user?.initials ?? ''}</Text>
-          </View>
+          <Avatar
+            initials={user?.initials ?? ''}
+            tint={colors.accent800}
+            size={26}
+            fontSize={11}
+            frameId={equipped?.frameId}
+            backgroundId={equipped?.backgroundId}
+            iconId={equipped?.iconId}
+          />
           <Text style={styles.profileName}>{firstName}</Text>
         </Pressable>
       </View>
@@ -162,15 +191,6 @@ function makeStyles(colors: Palette) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.divider,
     },
-    profileAvatar: {
-      width: 26,
-      height: 26,
-      borderRadius: 13,
-      backgroundColor: colors.accent800,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    profileInitials: { fontFamily: font.headingSemibold, fontSize: 11, color: colors.accent100 },
     profileName: { fontFamily: font.body, fontSize: 13, color: colors.text },
     navRow: { flexDirection: 'row', paddingHorizontal: 10, paddingBottom: 10, gap: 4 },
     navItem: {
