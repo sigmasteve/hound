@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { touchLastActive } from '../notifications/supabaseNotifications';
+import { MisconfiguredScreen } from '../components/MisconfiguredScreen';
 import * as mockAuth from './mockAuth';
 import * as supabaseAuth from './supabaseAuth';
 import type { AuthStatus, AuthUser, SignUpInput } from './types';
@@ -9,6 +10,15 @@ import type { AuthStatus, AuthUser, SignUpInput } from './types';
 // (and every screen, via useAuth()) is written against this shape, not
 // against either module directly — see mobile/README.md.
 const backend = isSupabaseConfigured ? supabaseAuth : mockAuth;
+
+// mockAuth is a legitimate fallback in local dev/the web preview (no
+// .env at all) — __DEV__ is false in every real distributed build
+// (TestFlight, the App Store, an EAS internal-distribution link), so
+// this only ever trips when one of those shipped without its Supabase
+// env vars actually set. That combination must never silently fall
+// through to mockAuth's hardcoded demo profile (see
+// MisconfiguredScreen.tsx for why that's worse than it sounds).
+const isProductionMisconfigured = !__DEV__ && !isSupabaseConfigured;
 
 interface AuthContextValue {
   status: AuthStatus;
@@ -136,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
+  if (isProductionMisconfigured) return <MisconfiguredScreen />;
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
