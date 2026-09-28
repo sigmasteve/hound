@@ -1490,6 +1490,7 @@ function LiveMultiHuntCard({
                     fontSize={9}
                     frameId={t.row.frameId}
                     backgroundId={t.row.backgroundId}
+                    iconId={t.row.iconId}
                   />
                   {/* A literal strikethrough, not just the dimmed
                       opacity above — "caught" should read at a glance,
@@ -1560,6 +1561,7 @@ function LiveLeaderboardCard({
               fontSize={10}
               frameId={row.frameId}
               backgroundId={row.backgroundId}
+              iconId={row.iconId}
             />
             <Text style={styles.raceName} numberOfLines={1}>
               {isMe ? 'You' : row.name}

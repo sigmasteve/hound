@@ -24,6 +24,7 @@ export interface TagRadarMember {
   isMe: boolean;
   frameId: string | null;
   backgroundId: string | null;
+  iconId: string | null;
 }
 
 const SIZE = 300;
@@ -61,6 +62,7 @@ export function TagRadar({
   itName,
   itFrameId,
   itBackgroundId,
+  itIconId,
   isMeIt,
   members,
   colors,
@@ -72,6 +74,7 @@ export function TagRadar({
   itName: string;
   itFrameId?: string | null;
   itBackgroundId?: string | null;
+  itIconId?: string | null;
   isMeIt: boolean;
   members: TagRadarMember[];
   colors: Palette;
@@ -179,6 +182,7 @@ export function TagRadar({
             fontSize={18}
             frameId={itFrameId}
             backgroundId={itBackgroundId}
+            iconId={itIconId}
           />
         </View>
         <Text style={styles.centerLabel} numberOfLines={1}>
@@ -203,6 +207,7 @@ export function TagRadar({
                 fontSize={14}
                 frameId={m.frameId}
                 backgroundId={m.backgroundId}
+                iconId={m.iconId}
               />
             </View>
             <Text style={styles.memberLabel} numberOfLines={1}>

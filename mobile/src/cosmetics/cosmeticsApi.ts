@@ -9,17 +9,22 @@ function requireClient() {
 export interface EquippedCosmetics {
   frameId: string | null;
   backgroundId: string | null;
+  iconId: string | null;
 }
 
 export async function getMyEquippedCosmetics(userId: string): Promise<EquippedCosmetics> {
   const client = requireClient();
   const { data, error } = await client
     .from('profiles')
-    .select('equipped_frame_id, equipped_background_id')
+    .select('equipped_frame_id, equipped_background_id, equipped_icon_id')
     .eq('id', userId)
     .single();
   if (error) throw new Error(error.message);
-  return { frameId: data.equipped_frame_id as string | null, backgroundId: data.equipped_background_id as string | null };
+  return {
+    frameId: data.equipped_frame_id as string | null,
+    backgroundId: data.equipped_background_id as string | null,
+    iconId: data.equipped_icon_id as string | null,
+  };
 }
 
 // p_item_id null un-equips that slot — always allowed. A non-null id the

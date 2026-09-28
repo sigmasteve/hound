@@ -37,6 +37,7 @@ export interface TagMember {
   tagsMade: number;
   frameId: string | null;
   backgroundId: string | null;
+  iconId: string | null;
 }
 
 interface TagMemberProfileRow {
@@ -46,6 +47,7 @@ interface TagMemberProfileRow {
   use_username: boolean;
   equipped_frame_id: string | null;
   equipped_background_id: string | null;
+  equipped_icon_id: string | null;
 }
 
 function toDisplayable(p: TagMemberProfileRow): DisplayableProfile & { initials: string } {
@@ -101,7 +103,7 @@ export async function listTagMembers(challengeId: string): Promise<TagMember[]> 
     // relationships" error) — see supabaseChallenges.ts's listParticipants
     // for the same fix and why it broke every challenge, not just tag ones.
     .select(
-      'user_id, last_tagged_by, tags_made, profiles!user_id(name, initials, username, use_username, equipped_frame_id, equipped_background_id)',
+      'user_id, last_tagged_by, tags_made, profiles!user_id(name, initials, username, use_username, equipped_frame_id, equipped_background_id, equipped_icon_id)',
     )
     .eq('challenge_id', challengeId);
   if (error) throw new Error(error.message);
@@ -115,6 +117,7 @@ export async function listTagMembers(challengeId: string): Promise<TagMember[]> 
       tagsMade: row.tags_made,
       frameId: profile?.equipped_frame_id ?? null,
       backgroundId: profile?.equipped_background_id ?? null,
+      iconId: profile?.equipped_icon_id ?? null,
     };
   });
 }

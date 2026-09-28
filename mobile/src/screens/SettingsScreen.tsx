@@ -556,6 +556,7 @@ export function SettingsScreen({ onOpenLocker }: { onOpenLocker: () => void }) {
             fontSize={14}
             frameId={equipped?.frameId}
             backgroundId={equipped?.backgroundId}
+            iconId={equipped?.iconId}
           />
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={styles.sourceName}>{user.name}</Text>

@@ -48,6 +48,9 @@ export function AdminUserDetailScreen({
   userId,
   name,
   initials,
+  frameId,
+  backgroundId,
+  iconId,
   email,
   lastActiveAt,
   createdAt,
@@ -56,6 +59,9 @@ export function AdminUserDetailScreen({
   userId: string;
   name: string;
   initials: string;
+  frameId: string | null;
+  backgroundId: string | null;
+  iconId: string | null;
   email: string;
   // Carried over from the search result that opened this screen (same
   // as FriendDetailScreen taking friendName/friendInitials as params)
@@ -170,7 +176,7 @@ export function AdminUserDetailScreen({
         <Button label="Admin" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
         <View style={styles.headerRow}>
-          <Avatar initials={initials} tint={TINT_A} size={56} fontSize={18} />
+          <Avatar initials={initials} tint={TINT_A} size={56} fontSize={18} frameId={frameId} backgroundId={backgroundId} iconId={iconId} />
           <View style={{ flex: 1 }}>
             <Text style={text.h2}>{name}</Text>
             <Text style={styles.footNote}>{email}</Text>

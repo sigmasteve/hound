@@ -137,6 +137,7 @@ export function botToParticipant(bot: ChallengeBot): Participant {
     highlighted: false,
     frameId: null,
     backgroundId: null,
+    iconId: null,
   };
 }
 

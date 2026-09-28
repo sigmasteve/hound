@@ -73,6 +73,9 @@ interface OrgMemberRow {
   use_username: boolean;
   email: string;
   org_role: 'member' | 'admin';
+  equipped_frame_id: string | null;
+  equipped_background_id: string | null;
+  equipped_icon_id: string | null;
 }
 
 // Plain profiles query, same as adminApi.ts's searchUsers — no RPC
@@ -81,7 +84,9 @@ export async function listOrgMembers(organizationId: string): Promise<OrgMember[
   const client = requireClient();
   const { data, error } = await client
     .from('profiles')
-    .select('id, name, initials, username, use_username, email, org_role')
+    .select(
+      'id, name, initials, username, use_username, email, org_role, equipped_frame_id, equipped_background_id, equipped_icon_id',
+    )
     .eq('organization_id', organizationId)
     .order('org_role', { ascending: false })
     .order('name', { ascending: true });
@@ -96,6 +101,9 @@ export async function listOrgMembers(organizationId: string): Promise<OrgMember[
       displayInitials: displayInitials({ ...displayable, initials: row.initials }),
       email: row.email,
       orgRole: row.org_role,
+      frameId: row.equipped_frame_id,
+      backgroundId: row.equipped_background_id,
+      iconId: row.equipped_icon_id,
     };
   });
 }

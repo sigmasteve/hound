@@ -18,6 +18,7 @@ export function FriendDetailScreen({
   friendInitials,
   friendFrameId,
   friendBackgroundId,
+  friendIconId,
   onBack,
 }: {
   friendshipId: string;
@@ -26,6 +27,7 @@ export function FriendDetailScreen({
   friendInitials: string;
   friendFrameId?: string | null;
   friendBackgroundId?: string | null;
+  friendIconId?: string | null;
   onBack: () => void;
 }) {
   const { colors, text } = useTheme();
@@ -106,6 +108,7 @@ export function FriendDetailScreen({
             fontSize={18}
             frameId={friendFrameId}
             backgroundId={friendBackgroundId}
+            iconId={friendIconId}
           />
           <Text style={text.h2}>{friendName}</Text>
         </View>
