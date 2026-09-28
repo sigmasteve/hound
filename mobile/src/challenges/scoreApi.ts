@@ -13,13 +13,18 @@ export interface HoundScore {
   // exact same profiles row every existing caller of this function
   // already reads.
   bonesBalance: number;
+  // Lifetime Bones earned through play (0066_bones_earned_total.sql) —
+  // never decreases when bonesBalance is spent or topped up by a
+  // real-money purchase, so it's the one column safe to gate a
+  // challenge-kind unlock on (see CHALLENGE_UNLOCK_BONES in sampleData.ts).
+  bonesEarnedTotal: number;
 }
 
 export async function getMyHoundScore(userId: string): Promise<HoundScore> {
   const client = requireClient();
   const { data, error } = await client
     .from('profiles')
-    .select('hound_score, xp_total, bones_balance')
+    .select('hound_score, xp_total, bones_balance, bones_earned_total')
     .eq('id', userId)
     .single();
   if (error) throw new Error(error.message);
@@ -27,6 +32,7 @@ export async function getMyHoundScore(userId: string): Promise<HoundScore> {
     houndScore: data.hound_score as number,
     xpTotal: data.xp_total as number,
     bonesBalance: data.bones_balance as number,
+    bonesEarnedTotal: data.bones_earned_total as number,
   };
 }
 
