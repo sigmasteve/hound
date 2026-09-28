@@ -201,7 +201,10 @@ export function AdminScreen({
               <Text style={text.h4}>Home banner</Text>
               <Text style={styles.footNote}>
                 An announcement shown at the top of everyone&rsquo;s Home screen &mdash; dismissible with the small
-                &times; there, or it clears itself once its timeframe runs out.
+                &times; there, or it clears itself once its timeframe runs out. Use {'{version}'} anywhere to
+                interpolate the reader&rsquo;s own installed version, or wrap the whole message in{' '}
+                {'{if version=X}...{elseif version=Y}...{else}...{/if}'} to show a different message per version
+                (any number of {'{elseif}'} branches, {'{else}'} optional).
               </Text>
               <TextField
                 label="Message"
