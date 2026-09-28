@@ -107,8 +107,50 @@ function withVersionPlaceholder(message: string): string {
   return message.replace(/\{version\}/g, APP_VERSION);
 }
 
-function renderBannerMessage(message: string, linkColor: string): React.ReactNode[] {
-  return withVersionPlaceholder(message)
+// A tiny extension of the same idea: an admin can write a whole
+// {if version=X}...{elseif version=Y}...{else}...{/if} block to show a
+// different message per installed version — e.g. nudging anyone still
+// on 0.9.0 to update, while 0.10.0 gets a "try the new Bones shop"
+// message instead. version is matched by exact string equality against
+// APP_VERSION (same value {version} itself interpolates), any number of
+// {elseif} branches is fine, and {else} is optional — if nothing
+// matches and there's no {else}, the banner resolves to nothing and
+// just doesn't show for that version, same as if it were disabled.
+//
+// Deliberately whole-message, not embeddable mid-sentence: a message
+// with no {if} block at all (the common case) is returned completely
+// unchanged, so every banner written before this existed keeps working
+// exactly as it did.
+interface ConditionalBranch {
+  version: string | null; // null = the {else} branch
+  text: string;
+}
+
+function parseConditionalBranches(raw: string): ConditionalBranch[] | null {
+  const match = raw.match(/\{if\s+version\s*=\s*([^}]+)\}([\s\S]*)\{\/if\}/i);
+  if (!match) return null;
+  const parts = match[2].split(/(\{elseif\s+version\s*=\s*[^}]+\}|\{else\})/i);
+  const branches: ConditionalBranch[] = [{ version: match[1].trim(), text: parts[0] }];
+  for (let i = 1; i < parts.length; i += 2) {
+    const elseifVersion = parts[i].match(/\{elseif\s+version\s*=\s*([^}]+)\}/i)?.[1];
+    branches.push({ version: elseifVersion ? elseifVersion.trim() : null, text: parts[i + 1] ?? '' });
+  }
+  return branches;
+}
+
+// The one function anything displaying the banner should call — resolves
+// any {if version=...} block down to plain text (or passes a plain
+// message through untouched), then applies {version} interpolation to
+// whichever text actually won.
+function resolveBannerMessage(raw: string): string {
+  const branches = parseConditionalBranches(raw);
+  if (!branches) return withVersionPlaceholder(raw);
+  const matched = branches.find((b) => b.version === APP_VERSION) ?? branches.find((b) => b.version === null);
+  return withVersionPlaceholder((matched?.text ?? '').trim());
+}
+
+function linkifyBannerText(resolved: string, linkColor: string): React.ReactNode[] {
+  return resolved
     .split(URL_PATTERN)
     .map((part, i) => {
       if (!/^https?:\/\//i.test(part)) return <Text key={i}>{part}</Text>;
@@ -459,7 +501,12 @@ export function HomeScreen({
     }
   };
 
-  const showBanner = !!banner && isBannerActive(banner) && !bannerDismissed;
+  // Resolved once here rather than inline in JSX, so both showBanner and
+  // the render below agree on the same text — a conditional banner with
+  // no branch matching this device's version (and no {else}) resolves to
+  // '', which should hide the banner entirely rather than show an empty bar.
+  const resolvedBannerMessage = banner ? resolveBannerMessage(banner.message) : '';
+  const showBanner = !!banner && isBannerActive(banner) && !bannerDismissed && resolvedBannerMessage.trim().length > 0;
 
   // Null until both rank RPCs resolve with an actual row — see
   // 0027_daily_step_totals.sql's own comment on why an empty result
@@ -894,9 +941,9 @@ export function HomeScreen({
   // get swapped out once real data arrived, which on a slow connection
   // reads as a flash of someone else's fake progress rather than a loading
   // state.
-  const announcementBar = showBanner && banner && (
+  const announcementBar = showBanner && (
     <View style={styles.announcementBar}>
-      <Text style={styles.announcementText}>{renderBannerMessage(banner.message, colors.accent)}</Text>
+      <Text style={styles.announcementText}>{linkifyBannerText(resolvedBannerMessage, colors.accent)}</Text>
       <Pressable onPress={dismissBanner} hitSlop={8}>
         <XIcon size={16} color={colors.text} />
       </Pressable>
