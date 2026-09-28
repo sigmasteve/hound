@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ArrowsClockwiseIcon,
   BellRingingIcon,
+  BoneIcon,
   CaretRightIcon,
   CrosshairIcon,
   EnvelopeOpenIcon,
@@ -75,6 +76,11 @@ import { listBingoProgress } from '../challenges/bingoApi';
 import { formatTimeLeft, turnDeadline } from '../challenges/tictacgo';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { getMyHoundScore, settleChallengeScore, type HoundScore } from '../challenges/scoreApi';
+import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
+import { dailyBonusForStreak } from '../bones/dailyBonus';
+import { DailyBonusModal } from '../components/DailyBonusModal';
+import { useCurrencyName } from '../organizations/useCurrencyName';
+import { scheduleDailyBonusReminder, schedulePendingActionsNudge } from '../notifications/localReminders';
 import { levelProgressForXp } from '../challenges/leveling';
 import { TicTacGoBoard } from '../components/TicTacGoCard';
 import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
@@ -520,6 +526,19 @@ export function HomeScreen({
   // of this fetch. The tile below just doesn't render until this
   // resolves with a real value.
   const [houndScore, setHoundScore] = useState<HoundScore | null>(null);
+  const currencyName = useCurrencyName();
+
+  // Set only when claim_daily_bonus actually awards today's bonus (see
+  // 0070_daily_bonus.sql) — drives the one-per-day popup; every later
+  // claim the same day comes back awarded: false and leaves this alone.
+  const [dailyBonus, setDailyBonus] = useState<DailyBonusResult | null>(null);
+  // The streak as of the latest claim, awarded or not — what tomorrow's
+  // local "your bonus is waiting" reminder is scheduled against.
+  const [claimedStreak, setClaimedStreak] = useState<number | null>(null);
+  useEffect(() => {
+    if (claimedStreak === null) return;
+    scheduleDailyBonusReminder(claimedStreak + 1, dailyBonusForStreak(claimedStreak + 1), currencyName);
+  }, [claimedStreak, currencyName]);
 
   // Only ever populated when `primary` itself turns out to be a 'tag'
   // challenge — see the effect below. Null otherwise, including while
@@ -552,7 +571,19 @@ export function HomeScreen({
 
   const reload = useCallback(() => {
     if (isSupabaseConfigured && user?.id) {
-      getMyHoundScore(user.id)
+      const userId = user.id;
+      // Claim first, then read the score back — so the Bones shown right
+      // under Hound Score already includes today's bonus instead of
+      // jumping a moment later. Every open/focus/resume lands here, and a
+      // repeat claim the same day is a server-side no-op. A failed claim
+      // never blocks the score fetch.
+      claimDailyBonus()
+        .then((result) => {
+          if (result.awarded) setDailyBonus(result);
+          setClaimedStreak(result.streak);
+        })
+        .catch(() => {})
+        .then(() => getMyHoundScore(userId))
         .then(setHoundScore)
         .catch(() => setHoundScore(null));
     } else {
@@ -765,20 +796,24 @@ export function HomeScreen({
           ),
         ]);
         if (!cancelled) {
-          setPendingActions(
-            computePendingActions({
-              myUserId: myId,
-              now: new Date(),
-              challenges: activeResults.map((r) => r.challenge),
-              tagRounds: new Map(tagEntries.filter((e): e is readonly [string, TagRound] => e[1] !== null)),
-              tictacgoGames: new Map(tictacgoEntries.filter((e): e is readonly [string, TicTacGoGame] => e[1] !== null)),
-              seventyfiveTodayComplete: new Map(seventyfiveEntries),
-              loggedProgressToday: new Map(manualEntries),
-            }),
-          );
+          const actions = computePendingActions({
+            myUserId: myId,
+            now: new Date(),
+            challenges: activeResults.map((r) => r.challenge),
+            tagRounds: new Map(tagEntries.filter((e): e is readonly [string, TagRound] => e[1] !== null)),
+            tictacgoGames: new Map(tictacgoEntries.filter((e): e is readonly [string, TicTacGoGame] => e[1] !== null)),
+            seventyfiveTodayComplete: new Map(seventyfiveEntries),
+            loggedProgressToday: new Map(manualEntries),
+          });
+          setPendingActions(actions);
+          // Tonight's local "still on your list" reminder tracks this same
+          // list — rescheduled (or cancelled once it's empty) on every
+          // load, so it never nags about something already done.
+          schedulePendingActionsNudge(actions);
         }
       } else if (!cancelled) {
         setPendingActions([]);
+        schedulePendingActionsNudge([]);
       }
 
       const primaryResult = results.find((r) => r.challenge.id === primaryId);
@@ -1126,6 +1161,12 @@ export function HomeScreen({
           <View style={{ gap: 2 }}>
             <Text style={styles.scoreCardLabel}>Hound Score</Text>
             <Text style={styles.scoreCardValue}>{houndScore.houndScore.toLocaleString()}</Text>
+            <View style={styles.scoreCardBones}>
+              <BoneIcon size={13} color={color.accent} weight="fill" />
+              <Text style={styles.scoreCardBonesText}>
+                {houndScore.bonesBalance.toLocaleString()} {currencyName}
+              </Text>
+            </View>
           </View>
           <View style={styles.scoreCardLevel}>
             <View style={styles.scoreCardLevelBadge}>
@@ -1205,6 +1246,14 @@ export function HomeScreen({
         )}
       </View>
     </ScrollView>
+    {dailyBonus && (
+      <DailyBonusModal
+        bonesAwarded={dailyBonus.bonesAwarded}
+        streak={dailyBonus.streak}
+        currencyName={currencyName}
+        onClose={() => setDailyBonus(null)}
+      />
+    )}
     </View>
   );
 }
@@ -1765,6 +1814,8 @@ function makeStyles(colors: Palette) {
     },
     scoreCardLabel: { fontSize: 11.5, letterSpacing: 0.4, color: withAlpha(colors.text, 0.55) },
     scoreCardValue: { fontFamily: font.headingSemibold, fontSize: 20, color: colors.text },
+    scoreCardBones: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+    scoreCardBonesText: { fontFamily: font.body, fontSize: 13, color: withAlpha(colors.text, 0.75) },
     scoreCardLevel: { marginLeft: 'auto', alignItems: 'flex-end', gap: 5 },
     scoreCardLevelBadge: {
       paddingHorizontal: 10,

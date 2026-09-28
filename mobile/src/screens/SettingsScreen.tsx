@@ -29,6 +29,11 @@ import type { AuthProviderId } from '../auth/types';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { APP_VERSION } from '../lib/appVersion';
 import * as notifications from '../notifications/supabaseNotifications';
+import {
+  getLocalRemindersEnabled,
+  getReminderPermission,
+  setLocalRemindersEnabled,
+} from '../notifications/localReminders';
 import { setUseUsername, setUsername } from '../profiles/supabaseProfile';
 import { getOrganization, leaveOrganization, redeemOrganizationInvite } from '../organizations/supabaseOrganizations';
 import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
@@ -290,6 +295,32 @@ export function SettingsScreen({ onOpenLocker }: { onOpenLocker: () => void }) {
         });
     }, [user?.id]),
   );
+
+  // On-device reminders (src/notifications/localReminders.ts) — a device
+  // preference, not a profiles column, since they're scheduled locally
+  // per phone. Reads as on only when both the preference and the OS
+  // permission allow it, so a denied permission never shows a toggle
+  // that looks on but delivers nothing.
+  const [localRemindersOn, setLocalRemindersOn] = useState<boolean | null>(null);
+  const [savingLocalReminders, setSavingLocalReminders] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      Promise.all([getLocalRemindersEnabled(), getReminderPermission()])
+        .then(([enabled, permission]) => setLocalRemindersOn(enabled && permission === 'granted'))
+        .catch(() => setLocalRemindersOn(false));
+    }, []),
+  );
+  const toggleLocalReminders = async (next: boolean) => {
+    setSavingLocalReminders(true);
+    try {
+      await setLocalRemindersEnabled(next);
+      setLocalRemindersOn(next);
+    } catch (err) {
+      Alert.alert('Daily reminders', err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setSavingLocalReminders(false);
+    }
+  };
 
   // Two of the three Alerts, each its own Push + Email pair — see
   // notifications/types.ts's own comment on why the third (proximity)
@@ -716,6 +747,14 @@ export function SettingsScreen({ onOpenLocker }: { onOpenLocker: () => void }) {
               value={allEmailEnabled}
               onChange={toggleMasterEmail}
             />
+            {localRemindersOn !== null && (
+              <ToggleRow
+                label="Daily reminders"
+                note={savingLocalReminders ? 'Saving…' : 'Your daily bonus and anything still waiting on you'}
+                value={localRemindersOn}
+                onChange={toggleLocalReminders}
+              />
+            )}
 
             <Pressable
               style={styles.collapsibleHeader}
