@@ -1,0 +1,17 @@
+# Only the settings that need to differ from Supabase CLI's defaults live
+# here — everything else (api/db/studio/auth ports, etc.) is left
+# unspecified and just uses the CLI's own defaults.
+#
+# revenuecat-webhook is called by RevenueCat's own servers, not by this
+# app's Supabase client — it sends its own custom `Authorization: Bearer
+# <REVENUECAT_WEBHOOK_SECRET>` header (checked inside the function itself),
+# never a Supabase JWT. Every delivery was getting rejected before it even
+# reached the function's own code, by Supabase's platform-level default
+# that requires a valid Supabase JWT on every Edge Function request
+# (`UNAUTHORIZED_INVALID_JWT_FORMAT`) — this turns that default off for
+# this one function only. sync-purchase is deliberately NOT listed here:
+# it's called by this app's own signed-in users via the Supabase client
+# SDK, which does send a real user JWT, so the default is exactly right
+# there and re-verifies the caller inside the function too.
+[functions.revenuecat-webhook]
+verify_jwt = false
