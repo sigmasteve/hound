@@ -41,6 +41,7 @@ export interface Friend {
   // first fast-follow.
   frameId: string | null;
   backgroundId: string | null;
+  iconId: string | null;
 }
 
 export interface FriendsProvider {

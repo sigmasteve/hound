@@ -38,4 +38,7 @@ export interface OrgMember {
   displayInitials: string;
   email: string;
   orgRole: 'member' | 'admin';
+  frameId: string | null;
+  backgroundId: string | null;
+  iconId: string | null;
 }

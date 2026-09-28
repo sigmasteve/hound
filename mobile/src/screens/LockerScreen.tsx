@@ -9,7 +9,7 @@ import { Card } from '../components/Card';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
-import { BACKGROUNDS, FRAMES, type BackgroundStyle, type CosmeticSlot, type FrameStyle } from '../cosmetics/catalog';
+import { BACKGROUNDS, FRAMES, ICONS, type BackgroundStyle, type CosmeticSlot, type FrameStyle, type IconStyle } from '../cosmetics/catalog';
 import {
   equipCosmetic,
   getMyEquippedCosmetics,
@@ -96,6 +96,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
       setEquipped((prev) => ({
         frameId: slot === 'frame' ? (alreadyEquipped ? null : itemId) : (prev?.frameId ?? null),
         backgroundId: slot === 'background' ? (alreadyEquipped ? null : itemId) : (prev?.backgroundId ?? null),
+        iconId: slot === 'icon' ? (alreadyEquipped ? null : itemId) : (prev?.iconId ?? null),
       }));
     } catch (e) {
       Alert.alert('Could not equip that', e instanceof Error ? e.message : 'Try again.');
@@ -110,7 +111,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   // patch below just reflects what the RPC already did, same "the write
   // already succeeded, no round-trip would tell us more" shape
   // FriendDetailScreen's own kudos count uses.
-  const buyItem = async (item: FrameStyle | BackgroundStyle) => {
+  const buyItem = async (item: FrameStyle | BackgroundStyle | IconStyle) => {
     setBuyingId(item.id);
     try {
       await purchaseCosmetic(item.id);
@@ -163,12 +164,13 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   const xpTotal = houndScore?.xpTotal ?? null;
   const bonesBalance = houndScore?.bonesBalance ?? null;
 
-  const renderItem = (item: FrameStyle | BackgroundStyle, slot: CosmeticSlot) => {
+  const renderItem = (item: FrameStyle | BackgroundStyle | IconStyle, slot: CosmeticSlot) => {
     const isShopItem = item.costBones !== null;
     const owned = isShopItem
       ? !!purchasedIds?.has(item.id)
       : xpTotal !== null && item.unlockXp !== null && xpTotal >= item.unlockXp;
-    const isEquipped = slot === 'frame' ? equipped?.frameId === item.id : equipped?.backgroundId === item.id;
+    const isEquipped =
+      slot === 'frame' ? equipped?.frameId === item.id : slot === 'background' ? equipped?.backgroundId === item.id : equipped?.iconId === item.id;
     const affordable = isShopItem && bonesBalance !== null && item.costBones !== null && bonesBalance >= item.costBones;
     const busy = equippingId === item.id || buyingId === item.id;
 
@@ -209,6 +211,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
           fontSize={12}
           frameId={slot === 'frame' ? item.id : equipped?.frameId}
           backgroundId={slot === 'background' ? item.id : equipped?.backgroundId}
+          iconId={slot === 'icon' ? item.id : equipped?.iconId}
         />
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={styles.itemName}>{item.name}</Text>
@@ -227,8 +230,10 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
 
   const leveledFrames = FRAMES.filter((f) => f.unlockXp !== null);
   const leveledBackgrounds = BACKGROUNDS.filter((b) => b.unlockXp !== null);
+  const leveledIcons = ICONS.filter((i) => i.unlockXp !== null);
   const shopFrames = FRAMES.filter((f) => f.costBones !== null);
   const shopBackgrounds = BACKGROUNDS.filter((b) => b.costBones !== null);
+  const shopIcons = ICONS.filter((i) => i.costBones !== null);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
@@ -243,6 +248,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
             fontSize={18}
             frameId={equipped?.frameId}
             backgroundId={equipped?.backgroundId}
+            iconId={equipped?.iconId}
           />
           <View style={{ gap: 2 }}>
             <Text style={text.h2}>Locker</Text>
@@ -273,6 +279,11 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
             <Card style={{ gap: 4 }} elevated={false}>
               <Text style={text.h4}>Backgrounds</Text>
               {leveledBackgrounds.map((b) => renderItem(b, 'background'))}
+            </Card>
+
+            <Card style={{ gap: 4 }} elevated={false}>
+              <Text style={text.h4}>Icons</Text>
+              {leveledIcons.map((i) => renderItem(i, 'icon'))}
             </Card>
           </>
         ) : (
@@ -325,6 +336,11 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
             <Card style={{ gap: 4 }} elevated={false}>
               <Text style={text.h4}>Backgrounds</Text>
               {shopBackgrounds.map((b) => renderItem(b, 'background'))}
+            </Card>
+
+            <Card style={{ gap: 4 }} elevated={false}>
+              <Text style={text.h4}>Icons</Text>
+              {shopIcons.map((i) => renderItem(i, 'icon'))}
             </Card>
           </>
         )}

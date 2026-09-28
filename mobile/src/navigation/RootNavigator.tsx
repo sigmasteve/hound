@@ -234,6 +234,7 @@ export function RootNavigator() {
                   friendInitials={route.params.friendInitials}
                   friendFrameId={route.params.friendFrameId}
                   friendBackgroundId={route.params.friendBackgroundId}
+                  friendIconId={route.params.friendIconId}
                   onBack={() => navigation.navigate('Main', { tab: 'friends' })}
                 />
               )}
@@ -255,6 +256,9 @@ export function RootNavigator() {
                       userId: u.id,
                       name: u.name,
                       initials: u.initials,
+                      frameId: u.frameId,
+                      backgroundId: u.backgroundId,
+                      iconId: u.iconId,
                       email: u.email,
                       lastActiveAt: u.lastActiveAt,
                       createdAt: u.createdAt,
@@ -269,6 +273,9 @@ export function RootNavigator() {
                   userId={route.params.userId}
                   name={route.params.name}
                   initials={route.params.initials}
+                  frameId={route.params.frameId}
+                  backgroundId={route.params.backgroundId}
+                  iconId={route.params.iconId}
                   email={route.params.email}
                   lastActiveAt={route.params.lastActiveAt}
                   createdAt={route.params.createdAt}

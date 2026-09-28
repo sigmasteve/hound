@@ -716,7 +716,15 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                     disabled={!eligible}
                     style={[styles.friendRow, picked && styles.friendRowOn, !eligible && styles.friendRowDisabled]}
                   >
-                    <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} frameId={f.frameId} backgroundId={f.backgroundId} />
+                    <Avatar
+                      initials={f.initials}
+                      tint={TINT_N}
+                      size={30}
+                      fontSize={11}
+                      frameId={f.frameId}
+                      backgroundId={f.backgroundId}
+                      iconId={f.iconId}
+                    />
                     <View style={{ flex: 1, gap: 1 }}>
                       <Text style={styles.friendName}>{f.name}</Text>
                       {!eligible && (
@@ -811,7 +819,15 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                     onPress={() => setHunterId(f.userId)}
                     style={[styles.friendRow, hunterId === f.userId && styles.friendRowOn]}
                   >
-                    <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} frameId={f.frameId} backgroundId={f.backgroundId} />
+                    <Avatar
+                      initials={f.initials}
+                      tint={TINT_N}
+                      size={30}
+                      fontSize={11}
+                      frameId={f.frameId}
+                      backgroundId={f.backgroundId}
+                      iconId={f.iconId}
+                    />
                     <Text style={styles.friendName}>{f.name}</Text>
                     {hunterId === f.userId ? (
                       <CheckCircleIcon size={18} color={colors.accent} weight="fill" />

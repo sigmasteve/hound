@@ -22,6 +22,7 @@ export interface BoardEntry {
   // cosmetics to equip (see CreateScreen's own botInitials-only avatars).
   frameId: string | null;
   backgroundId: string | null;
+  iconId: string | null;
 }
 
 // Merges real participants (joined with whatever they've actually logged)
@@ -73,6 +74,7 @@ export function buildBoard(
         huntBaselineDistanceMi: baseline?.totalDistanceMi ?? 0,
         frameId: p.frameId,
         backgroundId: p.backgroundId,
+        iconId: p.iconId,
       };
     }),
     ...bots.map((b) => ({
@@ -90,6 +92,7 @@ export function buildBoard(
       huntBaselineDistanceMi: headStartDays > 0 ? simulateBotDistance(b.id, b.fitnessLevel, headStartDays) : 0,
       frameId: null,
       backgroundId: null,
+      iconId: null,
     })),
   ];
   // Ranked by huntEffectiveMetric, not the raw totals — for anyone but a

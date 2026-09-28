@@ -6,7 +6,7 @@
 // colors (gradient stops, ring color) live only here — the database
 // doesn't need to know what anything looks like, only what's unlocked.
 
-export type CosmeticSlot = 'frame' | 'background';
+export type CosmeticSlot = 'frame' | 'background' | 'icon';
 
 export interface CosmeticItem {
   id: string;
@@ -34,6 +34,16 @@ export interface BackgroundStyle extends CosmeticItem {
   // the plain flat tint.
   gradientFrom: string;
   gradientTo: string;
+}
+
+export interface IconStyle extends CosmeticItem {
+  slot: 'icon';
+  // A key into src/cosmetics/avatarIcons.ts's own ICON_COMPONENTS map,
+  // not a component itself — this file stays free of RN/phosphor
+  // imports, same discipline bingo.ts/tictacgo.ts already follow. When
+  // equipped, this replaces the initials Avatar would otherwise show
+  // (see Avatar.tsx); frame/background still layer around it unchanged.
+  icon: string;
 }
 
 export const FRAMES: FrameStyle[] = [
@@ -115,8 +125,24 @@ export const BACKGROUNDS: BackgroundStyle[] = [
   },
 ];
 
+// Mirrors 0069_avatar_icon_cosmetics.sql's own seeded icon rows — see
+// that migration's own comment for why a curated set (not a custom photo
+// upload) is this feature's scope.
+export const ICONS: IconStyle[] = [
+  { id: 'icon_paw', slot: 'icon', name: 'Paw Print', unlockXp: 800, costBones: null, icon: 'paw' },
+  { id: 'icon_dog', slot: 'icon', name: 'Dog', unlockXp: 4050, costBones: null, icon: 'dog' },
+  { id: 'icon_cat', slot: 'icon', name: 'Cat', unlockXp: 9800, costBones: null, icon: 'cat' },
+  { id: 'icon_rabbit', slot: 'icon', name: 'Rabbit', unlockXp: 20000, costBones: null, icon: 'rabbit' },
+  { id: 'icon_fire', slot: 'icon', name: 'Fire', unlockXp: 36450, costBones: null, icon: 'fire' },
+  // Shop-only — see 0069_avatar_icon_cosmetics.sql.
+  { id: 'icon_robot', slot: 'icon', name: 'Robot', unlockXp: null, costBones: 300, icon: 'robot' },
+  { id: 'icon_rocket', slot: 'icon', name: 'Rocket', unlockXp: null, costBones: 550, icon: 'rocket' },
+  { id: 'icon_crown', slot: 'icon', name: 'Crown', unlockXp: null, costBones: 800, icon: 'crown' },
+];
+
 const FRAMES_BY_ID = new Map(FRAMES.map((f) => [f.id, f] as const));
 const BACKGROUNDS_BY_ID = new Map(BACKGROUNDS.map((b) => [b.id, b] as const));
+const ICONS_BY_ID = new Map(ICONS.map((i) => [i.id, i] as const));
 
 export function frameById(id: string | null | undefined): FrameStyle | null {
   return id ? (FRAMES_BY_ID.get(id) ?? null) : null;
@@ -124,4 +150,8 @@ export function frameById(id: string | null | undefined): FrameStyle | null {
 
 export function backgroundById(id: string | null | undefined): BackgroundStyle | null {
   return id ? (BACKGROUNDS_BY_ID.get(id) ?? null) : null;
+}
+
+export function iconStyleById(id: string | null | undefined): IconStyle | null {
+  return id ? (ICONS_BY_ID.get(id) ?? null) : null;
 }

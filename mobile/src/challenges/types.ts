@@ -101,6 +101,9 @@ export interface Participant {
   // they actually had equipped (see GitHub issue #229's first fast-follow).
   frameId: string | null;
   backgroundId: string | null;
+  // Same as frameId/backgroundId above, for the equipped-icon slot
+  // (profiles.equipped_icon_id — 0069_avatar_icon_cosmetics.sql).
+  iconId: string | null;
 }
 
 // A bot never signs in and never calls recordProgress() — its steps are

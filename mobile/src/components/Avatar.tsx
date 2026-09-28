@@ -2,7 +2,8 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { font } from '../theme/tokens';
-import { backgroundById, frameById } from '../cosmetics/catalog';
+import { backgroundById, frameById, iconStyleById } from '../cosmetics/catalog';
+import { DEFAULT_AVATAR_ICON, ICON_COMPONENTS } from '../cosmetics/avatarIcons';
 
 let gradientIdCounter = 0;
 
@@ -13,6 +14,7 @@ export function Avatar({
   fontSize = 12,
   frameId,
   backgroundId,
+  iconId,
 }: {
   initials: string;
   tint: string;
@@ -26,9 +28,16 @@ export function Avatar({
   // the same as omitted rather than crashing.
   frameId?: string | null;
   backgroundId?: string | null;
+  // Same optional/null-safe shape as frameId/backgroundId above — when
+  // set to a real icon id, replaces the initials text with that icon's
+  // glyph (see cosmetics/avatarIcons.ts). Frame/background still layer
+  // around it exactly as they would around initials.
+  iconId?: string | null;
 }) {
   const frame = frameById(frameId);
   const background = backgroundById(backgroundId);
+  const iconStyle = iconStyleById(iconId);
+  const IconGlyph = iconStyle ? (ICON_COMPONENTS[iconStyle.icon] ?? DEFAULT_AVATAR_ICON) : null;
   // Stable for this component instance, not regenerated every render —
   // two Avatars on screen at once still need distinct ids, since SVG
   // gradient ids live in one shared namespace, not scoped per <Svg>.
@@ -58,7 +67,14 @@ export function Avatar({
           <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${gradientId})`} />
         </Svg>
       )}
-      <Text style={[styles.label, { fontSize }]}>{initials}</Text>
+      {IconGlyph ? (
+        // Sized relative to the circle, not fontSize — an icon glyph and
+        // a line of initials text don't scale the same way, and every
+        // existing call site's fontSize was tuned for text, not a glyph.
+        <IconGlyph size={size * 0.6} color="#fff" weight="fill" />
+      ) : (
+        <Text style={[styles.label, { fontSize }]}>{initials}</Text>
+      )}
     </View>
   );
 

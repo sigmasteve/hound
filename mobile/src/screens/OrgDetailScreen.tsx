@@ -295,7 +295,15 @@ export function OrgDetailScreen({ organizationId, onBack }: { organizationId: st
                   const isSelf = m.id === user?.id;
                   return (
                     <View key={m.id} style={styles.memberRow}>
-                      <Avatar initials={m.displayInitials} tint={TINT_A} size={34} fontSize={12} />
+                      <Avatar
+                        initials={m.displayInitials}
+                        tint={TINT_A}
+                        size={34}
+                        fontSize={12}
+                        frameId={m.frameId}
+                        backgroundId={m.backgroundId}
+                        iconId={m.iconId}
+                      />
                       <View style={{ flex: 1, gap: 1 }}>
                         <Text style={styles.memberName}>
                           {m.displayName}
@@ -349,7 +357,15 @@ export function OrgDetailScreen({ organizationId, onBack }: { organizationId: st
                     const alreadyInAnOrg = !!candidate.organizationId;
                     return (
                       <View key={candidate.id} style={styles.memberRow}>
-                        <Avatar initials={candidate.displayInitials} tint={TINT_A} size={34} fontSize={12} />
+                        <Avatar
+                          initials={candidate.displayInitials}
+                          tint={TINT_A}
+                          size={34}
+                          fontSize={12}
+                          frameId={candidate.frameId}
+                          backgroundId={candidate.backgroundId}
+                          iconId={candidate.iconId}
+                        />
                         <View style={{ flex: 1, gap: 1 }}>
                           <Text style={styles.memberName}>{candidate.displayName}</Text>
                           <Text style={styles.footNote}>

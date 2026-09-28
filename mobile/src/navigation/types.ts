@@ -15,12 +15,16 @@ export type RootStackParamList = {
     friendInitials: string;
     friendFrameId: string | null;
     friendBackgroundId: string | null;
+    friendIconId: string | null;
   };
   Admin: undefined;
   AdminUserDetail: {
     userId: string;
     name: string;
     initials: string;
+    frameId: string | null;
+    backgroundId: string | null;
+    iconId: string | null;
     email: string;
     lastActiveAt: string | null;
     createdAt: string;
