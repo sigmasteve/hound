@@ -93,6 +93,14 @@ export interface Participant {
   // their own Home screen — per-participant, not per-challenge, so two
   // people in the same challenge can highlight different ones.
   highlighted: boolean;
+  // This participant's own equipped cosmetics (profiles.equipped_frame_id
+  // /equipped_background_id — 0059_cosmetics.sql), straight through to
+  // Avatar's own frameId/backgroundId props. Previously only ever read
+  // for the signed-in viewer's own avatar (cosmeticsApi.ts) — every other
+  // participant rendered with the plain default look regardless of what
+  // they actually had equipped (see GitHub issue #229's first fast-follow).
+  frameId: string | null;
+  backgroundId: string | null;
 }
 
 // A bot never signs in and never calls recordProgress() — its steps are

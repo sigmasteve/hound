@@ -22,6 +22,8 @@ export interface TagRadarMember {
   distance: number;
   isTarget: boolean;
   isMe: boolean;
+  frameId: string | null;
+  backgroundId: string | null;
 }
 
 const SIZE = 300;
@@ -57,6 +59,8 @@ const BOTTOM_LABEL_BUFFER = 44;
 export function TagRadar({
   itInitials,
   itName,
+  itFrameId,
+  itBackgroundId,
   isMeIt,
   members,
   colors,
@@ -66,6 +70,8 @@ export function TagRadar({
 }: {
   itInitials: string;
   itName: string;
+  itFrameId?: string | null;
+  itBackgroundId?: string | null;
   isMeIt: boolean;
   members: TagRadarMember[];
   colors: Palette;
@@ -166,7 +172,14 @@ export function TagRadar({
             { width: IT_AVATAR_SIZE + 8, height: IT_AVATAR_SIZE + 8, borderRadius: (IT_AVATAR_SIZE + 8) / 2 },
           ]}
         >
-          <Avatar initials={itInitials} tint={colors.amber} size={IT_AVATAR_SIZE} fontSize={18} />
+          <Avatar
+            initials={itInitials}
+            tint={colors.amber}
+            size={IT_AVATAR_SIZE}
+            fontSize={18}
+            frameId={itFrameId}
+            backgroundId={itBackgroundId}
+          />
         </View>
         <Text style={styles.centerLabel} numberOfLines={1}>
           {isMeIt ? 'You · It' : `${itName} · It`}
@@ -188,6 +201,8 @@ export function TagRadar({
                 tint={m.isMe ? colors.accent : withAlpha(colors.text, 0.35)}
                 size={MEMBER_AVATAR_SIZE}
                 fontSize={14}
+                frameId={m.frameId}
+                backgroundId={m.backgroundId}
               />
             </View>
             <Text style={styles.memberLabel} numberOfLines={1}>

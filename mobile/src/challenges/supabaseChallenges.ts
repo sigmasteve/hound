@@ -28,6 +28,16 @@ interface ProfileRow {
   use_username: boolean;
 }
 
+// Same profiles(...) join, plus the two equipped-cosmetics columns —
+// separate from ProfileRow since only listParticipants (Participant
+// needs these for Avatar) reads them; getLeaderboard's own join stays
+// unchanged (nothing renders an Avatar off a raw LeaderboardEntry, see
+// buildBoard's own comment).
+interface ParticipantProfileRow extends ProfileRow {
+  equipped_frame_id: string | null;
+  equipped_background_id: string | null;
+}
+
 function toDisplayable(p: ProfileRow): DisplayableProfile & { initials: string } {
   return { name: p.name, initials: p.initials, username: p.username, useUsername: p.use_username };
 }
@@ -170,17 +180,21 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       // so PostgREST can no longer auto-pick which relationship this
       // embed means and returns a 300 "multiple relationships" error on
       // every challenge, not just a 'tag' one, without this hint.
-      .select('user_id, role, highlighted, profiles!user_id(name, initials, username, use_username)')
+      .select(
+        'user_id, role, highlighted, profiles!user_id(name, initials, username, use_username, equipped_frame_id, equipped_background_id)',
+      )
       .eq('challenge_id', challengeId);
     if (error) throw new Error(error.message);
     return (data ?? []).map((row) => {
-      const profile = row.profiles as unknown as ProfileRow | null;
+      const profile = row.profiles as unknown as ParticipantProfileRow | null;
       return {
         userId: row.user_id,
         name: profile ? displayName(toDisplayable(profile)) : 'Someone',
         initials: profile ? displayInitials(toDisplayable(profile)) : '?',
         role: (row.role as HuntRole | null) ?? null,
         highlighted: row.highlighted,
+        frameId: profile?.equipped_frame_id ?? null,
+        backgroundId: profile?.equipped_background_id ?? null,
       };
     });
   },

@@ -20,6 +20,7 @@ import {
   listOrgMembers,
   regenerateOrgInviteCode,
   removeOrgMember,
+  setOrgCurrencyName,
   setOrgLabels,
   setOrgMemberRole,
 } from '../organizations/supabaseOrganizations';
@@ -213,6 +214,36 @@ export function OrgDetailScreen({ organizationId, onBack }: { organizationId: st
     }
   };
 
+  // Currency name — org admin of this org, or a platform admin
+  // (org_set_currency_name, 0068_org_currency_name.sql). Same "blank
+  // input, default as placeholder" shape as Chase labels above: an empty
+  // field means "hasn't renamed it," not an error, and saving one blank
+  // clears back to the "Bones" default rather than rejecting the save.
+  const [currencyNameInput, setCurrencyNameInput] = useState('');
+  const [savingCurrencyName, setSavingCurrencyName] = useState(false);
+  const [currencyNameError, setCurrencyNameError] = useState<string | null>(null);
+  const [currencyNameSaved, setCurrencyNameSaved] = useState(false);
+
+  useEffect(() => {
+    if (org) setCurrencyNameInput(org.currencyName ?? '');
+  }, [org]);
+
+  const submitCurrencyName = async () => {
+    setCurrencyNameError(null);
+    setCurrencyNameSaved(false);
+    setSavingCurrencyName(true);
+    try {
+      await setOrgCurrencyName(organizationId, currencyNameInput);
+      const trimmed = currencyNameInput.trim();
+      setOrg((o) => (o ? { ...o, currencyName: trimmed || null } : o));
+      setCurrencyNameSaved(true);
+    } catch (e) {
+      setCurrencyNameError(e instanceof Error ? e.message : 'Could not save that — try again.');
+    } finally {
+      setSavingCurrencyName(false);
+    }
+  };
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -354,6 +385,23 @@ export function OrgDetailScreen({ organizationId, onBack }: { organizationId: st
                   <Button label={savingLabels ? 'Saving…' : 'Save'} variant="primary" disabled={savingLabels} onPress={submitLabels} />
                 </>
               )}
+            </Card>
+
+            <Card style={{ gap: 12 }} elevated={false}>
+              <Text style={text.h4}>Currency name</Text>
+              <Text style={styles.footNote}>
+                Rename &ldquo;Bones&rdquo; to something of {org.name}&rsquo;s own, everywhere it&rsquo;s shown to
+                your members. Leave this blank to use the app-wide default.
+              </Text>
+              <TextField label="Name" value={currencyNameInput} onChangeText={setCurrencyNameInput} placeholder="Bones" />
+              {currencyNameError && <Text style={styles.loadError}>{currencyNameError}</Text>}
+              {currencyNameSaved && !currencyNameError && <Text style={styles.successNote}>Saved.</Text>}
+              <Button
+                label={savingCurrencyName ? 'Saving…' : 'Save'}
+                variant="primary"
+                disabled={savingCurrencyName}
+                onPress={submitCurrencyName}
+              />
             </Card>
           </>
         )}

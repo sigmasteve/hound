@@ -66,6 +66,8 @@ export function MainScreen({ route, navigation }: Props) {
                 friendUserId: friend.userId,
                 friendName: friend.name,
                 friendInitials: friend.initials,
+                friendFrameId: friend.frameId,
+                friendBackgroundId: friend.backgroundId,
               })
             }
           />

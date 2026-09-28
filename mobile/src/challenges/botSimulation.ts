@@ -127,8 +127,17 @@ export function daysElapsedFraction(challenge: Challenge): number {
 }
 
 export function botToParticipant(bot: ChallengeBot): Participant {
-  // A bot has no Home screen of its own to highlight anything on.
-  return { userId: bot.id, name: bot.name, initials: botInitials(bot.name), role: bot.role, highlighted: false };
+  // A bot has no Home screen of its own to highlight anything on, and no
+  // cosmetics to equip (see board.ts's own bots.map).
+  return {
+    userId: bot.id,
+    name: bot.name,
+    initials: botInitials(bot.name),
+    role: bot.role,
+    highlighted: false,
+    frameId: null,
+    backgroundId: null,
+  };
 }
 
 export function botToLeaderboardEntry(bot: ChallengeBot, daysElapsed: number): LeaderboardEntry {

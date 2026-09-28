@@ -17,6 +17,8 @@ interface ProfileRef {
   name: string;
   initials: string;
   organization_id: string | null;
+  equipped_frame_id: string | null;
+  equipped_background_id: string | null;
 }
 
 interface FriendshipRow {
@@ -30,8 +32,8 @@ interface FriendshipRow {
 
 const FRIENDSHIP_COLUMNS =
   'id, requester_id, recipient_id, status, ' +
-  'requester:profiles!friendships_requester_id_fkey(id, name, initials, organization_id), ' +
-  'recipient:profiles!friendships_recipient_id_fkey(id, name, initials, organization_id)';
+  'requester:profiles!friendships_requester_id_fkey(id, name, initials, organization_id, equipped_frame_id, equipped_background_id), ' +
+  'recipient:profiles!friendships_recipient_id_fkey(id, name, initials, organization_id, equipped_frame_id, equipped_background_id)';
 
 function rowToFriend(row: FriendshipRow, myUserId: string): Friend {
   const iAmRequester = row.requester_id === myUserId;
@@ -44,6 +46,8 @@ function rowToFriend(row: FriendshipRow, myUserId: string): Friend {
     status: row.status,
     requestedByMe: iAmRequester,
     organizationId: other?.organization_id ?? null,
+    frameId: other?.equipped_frame_id ?? null,
+    backgroundId: other?.equipped_background_id ?? null,
   };
 }
 

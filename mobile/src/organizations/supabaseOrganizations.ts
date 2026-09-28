@@ -24,6 +24,7 @@ interface OrganizationRow {
   invite_code: string;
   created_by: string | null;
   created_at: string;
+  currency_name: string | null;
 }
 
 function rowToOrganization(row: OrganizationRow): Organization {
@@ -34,6 +35,7 @@ function rowToOrganization(row: OrganizationRow): Organization {
     inviteCode: row.invite_code,
     createdBy: row.created_by,
     createdAt: row.created_at,
+    currencyName: row.currency_name,
   };
 }
 
@@ -164,6 +166,19 @@ export async function regenerateOrgInviteCode(organizationId: string): Promise<s
   const { data, error } = await client.rpc('admin_regenerate_org_invite_code', { organization_id: organizationId });
   if (error) throw new Error(error.message);
   return data as string;
+}
+
+// Callable by a platform admin, or by an existing admin of this same org
+// — enforced server-side (0068_org_currency_name.sql), same shape as
+// regenerateOrgInviteCode above. Pass an empty/whitespace-only string to
+// clear the override back to the "Bones" default.
+export async function setOrgCurrencyName(organizationId: string, currencyName: string): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.rpc('org_set_currency_name', {
+    organization_id: organizationId,
+    currency_name: currencyName,
+  });
+  if (error) throw new Error(error.message);
 }
 
 // Null means this org has never set its own labels — a future

@@ -20,6 +20,8 @@ import {
 import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
 import { levelProgressForXp } from '../challenges/leveling';
 import { listBonesPackOffers, purchaseBonesPack, type BonesPackOffer } from '../bones/purchasesApi';
+import { getOrganization } from '../organizations/supabaseOrganizations';
+import { currencyNameOrDefault } from '../organizations/types';
 
 type LockerTab = 'locker' | 'shop';
 
@@ -50,6 +52,23 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   const [bonesOffers, setBonesOffers] = useState<BonesPackOffer[] | null>(null);
   const [bonesOffersError, setBonesOffersError] = useState<string | null>(null);
   const [buyingProductId, setBuyingProductId] = useState<string | null>(null);
+
+  // This viewer's own org may have renamed "Bones" to something of its
+  // own (organizations.currency_name, 0068_org_currency_name.sql) — a
+  // school or company's own word for it, shown everywhere this screen
+  // would otherwise say "Bones." Stays 'Bones' (the real, permanent
+  // answer, not a placeholder) for anyone with no org, or while
+  // Supabase isn't configured.
+  const [currencyName, setCurrencyName] = useState('Bones');
+  useEffect(() => {
+    if (!user?.organizationId) return;
+    getOrganization(user.organizationId)
+      .then((org) => setCurrencyName(currencyNameOrDefault(org?.currencyName)))
+      .catch(() => {
+        // Stay on 'Bones' on any failure — same convention every other
+        // real-data fetch in this app follows.
+      });
+  }, [user?.organizationId]);
 
   const reload = useCallback(() => {
     if (!user?.id) return;
@@ -132,7 +151,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
         // below. revenuecat-webhook (0064_bones_purchases.sql) still
         // credits it shortly; reopening the Shop tab will show the
         // correct balance either way.
-        Alert.alert('Purchase complete', 'Your Bones may take a minute to show up.');
+        Alert.alert('Purchase complete', `Your ${currencyName} may take a minute to show up.`);
       }
     } catch (e) {
       Alert.alert('Could not buy that', e instanceof Error ? e.message : 'Try again.');
@@ -166,7 +185,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
     if (owned) {
       noteText = isEquipped ? 'Equipped — tap to remove' : 'Tap to equip';
     } else if (isShopItem) {
-      noteText = affordable ? `Buy for ${item.costBones} Bones` : `Need ${item.costBones} Bones`;
+      noteText = affordable ? `Buy for ${item.costBones} ${currencyName}` : `Need ${item.costBones} ${currencyName}`;
     } else {
       // XOR invariant (catalog.ts) guarantees unlockXp is set here — the
       // ?? 0 is just to satisfy the nullable type, not a real fallback.
@@ -262,7 +281,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
               <View style={styles.balanceRow}>
                 <BoneIcon size={22} color={color.accent} weight="fill" />
                 <View>
-                  <Text style={styles.balanceLabel}>Bones</Text>
+                  <Text style={styles.balanceLabel}>{currencyName}</Text>
                   <Text style={styles.balanceValue}>{bonesBalance !== null ? bonesBalance.toLocaleString() : '—'}</Text>
                 </View>
               </View>
@@ -270,13 +289,13 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
             </Card>
 
             <Card style={{ gap: 4 }} elevated={false}>
-              <Text style={text.h4}>Buy Bones</Text>
+              <Text style={text.h4}>Buy {currencyName}</Text>
               {bonesOffersError ? (
                 <Text style={styles.errorNote}>{bonesOffersError}</Text>
               ) : bonesOffers === null ? (
                 <ActivityIndicator color={colors.accent} />
               ) : bonesOffers.length === 0 ? (
-                <Text style={styles.footNote}>No Bones packs available right now.</Text>
+                <Text style={styles.footNote}>No {currencyName} packs available right now.</Text>
               ) : (
                 bonesOffers.map((offer) => {
                   const busy = buyingProductId === offer.productId;
@@ -289,7 +308,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
                     >
                       <BoneIcon size={22} color={color.accent} weight="fill" />
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.itemName}>{offer.bonesAmount.toLocaleString()} Bones</Text>
+                        <Text style={styles.itemName}>{offer.bonesAmount.toLocaleString()} {currencyName}</Text>
                       </View>
                       {busy ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.itemNote}>{offer.priceString}</Text>}
                     </Pressable>

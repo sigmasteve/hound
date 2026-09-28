@@ -35,6 +35,12 @@ export interface Friend {
   // so CreateScreen's own org-vs-global friend picker can tell "in my
   // org" apart from "not," it's not a restriction on who can be friends.
   organizationId: string | null;
+  // This friend's own equipped cosmetics (profiles.equipped_frame_id/
+  // equipped_background_id — 0059_cosmetics.sql), straight through to
+  // Avatar's own frameId/backgroundId props — see GitHub issue #229's
+  // first fast-follow.
+  frameId: string | null;
+  backgroundId: string | null;
 }
 
 export interface FriendsProvider {

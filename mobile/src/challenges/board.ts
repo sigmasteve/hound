@@ -18,6 +18,10 @@ export interface BoardEntry {
   // these fields are simply unused for them.
   huntBaselineSteps: number;
   huntBaselineDistanceMi: number;
+  // Straight from Participant — always null for a bot, which never has
+  // cosmetics to equip (see CreateScreen's own botInitials-only avatars).
+  frameId: string | null;
+  backgroundId: string | null;
 }
 
 // Merges real participants (joined with whatever they've actually logged)
@@ -67,6 +71,8 @@ export function buildBoard(
         role: p.role,
         huntBaselineSteps: baseline?.totalSteps ?? 0,
         huntBaselineDistanceMi: baseline?.totalDistanceMi ?? 0,
+        frameId: p.frameId,
+        backgroundId: p.backgroundId,
       };
     }),
     ...bots.map((b) => ({
@@ -82,6 +88,8 @@ export function buildBoard(
       // headStartDays elapsed instead of "now."
       huntBaselineSteps: headStartDays > 0 ? simulateBotSteps(b.id, b.fitnessLevel, headStartDays) : 0,
       huntBaselineDistanceMi: headStartDays > 0 ? simulateBotDistance(b.id, b.fitnessLevel, headStartDays) : 0,
+      frameId: null,
+      backgroundId: null,
     })),
   ];
   // Ranked by huntEffectiveMetric, not the raw totals — for anyone but a

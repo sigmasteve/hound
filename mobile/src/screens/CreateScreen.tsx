@@ -46,6 +46,7 @@ import type { DistanceGoalUnit, HuntRole, ScoringMethod } from '../challenges/ty
 import { useAuth } from '../auth/AuthContext';
 import { getMyHoundScore } from '../challenges/scoreApi';
 import { listChallengeUnlockGates, type ChallengeUnlockGates } from '../challenges/unlockGatesApi';
+import { currencyNameOrDefault } from '../organizations/types';
 
 const SCORING_METHODS: { id: ScoringMethod; label: string }[] = [
   { id: 'gps_distance', label: 'GPS distance from runs & walks' },
@@ -134,6 +135,10 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   // here — there's no static fallback list of "which kinds are gated" to
   // fail closed against anymore.
   const [unlockGates, setUnlockGates] = useState<ChallengeUnlockGates>({});
+  // Same org-currency-name resolution as LockerScreen's own — see that
+  // screen's comment. This screen's only use is the "Unlocks at N Bones
+  // earned" copy below.
+  const [currencyName, setCurrencyName] = useState('Bones');
   // The draft's own words — org-scoped once "org" is picked (live, as
   // the toggle changes), global otherwise. Same per-challenge (here,
   // per-draft) resolution ChallengeDetailScreen/ChallengesScreen use,
@@ -203,6 +208,16 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
         // file's other real-data fetches.
       });
   }, []);
+
+  useEffect(() => {
+    if (!user?.organizationId) return;
+    getOrganization(user.organizationId)
+      .then((org) => setCurrencyName(currencyNameOrDefault(org?.currencyName)))
+      .catch(() => {
+        // Stay on 'Bones' on any failure — same convention as this
+        // file's other real-data fetches.
+      });
+  }, [user?.organizationId]);
 
   // A friend invited (or picked as Hunter) under one scope can stop being
   // eligible the moment the scope flips — see friendEligible below. Drop
@@ -396,7 +411,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
                         <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName() : t.name}</Text>
-                        <Text style={styles.typeDesc}>{locked ? `Unlocks at ${unlockBones} Bones earned` : t.desc}</Text>
+                        <Text style={styles.typeDesc}>{locked ? `Unlocks at ${unlockBones} ${currencyName} earned` : t.desc}</Text>
                       </View>
                       {locked ? (
                         <LockSimpleIcon size={16} color={withAlpha(colors.text, 0.4)} />
@@ -701,7 +716,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                     disabled={!eligible}
                     style={[styles.friendRow, picked && styles.friendRowOn, !eligible && styles.friendRowDisabled]}
                   >
-                    <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
+                    <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} frameId={f.frameId} backgroundId={f.backgroundId} />
                     <View style={{ flex: 1, gap: 1 }}>
                       <Text style={styles.friendName}>{f.name}</Text>
                       {!eligible && (
@@ -796,7 +811,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                     onPress={() => setHunterId(f.userId)}
                     style={[styles.friendRow, hunterId === f.userId && styles.friendRowOn]}
                   >
-                    <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} />
+                    <Avatar initials={f.initials} tint={TINT_N} size={30} fontSize={11} frameId={f.frameId} backgroundId={f.backgroundId} />
                     <Text style={styles.friendName}>{f.name}</Text>
                     {hunterId === f.userId ? (
                       <CheckCircleIcon size={18} color={colors.accent} weight="fill" />

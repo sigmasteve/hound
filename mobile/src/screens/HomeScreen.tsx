@@ -1483,7 +1483,14 @@ function LiveMultiHuntCard({
                     { left: `${caught ? CAUGHT_POS : trackPosFor(t.pct)}%` },
                   ]}
                 >
-                  <Avatar initials={t.row.initials} tint={caught ? color.neutral800 : TINT_N} size={22} fontSize={9} />
+                  <Avatar
+                    initials={t.row.initials}
+                    tint={caught ? color.neutral800 : TINT_N}
+                    size={22}
+                    fontSize={9}
+                    frameId={t.row.frameId}
+                    backgroundId={t.row.backgroundId}
+                  />
                   {/* A literal strikethrough, not just the dimmed
                       opacity above — "caught" should read at a glance,
                       not just as a slightly-fainter avatar next to
@@ -1546,7 +1553,14 @@ function LiveLeaderboardCard({
         return (
           <View key={row.userId} style={styles.raceRow}>
             <Text style={styles.raceRank}>{i + 1}</Text>
-            <Avatar initials={row.initials} tint={isMe ? TINT_A : TINT_N} size={24} fontSize={10} />
+            <Avatar
+              initials={row.initials}
+              tint={isMe ? TINT_A : TINT_N}
+              size={24}
+              fontSize={10}
+              frameId={row.frameId}
+              backgroundId={row.backgroundId}
+            />
             <Text style={styles.raceName} numberOfLines={1}>
               {isMe ? 'You' : row.name}
             </Text>
