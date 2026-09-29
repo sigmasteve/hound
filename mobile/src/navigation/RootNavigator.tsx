@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoadingView } from '../components/LoadingView';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from './types';
@@ -25,6 +25,7 @@ import { LoginScreen } from '../screens/auth/LoginScreen';
 import { SignUpScreen } from '../screens/auth/SignUpScreen';
 import { useAuth } from '../auth/AuthContext';
 import { useHealthProvider } from '../health/HealthContext';
+import { useNotificationTaps } from '../notifications/notificationTaps';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 // A separate, untyped single-screen navigator just for the connect-gate
@@ -62,6 +63,11 @@ export function RootNavigator() {
   const health = useHealthProvider();
   const { colors } = useTheme();
   const [connectGate, setConnectGate] = useState<ConnectGate>('checking');
+  // Lets a tapped push open a screen (src/notifications/notificationTaps.ts).
+  // Only the main, signed-in container below carries the ref.
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
+  const [navReady, setNavReady] = useState(false);
+  useNotificationTaps(navigationRef, status === 'signedIn' && connectGate === 'hide', navReady);
 
   useEffect(() => {
     if (status !== 'signedIn') {
@@ -155,7 +161,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer theme={navTheme} ref={navigationRef} onReady={() => setNavReady(true)}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {status === 'signedOut' ? (
           // Rendering a completely different set of Stack.Screen children
