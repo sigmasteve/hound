@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { touchLastActive } from '../notifications/supabaseNotifications';
+import { reportAppVersion } from '../admin/appVersions';
 import { MisconfiguredScreen } from '../components/MisconfiguredScreen';
 import * as mockAuth from './mockAuth';
 import * as supabaseAuth from './supabaseAuth';
@@ -89,6 +90,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isSupabaseConfigured || !user) return;
     touchLastActive(user.id).catch(() => {});
+    // Which build and update this open is running, for Admin → App
+    // versions (0076_app_version_tracking.sql).
+    reportAppVersion(user.id);
   }, [user?.id]);
 
   // Every method re-throws whatever the backend rejects with, so screens

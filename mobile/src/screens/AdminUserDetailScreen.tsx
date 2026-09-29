@@ -10,6 +10,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { banUser, deleteUser, getUserOverview, isBanned, unbanUser, type AdminUserOverview } from '../admin/adminApi';
+import { buildLabel, getUserApp, updateLabel, type ReportedApp } from '../admin/appVersions';
 
 type BanDurationChoice = '1' | '7' | '30' | 'forever';
 
@@ -83,6 +84,12 @@ export function AdminUserDetailScreen({
   const [showBanPicker, setShowBanPicker] = useState(false);
   const [banDuration, setBanDuration] = useState<BanDurationChoice>('forever');
   const banned = overview ? isBanned(overview.bannedUntil) : false;
+  // Which build/update they last opened the app on (0076). Null until
+  // their app reports one.
+  const [app, setApp] = useState<ReportedApp | null>(null);
+  useEffect(() => {
+    getUserApp(userId).then(setApp);
+  }, [userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -206,6 +213,20 @@ export function AdminUserDetailScreen({
           ) : !loadError ? (
             <ActivityIndicator color={colors.accent} />
           ) : null}
+          <View style={{ gap: 2 }}>
+            <Text style={styles.appLabel}>APP</Text>
+            {app?.appVersion ? (
+              <>
+                <Text style={styles.appValue}>{buildLabel(app)}</Text>
+                <Text style={styles.footNote}>
+                  {updateLabel(app)}
+                  {app.reportedAt ? ` · seen ${timeAgo(app.reportedAt).toLowerCase()}` : ''}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.footNote}>Not reported yet — their app predates version reporting.</Text>
+            )}
+          </View>
         </Card>
 
         {isSelf ? (
@@ -253,6 +274,8 @@ function Stat({ label, value, styles }: { label: string; value: string; styles: 
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    appLabel: { fontSize: 10.5, letterSpacing: 0.8, color: withAlpha(colors.text, 0.55) },
+    appValue: { fontFamily: font.heading, fontSize: 15, color: colors.text },
     container: { padding: 16, gap: 16, paddingBottom: 48 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     statRow: { flexDirection: 'row', gap: 16 },
