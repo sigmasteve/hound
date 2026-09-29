@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, type AppStateStatus, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, AppState, type AppStateStatus, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -79,6 +79,8 @@ import { getMyHoundScore, settleChallengeScore, type HoundScore } from '../chall
 import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
 import { DailyBonusModal } from '../components/DailyBonusModal';
 import { AchievementUnlockedModal } from '../components/AchievementUnlockedModal';
+import { GetStartedCard } from '../components/GetStartedCard';
+import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from '../onboarding/onboardingApi';
 import { checkAchievements, type NewlyEarnedAchievement } from '../achievements/achievementsApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
@@ -569,6 +571,37 @@ export function HomeScreen({
   // two quick reloads can each unlock something. Shown only once the daily
   // bonus popup (if any) has closed, never stacked on top of it.
   const [unlocked, setUnlocked] = useState<NewlyEarnedAchievement[]>([]);
+  // New-user "Get started" checklist (0074_onboarding_checklist.sql).
+  // null = not loaded (or failed) — the card just doesn't render. Hidden
+  // for good once the reward's claimed, or locally if dismissed.
+  const GET_STARTED_DISMISSED_KEY = 'homeGetStartedDismissed';
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
+  const [getStartedDismissed, setGetStartedDismissed] = useState(true);
+  const [claimingOnboarding, setClaimingOnboarding] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(GET_STARTED_DISMISSED_KEY)
+      .then((v) => setGetStartedDismissed(v === '1'))
+      .catch(() => setGetStartedDismissed(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const dismissGetStarted = () => {
+    setGetStartedDismissed(true);
+    AsyncStorage.setItem(GET_STARTED_DISMISSED_KEY, '1').catch(() => {});
+  };
+  const claimGetStarted = async () => {
+    if (!user?.id) return;
+    setClaimingOnboarding(true);
+    try {
+      const bones = await claimOnboardingReward();
+      setOnboarding((cur) => (cur ? { ...cur, rewardClaimed: true } : cur));
+      getMyHoundScore(user.id).then(setHoundScore).catch(() => {});
+      Alert.alert('Nice start!', `+${bones} ${currencyName} added to your balance.`);
+    } catch (e) {
+      Alert.alert('Could not claim that', e instanceof Error ? e.message : 'Try again in a moment.');
+    } finally {
+      setClaimingOnboarding(false);
+    }
+  };
   // The latest claim, awarded or not — its streak and nextBones are what
   // tomorrow's local "your bonus is waiting" reminder is scheduled
   // against. Keyed on the two numbers, not the object, so a repeat
@@ -631,6 +664,9 @@ export function HomeScreen({
         .then((earned) => {
           if (earned.length > 0) setUnlocked((cur) => [...cur, ...earned]);
         })
+        .catch(() => {})
+        .then(() => getOnboardingStatus())
+        .then(setOnboarding)
         .catch(() => {})
         .then(() => getMyHoundScore(userId))
         .then(setHoundScore)
@@ -1067,6 +1103,19 @@ export function HomeScreen({
           onPress={openPrimary}
         />
       </View>
+
+      {onboarding && !onboarding.rewardClaimed && !getStartedDismissed && (
+        <GetStartedCard
+          status={onboarding}
+          currencyName={currencyName}
+          claiming={claimingOnboarding}
+          onConnect={() => onGoTab('connect')}
+          onAddFriend={() => onGoTab('friends')}
+          onJoinChallenge={() => onGoTab('challenges')}
+          onClaim={claimGetStarted}
+          onDismiss={dismissGetStarted}
+        />
+      )}
 
       {/* Incoming friend requests, ahead of challenge invites below —
           the same Accept/Decline actions the Friends tab's own pending

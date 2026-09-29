@@ -67,6 +67,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'The Today screen',
       summary: 'Your home base — check it once a day.',
       steps: [
+        `New here? A Get started checklist walks you through connecting your health app, adding a friend, and joining a challenge — finish all three for a ${currency} reward.`,
         `Hound Score and your ${currency} balance sit at the top.`,
         'Needs attention lists anything waiting on you: your move in Tic-Tac-Go, picking a target when you’re It in Tag, today’s 75 Day checklist, or progress to log.',
         'Challenges you’ve highlighted show up here too, so the ones you care about most are always one glance away.',
