@@ -18,6 +18,7 @@ import { getTotalUserCount, searchUsers, type AdminUserSummary } from '../admin/
 import { getAppBanner, setAppBanner, type AppBanner } from '../banner/supabaseBanner';
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { huntKindName } from '../challenges/present';
+import { AppVersionsCard } from '../components/AppVersionsCard';
 import {
   listChallengeUnlockGates,
   removeChallengeUnlockGate,
@@ -426,6 +427,8 @@ export function AdminScreen({
                 </ScrollView>
               )}
             </Card>
+
+            <AppVersionsCard />
 
             <Card style={{ gap: 12 }} elevated={false}>
               <Text style={text.h4}>Chase labels</Text>
