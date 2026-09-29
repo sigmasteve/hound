@@ -144,6 +144,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         `You earn ${currency} every time a challenge you’re in wraps up, plus a bonus each time you level up.`,
         `Opening the app each day adds a daily bonus (see below).`,
         `Spend ${currency} in the Shop tab of your Locker on looks no level unlocks.`,
+        'Limited-time drops (like Halloween) sit at the top of the Shop until they end — anything you buy from one is yours to keep afterward.',
         `Some challenge types unlock after you’ve earned enough ${currency} through play. Spending never re-locks them.`,
       ],
     },

@@ -1,5 +1,17 @@
 import type React from 'react';
-import { CatIcon, CrownIcon, DogIcon, FireIcon, PawPrintIcon, RabbitIcon, RobotIcon, RocketIcon } from 'phosphor-react-native';
+import {
+  BroomIcon,
+  CatIcon,
+  CrownIcon,
+  DogIcon,
+  FireIcon,
+  GhostIcon,
+  PawPrintIcon,
+  RabbitIcon,
+  RobotIcon,
+  RocketIcon,
+  SkullIcon,
+} from 'phosphor-react-native';
 
 // Maps IconStyle.icon (catalog.ts) to the actual glyph — kept out of
 // catalog.ts itself so that file stays free of RN/phosphor imports, same
@@ -13,6 +25,9 @@ export const ICON_COMPONENTS: Record<string, React.ComponentType<any>> = {
   robot: RobotIcon,
   rocket: RocketIcon,
   crown: CrownIcon,
+  ghost: GhostIcon,
+  broom: BroomIcon,
+  skull: SkullIcon,
 };
 
 // A build only ever ships knowing the icon keys that existed when it was

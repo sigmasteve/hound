@@ -2,14 +2,24 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, LockSimpleIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon, LockSimpleIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
-import { BACKGROUNDS, FRAMES, ICONS, type BackgroundStyle, type CosmeticSlot, type FrameStyle, type IconStyle } from '../cosmetics/catalog';
+import {
+  BACKGROUNDS,
+  FRAMES,
+  ICONS,
+  isCollectionOnSale,
+  SEASONAL_COLLECTIONS,
+  type BackgroundStyle,
+  type CosmeticSlot,
+  type FrameStyle,
+  type IconStyle,
+} from '../cosmetics/catalog';
 import {
   equipCosmetic,
   getMyEquippedCosmetics,
@@ -215,9 +225,28 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   const leveledFrames = FRAMES.filter((f) => f.unlockXp !== null);
   const leveledBackgrounds = BACKGROUNDS.filter((b) => b.unlockXp !== null);
   const leveledIcons = ICONS.filter((i) => i.unlockXp !== null);
-  const shopFrames = FRAMES.filter((f) => f.costBones !== null);
-  const shopBackgrounds = BACKGROUNDS.filter((b) => b.costBones !== null);
-  const shopIcons = ICONS.filter((i) => i.costBones !== null);
+  // Seasonal items get their own card below, not the evergreen lists.
+  const shopFrames = FRAMES.filter((f) => f.costBones !== null && !f.collection);
+  const shopBackgrounds = BACKGROUNDS.filter((b) => b.costBones !== null && !b.collection);
+  const shopIcons = ICONS.filter((i) => i.costBones !== null && !i.collection);
+
+  // The Halloween drop: everything while it's on sale; afterwards only
+  // what this viewer already owns (still equippable forever), and the
+  // card disappears entirely for anyone who didn't buy anything.
+  const halloween = SEASONAL_COLLECTIONS.halloween_2026;
+  const halloweenOnSale = isCollectionOnSale(halloween.id);
+  const halloweenItems: { item: FrameStyle | BackgroundStyle | IconStyle; slot: CosmeticSlot }[] = [
+    ...FRAMES.filter((f) => f.collection === halloween.id).map((item) => ({ item, slot: 'frame' as const })),
+    ...BACKGROUNDS.filter((b) => b.collection === halloween.id).map((item) => ({ item, slot: 'background' as const })),
+    ...ICONS.filter((i) => i.collection === halloween.id).map((item) => ({ item, slot: 'icon' as const })),
+  ].filter(({ item }) => halloweenOnSale || !!purchasedIds?.has(item.id));
+  // Calendar days left in the viewer's own time zone, counting today —
+  // so the sale's final day reads "last day", not "1 day left".
+  const saleLastDay = new Date(new Date(halloween.availableUntil).getTime() - 1);
+  saleLastDay.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const halloweenDaysLeft = Math.max(1, Math.round((saleLastDay.getTime() - today.getTime()) / 86_400_000) + 1);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
@@ -283,6 +312,23 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
               <Text style={styles.footNote}>Earned from finishing challenges and leveling up.</Text>
             </Card>
 
+            {halloweenItems.length > 0 && (
+              <Card style={styles.seasonCard} elevated={false}>
+                <View style={styles.seasonHeader}>
+                  <GhostIcon size={20} color={SEASON_ORANGE} weight="fill" />
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Text style={text.h4}>{halloween.name}</Text>
+                    <Text style={styles.seasonNote}>
+                      {halloweenOnSale
+                        ? `Limited time · ${halloweenDaysLeft === 1 ? 'last day' : `${halloweenDaysLeft} days left`} · yours to keep`
+                        : 'No longer sold — these are yours to keep.'}
+                    </Text>
+                  </View>
+                </View>
+                {halloweenItems.map(({ item, slot }) => renderItem(item, slot))}
+              </Card>
+            )}
+
             <Card style={{ gap: 4 }} elevated={false}>
               <Text style={text.h4}>Buy {currencyName}</Text>
               {bonesOffersError ? (
@@ -333,8 +379,20 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
+// Pumpkin orange — the one accent this card uses instead of the app's
+// own purple, so the drop reads as seasonal at a glance.
+const SEASON_ORANGE = '#ff7a1a';
+
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    seasonCard: {
+      gap: 4,
+      borderWidth: 1,
+      borderColor: withAlpha(SEASON_ORANGE, 0.55),
+      backgroundColor: withAlpha(SEASON_ORANGE, 0.08),
+    },
+    seasonHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 4 },
+    seasonNote: { fontSize: 12, color: SEASON_ORANGE, fontFamily: font.heading },
     container: { padding: 16, gap: 16, paddingBottom: 48 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
