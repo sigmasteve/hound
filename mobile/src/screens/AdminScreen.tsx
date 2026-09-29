@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, CaretRightIcon, MagnifyingGlassIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, CaretRightIcon, GlobeHemisphereWestIcon, MagnifyingGlassIcon, PlusIcon, TrashIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -26,6 +26,13 @@ import {
   type ChallengeUnlockGates,
 } from '../challenges/unlockGatesApi';
 import { getDailyBonusConfig, setDailyBonusConfig } from '../bones/dailyBonusApi';
+import {
+  deleteGlobalChallenge,
+  globalTimingLine,
+  listGlobalChallenges,
+  type GlobalChallenge,
+} from '../challenges/globalChallenges';
+import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
 
 // Reachable only via TopNav's own admin icon, which is itself only
 // rendered for user?.isAdmin — but that's a UI convenience, not real
@@ -37,9 +44,11 @@ import { getDailyBonusConfig, setDailyBonusConfig } from '../bones/dailyBonusApi
 export function AdminScreen({
   onBack,
   onOpenUser,
+  onNewGlobalChallenge,
 }: {
   onBack: () => void;
   onOpenUser: (user: AdminUserSummary) => void;
+  onNewGlobalChallenge: () => void;
 }) {
   const { user } = useAuth();
   const { text, colors } = useTheme();
@@ -87,6 +96,46 @@ export function AdminScreen({
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
+
+  // Global Hound Challenges (0075_global_challenges.sql) — every one
+  // ever published, newest first, reloaded on focus so one just
+  // published from the Create wizard shows up on return.
+  const [globalChallenges, setGlobalChallenges] = useState<GlobalChallenge[] | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const loadGlobal = useCallback(() => {
+    listGlobalChallenges(true)
+      .then((list) => {
+        setGlobalChallenges(list);
+        setGlobalError(null);
+      })
+      .catch((e) => setGlobalError(e instanceof Error ? e.message : 'Could not load global challenges.'));
+  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.isAdmin) return;
+      loadGlobal();
+    }, [user?.isAdmin, loadGlobal]),
+  );
+  const confirmTakeDown = (c: GlobalChallenge) => {
+    Alert.alert(
+      `Take down “${c.name}”?`,
+      c.participantCount > 0
+        ? `It disappears for everyone, along with the progress of the ${c.participantCount} ${c.participantCount === 1 ? 'person' : 'people'} in it. This can’t be undone.`
+        : 'It disappears from everyone’s Today screen. This can’t be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Take down',
+          style: 'destructive',
+          onPress: () => {
+            deleteGlobalChallenge(c.id)
+              .then(loadGlobal)
+              .catch((e) => setGlobalError(e instanceof Error ? e.message : 'Could not take that down.'));
+          },
+        },
+      ],
+    );
+  };
 
   const [hunterInput, setHunterInput] = useState(globalLabels.hunter);
   const [huntedInput, setHuntedInput] = useState(globalLabels.hunted);
@@ -334,6 +383,54 @@ export function AdminScreen({
           <Text style={styles.footNote}>This page is for admins only.</Text>
         ) : (
           <>
+            <Card style={{ gap: 12 }} elevated={false}>
+              <View style={styles.directoryHeader}>
+                <Text style={text.h4}>Global challenges</Text>
+                <GlobeHemisphereWestIcon size={18} color={colors.accent} />
+              </View>
+              <Text style={styles.footNote}>
+                Challenges open to everyone, shown on Today under Global Hound Challenges. Anyone can join until
+                joining closes.
+              </Text>
+              {globalChallenges === null && !globalError ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : (
+                (globalChallenges ?? []).map((c) => {
+                  const KindIcon = CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
+                  const ended = Date.now() >= new Date(c.endsAt).getTime();
+                  return (
+                    <View key={c.id} style={styles.userRow}>
+                      <KindIcon size={18} color={withAlpha(colors.text, ended ? 0.4 : 0.8)} />
+                      <View style={{ flex: 1, gap: 1 }}>
+                        <Text style={[styles.userName, ended && { color: withAlpha(colors.text, 0.5) }]} numberOfLines={1}>
+                          {c.name}
+                        </Text>
+                        <Text style={styles.footNote}>
+                          {globalTimingLine(c)} · {c.durationDays} days · {c.participantCount} joined
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() => confirmTakeDown(c)}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Take down ${c.name}`}
+                      >
+                        <TrashIcon size={17} color={withAlpha(colors.text, 0.5)} />
+                      </Pressable>
+                    </View>
+                  );
+                })
+              )}
+              {globalChallenges?.length === 0 && <Text style={styles.footNote}>None published yet.</Text>}
+              {globalError && <Text style={styles.loadError}>{globalError}</Text>}
+              <Button
+                label="New global challenge"
+                variant="primary"
+                icon={<PlusIcon size={13} color={colors.accent} />}
+                onPress={onNewGlobalChallenge}
+              />
+            </Card>
+
             <Card style={{ gap: 12 }} elevated={false}>
               <Text style={text.h4}>Home banner</Text>
               <Text style={styles.footNote}>

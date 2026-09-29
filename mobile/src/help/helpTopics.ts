@@ -100,6 +100,18 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'global',
+      section: 'challenges',
+      title: 'Global Hound Challenges',
+      summary: 'Challenges open to everyone on Hound.',
+      steps: [
+        'Global Hound Challenges appear on your Today screen — tap Join to hop in. No invite needed.',
+        'Each one shows when it starts, how many people have joined, and when joining closes. After that, it drops off Today for anyone who hasn’t joined.',
+        'Once you’re in, it works like any other challenge: it’s on your Challenges tab, your steps sync on their own, and it pays Hound Score and rewards when it wraps up.',
+        'Spot someone on its leaderboard you’d like to keep up with? Tap Add next to their name.',
+      ],
+    },
+    {
       id: 'types',
       section: 'challenges',
       title: 'Challenge types',
