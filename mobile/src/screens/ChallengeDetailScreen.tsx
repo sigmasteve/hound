@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ArrowLeftIcon,
+  ArrowsClockwiseIcon,
   CaretRightIcon,
   CheckCircleIcon,
   InfoIcon,
   MagnifyingGlassIcon,
   RobotIcon,
+  ShareNetworkIcon,
   TrashIcon,
   TrophyIcon,
   XIcon,
@@ -81,7 +83,9 @@ import {
   type SelfReportItem,
 } from '../challenges/seventyFiveApi';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
-import type { Friend } from '../friends/types';
+import { friendCodeUrl, type Friend } from '../friends/types';
+import { buildRematchDraft, type RematchDraft } from '../challenges/rematch';
+import { resultLine, shareMessage, type ResultOutcome } from '../challenges/shareResult';
 import { friendEligible } from '../friends/eligibility';
 import { useAuth } from '../auth/AuthContext';
 import { useHealthProvider } from '../health/HealthContext';
@@ -102,10 +106,13 @@ export function ChallengeDetailScreen({
   challengeId,
   onBack,
   onGoHome,
+  onRematch,
 }: {
   challengeId: string;
   onBack: () => void;
   onGoHome: () => void;
+  // Opens Create prefilled from this (finished) challenge.
+  onRematch: (draft: RematchDraft) => void;
 }) {
   const { user } = useAuth();
   const health = useHealthProvider();
@@ -125,6 +132,10 @@ export function ChallengeDetailScreen({
   // ever populated for a hunt with one (see load()); stays [] otherwise,
   // which buildBoard already treats as "nothing to credit."
   const [headStartLeaderboard, setHeadStartLeaderboard] = useState<LeaderboardEntry[]>([]);
+  // Everyone's total as of the end of yesterday — only fetched for the
+  // ranked kinds (Step Race, Chase) once they've been running since
+  // before today; drives the leaderboard's ▲/▼ movement. null otherwise.
+  const [yesterdayLeaderboard, setYesterdayLeaderboard] = useState<LeaderboardEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   // Only exists to make formatEndsLabel's countdown actually tick once a
@@ -382,6 +393,11 @@ export function ChallengeDetailScreen({
       const needsBingo = c.kind === 'bingo';
       const needsTicTacGo = c.kind === 'tictacgo';
       const needsSeventyFive = c.kind === 'seventyfive';
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const needsMovement =
+        (c.kind === 'steps' || c.kind === 'hunt') && new Date(c.startsAt).getTime() < startOfToday.getTime();
+      const yesterdayKey = dateKey(new Date(startOfToday.getTime() - 12 * 3_600_000));
       // Settled before the round itself is fetched, not after — so a
       // stalled turn (15 real minutes with no catch) has already moved
       // on by the time this same load() reads who's IT, rather than
@@ -406,6 +422,7 @@ export function ChallengeDetailScreen({
         tttGameResult,
         seventyFiveCheckinsResult,
         seventyFiveJoinDates,
+        yesterdayBoard,
       ] = await Promise.all([
         supabaseChallengesProvider.listParticipants(challengeId),
         supabaseChallengesProvider.getLeaderboard(challengeId),
@@ -424,6 +441,10 @@ export function ChallengeDetailScreen({
         needsTicTacGo ? getTicTacGoGame(challengeId) : Promise.resolve(null),
         needsSeventyFive ? listSeventyFiveCheckins(challengeId) : Promise.resolve<SeventyFiveCheckin[]>([]),
         needsSeventyFive ? listSeventyFiveJoinDates(challengeId) : Promise.resolve(new Map<string, Date>()),
+        // Best-effort: missing movement arrows never block the screen.
+        needsMovement
+          ? supabaseChallengesProvider.getLeaderboard(challengeId, yesterdayKey).catch(() => null)
+          : Promise.resolve(null),
       ]);
       setChallenge(c);
       setParticipants(p);
@@ -431,6 +452,7 @@ export function ChallengeDetailScreen({
       setBots(b);
       setFriends(f);
       setHeadStartLeaderboard(hs);
+      setYesterdayLeaderboard(yesterdayBoard);
       setInvitedIds(new Set(sentInvites));
       setTagRound(tagRoundResult);
       setTagMembers(tagMembersResult);
@@ -766,6 +788,33 @@ export function ChallengeDetailScreen({
         })
       : board;
 
+  // How many places each row has moved since yesterday ended (positive =
+  // up) — the same board rebuilt from yesterday's totals, bots included
+  // (simulated as of the start of today). Only rows that actually had a
+  // place yesterday get an entry, and only while the challenge is live.
+  const rankMoves = new Map<string, number>();
+  if (yesterdayLeaderboard && (challenge.kind === 'steps' || challenge.kind === 'hunt') && !isChallengeFinished(challenge, board)) {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const prevRaw = buildBoard(
+      participants,
+      yesterdayLeaderboard,
+      bots,
+      daysElapsedFraction(challenge, startOfToday),
+      sortBy,
+      challenge,
+      headStartLeaderboard,
+    );
+    const prev = challenge.kind === 'hunt' ? withHuntCatches(prevRaw, sortBy, challenge) : prevRaw;
+    const hadPlace = new Set(yesterdayLeaderboard.map((l) => l.userId));
+    const prevRank = new Map(prev.map((r, i) => [r.userId, i]));
+    board.forEach((r, i) => {
+      const before = prevRank.get(r.userId);
+      if (before === undefined || before === i || (!r.isBot && !hadPlace.has(r.userId))) return;
+      rankMoves.set(r.userId, before - i);
+    });
+  }
+
   // Variety Bingo isn't steps/distance-ranked at all (board above is
   // always all-zero for it — see bingoApi.ts) — this is its own
   // leaderboard, ranked by squares filled instead. Bots are naturally
@@ -878,6 +927,90 @@ export function ChallengeDetailScreen({
   );
   const goalMet = !!distanceGoal && groupTotal >= distanceGoal;
   const finished = isChallengeFinished(challenge, board);
+  // Tic-Tac-Go can end well before its clock does — three in a row, or a
+  // full board — so "over" for the wrap-up card below also reads the
+  // game's own status.
+  const wrappedUp =
+    finished || (challenge.kind === 'tictacgo' && (tttGame?.status === 'won' || tttGame?.status === 'draw'));
+
+  // How this challenge went for the viewer, for the wrap-up card's line
+  // and the Share message — each kind reads its own outcome (see
+  // shareResult.ts). null when there's nothing honest to say (the viewer
+  // isn't on the board at all).
+  const myOutcome = ((): ResultOutcome | null => {
+    const me = user?.id;
+    if (!me) return null;
+    switch (challenge.kind) {
+      case 'steps':
+      case 'hunt': {
+        const idx = board.findIndex((r) => r.userId === me);
+        if (idx < 0) return null;
+        const mine = board[idx];
+        if (challenge.kind === 'hunt') {
+          const hunted = board.filter((r) => r.role === 'hunted' || r.role === 'zombie');
+          if (mine.role === 'hunter') {
+            return { type: 'hunter', caught: hunted.filter((r) => r.role === 'zombie').length, of: hunted.length };
+          }
+          return { type: 'hunted', caught: mine.role === 'zombie' };
+        }
+        const metric = scoredByDistance
+          ? `${mine.totalDistanceMi.toFixed(1)} mi`
+          : `${mine.totalSteps.toLocaleString()} steps`;
+        return { type: 'ranked', rank: idx + 1, of: board.length, metric };
+      }
+      case 'streak': {
+        const st = streakStatuses.get(me);
+        if (!st) return null;
+        return { type: 'streak', survived: st.eliminatedOnDay === null, days: st.streakDays };
+      }
+      case 'bingo': {
+        const card = bingoCards.get(me);
+        if (!card) return null;
+        return { type: 'bingo', filled: card.squaresFilled, total: BINGO_SQUARE_COUNT, blackout: card.blackout };
+      }
+      case 'distance':
+        return {
+          type: 'pool',
+          total: challenge.distanceGoalUnit === 'steps' ? `${groupTotal.toLocaleString()} steps` : `${groupTotal.toFixed(1)} mi`,
+          goalMet,
+        };
+      case 'tag':
+        return { type: 'tag', goalMet };
+      case 'seventyfive':
+        return {
+          type: 'seventyfive',
+          longestStreak: seventyFiveStatuses.get(me)?.longestStreak ?? 0,
+          days: challenge.durationDays,
+        };
+      case 'tictacgo':
+        if (!tttGame || (tttGame.status !== 'won' && tttGame.status !== 'draw')) return null;
+        return {
+          type: 'tictacgo',
+          result: tttGame.status === 'draw' ? 'draw' : tttGame.winnerUserId === me ? 'won' : 'lost',
+        };
+      default:
+        return null;
+    }
+  })();
+  const myResultLine = myOutcome ? resultLine(challenge.name, myOutcome, labels) : null;
+
+  const shareResult = async () => {
+    if (!myResultLine) return;
+    // The viewer's own friend code doubles as the invite link — whoever
+    // opens it lands on "add me on Hound". Best-effort: no code, no link.
+    let inviteUrl: string | null = null;
+    try {
+      inviteUrl = friendCodeUrl(await supabaseFriendsProvider.getMyFriendCode());
+    } catch {
+      inviteUrl = null;
+    }
+    Share.share({ message: shareMessage(myResultLine, inviteUrl) }).catch(() => {});
+  };
+
+  const startRematch = () => {
+    if (!user?.id) return;
+    onRematch(buildRematchDraft({ challenge, participants, bots, friends, myUserId: user.id }));
+  };
 
   // Game of Tag's own status. tagMinutesLeft floors at 0 rather than
   // going negative once a round's genuinely stalled past its limit —
@@ -1046,6 +1179,30 @@ export function ChallengeDetailScreen({
             been caught, or the clock runs out — whichever comes first.
           </Text>
           <Button variant="primary" label="Got it" onPress={dismissChaseExplainer} />
+        </Card>
+      )}
+
+      {wrappedUp && (
+        <Card style={styles.wrapCard} elevated={false}>
+          <Text style={text.h4}>That&rsquo;s a wrap</Text>
+          {myResultLine && <Text style={styles.wrapLine}>{myResultLine}</Text>}
+          <View style={styles.wrapActions}>
+            <Button
+              label="Rematch"
+              variant="primary"
+              small
+              icon={<ArrowsClockwiseIcon size={14} color={colors.accent} />}
+              onPress={startRematch}
+            />
+            {myResultLine && (
+              <Button
+                label="Share result"
+                small
+                icon={<ShareNetworkIcon size={14} color={colors.text} />}
+                onPress={shareResult}
+              />
+            )}
+          </View>
         </Card>
       )}
 
@@ -1476,9 +1633,21 @@ export function ChallengeDetailScreen({
                 const displaySteps = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'steps') : row.totalSteps;
                 const displayMi = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'distance') : row.totalDistanceMi;
                 const streakStatus = challenge.kind === 'streak' ? streakStatuses.get(row.userId) : undefined;
+                const move = rankMoves.get(row.userId);
                 return (
                   <View key={row.userId} style={styles.boardRow}>
-                    <Text style={styles.boardRank}>{i + 1}</Text>
+                    <View style={styles.rankCol}>
+                      <Text style={styles.boardRank}>{i + 1}</Text>
+                      {move !== undefined && (
+                        <Text
+                          style={[styles.rankMove, { color: move > 0 ? colors.green : colors.amber }]}
+                          accessibilityLabel={`${move > 0 ? 'Up' : 'Down'} ${Math.abs(move)} since yesterday`}
+                        >
+                          {move > 0 ? '▲' : '▼'}
+                          {Math.abs(move)}
+                        </Text>
+                      )}
+                    </View>
                     <Avatar
                       initials={row.initials}
                       tint={row.userId === user?.id ? TINT_A : TINT_N}
@@ -1601,7 +1770,7 @@ export function ChallengeDetailScreen({
           expires (see load()'s own invitedIds refresh, sourced from
           listSentChallengeInvites — a no-longer-pending invite just drops
           out of that list). */}
-      {!(challenge.kind === 'tictacgo' && (participants.length >= 2 || invitedIds.size > 0)) && (
+      {!wrappedUp && !(challenge.kind === 'tictacgo' && (participants.length >= 2 || invitedIds.size > 0)) && (
         <Card style={{ gap: 10 }} elevated={false}>
           <Text style={text.h4}>{challenge.kind === 'tictacgo' ? 'Invite your opponent' : 'Invite a friend'}</Text>
           {inviteLocked ? (
@@ -1750,6 +1919,16 @@ function makeStyles(colors: Palette) {
     headerIcon: { width: 46, height: 46, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
     headerMeta: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     leaderboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    // Same accent-wash spotlight as Home's hunt card — the first thing a
+    // finished challenge shows is what to do next.
+    wrapCard: {
+      gap: 10,
+      backgroundColor: withAlpha(colors.accent, 0.12),
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 0.4),
+    },
+    wrapLine: { fontSize: 14.5, lineHeight: 21, color: colors.text },
+    wrapActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
     groupTotal: { fontFamily: font.heading, fontSize: 24, color: colors.text },
     goalMetCard: {
       borderWidth: 1,
@@ -1767,6 +1946,10 @@ function makeStyles(colors: Palette) {
       borderBottomColor: withAlpha(colors.text, 0.07),
     },
     boardRank: { width: 16, fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    // Rank on top, movement since yesterday (if any) just under it —
+    // wide enough for "▲10" without nudging the avatar column.
+    rankCol: { width: 22, alignItems: 'flex-start', gap: 1 },
+    rankMove: { fontSize: 9.5, fontFamily: font.heading, letterSpacing: -0.2 },
     boardName: { flex: 1, fontSize: 14, color: colors.text, fontFamily: font.body },
     boardSteps: { fontSize: 14, color: colors.text, fontFamily: font.heading },
     boardDistance: { fontSize: 11, color: withAlpha(colors.text, 0.55) },
