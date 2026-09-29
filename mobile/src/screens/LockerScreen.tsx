@@ -325,7 +325,19 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
                     </Text>
                   </View>
                 </View>
-                {halloweenItems.map(({ item, slot }) => renderItem(item, slot))}
+                {/* Same Frames / Backgrounds / Icons grouping as the
+                    evergreen shop below — only groups with something to
+                    show (after the sale, just what the viewer owns). */}
+                {HALLOWEEN_GROUPS.map(({ slot, label }) => {
+                  const group = halloweenItems.filter((h) => h.slot === slot);
+                  if (group.length === 0) return null;
+                  return (
+                    <View key={slot} style={styles.seasonGroup}>
+                      <Text style={text.h4}>{label}</Text>
+                      {group.map(({ item }) => renderItem(item, slot))}
+                    </View>
+                  );
+                })}
               </Card>
             )}
 
@@ -379,6 +391,12 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
+const HALLOWEEN_GROUPS: { slot: CosmeticSlot; label: string }[] = [
+  { slot: 'frame', label: 'Frames' },
+  { slot: 'background', label: 'Backgrounds' },
+  { slot: 'icon', label: 'Icons' },
+];
+
 // Pumpkin orange — the one accent this card uses instead of the app's
 // own purple, so the drop reads as seasonal at a glance.
 const SEASON_ORANGE = '#ff7a1a';
@@ -393,6 +411,7 @@ function makeStyles(colors: Palette) {
     },
     seasonHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 4 },
     seasonNote: { fontSize: 12, color: SEASON_ORANGE, fontFamily: font.heading },
+    seasonGroup: { gap: 4, paddingTop: 10 },
     container: { padding: 16, gap: 16, paddingBottom: 48 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
