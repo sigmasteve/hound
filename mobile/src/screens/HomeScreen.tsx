@@ -78,6 +78,8 @@ import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenge
 import { getMyHoundScore, settleChallengeScore, type HoundScore } from '../challenges/scoreApi';
 import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
 import { DailyBonusModal } from '../components/DailyBonusModal';
+import { AchievementUnlockedModal } from '../components/AchievementUnlockedModal';
+import { checkAchievements, type NewlyEarnedAchievement } from '../achievements/achievementsApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
 import { fetchWeeklyRecap, isRecapWindow, recapWeekKey, type WeeklyRecap } from '../home/weeklyRecap';
@@ -401,10 +403,12 @@ export function HomeScreen({
   onOpenHunt,
   onOpenChallenge,
   onGoTab,
+  onOpenAchievements,
 }: {
   onOpenHunt: () => void;
   onOpenChallenge: (challengeId: string) => void;
   onGoTab: (tab: MainTab) => void;
+  onOpenAchievements: () => void;
 }) {
   const { user } = useAuth();
   const health = useHealthProvider();
@@ -561,6 +565,10 @@ export function HomeScreen({
   // 0070_daily_bonus.sql) — drives the one-per-day popup; every later
   // claim the same day comes back awarded: false and leaves this alone.
   const [dailyBonus, setDailyBonus] = useState<DailyBonusResult | null>(null);
+  // Newly unlocked achievements waiting to be shown — appended to, since
+  // two quick reloads can each unlock something. Shown only once the daily
+  // bonus popup (if any) has closed, never stacked on top of it.
+  const [unlocked, setUnlocked] = useState<NewlyEarnedAchievement[]>([]);
   // The latest claim, awarded or not — its streak and nextBones are what
   // tomorrow's local "your bonus is waiting" reminder is scheduled
   // against. Keyed on the two numbers, not the object, so a repeat
@@ -614,6 +622,14 @@ export function HomeScreen({
         .then((result) => {
           if (result.awarded) setDailyBonus(result);
           setLastClaim(result);
+        })
+        .catch(() => {})
+        // After the claim, so a login-streak achievement sees today's
+        // streak; before the score read, so the Bones shown already
+        // include anything just awarded (0072_achievements.sql).
+        .then(() => checkAchievements())
+        .then((earned) => {
+          if (earned.length > 0) setUnlocked((cur) => [...cur, ...earned]);
         })
         .catch(() => {})
         .then(() => getMyHoundScore(userId))
@@ -1291,6 +1307,17 @@ export function HomeScreen({
         weeklyBonus={dailyBonus.weeklyBones}
         currencyName={currencyName}
         onClose={() => setDailyBonus(null)}
+      />
+    )}
+    {!dailyBonus && unlocked.length > 0 && (
+      <AchievementUnlockedModal
+        achievements={unlocked}
+        currencyName={currencyName}
+        onViewAll={() => {
+          setUnlocked([]);
+          onOpenAchievements();
+        }}
+        onClose={() => setUnlocked([])}
       />
     )}
     </View>

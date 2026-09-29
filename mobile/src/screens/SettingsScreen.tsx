@@ -39,6 +39,7 @@ import { getOrganization, leaveOrganization, redeemOrganizationInvite } from '..
 import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
 import { levelProgressForXp } from '../challenges/leveling';
 import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
+import { listAchievements, listEarnedAchievements } from '../achievements/achievementsApi';
 import type { Organization } from '../organizations/types';
 
 const USERNAME_FORMAT = /^[A-Za-z0-9_]{3,20}$/;
@@ -68,7 +69,13 @@ const PROVIDER_LABEL: Record<AuthProviderId, string> = {
   email: 'Email & password',
 };
 
-export function SettingsScreen({ onOpenLocker }: { onOpenLocker: () => void }) {
+export function SettingsScreen({
+  onOpenLocker,
+  onOpenAchievements,
+}: {
+  onOpenLocker: () => void;
+  onOpenAchievements: () => void;
+}) {
   const health = useHealthProvider();
   const { user, signOut, updateUser } = useAuth();
   const { colors, text, mode, setMode } = useTheme();
@@ -221,6 +228,18 @@ export function SettingsScreen({ onOpenLocker }: { onOpenLocker: () => void }) {
       getMyHoundScore(user.id)
         .then(setHoundScore)
         .catch(() => setHoundScore(null));
+    }, [user?.id]),
+  );
+
+  // "N of M" on the Achievements row — hidden until it loads (or if it
+  // can't), rather than a guessed count.
+  const [achievementCounts, setAchievementCounts] = useState<{ earned: number; total: number } | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured || !user?.id) return;
+      Promise.all([listAchievements(), listEarnedAchievements(user.id)])
+        .then(([all, mine]) => setAchievementCounts({ earned: all.filter((a) => mine.has(a.id)).length, total: all.length }))
+        .catch(() => setAchievementCounts(null));
     }, [user?.id]),
   );
 
@@ -518,6 +537,15 @@ export function SettingsScreen({ onOpenLocker }: { onOpenLocker: () => void }) {
           )}
           <Pressable style={styles.lockerRow} onPress={onOpenLocker}>
             <Text style={styles.lockerRowLabel}>Customize your look</Text>
+            <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+          </Pressable>
+          <Pressable style={styles.lockerRow} onPress={onOpenAchievements}>
+            <Text style={[styles.lockerRowLabel, { flex: 1 }]}>Achievements</Text>
+            {achievementCounts && (
+              <Text style={styles.achievementCount}>
+                {achievementCounts.earned} of {achievementCounts.total}
+              </Text>
+            )}
             <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
           </Pressable>
         </Card>
@@ -908,6 +936,7 @@ function makeStyles(colors: Palette) {
       borderTopColor: colors.divider,
     },
     lockerRowLabel: { fontSize: 14, color: colors.text, fontFamily: font.heading },
+    achievementCount: { fontSize: 12.5, color: withAlpha(colors.text, 0.55), marginRight: 6 },
     goalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     goalValue: { fontSize: 14.5, color: colors.accent, fontFamily: font.heading },
     footNoteError: { fontSize: 12.5, color: colors.amber },

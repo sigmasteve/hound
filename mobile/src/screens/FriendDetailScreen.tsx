@@ -6,10 +6,12 @@ import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useTheme } from '../theme/ThemeContext';
-import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
+import { color, font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
 import { getHeadToHeadRecord, type HeadToHeadRecord } from '../friends/friendStats';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { KudosCounts } from '../friends/types';
+import { listAchievements, listEarnedAchievements, type Achievement } from '../achievements/achievementsApi';
+import { achievementIcon } from '../achievements/achievementIcons';
 
 export function FriendDetailScreen({
   friendshipId,
@@ -36,6 +38,15 @@ export function FriendDetailScreen({
   const [record, setRecord] = useState<HeadToHeadRecord | null>(null);
   const [kudos, setKudos] = useState<KudosCounts | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // This friend's earned badges (readable because you're friends — see
+  // 0072_achievements.sql's select policy). null until loaded; stays null
+  // (card just shows nothing) if it can't load, without failing the page.
+  const [friendBadges, setFriendBadges] = useState<{ earned: Achievement[]; total: number } | null>(null);
+  useEffect(() => {
+    Promise.all([listAchievements(), listEarnedAchievements(friendUserId)])
+      .then(([all, theirs]) => setFriendBadges({ earned: all.filter((a) => theirs.has(a.id)), total: all.length }))
+      .catch(() => setFriendBadges(null));
+  }, [friendUserId]);
   const [givingKudos, setGivingKudos] = useState(false);
   const [removing, setRemoving] = useState(false);
 
@@ -138,6 +149,36 @@ export function FriendDetailScreen({
           ) : null}
         </Card>
 
+        {friendBadges && (
+          <Card style={{ gap: 12, padding: 18 }} elevated={false}>
+            <View style={styles.badgeHeader}>
+              <Text style={text.h4}>Achievements</Text>
+              <Text style={styles.footNote}>
+                {friendBadges.earned.length} of {friendBadges.total}
+              </Text>
+            </View>
+            {friendBadges.earned.length === 0 ? (
+              <Text style={styles.footNote}>No achievements yet.</Text>
+            ) : (
+              <View style={styles.badgeGrid}>
+                {friendBadges.earned.map((a) => {
+                  const Icon = achievementIcon(a.id);
+                  return (
+                    <View key={a.id} style={styles.badgeCell}>
+                      <View style={styles.badge}>
+                        <Icon size={20} color={color.gold} weight="fill" />
+                      </View>
+                      <Text style={styles.badgeName} numberOfLines={2}>
+                        {a.name}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </Card>
+        )}
+
         <Card style={{ gap: 14, padding: 18 }} elevated={false}>
           <Text style={text.h4}>Kudos</Text>
           {kudos ? (
@@ -174,6 +215,20 @@ function makeStyles(colors: Palette) {
     container: { padding: 16, gap: 16, paddingBottom: 48 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     statRow: { flexDirection: 'row', gap: 16 },
+    badgeHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+    badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },
+    badgeCell: { width: '25%', alignItems: 'center', gap: 5, paddingHorizontal: 2 },
+    badge: {
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: withAlpha(color.gold, 0.16),
+      borderWidth: 1,
+      borderColor: withAlpha(color.gold, 0.5),
+    },
+    badgeName: { fontSize: 11, textAlign: 'center', color: withAlpha(colors.text, 0.75) },
     statTile: { flex: 1, gap: 4 },
     statLabel: { fontSize: 11, letterSpacing: 0.6, color: withAlpha(colors.text, 0.6) },
     statValue: { fontFamily: font.heading, fontSize: 24, color: colors.text },

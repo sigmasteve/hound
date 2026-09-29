@@ -50,6 +50,7 @@ export function MainScreen({ route, navigation }: Props) {
             onOpenHunt={() => navigation.navigate('Hunt')}
             onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
             onGoTab={setTab}
+            onOpenAchievements={() => navigation.navigate('Achievements')}
           />
         )}
         {tab === 'challenges' && (
@@ -75,7 +76,10 @@ export function MainScreen({ route, navigation }: Props) {
             }
           />
         )}
-        {tab === 'settings' && <SettingsScreen onOpenLocker={() => navigation.navigate('Locker')} />}
+        {tab === 'settings' && <SettingsScreen
+            onOpenLocker={() => navigation.navigate('Locker')}
+            onOpenAchievements={() => navigation.navigate('Achievements')}
+          />}
         {tab === 'connect' && <ConnectScreen onDone={() => setTab('home')} />}
       </View>
     </View>
