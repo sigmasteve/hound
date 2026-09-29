@@ -116,9 +116,11 @@ export function simulateBotDistance(botId: string, fitnessLevel: BotFitnessLevel
 // (and could even land on different calendar days near either one's
 // local midnight), so the same challenge showed two different group
 // totals depending on who — and where — was looking.
-export function daysElapsedFraction(challenge: Challenge): number {
+// `now` defaults to the real current moment; the leaderboard's "since
+// yesterday" movement passes the start of today instead, to rebuild the
+// board as it stood when yesterday ended.
+export function daysElapsedFraction(challenge: Challenge, now: Date = new Date()): number {
   const start = new Date(challenge.startsAt);
-  const now = new Date();
   const startOfCreationDayUtc = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
   const fullCalendarDaysElapsed = Math.floor((now.getTime() - startOfCreationDayUtc) / 86_400_000);
   const timeOfDayFraction = (now.getUTCHours() * 3600 + now.getUTCMinutes() * 60 + now.getUTCSeconds()) / 86_400;

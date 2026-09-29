@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import {
   ArrowLeftIcon,
+  ArrowsClockwiseIcon,
   ArrowRightIcon,
   CheckCircleIcon,
   CircleIcon,
@@ -43,6 +44,7 @@ import {
 } from '../challenges/tictacgo';
 import { setupTicTacGoBoard } from '../challenges/tictacgoApi';
 import type { DistanceGoalUnit, HuntRole, ScoringMethod } from '../challenges/types';
+import type { RematchDraft } from '../challenges/rematch';
 import { useAuth } from '../auth/AuthContext';
 import { getMyHoundScore } from '../challenges/scoreApi';
 import { listChallengeUnlockGates, type ChallengeUnlockGates } from '../challenges/unlockGatesApi';
@@ -73,7 +75,18 @@ function startsAtFor(option: StartOption): Date {
 // there's no per-kind name validation to keep in sync.
 const NAME_MIN_LENGTH = 4;
 
-export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onFinish: () => void }) {
+export function CreateScreen({
+  onCancel,
+  onFinish,
+  rematch,
+}: {
+  onCancel: () => void;
+  onFinish: () => void;
+  // Set when opened from a finished challenge's Rematch button — every
+  // field below starts from it instead of the usual defaults, and the
+  // wizard opens on "Set the rules" since the game's already picked.
+  rematch?: RematchDraft;
+}) {
   const { user } = useAuth();
   // Pulled out once as a plain string|null rather than repeating
   // user?.organizationId everywhere below — TypeScript doesn't carry a
@@ -84,18 +97,18 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   const { colors, text } = useTheme();
   const { labelsForOrg } = useLabels();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [draftType, setDraftType] = useState<ChallengeKind>('hunt');
-  const [draftName, setDraftName] = useState('');
-  const [headStart, setHeadStart] = useState(2);
-  const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>('miles');
-  const [bingoCardType, setBingoCardType] = useState<BingoCardType>(DEFAULT_BINGO_CARD_TYPE);
+  const [step, setStep] = useState<1 | 2 | 3>(rematch ? 2 : 1);
+  const [draftType, setDraftType] = useState<ChallengeKind>(rematch?.kind ?? 'hunt');
+  const [draftName, setDraftName] = useState(rematch?.name ?? '');
+  const [headStart, setHeadStart] = useState(rematch?.headStartDays ?? 2);
+  const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>(rematch?.distanceGoalUnit ?? 'miles');
+  const [bingoCardType, setBingoCardType] = useState<BingoCardType>(rematch?.bingoCardType ?? DEFAULT_BINGO_CARD_TYPE);
   const [tictacgoDifficulty, setTictacgoDifficulty] = useState<TicTacGoDifficulty>('easy');
   const [tictacgoBoard, setTictacgoBoard] = useState<string[]>(() => drawBoard('easy'));
-  const [distanceGoalMi, setDistanceGoalMi] = useState(100);
-  const [distanceGoalSteps, setDistanceGoalSteps] = useState(500_000);
-  const [dailyGoalSteps, setDailyGoalSteps] = useState(10_000);
-  const [length, setLength] = useState('21');
+  const [distanceGoalMi, setDistanceGoalMi] = useState(rematch?.distanceGoalMi ?? 100);
+  const [distanceGoalSteps, setDistanceGoalSteps] = useState(rematch?.distanceGoalSteps ?? 500_000);
+  const [dailyGoalSteps, setDailyGoalSteps] = useState(rematch?.dailyGoalSteps ?? 10_000);
+  const [length, setLength] = useState(rematch ? String(rematch.durationDays) : '21');
   // Defaults to 'today' (retroactive to midnight) — matches what people
   // reasonably expect "I started this today" to mean, without needing to
   // find this control at all. 'now'/'tomorrow' are here for the two
@@ -103,12 +116,12 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   // activity to NOT count, or wanting a clean first day starting
   // tomorrow instead.
   const [startOption, setStartOption] = useState<StartOption>('today');
-  const [scoringMethod, setScoringMethod] = useState<ScoringMethod>('device_steps');
+  const [scoringMethod, setScoringMethod] = useState<ScoringMethod>(rematch?.scoringMethod ?? 'device_steps');
   // Real friends' userIds picked to invite once the challenge exists —
   // see start()'s inviteFriendToChallenge calls below. Never populated
   // (and this screen just shows an empty state) while Supabase isn't
   // configured, same reasoning as every other real-data screen.
-  const [invited, setInvited] = useState<string[]>([]);
+  const [invited, setInvited] = useState<string[]>(rematch?.invitedUserIds ?? []);
   // null = the real fetch hasn't resolved yet, or never will (Supabase
   // unconfigured) — both render the same honest empty state below,
   // never fabricated friends (see ChallengesScreen's own fix for why).
@@ -120,7 +133,9 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   // even for an org member: creating a challenge with everyone you know,
   // org or not, is the more common case, and matches what
   // createChallenge already does when organizationId is omitted.
-  const [challengeScope, setChallengeScope] = useState<'global' | 'org'>('global');
+  const [challengeScope, setChallengeScope] = useState<'global' | 'org'>(
+    rematch?.organizationId && rematch.organizationId === myOrgId ? 'org' : 'global',
+  );
   const [myOrg, setMyOrg] = useState<Organization | null>(null);
   // null = real fetch hasn't resolved (or never will, unconfigured) — the
   // Bones-gated kinds below stay locked until this is a real number,
@@ -141,11 +156,11 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   // per-draft) resolution ChallengeDetailScreen/ChallengesScreen use,
   // not the viewer's own membership — see LabelsContext's own comment.
   const labels = labelsForOrg(challengeScope === 'org' ? myOrgId : null);
-  const [selectedBots, setSelectedBots] = useState<string[]>([]);
+  const [selectedBots, setSelectedBots] = useState<string[]>(rematch?.botPresetIds ?? []);
   // 'me', a BOT_PRESETS id, or an invited friend's userId — the one
   // Hunter; every other selected bot/invited friend (and the creator, if
   // they're not it) is Hunted. Only meaningful for draftType === 'hunt'.
-  const [hunterId, setHunterId] = useState<string>('me');
+  const [hunterId, setHunterId] = useState<string>(rematch?.hunterId ?? 'me');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -231,10 +246,26 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
   // picker the moment it's picked. Still just seeds `length`'s starting
   // value: the segmented control and slider above work exactly the same
   // afterward, so this never locks anyone out of a shorter or longer run.
+  // Skipped on the very first render of a rematch, which already carries
+  // the old challenge's own length.
+  const seededFromRematch = useRef(!!rematch);
   useEffect(() => {
+    if (seededFromRematch.current) {
+      seededFromRematch.current = false;
+      return;
+    }
     if (draftType === 'seventyfive') setLength('75');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftType]);
+
+  // Whether a kind is still Bones-locked for this viewer — the picker
+  // below disables locked rows, but a rematch skips the picker entirely,
+  // so start() checks this too.
+  const lockedAt = (kind: ChallengeKind): number | null => {
+    const unlockBones = unlockGates[kind];
+    if (unlockBones === undefined) return null;
+    return bonesEarnedTotal === null || bonesEarnedTotal < unlockBones ? unlockBones : null;
+  };
 
   const toggleFriend = (userId: string) => {
     // Tic-Tac-Go is strictly 1v1 — picking someone replaces the last pick.
@@ -285,6 +316,12 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
     }
     if (!isSupabaseConfigured) {
       onFinish();
+      return;
+    }
+    const lockedAtBones = lockedAt(draftType);
+    if (lockedAtBones !== null) {
+      setSaveError(`This game unlocks at ${lockedAtBones} ${currencyName} earned — pick another one.`);
+      setStep(1);
       return;
     }
     if (draftType === 'tictacgo' && invited.length !== 1) {
@@ -383,7 +420,7 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
                   const t = CHALLENGE_TYPES.find((ct) => ct.id === kindId);
                   if (!t) return null;
                   const unlockBones = unlockGates[t.id];
-                  const locked = unlockBones !== undefined && (bonesEarnedTotal === null || bonesEarnedTotal < unlockBones);
+                  const locked = lockedAt(t.id) !== null;
                   const picked = draftType === t.id;
                   const TypeIcon = CHALLENGE_KIND_ICON[t.id];
                   return (
@@ -418,6 +455,17 @@ export function CreateScreen({ onCancel, onFinish }: { onCancel: () => void; onF
 
       {step === 2 && (
         <View style={{ gap: 16 }}>
+          {rematch && (
+            <View style={styles.rematchNote}>
+              <ArrowsClockwiseIcon size={15} color={colors.accentActive} />
+              <Text style={[styles.typeDesc, { flex: 1 }]}>
+                Rematch of {rematch.sourceName} — same game, rules, and people. Change anything you like.
+                {rematch.skippedCount > 0
+                  ? ` (${rematch.skippedCount} ${rematch.skippedCount === 1 ? 'person isn’t' : 'people aren’t'} your friend yet, so they’re not re-invited.)`
+                  : ''}
+              </Text>
+            </View>
+          )}
           <Text style={text.h2}>Set the rules</Text>
           <TextField
             label="Challenge name"
@@ -905,6 +953,16 @@ function makeStyles(colors: Palette) {
     typeIconLocked: { opacity: 0.6 },
     typeName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
     typeDesc: { fontSize: 13, color: withAlpha(colors.text, 0.7) },
+    rematchNote: {
+      flexDirection: 'row',
+      gap: 8,
+      alignItems: 'flex-start',
+      padding: 12,
+      borderRadius: 12,
+      backgroundColor: withAlpha(colors.accent, 0.12),
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 0.4),
+    },
     groupLabel: {
       fontSize: 11,
       letterSpacing: 1,

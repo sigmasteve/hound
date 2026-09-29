@@ -79,6 +79,8 @@ import { getMyHoundScore, settleChallengeScore, type HoundScore } from '../chall
 import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
 import { DailyBonusModal } from '../components/DailyBonusModal';
 import { useCurrencyName } from '../organizations/useCurrencyName';
+import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
+import { fetchWeeklyRecap, isRecapWindow, recapWeekKey, type WeeklyRecap } from '../home/weeklyRecap';
 import { scheduleDailyBonusReminder, schedulePendingActionsNudge } from '../notifications/localReminders';
 import { levelProgressForXp } from '../challenges/leveling';
 import { TicTacGoBoard } from '../components/TicTacGoCard';
@@ -526,6 +528,34 @@ export function HomeScreen({
   // resolves with a real value.
   const [houndScore, setHoundScore] = useState<HoundScore | null>(null);
   const currencyName = useCurrencyName();
+
+  // Start-of-week recap (Mon–Wed) — see src/home/weeklyRecap.ts. Dismissal
+  // is local and per week, same shape as the banner's own dismissal above:
+  // hiding this week's recap never hides next week's.
+  const RECAP_DISMISSED_KEY = 'homeWeeklyRecapDismissedWeek';
+  const [weeklyRecap, setWeeklyRecap] = useState<WeeklyRecap | null>(null);
+  useEffect(() => {
+    if (!isRecapWindow()) return;
+    let cancelled = false;
+    (async () => {
+      const dismissedWeek = await AsyncStorage.getItem(RECAP_DISMISSED_KEY).catch(() => null);
+      if (dismissedWeek === recapWeekKey()) return;
+      const recap = await fetchWeeklyRecap(health, isSupabaseConfigured ? user?.id ?? null : null).catch(() => null);
+      if (!cancelled) setWeeklyRecap(recap);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+  const dismissWeeklyRecap = () => {
+    if (weeklyRecap) {
+      AsyncStorage.setItem(RECAP_DISMISSED_KEY, weeklyRecap.weekKey).catch(() => {
+        // Best-effort — still hidden for the rest of this session.
+      });
+    }
+    setWeeklyRecap(null);
+  };
 
   // Set only when claim_daily_bonus actually awards today's bonus (see
   // 0070_daily_bonus.sql) — drives the one-per-day popup; every later
@@ -1181,6 +1211,10 @@ export function HomeScreen({
           </View>
           <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
         </Pressable>
+      )}
+
+      {weeklyRecap && (
+        <WeeklyRecapCard recap={weeklyRecap} currencyName={currencyName} onDismiss={dismissWeeklyRecap} />
       )}
 
       {/* One-line pointer to the Data tab's own Readiness card (see the

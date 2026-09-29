@@ -1,3 +1,5 @@
+import type { RematchDraft } from '../challenges/rematch';
+
 export type MainTab = 'home' | 'challenges' | 'metrics' | 'friends' | 'settings' | 'connect';
 
 export type RootStackParamList = {
@@ -6,7 +8,9 @@ export type RootStackParamList = {
   SignUp: undefined;
   Main: { tab?: MainTab } | undefined;
   Hunt: undefined;
-  Create: undefined;
+  // rematch: set by a finished challenge's Rematch button (see
+  // src/challenges/rematch.ts) to prefill the wizard.
+  Create: { rematch?: RematchDraft } | undefined;
   ChallengeDetail: { challengeId: string };
   FriendDetail: {
     friendshipId: string;

@@ -194,8 +194,9 @@ export function RootNavigator() {
               )}
             </Stack.Screen>
             <Stack.Screen name="Create" options={{ animation: 'slide_from_bottom' }}>
-              {({ navigation }) => (
+              {({ navigation, route }) => (
                 <CreateScreen
+                  rematch={route.params?.rematch}
                   // Always lands on the Challenges tab, regardless of
                   // whether Create was opened from Home or Challenges —
                   // same "land somewhere fixed and meaningful" reasoning
@@ -221,6 +222,7 @@ export function RootNavigator() {
               {({ navigation, route }) => (
                 <ChallengeDetailScreen
                   challengeId={route.params.challengeId}
+                  onRematch={(rematch) => navigation.navigate('Create', { rematch })}
                   onBack={() => navigation.navigate('Main', { tab: 'challenges' })}
                   onGoHome={() => navigation.navigate('Main', { tab: 'home' })}
                 />
