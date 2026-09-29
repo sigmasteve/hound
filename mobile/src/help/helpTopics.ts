@@ -43,6 +43,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Chart — Data: your steps, distance, and workouts over time.',
         'People — Friends: your friends, requests, and ways to add someone.',
         'Plug — Connect: link your phone’s health app.',
+        'Hanger — Locker: customize your look and shop.',
         'Your avatar (top right) opens Settings. The ? opens this guide.',
       ],
     },
@@ -167,8 +168,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'Frames, backgrounds, and avatar icons.',
       numbered: true,
       steps: [
-        'Tap your avatar (top right) to open Settings.',
-        'Tap Customize your look to open your Locker.',
+        'Tap the hanger icon in the top bar to open your Locker (it’s also under Settings → Customize your look).',
         `Pick a frame, background, or icon you’ve unlocked — or buy one in the Shop with ${currency}.`,
         'Your look shows everywhere your avatar does: leaderboards, friends, and the top bar.',
       ],

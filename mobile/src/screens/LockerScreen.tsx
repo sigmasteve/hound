@@ -251,7 +251,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Button label="Settings" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
+        <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
         <View style={styles.headerRow}>
           <Avatar
