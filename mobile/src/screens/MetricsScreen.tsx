@@ -194,7 +194,12 @@ export function MetricsScreen() {
   const activitySummary = useMemo(() => groupWorkoutsByActivity(workouts, days), [workouts, days]);
   const totalSteps = useMemo(() => weekly.reduce((sum, d) => sum + d.steps, 0), [weekly]);
   const totalDistanceMi = useMemo(() => distanceByDay.reduce((sum, v) => sum + v, 0), [distanceByDay]);
-  const avgSteps = weekly.length ? Math.round(totalSteps / weekly.length) : 0;
+  // Today is still in progress, so averaging it in drags the number down
+  // every morning — average the finished days before it instead.
+  const fullDays = weekly.slice(0, -1);
+  const avgSteps = fullDays.length
+    ? Math.round(fullDays.reduce((sum, d) => sum + d.steps, 0) / fullDays.length)
+    : 0;
   const workoutCount = useMemo(() => countWorkoutsInWindow(workouts, days), [workouts, days]);
   const totalWorkoutMinutes = useMemo(
     () => activitySummary.reduce((sum, a) => sum + a.totalMinutes, 0),
@@ -306,7 +311,9 @@ export function MetricsScreen() {
       </Card>
 
       <Card style={{ gap: 14, padding: 18 }} elevated={false}>
-        <Text style={text.h4}>This week</Text>
+        {/* A rolling window like the chart above, not the calendar week —
+            Home's Monday recap is the one that covers Mon–Sun. */}
+        <Text style={text.h4}>Last 7 days</Text>
         <View style={styles.weekGrid}>
           <View style={styles.weekTile}>
             <Text style={styles.weekTileLabel}>TOTAL STEPS</Text>
