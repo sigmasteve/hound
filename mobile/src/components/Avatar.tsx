@@ -71,7 +71,14 @@ export function Avatar({
         // Sized relative to the circle, not fontSize — an icon glyph and
         // a line of initials text don't scale the same way, and every
         // existing call site's fontSize was tuned for text, not a glyph.
-        <IconGlyph size={size * 0.6} color="#fff" weight="fill" />
+        //
+        // Wrapped in a View so it stacks above the gradient on web too:
+        // there an absolutely positioned sibling (the Svg above) paints
+        // over a bare, non-positioned svg regardless of order, while every
+        // RN-web View is position: relative. A no-op on native.
+        <View>
+          <IconGlyph size={size * 0.6} color="#fff" weight="fill" />
+        </View>
       ) : (
         <Text style={[styles.label, { fontSize }]}>{initials}</Text>
       )}

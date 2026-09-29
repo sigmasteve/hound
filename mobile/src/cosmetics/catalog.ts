@@ -21,6 +21,30 @@ export interface CosmeticItem {
   // either RPC is ever called.
   unlockXp: number | null;
   costBones: number | null;
+  // Set only on limited-time shop items (0071_halloween_cosmetics.sql's
+  // available_until): the Shop groups them under their collection and
+  // stops offering them once it ends. Owning one is still permanent.
+  collection?: SeasonalCollectionId;
+}
+
+export type SeasonalCollectionId = 'halloween_2026';
+
+export interface SeasonalCollection {
+  id: SeasonalCollectionId;
+  name: string;
+  // Must match the rows' own available_until in the migration —
+  // purchase_cosmetic is the real gate; this drives the Shop's countdown
+  // and when the Shop stops listing the set.
+  availableUntil: string;
+}
+
+export const SEASONAL_COLLECTIONS: Record<SeasonalCollectionId, SeasonalCollection> = {
+  // Midnight at the end of Oct 31, US Pacific time.
+  halloween_2026: { id: 'halloween_2026', name: 'Halloween', availableUntil: '2026-11-01T07:00:00Z' },
+};
+
+export function isCollectionOnSale(id: SeasonalCollectionId, now: Date = new Date()): boolean {
+  return now.getTime() < new Date(SEASONAL_COLLECTIONS[id].availableUntil).getTime();
 }
 
 export interface FrameStyle extends CosmeticItem {
@@ -56,6 +80,9 @@ export const FRAMES: FrameStyle[] = [
   // level ever unlocks these.
   { id: 'frame_neon', slot: 'frame', name: 'Neon Ring', unlockXp: null, costBones: 250, ringColor: '#39ff88' },
   { id: 'frame_shadow', slot: 'frame', name: 'Shadow Ring', unlockXp: null, costBones: 600, ringColor: '#2b2b33' },
+  // Halloween 2026 — limited time, see 0071_halloween_cosmetics.sql.
+  { id: 'frame_pumpkin', slot: 'frame', name: 'Pumpkin Ring', unlockXp: null, costBones: 300, ringColor: '#ff7a1a', collection: 'halloween_2026' },
+  { id: 'frame_slime', slot: 'frame', name: 'Slime Ring', unlockXp: null, costBones: 450, ringColor: '#8fe33b', collection: 'halloween_2026' },
 ];
 
 export const BACKGROUNDS: BackgroundStyle[] = [
@@ -123,6 +150,27 @@ export const BACKGROUNDS: BackgroundStyle[] = [
     gradientFrom: '#3a0d02',
     gradientTo: '#ff4d1c',
   },
+  // Halloween 2026 — limited time, see 0071_halloween_cosmetics.sql.
+  {
+    id: 'bg_candy_corn',
+    slot: 'background',
+    name: 'Candy Corn',
+    unlockXp: null,
+    costBones: 350,
+    gradientFrom: '#ffd23f',
+    gradientTo: '#ff6a13',
+    collection: 'halloween_2026',
+  },
+  {
+    id: 'bg_haunted',
+    slot: 'background',
+    name: 'Haunted Night',
+    unlockXp: null,
+    costBones: 600,
+    gradientFrom: '#2a0f45',
+    gradientTo: '#ff7a1a',
+    collection: 'halloween_2026',
+  },
 ];
 
 // Mirrors 0069_avatar_icon_cosmetics.sql's own seeded icon rows — see
@@ -138,6 +186,10 @@ export const ICONS: IconStyle[] = [
   { id: 'icon_robot', slot: 'icon', name: 'Robot', unlockXp: null, costBones: 300, icon: 'robot' },
   { id: 'icon_rocket', slot: 'icon', name: 'Rocket', unlockXp: null, costBones: 550, icon: 'rocket' },
   { id: 'icon_crown', slot: 'icon', name: 'Crown', unlockXp: null, costBones: 800, icon: 'crown' },
+  // Halloween 2026 — limited time, see 0071_halloween_cosmetics.sql.
+  { id: 'icon_ghost', slot: 'icon', name: 'Ghost', unlockXp: null, costBones: 300, icon: 'ghost', collection: 'halloween_2026' },
+  { id: 'icon_broom', slot: 'icon', name: 'Witch’s Broom', unlockXp: null, costBones: 400, icon: 'broom', collection: 'halloween_2026' },
+  { id: 'icon_skull', slot: 'icon', name: 'Skull', unlockXp: null, costBones: 550, icon: 'skull', collection: 'halloween_2026' },
 ];
 
 const FRAMES_BY_ID = new Map(FRAMES.map((f) => [f.id, f] as const));
