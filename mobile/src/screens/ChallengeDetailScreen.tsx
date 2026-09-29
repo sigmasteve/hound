@@ -7,6 +7,7 @@ import {
   ArrowsClockwiseIcon,
   CaretRightIcon,
   CheckCircleIcon,
+  GlobeHemisphereWestIcon,
   InfoIcon,
   MagnifyingGlassIcon,
   RobotIcon,
@@ -57,6 +58,7 @@ import {
 import { listBingoProgress, recordBingoProgress, unlinkBingoProgress } from '../challenges/bingoApi';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { settleChallengeScore } from '../challenges/scoreApi';
+import { isGlobalChallenge } from '../challenges/globalChallenges';
 import type { WorkoutSample } from '../health/types';
 import { boardSortFor, usesDeviceSteps, usesDistanceRanking, usesWorkoutDistance } from '../challenges/scoring';
 import { formatStartsLabel, hasStarted, huntKindName, huntRoleLabel, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
@@ -334,6 +336,12 @@ export function ChallengeDetailScreen({
   // flipped locally after tapping "Invite" in this session, so a friend
   // invited at creation time reads "Remind" from the very first render.
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
+  // A Global Hound Challenge (0075_global_challenges.sql) takes no
+  // invites — anyone can join it from Today instead.
+  const [isGlobal, setIsGlobal] = useState(false);
+  useEffect(() => {
+    isGlobalChallenge(challengeId).then(setIsGlobal);
+  }, [challengeId]);
   const [friendSearch, setFriendSearch] = useState('');
 
   // Where the viewer stands with someone on this challenge's board — null
@@ -1770,7 +1778,20 @@ export function ChallengeDetailScreen({
           expires (see load()'s own invitedIds refresh, sourced from
           listSentChallengeInvites — a no-longer-pending invite just drops
           out of that list). */}
-      {!wrappedUp && !(challenge.kind === 'tictacgo' && (participants.length >= 2 || invitedIds.size > 0)) && (
+      {!wrappedUp && isGlobal && (
+        <Card style={{ gap: 6 }} elevated={false}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <GlobeHemisphereWestIcon size={17} color={colors.accent} />
+            <Text style={text.h4}>Global Hound Challenge</Text>
+          </View>
+          <Text style={styles.footNote}>
+            Open to everyone on Hound — friends can join it from Global Hound Challenges on their Today screen
+            until joining closes.
+          </Text>
+        </Card>
+      )}
+
+      {!wrappedUp && !isGlobal && !(challenge.kind === 'tictacgo' && (participants.length >= 2 || invitedIds.size > 0)) && (
         <Card style={{ gap: 10 }} elevated={false}>
           <Text style={text.h4}>{challenge.kind === 'tictacgo' ? 'Invite your opponent' : 'Invite a friend'}</Text>
           {inviteLocked ? (

@@ -198,6 +198,7 @@ export function RootNavigator() {
               {({ navigation, route }) => (
                 <CreateScreen
                   rematch={route.params?.rematch}
+                  global={route.params?.global}
                   // Always lands on the Challenges tab, regardless of
                   // whether Create was opened from Home or Challenges —
                   // same "land somewhere fixed and meaningful" reasoning
@@ -206,7 +207,11 @@ export function RootNavigator() {
                   // to be opened from. Matches onFinish below, so
                   // cancelling and finishing the wizard land in the same
                   // place.
-                  onCancel={() => navigation.navigate('Main', { tab: 'challenges' })}
+                  // A global challenge is published from Admin, so it
+                  // returns there instead.
+                  onCancel={() =>
+                    route.params?.global ? navigation.goBack() : navigation.navigate('Main', { tab: 'challenges' })
+                  }
                   // Used to always go to the static Hunt screen, regardless
                   // of what kind of challenge (or name) was actually
                   // created — every real challenge landed on the same
@@ -215,7 +220,9 @@ export function RootNavigator() {
                   // Challenges tab instead, where ChallengesScreen's real
                   // read (src/challenges/present.ts) shows the actual new
                   // challenge.
-                  onFinish={() => navigation.navigate('Main', { tab: 'challenges' })}
+                  onFinish={() =>
+                    route.params?.global ? navigation.goBack() : navigation.navigate('Main', { tab: 'challenges' })
+                  }
                 />
               )}
             </Stack.Screen>
@@ -257,6 +264,7 @@ export function RootNavigator() {
               {({ navigation }) => (
                 <AdminScreen
                   onBack={() => navigation.goBack()}
+                  onNewGlobalChallenge={() => navigation.navigate('Create', { global: true })}
                   onOpenUser={(u) =>
                     navigation.navigate('AdminUserDetail', {
                       userId: u.id,

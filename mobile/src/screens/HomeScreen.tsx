@@ -84,6 +84,8 @@ import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } fro
 import { checkAchievements, type NewlyEarnedAchievement } from '../achievements/achievementsApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
+import { GlobalChallengesCard } from '../components/GlobalChallengesCard';
+import { canJoin, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
 import { fetchWeeklyRecap, isRecapWindow, recapWeekKey, type WeeklyRecap } from '../home/weeklyRecap';
 import { scheduleDailyBonusReminder, schedulePendingActionsNudge } from '../notifications/localReminders';
 import { levelProgressForXp } from '../challenges/leveling';
@@ -643,7 +645,23 @@ export function HomeScreen({
   // in the load effect below rather than stored.
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
 
+  // Global Hound Challenges (0075_global_challenges.sql): only the ones
+  // the viewer can still join or has already joined — one they missed
+  // is just noise.
+  const [globalChallenges, setGlobalChallenges] = useState<GlobalChallenge[]>([]);
+  const [joiningGlobalId, setJoiningGlobalId] = useState<string | null>(null);
+  const loadGlobalChallenges = useCallback(() => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    listGlobalChallenges()
+      .then((list) => setGlobalChallenges(list.filter((c) => c.joined || canJoin(c))))
+      .catch(() => {
+        // Same "never break the screen" convention as the rest of
+        // Home's fetches — the card just stays hidden.
+      });
+  }, [user?.id]);
+
   const reload = useCallback(() => {
+    loadGlobalChallenges();
     if (isSupabaseConfigured && user?.id) {
       const userId = user.id;
       // Claim first, then read the score back — so the Bones shown right
@@ -703,7 +721,7 @@ export function HomeScreen({
         });
       }
     });
-  }, [health, user?.id]);
+  }, [health, user?.id, loadGlobalChallenges]);
 
   useEffect(reload, [reload]);
 
@@ -727,6 +745,20 @@ export function HomeScreen({
     reload();
     setRefreshKey((k) => k + 1);
   }, [reload]);
+
+  // Joining opens the challenge straight away; coming back to Today
+  // refreshes everything (see the focus effect below), so the row flips
+  // to Joined and the challenge counts include it.
+  const joinGlobal = (c: GlobalChallenge) => {
+    setJoiningGlobalId(c.id);
+    joinGlobalChallenge(c.id)
+      .then(() => onOpenChallenge(c.id))
+      .catch((e) => {
+        Alert.alert('Couldn’t join', e instanceof Error ? e.message : 'Try again in a moment.');
+        loadGlobalChallenges();
+      })
+      .finally(() => setJoiningGlobalId(null));
+  };
 
   // Home is the one tab that also gets navigated *away from* onto a
   // pushed stack screen (ChallengeDetail, Hunt) rather than only
@@ -1201,6 +1233,15 @@ export function HomeScreen({
           </Card>
         </Pressable>
       ))}
+
+      {globalChallenges.length > 0 && (
+        <GlobalChallengesCard
+          challenges={globalChallenges}
+          joiningId={joiningGlobalId}
+          onJoin={joinGlobal}
+          onOpen={(c) => onOpenChallenge(c.id)}
+        />
+      )}
 
       {/* Hidden until the counts fetch resolves (or never, unconfigured/
           no challenges at all) — see challengeCounts' own state comment.
