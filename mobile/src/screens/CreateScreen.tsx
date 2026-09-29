@@ -9,6 +9,7 @@ import {
   CheckCircleIcon,
   CircleIcon,
   DevicesIcon,
+  GlobeHemisphereWestIcon,
   LinkIcon,
   LockSimpleIcon,
   RobotIcon,
@@ -49,6 +50,17 @@ import { useAuth } from '../auth/AuthContext';
 import { getMyHoundScore } from '../challenges/scoreApi';
 import { listChallengeUnlockGates, type ChallengeUnlockGates } from '../challenges/unlockGatesApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
+import {
+  GLOBAL_KINDS,
+  GLOBAL_TEMPLATES,
+  JOIN_WINDOW_LABEL,
+  globalStartDate,
+  joinClosesAt,
+  publishGlobalChallenge,
+  startsLabel,
+  type GlobalTemplate,
+  type JoinWindow,
+} from '../challenges/globalChallenges';
 
 const SCORING_METHODS: { id: ScoringMethod; label: string }[] = [
   { id: 'gps_distance', label: 'GPS distance from runs & walks' },
@@ -79,9 +91,15 @@ export function CreateScreen({
   onCancel,
   onFinish,
   rematch,
+  global = false,
 }: {
   onCancel: () => void;
   onFinish: () => void;
+  // An admin publishing a Global Hound Challenge (opened from the Admin
+  // screen) — see src/challenges/globalChallenges.ts. Same wizard, with
+  // templates on step 1, a start date and join window on step 2, and a
+  // review in place of "Bring friends" on step 3.
+  global?: boolean;
   // Set when opened from a finished challenge's Rematch button — every
   // field below starts from it instead of the usual defaults, and the
   // wizard opens on "Set the rules" since the game's already picked.
@@ -98,7 +116,7 @@ export function CreateScreen({
   const { labelsForOrg } = useLabels();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [step, setStep] = useState<1 | 2 | 3>(rematch ? 2 : 1);
-  const [draftType, setDraftType] = useState<ChallengeKind>(rematch?.kind ?? 'hunt');
+  const [draftType, setDraftType] = useState<ChallengeKind>(rematch?.kind ?? (global ? 'steps' : 'hunt'));
   const [draftName, setDraftName] = useState(rematch?.name ?? '');
   const [headStart, setHeadStart] = useState(rematch?.headStartDays ?? 2);
   const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>(rematch?.distanceGoalUnit ?? 'miles');
@@ -116,6 +134,10 @@ export function CreateScreen({
   // activity to NOT count, or wanting a clean first day starting
   // tomorrow instead.
   const [startOption, setStartOption] = useState<StartOption>('today');
+  // Global only: which day it starts (0 = today), and how long after
+  // that people can still join.
+  const [startInDays, setStartInDays] = useState(1);
+  const [joinWindow, setJoinWindow] = useState<JoinWindow>('1');
   const [scoringMethod, setScoringMethod] = useState<ScoringMethod>(rematch?.scoringMethod ?? 'device_steps');
   // Real friends' userIds picked to invite once the challenge exists —
   // see start()'s inviteFriendToChallenge calls below. Never populated
@@ -262,10 +284,41 @@ export function CreateScreen({
   // below disables locked rows, but a rematch skips the picker entirely,
   // so start() checks this too.
   const lockedAt = (kind: ChallengeKind): number | null => {
+    // Unlock gates are about a player's own progress — they don't apply
+    // to an admin publishing for everyone.
+    if (global) return null;
     const unlockBones = unlockGates[kind];
     if (unlockBones === undefined) return null;
     return bonesEarnedTotal === null || bonesEarnedTotal < unlockBones ? unlockBones : null;
   };
+
+  const applyTemplate = (t: GlobalTemplate) => {
+    // Set the kind first: picking 75 Day seeds its own length (see the
+    // effect above), and the template's length should win.
+    if (t.kind !== draftType) {
+      setDraftType(t.kind);
+      seededFromRematch.current = true;
+    }
+    setDraftName(t.name);
+    setLength(String(t.durationDays));
+    setJoinWindow(t.joinWindow);
+    if (t.dailyGoalSteps) setDailyGoalSteps(t.dailyGoalSteps);
+    if (t.distanceGoalUnit) setDistanceGoalUnit(t.distanceGoalUnit);
+    if (t.distanceGoalMi) setDistanceGoalMi(t.distanceGoalMi);
+    if (t.distanceGoalSteps) setDistanceGoalSteps(t.distanceGoalSteps);
+    if (t.bingoCardType) setBingoCardType(t.bingoCardType);
+    setNameError(null);
+    setStep(2);
+  };
+
+  // "At start" closes joining before anyone could have — only offered
+  // for a challenge that starts on a later day.
+  const joinWindowOptions = (['start', '1', '3', '7', 'end'] as JoinWindow[]).filter(
+    (w) => !(w === 'start' && startInDays === 0),
+  );
+  const effectiveJoinWindow: JoinWindow = startInDays === 0 && joinWindow === 'start' ? '1' : joinWindow;
+  const globalStartsAt = globalStartDate(startInDays);
+  const globalJoinClosesAt = joinClosesAt(globalStartsAt, Number(length) || 1, effectiveJoinWindow);
 
   const toggleFriend = (userId: string) => {
     // Tic-Tac-Go is strictly 1v1 — picking someone replaces the last pick.
@@ -316,6 +369,31 @@ export function CreateScreen({
     }
     if (!isSupabaseConfigured) {
       onFinish();
+      return;
+    }
+    if (global) {
+      setSaveError(null);
+      setSaving(true);
+      try {
+        const isDistance = draftType === 'distance';
+        await publishGlobalChallenge({
+          name: draftName.trim(),
+          kind: draftType,
+          durationDays: Number(length),
+          startsAt: globalStartsAt,
+          joinClosesAt: globalJoinClosesAt,
+          dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
+          distanceGoalUnit: isDistance ? distanceGoalUnit : undefined,
+          distanceGoalMi: isDistance && distanceGoalUnit === 'miles' ? distanceGoalMi : undefined,
+          distanceGoalSteps: isDistance && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
+          bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
+        });
+        onFinish();
+      } catch (e) {
+        setSaveError(e instanceof Error ? e.message : 'Could not publish that challenge — try again.');
+      } finally {
+        setSaving(false);
+      }
       return;
     }
     const lockedAtBones = lockedAt(draftType);
@@ -411,12 +489,42 @@ export function CreateScreen({
 
       {step === 1 && (
         <View style={{ gap: 20 }}>
-          <Text style={text.h2}>Pick the game</Text>
+          {global && (
+            <View style={{ gap: 10 }}>
+              <View style={styles.rematchNote}>
+                <GlobeHemisphereWestIcon size={15} color={colors.accentActive} />
+                <Text style={[styles.typeDesc, { flex: 1 }]}>
+                  A Global Hound Challenge shows on everyone’s Today screen, and anyone can join it until joining
+                  closes.
+                </Text>
+              </View>
+              <Text style={text.h2}>Start from a template</Text>
+              {GLOBAL_TEMPLATES.map((t) => {
+                const TypeIcon = CHALLENGE_KIND_ICON[t.kind];
+                const type = CHALLENGE_TYPES.find((ct) => ct.id === t.kind);
+                return (
+                  <Pressable key={t.id} onPress={() => applyTemplate(t)} style={styles.typeRow}>
+                    <View style={[styles.typeIcon, { backgroundColor: type?.tint }]}>
+                      <TypeIcon size={19} color={type?.iconColor} />
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.typeName}>{t.name}</Text>
+                      <Text style={styles.typeDesc}>
+                        {t.blurb} {t.durationDays} days.
+                      </Text>
+                    </View>
+                    <ArrowRightIcon size={15} color={withAlpha(colors.text, 0.5)} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+          <Text style={text.h2}>{global ? 'Or pick the game' : 'Pick the game'}</Text>
           {CHALLENGE_GROUPS.map((group, i) => (
             <View key={group.label || i} style={{ gap: 10 }}>
               {!!group.label && <Text style={styles.groupLabel}>{group.label}</Text>}
               <View style={{ gap: 14 }}>
-                {group.kinds.map((kindId) => {
+                {group.kinds.filter((k) => !global || GLOBAL_KINDS.includes(k)).map((kindId) => {
                   const t = CHALLENGE_TYPES.find((ct) => ct.id === kindId);
                   if (!t) return null;
                   const unlockBones = unlockGates[t.id];
@@ -477,6 +585,56 @@ export function CreateScreen({
             placeholder="Name your challenge"
             error={nameError ?? undefined}
           />
+          {global ? (
+            <>
+              <View style={{ gap: 5 }}>
+                <View style={styles.huntBlockHeader}>
+                  <Text style={styles.fieldLabel}>Starts</Text>
+                  <Text style={styles.huntBlockValue}>{startsLabel(startInDays)}</Text>
+                </View>
+                <Slider
+                  minimumValue={0}
+                  maximumValue={30}
+                  step={1}
+                  value={startInDays}
+                  onValueChange={(v) => setStartInDays(Math.round(v))}
+                  minimumTrackTintColor={colors.accent}
+                  maximumTrackTintColor={colors.neutral700}
+                  thumbTintColor={colors.accent}
+                />
+                <Text style={styles.footNote}>
+                  Starts at the beginning of that day, so the whole day counts. Publishing ahead gives people time to
+                  see it and join before it begins.
+                </Text>
+              </View>
+              <View style={{ gap: 5 }}>
+                <Text style={styles.fieldLabel}>Joining closes</Text>
+                <SegmentedControl
+                  options={joinWindowOptions.map((w) => ({ value: w, label: JOIN_WINDOW_LABEL[w] }))}
+                  value={effectiveJoinWindow}
+                  onChange={setJoinWindow}
+                />
+                <Text style={styles.footNote}>
+                  {effectiveJoinWindow === 'end'
+                    ? 'People can join any time until it ends.'
+                    : effectiveJoinWindow === 'start'
+                      ? `People can join until it starts on ${globalStartsAt.toLocaleDateString(undefined, {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        })}.`
+                    : `People can join until ${globalJoinClosesAt.toLocaleDateString(undefined, {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      })}, ${JOIN_WINDOW_LABEL[effectiveJoinWindow].slice(1)} after it starts.`}
+                  {draftType === 'steps' && effectiveJoinWindow !== 'start'
+                    ? ' Late joiners start from zero in a Step Race, so a short window keeps it fair.'
+                    : ''}
+                </Text>
+              </View>
+            </>
+          ) : (
           <View style={{ gap: 5 }}>
             <Text style={styles.fieldLabel}>Starts</Text>
             <SegmentedControl
@@ -499,6 +657,7 @@ export function CreateScreen({
                 : ''}
             </Text>
           </View>
+          )}
 
           <View style={{ gap: 5 }}>
             <Text style={styles.fieldLabel}>Runs for</Text>
@@ -538,7 +697,7 @@ export function CreateScreen({
               <View style={styles.huntBlockHeader}>
                 <Text style={styles.huntBlockLabel}>Group target</Text>
                 <Text style={styles.huntBlockValue}>
-                  {distanceGoalUnit === 'miles' ? `${distanceGoalMi} mi` : `${distanceGoalSteps.toLocaleString()} steps`}
+                  {distanceGoalUnit === 'miles' ? `${distanceGoalMi.toLocaleString()} mi` : `${distanceGoalSteps.toLocaleString()} steps`}
                 </Text>
               </View>
               <SegmentedControl
@@ -551,9 +710,11 @@ export function CreateScreen({
               />
               {distanceGoalUnit === 'miles' ? (
                 <Slider
-                  minimumValue={10}
-                  maximumValue={1000}
-                  step={10}
+                  // A global pool is the whole app walking together, so
+                  // its target can be far bigger than a friend group's.
+                  minimumValue={global ? 100 : 10}
+                  maximumValue={global ? 50_000 : 1000}
+                  step={global ? 100 : 10}
                   value={distanceGoalMi}
                   onValueChange={(v) => setDistanceGoalMi(Math.round(v))}
                   minimumTrackTintColor={colors.accent}
@@ -562,9 +723,9 @@ export function CreateScreen({
                 />
               ) : (
                 <Slider
-                  minimumValue={50_000}
-                  maximumValue={2_000_000}
-                  step={50_000}
+                  minimumValue={global ? 1_000_000 : 50_000}
+                  maximumValue={global ? 100_000_000 : 2_000_000}
+                  step={global ? 1_000_000 : 50_000}
                   value={distanceGoalSteps}
                   onValueChange={(v) => setDistanceGoalSteps(Math.round(v))}
                   minimumTrackTintColor={colors.accent}
@@ -708,7 +869,46 @@ export function CreateScreen({
         </View>
       )}
 
-      {step === 3 && (
+      {step === 3 && global && (
+        <View style={{ gap: 14 }}>
+          <Text style={text.h2}>Review and publish</Text>
+          <View style={styles.huntBlock}>
+            {(() => {
+              const endsAt = new Date(globalStartsAt.getTime() + (Number(length) || 1) * 86_400_000);
+              const fmt = (d: Date) => d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+              const rows: [string, string][] = [
+                ['Name', draftName.trim()],
+                ['Game', CHALLENGE_TYPES.find((t) => t.id === draftType)?.name ?? draftType],
+                ['Starts', fmt(globalStartsAt)],
+                // ends_at is the midnight after the last day.
+                ['Last day', fmt(new Date(endsAt.getTime() - 86_400_000))],
+                ['Joining closes', effectiveJoinWindow === 'end' ? 'When it ends' : fmt(globalJoinClosesAt)],
+              ];
+              if (draftType === 'streak') rows.push(['Daily goal', `${dailyGoalSteps.toLocaleString()} steps`]);
+              if (draftType === 'distance')
+                rows.push([
+                  'Group target',
+                  distanceGoalUnit === 'miles'
+                    ? `${distanceGoalMi.toLocaleString()} mi`
+                    : `${distanceGoalSteps.toLocaleString()} steps`,
+                ]);
+              if (draftType === 'bingo') rows.push(['Card', BINGO_CARD_TYPE_NAME[bingoCardType]]);
+              return rows.map(([k, v]) => (
+                <View key={k} style={styles.huntBlockHeader}>
+                  <Text style={styles.huntBlockLabel}>{k}</Text>
+                  <Text style={styles.reviewValue}>{v}</Text>
+                </View>
+              ));
+            })()}
+          </View>
+          <Text style={styles.footNote}>
+            Publishing shows it on everyone’s Today screen under Global Hound Challenges. You’re not added
+            automatically — join it from Today like anyone else. You can take it down from the Admin screen.
+          </Text>
+        </View>
+      )}
+
+      {step === 3 && !global && (
         <View style={{ gap: 14 }}>
           <Text style={text.h2}>{draftType === 'tictacgo' ? 'Pick your opponent' : 'Bring friends'}</Text>
           {draftType === 'tictacgo' && (
@@ -911,7 +1111,17 @@ export function CreateScreen({
           <View />
         )}
         <Button
-          label={step === 3 ? (saving ? 'Starting…' : 'Start the challenge') : 'Continue'}
+          label={
+            step === 3
+              ? global
+                ? saving
+                  ? 'Publishing…'
+                  : 'Publish to everyone'
+                : saving
+                  ? 'Starting…'
+                  : 'Start the challenge'
+              : 'Continue'
+          }
           variant="primary"
           trailingIcon={<ArrowRightIcon size={13} color={colors.accent} />}
           disabled={saving}
@@ -935,6 +1145,13 @@ export function CreateScreen({
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    reviewValue: {
+      flexShrink: 1,
+      textAlign: 'right',
+      fontFamily: font.heading,
+      fontSize: 14.5,
+      color: colors.text,
+    },
     container: { padding: 16, gap: 16, paddingBottom: 48 },
     stepsBar: { flexDirection: 'row', gap: 6 },
     stepDot: { flex: 1, height: 3, borderRadius: 2, backgroundColor: colors.neutral800 },
