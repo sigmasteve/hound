@@ -58,6 +58,11 @@ export interface FriendsProvider {
   // instead of erroring — see 0008_pending_invites.sql and
   // supabase/functions/send-invite-email.
   inviteByEmail(email: string): Promise<void>;
+  // Sends a request straight to a known Hound user (e.g. someone on a
+  // shared challenge leaderboard) — same one-row-per-pair handling as
+  // inviteByEmail: accepts their pending invite instead if they sent one
+  // first, and errors if you're already friends or already asked.
+  sendFriendRequest(userId: string): Promise<void>;
   acceptFriendRequest(friendshipId: string): Promise<void>;
   // Declining a pending invite and unfriending someone are the same
   // operation on this schema — there's only one row per pair either way.
