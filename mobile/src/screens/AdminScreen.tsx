@@ -19,6 +19,7 @@ import { getAppBanner, setAppBanner, type AppBanner } from '../banner/supabaseBa
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { huntKindName } from '../challenges/present';
 import { AppVersionsCard } from '../components/AppVersionsCard';
+import { SignupAlertsCard } from '../components/SignupAlertsCard';
 import {
   listChallengeUnlockGates,
   removeChallengeUnlockGate,
@@ -526,6 +527,8 @@ export function AdminScreen({
             </Card>
 
             <AppVersionsCard />
+
+            <SignupAlertsCard />
 
             <Card style={{ gap: 12 }} elevated={false}>
               <Text style={text.h4}>Chase labels</Text>
