@@ -22,6 +22,9 @@ import { FRIENDS } from '../data/sampleData';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import { friendCodeUrl, type Friend } from '../friends/types';
+import { feedAction, getFriendActivityFeed, groupFeed, timeAgo, type FeedItem } from '../friends/activityFeed';
+import { useLabels } from '../labels/LabelsContext';
+import { useAuth } from '../auth/AuthContext';
 
 type AddMode = 'email' | 'myCode' | 'enterCode';
 
@@ -37,6 +40,9 @@ const ADD_OPTIONS: { id: AddMode; label: string; Icon: typeof UserPlusIcon }[] =
 // MAX_VISIBLE_FRIENDS rows and scroll past that.
 const FRIEND_ROW_HEIGHT = 52;
 const MAX_VISIBLE_FRIENDS = 10;
+// The feed shows the most recent few; older items live on in each
+// friend's own profile (badges) and the challenge results themselves.
+const MAX_FEED_ITEMS = 8;
 
 export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend) => void }) {
   const { colors, text } = useTheme();
@@ -63,6 +69,27 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
   const [redeemError, setRedeemError] = useState<string | null>(null);
   const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null);
 
+  // Friend activity (0073_friend_activity_feed.sql). null = not loaded,
+  // or couldn't be — the card just stays hidden rather than erroring.
+  const { user } = useAuth();
+  const { labelsForOrg } = useLabels();
+  const labels = labelsForOrg(user?.organizationId);
+  const [feed, setFeed] = useState<FeedItem[] | null>(null);
+  // Feed rows the viewer has already cheered this session.
+  const [cheered, setCheered] = useState<Set<string>>(new Set());
+  const cheer = async (item: FeedItem) => {
+    setCheered((cur) => new Set(cur).add(item.id));
+    try {
+      await supabaseFriendsProvider.giveKudos(item.userId);
+    } catch {
+      setCheered((cur) => {
+        const next = new Set(cur);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  };
+
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) return;
     try {
@@ -72,6 +99,9 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
       ]);
       setLiveFriends(friends);
       setMyCode(code);
+      getFriendActivityFeed()
+        .then((events) => setFeed(groupFeed(events).slice(0, MAX_FEED_ITEMS)))
+        .catch(() => setFeed(null));
     } catch {
       // Stay on the sample fallback on any failure — this screen never
       // shows an error state for the list itself, it just quietly
@@ -374,6 +404,61 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
         )}
       </Card>
 
+      {/* Recent highlights from friends — wins and unlocked badges.
+          Tap a row to open that friend; 👏 sends them kudos. */}
+      {accepted.length > 0 && feed !== null && (
+        <Card style={{ gap: 4 }} elevated={false}>
+          <Text style={styles.sectionTitle}>Friend activity</Text>
+          {feed.length === 0 ? (
+            <Text style={[styles.footNote, { paddingVertical: 4 }]}>
+              Nothing new yet — when friends win challenges or unlock achievements, it shows up here.
+            </Text>
+          ) : (
+            feed.map((item, i) => {
+              const friend = accepted.find((f) => f.userId === item.userId);
+              const sent = cheered.has(item.id);
+              return (
+                <View key={item.id} style={[styles.feedRow, i > 0 && styles.friendListRowDivider]}>
+                  <Pressable
+                    style={styles.feedMain}
+                    disabled={!friend}
+                    onPress={() => friend && onOpenFriend(friend)}
+                  >
+                    {/* Fixed-width slot so rows with and without a frame
+                        (which widens the avatar) keep their text aligned. */}
+                    <View style={styles.feedAvatar}>
+                      <Avatar
+                        initials={item.initials}
+                        tint={TINT_N}
+                        size={32}
+                        fontSize={11}
+                        frameId={item.frameId}
+                        backgroundId={item.backgroundId}
+                        iconId={item.iconId}
+                      />
+                    </View>
+                    <Text style={styles.feedText}>
+                      <Text style={styles.feedName}>{item.name}</Text> {feedAction(item, labels)}
+                      <Text style={styles.feedTime}>{`  ·  ${timeAgo(item.occurredAt)}`}</Text>
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => cheer(item)}
+                    disabled={sent}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={sent ? 'Kudos sent' : `Send ${item.name} kudos`}
+                    style={[styles.cheer, sent && styles.cheerSent]}
+                  >
+                    <Text style={styles.cheerText}>{sent ? '✓ 👏' : '👏'}</Text>
+                  </Pressable>
+                </View>
+              );
+            })
+          )}
+        </Card>
+      )}
+
       {sentInvites.length > 0 && (
         <>
           <Text style={styles.pendingLabel}>Pending</Text>
@@ -402,6 +487,23 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 12, paddingBottom: 48 },
+    feedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+    feedMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    feedAvatar: { width: 38, alignItems: 'center' },
+    feedText: { flex: 1, fontSize: 13.5, lineHeight: 19, color: withAlpha(colors.text, 0.85) },
+    feedName: { fontFamily: font.heading, color: colors.text },
+    feedTime: { fontSize: 12, color: withAlpha(colors.text, 0.45) },
+    cheer: {
+      paddingHorizontal: 10,
+      height: 30,
+      borderRadius: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: withAlpha(colors.accent, 0.5),
+    },
+    cheerSent: { borderColor: colors.divider, opacity: 0.6 },
+    cheerText: { fontSize: 13 },
     loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     // An accent wash over this theme's own colors, not a fixed dark
     // background — same "spotlight card that actually follows the theme"

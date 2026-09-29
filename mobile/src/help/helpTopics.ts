@@ -208,6 +208,17 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'friend-activity',
+      section: 'friends',
+      title: 'Friend activity',
+      summary: 'See what your friends have been up to.',
+      steps: [
+        'The Friend activity card on the Friends tab shows friends’ recent wins and unlocked achievements from the last two weeks.',
+        'Tap 👏 on a row to send that friend kudos, or tap the row to open their profile.',
+        'Only your friends’ highlights appear — never the names or details of challenges you weren’t in.',
+      ],
+    },
+    {
       id: 'friend-profile',
       section: 'friends',
       title: 'Head-to-head and kudos',
