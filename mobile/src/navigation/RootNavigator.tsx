@@ -243,7 +243,9 @@ export function RootNavigator() {
               )}
             </Stack.Screen>
             <Stack.Screen name="Locker" options={{ animation: 'slide_from_right' }}>
-              {({ navigation }) => <LockerScreen onBack={() => navigation.navigate('Main', { tab: 'settings' })} />}
+              {/* Opened from Settings or TopNav's own Locker icon on any
+                  tab — goBack() returns to whichever one it was. */}
+              {({ navigation }) => <LockerScreen onBack={() => navigation.goBack()} />}
             </Stack.Screen>
             <Stack.Screen name="Admin" options={{ animation: 'slide_from_right' }}>
               {/* Reached from TopNav's own admin icon, visible on every

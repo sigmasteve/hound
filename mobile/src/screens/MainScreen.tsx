@@ -42,6 +42,7 @@ export function MainScreen({ route, navigation }: Props) {
             : navigation.navigate('OrgManagement')
         }
         onHelp={() => navigation.navigate('Help')}
+        onLocker={() => navigation.navigate('Locker')}
       />
       <View style={styles.content}>
         {tab === 'home' && (

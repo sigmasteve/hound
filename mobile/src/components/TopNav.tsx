@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   BuildingsIcon,
   ChartLineUpIcon,
+  CoatHangerIcon,
   FlagCheckeredIcon,
   HouseIcon,
   PawPrintIcon,
@@ -36,6 +37,7 @@ export function TopNav({
   onAdmin,
   onOrgManagement,
   onHelp,
+  onLocker,
 }: {
   active: MainTab | 'hunt' | 'create';
   onSelect: (tab: MainTab) => void;
@@ -49,6 +51,7 @@ export function TopNav({
   // lands on the OrgManagementScreen hub instead to pick from every org.
   onOrgManagement: (organizationId?: string) => void;
   onHelp: () => void;
+  onLocker: () => void;
 }) {
   const { user } = useAuth();
   const { colors } = useTheme();
@@ -86,10 +89,14 @@ export function TopNav({
           <PawPrintIcon size={16} color={colors.accent} weight="fill" />
         </View>
         <Text style={styles.brandName}>Hound</Text>
-        {/* Everyone gets Help, so it's always the first icon on the
-            right — the admin-only icons (and the profile pill) follow it. */}
+        {/* Everyone gets Help and Locker, so Help is always the first icon
+            on the right — Locker, then the admin-only icons (and the
+            profile pill) follow it. */}
         <Pressable style={[styles.iconButton, styles.pushRight]} onPress={onHelp} accessibilityLabel="Help">
           <QuestionIcon size={16} color={colors.accent} />
+        </Pressable>
+        <Pressable style={styles.iconButton} onPress={onLocker} accessibilityLabel="Locker">
+          <CoatHangerIcon size={16} color={colors.accent} />
         </Pressable>
         {canManageOrgs && (
           <Pressable
@@ -119,7 +126,9 @@ export function TopNav({
             backgroundId={equipped?.backgroundId}
             iconId={equipped?.iconId}
           />
-          <Text style={styles.profileName}>{firstName}</Text>
+          <Text style={styles.profileName} numberOfLines={1}>
+            {firstName}
+          </Text>
         </Pressable>
       </View>
       {/* Icon-only, evenly split across the full width (flex: 1 per item)
@@ -188,7 +197,12 @@ function makeStyles(colors: Palette) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.divider,
     },
+    // flexShrink lets the pill (and its name) give way on a narrow phone
+    // once an admin's extra icons fill the row, instead of pushing it
+    // off-screen — the name truncates with an ellipsis.
     profile: {
+      flexShrink: 1,
+      minWidth: 0,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
@@ -199,7 +213,7 @@ function makeStyles(colors: Palette) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.divider,
     },
-    profileName: { fontFamily: font.body, fontSize: 13, color: colors.text },
+    profileName: { flexShrink: 1, fontFamily: font.body, fontSize: 13, color: colors.text },
     navRow: { flexDirection: 'row', paddingHorizontal: 10, paddingBottom: 10, gap: 4 },
     navItem: {
       flex: 1,
