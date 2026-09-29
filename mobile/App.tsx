@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -18,6 +18,7 @@ import { LabelsProvider } from './src/labels/LabelsContext';
 import { GoalsProvider } from './src/goals/GoalsContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { applyLatestUpdateOnLaunch } from './src/updates/startupUpdate';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -72,17 +73,28 @@ export default function App() {
     Inter_700Bold,
   });
 
+  // The splash screen stays up until the startup update check settles —
+  // see src/updates/startupUpdate.ts. Mounting the app first would start
+  // its network fetches only to throw them away if an update then
+  // reloads it.
+  const [updateChecked, setUpdateChecked] = useState(false);
+  useEffect(() => {
+    applyLatestUpdateOnLaunch().finally(() => setUpdateChecked(true));
+  }, []);
+
+  const ready = (fontsLoaded || !!fontError) && updateChecked;
+
   const onReady = useCallback(async () => {
-    if (fontsLoaded || fontError) {
+    if (ready) {
       await SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [ready]);
 
   useEffect(() => {
     onReady();
   }, [onReady]);
 
-  if (!fontsLoaded && !fontError) {
+  if (!ready) {
     return null;
   }
 
