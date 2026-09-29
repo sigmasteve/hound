@@ -2,7 +2,15 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, Share, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
-import { AndroidLogoIcon, AppleLogoIcon, CaretRightIcon, HourglassIcon, QrCodeIcon, UserPlusIcon } from 'phosphor-react-native';
+import {
+  AndroidLogoIcon,
+  AppleLogoIcon,
+  CaretRightIcon,
+  EnvelopeSimpleIcon,
+  HourglassIcon,
+  QrCodeIcon,
+  UserPlusIcon,
+} from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -15,6 +23,21 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import { friendCodeUrl, type Friend } from '../friends/types';
 
+type AddMode = 'email' | 'myCode' | 'enterCode';
+
+// The three ways to add someone, always on screen as tiles — the viewer
+// picks one and only that one's panel opens.
+const ADD_OPTIONS: { id: AddMode; label: string; Icon: typeof UserPlusIcon }[] = [
+  { id: 'email', label: 'Invite by email', Icon: EnvelopeSimpleIcon },
+  { id: 'myCode', label: 'Share my code', Icon: QrCodeIcon },
+  { id: 'enterCode', label: 'Enter a code', Icon: UserPlusIcon },
+];
+
+// Fixed row height so the list box can cap itself at exactly
+// MAX_VISIBLE_FRIENDS rows and scroll past that.
+const FRIEND_ROW_HEIGHT = 52;
+const MAX_VISIBLE_FRIENDS = 10;
+
 export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend) => void }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -24,9 +47,9 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
   // fall back" convention as ChallengesScreen.
   const [liveFriends, setLiveFriends] = useState<Friend[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  // Collapsed by default — the invite-by-email/QR/add-code group is
-  // setup UI most visits don't need, unlike the friend requests above it.
-  const [addFriendsExpanded, setAddFriendsExpanded] = useState(false);
+  // Which add-a-friend panel is open, if any — nothing opens until the
+  // viewer picks an option tile.
+  const [addMode, setAddMode] = useState<AddMode | null>(null);
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
@@ -181,7 +204,9 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
     );
   }
 
-  const accepted = liveFriends.filter((f) => f.status === 'accepted');
+  const accepted = liveFriends
+    .filter((f) => f.status === 'accepted')
+    .sort((a, b) => a.name.localeCompare(b.name));
   const receivedInvites = liveFriends.filter((f) => f.status === 'pending' && !f.requestedByMe);
   const sentInvites = liveFriends.filter((f) => f.status === 'pending' && f.requestedByMe);
 
@@ -221,38 +246,46 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
         </>
       )}
 
-      <Card style={{ gap: 0 }} elevated={false}>
-        <Pressable style={styles.collapsibleHeader} onPress={() => setAddFriendsExpanded((e) => !e)}>
-          <Text style={styles.collapsibleTitle}>Enjoy with Friends</Text>
-          <CaretRightIcon
-            size={16}
-            color={withAlpha(colors.text, 0.5)}
-            style={{ transform: [{ rotate: addFriendsExpanded ? '90deg' : '0deg' }] }}
-          />
-        </Pressable>
+      {/* Every way to add someone is one tap away, side by side — the
+          options themselves are always visible, and only the one actually
+          picked opens its panel below, rather than all three hiding behind
+          a single collapsed header. */}
+      <Card style={{ gap: 12 }} elevated={false}>
+        <View style={{ gap: 2 }}>
+          <Text style={styles.sectionTitle}>Enjoy with Friends</Text>
+          <Text style={styles.footNote}>Pick how you want to connect.</Text>
+        </View>
+        <View style={styles.optionRow}>
+          {ADD_OPTIONS.map(({ id, label, Icon }) => {
+            const on = addMode === id;
+            return (
+              <Pressable
+                key={id}
+                onPress={() => setAddMode(on ? null : id)}
+                style={[styles.optionTile, on && styles.optionTileOn]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <Icon size={20} color={colors.accentActive} weight={on ? 'fill' : 'regular'} />
+                <Text style={[styles.optionLabel, on && styles.optionLabelOn]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-        {addFriendsExpanded && (
-          <View style={{ gap: 16, marginTop: 14 }}>
-            <View style={{ gap: 10 }}>
-              <View style={styles.inviteHeader}>
-                {/* Same accentActive icon color as the sample fallback's
-                    own inviteCard above — both now sit on a theme-
-                    following surface (an accent wash, in that card's
-                    case), not a fixed dark chip, so neither needs the
-                    raw accent300. */}
-                <UserPlusIcon size={17} color={colors.accentActive} />
-                <Text style={styles.inviteText}>Invite by email</Text>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-                <TextField
-                  label="Email"
-                  value={inviteEmail}
-                  onChangeText={setInviteEmail}
-                  placeholder="friend@example.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  style={{ flex: 1 }}
-                />
+        {addMode === 'email' && (
+          <View style={{ gap: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
+              <TextField
+                label="Their email"
+                value={inviteEmail}
+                onChangeText={setInviteEmail}
+                placeholder="friend@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                style={{ flex: 1 }}
+              />
+              <View style={styles.inlineAction}>
                 <Button
                   label={inviting ? 'Sending…' : 'Send'}
                   variant="primary"
@@ -261,42 +294,39 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
                   onPress={sendInvite}
                 />
               </View>
-              {inviteError && <Text style={styles.errorNote}>{inviteError}</Text>}
-              {inviteSuccess && !inviteError && <Text style={styles.successNote}>{inviteSuccess}</Text>}
             </View>
+            {inviteError && <Text style={styles.errorNote}>{inviteError}</Text>}
+            {inviteSuccess && !inviteError && <Text style={styles.successNote}>{inviteSuccess}</Text>}
+          </View>
+        )}
 
-            <View style={styles.sectionDivider} />
-
-            <View style={{ gap: 12 }}>
-              <View style={styles.inviteHeader}>
-                <QrCodeIcon size={17} color={colors.accentActive} />
-                <Text style={styles.inviteText}>My code</Text>
+        {addMode === 'myCode' && (
+          <View style={{ gap: 12 }}>
+            {myCode && (
+              <View style={styles.qrWrap}>
+                <QRCode value={friendCodeUrl(myCode)} size={140} color={colors.text} backgroundColor={colors.surface} />
               </View>
-              {myCode && (
-                <View style={styles.qrWrap}>
-                  <QRCode value={friendCodeUrl(myCode)} size={140} color={colors.text} backgroundColor={colors.surface} />
-                </View>
-              )}
-              <Text style={styles.inviteLink}>{myCode ? friendCodeUrl(myCode) : '—'}</Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Button label={copied ? 'Copied!' : 'Copy link'} small disabled={!myCode} onPress={copyMyLink} />
-                <Button label="Share" variant="primary" small disabled={!myCode} onPress={shareMyLink} />
-              </View>
+            )}
+            <Text style={[styles.inviteLink, { textAlign: 'center' }]}>{myCode ? friendCodeUrl(myCode) : '—'}</Text>
+            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
+              <Button label={copied ? 'Copied!' : 'Copy link'} small disabled={!myCode} onPress={copyMyLink} />
+              <Button label="Share" variant="primary" small disabled={!myCode} onPress={shareMyLink} />
             </View>
+          </View>
+        )}
 
-            <View style={styles.sectionDivider} />
-
-            <View style={{ gap: 10 }}>
-              <Text style={styles.inviteText}>Add a friend&rsquo;s code</Text>
-              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-                <TextField
-                  label="Code or link"
-                  value={redeemInput}
-                  onChangeText={setRedeemInput}
-                  placeholder="e.g. Ab3xK9pQ"
-                  autoCapitalize="none"
-                  style={{ flex: 1 }}
-                />
+        {addMode === 'enterCode' && (
+          <View style={{ gap: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
+              <TextField
+                label="Friend's code or link"
+                value={redeemInput}
+                onChangeText={setRedeemInput}
+                placeholder="e.g. Ab3xK9pQ"
+                autoCapitalize="none"
+                style={{ flex: 1 }}
+              />
+              <View style={styles.inlineAction}>
                 <Button
                   label={redeeming ? 'Adding…' : 'Add'}
                   variant="primary"
@@ -305,27 +335,44 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
                   onPress={redeemCode}
                 />
               </View>
-              {redeemError && <Text style={styles.errorNote}>{redeemError}</Text>}
-              {redeemSuccess && !redeemError && <Text style={styles.successNote}>{redeemSuccess}</Text>}
             </View>
+            {redeemError && <Text style={styles.errorNote}>{redeemError}</Text>}
+            {redeemSuccess && !redeemError && <Text style={styles.successNote}>{redeemSuccess}</Text>}
           </View>
         )}
       </Card>
 
-      {accepted.map((f) => (
-        <Pressable key={f.friendshipId} onPress={() => onOpenFriend(f)}>
-          <Card style={styles.friendRow} elevated={false}>
-            <Avatar initials={f.initials} tint={TINT_N} frameId={f.frameId} backgroundId={f.backgroundId} iconId={f.iconId} />
-            <View style={{ flex: 1, gap: 2, minWidth: 120 }}>
-              <Text style={styles.friendName}>{f.name}</Text>
-            </View>
-            <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
-          </Card>
-        </Pressable>
-      ))}
-      {accepted.length === 0 && receivedInvites.length === 0 && sentInvites.length === 0 && (
-        <Text style={styles.footNote}>No friends yet — invite someone above.</Text>
-      )}
+      {/* One card, one scroll box — at most MAX_VISIBLE_FRIENDS rows tall,
+          scrolling within itself past that, so a long friend list never
+          pushes Pending (below) off the page. */}
+      <Card style={{ gap: 8 }} elevated={false}>
+        <View style={styles.listHeader}>
+          <Text style={styles.sectionTitle}>Friends</Text>
+          {accepted.length > 0 && <Text style={styles.footNote}>{accepted.length}</Text>}
+        </View>
+        {accepted.length === 0 ? (
+          <Text style={styles.footNote}>No friends yet — pick an option above to add someone.</Text>
+        ) : (
+          <ScrollView style={{ maxHeight: FRIEND_ROW_HEIGHT * MAX_VISIBLE_FRIENDS }} nestedScrollEnabled>
+            {accepted.map((f, i) => (
+              <Pressable
+                key={f.friendshipId}
+                onPress={() => onOpenFriend(f)}
+                style={[styles.friendListRow, i > 0 && styles.friendListRowDivider]}
+              >
+                <Avatar initials={f.initials} tint={TINT_N} frameId={f.frameId} backgroundId={f.backgroundId} iconId={f.iconId} />
+                <Text style={[styles.friendName, { flex: 1 }]} numberOfLines={1}>
+                  {f.name}
+                </Text>
+                <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
+        {accepted.length > MAX_VISIBLE_FRIENDS && (
+          <Text style={styles.footNote}>Scroll to see all {accepted.length}.</Text>
+        )}
+      </Card>
 
       {sentInvites.length > 0 && (
         <>
@@ -368,12 +415,30 @@ function makeStyles(colors: Palette) {
       borderColor: withAlpha(colors.accent, 0.4),
       flexWrap: 'wrap',
     },
-    inviteHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    collapsibleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    collapsibleTitle: { fontSize: 15, fontFamily: font.heading, color: colors.text },
-    sectionDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.divider },
+    sectionTitle: { fontSize: 15, fontFamily: font.heading, color: colors.text },
+    optionRow: { flexDirection: 'row', gap: 8 },
+    optionTile: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 12,
+      paddingHorizontal: 6,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.divider,
+    },
+    optionTileOn: { borderColor: colors.accent, backgroundColor: withAlpha(colors.accent, 0.12) },
+    optionLabel: { fontSize: 12, textAlign: 'center', color: withAlpha(colors.text, 0.75) },
+    optionLabelOn: { color: colors.text },
+    listHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    friendListRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: FRIEND_ROW_HEIGHT },
+    friendListRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
     inviteText: { flex: 1, minWidth: 150, fontSize: 13.5, color: colors.text },
     inviteLink: { fontFamily: font.body, fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    // Button pins itself to alignSelf: 'flex-start', so this wrapper is
+    // what lines it up with the text input beside it, not the label.
+    inlineAction: { marginBottom: 7 },
     qrWrap: { alignItems: 'center', paddingVertical: 4 },
     errorNote: { fontSize: 12.5, color: colors.amber },
     successNote: { fontSize: 12.5, color: colors.green },
