@@ -97,13 +97,20 @@ export const supabaseFriendsProvider: FriendsProvider = {
       return;
     }
     if (target.id === userId) throw new Error("That's your own email.");
+    await supabaseFriendsProvider.sendFriendRequest(target.id);
+  },
+
+  async sendFriendRequest(targetUserId: string): Promise<void> {
+    const client = requireClient();
+    const userId = await requireUserId();
+    if (targetUserId === userId) throw new Error("You can't friend yourself.");
 
     const { data: existing, error: existingError } = await client
       .from('friendships')
       .select('id, requester_id, status')
       .or(
-        `and(requester_id.eq.${userId},recipient_id.eq.${target.id}),` +
-          `and(requester_id.eq.${target.id},recipient_id.eq.${userId})`,
+        `and(requester_id.eq.${userId},recipient_id.eq.${targetUserId}),` +
+          `and(requester_id.eq.${targetUserId},recipient_id.eq.${userId})`,
       )
       .maybeSingle();
     if (existingError) throw new Error(existingError.message);
@@ -119,16 +126,17 @@ export const supabaseFriendsProvider: FriendsProvider = {
 
     const { data: created, error } = await client
       .from('friendships')
-      .insert({ requester_id: userId, recipient_id: target.id })
+      .insert({ requester_id: userId, recipient_id: targetUserId })
       .select('id')
       .single();
     if (error) throw new Error(error.message);
     // Best-effort, same reasoning as inviteFriendToChallenge's own email
     // call: the friendship row is already durably written either way,
     // so a failed send here shouldn't surface as "could not send that
-    // invite" — target.id is a real Hound user who'll still see the
+    // invite" — the recipient is a real Hound user who'll still see the
     // request on their own Friends tab regardless of whether this email
-    // arrives.
+    // arrives. (The push notification rides friendships' own insert
+    // trigger — 0065_friend_push_notifications.sql.)
     client.functions.invoke('send-friend-request-email', { body: { friendshipId: created.id } }).catch(() => {});
   },
 

@@ -13,6 +13,7 @@ import {
   TrophyIcon,
   XIcon,
 } from 'phosphor-react-native';
+import { AddFriendChip, type AddFriendChipState } from '../components/AddFriendChip';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -314,6 +315,8 @@ export function ChallengeDetailScreen({
   };
 
   const [friends, setFriends] = useState<Friend[]>([]);
+  // Which leaderboard row's add-friend chip is mid-request, if any.
+  const [friendRequestBusyId, setFriendRequestBusyId] = useState<string | null>(null);
   const [invitingId, setInvitingId] = useState<string | null>(null);
   // Every friend with a pending invite to this challenge — hydrated from
   // listSentChallengeInvites() on every load() (see below), not just
@@ -321,6 +324,46 @@ export function ChallengeDetailScreen({
   // invited at creation time reads "Remind" from the very first render.
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
   const [friendSearch, setFriendSearch] = useState('');
+
+  // Where the viewer stands with someone on this challenge's board — null
+  // means no chip at all: it's the viewer, a bot, or already a friend.
+  const friendChipStateFor = (userId: string, isBot?: boolean): AddFriendChipState | null => {
+    if (isBot || !user?.id || userId === user.id) return null;
+    const f = friends.find((x) => x.userId === userId);
+    if (!f) return 'add';
+    if (f.status === 'accepted') return null;
+    return f.requestedByMe ? 'requested' : 'accept';
+  };
+
+  // Just re-reads the friend list afterwards, not the whole challenge —
+  // nothing else on this screen changes when a friendship does.
+  const addFriendFromBoard = async (userId: string) => {
+    setFriendRequestBusyId(userId);
+    try {
+      await supabaseFriendsProvider.sendFriendRequest(userId);
+    } catch (e) {
+      Alert.alert('Could not add friend', e instanceof Error ? e.message : 'Try again in a moment.');
+    } finally {
+      try {
+        setFriends(await supabaseFriendsProvider.listFriends());
+      } catch {
+        // Keep the old list — the chip just stays as it was.
+      }
+      setFriendRequestBusyId(null);
+    }
+  };
+
+  const renderFriendChip = (userId: string, isBot?: boolean) => {
+    const state = friendChipStateFor(userId, isBot);
+    if (!state) return null;
+    return (
+      <AddFriendChip
+        state={state}
+        busy={friendRequestBusyId === userId}
+        onPress={() => addFriendFromBoard(userId)}
+      />
+    );
+  };
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -1334,6 +1377,7 @@ export function ChallengeDetailScreen({
               <View style={{ flex: 1 }}>
                 <Text style={styles.boardName}>{row.userId === user?.id ? 'You' : row.name}</Text>
               </View>
+              {renderFriendChip(row.userId)}
               <Tag
                 label={`${row.status?.currentStreak ?? 0}-day streak`}
                 variant={(row.status?.currentStreak ?? 0) > 0 ? 'accent' : 'outline'}
@@ -1410,6 +1454,7 @@ export function ChallengeDetailScreen({
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                     <Text style={styles.boardName}>{card.userId === user?.id ? 'You' : card.name}</Text>
                     {card.blackout && <Tag label="Blackout" variant="accent" />}
+                    {renderFriendChip(card.userId)}
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={styles.boardSteps}>
@@ -1453,6 +1498,7 @@ export function ChallengeDetailScreen({
                           variant={streakStatus.eliminatedOnDay == null ? 'accent' : 'outline'}
                         />
                       )}
+                      {renderFriendChip(row.userId, row.isBot)}
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
                       {scoredByDistance ? (
