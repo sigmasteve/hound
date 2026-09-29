@@ -32,4 +32,5 @@ export type RootStackParamList = {
   OrgManagement: undefined;
   OrgDetail: { organizationId: string };
   Locker: undefined;
+  Help: undefined;
 };

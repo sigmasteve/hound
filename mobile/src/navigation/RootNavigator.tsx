@@ -17,6 +17,7 @@ import { AdminScreen } from '../screens/AdminScreen';
 import { AdminUserDetailScreen } from '../screens/AdminUserDetailScreen';
 import { OrgManagementScreen } from '../screens/OrgManagementScreen';
 import { OrgDetailScreen } from '../screens/OrgDetailScreen';
+import { HelpScreen } from '../screens/HelpScreen';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { WelcomeScreen } from '../screens/auth/WelcomeScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -300,6 +301,11 @@ export function RootNavigator() {
               {({ navigation, route }) => (
                 <OrgDetailScreen organizationId={route.params.organizationId} onBack={() => navigation.goBack()} />
               )}
+            </Stack.Screen>
+            <Stack.Screen name="Help" options={{ animation: 'slide_from_right' }}>
+              {/* Reached from TopNav's own ? icon on every tab — goBack()
+                  returns to whichever tab that was, same as Admin. */}
+              {({ navigation }) => <HelpScreen onBack={() => navigation.goBack()} />}
             </Stack.Screen>
           </Stack.Group>
         )}

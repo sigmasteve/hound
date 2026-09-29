@@ -41,6 +41,7 @@ export function MainScreen({ route, navigation }: Props) {
             ? navigation.navigate('OrgDetail', { organizationId })
             : navigation.navigate('OrgManagement')
         }
+        onHelp={() => navigation.navigate('Help')}
       />
       <View style={styles.content}>
         {tab === 'home' && (

@@ -9,6 +9,7 @@ import {
   HouseIcon,
   PawPrintIcon,
   PlugsIcon,
+  QuestionIcon,
   ShieldCheckIcon,
   UsersThreeIcon,
 } from 'phosphor-react-native';
@@ -34,6 +35,7 @@ export function TopNav({
   onProfile,
   onAdmin,
   onOrgManagement,
+  onHelp,
 }: {
   active: MainTab | 'hunt' | 'create';
   onSelect: (tab: MainTab) => void;
@@ -46,6 +48,7 @@ export function TopNav({
   // somewhere to manage. Omitted (undefined) for a platform admin, who
   // lands on the OrgManagementScreen hub instead to pick from every org.
   onOrgManagement: (organizationId?: string) => void;
+  onHelp: () => void;
 }) {
   const { user } = useAuth();
   const { colors } = useTheme();
@@ -83,9 +86,14 @@ export function TopNav({
           <PawPrintIcon size={16} color={colors.accent} weight="fill" />
         </View>
         <Text style={styles.brandName}>Hound</Text>
+        {/* Everyone gets Help, so it's always the first icon on the
+            right — the admin-only icons (and the profile pill) follow it. */}
+        <Pressable style={[styles.iconButton, styles.pushRight]} onPress={onHelp} accessibilityLabel="Help">
+          <QuestionIcon size={16} color={colors.accent} />
+        </Pressable>
         {canManageOrgs && (
           <Pressable
-            style={[styles.iconButton, styles.pushRight]}
+            style={styles.iconButton}
             onPress={() => onOrgManagement(user?.isAdmin ? undefined : user?.organizationId ?? undefined)}
             accessibilityLabel="Organizations"
           >
@@ -94,14 +102,14 @@ export function TopNav({
         )}
         {user?.isAdmin && (
           <Pressable
-            style={[styles.iconButton, !canManageOrgs && styles.pushRight]}
+            style={styles.iconButton}
             onPress={onAdmin}
             accessibilityLabel="Admin"
           >
             <ShieldCheckIcon size={16} color={colors.accent} />
           </Pressable>
         )}
-        <Pressable style={[styles.profile, !user?.isAdmin && !canManageOrgs && styles.pushRight]} onPress={onProfile}>
+        <Pressable style={styles.profile} onPress={onProfile}>
           <Avatar
             initials={user?.initials ?? ''}
             tint={colors.accent800}
@@ -166,10 +174,10 @@ function makeStyles(colors: Palette) {
       justifyContent: 'center',
     },
     brandName: { fontFamily: font.headingSemibold, fontSize: 17, color: colors.text, letterSpacing: 0.2 },
-    // Whichever of the admin icon / profile pill renders first gets this
-    // (see the JSX above) — flexbox `gap` still spaces the two of them
-    // apart normally, this just pushes that first one (and everything
-    // after it) to the row's far right.
+    // Only the Help icon gets this — it's always the first thing on the
+    // right (see the JSX above). flexbox `gap` still spaces everything
+    // after it normally; this just pushes that whole group to the row's
+    // far right.
     pushRight: { marginLeft: 'auto' },
     iconButton: {
       width: 32,
