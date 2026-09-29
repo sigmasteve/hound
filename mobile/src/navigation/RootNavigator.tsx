@@ -18,6 +18,7 @@ import { AdminUserDetailScreen } from '../screens/AdminUserDetailScreen';
 import { OrgManagementScreen } from '../screens/OrgManagementScreen';
 import { OrgDetailScreen } from '../screens/OrgDetailScreen';
 import { HelpScreen } from '../screens/HelpScreen';
+import { AchievementsScreen } from '../screens/AchievementsScreen';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { WelcomeScreen } from '../screens/auth/WelcomeScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -310,6 +311,11 @@ export function RootNavigator() {
               {/* Reached from TopNav's own ? icon on every tab — goBack()
                   returns to whichever tab that was, same as Admin. */}
               {({ navigation }) => <HelpScreen onBack={() => navigation.goBack()} />}
+            </Stack.Screen>
+            <Stack.Screen name="Achievements" options={{ animation: 'slide_from_right' }}>
+              {/* Opened from Home's unlock popup or Settings — goBack()
+                  returns to whichever it was. */}
+              {({ navigation }) => <AchievementsScreen onBack={() => navigation.goBack()} />}
             </Stack.Screen>
           </Stack.Group>
         )}

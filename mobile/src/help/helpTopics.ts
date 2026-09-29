@@ -150,6 +150,17 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'achievements',
+      section: 'rewards',
+      title: 'Achievements',
+      summary: `One-time badges that each pay ${currency}.`,
+      steps: [
+        'Earn badges for milestones — your first finish and first win, a Bingo blackout, a perfect Daily Streak, friends, big step days and weeks, login streaks, and levels.',
+        `Each one pays ${currency} once, the moment you earn it — a popup on Today tells you what you unlocked.`,
+        'See them all (and what’s left) under Settings → Achievements. Friends can see your badges on your profile, and you can see theirs.',
+      ],
+    },
+    {
       id: 'daily-bonus',
       section: 'rewards',
       title: 'Daily bonus and streak',
