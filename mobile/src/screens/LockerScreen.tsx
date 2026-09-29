@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon, LockSimpleIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon, LockSimpleIcon, PlusIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -63,6 +63,19 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   const [buyingProductId, setBuyingProductId] = useState<string | null>(null);
 
   const currencyName = useCurrencyName();
+
+  // "Add Bones" shortcuts (next to the balance, and on items you can't
+  // afford yet) just scroll down to the packs card rather than opening
+  // anything new — the store's own purchase sheet stays the one place a
+  // real-money buy happens. Only offered once there are packs to show:
+  // while they're loading, or if the store can't provide any, there's
+  // nothing worth scrolling to.
+  const scrollRef = useRef<ScrollView>(null);
+  const [packsY, setPacksY] = useState<number | null>(null);
+  const canAddBones = !bonesOffersError && !!bonesOffers && bonesOffers.length > 0;
+  const scrollToPacks = () => {
+    if (packsY !== null) scrollRef.current?.scrollTo({ y: Math.max(0, packsY - 12), animated: true });
+  };
 
   const reload = useCallback(() => {
     if (!user?.id) return;
@@ -168,12 +181,16 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
     const affordable = isShopItem && bonesBalance !== null && item.costBones !== null && bonesBalance >= item.costBones;
     const busy = equippingId === item.id || buyingId === item.id;
 
+    const needsMoreBones = isShopItem && !owned && !affordable && bonesBalance !== null;
+
     const handlePress = () => {
       if (busy) return;
       if (owned) {
         toggleEquip(slot, item.id, !!isEquipped);
       } else if (isShopItem && affordable) {
         buyItem(item);
+      } else if (needsMoreBones && canAddBones) {
+        scrollToPacks();
       }
     };
 
@@ -192,7 +209,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
       <Pressable
         key={item.id}
         style={styles.itemRow}
-        disabled={busy || (!owned && !(isShopItem && affordable))}
+        disabled={busy || (!owned && !(isShopItem && affordable) && !(needsMoreBones && canAddBones))}
         onPress={handlePress}
       >
         {/* Previews this item combined with whatever's equipped in the
@@ -209,7 +226,10 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
         />
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={styles.itemName}>{item.name}</Text>
-          <Text style={styles.itemNote}>{noteText}</Text>
+          <Text style={styles.itemNote}>
+            {noteText}
+            {needsMoreBones && canAddBones && <Text style={styles.itemNoteAction}>{` · Add ${currencyName}`}</Text>}
+          </Text>
         </View>
         {busy ? (
           <ActivityIndicator color={colors.accent} />
@@ -250,7 +270,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
         <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
         <View style={styles.headerRow}>
@@ -304,10 +324,19 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
             <Card style={{ gap: 8 }} elevated={false}>
               <View style={styles.balanceRow}>
                 <BoneIcon size={22} color={color.accent} weight="fill" />
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.balanceLabel}>{currencyName}</Text>
                   <Text style={styles.balanceValue}>{bonesBalance !== null ? bonesBalance.toLocaleString() : '—'}</Text>
                 </View>
+                {canAddBones && (
+                  <Button
+                    label={`Add ${currencyName}`}
+                    variant="primary"
+                    small
+                    icon={<PlusIcon size={13} color={colors.accent} weight="bold" />}
+                    onPress={scrollToPacks}
+                  />
+                )}
               </View>
               <Text style={styles.footNote}>Earned from finishing challenges and leveling up.</Text>
             </Card>
@@ -341,34 +370,37 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
               </Card>
             )}
 
-            <Card style={{ gap: 4 }} elevated={false}>
-              <Text style={text.h4}>Buy {currencyName}</Text>
-              {bonesOffersError ? (
-                <Text style={styles.errorNote}>{bonesOffersError}</Text>
-              ) : bonesOffers === null ? (
-                <ActivityIndicator color={colors.accent} />
-              ) : bonesOffers.length === 0 ? (
-                <Text style={styles.footNote}>No {currencyName} packs available right now.</Text>
-              ) : (
-                bonesOffers.map((offer) => {
-                  const busy = buyingProductId === offer.productId;
-                  return (
-                    <Pressable
-                      key={offer.productId}
-                      style={styles.itemRow}
-                      disabled={buyingProductId !== null}
-                      onPress={() => buyBonesPack(offer)}
-                    >
-                      <BoneIcon size={22} color={color.accent} weight="fill" />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.itemName}>{offer.bonesAmount.toLocaleString()} {currencyName}</Text>
-                      </View>
-                      {busy ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.itemNote}>{offer.priceString}</Text>}
-                    </Pressable>
-                  );
-                })
-              )}
-            </Card>
+            {/* Measured so the "Add" shortcuts know where to scroll. */}
+            <View onLayout={(e) => setPacksY(e.nativeEvent.layout.y)}>
+              <Card style={{ gap: 4 }} elevated={false}>
+                <Text style={text.h4}>Buy {currencyName}</Text>
+                {bonesOffersError ? (
+                  <Text style={styles.errorNote}>{bonesOffersError}</Text>
+                ) : bonesOffers === null ? (
+                  <ActivityIndicator color={colors.accent} />
+                ) : bonesOffers.length === 0 ? (
+                  <Text style={styles.footNote}>No {currencyName} packs available right now.</Text>
+                ) : (
+                  bonesOffers.map((offer) => {
+                    const busy = buyingProductId === offer.productId;
+                    return (
+                      <Pressable
+                        key={offer.productId}
+                        style={styles.itemRow}
+                        disabled={buyingProductId !== null}
+                        onPress={() => buyBonesPack(offer)}
+                      >
+                        <BoneIcon size={22} color={color.accent} weight="fill" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.itemName}>{offer.bonesAmount.toLocaleString()} {currencyName}</Text>
+                        </View>
+                        {busy ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.itemNote}>{offer.priceString}</Text>}
+                      </Pressable>
+                    );
+                  })
+                )}
+              </Card>
+            </View>
 
             <Card style={{ gap: 4 }} elevated={false}>
               <Text style={text.h4}>Frames</Text>
@@ -440,5 +472,6 @@ function makeStyles(colors: Palette) {
     },
     itemName: { fontSize: 14.5, color: colors.text, fontFamily: font.body },
     itemNote: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    itemNoteAction: { color: colors.accent },
   });
 }
