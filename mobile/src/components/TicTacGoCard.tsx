@@ -8,10 +8,12 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import type { Participant } from '../challenges/types';
 import type { HealthProvider } from '../health/types';
 import {
+  activityWindowStart,
   checkGoal,
   formatTimeLeft,
   goalById,
   TICTACGO_DIFFICULTY_NAME,
+  TICTACGO_LOOKBACK_HOURS,
   TICTACGO_TURN_HOURS,
   turnDeadline,
   type TurnActivity,
@@ -117,9 +119,12 @@ export function TicTacGoCard({
   const turnBegun = !!turnStart && turnStart.getTime() <= now;
   const myTurn = !!game && game.status === 'active' && !!userId && game.turnUserId === userId && turnBegun;
 
-  // Only activity since this turn began counts — refetched whenever a new
-  // turn starts for this player.
-  const turnKey = myTurn ? game?.turnStartedAt : null;
+  // Activity from 24 hours before this turn began counts, back to (not
+  // before) this player's own last claim — see activityWindowStart.
+  // Refetched whenever a new turn starts for this player.
+  const myLastClaimAt = !game || !userId ? null : userId === game.xUserId ? game.xLastClaimAt : game.oLastClaimAt;
+  const windowStart = myTurn && game?.turnStartedAt ? activityWindowStart(game.turnStartedAt, myLastClaimAt) : null;
+  const turnKey = windowStart ? windowStart.toISOString() : null;
   useEffect(() => {
     if (!turnKey) {
       setActivity(null);
@@ -177,7 +182,8 @@ export function TicTacGoCard({
   } else if (!turnBegun) {
     status = `The game starts ${turnStart?.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}.`;
   } else if (myTurn) {
-    status = `Your move — ${timeLeft}. Do a workout, then claim a square whose goal you’ve met.`;
+    const since = windowStart!.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    status = `Your move — ${timeLeft}. Activity since ${since} counts — claim one square whose goal you’ve met.`;
   } else {
     status = `${nameOf(game.turnUserId)}’s move — ${timeLeft}.`;
   }
@@ -278,8 +284,9 @@ export function TicTacGoCard({
       )}
 
       <Text style={styles.footNote}>
-        On your turn, meet any open square&rsquo;s goal, then claim it — only activity after your turn starts counts.
-        Three in a row wins. You get {TICTACGO_TURN_HOURS} hours per turn, or the turn passes.
+        On your turn, claim one open square whose goal you&rsquo;ve met. Activity from the {TICTACGO_LOOKBACK_HOURS} hours
+        before your turn started counts too — just not anything from before your last claim, so one workout can&rsquo;t
+        take two squares. Three in a row wins. You get {TICTACGO_TURN_HOURS} hours per turn, or the turn passes.
       </Text>
     </Card>
   );
