@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { toZeroBasedLine, type TicTacGoDifficulty } from './tictacgo';
+import { DEFAULT_TICTACGO_WINDOW_HOURS, toZeroBasedLine, type TicTacGoDifficulty } from './tictacgo';
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -20,10 +20,19 @@ export interface TicTacGoGame {
   oUserId: string | null;
   turnUserId: string | null;
   turnStartedAt: string | null;
-  // When each player last claimed a square (0078) — null before their
-  // first claim, and before 0078 has run.
-  xLastClaimAt: string | null;
-  oLastClaimAt: string | null;
+  // How many hours before a turn began activity still counts (0079) —
+  // 24 for every game made before the setting existed.
+  activityWindowHours: number;
+  // When each player last claimed a steps square, and the workouts each
+  // has already claimed a square with (0079) — what the next claim has
+  // to leave out.
+  xStepsClaimedAt: string | null;
+  oStepsClaimedAt: string | null;
+  xUsedWorkouts: string[];
+  oUsedWorkouts: string[];
+  // Whether 0079 has run (the columns above exist) — decides which claim
+  // function to call.
+  hasClaimTracking: boolean;
   status: TicTacGoStatus;
   winnerUserId: string | null;
   // 0-based square indexes.
@@ -37,7 +46,7 @@ export async function getTicTacGoGame(challengeId: string): Promise<TicTacGoGame
   const { data, error } = await requireClient()
     .from('tictacgo_games')
     // '*' rather than a column list so this keeps working before
-    // 0078_tictacgo_activity_window.sql adds the last-claim columns.
+    // 0079_tictacgo_window_setting.sql adds its columns.
     .select('*')
     .eq('challenge_id', challengeId)
     .maybeSingle();
@@ -52,8 +61,12 @@ export async function getTicTacGoGame(challengeId: string): Promise<TicTacGoGame
     oUserId: data.o_user_id,
     turnUserId: data.turn_user_id,
     turnStartedAt: data.turn_started_at,
-    xLastClaimAt: data.x_last_claim_at ?? null,
-    oLastClaimAt: data.o_last_claim_at ?? null,
+    activityWindowHours: data.activity_window_hours ?? DEFAULT_TICTACGO_WINDOW_HOURS,
+    xStepsClaimedAt: data.x_steps_claimed_at ?? null,
+    oStepsClaimedAt: data.o_steps_claimed_at ?? null,
+    xUsedWorkouts: (data.x_used_workouts as string[] | undefined) ?? [],
+    oUsedWorkouts: (data.o_used_workouts as string[] | undefined) ?? [],
+    hasClaimTracking: data.activity_window_hours !== undefined,
     status: data.status as TicTacGoStatus,
     winnerUserId: data.winner_user_id,
     winningLine: toZeroBasedLine(data.winning_line as number[] | null),
@@ -61,13 +74,27 @@ export async function getTicTacGoGame(challengeId: string): Promise<TicTacGoGame
   };
 }
 
-export async function setupTicTacGoBoard(challengeId: string, difficulty: TicTacGoDifficulty, goals: string[]): Promise<void> {
-  const { error } = await requireClient().rpc('tictacgo_setup', {
+export async function setupTicTacGoBoard(
+  challengeId: string,
+  difficulty: TicTacGoDifficulty,
+  goals: string[],
+  windowHours: number = DEFAULT_TICTACGO_WINDOW_HOURS,
+): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.rpc('tictacgo_setup', {
     p_challenge_id: challengeId,
     p_difficulty: difficulty,
     p_goals: goals,
   });
   if (error) throw new Error(error.message);
+  // 24 is every game's default, so there's nothing to set.
+  if (windowHours !== DEFAULT_TICTACGO_WINDOW_HOURS) {
+    const { error: windowError } = await client.rpc('tictacgo_set_window', {
+      p_challenge_id: challengeId,
+      p_hours: windowHours,
+    });
+    if (windowError) throw new Error(windowError.message);
+  }
 }
 
 // Passes a turn that's run past 24 hours, or ends the game as a draw once
@@ -81,12 +108,24 @@ export async function settleTicTacGo(challengeId: string): Promise<void> {
 // Settles first, as its own call: the claim function refuses a late move
 // without changing anything, so the turn-pass has to be persisted
 // separately (see 0057's comment on tictacgo_claim_square).
-export async function claimTicTacGoSquare(challengeId: string, square: number): Promise<TicTacGoStatus> {
-  await settleTicTacGo(challengeId);
-  const { data, error } = await requireClient().rpc('tictacgo_claim_square', {
-    p_challenge_id: challengeId,
-    p_square: square,
-  });
+export async function claimTicTacGoSquare(
+  game: Pick<TicTacGoGame, 'challengeId' | 'hasClaimTracking'>,
+  square: number,
+  workoutId: string | null,
+): Promise<TicTacGoStatus> {
+  await settleTicTacGo(game.challengeId);
+  // tictacgo_claim (0079) also records what the claim used; before 0079
+  // runs, only 0057's plain claim exists.
+  const { data, error } = game.hasClaimTracking
+    ? await requireClient().rpc('tictacgo_claim', {
+        p_challenge_id: game.challengeId,
+        p_square: square,
+        p_workout_id: workoutId,
+      })
+    : await requireClient().rpc('tictacgo_claim_square', {
+        p_challenge_id: game.challengeId,
+        p_square: square,
+      });
   if (error) throw new Error(error.message);
   return data as TicTacGoStatus;
 }

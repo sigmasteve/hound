@@ -8,14 +8,14 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import type { Participant } from '../challenges/types';
 import type { HealthProvider } from '../health/types';
 import {
-  activityWindowStart,
   checkGoal,
   formatTimeLeft,
   goalById,
   TICTACGO_DIFFICULTY_NAME,
-  TICTACGO_LOOKBACK_HOURS,
   TICTACGO_TURN_HOURS,
+  stepsWindowStart,
   turnDeadline,
+  workoutWindowStart,
   type TurnActivity,
 } from '../challenges/tictacgo';
 import { claimTicTacGoSquare, type TicTacGoGame } from '../challenges/tictacgoApi';
@@ -119,26 +119,35 @@ export function TicTacGoCard({
   const turnBegun = !!turnStart && turnStart.getTime() <= now;
   const myTurn = !!game && game.status === 'active' && !!userId && game.turnUserId === userId && turnBegun;
 
-  // Activity from 24 hours before this turn began counts, back to (not
-  // before) this player's own last claim — see activityWindowStart.
+  // Activity from the game's window (12/24/48h) before this turn began
+  // counts, minus what earlier claims used up: steps since this player's
+  // last steps square, and any workout already claimed with (0079).
   // Refetched whenever a new turn starts for this player.
-  const myLastClaimAt = !game || !userId ? null : userId === game.xUserId ? game.xLastClaimAt : game.oLastClaimAt;
-  const windowStart = myTurn && game?.turnStartedAt ? activityWindowStart(game.turnStartedAt, myLastClaimAt) : null;
-  const turnKey = windowStart ? windowStart.toISOString() : null;
+  const isX = !!game && userId === game.xUserId;
+  const myStepsClaimedAt = !game ? null : isX ? game.xStepsClaimedAt : game.oStepsClaimedAt;
+  const myUsedWorkouts = !game ? [] : isX ? game.xUsedWorkouts : game.oUsedWorkouts;
+  const windowHours = game?.activityWindowHours ?? 24;
+  const workoutsSince = myTurn && game?.turnStartedAt ? workoutWindowStart(game.turnStartedAt, windowHours) : null;
+  const stepsSince =
+    myTurn && game?.turnStartedAt ? stepsWindowStart(game.turnStartedAt, windowHours, myStepsClaimedAt) : null;
+  const activityKey =
+    workoutsSince && stepsSince ? `${workoutsSince.toISOString()}|${stepsSince.toISOString()}|${myUsedWorkouts.join(',')}` : null;
   useEffect(() => {
-    if (!turnKey) {
+    if (!activityKey || !workoutsSince || !stepsSince) {
       setActivity(null);
       return;
     }
     let cancelled = false;
-    const since = new Date(turnKey);
+    const used = new Set(myUsedWorkouts);
     setLoadingActivity(true);
     Promise.all([
-      health.getStepsSince(since).catch(() => 0),
+      health.getStepsSince(stepsSince).catch(() => 0),
       health.getRecentWorkouts(50).catch(() => []),
     ])
       .then(([steps, workouts]) => {
-        if (!cancelled) setActivity({ steps, workouts: workouts.filter((w) => w.when >= since) });
+        if (!cancelled) {
+          setActivity({ steps, workouts: workouts.filter((w) => w.when >= workoutsSince && !used.has(w.id)) });
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingActivity(false);
@@ -146,7 +155,9 @@ export function TicTacGoCard({
     return () => {
       cancelled = true;
     };
-  }, [turnKey, health]);
+    // activityKey covers every input above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityKey, health]);
 
   if (!game) {
     return (
@@ -182,8 +193,12 @@ export function TicTacGoCard({
   } else if (!turnBegun) {
     status = `The game starts ${turnStart?.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}.`;
   } else if (myTurn) {
-    const since = windowStart!.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
-    status = `Your move — ${timeLeft}. Activity since ${since} counts — claim one square whose goal you’ve met.`;
+    const fmt = (d: Date) => d.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    const stepsNote =
+      stepsSince && workoutsSince && stepsSince.getTime() > workoutsSince.getTime()
+        ? ` (steps since ${fmt(stepsSince)}, your last steps square)`
+        : '';
+    status = `Your move — ${timeLeft}. Activity since ${fmt(workoutsSince!)} counts${stepsNote} — claim one square whose goal you’ve met.`;
   } else {
     status = `${nameOf(game.turnUserId)}’s move — ${timeLeft}.`;
   }
@@ -192,7 +207,9 @@ export function TicTacGoCard({
     setClaiming(true);
     setClaimError(null);
     try {
-      await claimTicTacGoSquare(game.challengeId, square);
+      const goal = goalById(game.goals[square]);
+      const used = goal && activity ? checkGoal(goal, activity).workoutId : null;
+      await claimTicTacGoSquare(game, square, used);
       setSelected(null);
     } catch (e) {
       setClaimError(e instanceof Error ? e.message : 'Could not claim that square — try again.');
@@ -284,9 +301,9 @@ export function TicTacGoCard({
       )}
 
       <Text style={styles.footNote}>
-        On your turn, claim one open square whose goal you&rsquo;ve met. Activity from the {TICTACGO_LOOKBACK_HOURS} hours
-        before your turn started counts too — just not anything from before your last claim, so one workout can&rsquo;t
-        take two squares. Three in a row wins. You get {TICTACGO_TURN_HOURS} hours per turn, or the turn passes.
+        On your turn, claim one open square whose goal you&rsquo;ve met. Activity from the {game.activityWindowHours} hours
+        before your turn started counts too. Each workout can claim only one square, and a steps square uses up the
+        steps behind it. Three in a row wins. You get {TICTACGO_TURN_HOURS} hours per turn, or the turn passes.
       </Text>
     </Card>
   );

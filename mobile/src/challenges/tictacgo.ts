@@ -24,17 +24,24 @@ export const TICTACGO_DIFFICULTY_DESC: Record<TicTacGoDifficulty, string> = {
 
 export const TICTACGO_TURN_HOURS = 24;
 
-// How far before your turn began your activity still counts (0078).
-export const TICTACGO_LOOKBACK_HOURS = 24;
+// How far before your turn began your activity still counts — chosen
+// per game in Create (0079_tictacgo_window_setting.sql).
+export const TICTACGO_WINDOW_OPTIONS = [12, 24, 48] as const;
+export const DEFAULT_TICTACGO_WINDOW_HOURS = 24;
 
-// The start of the activity that can claim a square this turn: 24 hours
-// before the turn began, but never earlier than your own last claim — so
-// a workout done during your opponent's turn still counts, and one
-// workout (or one stretch of steps) can't take two squares.
-export function activityWindowStart(turnStartedAt: string, myLastClaimAt: string | null): Date {
-  const lookback = new Date(turnStartedAt).getTime() - TICTACGO_LOOKBACK_HOURS * 3_600_000;
-  const lastClaim = myLastClaimAt ? new Date(myLastClaimAt).getTime() : -Infinity;
-  return new Date(Math.max(lookback, lastClaim));
+// Workouts: anything from `windowHours` before your turn began counts,
+// except the individual workouts you've already claimed a square with
+// (the caller filters those out by id).
+export function workoutWindowStart(turnStartedAt: string, windowHours: number): Date {
+  return new Date(new Date(turnStartedAt).getTime() - windowHours * 3_600_000);
+}
+
+// Steps: the same window, but a steps square uses up the steps behind
+// it — after one, your next steps square counts from that claim on.
+export function stepsWindowStart(turnStartedAt: string, windowHours: number, stepsClaimedAt: string | null): Date {
+  const lookback = workoutWindowStart(turnStartedAt, windowHours).getTime();
+  const lastStepsClaim = stepsClaimedAt ? new Date(stepsClaimedAt).getTime() : -Infinity;
+  return new Date(Math.max(lookback, lastStepsClaim));
 }
 
 type GoalKind =
@@ -184,14 +191,17 @@ function workoutAmount(g: TicTacGoGoal, w: WorkoutSample): number {
 }
 
 export interface TurnActivity {
-  // Steps since activityWindowStart (HealthProvider.getStepsSince).
+  // Steps since stepsWindowStart (HealthProvider.getStepsSince).
   steps: number;
-  // Only workouts that started at or after activityWindowStart.
+  // Workouts since workoutWindowStart, minus ones already claimed with.
   workouts: WorkoutSample[];
 }
 
 export interface GoalCheck {
   met: boolean;
+  // The workout that meets it — sent with the claim so it can't claim a
+  // second square. Null for steps goals, and when not met.
+  workoutId: string | null;
   // "4,210 of 5,000 steps", "Met by Running at 7:10 AM", "No run yet"…
   status: string;
 }
@@ -221,21 +231,23 @@ export function checkGoal(g: TicTacGoGoal, activity: TurnActivity): GoalCheck {
   if (g.kind === 'steps') {
     return {
       met: activity.steps >= g.target,
+      workoutId: null,
       status: `${activity.steps.toLocaleString()} of ${g.target.toLocaleString()} steps`,
     };
   }
 
   const candidates = activity.workouts.filter((w) => matchesType(g, w));
-  if (candidates.length === 0) return { met: false, status: `No ${TYPE_NOUN[g.kind]} yet` };
+  if (candidates.length === 0) return { met: false, workoutId: null, status: `No ${TYPE_NOUN[g.kind]} yet` };
 
   const best = candidates.reduce((a, b) => (workoutAmount(g, b) > workoutAmount(g, a) ? b : a));
   const amount = workoutAmount(g, best);
   // Weekday too: with the 24-hour lookback, "7:10 AM" alone could mean
   // today or yesterday.
   const time = best.when.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
-  if (amount >= g.target) return { met: true, status: `Met by ${best.name} at ${time}` };
+  if (amount >= g.target) return { met: true, workoutId: best.id, status: `Met by ${best.name} at ${time}` };
   return {
     met: false,
+    workoutId: null,
     status: `Best so far: ${formatAmount(g, amount)} of ${formatAmount(g, g.target)}`,
   };
 }

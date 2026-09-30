@@ -36,11 +36,13 @@ import type { Organization } from '../organizations/types';
 import { BOT_FITNESS_LEVELS, BOT_PRESETS, botInitials } from '../challenges/botSimulation';
 import { BINGO_CARD_TYPE_DESC, BINGO_CARD_TYPE_NAME, DEFAULT_BINGO_CARD_TYPE, type BingoCardType } from '../challenges/bingo';
 import {
+  DEFAULT_TICTACGO_WINDOW_HOURS,
   drawBoard,
   goalById,
   TICTACGO_DIFFICULTIES,
   TICTACGO_DIFFICULTY_DESC,
   TICTACGO_DIFFICULTY_NAME,
+  TICTACGO_WINDOW_OPTIONS,
   type TicTacGoDifficulty,
 } from '../challenges/tictacgo';
 import { setupTicTacGoBoard } from '../challenges/tictacgoApi';
@@ -123,6 +125,7 @@ export function CreateScreen({
   const [bingoCardType, setBingoCardType] = useState<BingoCardType>(rematch?.bingoCardType ?? DEFAULT_BINGO_CARD_TYPE);
   const [tictacgoDifficulty, setTictacgoDifficulty] = useState<TicTacGoDifficulty>('easy');
   const [tictacgoBoard, setTictacgoBoard] = useState<string[]>(() => drawBoard('easy'));
+  const [tictacgoWindow, setTictacgoWindow] = useState<number>(DEFAULT_TICTACGO_WINDOW_HOURS);
   const [distanceGoalMi, setDistanceGoalMi] = useState(rematch?.distanceGoalMi ?? 100);
   const [distanceGoalSteps, setDistanceGoalSteps] = useState(rematch?.distanceGoalSteps ?? 500_000);
   const [dailyGoalSteps, setDailyGoalSteps] = useState(rematch?.dailyGoalSteps ?? 10_000);
@@ -450,7 +453,7 @@ export function CreateScreen({
       });
       if (draftType === 'tictacgo') {
         try {
-          await setupTicTacGoBoard(created.id, tictacgoDifficulty, tictacgoBoard);
+          await setupTicTacGoBoard(created.id, tictacgoDifficulty, tictacgoBoard, tictacgoWindow);
         } catch (e) {
           // A game with no board can't be played — don't leave it behind.
           await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
@@ -785,9 +788,19 @@ export function CreateScreen({
                 ))}
               </View>
               <Button label="Reshuffle board" variant="ghost" small onPress={() => setTictacgoBoard(drawBoard(tictacgoDifficulty))} />
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Activity counts from</Text>
+                <Text style={styles.huntBlockValue}>{tictacgoWindow}h before a turn</Text>
+              </View>
+              <SegmentedControl
+                options={TICTACGO_WINDOW_OPTIONS.map((h) => ({ value: String(h), label: `${h} hours` }))}
+                value={String(tictacgoWindow)}
+                onChange={(v) => setTictacgoWindow(Number(v))}
+              />
               <Text style={styles.huntBlockNote}>
-                Each player gets 24 hours per turn and claims one square a turn. Activity from the 24 hours before
-                your turn counts too, so a workout done during your opponent&rsquo;s turn isn&rsquo;t wasted.
+                Each player gets 24 hours per turn and claims one square a turn. Steps and workouts from the{' '}
+                {tictacgoWindow} hours before your turn count too, so nothing done during your opponent&rsquo;s turn is
+                wasted. Each workout can claim only one square, and a steps square uses up the steps behind it.
               </Text>
             </View>
           )}
