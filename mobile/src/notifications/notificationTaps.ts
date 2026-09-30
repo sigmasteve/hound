@@ -4,11 +4,12 @@ import * as Notifications from 'expo-notifications';
 import type { NavigationContainerRefWithCurrent } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/types';
 
-// Where tapping a push takes you. Only admin signup alerts carry a
-// destination today (send-admin-signup-alerts); every other push just
-// opens the app, as before.
+// Where tapping a push takes you. Pushes without one of these types just
+// open the app, as before.
 //   admin_signup         → that new person's Admin page
 //   admin_signup_digest  → the Admin screen
+//   friend_request       → the Friends tab (Accept/Decline is at the top)
+//   friend_accepted      → the new friend's profile
 function routeFor(data: Record<string, unknown> | undefined): (() => [keyof RootStackParamList, any]) | null {
   if (!data) return null;
   if (data.type === 'admin_signup' && typeof data.userId === 'string') {
@@ -28,6 +29,21 @@ function routeFor(data: Record<string, unknown> | undefined): (() => [keyof Root
     ];
   }
   if (data.type === 'admin_signup_digest') return () => ['Admin', undefined];
+  if (data.type === 'friend_request') return () => ['Main', { tab: 'friends' }];
+  if (data.type === 'friend_accepted' && typeof data.friendshipId === 'string' && typeof data.friendUserId === 'string') {
+    return () => [
+      'FriendDetail',
+      {
+        friendshipId: data.friendshipId,
+        friendUserId: data.friendUserId,
+        friendName: String(data.friendName ?? 'Your friend'),
+        friendInitials: String(data.friendInitials ?? '?'),
+        friendFrameId: (data.friendFrameId as string | null) ?? null,
+        friendBackgroundId: (data.friendBackgroundId as string | null) ?? null,
+        friendIconId: (data.friendIconId as string | null) ?? null,
+      },
+    ];
+  }
   return null;
 }
 

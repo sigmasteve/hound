@@ -30,10 +30,17 @@ interface RequestBody {
 
 interface ProfileRow {
   name: string;
+  initials: string;
   username: string | null;
   use_username: boolean;
   notify_push_enabled: boolean;
+  equipped_frame_id: string | null;
+  equipped_background_id: string | null;
+  equipped_icon_id: string | null;
 }
+
+const PROFILE_COLUMNS =
+  'name, initials, username, use_username, notify_push_enabled, equipped_frame_id, equipped_background_id, equipped_icon_id';
 
 // Same rule as send-tag-notification's own copy — Edge Functions can't
 // import from mobile/src.
@@ -78,16 +85,8 @@ Deno.serve(async (req) => {
   }
 
   const [{ data: recipient }, { data: actor }] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('name, username, use_username, notify_push_enabled')
-      .eq('id', body.recipient_id)
-      .single<ProfileRow>(),
-    supabase
-      .from('profiles')
-      .select('name, username, use_username, notify_push_enabled')
-      .eq('id', body.actor_id)
-      .single<ProfileRow>(),
+    supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', body.recipient_id).single<ProfileRow>(),
+    supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', body.actor_id).single<ProfileRow>(),
   ]);
 
   if (!recipient) {
@@ -106,8 +105,23 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ sent: false, reason: 'No registered device' }));
   }
 
-  const messageBody = messageFor(body.kind, actor ? displayName(actor) : 'Someone');
-  const messages = tokens.map((to) => ({ to, title: 'Hound', body: messageBody, sound: 'default' }));
+  const actorName = actor ? displayName(actor) : 'Someone';
+  const messageBody = messageFor(body.kind, actorName);
+  // Lets the app open the right screen when the push is tapped
+  // (src/notifications/notificationTaps.ts): a request opens the
+  // Friends tab with Accept/Decline; an acceptance opens the new
+  // friend's profile.
+  const data = {
+    type: body.kind === 'request' ? 'friend_request' : 'friend_accepted',
+    friendshipId: body.friendship_id,
+    friendUserId: body.actor_id,
+    friendName: actorName,
+    friendInitials: actor?.initials ?? '?',
+    friendFrameId: actor?.equipped_frame_id ?? null,
+    friendBackgroundId: actor?.equipped_background_id ?? null,
+    friendIconId: actor?.equipped_icon_id ?? null,
+  };
+  const messages = tokens.map((to) => ({ to, title: 'Hound', body: messageBody, sound: 'default', data }));
   await fetch(EXPO_PUSH_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },

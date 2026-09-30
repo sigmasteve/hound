@@ -80,6 +80,7 @@ import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
 import { DailyBonusModal } from '../components/DailyBonusModal';
 import { AchievementUnlockedModal } from '../components/AchievementUnlockedModal';
 import { GetStartedCard } from '../components/GetStartedCard';
+import { InviteCodeCard } from '../components/InviteCodeCard';
 import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from '../onboarding/onboardingApi';
 import { checkAchievements, type NewlyEarnedAchievement } from '../achievements/achievementsApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
@@ -589,6 +590,25 @@ export function HomeScreen({
   const dismissGetStarted = () => {
     setGetStartedDismissed(true);
     AsyncStorage.setItem(GET_STARTED_DISMISSED_KEY, '1').catch(() => {});
+  };
+  // "Got an invite code?" — shown until this account has a friend, or
+  // it's dismissed. Uses onboarding's has_friend (0074), so it disappears
+  // on its own once they connect with anyone.
+  const INVITE_CODE_DISMISSED_KEY = 'homeInviteCodeDismissed';
+  const [inviteCodeDismissed, setInviteCodeDismissed] = useState(true);
+  useEffect(() => {
+    AsyncStorage.getItem(INVITE_CODE_DISMISSED_KEY)
+      .then((v) => setInviteCodeDismissed(v === '1'))
+      .catch(() => setInviteCodeDismissed(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const dismissInviteCode = () => {
+    setInviteCodeDismissed(true);
+    AsyncStorage.setItem(INVITE_CODE_DISMISSED_KEY, '1').catch(() => {});
+  };
+  const inviteCodeAdded = () => {
+    setOnboarding((cur) => (cur ? { ...cur, hasFriend: true } : cur));
+    Alert.alert('You’re now friends!', 'Find them on your Friends tab — and challenge them to something.');
   };
   const claimGetStarted = async () => {
     if (!user?.id) return;
@@ -1135,6 +1155,10 @@ export function HomeScreen({
           onPress={openPrimary}
         />
       </View>
+
+      {onboarding && !onboarding.hasFriend && !inviteCodeDismissed && (
+        <InviteCodeCard onAdded={inviteCodeAdded} onDismiss={dismissInviteCode} />
+      )}
 
       {onboarding && !onboarding.rewardClaimed && !getStartedDismissed && (
         <GetStartedCard

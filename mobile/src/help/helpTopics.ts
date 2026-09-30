@@ -201,13 +201,15 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       id: 'add-friends',
       section: 'friends',
       title: 'Add a friend',
-      summary: 'Four ways to connect — pick whichever’s easiest.',
+      summary: 'Several ways to connect — pick whichever’s easiest.',
       steps: [
-        'Invite by email: on the Friends tab, tap Invite by email. If they’re not on Hound yet, they’ll get an invite and you’ll be connected when they sign up.',
-        'Share my code: show your QR code, or copy or share your link.',
-        'Enter a code: paste a friend’s code or link to connect instantly.',
+        'Find people: on the Friends tab, search by name or username, or pick from People you may know (people in your challenges, friends of friends, and new members). Tap Add to send a request.',
+        'Share my code: show your QR code, or share your link. The link helps friends who don’t have Hound yet get the beta first, then shows them your code.',
+        'Enter a code: paste a friend’s code or link to connect instantly. New members also see a “Got an invite code?” card on Today.',
+        'Invite by email: if they’re not on Hound yet, they’ll get an invite and you’ll be connected when they sign up.',
         'From a leaderboard: tap Add next to anyone in a challenge with you.',
       ],
+      tip: 'Rather not be found? Settings → Show me in Find people.',
     },
     {
       id: 'requests',
@@ -215,7 +217,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'Friend requests',
       summary: 'Accepting, declining, and cancelling.',
       steps: [
-        'Requests waiting on you are at the top of the Friends tab — tap Accept or Decline.',
+        'Requests waiting on you are at the top of the Friends tab and on Today — tap Accept or Decline. Tapping a friend-request notification takes you straight there.',
         'Invites you’ve sent are listed under Pending at the bottom; tap Cancel to withdraw one.',
         'If someone already asked you and you add them back, you just become friends.',
       ],

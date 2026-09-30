@@ -47,7 +47,7 @@ export function GetStartedCard({
       key: 'friend',
       Icon: UserPlusIcon,
       title: 'Add a friend',
-      note: 'Send a request or share your code.',
+      note: 'Search for them, share your code, or enter theirs.',
       done: status.hasFriend,
       onGo: onAddFriend,
     },
