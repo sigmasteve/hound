@@ -11,6 +11,8 @@ import {
   requestReminderPermission,
   scheduleDailyBonusReminder,
 } from '../notifications/localReminders';
+import { syncPushRegistration } from '../notifications/pushPermission';
+import { useAuth } from '../auth/AuthContext';
 
 // Shown once per day, right after HomeScreen's claim_daily_bonus call
 // actually awards something (see 0070_daily_bonus.sql) — never for a
@@ -33,6 +35,7 @@ export function DailyBonusModal({
   onClose: () => void;
 }) {
   const { colors, text } = useTheme();
+  const { user } = useAuth();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const today = dayInCycle(streak);
   // Tomorrow is the 7th day of the cycle — worth calling out by name.
@@ -58,6 +61,8 @@ export function DailyBonusModal({
     try {
       if (await requestReminderPermission()) {
         await scheduleDailyBonusReminder(streak + 1, nextBonus, currencyName);
+        // The same yes covers pushes from Hound's server too.
+        if (user?.id) await syncPushRegistration(user.id);
       }
     } catch {
       // Nothing to recover — the popup closes either way.

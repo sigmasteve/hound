@@ -81,6 +81,8 @@ import { DailyBonusModal } from '../components/DailyBonusModal';
 import { AchievementUnlockedModal } from '../components/AchievementUnlockedModal';
 import { GetStartedCard } from '../components/GetStartedCard';
 import { InviteCodeCard } from '../components/InviteCodeCard';
+import { PushAskCard } from '../components/PushAskCard';
+import { shouldOfferPush } from '../notifications/pushPermission';
 import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from '../onboarding/onboardingApi';
 import { checkAchievements, type NewlyEarnedAchievement } from '../achievements/achievementsApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
@@ -606,6 +608,19 @@ export function HomeScreen({
     setInviteCodeDismissed(true);
     AsyncStorage.setItem(INVITE_CODE_DISMISSED_KEY, '1').catch(() => {});
   };
+  // "Turn on notifications" (src/notifications/pushPermission.ts) — once
+  // someone has a friend or a challenge, so there's something worth
+  // being notified about. Only while the phone has never been asked.
+  const [offerPush, setOfferPush] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    shouldOfferPush().then((offer) => {
+      if (!cancelled) setOfferPush(offer);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const inviteCodeAdded = () => {
     setOnboarding((cur) => (cur ? { ...cur, hasFriend: true } : cur));
     Alert.alert('You’re now friends!', 'Find them on your Friends tab — and challenge them to something.');
@@ -1155,6 +1170,10 @@ export function HomeScreen({
           onPress={openPrimary}
         />
       </View>
+
+      {offerPush && user?.id && onboarding && (onboarding.hasFriend || onboarding.joinedChallenge) && (
+        <PushAskCard userId={user.id} onDone={() => setOfferPush(false)} />
+      )}
 
       {onboarding && !onboarding.hasFriend && !inviteCodeDismissed && (
         <InviteCodeCard onAdded={inviteCodeAdded} onDismiss={dismissInviteCode} />

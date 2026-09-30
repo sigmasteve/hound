@@ -19,6 +19,7 @@ import { getAppBanner, setAppBanner, type AppBanner } from '../banner/supabaseBa
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { huntKindName } from '../challenges/present';
 import { AppVersionsCard } from '../components/AppVersionsCard';
+import { PushReachCard } from '../components/PushReachCard';
 import { SignupAlertsCard } from '../components/SignupAlertsCard';
 import { FindPeopleAdminCard } from '../components/FindPeopleAdminCard';
 import {
@@ -528,6 +529,8 @@ export function AdminScreen({
             </Card>
 
             <AppVersionsCard />
+
+            <PushReachCard />
 
             <SignupAlertsCard />
 
