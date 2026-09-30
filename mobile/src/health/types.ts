@@ -1,3 +1,5 @@
+import type { DataSourcesReport } from './dataSources';
+
 // The shape every screen reads from — platform-agnostic. Screens never
 // import @kingstinct/react-native-healthkit or react-native-health-connect
 // directly; they go through `useHealth()` / `getHealthProvider()` from
@@ -82,4 +84,10 @@ export interface HealthProvider {
   // Total steps from an exact moment (not a day boundary) until now —
   // Tic-Tac-Go's step goals count only steps taken since your turn began.
   getStepsSince(since: Date): Promise<number>;
+  // Android only (see dataSources.ts): which apps wrote steps and
+  // workouts to Health Connect over the last `days` days.
+  getDataSources?(days: number): Promise<DataSourcesReport>;
+  // Android only: opens Health Connect, where sharing and the order apps
+  // are counted in are changed.
+  openSettings?(): void;
 }

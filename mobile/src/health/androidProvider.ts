@@ -4,6 +4,7 @@ import {
   getGrantedPermissions,
   getSdkStatus,
   initialize,
+  openHealthConnectSettings,
   readRecords,
   requestPermission,
 } from 'react-native-health-connect';
@@ -16,6 +17,7 @@ import type {
   WorkoutSample,
 } from './types';
 import { pickNonOverlapping } from './dedupeWorkouts';
+import { appName, type DataSourcesReport, type DataSourceSummary } from './dataSources';
 
 // Real Health Connect integration. Requires a custom dev client or a
 // standalone build (`npx expo prebuild` + `expo run:android`, or an EAS
@@ -284,6 +286,73 @@ export const androidHealthProvider: HealthProvider = {
       });
     }
     return out;
+  },
+
+  openSettings() {
+    try {
+      openHealthConnectSettings();
+    } catch {
+      // Health Connect missing — nothing to open.
+    }
+  },
+
+  // Who wrote what, from the raw records (readRecords doesn't merge
+  // overlaps, so per-app step counts are what each app actually wrote),
+  // plus which apps Health Connect's own total drew on.
+  async getDataSources(days: number): Promise<DataSourcesReport> {
+    await ensureInitialized();
+    const filter = { operator: 'between' as const, startTime: daysAgoIso(days - 1), endTime: new Date().toISOString() };
+    const byApp = new Map<string, DataSourceSummary>();
+    const entry = (pkg: string): DataSourceSummary => {
+      let e = byApp.get(pkg);
+      if (!e) {
+        e = { packageName: pkg, name: appName(pkg), steps: 0, workouts: 0, countedForSteps: false, lastAt: null };
+        byApp.set(pkg, e);
+      }
+      return e;
+    };
+    const seen = (e: DataSourceSummary, at: string) => {
+      if (!e.lastAt || at > e.lastAt) e.lastAt = at;
+    };
+
+    // Steps can run to thousands of records a week; read page by page,
+    // with a ceiling so a huge history can't stall the screen.
+    let pageToken: string | undefined;
+    for (let page = 0; page < 10; page++) {
+      const result = await readRecords('Steps', { timeRangeFilter: filter, pageSize: 5000, pageToken }).catch(() => null);
+      if (!result) break;
+      for (const r of result.records) {
+        const e = entry(r.metadata?.dataOrigin ?? 'unknown');
+        e.steps += r.count ?? 0;
+        seen(e, r.endTime);
+      }
+      pageToken = result.pageToken || undefined;
+      if (!pageToken) break;
+    }
+
+    const { records: sessions } = await orEmpty(readRecords('ExerciseSession', { timeRangeFilter: filter, pageSize: 1000 }));
+    for (const r of sessions) {
+      const e = entry(r.metadata?.dataOrigin ?? 'unknown');
+      e.workouts += 1;
+      seen(e, r.endTime);
+    }
+
+    let countedSteps = 0;
+    try {
+      const agg = await aggregateRecord({ recordType: 'Steps', timeRangeFilter: filter });
+      countedSteps = Math.round(agg.COUNT_TOTAL ?? 0);
+      for (const pkg of agg.dataOrigins ?? []) {
+        const e = byApp.get(pkg);
+        if (e) e.countedForSteps = true;
+      }
+    } catch {
+      // Leave the counted total at 0 — the per-app list still helps.
+    }
+
+    const sources = [...byApp.values()]
+      .map((e) => ({ ...e, steps: Math.round(e.steps) }))
+      .sort((a, b) => b.steps - a.steps || b.workouts - a.workouts);
+    return { days, countedSteps, sources };
   },
 
   async getStepsSince(since: Date): Promise<number> {

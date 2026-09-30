@@ -1,3 +1,4 @@
+import type { DataSourcesReport } from './dataSources';
 import type { DailySteps, DailyStepsWithDate, HealthAuthStatus, HealthProvider, HealthSnapshot, WorkoutSample } from './types';
 
 // Sample-data provider — used automatically whenever the platform module
@@ -87,6 +88,20 @@ export const mockProvider: HealthProvider = {
       i++;
     }
     return out;
+  },
+
+  // What an Android phone with Samsung Health and WHOOP typically shows.
+  async getDataSources(days: number): Promise<DataSourcesReport> {
+    const at = new Date(Date.now() - 40 * 60 * 1000).toISOString();
+    return {
+      days,
+      countedSteps: 61840,
+      sources: [
+        { packageName: 'com.sec.android.app.shealth', name: 'Samsung Health', steps: 61840, workouts: 2, countedForSteps: true, lastAt: at },
+        { packageName: 'android', name: 'This phone', steps: 48210, workouts: 0, countedForSteps: false, lastAt: at },
+        { packageName: 'com.whoop.android', name: 'WHOOP', steps: 0, workouts: 4, countedForSteps: false, lastAt: at },
+      ],
+    };
   },
 
   async getStepsSince(since: Date): Promise<number> {
