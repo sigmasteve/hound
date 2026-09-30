@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,6 +41,7 @@ import { levelProgressForXp } from '../challenges/leveling';
 import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import { listAchievements, listEarnedAchievements } from '../achievements/achievementsApi';
 import type { Organization } from '../organizations/types';
+import { getDiscoverable, setDiscoverable } from '../friends/discovery';
 
 const USERNAME_FORMAT = /^[A-Za-z0-9_]{3,20}$/;
 
@@ -114,6 +115,19 @@ export function SettingsScreen({
     } finally {
       setSavingUsername(false);
     }
+  };
+
+  // Whether this account shows up in Friends → Find people (0080). Null
+  // until loaded, or before 0080 has run — the toggle stays hidden then.
+  const [discoverable, setDiscoverableState] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    getDiscoverable(user.id).then(setDiscoverableState);
+  }, [user?.id]);
+  const toggleDiscoverable = (next: boolean) => {
+    if (!user?.id) return;
+    setDiscoverableState(next);
+    setDiscoverable(user.id, next).catch(() => setDiscoverableState(!next));
   };
 
   const toggleUseUsername = async (next: boolean) => {
@@ -709,6 +723,14 @@ export function SettingsScreen({
             />
           ) : (
             <Text style={styles.footNote}>Set a username above to enable this.</Text>
+          )}
+          {discoverable !== null && (
+            <ToggleRow
+              label="Show me in Find people"
+              note={discoverable ? 'Friends can search for you' : 'Hidden from search'}
+              value={discoverable}
+              onChange={toggleDiscoverable}
+            />
           )}
         </Card>
       )}

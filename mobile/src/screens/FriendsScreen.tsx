@@ -25,6 +25,8 @@ import { friendCodeUrl, type Friend } from '../friends/types';
 import { feedAction, getFriendActivityFeed, groupFeed, timeAgo, type FeedItem } from '../friends/activityFeed';
 import { useLabels } from '../labels/LabelsContext';
 import { useAuth } from '../auth/AuthContext';
+import { FindPeopleCard } from '../components/FindPeopleCard';
+import { getDiscoveryConfig, inviteMessage, type DiscoveryConfig } from '../friends/discovery';
 
 type AddMode = 'email' | 'myCode' | 'enterCode';
 
@@ -75,6 +77,9 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
   const { labelsForOrg } = useLabels();
   const labels = labelsForOrg(user?.organizationId);
   const [feed, setFeed] = useState<FeedItem[] | null>(null);
+  // Admin → Find people (0080). Null until loaded, or before 0080 runs —
+  // the Find people card stays hidden either way.
+  const [discovery, setDiscovery] = useState<DiscoveryConfig | null>(null);
   // Feed rows the viewer has already cheered this session.
   const [cheered, setCheered] = useState<Set<string>>(new Set());
   const cheer = async (item: FeedItem) => {
@@ -102,6 +107,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
       getFriendActivityFeed()
         .then((events) => setFeed(groupFeed(events).slice(0, MAX_FEED_ITEMS)))
         .catch(() => setFeed(null));
+      getDiscoveryConfig().then(setDiscovery);
     } catch {
       // Stay on the sample fallback on any failure — this screen never
       // shows an error state for the list itself, it just quietly
@@ -138,7 +144,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
 
   const shareMyLink = () => {
     if (!myCode) return;
-    Share.share({ message: `Add me on Hound: ${friendCodeUrl(myCode)}` }).catch(() => {});
+    Share.share({ message: inviteMessage(myCode) }).catch(() => {});
   };
 
   const redeemCode = async () => {
@@ -276,6 +282,14 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
         </>
       )}
 
+      {discovery && (
+        <FindPeopleCard
+          searchEnabled={discovery.searchEnabled}
+          suggestionsEnabled={discovery.suggestionsEnabled}
+          onChanged={load}
+        />
+      )}
+
       {/* Every way to add someone is one tap away, side by side — the
           options themselves are always visible, and only the one actually
           picked opens its panel below, rather than all three hiding behind
@@ -338,6 +352,12 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
               </View>
             )}
             <Text style={[styles.inviteLink, { textAlign: 'center' }]}>{myCode ? friendCodeUrl(myCode) : '—'}</Text>
+            {myCode && (
+              <Text style={[styles.footNote, { textAlign: 'center' }]}>
+                Your code: <Text style={styles.codeText}>{myCode}</Text>. The link helps friends without Hound get the
+                beta first, then add you.
+              </Text>
+            )}
             <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
               <Button label={copied ? 'Copied!' : 'Copy link'} small disabled={!myCode} onPress={copyMyLink} />
               <Button label="Share" variant="primary" small disabled={!myCode} onPress={shareMyLink} />
@@ -486,6 +506,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    codeText: { fontFamily: font.heading, color: colors.text },
     container: { padding: 16, gap: 12, paddingBottom: 48 },
     feedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
     feedMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },

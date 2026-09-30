@@ -20,6 +20,7 @@ import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { huntKindName } from '../challenges/present';
 import { AppVersionsCard } from '../components/AppVersionsCard';
 import { SignupAlertsCard } from '../components/SignupAlertsCard';
+import { FindPeopleAdminCard } from '../components/FindPeopleAdminCard';
 import {
   listChallengeUnlockGates,
   removeChallengeUnlockGate,
@@ -529,6 +530,8 @@ export function AdminScreen({
             <AppVersionsCard />
 
             <SignupAlertsCard />
+
+            <FindPeopleAdminCard />
 
             <Card style={{ gap: 12 }} elevated={false}>
               <Text style={text.h4}>Chase labels</Text>

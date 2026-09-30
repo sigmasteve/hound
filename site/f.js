@@ -66,12 +66,44 @@
       showLookupError((e && e.message) || 'Something went wrong loading this invite — try again in a moment.');
     });
 
+  // Hound is in beta, so most people opening this link don't have the
+  // app yet: step 1 gets it (the TestFlight public link / Android
+  // download from Admin → Find people, via beta_download_links in
+  // 0080_friend_discovery.sql), step 2 is the code to enter once it's
+  // installed. A link can't survive the install, which is why the code
+  // is spelled out here to copy.
   function showInvite(inviterName) {
+    var name = escapeHtml(inviterName);
+    var safeCode = escapeHtml(code);
     render(
-      '<h2 class="section-title">' + escapeHtml(inviterName) + ' invited you to Hound</h2>' +
-      '<p class="section-sub">Accept to connect once you\'re signed in.</p>' +
-      '<div class="ctas" id="invite-ctas"><p class="section-sub">Checking your account…</p></div>',
+      '<h2 class="section-title">' + name + ' invited you to Hound</h2>' +
+      '<p class="section-sub">Hound is in beta — two quick steps and you\'re connected.</p>' +
+      '<ol class="steps">' +
+        '<li class="step"><div class="step-num">1</div><div>' +
+          '<div class="step-title"><h3>Get the app</h3></div>' +
+          '<div id="download-ctas"><p class="sub">Loading download links…</p></div>' +
+          '<p class="sub">Already have Hound? Skip to step 2.</p>' +
+        '</div></li>' +
+        '<li class="step"><div class="step-num">2</div><div>' +
+          '<div class="step-title"><h3>Add ' + name + '</h3></div>' +
+          '<p>Open Hound, go to <b>Friends</b> → <b>Enter a code</b> (or the “Got an invite code?” card on Today), and enter:</p>' +
+          '<div class="linkbox"><span id="invite-code" style="flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:16px;letter-spacing:0.04em;user-select:all">' + safeCode + '</span>' +
+            '<button class="copy-btn" id="copy-code">Copy</button></div>' +
+        '</div></li>' +
+      '</ol>' +
+      '<div class="notes"><p class="section-sub" style="margin:0 0 8px">Or, if you have a Hound account, accept here:</p>' +
+      '<div class="ctas" id="invite-ctas"><p class="section-sub">Checking your account…</p></div></div>',
     );
+
+    document.getElementById('copy-code').addEventListener('click', function () {
+      var btn = this;
+      var done = function () { btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = 'Copy'; }, 2000); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(done).catch(function () {});
+      }
+    });
+
+    showDownloads();
 
     function showSignedOutCta() {
       var ctas = document.getElementById('invite-ctas');
@@ -83,7 +115,7 @@
       // "index.html" would resolve against /f/ and land back on this
       // same rewrite rule instead of the real page.
       ctas.innerHTML =
-        '<a class="btn btn-primary" href="/index.html?f=' + encodeURIComponent(code) +
+        '<a class="btn btn-secondary" href="/index.html?f=' + encodeURIComponent(code) +
         '#auth">Sign up or log in to accept</a>';
     }
 
@@ -93,7 +125,7 @@
         if (session) {
           var ctas = document.getElementById('invite-ctas');
           ctas.innerHTML =
-            '<button class="btn btn-primary" id="accept-btn">Add ' + escapeHtml(inviterName) + ' as a friend</button>';
+            '<button class="btn btn-primary" id="accept-btn">Add ' + name + ' as a friend</button>';
           document.getElementById('accept-btn').addEventListener('click', acceptInvite);
         } else {
           showSignedOutCta();
@@ -103,6 +135,41 @@
       // account…" forever — same fallback as not being signed in, since
       // signing in/up is the safe default action either way.
       .catch(showSignedOutCta);
+
+    function showDownloads() {
+      var box = document.getElementById('download-ctas');
+      var ua = navigator.userAgent || '';
+      var isAndroid = /android/i.test(ua);
+      var isApple = /iphone|ipad|ipod|macintosh/i.test(ua);
+      client.rpc('beta_download_links')
+        .then(function (res) {
+          var row = res.data && res.data[0];
+          // Only ever an https link, with quotes encoded, since it goes
+          // into an href below.
+          var safeUrl = function (u) {
+            return u && /^https:\/\//i.test(u) ? u.replace(/"/g, '%22').replace(/</g, '%3C').replace(/>/g, '%3E') : null;
+          };
+          var ios = safeUrl(row && row.ios_url);
+          var android = safeUrl(row && row.android_url);
+          if (res.error || (!ios && !android)) {
+            box.innerHTML = '<p>Ask ' + name + ' to send you the beta invite for your phone.</p>';
+            return;
+          }
+          // The button for the visitor's own phone first, and primary.
+          var buttons = [];
+          if (ios) buttons.push({ href: ios, label: 'iPhone: get it on TestFlight', mine: isApple });
+          if (android) buttons.push({ href: android, label: 'Android: download the app', mine: isAndroid });
+          buttons.sort(function (a, b) { return (b.mine ? 1 : 0) - (a.mine ? 1 : 0); });
+          box.innerHTML = buttons.map(function (b, i) {
+            var cls = (b.mine || (i === 0 && !buttons.some(function (x) { return x.mine; }))) ? 'btn btn-primary btn-block' : 'btn btn-secondary btn-block';
+            return '<p><a class="' + cls + '" href="' + b.href + '" target="_blank" rel="noopener">' + escapeHtml(b.label) + '</a></p>';
+          }).join('') +
+          (ios ? '<p class="sub">On iPhone, TestFlight (Apple\'s free beta app) installs first, then Hound.</p>' : '');
+        })
+        .catch(function () {
+          box.innerHTML = '<p>Ask ' + name + ' to send you the beta invite for your phone.</p>';
+        });
+    }
   }
 
   function acceptInvite() {
