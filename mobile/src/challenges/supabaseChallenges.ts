@@ -313,6 +313,18 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       if (botsError) throw new Error(botsError.message);
     }
 
+    // Record the challenge's first calendar day as the creator sees it,
+    // so every participant counts from that same day in their own time
+    // zone (0085_challenge_start_day.sql). Best-effort: before 0085 has
+    // run there's nothing to set, and the server's default still works
+    // for creators in US Eastern time.
+    await client
+      .rpc('set_challenge_start_day', { p_challenge_id: data.id, p_day: localDateKey(startsAt) })
+      .then(
+        () => {},
+        () => {},
+      );
+
     return rowToChallenge(data);
   },
 
