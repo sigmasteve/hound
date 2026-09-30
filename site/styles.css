@@ -325,3 +325,54 @@ footer {
   .step { grid-template-columns: 26px 1fr; gap: 10px; }
   .step-num { width: 26px; height: 26px; font-size: 12px; }
 }
+
+/* ---------- What's new (whats-new.html) ---------- */
+
+.brand-link { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+header.top { flex-wrap: wrap; row-gap: 6px; }
+header.top nav { display: flex; flex-wrap: wrap; justify-content: flex-end; column-gap: 16px; row-gap: 4px; }
+header.top nav a { white-space: nowrap; }
+
+.changes { display: grid; }
+.change { display: grid; gap: 6px; padding: 14px 0; border-top: 1px solid var(--divider); }
+.change:first-child { border-top: 0; padding-top: 0; }
+.change:last-child { padding-bottom: 0; }
+.change-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.change-head h3 { font-family: var(--font-heading); font-weight: 600; font-size: 15px; margin: 0; }
+.change p { margin: 0; font-size: 13.5px; color: rgba(233, 233, 237, 0.82); }
+.change ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; font-size: 13.5px; color: rgba(233, 233, 237, 0.82); }
+.change b { color: var(--text); }
+.where {
+  justify-self: start;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: rgba(233, 233, 237, 0.65);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+.pill.new { background: rgba(127, 211, 155, 0.16); color: var(--green); }
+.pill.improved { background: rgba(224, 169, 79, 0.16); color: var(--amber); }
+body.whats-new footer { text-align: left; color: rgba(233, 233, 237, 0.65); }
+body.whats-new footer b { color: var(--text); }
+
+/* Printer friendly: black on white, no fills, nothing split across pages. */
+@media print {
+  body.whats-new { background: #fff; color: #000; font-size: 10.5pt; }
+  body.whats-new .wrap { max-width: none; padding: 0; }
+  body.whats-new header.top nav { display: none; }
+  body.whats-new .hero { padding: 12pt 0; }
+  body.whats-new .hero p.lede, body.whats-new .change p, body.whats-new .change ul,
+  body.whats-new .section-sub, body.whats-new footer, body.whats-new .step p { color: #000; }
+  body.whats-new .card, body.whats-new .spotlight { background: #fff; border: 1px solid #999; border-radius: 6pt; padding: 12pt; }
+  body.whats-new .section-title, body.whats-new .spotlight .section-title, body.whats-new .change b, body.whats-new footer b { color: #000; }
+  body.whats-new .eyebrow, body.whats-new .step-num { color: #000; }
+  body.whats-new .step-num { background: #fff; border-color: #000; }
+  body.whats-new .where { background: #fff; color: #333; border-color: #999; }
+  body.whats-new .pill.new, body.whats-new .pill.improved { background: #fff; color: #000; border: 1px solid #000; }
+  body.whats-new .change, body.whats-new .step { break-inside: avoid; }
+  body.whats-new .section-title { break-after: avoid; }
+}
