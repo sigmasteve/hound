@@ -2,6 +2,7 @@
   "rewrites": [
     { "source": "/f/:code", "destination": "/f.html" },
     { "source": "/get", "destination": "/download.html" },
+    { "source": "/whats-new", "destination": "/whats-new.html" },
     { "source": "/downloads/hound_0_9.apk", "destination": "https://mslk7fkl2shujmoj.public.blob.vercel-storage.com/application-8299fd05-fd8b-4246-9134-890b88816102.apk" }
   ]
 }
