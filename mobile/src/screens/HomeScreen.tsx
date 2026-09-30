@@ -63,6 +63,7 @@ import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
 import { computePendingActions, needsManualEntry, type PendingAction } from '../challenges/pendingActions';
 import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
+import { getChallengeDays, localDayKey } from '../challenges/challengeDays';
 import { computeStreakStatus, type StreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
 import {
@@ -988,7 +989,12 @@ export function HomeScreen({
                 // a false "you're behind" on a network hiccup — same
                 // "fail toward showing nothing" reasoning
                 // pendingActions.ts documents for its own maps.
-                await isMySeventyFiveTodayComplete(r.challenge.id, myId).catch(() => true),
+                // Before your own day 1 (west of the creator), there's
+                // nothing to do yet either.
+                (await getChallengeDays(r.challenge)
+                  .then((d) => localDayKey(new Date()) < d.firstDay)
+                  .catch(() => false)) ||
+                  (await isMySeventyFiveTodayComplete(r.challenge.id, myId).catch(() => true)),
               ]),
           ),
           Promise.all(

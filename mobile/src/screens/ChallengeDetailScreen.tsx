@@ -47,6 +47,7 @@ import {
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { syncChallengeProgressFromDevice, syncBingoProgressFromDevice, syncSeventyFiveFromDevice } from '../challenges/deviceSync';
+import { getChallengeDays, workoutCounts, type ChallengeDays } from '../challenges/challengeDays';
 import {
   BINGO_CARD_TYPE_NAME,
   BINGO_CATEGORY_LABEL,
@@ -136,6 +137,9 @@ export function ChallengeDetailScreen({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { labelsForOrg } = useLabels();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
+  // Which calendar days count on this phone (challengeDays.ts) — for
+  // Bingo's workout picker and the 75 Day checklist.
+  const [challengeDays, setChallengeDays] = useState<ChallengeDays | null>(null);
   // This challenge's own words, not the viewer's — see LabelsContext's
   // own comment on why those can differ (a platform admin viewing
   // someone else's org's challenge, or a global challenge for someone
@@ -281,14 +285,11 @@ export function ChallengeDetailScreen({
     let cancelled = false;
     setLoadingTodaysWorkouts(true);
     setLinkError(null);
-    const since = new Date(challenge.startsAt);
-    const endsAt = new Date(challenge.endsAt);
     const todayKey = dateKey(new Date());
-    health
-      .getRecentWorkouts(50)
-      .then((workouts) => {
+    Promise.all([getChallengeDays(challenge), health.getRecentWorkouts(50)])
+      .then(([days, workouts]) => {
         if (cancelled) return;
-        setTodaysWorkouts(workouts.filter((w) => dateKey(w.when) === todayKey && w.when >= since && w.when <= endsAt));
+        setTodaysWorkouts(workouts.filter((w) => dateKey(w.when) === todayKey && workoutCounts(days, w.when)));
       })
       .catch(() => {
         if (!cancelled) setTodaysWorkouts([]);
@@ -311,7 +312,12 @@ export function ChallengeDetailScreen({
     setLinkingWorkoutId(workout.id);
     setLinkError(null);
     try {
-      await recordBingoProgress(challenge.id, category, 'manual', { id: workout.id, name: workout.name, when: workout.when });
+      await recordBingoProgress(challenge.id, category, 'manual', {
+        id: workout.id,
+        name: workout.name,
+        when: workout.when,
+        day: dateKey(workout.when),
+      });
       setLinkingCategory(null);
       await load();
     } catch (e) {
@@ -766,6 +772,18 @@ export function ChallengeDetailScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challenge?.id, challenge?.kind]);
 
+  useEffect(() => {
+    if (!challenge || challenge.kind !== 'seventyfive') return;
+    let cancelled = false;
+    getChallengeDays(challenge).then((d) => {
+      if (!cancelled) setChallengeDays(d);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challenge?.id, challenge?.kind]);
+
   // Today's own self-report toggle — diet/water/reading/photo only; the
   // two workout items are read-only here, filled by
   // syncSeventyFiveFromDevice above. A past day's checklist isn't
@@ -925,6 +943,13 @@ export function ChallengeDetailScreen({
   // than the shared Leaderboard.
   const seventyFiveTodayKey = dateKey(new Date());
   const mySeventyFiveToday = seventyFiveCheckins.find((c) => c.userId === user?.id && c.day === seventyFiveTodayKey);
+  // Someone west of the creator can open the challenge before their own
+  // first day has begun (an Oct 1 challenge created in Eastern time is
+  // already running at 11 PM Sep 30 in Central) — nothing to check off
+  // until it does.
+  const seventyFiveBeforeFirstDay = !!challengeDays && seventyFiveTodayKey < challengeDays.firstDay;
+  const seventyFiveAfterLastDay = !!challengeDays && seventyFiveTodayKey > challengeDays.lastDay;
+  const seventyFiveTogglesOpen = !seventyFiveBeforeFirstDay && !seventyFiveAfterLastDay;
   const mySeventyFiveStatus = user?.id ? seventyFiveStatuses.get(user.id) : undefined;
   // Sorted by current streak, longest as a tiebreak — a ranking-looking
   // order for what's still meant to read as "how's everyone doing," not
@@ -1585,7 +1610,7 @@ export function ChallengeDetailScreen({
               label="Followed your diet"
               done={mySeventyFiveToday?.dietDone ?? false}
               busy={seventyFiveSaving === 'diet'}
-              onToggle={(next) => toggleSeventyFiveItem('diet', next)}
+              onToggle={seventyFiveTogglesOpen ? (next) => toggleSeventyFiveItem('diet', next) : undefined}
               styles={styles}
               colors={colors}
             />
@@ -1593,7 +1618,7 @@ export function ChallengeDetailScreen({
               label="Drank a gallon of water"
               done={mySeventyFiveToday?.waterDone ?? false}
               busy={seventyFiveSaving === 'water'}
-              onToggle={(next) => toggleSeventyFiveItem('water', next)}
+              onToggle={seventyFiveTogglesOpen ? (next) => toggleSeventyFiveItem('water', next) : undefined}
               styles={styles}
               colors={colors}
             />
@@ -1601,7 +1626,7 @@ export function ChallengeDetailScreen({
               label="Read 10 pages"
               done={mySeventyFiveToday?.readingDone ?? false}
               busy={seventyFiveSaving === 'reading'}
-              onToggle={(next) => toggleSeventyFiveItem('reading', next)}
+              onToggle={seventyFiveTogglesOpen ? (next) => toggleSeventyFiveItem('reading', next) : undefined}
               styles={styles}
               colors={colors}
             />
@@ -1609,15 +1634,19 @@ export function ChallengeDetailScreen({
               label="Progress photo"
               done={mySeventyFiveToday?.photoDone ?? false}
               busy={seventyFiveSaving === 'photo'}
-              onToggle={(next) => toggleSeventyFiveItem('photo', next)}
+              onToggle={seventyFiveTogglesOpen ? (next) => toggleSeventyFiveItem('photo', next) : undefined}
               styles={styles}
               colors={colors}
             />
           </View>
           <Text style={styles.footNote}>
-            {mySeventyFiveToday && isSeventyFiveDayComplete(mySeventyFiveToday)
-              ? 'All done for today!'
-              : 'The two workouts fill in on their own once logged on your device.'}
+            {seventyFiveBeforeFirstDay && challengeDays
+              ? `Your day 1 is ${formatDayKey(challengeDays.firstDay)} — the checklist opens at midnight your time.`
+              : seventyFiveAfterLastDay
+                ? 'The last day has ended.'
+                : mySeventyFiveToday && isSeventyFiveDayComplete(mySeventyFiveToday)
+                  ? 'All done for today!'
+                  : 'The two workouts fill in on their own once logged on your device.'}
           </Text>
           <View style={styles.leaderboardHeader}>
             <Text style={styles.footNote}>
@@ -2029,6 +2058,12 @@ function formatEndsLabel(endsAt: string, now: number): string {
 // itself calls today, not a UTC day that can be off by one near midnight.
 function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// 'YYYY-MM-DD' → "Thu, Oct 1"
+function formatDayKey(day: string): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 function formatWorkoutTime(d: Date): string {
