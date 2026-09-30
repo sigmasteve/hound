@@ -12,6 +12,7 @@ import type { RootStackParamList } from '../navigation/types';
 //   friend_accepted      → the new friend's profile
 //   nudge / reaction     → the challenge it came from; a nudge from a
 //                          friend's page opens Today, which lists it
+//   trash_talk           → the challenge whose wall it's on
 function routeFor(data: Record<string, unknown> | undefined): (() => [keyof RootStackParamList, any]) | null {
   if (!data) return null;
   if (data.type === 'admin_signup' && typeof data.userId === 'string') {
@@ -45,6 +46,9 @@ function routeFor(data: Record<string, unknown> | undefined): (() => [keyof Root
         friendIconId: (data.friendIconId as string | null) ?? null,
       },
     ];
+  }
+  if (data.type === 'trash_talk' && typeof data.challengeId === 'string') {
+    return () => ['ChallengeDetail', { challengeId: data.challengeId }];
   }
   if (data.type === 'nudge' || data.type === 'reaction') {
     if (typeof data.challengeId === 'string') return () => ['ChallengeDetail', { challengeId: data.challengeId }];
