@@ -54,7 +54,10 @@ export async function recordBingoProgress(
   challengeId: string,
   category: BingoCategory,
   source: BingoFillSource,
-  workout: { id: string; name: string; when: Date },
+  // `day`: the workout's calendar day on this phone ('YYYY-MM-DD'), so
+  // the server can check it falls inside the challenge
+  // (0086_start_day_other_kinds.sql).
+  workout: { id: string; name: string; when: Date; day: string },
 ): Promise<void> {
   const client = requireClient();
   const userId = await requireUserId();
@@ -66,10 +69,18 @@ export async function recordBingoProgress(
     workout_name: workout.name,
     workout_at: workout.when.toISOString(),
     workout_key: workout.id,
+    workout_day: workout.day,
   };
-  const { error } = await client
-    .from('bingo_progress')
-    .upsert(row, { onConflict: 'challenge_id,user_id,category', ignoreDuplicates: source === 'auto' });
+  const upsert = (r: Record<string, unknown>) =>
+    client
+      .from('bingo_progress')
+      .upsert(r, { onConflict: 'challenge_id,user_id,category', ignoreDuplicates: source === 'auto' });
+  let { error } = await upsert(row);
+  // Before 0086 has run there's no workout_day column; save without it.
+  if (error && error.message.includes('workout_day')) {
+    const { workout_day: _day, ...withoutDay } = row;
+    ({ error } = await upsert(withoutDay));
+  }
   if (error) {
     // The one error someone can actually cause on purpose here — trying
     // to link a workout that's already filling a different square (see
