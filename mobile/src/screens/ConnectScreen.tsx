@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { AndroidLogoIcon, AppleLogoIcon, PawPrintIcon } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { DataSourcesCard } from '../components/DataSourcesCard';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
@@ -107,6 +108,13 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
       </View>
 
       {status && <Text style={styles.status}>{status}</Text>}
+
+      {/* Android: which apps are actually sharing, and a setup checklist
+          (health/dataSources.ts). Sample data shows the same card off
+          device, so it can be previewed. */}
+      {((health.platform === 'android' && alreadyAuthorized) || (health.platform === 'mock' && Platform.OS !== 'ios')) && (
+        <DataSourcesCard health={health} />
+      )}
 
       <View style={styles.notice}>
         <Text style={styles.noticeTitle}>Read-only, five metrics</Text>

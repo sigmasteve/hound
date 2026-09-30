@@ -62,6 +62,22 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       tip: 'Numbers look behind? Settings → Connected sources → Sync now.',
     },
     {
+      id: 'android-missing',
+      section: 'basics',
+      title: 'Android: steps or workouts missing',
+      summary: 'Samsung Health, WHOOP and your watch all share through Health Connect.',
+      numbered: true,
+      steps: [
+        'On Android, Hound reads Health Connect, the phone’s shared health store. Samsung Health, WHOOP, Google Health and watch apps each have to share into it.',
+        'Open the Connect tab and look at “Where your data comes from” to see which apps shared this week, and which one Hound’s step total counts.',
+        'In Health Connect → Data and access → App permissions → Hound, allow Steps, Distance and Exercise.',
+        'In Samsung Health → ⋮ → Settings → Health Connect, turn on syncing and allow Steps, Distance and Exercise.',
+        'In WHOOP → More → Account & Settings → Integrations → Health Connect, allow Exercise.',
+        'Set Samsung Health (and Galaxy Wearable) to Unrestricted battery use, then open it once so it syncs.',
+      ],
+      tip: 'WHOOP shares workouts but not steps with Health Connect, so on Android your phone or another watch counts your steps. When two apps count the same minutes, Health Connect keeps only one — you choose which in Health Connect → Activity → Steps → Data sources and priority.',
+    },
+    {
       id: 'today',
       section: 'basics',
       title: 'The Today screen',
