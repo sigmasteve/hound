@@ -233,6 +233,43 @@ export function MetricsScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={text.h2}>Your data</Text>
 
+      <Card style={{ padding: 0, overflow: 'hidden' }} elevated={false}>
+        <Pressable
+          style={[styles.workoutsHeader, workoutsOpen && styles.workoutsHeaderOpen]}
+          onPress={() => setWorkoutsOpen((open) => !open)}
+        >
+          <Text style={styles.workoutsTitle}>Today&rsquo;s Workouts</Text>
+          <Text style={styles.workoutsCount}>{todaysWorkouts.length}</Text>
+          <CaretRightIcon
+            size={16}
+            color={withAlpha(colors.text, 0.5)}
+            style={workoutsOpen ? styles.workoutsCaretOpen : undefined}
+          />
+        </Pressable>
+        {workoutsOpen && (
+          <>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.th, { flex: 1.4 }]}>WORKOUT</Text>
+              <Text style={[styles.th, { flex: 1 }]}>WHEN</Text>
+              <Text style={[styles.th, styles.thRight]}>DIST</Text>
+              <Text style={[styles.th, styles.thRight]}>DUR</Text>
+            </View>
+            {todaysWorkouts.length === 0 ? (
+              <Text style={styles.emptyNote}>Nothing logged yet today.</Text>
+            ) : (
+              // Bounded rather than growing with the list — a busy day's
+              // worth of workouts scrolls inside its own space instead of
+              // pushing everything below it (the rest of the screen) down
+              // an unpredictable amount.
+              <ScrollView style={styles.workoutsScroll} nestedScrollEnabled>
+                <WorkoutGroup label="Distance" workouts={distanceWorkouts} colors={colors} styles={styles} />
+                <WorkoutGroup label="Functional" workouts={functionalWorkouts} colors={colors} styles={styles} />
+              </ScrollView>
+            )}
+          </>
+        )}
+      </Card>
+
       <SegmentedControl
         value={tab}
         onChange={setTab}
@@ -337,43 +374,6 @@ export function MetricsScreen() {
             <Text style={styles.weekTileValue}>{workoutCount}</Text>
           </View>
         </View>
-      </Card>
-
-      <Card style={{ padding: 0, overflow: 'hidden' }} elevated={false}>
-        <Pressable
-          style={[styles.workoutsHeader, workoutsOpen && styles.workoutsHeaderOpen]}
-          onPress={() => setWorkoutsOpen((open) => !open)}
-        >
-          <Text style={styles.workoutsTitle}>Today&rsquo;s Workouts</Text>
-          <Text style={styles.workoutsCount}>{todaysWorkouts.length}</Text>
-          <CaretRightIcon
-            size={16}
-            color={withAlpha(colors.text, 0.5)}
-            style={workoutsOpen ? styles.workoutsCaretOpen : undefined}
-          />
-        </Pressable>
-        {workoutsOpen && (
-          <>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.th, { flex: 1.4 }]}>WORKOUT</Text>
-              <Text style={[styles.th, { flex: 1 }]}>WHEN</Text>
-              <Text style={[styles.th, styles.thRight]}>DIST</Text>
-              <Text style={[styles.th, styles.thRight]}>DUR</Text>
-            </View>
-            {todaysWorkouts.length === 0 ? (
-              <Text style={styles.emptyNote}>Nothing logged yet today.</Text>
-            ) : (
-              // Bounded rather than growing with the list — a busy day's
-              // worth of workouts scrolls inside its own space instead of
-              // pushing everything below it (the rest of the screen) down
-              // an unpredictable amount.
-              <ScrollView style={styles.workoutsScroll} nestedScrollEnabled>
-                <WorkoutGroup label="Distance" workouts={distanceWorkouts} colors={colors} styles={styles} />
-                <WorkoutGroup label="Functional" workouts={functionalWorkouts} colors={colors} styles={styles} />
-              </ScrollView>
-            )}
-          </>
-        )}
       </Card>
 
       {/* Last on the tab, on purpose — Phase 1 only (training load, no
