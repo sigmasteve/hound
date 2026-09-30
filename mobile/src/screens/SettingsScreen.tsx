@@ -42,6 +42,7 @@ import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cos
 import { listAchievements, listEarnedAchievements } from '../achievements/achievementsApi';
 import type { Organization } from '../organizations/types';
 import { getDiscoverable, setDiscoverable } from '../friends/discovery';
+import { getSocialPushEnabled, setSocialPushEnabled } from '../social/social';
 import {
   askForPush,
   getPushPermission,
@@ -425,6 +426,29 @@ export function SettingsScreen({
     }, [user?.id]),
   );
 
+  // Nudges and reactions from friends (0082_nudges_reactions.sql). Loaded
+  // on its own, so the rest of the card still shows before 0082 has run.
+  const [socialPushEnabled, setSocialPushEnabledState] = useState<boolean | null>(null);
+  const [savingSocialPush, setSavingSocialPush] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured || !user?.id) return;
+      getSocialPushEnabled(user.id).then(setSocialPushEnabledState);
+    }, [user?.id]),
+  );
+  const toggleSocialPush = async (next: boolean) => {
+    if (!user?.id) return;
+    setSavingSocialPush(true);
+    try {
+      await setSocialPushEnabled(user.id, next);
+      setSocialPushEnabledState(next);
+    } catch (err) {
+      Alert.alert('Nudges & reactions', err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setSavingSocialPush(false);
+    }
+  };
+
   const toggleStaleDataPush = async (next: boolean) => {
     if (!user?.id) return;
     setSavingAlert('staleDataPush');
@@ -538,13 +562,22 @@ export function SettingsScreen({
   // anyone who wants push for one thing but not another.
   const [notificationsAdvancedExpanded, setNotificationsAdvancedExpanded] = useState(false);
   const [masterToggling, setMasterToggling] = useState<'push' | 'email' | null>(null);
-  const allPushEnabled = pushEnabled === true && staleDataPushEnabled === true && dailyStandingsPushEnabled === true;
+  const allPushEnabled =
+    pushEnabled === true &&
+    staleDataPushEnabled === true &&
+    dailyStandingsPushEnabled === true &&
+    socialPushEnabled !== false;
   const allEmailEnabled =
     emailEnabled === true && staleDataEmailEnabled === true && dailyStandingsEmailEnabled === true;
 
   const toggleMasterPush = async (next: boolean) => {
     setMasterToggling('push');
-    await Promise.all([togglePush(next), toggleStaleDataPush(next), toggleDailyStandingsPush(next)]);
+    await Promise.all([
+      togglePush(next),
+      toggleStaleDataPush(next),
+      toggleDailyStandingsPush(next),
+      socialPushEnabled !== null ? toggleSocialPush(next) : Promise.resolve(),
+    ]);
     setMasterToggling(null);
   };
 
@@ -824,7 +857,8 @@ export function SettingsScreen({
           <Card style={{ gap: 16 }} elevated={false}>
             <Text style={text.h4}>Notifications</Text>
             <Text style={styles.footNote}>
-              Covers login reminders, Tag catch alerts, stale-data alerts, and daily standings.
+              Covers login reminders, Tag catch alerts, stale-data alerts, daily standings, and nudges and reactions from
+              friends.
             </Text>
             {phonePush === 'denied' && (
               <View style={styles.phonePushNote}>
@@ -937,6 +971,19 @@ export function SettingsScreen({
                     onChange={toggleDailyStandingsEmail}
                   />
                 </View>
+                {socialPushEnabled !== null && (
+                  <View style={{ gap: 10 }}>
+                    <Text style={styles.alertGroupLabel}>
+                      Nudges &amp; reactions — when a friend nudges you, or reacts to your progress in a challenge
+                    </Text>
+                    <ToggleRow
+                      label="Push notification"
+                      note={savingSocialPush ? 'Saving…' : 'Sent to this device'}
+                      value={socialPushEnabled}
+                      onChange={toggleSocialPush}
+                    />
+                  </View>
+                )}
               </View>
             )}
           </Card>

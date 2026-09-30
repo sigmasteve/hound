@@ -82,6 +82,8 @@ import { AchievementUnlockedModal } from '../components/AchievementUnlockedModal
 import { GetStartedCard } from '../components/GetStartedCard';
 import { InviteCodeCard } from '../components/InviteCodeCard';
 import { PushAskCard } from '../components/PushAskCard';
+import { NudgesCard } from '../components/NudgesCard';
+import { nudgesReceived, type ReceivedNudge } from '../social/social';
 import { shouldOfferPush } from '../notifications/pushPermission';
 import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from '../onboarding/onboardingApi';
 import { checkAchievements, type NewlyEarnedAchievement } from '../achievements/achievementsApi';
@@ -621,6 +623,34 @@ export function HomeScreen({
       cancelled = true;
     };
   }, []);
+  // "You got a nudge" (0082_nudges_reactions.sql) — nudges from the last
+  // day, until dismissed. Dismissing remembers the newest one, so a new
+  // nudge brings the card back.
+  const NUDGES_DISMISSED_KEY = 'homeNudgesDismissedAt';
+  const [nudges, setNudges] = useState<ReceivedNudge[]>([]);
+  const [nudgesDismissedAt, setNudgesDismissedAt] = useState<string | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      Promise.all([nudgesReceived(), AsyncStorage.getItem(NUDGES_DISMISSED_KEY).catch(() => null)])
+        .then(([n, dismissedAt]) => {
+          if (cancelled) return;
+          setNudges(n);
+          setNudgesDismissedAt(dismissedAt);
+        })
+        .catch(() => {});
+      return () => {
+        cancelled = true;
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
+  const visibleNudges = nudges.filter((n) => !nudgesDismissedAt || n.createdAt > nudgesDismissedAt);
+  const dismissNudges = () => {
+    const newest = nudges[0]?.createdAt ?? new Date().toISOString();
+    setNudgesDismissedAt(newest);
+    AsyncStorage.setItem(NUDGES_DISMISSED_KEY, newest).catch(() => {});
+  };
   const inviteCodeAdded = () => {
     setOnboarding((cur) => (cur ? { ...cur, hasFriend: true } : cur));
     Alert.alert('You’re now friends!', 'Find them on your Friends tab — and challenge them to something.');
@@ -1170,6 +1200,10 @@ export function HomeScreen({
           onPress={openPrimary}
         />
       </View>
+
+      {visibleNudges.length > 0 && (
+        <NudgesCard nudges={visibleNudges} onOpenChallenge={onOpenChallenge} onDismiss={dismissNudges} />
+      )}
 
       {offerPush && user?.id && onboarding && (onboarding.hasFriend || onboarding.joinedChallenge) && (
         <PushAskCard userId={user.id} onDone={() => setOfferPush(false)} />

@@ -12,6 +12,7 @@ import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { KudosCounts } from '../friends/types';
 import { listAchievements, listEarnedAchievements, type Achievement } from '../achievements/achievementsApi';
 import { achievementIcon } from '../achievements/achievementIcons';
+import { myRecentNudges, nudgeAgainLabel, sendNudge } from '../social/social';
 
 export function FriendDetailScreen({
   friendshipId,
@@ -48,6 +49,32 @@ export function FriendDetailScreen({
       .catch(() => setFriendBadges(null));
   }, [friendUserId]);
   const [givingKudos, setGivingKudos] = useState(false);
+  // Nudge (0082_nudges_reactions.sql) — once per 20 hours.
+  const [lastNudgedAt, setLastNudgedAt] = useState<string | undefined>(undefined);
+  const [nudging, setNudging] = useState(false);
+  const [nudgeNote, setNudgeNote] = useState<string | null>(null);
+  useEffect(() => {
+    myRecentNudges()
+      .then((m) => setLastNudgedAt(m.get(friendUserId)))
+      .catch(() => {});
+  }, [friendUserId]);
+  const nudgeWait = nudgeAgainLabel(lastNudgedAt);
+  const nudge = async () => {
+    setNudging(true);
+    try {
+      const { pushed } = await sendNudge(friendUserId);
+      setLastNudgedAt(new Date().toISOString());
+      setNudgeNote(
+        pushed
+          ? `Nudged ${friendName} 👋`
+          : `Nudged ${friendName} — they can’t get notifications yet, so they’ll see it next time they open Hound.`,
+      );
+    } catch (e) {
+      Alert.alert('Could not nudge', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setNudging(false);
+    }
+  };
   const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
@@ -189,7 +216,22 @@ export function FriendDetailScreen({
           ) : !loadError ? (
             <ActivityIndicator color={colors.accent} />
           ) : null}
-          <Button label={givingKudos ? 'Sending…' : 'Give kudos 👏'} variant="primary" disabled={givingKudos} onPress={sendKudos} />
+          <View style={styles.cheerButtons}>
+            <View style={{ flex: 1 }}>
+              <Button label={givingKudos ? 'Sending…' : 'Give kudos 👏'} variant="primary" disabled={givingKudos} onPress={sendKudos} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button
+                label={nudging ? 'Nudging…' : nudgeWait ? 'Nudged' : 'Nudge 👋'}
+                variant="secondary"
+                disabled={nudging || !!nudgeWait}
+                onPress={nudge}
+              />
+            </View>
+          </View>
+          <Text style={styles.footNote}>
+            {nudgeNote ?? nudgeWait ?? 'A nudge sends them a push to get moving — once a day.'}
+          </Text>
         </Card>
 
         <Pressable onPress={confirmRemove} disabled={removing} style={styles.deleteRow}>
@@ -215,6 +257,7 @@ function makeStyles(colors: Palette) {
     container: { padding: 16, gap: 16, paddingBottom: 48 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     statRow: { flexDirection: 'row', gap: 16 },
+    cheerButtons: { flexDirection: 'row', gap: 10 },
     badgeHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
     badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },
     badgeCell: { width: '25%', alignItems: 'center', gap: 5, paddingHorizontal: 2 },
