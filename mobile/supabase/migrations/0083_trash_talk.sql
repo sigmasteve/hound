@@ -28,8 +28,10 @@
 --
 -- New messages push the rest of the challenge through send-social-push
 -- (0082's social_notify), at most one trash-talk push per person per
--- challenge every 30 minutes, respecting mutes and each person's
--- "Nudges, reactions & trash talk" setting.
+-- challenge every 2 hours, respecting mutes and each person's
+-- "Nudges, reactions & trash talk" setting. Anyone can also mute one
+-- challenge's trash talk (trash_talk_challenge_mutes): no pushes from
+-- that challenge's wall, which still shows every message.
 --
 -- Before running: redeploy the function —
 --   supabase functions deploy send-social-push
@@ -97,6 +99,14 @@ create table public.trash_talk_mutes (
   check (user_id <> muted_user_id)
 );
 
+-- Challenges whose trash talk someone doesn't want pushed to them.
+create table public.trash_talk_challenge_mutes (
+  challenge_id uuid not null references public.challenges (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (challenge_id, user_id)
+);
+
 -- When each person last got a trash-talk push for each challenge.
 create table public.trash_talk_pushes (
   challenge_id uuid not null references public.challenges (id) on delete cascade,
@@ -110,6 +120,7 @@ alter table public.challenge_messages enable row level security;
 alter table public.challenge_message_reports enable row level security;
 alter table public.trash_talk_mutes enable row level security;
 alter table public.trash_talk_pushes enable row level security;
+alter table public.trash_talk_challenge_mutes enable row level security;
 
 create policy "Users can see their own mutes"
   on public.trash_talk_mutes for select
@@ -180,7 +191,8 @@ returns table (
   free_text_allowed boolean,
   free_text_reason text,
   read_only boolean,
-  retention_days int
+  retention_days int,
+  pushes_muted boolean
 )
 language plpgsql
 stable
@@ -207,7 +219,11 @@ begin
       else null
     end,
     ended,
-    cfg.retention_days;
+    cfg.retention_days,
+    exists (
+      select 1 from public.trash_talk_challenge_mutes cm
+      where cm.challenge_id = p_challenge_id and cm.user_id = auth.uid()
+    );
 end;
 $$;
 
@@ -316,7 +332,8 @@ begin
     returning id into new_id;
 
   -- Push everyone else who hasn't had one for this challenge in the last
-  -- 30 minutes, hasn't muted the author, and can get these pushes.
+  -- 2 hours, hasn't muted the author or this challenge's trash talk, and
+  -- can get these pushes.
   select coalesce(array_agg(cp.user_id), '{}') into recipients
   from public.challenge_participants cp
   where cp.challenge_id = p_challenge_id
@@ -324,8 +341,12 @@ begin
     and public.social_push_reachable(cp.user_id)
     and not exists (select 1 from public.trash_talk_mutes mu where mu.user_id = cp.user_id and mu.muted_user_id = me)
     and not exists (
+      select 1 from public.trash_talk_challenge_mutes cm
+      where cm.challenge_id = p_challenge_id and cm.user_id = cp.user_id
+    )
+    and not exists (
       select 1 from public.trash_talk_pushes tp
-      where tp.challenge_id = p_challenge_id and tp.user_id = cp.user_id and tp.last_at > now() - interval '30 minutes'
+      where tp.challenge_id = p_challenge_id and tp.user_id = cp.user_id and tp.last_at > now() - interval '2 hours'
     );
 
   if array_length(recipients, 1) > 0 then
@@ -464,6 +485,26 @@ begin
 end;
 $$;
 
+-- Stop (or restart) trash-talk pushes from one challenge.
+create or replace function public.set_trash_talk_challenge_muted(p_challenge_id uuid, p_muted boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_challenge_participant(p_challenge_id, auth.uid()) then
+    raise exception 'Only people in this challenge can do that.';
+  end if;
+  if p_muted then
+    insert into public.trash_talk_challenge_mutes (challenge_id, user_id) values (p_challenge_id, auth.uid())
+      on conflict do nothing;
+  else
+    delete from public.trash_talk_challenge_mutes where challenge_id = p_challenge_id and user_id = auth.uid();
+  end if;
+end;
+$$;
+
 -- ── Admin ────────────────────────────────────────────────────────────
 
 -- Reported messages that still need a decision, most-reported first.
@@ -561,6 +602,9 @@ begin
 
   delete from public.challenge_message_reports where resolved_at < now() - interval '30 days';
   delete from public.trash_talk_pushes where last_at < now() - interval '1 day';
+  delete from public.trash_talk_challenge_mutes cm
+    using public.challenges c
+    where c.id = cm.challenge_id and c.ends_at < now() - interval '1 day';
 
   -- 0082's nudges and reactions only ever show for a day.
   delete from public.nudges where created_at < now() - interval '7 days';
@@ -593,6 +637,8 @@ revoke execute on function public.report_trash_talk(uuid, text) from public, ano
 grant execute on function public.report_trash_talk(uuid, text) to authenticated;
 revoke execute on function public.set_trash_talk_mute(uuid, boolean) from public, anon;
 grant execute on function public.set_trash_talk_mute(uuid, boolean) to authenticated;
+revoke execute on function public.set_trash_talk_challenge_muted(uuid, boolean) from public, anon;
+grant execute on function public.set_trash_talk_challenge_muted(uuid, boolean) to authenticated;
 revoke execute on function public.admin_trash_talk_reports() from public, anon;
 grant execute on function public.admin_trash_talk_reports() to authenticated;
 revoke execute on function public.admin_resolve_trash_talk(uuid, boolean) from public, anon;

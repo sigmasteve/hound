@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { ChatCircleDotsIcon, PaperPlaneRightIcon } from 'phosphor-react-native';
+import { BellSimpleIcon, BellSimpleSlashIcon, ChatCircleDotsIcon, PaperPlaneRightIcon } from 'phosphor-react-native';
 import { Avatar } from './Avatar';
 import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
@@ -14,6 +14,7 @@ import {
   postTaunt,
   postTrashText,
   reportTrashTalk,
+  setTrashTalkChallengeMuted,
   setTrashTalkMute,
   tauntChips,
   TRASH_TALK_MAX_LENGTH,
@@ -32,8 +33,9 @@ const FREE_TEXT_NOTE: Record<string, string> = {
 
 // A challenge's trash-talk wall (0083_trash_talk.sql): one-tap taunts
 // built from the standings, free text where it's allowed, and mute /
-// report / delete on each message. Checks for new messages, and for the
-// admin's free-text switch, every 15 seconds while it's on screen.
+// report / delete on each message, and a Mute switch for this
+// challenge's trash-talk notifications. Checks for new messages, and for
+// the admin's free-text switch, every 15 seconds while it's on screen.
 export function TrashTalkCard({
   challengeId,
   myId,
@@ -157,6 +159,24 @@ export function TrashTalkCard({
     ]);
   };
 
+  // Pushes from this challenge's wall, on or off. Updates at once and
+  // puts it back if the save fails.
+  const [savingMute, setSavingMute] = useState(false);
+  const togglePushes = async () => {
+    if (!status) return;
+    const next = !status.pushesMuted;
+    setStatus({ ...status, pushesMuted: next });
+    setSavingMute(true);
+    try {
+      await setTrashTalkChallengeMuted(challengeId, next);
+    } catch (e) {
+      setStatus((cur) => (cur ? { ...cur, pushesMuted: !next } : cur));
+      setError(e instanceof Error ? e.message : 'Could not change that — try again.');
+    } finally {
+      setSavingMute(false);
+    }
+  };
+
   const unmute = (userId: string) =>
     setTrashTalkMute(userId, false)
       .then(() => {
@@ -173,8 +193,31 @@ export function TrashTalkCard({
     <Card style={{ gap: 12 }} elevated={false}>
       <View style={styles.header}>
         <ChatCircleDotsIcon size={16} color={colors.accent} />
-        <Text style={text.h4}>Trash talk</Text>
+        <Text style={[text.h4, { flex: 1 }]}>Trash talk</Text>
+        {status && !status.readOnly && (
+          <Pressable
+            onPress={togglePushes}
+            disabled={savingMute}
+            hitSlop={8}
+            style={[styles.muteToggle, status.pushesMuted && styles.muteToggleOn]}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: !status.pushesMuted }}
+            accessibilityLabel="Notifications for this challenge's trash talk"
+          >
+            {status.pushesMuted ? (
+              <BellSimpleSlashIcon size={14} color={colors.amber} />
+            ) : (
+              <BellSimpleIcon size={14} color={withAlpha(colors.text, 0.6)} />
+            )}
+            <Text style={[styles.muteLabel, status.pushesMuted && { color: colors.amber }]}>
+              {status.pushesMuted ? 'Muted' : 'Mute'}
+            </Text>
+          </Pressable>
+        )}
       </View>
+      {status?.pushesMuted && !status.readOnly && (
+        <Text style={styles.footNote}>You won&rsquo;t get notifications for this challenge&rsquo;s trash talk.</Text>
+      )}
 
       {!messages ? (
         <ActivityIndicator color={colors.accent} />
@@ -314,6 +357,18 @@ export function TrashTalkCard({
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    muteToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.text, 0.15),
+    },
+    muteToggleOn: { borderColor: withAlpha(colors.amber, 0.5), backgroundColor: withAlpha(colors.amber, 0.1) },
+    muteLabel: { fontSize: 12, fontFamily: font.heading, color: withAlpha(colors.text, 0.65) },
     list: { maxHeight: 360 },
     message: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
     messageHead: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },

@@ -35,6 +35,8 @@ export interface TrashTalkStatus {
   freeTextReason: FreeTextOffReason;
   readOnly: boolean;
   retentionDays: number;
+  // The caller turned off trash-talk pushes for this challenge.
+  pushesMuted: boolean;
 }
 
 export async function getTrashTalkStatus(challengeId: string): Promise<TrashTalkStatus> {
@@ -47,6 +49,7 @@ export async function getTrashTalkStatus(challengeId: string): Promise<TrashTalk
     freeTextReason: (r?.free_text_reason ?? null) as FreeTextOffReason,
     readOnly: !!r?.read_only,
     retentionDays: Number(r?.retention_days ?? 7),
+    pushesMuted: !!r?.pushes_muted,
   };
 }
 
@@ -95,6 +98,16 @@ export async function reportTrashTalk(messageId: string, reason?: string): Promi
 
 export async function setTrashTalkMute(userId: string, muted: boolean): Promise<void> {
   const { error } = await requireClient().rpc('set_trash_talk_mute', { p_user: userId, p_muted: muted });
+  if (error) throw new Error(error.message);
+}
+
+// No trash-talk pushes from this one challenge (its wall still shows
+// everything).
+export async function setTrashTalkChallengeMuted(challengeId: string, muted: boolean): Promise<void> {
+  const { error } = await requireClient().rpc('set_trash_talk_challenge_muted', {
+    p_challenge_id: challengeId,
+    p_muted: muted,
+  });
   if (error) throw new Error(error.message);
 }
 

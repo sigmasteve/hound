@@ -5,7 +5,7 @@
 //   'reaction'    "Jordan reacted 🔥 to your progress in Week Race"
 //   'trash_talk'  "Jordan in Week Race: Catch me if you can 🐾" — to
 //                 everyone in to_users (the RPC already applied mutes and
-//                 the 30-minute limit)
+//                 the 2-hour limit)
 // The RPC has already checked who can do what, and that each recipient
 // has these pushes on; a failure here never undoes the nudge, reaction
 // or message — the calling side swallows it.
