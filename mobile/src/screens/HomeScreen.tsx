@@ -83,6 +83,8 @@ import { GetStartedCard } from '../components/GetStartedCard';
 import { InviteCodeCard } from '../components/InviteCodeCard';
 import { PushAskCard } from '../components/PushAskCard';
 import { NudgesCard } from '../components/NudgesCard';
+import { NewRecordModal } from '../components/NewRecordModal';
+import { syncPersonalRecords, takePendingNewRecords, type NewRecord } from '../records/personalRecords';
 import { nudgesReceived, type ReceivedNudge } from '../social/social';
 import { shouldOfferPush } from '../notifications/pushPermission';
 import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from '../onboarding/onboardingApi';
@@ -623,6 +625,27 @@ export function HomeScreen({
       cancelled = true;
     };
   }, []);
+  // Personal records (0084_personal_records.sql): sync on focus (at most
+  // every six hours), then celebrate anything beaten — here or on Your
+  // data — once the other popups are done.
+  const [newRecords, setNewRecords] = useState<NewRecord[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.id) return;
+      let cancelled = false;
+      const userId = user.id;
+      (async () => {
+        await syncPersonalRecords(health, userId);
+        const pending = await takePendingNewRecords(userId);
+        if (!cancelled && pending.length > 0) setNewRecords((cur) => [...cur, ...pending]);
+      })();
+      return () => {
+        cancelled = true;
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id, health]),
+  );
+
   // "You got a nudge" (0082_nudges_reactions.sql) — nudges from the last
   // day, until dismissed. Dismissing remembers the newest one, so a new
   // nudge brings the card back.
@@ -1474,6 +1497,16 @@ export function HomeScreen({
         weeklyBonus={dailyBonus.weeklyBones}
         currencyName={currencyName}
         onClose={() => setDailyBonus(null)}
+      />
+    )}
+    {!dailyBonus && unlocked.length === 0 && newRecords.length > 0 && (
+      <NewRecordModal
+        records={newRecords}
+        onViewAll={() => {
+          setNewRecords([]);
+          onGoTab('metrics');
+        }}
+        onClose={() => setNewRecords([])}
       />
     )}
     {!dailyBonus && unlocked.length > 0 && (

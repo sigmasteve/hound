@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { recordPhrase, type RecordKind } from '../records/personalRecords';
 
 // The Friends tab's activity feed — see 0073_friend_activity_feed.sql.
 // The server returns only accepted friends' highlights from the last 14
@@ -11,13 +12,15 @@ export type FeedKind =
   | 'won_chase_escape'
   | 'bingo_blackout'
   | 'streak_survived'
-  | 'achievement';
+  | 'achievement'
+  | 'personal_record';
 
 export interface FeedEvent {
   id: string;
   userId: string;
   kind: FeedKind;
-  // The badge name for an achievement; null otherwise.
+  // The badge name for an achievement; "kind:value" for a personal
+  // record (0084); null otherwise.
   detail: string | null;
   occurredAt: string;
   name: string;
@@ -73,7 +76,8 @@ export function groupFeed(events: FeedEvent[]): FeedItem[] {
       items.push(item);
       continue;
     }
-    items.push({ ...e, badges: [] });
+    // A record's "kind:value" rides along in badges, like a badge name.
+    items.push({ ...e, badges: e.kind === 'personal_record' && e.detail ? [e.detail] : [] });
   }
   return items;
 }
@@ -93,6 +97,11 @@ export function feedAction(item: FeedItem, labels: { hunter: string }): string {
       return 'filled a whole Bingo card';
     case 'streak_survived':
       return 'made it through a Daily Streak without a miss';
+    case 'personal_record': {
+      const [kind, value] = (item.badges[0] ?? '').split(':');
+      const n = Number(value);
+      return kind && Number.isFinite(n) ? `set a new record: ${recordPhrase(kind as RecordKind, n)}` : 'set a new personal record';
+    }
     case 'achievement':
       if (item.badges.length <= 1) return `unlocked ${item.badges[0] ?? 'an achievement'}`;
       if (item.badges.length === 2) return `unlocked ${item.badges[0]} and ${item.badges[1]}`;

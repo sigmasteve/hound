@@ -8,6 +8,8 @@ import { Tag } from '../components/Tag';
 import { useTheme } from '../theme/ThemeContext';
 import { font, toneColor, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
+import { useAuth } from '../auth/AuthContext';
+import { PersonalRecordsCard } from '../components/PersonalRecordsCard';
 import type { DailySteps, WorkoutSample } from '../health/types';
 import { computeReadiness, READINESS_COPY, SAMPLE_READINESS, type ReadinessResult } from '../health/readiness';
 
@@ -167,6 +169,7 @@ function categoryOf(w: WorkoutSample): WorkoutCategory {
 
 export function MetricsScreen() {
   const health = useHealthProvider();
+  const { user } = useAuth();
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [tab, setTab] = useState<MetricTab>('steps');
@@ -333,6 +336,8 @@ export function MetricsScreen() {
           </View>
         </View>
       </Card>
+
+      {user?.id && <PersonalRecordsCard health={health} userId={user.id} />}
 
       <Card style={{ padding: 0, overflow: 'hidden' }} elevated={false}>
         <Pressable
