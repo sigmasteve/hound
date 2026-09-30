@@ -786,7 +786,8 @@ export function CreateScreen({
               </View>
               <Button label="Reshuffle board" variant="ghost" small onPress={() => setTictacgoBoard(drawBoard(tictacgoDifficulty))} />
               <Text style={styles.huntBlockNote}>
-                Each player gets 24 hours per turn. Only activity after your turn starts counts toward a square.
+                Each player gets 24 hours per turn and claims one square a turn. Activity from the 24 hours before
+                your turn counts too, so a workout done during your opponent&rsquo;s turn isn&rsquo;t wasted.
               </Text>
             </View>
           )}

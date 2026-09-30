@@ -24,6 +24,19 @@ export const TICTACGO_DIFFICULTY_DESC: Record<TicTacGoDifficulty, string> = {
 
 export const TICTACGO_TURN_HOURS = 24;
 
+// How far before your turn began your activity still counts (0078).
+export const TICTACGO_LOOKBACK_HOURS = 24;
+
+// The start of the activity that can claim a square this turn: 24 hours
+// before the turn began, but never earlier than your own last claim — so
+// a workout done during your opponent's turn still counts, and one
+// workout (or one stretch of steps) can't take two squares.
+export function activityWindowStart(turnStartedAt: string, myLastClaimAt: string | null): Date {
+  const lookback = new Date(turnStartedAt).getTime() - TICTACGO_LOOKBACK_HOURS * 3_600_000;
+  const lastClaim = myLastClaimAt ? new Date(myLastClaimAt).getTime() : -Infinity;
+  return new Date(Math.max(lookback, lastClaim));
+}
+
 type GoalKind =
   | 'steps'
   | 'walk_mi'
@@ -59,9 +72,9 @@ export const TICTACGO_POOLS: Record<TicTacGoDifficulty, TicTacGoGoal[]> = {
   easy: [
     goal('steps_3000', '3K steps', 'Walk 3,000 steps', 'steps', 3000),
     goal('steps_5000', '5K steps', 'Walk 5,000 steps', 'steps', 5000),
-    goal('walk_mi_1', 'Walk 1 mi', 'A walk of at least 1 mile', 'walk_mi', 1),
+    goal('walk_mi_1', 'Walk 1 mi', 'A walk or hike of at least 1 mile', 'walk_mi', 1),
     goal('run_mi_0_5', 'Run ½ mi', 'A run of at least half a mile', 'run_mi', 0.5),
-    goal('walk_min_20', '20-min walk', 'A walk of at least 20 minutes', 'walk_min', 20),
+    goal('walk_min_20', '20-min walk', 'A walk or hike of at least 20 minutes', 'walk_min', 20),
     goal('any_min_15', '15-min workout', 'Any workout of at least 15 minutes', 'any_min', 15),
     goal('strength_min_15', '15-min strength', 'A strength workout of at least 15 minutes', 'strength_min', 15),
     goal('cardio_min_15', '15-min cardio', 'A cardio workout of at least 15 minutes (running, HIIT, elliptical…)', 'cardio_min', 15),
@@ -71,9 +84,9 @@ export const TICTACGO_POOLS: Record<TicTacGoDifficulty, TicTacGoGoal[]> = {
   medium: [
     goal('steps_8000', '8K steps', 'Walk 8,000 steps', 'steps', 8000),
     goal('steps_10000', '10K steps', 'Walk 10,000 steps', 'steps', 10000),
-    goal('walk_mi_3', 'Walk 3 mi', 'A walk of at least 3 miles', 'walk_mi', 3),
+    goal('walk_mi_3', 'Walk 3 mi', 'A walk or hike of at least 3 miles', 'walk_mi', 3),
     goal('run_mi_2', 'Run 2 mi', 'A run of at least 2 miles', 'run_mi', 2),
-    goal('walk_min_45', '45-min walk', 'A walk of at least 45 minutes', 'walk_min', 45),
+    goal('walk_min_45', '45-min walk', 'A walk or hike of at least 45 minutes', 'walk_min', 45),
     goal('any_min_45', '45-min workout', 'Any workout of at least 45 minutes', 'any_min', 45),
     goal('strength_min_30', '30-min strength', 'A strength workout of at least 30 minutes', 'strength_min', 30),
     goal('cardio_min_30', '30-min cardio', 'A cardio workout of at least 30 minutes (running, HIIT, elliptical…)', 'cardio_min', 30),
@@ -83,7 +96,7 @@ export const TICTACGO_POOLS: Record<TicTacGoDifficulty, TicTacGoGoal[]> = {
   advanced: [
     goal('steps_15000', '15K steps', 'Walk 15,000 steps', 'steps', 15000),
     goal('steps_20000', '20K steps', 'Walk 20,000 steps', 'steps', 20000),
-    goal('walk_mi_6', 'Walk 6 mi', 'A walk of at least 6 miles', 'walk_mi', 6),
+    goal('walk_mi_6', 'Walk 6 mi', 'A walk or hike of at least 6 miles', 'walk_mi', 6),
     goal('run_mi_3_1', 'Run a 5K', 'A run of at least 3.1 miles', 'run_mi', 3.1),
     goal('run_mi_5', 'Run 5 mi', 'A run of at least 5 miles', 'run_mi', 5),
     goal('any_min_60', '60-min workout', 'Any workout of at least 60 minutes', 'any_min', 60),
@@ -139,7 +152,7 @@ function isYoga(w: WorkoutSample): boolean {
 // the platform's own indoor/outdoor flag when it has one (iOS), and only
 // guess from the name when it doesn't (Android, older iOS workouts).
 function isOutdoor(w: WorkoutSample): boolean {
-  return w.isOutdoor ?? /run|walk|jog|hike/i.test(w.name);
+  return w.isOutdoor ?? /run|walk|jog|hik/i.test(w.name);
 }
 
 function matchesType(g: TicTacGoGoal, w: WorkoutSample): boolean {
@@ -171,15 +184,15 @@ function workoutAmount(g: TicTacGoGoal, w: WorkoutSample): number {
 }
 
 export interface TurnActivity {
-  // Steps since the turn began (HealthProvider.getStepsSince).
+  // Steps since activityWindowStart (HealthProvider.getStepsSince).
   steps: number;
-  // Only workouts that started at or after the turn began.
+  // Only workouts that started at or after activityWindowStart.
   workouts: WorkoutSample[];
 }
 
 export interface GoalCheck {
   met: boolean;
-  // "4,210 of 5,000 steps", "Met by Running at 7:10 AM", "No run yet this turn"…
+  // "4,210 of 5,000 steps", "Met by Running at 7:10 AM", "No run yet"…
   status: string;
 }
 
@@ -191,8 +204,8 @@ function formatAmount(g: TicTacGoGoal, n: number): string {
 
 const TYPE_NOUN: Record<GoalKind, string> = {
   steps: 'steps',
-  walk_mi: 'walk',
-  walk_min: 'walk',
+  walk_mi: 'walk or hike',
+  walk_min: 'walk or hike',
   run_mi: 'run',
   any_min: 'workout',
   strength_min: 'strength workout',
@@ -203,21 +216,23 @@ const TYPE_NOUN: Record<GoalKind, string> = {
 
 // One workout has to meet a workout goal on its own — two 10-minute walks
 // don't make a 20-minute walk. Step goals are the running total since the
-// turn began.
+// activity window began (activityWindowStart).
 export function checkGoal(g: TicTacGoGoal, activity: TurnActivity): GoalCheck {
   if (g.kind === 'steps') {
     return {
       met: activity.steps >= g.target,
-      status: `${activity.steps.toLocaleString()} of ${g.target.toLocaleString()} steps this turn`,
+      status: `${activity.steps.toLocaleString()} of ${g.target.toLocaleString()} steps`,
     };
   }
 
   const candidates = activity.workouts.filter((w) => matchesType(g, w));
-  if (candidates.length === 0) return { met: false, status: `No ${TYPE_NOUN[g.kind]} yet this turn` };
+  if (candidates.length === 0) return { met: false, status: `No ${TYPE_NOUN[g.kind]} yet` };
 
   const best = candidates.reduce((a, b) => (workoutAmount(g, b) > workoutAmount(g, a) ? b : a));
   const amount = workoutAmount(g, best);
-  const time = best.when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  // Weekday too: with the 24-hour lookback, "7:10 AM" alone could mean
+  // today or yesterday.
+  const time = best.when.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' });
   if (amount >= g.target) return { met: true, status: `Met by ${best.name} at ${time}` };
   return {
     met: false,

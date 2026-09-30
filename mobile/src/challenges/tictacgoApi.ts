@@ -20,6 +20,10 @@ export interface TicTacGoGame {
   oUserId: string | null;
   turnUserId: string | null;
   turnStartedAt: string | null;
+  // When each player last claimed a square (0078) — null before their
+  // first claim, and before 0078 has run.
+  xLastClaimAt: string | null;
+  oLastClaimAt: string | null;
   status: TicTacGoStatus;
   winnerUserId: string | null;
   // 0-based square indexes.
@@ -32,7 +36,9 @@ export interface TicTacGoGame {
 export async function getTicTacGoGame(challengeId: string): Promise<TicTacGoGame | null> {
   const { data, error } = await requireClient()
     .from('tictacgo_games')
-    .select('challenge_id, difficulty, goals, marks, x_user_id, o_user_id, turn_user_id, turn_started_at, status, winner_user_id, winning_line, ended_reason')
+    // '*' rather than a column list so this keeps working before
+    // 0078_tictacgo_activity_window.sql adds the last-claim columns.
+    .select('*')
     .eq('challenge_id', challengeId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -46,6 +52,8 @@ export async function getTicTacGoGame(challengeId: string): Promise<TicTacGoGame
     oUserId: data.o_user_id,
     turnUserId: data.turn_user_id,
     turnStartedAt: data.turn_started_at,
+    xLastClaimAt: data.x_last_claim_at ?? null,
+    oLastClaimAt: data.o_last_claim_at ?? null,
     status: data.status as TicTacGoStatus,
     winnerUserId: data.winner_user_id,
     winningLine: toZeroBasedLine(data.winning_line as number[] | null),

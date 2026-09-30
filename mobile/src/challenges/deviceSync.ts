@@ -71,7 +71,7 @@ export async function syncChallengeProgressFromDevice(challenge: Challenge, heal
       // this was indoor").
       const relevant =
         challenge.scoringMethod === 'gps_distance'
-          ? inRange.filter((w) => w.isOutdoor ?? /run|walk|jog|hike/i.test(w.name))
+          ? inRange.filter((w) => w.isOutdoor ?? /run|walk|jog|hik/i.test(w.name))
           : inRange;
 
       const byDay = new Map<string, number>();
@@ -213,7 +213,7 @@ export async function syncSeventyFiveFromDevice(challenge: Challenge, health: He
       Array.from(byDay.entries()).map(([day, dayWorkouts]) => {
         const workout1Done = dayWorkouts.length >= 1;
         const workout2OutdoorDone =
-          dayWorkouts.length >= 2 && dayWorkouts.some((w) => w.isOutdoor ?? /run|walk|jog|hike/i.test(w.name));
+          dayWorkouts.length >= 2 && dayWorkouts.some((w) => w.isOutdoor ?? /run|walk|jog|hik/i.test(w.name));
         return recordSeventyFiveWorkouts(challenge.id, day, workout1Done, workout2OutdoorDone);
       }),
     );

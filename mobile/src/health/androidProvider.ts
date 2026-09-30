@@ -1,5 +1,6 @@
 import {
   aggregateRecord,
+  ExerciseType,
   getGrantedPermissions,
   getSdkStatus,
   initialize,
@@ -247,7 +248,7 @@ export const androidHealthProvider: HealthProvider = {
       // starting at the same instant of different types is the only
       // (unrealistic) collision.
       id: r.metadata?.id ?? `${r.startTime}_${r.exerciseType ?? 'unknown'}`,
-      name: r.title ?? r.exerciseType?.toString() ?? 'Workout',
+      name: exerciseName(r.title, r.exerciseType),
       when: new Date(r.startTime),
       source: 'Health Connect',
       distanceMi: distanceMi > 0 ? Math.round(distanceMi * 10) / 10 : undefined,
@@ -304,4 +305,27 @@ function dateOnly(d: Date): Date {
 
 function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Health Connect sends an exercise type as a bare number (37 for hiking)
+// and a title only if the recording app set one — so without this, an
+// untitled hike reached the rest of the app as the name "37" and nothing
+// could tell it was a hike (Tic-Tac-Go walk squares, Bingo). Turns the
+// number into its constant's name ("HIKING" → "Hiking"), keeping a
+// custom title alongside it when it doesn't already say the type.
+const EXERCISE_TYPE_NAMES = new Map<number, string>(
+  Object.entries(ExerciseType as Record<string, number>).map(([key, value]) => [
+    value,
+    key
+      .toLowerCase()
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' '),
+  ]),
+);
+
+function exerciseName(title: string | undefined | null, exerciseType: number | undefined | null): string {
+  const typeName = exerciseType != null ? EXERCISE_TYPE_NAMES.get(exerciseType) : undefined;
+  if (title && typeName && !title.toLowerCase().includes(typeName.toLowerCase())) return `${title} · ${typeName}`;
+  return title || typeName || 'Workout';
 }
