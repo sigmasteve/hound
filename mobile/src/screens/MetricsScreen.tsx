@@ -313,6 +313,8 @@ export function MetricsScreen() {
         )}
       </Card>
 
+      {user?.id && <PersonalRecordsCard health={health} userId={user.id} />}
+
       <Card style={{ gap: 14, padding: 18 }} elevated={false}>
         {/* A rolling window like the chart above, not the calendar week —
             Home's Monday recap is the one that covers Mon–Sun. */}
@@ -336,8 +338,6 @@ export function MetricsScreen() {
           </View>
         </View>
       </Card>
-
-      {user?.id && <PersonalRecordsCard health={health} userId={user.id} />}
 
       <Card style={{ padding: 0, overflow: 'hidden' }} elevated={false}>
         <Pressable
