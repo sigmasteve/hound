@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { touchLastActive } from '../notifications/supabaseNotifications';
 import { reportAppVersion } from '../admin/appVersions';
+import { syncPushRegistration } from '../notifications/pushPermission';
 import { MisconfiguredScreen } from '../components/MisconfiguredScreen';
 import * as mockAuth from './mockAuth';
 import * as supabaseAuth from './supabaseAuth';
@@ -93,6 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Which build and update this open is running, for Admin → App
     // versions (0076_app_version_tracking.sql).
     reportAppVersion(user.id);
+    // Registers this phone for push once notifications are allowed, and
+    // reports the phone's setting (0081_push_permission.sql).
+    syncPushRegistration(user.id);
   }, [user?.id]);
 
   // Every method re-throws whatever the backend rejects with, so screens

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
@@ -42,6 +42,13 @@ import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cos
 import { listAchievements, listEarnedAchievements } from '../achievements/achievementsApi';
 import type { Organization } from '../organizations/types';
 import { getDiscoverable, setDiscoverable } from '../friends/discovery';
+import {
+  askForPush,
+  getPushPermission,
+  openPhoneSettings,
+  syncPushRegistration,
+  type PushPermission,
+} from '../notifications/pushPermission';
 
 const USERNAME_FORMAT = /^[A-Za-z0-9_]{3,20}$/;
 
@@ -328,6 +335,40 @@ export function SettingsScreen({
         });
     }, [user?.id]),
   );
+
+  // The phone's own notification setting (src/notifications/
+  // pushPermission.ts). The toggles below are Hound's preferences — they
+  // read as on by default — but nothing reaches a phone that hasn't
+  // allowed notifications, so say so. Re-checked when coming back from
+  // the phone's Settings, and registers the phone if they turned it on
+  // there.
+  const [phonePush, setPhonePush] = useState<PushPermission | null>(null);
+  const phonePushRef = useRef<PushPermission | null>(null);
+  const [askingPush, setAskingPush] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      const check = () =>
+        getPushPermission().then((p) => {
+          const prev = phonePushRef.current;
+          if (p === 'granted' && prev && prev !== 'granted' && user?.id) syncPushRegistration(user.id);
+          phonePushRef.current = p;
+          setPhonePush(p);
+        });
+      check();
+      const sub = AppState.addEventListener('change', (state) => {
+        if (state === 'active') check();
+      });
+      return () => sub.remove();
+    }, [user?.id]),
+  );
+  const turnOnPhonePush = async () => {
+    if (!user?.id) return;
+    setAskingPush(true);
+    const p = await askForPush(user.id);
+    phonePushRef.current = p;
+    setPhonePush(p);
+    setAskingPush(false);
+  };
 
   // On-device reminders (src/notifications/localReminders.ts) — a device
   // preference, not a profiles column, since they're scheduled locally
@@ -785,6 +826,29 @@ export function SettingsScreen({
             <Text style={styles.footNote}>
               Covers login reminders, Tag catch alerts, stale-data alerts, and daily standings.
             </Text>
+            {phonePush === 'denied' && (
+              <View style={styles.phonePushNote}>
+                <Text style={styles.phonePushText}>
+                  Notifications are turned off for Hound on this phone, so pushes can&rsquo;t reach you. Turn them on
+                  in your phone&rsquo;s Settings.
+                </Text>
+                <Button label="Open Settings" small variant="secondary" onPress={openPhoneSettings} />
+              </View>
+            )}
+            {phonePush === 'undetermined' && (
+              <View style={styles.phonePushNote}>
+                <Text style={styles.phonePushText}>
+                  This phone isn&rsquo;t set up for push yet, so pushes can&rsquo;t reach you.
+                </Text>
+                <Button
+                  label={askingPush ? 'Turning on…' : 'Turn on'}
+                  small
+                  variant="primary"
+                  disabled={askingPush}
+                  onPress={turnOnPhonePush}
+                />
+              </View>
+            )}
             <ToggleRow
               label="Push notifications"
               note={masterToggling === 'push' ? 'Saving…' : 'Sent to this device'}
@@ -930,6 +994,16 @@ function makeStyles(colors: Palette) {
     syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
     syncLabel: { fontSize: 12, color: colors.accent, fontFamily: font.heading },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    phonePushNote: {
+      gap: 10,
+      padding: 12,
+      borderRadius: 12,
+      backgroundColor: withAlpha(colors.amber, 0.12),
+      borderWidth: 1,
+      borderColor: withAlpha(colors.amber, 0.4),
+      alignItems: 'flex-start',
+    },
+    phonePushText: { fontSize: 12.5, color: colors.text },
     scoreHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     scoreLabel: { fontSize: 12, letterSpacing: 0.5, color: withAlpha(colors.text, 0.55) },
     scoreValue: { fontFamily: font.headingSemibold, fontSize: 26, color: colors.text },

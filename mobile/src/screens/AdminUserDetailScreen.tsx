@@ -11,6 +11,7 @@ import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { banUser, deleteUser, getUserOverview, isBanned, unbanUser, type AdminUserOverview } from '../admin/adminApi';
 import { buildLabel, getUserApp, updateLabel, type ReportedApp } from '../admin/appVersions';
+import { getUserPushReach, REACH_LABEL, REACH_NOTE, type PushReach } from '../admin/pushReach';
 
 type BanDurationChoice = '1' | '7' | '30' | 'forever';
 
@@ -89,6 +90,11 @@ export function AdminUserDetailScreen({
   const [app, setApp] = useState<ReportedApp | null>(null);
   useEffect(() => {
     getUserApp(userId).then(setApp);
+  }, [userId]);
+  // Whether a push can reach them (0081).
+  const [push, setPush] = useState<PushReach | null>(null);
+  useEffect(() => {
+    getUserPushReach(userId).then(setPush);
   }, [userId]);
 
   useEffect(() => {
@@ -227,6 +233,13 @@ export function AdminUserDetailScreen({
               <Text style={styles.footNote}>Not reported yet — their app predates version reporting.</Text>
             )}
           </View>
+          {push && (
+            <View style={{ gap: 2 }}>
+              <Text style={styles.appLabel}>PUSH</Text>
+              <Text style={styles.appValue}>{REACH_LABEL[push]}</Text>
+              <Text style={styles.footNote}>{REACH_NOTE[push]}</Text>
+            </View>
+          )}
         </Card>
 
         {isSelf ? (

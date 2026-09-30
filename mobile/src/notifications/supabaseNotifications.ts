@@ -46,7 +46,11 @@ export async function setPushEnabled(userId: string, enabled: boolean): Promise<
   if (error) throw new Error(error.message);
 }
 
-async function registerForPushNotifications(userId: string): Promise<void> {
+// Also called on every app open once notifications are allowed (see
+// pushPermission.ts), so a phone that allowed them anywhere — the daily
+// bonus popup, the Today card — gets registered, not just one that
+// flipped a Settings toggle.
+export async function registerForPushNotifications(userId: string): Promise<void> {
   // Push tokens aren't meaningful on a simulator/emulator — same "no real
   // sensor to read here" shape as src/health's mock fallback.
   if (!Device.isDevice) {
