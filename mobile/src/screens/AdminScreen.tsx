@@ -22,6 +22,7 @@ import { AppVersionsCard } from '../components/AppVersionsCard';
 import { PushReachCard } from '../components/PushReachCard';
 import { SignupAlertsCard } from '../components/SignupAlertsCard';
 import { FindPeopleAdminCard } from '../components/FindPeopleAdminCard';
+import { TrashTalkAdminCard } from '../components/TrashTalkAdminCard';
 import {
   listChallengeUnlockGates,
   removeChallengeUnlockGate,
@@ -535,6 +536,8 @@ export function AdminScreen({
             <SignupAlertsCard />
 
             <FindPeopleAdminCard />
+
+            <TrashTalkAdminCard />
 
             <Card style={{ gap: 12 }} elevated={false}>
               <Text style={text.h4}>Chase labels</Text>

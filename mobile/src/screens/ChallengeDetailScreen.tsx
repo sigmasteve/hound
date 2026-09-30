@@ -18,6 +18,8 @@ import {
 } from 'phosphor-react-native';
 import { AddFriendChip, type AddFriendChipState } from '../components/AddFriendChip';
 import { PersonActions } from '../components/PersonActions';
+import { TrashTalkCard } from '../components/TrashTalkCard';
+import type { Standing, TauntUnit } from '../social/trashTalk';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -935,6 +937,25 @@ export function ChallengeDetailScreen({
       return streakDiff !== 0 ? streakDiff : (b.status?.longestStreak ?? 0) - (a.status?.longestStreak ?? 0);
     });
 
+  // Where everyone stands, for the trash-talk taunts with numbers in them
+  // ("I'm 4,200 steps ahead of Casey"). Tic-Tac-Go has no single number.
+  const trashTalkBoard: { standings: Standing[] | null; unit: TauntUnit | null } =
+    challenge.kind === 'tictacgo'
+      ? { standings: null, unit: null }
+      : challenge.kind === 'bingo'
+        ? { standings: bingoBoardRows.map((r) => ({ userId: r.userId, name: r.name, value: r.squaresFilled })), unit: 'squares' }
+        : challenge.kind === 'seventyfive'
+          ? {
+              standings: seventyFiveBoard.map((r) => ({ userId: r.userId, name: r.name, value: r.status?.currentStreak ?? 0 })),
+              unit: 'days',
+            }
+          : {
+              standings: board
+                .filter((r) => !r.isBot)
+                .map((r) => ({ userId: r.userId, name: r.name, value: scoredByDistance ? r.totalDistanceMi : r.totalSteps })),
+              unit: scoredByDistance ? 'mi' : 'steps',
+            };
+
   // Days left in the Hunted's head start, for the leaderboard note below
   // — 0 once it's run out or this hunt never had one.
   const headStartDaysLeft = computeHeadStartDaysLeft(challenge);
@@ -1834,6 +1855,14 @@ export function ChallengeDetailScreen({
           ))}
         </Card>
       )}
+
+      <TrashTalkCard
+        challengeId={challenge.id}
+        myId={user?.id}
+        standings={trashTalkBoard.standings}
+        unit={trashTalkBoard.unit}
+        participantIds={participants.map((p) => p.userId)}
+      />
 
       {/* A device-synced challenge (usesDeviceSteps/usesWorkoutDistance)
           gets no card here at all — syncFromDevice already runs

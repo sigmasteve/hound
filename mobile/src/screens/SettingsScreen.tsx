@@ -443,7 +443,7 @@ export function SettingsScreen({
       await setSocialPushEnabled(user.id, next);
       setSocialPushEnabledState(next);
     } catch (err) {
-      Alert.alert('Nudges & reactions', err instanceof Error ? err.message : 'Something went wrong.');
+      Alert.alert('Nudges, reactions & trash talk', err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
       setSavingSocialPush(false);
     }
@@ -857,8 +857,8 @@ export function SettingsScreen({
           <Card style={{ gap: 16 }} elevated={false}>
             <Text style={text.h4}>Notifications</Text>
             <Text style={styles.footNote}>
-              Covers login reminders, Tag catch alerts, stale-data alerts, daily standings, and nudges and reactions from
-              friends.
+              Covers login reminders, Tag catch alerts, stale-data alerts, daily standings, and nudges, reactions and trash
+              talk.
             </Text>
             {phonePush === 'denied' && (
               <View style={styles.phonePushNote}>
@@ -974,7 +974,7 @@ export function SettingsScreen({
                 {socialPushEnabled !== null && (
                   <View style={{ gap: 10 }}>
                     <Text style={styles.alertGroupLabel}>
-                      Nudges &amp; reactions — when a friend nudges you, or reacts to your progress in a challenge
+                      Nudges, reactions &amp; trash talk — when someone nudges you, reacts to your progress, or talks trash in a challenge
                     </Text>
                     <ToggleRow
                       label="Push notification"
