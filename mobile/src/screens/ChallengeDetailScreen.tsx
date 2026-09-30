@@ -559,12 +559,17 @@ export function ChallengeDetailScreen({
       setTagRound(tagRoundResult);
       setTagMembers(tagMembersResult);
       setTagEvents(tagEventsResult);
-      setStreakStatuses(needsStreak ? computeStreakStatus(c, joinDates, dailyRows) : new Map());
+      // The challenge's own calendar days (never throws; falls back to
+      // the old per-phone rule).
+      const days = needsStreak || needsSeventyFive ? await getChallengeDays(c) : null;
+      setStreakStatuses(needsStreak && days ? computeStreakStatus(c, joinDates, dailyRows, days) : new Map());
       setBingoRows(bingoRowsResult);
       setTttGame(tttGameResult);
       setSeventyFiveCheckins(seventyFiveCheckinsResult);
       setSeventyFiveStatuses(
-        needsSeventyFive ? computeSeventyFiveStatus(c, seventyFiveJoinDates, seventyFiveCheckinsResult) : new Map(),
+        needsSeventyFive && days
+          ? computeSeventyFiveStatus(c, seventyFiveJoinDates, seventyFiveCheckinsResult, days)
+          : new Map(),
       );
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : 'Could not load this challenge.');
