@@ -10,6 +10,8 @@ import type { RootStackParamList } from '../navigation/types';
 //   admin_signup_digest  → the Admin screen
 //   friend_request       → the Friends tab (Accept/Decline is at the top)
 //   friend_accepted      → the new friend's profile
+//   nudge / reaction     → the challenge it came from; a nudge from a
+//                          friend's page opens Today, which lists it
 function routeFor(data: Record<string, unknown> | undefined): (() => [keyof RootStackParamList, any]) | null {
   if (!data) return null;
   if (data.type === 'admin_signup' && typeof data.userId === 'string') {
@@ -43,6 +45,10 @@ function routeFor(data: Record<string, unknown> | undefined): (() => [keyof Root
         friendIconId: (data.friendIconId as string | null) ?? null,
       },
     ];
+  }
+  if (data.type === 'nudge' || data.type === 'reaction') {
+    if (typeof data.challengeId === 'string') return () => ['ChallengeDetail', { challengeId: data.challengeId }];
+    return () => ['Main', { tab: 'home' }];
   }
   return null;
 }

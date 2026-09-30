@@ -17,6 +17,7 @@ import {
   XIcon,
 } from 'phosphor-react-native';
 import { AddFriendChip, type AddFriendChipState } from '../components/AddFriendChip';
+import { PersonActions } from '../components/PersonActions';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -90,6 +91,17 @@ import { buildRematchDraft, type RematchDraft } from '../challenges/rematch';
 import { resultLine, shareMessage, type ResultOutcome } from '../challenges/shareResult';
 import { friendEligible } from '../friends/eligibility';
 import { useAuth } from '../auth/AuthContext';
+import {
+  applyToggle,
+  myRecentNudges,
+  nudgeAgainLabel,
+  reactionsForDay,
+  sendNudge,
+  summarize,
+  toggleReaction,
+  type Reaction,
+  type ReactionEmoji,
+} from '../social/social';
 import { useHealthProvider } from '../health/HealthContext';
 import { useLabels } from '../labels/LabelsContext';
 
@@ -380,6 +392,80 @@ export function ChallengeDetailScreen({
         state={state}
         busy={friendRequestBusyId === userId}
         onPress={() => addFriendFromBoard(userId)}
+      />
+    );
+  };
+
+  // Nudges and reactions (0082_nudges_reactions.sql): tap someone on the
+  // board to react to their progress today, or nudge them. Loaded on its
+  // own — a failure here never affects the rest of the screen.
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [recentNudges, setRecentNudges] = useState<Map<string, string>>(new Map());
+  const [expandedPersonId, setExpandedPersonId] = useState<string | null>(null);
+  const [nudgingId, setNudgingId] = useState<string | null>(null);
+  const [nudgeNotes, setNudgeNotes] = useState<Record<string, string>>({});
+  useEffect(() => {
+    reactionsForDay(challengeId).then(setReactions).catch(() => {});
+    myRecentNudges().then(setRecentNudges).catch(() => {});
+  }, [challengeId]);
+
+  const canInteractWith = (userId: string, isBot?: boolean) => !isBot && !!user?.id && userId !== user.id;
+  const togglePerson = (userId: string) => setExpandedPersonId((cur) => (cur === userId ? null : userId));
+
+  const react = async (userId: string, emoji: ReactionEmoji) => {
+    if (!user?.id) return;
+    const me = { id: user.id, name: user.name };
+    const wasOn = reactions.some((r) => r.fromUserId === user.id && r.toUserId === userId && r.emoji === emoji);
+    setReactions((cur) => applyToggle(cur, me, userId, emoji, !wasOn));
+    try {
+      const on = await toggleReaction(challengeId, userId, emoji);
+      if (on === wasOn) setReactions((cur) => applyToggle(cur, me, userId, emoji, on));
+    } catch (e) {
+      setReactions((cur) => applyToggle(cur, me, userId, emoji, wasOn));
+      Alert.alert('Could not react', e instanceof Error ? e.message : 'Try again in a moment.');
+    }
+  };
+
+  const nudge = async (userId: string, name: string) => {
+    setNudgingId(userId);
+    try {
+      const { pushed } = await sendNudge(userId, challengeId);
+      setRecentNudges((cur) => new Map(cur).set(userId, new Date().toISOString()));
+      setNudgeNotes((cur) => ({
+        ...cur,
+        [userId]: pushed
+          ? `Nudged ${name} 👋`
+          : `Nudged ${name} — they can’t get notifications yet, so they’ll see it next time they open Hound.`,
+      }));
+    } catch (e) {
+      Alert.alert('Could not nudge', e instanceof Error ? e.message : 'Try again in a moment.');
+    } finally {
+      setNudgingId(null);
+    }
+  };
+
+  const renderPersonActions = (userId: string, name: string, isBot: boolean | undefined, indent: number) => {
+    if (isBot) return null;
+    const interactive = canInteractWith(userId);
+    // Global challenges are full of strangers: nudges there are for
+    // friends only (send_nudge enforces the same). Nobody nudges in a
+    // challenge that's over.
+    const isFriend = friends.some((f) => f.userId === userId && f.status === 'accepted');
+    const offerNudge = interactive && !finished && (!isGlobal || isFriend);
+    return (
+      <PersonActions
+        summary={summarize(reactions, userId, user?.id)}
+        canReact={interactive}
+        expanded={expandedPersonId === userId}
+        nudge={
+          offerNudge
+            ? { waitLabel: nudgeAgainLabel(recentNudges.get(userId)), busy: nudgingId === userId }
+            : undefined
+        }
+        note={nudgeNotes[userId]}
+        onReact={(emoji) => react(userId, emoji)}
+        onNudge={() => nudge(userId, name)}
+        indent={indent}
       />
     );
   };
@@ -1528,8 +1614,17 @@ export function ChallengeDetailScreen({
             <TrophyIcon size={16} color={colors.accent} />
             <Text style={text.h4}>Everyone&rsquo;s streak</Text>
           </View>
+          {seventyFiveBoard.some((r) => canInteractWith(r.userId)) && (
+            <Text style={styles.footNote}>Tap someone to cheer them on or nudge them.</Text>
+          )}
           {seventyFiveBoard.map((row) => (
-            <View key={row.userId} style={styles.boardRow}>
+            <Pressable
+              key={row.userId}
+              style={styles.boardItem}
+              onPress={() => togglePerson(row.userId)}
+              disabled={!canInteractWith(row.userId)}
+            >
+              <View style={styles.boardRowInner}>
               <Avatar
                 initials={row.initials}
                 tint={row.userId === user?.id ? TINT_A : TINT_N}
@@ -1547,7 +1642,9 @@ export function ChallengeDetailScreen({
                 label={`${row.status?.currentStreak ?? 0}-day streak`}
                 variant={(row.status?.currentStreak ?? 0) > 0 ? 'accent' : 'outline'}
               />
-            </View>
+              </View>
+              {renderPersonActions(row.userId, row.name, false, 30 + 12)}
+            </Pressable>
           ))}
         </Card>
       )}
@@ -1558,6 +1655,9 @@ export function ChallengeDetailScreen({
             <TrophyIcon size={16} color={colors.accent} />
             <Text style={text.h4}>Leaderboard</Text>
           </View>
+          {board.some((r) => canInteractWith(r.userId, r.isBot)) && (
+            <Text style={styles.footNote}>Tap someone to cheer them on{finished ? '' : ' or nudge them'}.</Text>
+          )}
           {/* A finished-challenge acknowledgment — Tag gets its own recap
               card above instead (never "won" — see that card's own
               comment), and this Leaderboard already looks the same live
@@ -1605,7 +1705,13 @@ export function ChallengeDetailScreen({
           {hunterEffectiveNote && <Text style={styles.footNote}>{hunterEffectiveNote}</Text>}
           {challenge.kind === 'bingo'
             ? bingoBoardRows.map((card, i) => (
-                <View key={card.userId} style={styles.boardRow}>
+                <Pressable
+                  key={card.userId}
+                  style={styles.boardItem}
+                  onPress={() => togglePerson(card.userId)}
+                  disabled={!canInteractWith(card.userId)}
+                >
+                  <View style={styles.boardRowInner}>
                   <Text style={styles.boardRank}>{i + 1}</Text>
                   <Avatar
                     initials={card.initials}
@@ -1626,7 +1732,9 @@ export function ChallengeDetailScreen({
                       {card.squaresFilled} of {BINGO_SQUARE_COUNT}
                     </Text>
                   </View>
-                </View>
+                  </View>
+                  {renderPersonActions(card.userId, card.name, false, 16 + 12 + 30 + 12)}
+                </Pressable>
               ))
             : streakBoard.map((row, i) => {
                 // The Hunter's row shows their credited progress
@@ -1643,7 +1751,13 @@ export function ChallengeDetailScreen({
                 const streakStatus = challenge.kind === 'streak' ? streakStatuses.get(row.userId) : undefined;
                 const move = rankMoves.get(row.userId);
                 return (
-                  <View key={row.userId} style={styles.boardRow}>
+                  <Pressable
+                    key={row.userId}
+                    style={styles.boardItem}
+                    onPress={() => togglePerson(row.userId)}
+                    disabled={!canInteractWith(row.userId, row.isBot)}
+                  >
+                    <View style={styles.boardRowInner}>
                     <View style={styles.rankCol}>
                       <Text style={styles.boardRank}>{i + 1}</Text>
                       {move !== undefined && (
@@ -1687,7 +1801,9 @@ export function ChallengeDetailScreen({
                         </>
                       )}
                     </View>
-                  </View>
+                    </View>
+                    {renderPersonActions(row.userId, row.name, row.isBot, 22 + 12 + 30 + 12)}
+                  </Pressable>
                 );
               })}
           {board.length === 0 && <Text style={styles.footNote}>No participants found.</Text>}
@@ -1958,6 +2074,13 @@ function makeStyles(colors: Palette) {
     },
     goalMetBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     goalMetLabel: { fontSize: 12, fontFamily: font.heading, color: colors.green },
+    // A leaderboard entry: the row itself, plus reactions and the
+    // react/nudge bar under it (PersonActions).
+    boardItem: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: withAlpha(colors.text, 0.07),
+    },
+    boardRowInner: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
     boardRow: {
       flexDirection: 'row',
       alignItems: 'center',
