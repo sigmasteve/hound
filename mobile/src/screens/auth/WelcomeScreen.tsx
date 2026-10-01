@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { EnvelopeSimpleIcon, FacebookLogoIcon, GoogleLogoIcon, PawPrintIcon } from 'phosphor-react-native';
 import { Button } from '../../components/Button';
 import { useTheme } from '../../theme/ThemeContext';
@@ -18,6 +19,9 @@ export function WelcomeScreen({
 }) {
   const { signInWithGoogle, signInWithFacebook } = useAuth();
   const { colors, text } = useTheme();
+  // Android draws under the system navigation bar (edge-to-edge), so the
+  // bottom of the screen needs its height as padding.
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +41,7 @@ export function WelcomeScreen({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: 24 + insets.bottom }]}>
       <View style={styles.hero}>
         <View style={styles.badge}>
           <PawPrintIcon size={30} color={colors.accent} weight="fill" />

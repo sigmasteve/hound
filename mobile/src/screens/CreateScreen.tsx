@@ -1234,7 +1234,17 @@ function makeStyles(colors: Palette) {
       justifyContent: 'center',
       padding: 6,
     },
-    tttCellText: { fontSize: 12.5, textAlign: 'center', color: colors.text, fontFamily: font.heading },
+    // includeFontPadding off: Android otherwise adds space above the text,
+    // which pushes a label below the middle of its square.
+    tttCellText: {
+      width: '100%',
+      fontSize: 12.5,
+      textAlign: 'center',
+      textAlignVertical: 'center',
+      includeFontPadding: false,
+      color: colors.text,
+      fontFamily: font.heading,
+    },
     // Same accent-wash-over-the-theme approach huntBlock uses above, just
     // at a lighter alpha since this sits inline rather than being its own
     // spotlight card.

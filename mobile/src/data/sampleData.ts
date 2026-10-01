@@ -153,7 +153,7 @@ export const CHALLENGE_TYPES: {
 }[] = [
   { id: 'hunt', name: 'Chase', desc: 'One runner gets a head start. The other has to catch them on logged miles before time runs out.', tint: TINT_A, iconColor: '#f5f4ff' },
   { id: 'tag', name: 'Game of Tag', desc: 'One person is "IT" and has to catch someone before time runs out. No ranking — just don’t get caught.', tint: '#6b4f1f', iconColor: '#fbe8c9' },
-  { id: 'steps', name: 'Step Race', desc: 'Most steps over the window. Everyone against everyone.', tint: TINT_N, iconColor: '#e9e9ed' },
+  { id: 'steps', name: 'Step Race', desc: 'Most steps during the challenge. Everyone against everyone.', tint: TINT_N, iconColor: '#e9e9ed' },
   { id: 'distance', name: 'Group Distance Target', desc: 'Add every mile the group covers toward one shared target.', tint: TINT_N, iconColor: '#e9e9ed' },
   { id: 'streak', name: 'Daily Streak', desc: 'Hit a daily goal every day. One miss and you are out.', tint: TINT_N, iconColor: '#e9e9ed' },
   { id: 'bingo', name: 'Variety Bingo', desc: 'Log 9 different kinds of workouts to fill your own card. No two cards race each other — just you against the board.', tint: '#1f6b4f', iconColor: '#c9fbe8' },

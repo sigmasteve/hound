@@ -9,7 +9,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { color, font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
 import { getHeadToHeadRecord, type HeadToHeadRecord } from '../friends/friendStats';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
-import type { KudosCounts } from '../friends/types';
+import { KUDOS_LIMIT_MESSAGE, type KudosCounts } from '../friends/types';
 import { listAchievements, listEarnedAchievements, type Achievement } from '../achievements/achievementsApi';
 import { achievementIcon } from '../achievements/achievementIcons';
 import { myRecentNudges, nudgeAgainLabel, sendNudge } from '../social/social';
@@ -101,9 +101,14 @@ export function FriendDetailScreen({
       // Updates the count immediately instead of waiting on a re-fetch —
       // the insert already succeeded, so there's nothing this round-trip
       // would tell us that we don't already know.
-      setKudos((k) => (k ? { ...k, given: k.given + 1 } : k));
+      setKudos((k) => (k ? { ...k, given: k.given + 1, givenRecently: true } : k));
     } catch (e) {
-      Alert.alert('Could not send kudos', e instanceof Error ? e.message : 'Try again.');
+      const message = e instanceof Error ? e.message : 'Try again.';
+      if (message.includes(KUDOS_LIMIT_MESSAGE)) {
+        setKudos((k) => (k ? { ...k, givenRecently: true } : k));
+        return;
+      }
+      Alert.alert('Could not send kudos', message);
     } finally {
       setGivingKudos(false);
     }
@@ -148,7 +153,11 @@ export function FriendDetailScreen({
             backgroundId={friendBackgroundId}
             iconId={friendIconId}
           />
-          <Text style={text.h2}>{friendName}</Text>
+          {/* A long name shrinks to fit, then truncates, instead of running
+              off the screen. */}
+          <Text style={[text.h2, styles.headerName]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
+            {friendName}
+          </Text>
         </View>
 
         {loadError && <Text style={styles.errorNote}>{loadError}</Text>}
@@ -218,7 +227,13 @@ export function FriendDetailScreen({
           ) : null}
           <View style={styles.cheerButtons}>
             <View style={{ flex: 1 }}>
-              <Button label={givingKudos ? 'Sending…' : 'Give kudos 👏'} variant="primary" disabled={givingKudos} onPress={sendKudos} />
+              {/* Once per friend a day (0089). */}
+              <Button
+                label={givingKudos ? 'Sending…' : kudos?.givenRecently ? 'Kudos sent ✓' : 'Give kudos 👏'}
+                variant="primary"
+                disabled={givingKudos || !!kudos?.givenRecently}
+                onPress={sendKudos}
+              />
             </View>
             <View style={{ flex: 1 }}>
               <Button
@@ -256,6 +271,7 @@ function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 16, paddingBottom: 48 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    headerName: { flex: 1, minWidth: 0 },
     statRow: { flexDirection: 'row', gap: 16 },
     cheerButtons: { flexDirection: 'row', gap: 10 },
     badgeHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },

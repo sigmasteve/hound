@@ -8,9 +8,10 @@ import {
   ArrowsClockwiseIcon,
   AppleLogoIcon,
   CaretRightIcon,
+  CaretUpIcon,
+  InfoIcon,
   ScalesIcon,
   SignOutIcon,
-  XIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -305,6 +306,10 @@ export function SettingsScreen({
       };
     }, []),
   );
+  const reopenScoreExplainer = () => {
+    setShowScoreExplainer(true);
+    AsyncStorage.setItem(SCORE_EXPLAINER_DISMISSED_KEY, 'false').catch(() => {});
+  };
   const dismissScoreExplainer = () => {
     setShowScoreExplainer(false);
     AsyncStorage.setItem(SCORE_EXPLAINER_DISMISSED_KEY, 'true').catch(() => {
@@ -612,16 +617,23 @@ export function SettingsScreen({
               {levelProgress.level + 1}
             </Text>
           </View>
-          {showScoreExplainer && (
+          {/* Minimized rather than gone for good — "What's Hound Score?"
+              opens it again. */}
+          {showScoreExplainer ? (
             <View style={styles.scoreExplainerRow}>
               <Text style={styles.scoreExplainerText}>
                 Hound Score reflects how much you&rsquo;ve played and won, across challenges. Level and XP track your
                 participation, as well as rankings (win, lose, or draw).
               </Text>
-              <Pressable onPress={dismissScoreExplainer} hitSlop={8}>
-                <XIcon size={14} color={withAlpha(colors.text, 0.5)} />
+              <Pressable onPress={dismissScoreExplainer} hitSlop={8} accessibilityLabel="Minimize">
+                <CaretUpIcon size={14} color={withAlpha(colors.text, 0.5)} />
               </Pressable>
             </View>
+          ) : (
+            <Pressable onPress={reopenScoreExplainer} hitSlop={6} style={styles.scoreExplainerLink}>
+              <InfoIcon size={13} color={withAlpha(colors.text, 0.5)} />
+              <Text style={styles.scoreExplainerLinkText}>What&rsquo;s Hound Score?</Text>
+            </Pressable>
           )}
           <Pressable style={styles.lockerRow} onPress={onOpenLocker}>
             <Text style={styles.lockerRowLabel}>Customize your look</Text>
@@ -777,6 +789,7 @@ export function SettingsScreen({
             value={usernameInput}
             onChangeText={setUsernameInput}
             placeholder="NightRunner99"
+            maxLength={20}
             autoCapitalize="none"
             autoCorrect={false}
             error={usernameError ?? undefined}
@@ -1070,6 +1083,8 @@ function makeStyles(colors: Palette) {
       borderTopColor: colors.divider,
     },
     scoreExplainerText: { flex: 1, fontSize: 12.5, lineHeight: 17, color: withAlpha(colors.text, 0.65) },
+    scoreExplainerLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+    scoreExplainerLinkText: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     lockerRow: {
       flexDirection: 'row',
       alignItems: 'center',
