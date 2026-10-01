@@ -5,7 +5,7 @@
     { "source": "/whats-new", "destination": "/whats-new.html" }
   ],
   "redirects": [
-    { "source": "/downloads/hound.apk", "destination": "https://drive.google.com/uc?export=download&id=1kr5x0WC_mfp30gmu3UbdSCBmeUJVbiuY", "permanent": false },
+    { "source": "/downloads/hound.apk", "destination": "https://drive.google.com/uc?export=download&id=1dbrBQtu7_OZsrCvBeRlZ8AiuEqShw0Em", "permanent": false },
     { "source": "/downloads/hound_0_9.apk", "destination": "/downloads/hound.apk", "permanent": false }
   ]
 }
