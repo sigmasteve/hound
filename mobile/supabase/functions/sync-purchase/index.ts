@@ -80,8 +80,11 @@ Deno.serve(async (req) => {
     // treating that ordinary propagation lag as one.
     const delaysMs = [1000, 2000, 3000];
     let matched = false;
+    let verifiedStore: 'app_store' | 'play_store' = store;
+    let verifiedTransactionId = transactionId;
     for (let attempt = 0; attempt <= delaysMs.length; attempt++) {
       const verifyRes = await fetch(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(caller.id)}`, {
+        signal: AbortSignal.timeout(8000),
         headers: { Authorization: `Bearer ${Deno.env.get('REVENUECAT_SECRET_API_KEY')}` },
       });
       if (!verifyRes.ok) {
@@ -93,8 +96,20 @@ Deno.serve(async (req) => {
       // exact shape against current docs before relying on this in
       // production, since third-party API surfaces move.
       const payload = await verifyRes.json();
-      const records: Array<{ id?: string }> = payload?.subscriber?.non_subscriptions?.[productId] ?? [];
-      matched = records.some((r) => r.id === transactionId);
+      const records: Array<{ id?: string; store?: string; store_transaction_id?: string }> =
+        payload?.subscriber?.non_subscriptions?.[productId] ?? [];
+      const record = records.find((r) => r.id === transactionId || r.store_transaction_id === transactionId);
+      matched = record !== undefined;
+      if (record) {
+        // Use the store RevenueCat recorded for this purchase, not the one
+        // the phone claims. Otherwise the same purchase can be credited
+        // once as app_store and once as play_store.
+        const rcStore = record.store === 'app_store' || record.store === 'play_store' ? record.store : null;
+        if (rcStore) verifiedStore = rcStore;
+        // Credit under the store's own transaction id when RevenueCat gives
+        // one, so this path and the webhook agree on a single key.
+        if (record.store_transaction_id) verifiedTransactionId = record.store_transaction_id;
+      }
       if (matched) break;
       if (attempt < delaysMs.length) await new Promise((resolve) => setTimeout(resolve, delaysMs[attempt]));
     }
@@ -105,9 +120,9 @@ Deno.serve(async (req) => {
     const adminClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const { error } = await adminClient.rpc('credit_bones_purchase', {
       p_user_id: caller.id,
-      p_store: store,
+      p_store: verifiedStore,
       p_product_id: productId,
-      p_transaction_id: transactionId,
+      p_transaction_id: verifiedTransactionId,
     });
     if (error) return jsonError(error.message, 400);
 
@@ -115,6 +130,7 @@ Deno.serve(async (req) => {
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : 'Unexpected error.', 500);
+    console.error('sync-purchase failed', e);
+    return jsonError('Unexpected error.', 500);
   }
 });

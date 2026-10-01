@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { isMissingFunction } from '../lib/rpcFallback';
 import type { HuntLabels } from '../labels/types';
 import { displayInitials, displayName } from '../profiles/displayName';
 import type { Organization, OrganizationKind, OrgMember } from './types';
@@ -71,17 +72,22 @@ interface OrgMemberRow {
   initials: string;
   username: string | null;
   use_username: boolean;
-  email: string;
+  email: string | null;
   org_role: 'member' | 'admin';
   equipped_frame_id: string | null;
   equipped_background_id: string | null;
   equipped_icon_id: string | null;
 }
 
-// Plain profiles query, same as adminApi.ts's searchUsers — no RPC
-// needed since profiles.select is open to any signed-in user.
+// Through org_members() (0091): members can list their organization, and
+// only its admins (and platform admins) get email addresses back, since
+// those aren't readable directly (0092_hide_private_profile_columns.sql).
+// Before 0091 has run, the old direct query still works.
 export async function listOrgMembers(organizationId: string): Promise<OrgMember[]> {
   const client = requireClient();
+  const { data: rpcRows, error: rpcError } = await client.rpc('org_members', { p_org: organizationId });
+  if (!rpcError) return ((rpcRows ?? []) as OrgMemberRow[]).map(rowToOrgMember);
+  if (!isMissingFunction(rpcError)) throw new Error(rpcError.message);
   const { data, error } = await client
     .from('profiles')
     .select(
@@ -91,21 +97,24 @@ export async function listOrgMembers(organizationId: string): Promise<OrgMember[
     .order('org_role', { ascending: false })
     .order('name', { ascending: true });
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row: OrgMemberRow) => {
-    const displayable = { name: row.name, username: row.username, useUsername: row.use_username };
-    return {
-      id: row.id,
-      name: row.name,
-      initials: row.initials,
-      displayName: displayName(displayable),
-      displayInitials: displayInitials({ ...displayable, initials: row.initials }),
-      email: row.email,
-      orgRole: row.org_role,
-      frameId: row.equipped_frame_id,
-      backgroundId: row.equipped_background_id,
-      iconId: row.equipped_icon_id,
-    };
-  });
+  return ((data ?? []) as OrgMemberRow[]).map(rowToOrgMember);
+}
+
+function rowToOrgMember(row: OrgMemberRow): OrgMember {
+  const displayable = { name: row.name, username: row.username, useUsername: row.use_username };
+  return {
+    id: row.id,
+    name: row.name,
+    initials: row.initials,
+    displayName: displayName(displayable),
+    displayInitials: displayInitials({ ...displayable, initials: row.initials }),
+    // Null for someone who isn't an admin of this organization.
+    email: row.email ?? '',
+    orgRole: row.org_role,
+    frameId: row.equipped_frame_id,
+    backgroundId: row.equipped_background_id,
+    iconId: row.equipped_icon_id,
+  };
 }
 
 // Platform-admin only (enforced server-side by admin_create_organization)

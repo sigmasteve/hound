@@ -309,7 +309,7 @@ export function OrgDetailScreen({ organizationId, onBack }: { organizationId: st
                           {m.displayName}
                           {m.orgRole === 'admin' ? ' · Admin' : ''}
                         </Text>
-                        <Text style={styles.footNote}>{m.email}</Text>
+                        {m.email ? <Text style={styles.footNote}>{m.email}</Text> : null}
                       </View>
                       {!isSelf && (
                         <View style={{ flexDirection: 'row', gap: 6 }}>

@@ -57,11 +57,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!isSupabaseConfigured || !supabase) return;
     let cancelled = false;
 
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (cancelled) return;
-      if (data.session) setUser(await supabaseAuth.userFromSession(data.session));
-      setInitializing(false);
-    });
+    // Always ends the loading screen, even offline or if the profile read
+    // fails (M14 in the security review) — signed out is better than
+    // stuck on the splash.
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        if (cancelled) return;
+        if (data.session) setUser(await supabaseAuth.userFromSession(data.session));
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setInitializing(false);
+      });
 
     // Keeps `user` in sync with token refreshes and with signOut() below
     // (which calls supabase.auth.signOut() and lets this listener clear

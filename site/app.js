@@ -82,8 +82,10 @@
   // same lookup, just without the AuthUser shape the app's own screens
   // need, since this page only ever shows one simple confirmation.
   async function profileFor(userId, fallbackEmail) {
-    var res = await client.from('profiles').select('name, email').eq('id', userId).single();
-    if (res.data) return res.data;
+    // Email comes from the sign-in itself: profile emails aren't readable
+    // by signed-in users (0092_hide_private_profile_columns.sql).
+    var res = await client.from('profiles').select('name').eq('id', userId).single();
+    if (res.data) return { name: res.data.name, email: fallbackEmail || '' };
     var name = (fallbackEmail || '').split('@')[0] || 'Hound user';
     return { name: name, email: fallbackEmail || '' };
   }

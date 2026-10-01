@@ -24,6 +24,7 @@
 // hosted sign-up page. Swap it for whatever that ends up being.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { escapeHtml, oneLine } from '../_shared/html.ts';
 
 const HOUND_SIGNUP_URL = 'https://houndchallenge.net';
 
@@ -33,7 +34,11 @@ const CORS_HEADERS = {
 };
 
 function isPlausibleEmail(value: unknown): value is string {
-  return typeof value === 'string' && value.includes('@') && value.trim().length > 3;
+  return (
+    typeof value === 'string' &&
+    value.trim().length <= 254 &&
+    /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[^\s@<>"',;]{2,}$/.test(value.trim())
+  );
 }
 
 Deno.serve(async (req) => {
@@ -64,8 +69,61 @@ Deno.serve(async (req) => {
       });
     }
 
+    const address = String(email).trim().toLowerCase();
+
+    // The app saves the invite first (pending_invites) and only then calls
+    // this function. So an email only goes out for an address the caller
+    // really invited, at most once, and at most DAILY_LIMIT a day. Without
+    // this, any signed-in user could send mail from your domain to any
+    // address, as many times as they liked.
+    const DAILY_LIMIT = 20;
+    const { data: invite } = await supabase
+      .from('pending_invites')
+      .select('id, email_sent_at')
+      .eq('inviter_id', user.id)
+      .eq('email', address)
+      .maybeSingle();
+    if (!invite) {
+      return new Response(JSON.stringify({ error: 'Invite this address in the app first.' }), {
+        status: 403,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+    if (invite.email_sent_at) {
+      return new Response(JSON.stringify({ sent: false, reason: 'already sent' }), {
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count } = await admin
+      .from('pending_invites')
+      .select('id', { count: 'exact', head: true })
+      .eq('inviter_id', user.id)
+      .gte('email_sent_at', since);
+    if ((count ?? 0) >= DAILY_LIMIT) {
+      return new Response(JSON.stringify({ error: 'Daily invite limit reached. Try again tomorrow.' }), {
+        status: 429,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Claim the send before sending, so two quick calls cannot both send.
+    const { data: claimed } = await admin
+      .from('pending_invites')
+      .update({ email_sent_at: new Date().toISOString() })
+      .eq('id', invite.id)
+      .is('email_sent_at', null)
+      .select('id');
+    if (!claimed || claimed.length === 0) {
+      return new Response(JSON.stringify({ sent: false, reason: 'already sent' }), {
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { data: profile } = await supabase.from('profiles').select('name').eq('id', user.id).single();
-    const inviterName = profile?.name ?? 'Someone';
+    const inviterName = oneLine(profile?.name ?? 'Someone');
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -75,17 +133,20 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: 'Hound <invites@houndchallenge.net>',
-        to: [email],
+        to: [address],
         subject: `${inviterName} invited you to Hound`,
         html:
-          `<p>${inviterName} wants to race you on Hound.</p>` +
+          `<p>${escapeHtml(inviterName)} wants to race you on Hound.</p>` +
           `<p><a href="${HOUND_SIGNUP_URL}">Join Hound</a> to connect — you'll already be friends once you sign up with this address.</p>`,
       }),
     });
 
     if (!resendResponse.ok) {
-      const detail = await resendResponse.text();
-      return new Response(JSON.stringify({ error: `Resend rejected the send: ${detail}` }), {
+      // Give the claim back so the person can try again, and keep
+      // Resend's own error text in the logs rather than in the response.
+      await admin.from('pending_invites').update({ email_sent_at: null }).eq('id', invite.id);
+      console.error('Resend rejected the send', resendResponse.status, await resendResponse.text());
+      return new Response(JSON.stringify({ error: 'The invite email could not be sent right now.' }), {
         status: 502,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });

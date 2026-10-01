@@ -25,6 +25,24 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 const CREDIT_EVENT_TYPES = new Set(['INITIAL_PURCHASE', 'NON_RENEWING_PURCHASE']);
 const REFUND_EVENT_TYPES = new Set(['REFUND', 'CANCELLATION']);
 
+// Compares two strings without stopping at the first difference, so the
+// time it takes does not reveal how much of a guess was right. Both sides
+// are hashed first so the lengths always match.
+async function safeEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(a)),
+    crypto.subtle.digest('SHA-256', enc.encode(b)),
+  ]);
+  const x = new Uint8Array(ha);
+  const y = new Uint8Array(hb);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function normalizeStore(store: unknown): 'app_store' | 'play_store' | null {
   switch (store) {
     case 'APP_STORE':
@@ -49,8 +67,15 @@ function ignored(reason: string) {
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
-  const authHeader = req.headers.get('Authorization') ?? '';
-  if (authHeader !== `Bearer ${Deno.env.get('REVENUECAT_WEBHOOK_SECRET')}`) {
+  // Fail closed. If the secret is missing, the old check compared the
+  // header to the text "Bearer undefined", which anyone can send.
+  const secret = Deno.env.get('REVENUECAT_WEBHOOK_SECRET') ?? '';
+  if (secret.length < 32) {
+    console.error('REVENUECAT_WEBHOOK_SECRET is missing or shorter than 32 characters');
+    return new Response('Webhook is not configured', { status: 500 });
+  }
+  const provided = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+  if (!(await safeEqual(provided, secret))) {
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -75,6 +100,17 @@ Deno.serve(async (req) => {
   const store = normalizeStore(event?.store);
   if (!store) return ignored('Unsupported store');
 
+  // RevenueCat's anonymous ids ("$RCAnonymousID:...") are not user ids.
+  // Answering 500 would make RevenueCat retry them forever, so answer 200.
+  if (!UUID_RE.test(appUserId)) return ignored('Not a Hound user id');
+
+  // TestFlight and Play test purchases arrive as SANDBOX. While the app is
+  // in beta they should still credit, so this is off by default. Set
+  // REVENUECAT_IGNORE_SANDBOX=true when the app goes live to the public.
+  if (Deno.env.get('REVENUECAT_IGNORE_SANDBOX') === 'true' && event?.environment === 'SANDBOX') {
+    return ignored('Sandbox purchase');
+  }
+
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
   if (CREDIT_EVENT_TYPES.has(eventType)) {
@@ -90,7 +126,10 @@ Deno.serve(async (req) => {
     // what's wanted if the failure is something transient or fixable
     // (e.g. the product hasn't been added to bones_products yet), rather
     // than silently dropping a real purchase.
-    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    if (error) {
+      console.error('credit_bones_purchase failed', error.message);
+      return new Response(JSON.stringify({ error: 'Could not credit this purchase' }), { status: 500 });
+    }
   } else if (REFUND_EVENT_TYPES.has(eventType)) {
     const { error } = await supabase.rpc('refund_bones_purchase', {
       p_store: store,

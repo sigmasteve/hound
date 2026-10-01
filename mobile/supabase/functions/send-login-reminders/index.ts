@@ -24,6 +24,7 @@
 // scheduled job rather than any signed-in user's own JWT.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { escapeHtml, oneLine } from '../_shared/html.ts';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const HOUND_SIGNUP_URL = 'https://houndchallenge.net';
@@ -103,7 +104,7 @@ async function sendReminderEmail(resendApiKey: string, name: string, email: stri
       to: [email],
       subject: "Don't lose your streak — log in to Hound today",
       html:
-        `<p>Hey ${name},</p>` +
+        `<p>Hey ${escapeHtml(oneLine(name))},</p>` +
         `<p>You haven't opened Hound today. Log in before the day's over so your progress keeps counting.</p>` +
         `<p><a href="${HOUND_SIGNUP_URL}">Open Hound</a></p>`,
     }),

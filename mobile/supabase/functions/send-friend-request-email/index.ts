@@ -35,6 +35,7 @@
 // door.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { escapeHtml, oneLine } from '../_shared/html.ts';
 
 const HOUND_SIGNUP_URL = 'https://houndchallenge.net';
 
@@ -45,8 +46,10 @@ const CORS_HEADERS = {
 
 interface FriendshipRow {
   id: string;
+  requester_id: string;
+  recipient_id: string;
   requester: { name: string } | null;
-  recipient: { name: string; email: string } | null;
+  recipient: { name: string } | null;
 }
 
 Deno.serve(async (req) => {
@@ -81,14 +84,27 @@ Deno.serve(async (req) => {
     const { data, error } = await supabase
       .from('friendships')
       .select(
-        'id, ' +
+        'id, requester_id, recipient_id, ' +
           'requester:profiles!friendships_requester_id_fkey(name), ' +
-          'recipient:profiles!friendships_recipient_id_fkey(name, email)',
+          'recipient:profiles!friendships_recipient_id_fkey(name)',
       )
       .eq('id', friendshipId)
       .single<FriendshipRow>();
-    if (error || !data || !data.recipient) {
-      return new Response(JSON.stringify({ error: error?.message ?? 'Friendship not found.' }), {
+    // Only the person who sent the request can have it emailed.
+    if (error || !data || !data.recipient || data.requester_id !== user.id) {
+      return new Response(JSON.stringify({ error: 'Friendship not found.' }), {
+        status: 404,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Other people's email addresses aren't readable by signed-in users
+    // (0092_hide_private_profile_columns.sql), so the address itself is
+    // looked up with the service role — only after the check above.
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { data: recipientRow } = await admin.from('profiles').select('email').eq('id', data.recipient_id).single();
+    if (!recipientRow?.email) {
+      return new Response(JSON.stringify({ error: 'Friendship not found.' }), {
         status: 404,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
@@ -104,18 +120,18 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: 'Hound <invites@houndchallenge.net>',
-        to: [data.recipient.email],
-        subject: `${requesterName} wants to be your friend on Hound`,
+        to: [recipientRow.email],
+        subject: `${oneLine(requesterName)} wants to be your friend on Hound`,
         html:
-          `<p>Hey ${data.recipient.name},</p>` +
-          `<p>${requesterName} wants to be your friend on Hound.</p>` +
+          `<p>Hey ${escapeHtml(oneLine(data.recipient.name))},</p>` +
+          `<p>${escapeHtml(oneLine(requesterName))} wants to be your friend on Hound.</p>` +
           `<p><a href="${HOUND_SIGNUP_URL}">Open Hound</a> and look for the request on the Friends tab.</p>`,
       }),
     });
 
     if (!resendResponse.ok) {
-      const detail = await resendResponse.text();
-      return new Response(JSON.stringify({ error: `Resend rejected the send: ${detail}` }), {
+      console.error('Resend rejected the send', resendResponse.status, await resendResponse.text());
+      return new Response(JSON.stringify({ error: 'The email could not be sent right now.' }), {
         status: 502,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });

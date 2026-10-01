@@ -586,6 +586,8 @@ export function CreateScreen({
               if (nameError) setNameError(null);
             }}
             placeholder="Name your challenge"
+            // The server's limit (0090_security_hardening.sql).
+            maxLength={60}
             error={nameError ?? undefined}
           />
           {global ? (

@@ -37,6 +37,7 @@
 // invitee's own pending-invite card.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { escapeHtml, oneLine } from '../_shared/html.ts';
 
 const HOUND_SIGNUP_URL = 'https://houndchallenge.net';
 
@@ -47,9 +48,11 @@ const CORS_HEADERS = {
 
 interface InviteRow {
   id: string;
+  inviter_id: string;
+  invitee_id: string;
   challenges: { name: string; kind: string } | null;
   inviter: { name: string; username: string | null; use_username: boolean } | null;
-  invitee: { name: string; email: string } | null;
+  invitee: { name: string } | null;
 }
 
 // Same rule src/profiles/displayName.ts applies on the client, duplicated
@@ -92,14 +95,27 @@ Deno.serve(async (req) => {
     const { data, error } = await supabase
       .from('challenge_invites')
       .select(
-        'id, challenges(name, kind), ' +
+        'id, inviter_id, invitee_id, challenges(name, kind), ' +
           'inviter:profiles!challenge_invites_inviter_id_fkey(name, username, use_username), ' +
-          'invitee:profiles!challenge_invites_invitee_id_fkey(name, email)',
+          'invitee:profiles!challenge_invites_invitee_id_fkey(name)',
       )
       .eq('id', inviteId)
       .single<InviteRow>();
-    if (error || !data || !data.challenges || !data.invitee) {
-      return new Response(JSON.stringify({ error: error?.message ?? 'Invite not found.' }), {
+    // Only the person who sent the invite can have it emailed.
+    if (error || !data || !data.challenges || !data.invitee || data.inviter_id !== user.id) {
+      return new Response(JSON.stringify({ error: 'Invite not found.' }), {
+        status: 404,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Other people's email addresses aren't readable by signed-in users
+    // (0092_hide_private_profile_columns.sql), so the address itself is
+    // looked up with the service role — only after the check above.
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const { data: inviteeRow } = await admin.from('profiles').select('email').eq('id', data.invitee_id).single();
+    if (!inviteeRow?.email) {
+      return new Response(JSON.stringify({ error: 'Invite not found.' }), {
         status: 404,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
@@ -116,18 +132,18 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: 'Hound <invites@houndchallenge.net>',
-        to: [data.invitee.email],
-        subject: `${inviterName} invited you to "${challengeName}" on Hound`,
+        to: [inviteeRow.email],
+        subject: `${oneLine(inviterName)} invited you to "${oneLine(challengeName)}" on Hound`,
         html:
-          `<p>Hey ${data.invitee.name},</p>` +
-          `<p>${inviterName} invited you to join &ldquo;${challengeName}&rdquo; on Hound.</p>` +
+          `<p>Hey ${escapeHtml(oneLine(data.invitee.name))},</p>` +
+          `<p>${escapeHtml(oneLine(inviterName))} invited you to join &ldquo;${escapeHtml(oneLine(challengeName))}&rdquo; on Hound.</p>` +
           `<p><a href="${HOUND_SIGNUP_URL}">Open Hound</a> and look for the invite on the Challenges tab.</p>`,
       }),
     });
 
     if (!resendResponse.ok) {
-      const detail = await resendResponse.text();
-      return new Response(JSON.stringify({ error: `Resend rejected the send: ${detail}` }), {
+      console.error('Resend rejected the send', resendResponse.status, await resendResponse.text());
+      return new Response(JSON.stringify({ error: 'The email could not be sent right now.' }), {
         status: 502,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });

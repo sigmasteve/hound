@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { isMissingFunction } from '../lib/rpcFallback';
 import { displayInitials, displayName } from '../profiles/displayName';
 
 function requireClient() {
@@ -59,12 +60,16 @@ export function isBanned(bannedUntil: string | null): boolean {
   return new Date(bannedUntil).getTime() > Date.now();
 }
 
-// profiles.select is open to any signed-in user (0001_challenges_schema.sql)
-// so this is a plain client-side query, same as supabaseFriends.ts's own
-// email lookup — no RPC needed for search or the platform-wide count.
+// Platform admins only. Email addresses aren't readable by signed-in
+// users (0092_hide_private_profile_columns.sql), so this goes through
+// admin_search_users() (0091), which checks for an admin; before 0091 has
+// run, the old direct query still works.
 export async function searchUsers(query: string): Promise<AdminUserSummary[]> {
   const client = requireClient();
   const trimmed = query.trim();
+  const { data: rpcRows, error: rpcError } = await client.rpc('admin_search_users', { p_query: trimmed });
+  if (!rpcError) return ((rpcRows ?? []) as AdminUserRow[]).map(rowToSummary);
+  if (!isMissingFunction(rpcError)) throw new Error(rpcError.message);
   let q = client
     .from('profiles')
     .select(
@@ -76,24 +81,42 @@ export async function searchUsers(query: string): Promise<AdminUserSummary[]> {
   if (trimmed) q = q.or(`name.ilike.%${trimmed}%,username.ilike.%${trimmed}%,email.ilike.%${trimmed}%`);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => {
-    const displayable = { name: row.name, username: row.username, useUsername: row.use_username };
-    return {
-      id: row.id,
-      name: row.name,
-      initials: row.initials,
-      displayName: displayName(displayable),
-      displayInitials: displayInitials({ ...displayable, initials: row.initials }),
-      email: row.email,
-      isAdmin: row.is_admin,
-      lastActiveAt: row.last_active_at,
-      createdAt: row.created_at,
-      organizationId: row.organization_id,
-      frameId: row.equipped_frame_id,
-      backgroundId: row.equipped_background_id,
-      iconId: row.equipped_icon_id,
-    };
-  });
+  return ((data ?? []) as AdminUserRow[]).map(rowToSummary);
+}
+
+interface AdminUserRow {
+  id: string;
+  name: string;
+  initials: string;
+  username: string | null;
+  use_username: boolean;
+  email: string;
+  is_admin: boolean;
+  last_active_at: string | null;
+  created_at: string;
+  organization_id: string | null;
+  equipped_frame_id: string | null;
+  equipped_background_id: string | null;
+  equipped_icon_id: string | null;
+}
+
+function rowToSummary(row: AdminUserRow): AdminUserSummary {
+  const displayable = { name: row.name, username: row.username, useUsername: row.use_username };
+  return {
+    id: row.id,
+    name: row.name,
+    initials: row.initials,
+    displayName: displayName(displayable),
+    displayInitials: displayInitials({ ...displayable, initials: row.initials }),
+    email: row.email,
+    isAdmin: row.is_admin,
+    lastActiveAt: row.last_active_at,
+    createdAt: row.created_at,
+    organizationId: row.organization_id,
+    frameId: row.equipped_frame_id,
+    backgroundId: row.equipped_background_id,
+    iconId: row.equipped_icon_id,
+  };
 }
 
 export async function getTotalUserCount(): Promise<number> {

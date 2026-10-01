@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { claimPushToken } from './pushToken';
 import type { AlertPreferences, NotificationPreferences } from './types';
 
 // Used from SettingsScreen's "Login reminders" card — see
@@ -78,14 +79,10 @@ export async function registerForPushNotifications(userId: string): Promise<void
 
   const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
 
-  const client = requireClient();
-  const { error } = await client
-    .from('device_push_tokens')
-    .upsert(
-      { user_id: userId, expo_push_token: token, platform: Platform.OS, updated_at: new Date().toISOString() },
-      { onConflict: 'expo_push_token' },
-    );
-  if (error) throw new Error(error.message);
+  requireClient();
+  // Moves the token from whoever was signed in on this phone before
+  // (pushToken.ts).
+  await claimPushToken(userId, token, Platform.OS);
 }
 
 // The other two "Alerts" card toggles (SettingsScreen) that are wired

@@ -12,6 +12,7 @@ import {
   InfoIcon,
   ScalesIcon,
   SignOutIcon,
+  TrashIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
@@ -29,6 +30,7 @@ import { useAuth } from '../auth/AuthContext';
 import type { AuthProviderId } from '../auth/types';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { APP_VERSION } from '../lib/appVersion';
+import { deleteMyAccount } from '../auth/deleteAccount';
 import * as notifications from '../notifications/supabaseNotifications';
 import {
   getLocalRemindersEnabled,
@@ -88,6 +90,32 @@ export function SettingsScreen({
 }) {
   const health = useHealthProvider();
   const { user, signOut, updateUser } = useAuth();
+
+  // Delete account (H8 in the security review): asks once, then deletes
+  // on the server and signs this phone out.
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Delete your account?',
+      'Your account, progress, friends, Bones and cosmetics will be permanently deleted. This can’t be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingAccount(true);
+            try {
+              await deleteMyAccount();
+            } catch (e) {
+              setDeletingAccount(false);
+              Alert.alert('Could not delete your account', e instanceof Error ? e.message : 'Try again later.');
+            }
+          },
+        },
+      ],
+    );
+  };
   const { colors, text, mode, setMode } = useTheme();
   const { stepsGoal, distanceGoalMi, setStepsGoal, setDistanceGoalMi } = useGoals();
   // Shown while a slider is mid-drag; the goal itself only saves on release.
@@ -1029,6 +1057,20 @@ export function SettingsScreen({
         </Card>
       )}
 
+      {isSupabaseConfigured && user && (
+        <Card style={{ gap: 10 }} elevated={false}>
+          <Text style={text.h4}>Delete account</Text>
+          <Text style={styles.footNote}>
+            Permanently deletes your account, progress, friends, Bones and cosmetics. Challenges other people are in
+            are handed to one of them. This can&rsquo;t be undone.
+          </Text>
+          <Pressable onPress={confirmDeleteAccount} disabled={deletingAccount} style={styles.deleteRow}>
+            <TrashIcon size={14} color={colors.amber} />
+            <Text style={styles.deleteLabel}>{deletingAccount ? 'Deleting…' : 'Delete my account'}</Text>
+          </Pressable>
+        </Card>
+      )}
+
       <Text style={styles.versionNote}>Hound v{APP_VERSION}</Text>
     </ScrollView>
   );
@@ -1098,6 +1140,8 @@ function makeStyles(colors: Palette) {
     goalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     goalValue: { fontSize: 14.5, color: colors.accent, fontFamily: font.heading },
     footNoteError: { fontSize: 12.5, color: colors.amber },
+    deleteRow: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingVertical: 4 },
+    deleteLabel: { fontSize: 14, color: colors.amber, fontFamily: font.heading },
     alertGroupLabel: { fontSize: 13.5, color: colors.text, fontFamily: font.heading },
     collapsibleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     collapsibleTitle: { fontSize: 15, fontFamily: font.heading, color: colors.text },
