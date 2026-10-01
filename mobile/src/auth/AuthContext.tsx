@@ -3,6 +3,7 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { touchLastActive } from '../notifications/supabaseNotifications';
 import { reportAppVersion } from '../admin/appVersions';
 import { syncPushRegistration } from '../notifications/pushPermission';
+import { reportTimeZone } from '../notifications/timeZone';
 import { MisconfiguredScreen } from '../components/MisconfiguredScreen';
 import * as mockAuth from './mockAuth';
 import * as supabaseAuth from './supabaseAuth';
@@ -97,6 +98,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Registers this phone for push once notifications are allowed, and
     // reports the phone's setting (0081_push_permission.sql).
     syncPushRegistration(user.id);
+    // So reminders and alerts arrive in this person's own evening
+    // (0088_local_time_alerts.sql).
+    reportTimeZone(user.id);
   }, [user?.id]);
 
   // Every method re-throws whatever the backend rejects with, so screens

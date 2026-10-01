@@ -1,15 +1,17 @@
-// Runs once a day on a schedule (see 0025_challenge_alerts.sql's pg_cron
-// job) — no signed-in user drives this, so it authenticates with the
-// service role key, same reasoning as send-login-reminders.
+// Runs every hour on a schedule (0025_challenge_alerts.sql's pg_cron job,
+// hourly since 0088_local_time_alerts.sql) — no signed-in user drives
+// this, so it authenticates with the service role key, same reasoning as
+// send-login-reminders.
 //
 // For every challenge still running, finds any participant who hasn't
 // recorded progress in it for over STALE_HOURS (or never has, if the
 // challenge itself has been running that long), and notifies every
 // OTHER participant who has push and/or email enabled for this alert
 // (0026_alert_email_channels.sql) with a "so-and-so hasn't synced"
-// nudge. stale_data_alerts_sent guards against sending the same
-// (challenge, stale participant) fact twice in one day if this job is
-// ever re-run.
+// nudge. Each recipient hears it at 6 PM in their own time zone
+// (profiles.time_zone; US Eastern when unknown), at most once per
+// (challenge, quiet participant) on their own calendar day —
+// alert_deliveries records each send.
 //
 // Deploy with the Supabase CLI:
 //   supabase functions deploy send-stale-data-alerts
@@ -18,6 +20,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const STALE_MS = 24 * 60 * 60 * 1000;
+// The local hour the alert goes out.
+const ALERT_HOUR = 18;
+const DEFAULT_TIME_ZONE = 'America/New_York';
 
 interface ChallengeRow {
   id: string;
@@ -28,6 +33,7 @@ interface ChallengeRow {
 interface ParticipantRow {
   user_id: string;
   profiles: {
+    time_zone: string | null;
     name: string;
     username: string | null;
     use_username: boolean;
@@ -46,6 +52,30 @@ interface ParticipantRow {
 // covers.
 function displayName(p: { name: string; username: string | null; use_username: boolean }): string {
   return p.use_username && p.username ? p.username : p.name;
+}
+
+// The hour (0-23) and calendar day ('YYYY-MM-DD') at `at` in a time
+// zone, falling back to US Eastern for a missing or unknown one. Same
+// helper as send-login-reminders (copied — see displayName above).
+function localClock(timeZone: string | null, at: Date = new Date()): { hour: number; day: string } {
+  for (const zone of [timeZone, DEFAULT_TIME_ZONE]) {
+    if (!zone) continue;
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: zone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(at);
+      const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+      return { hour: Number(part('hour')) % 24, day: `${part('year')}-${part('month')}-${part('day')}` };
+    } catch {
+      // Unknown zone: try the default.
+    }
+  }
+  return { hour: at.getUTCHours(), day: at.toISOString().slice(0, 10) };
 }
 
 async function sendPushBatch(tokens: string[], body: string): Promise<void> {
@@ -107,8 +137,29 @@ Deno.serve(async (req) => {
   }
 
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
   const resendApiKey = Deno.env.get('RESEND_API_KEY');
+
+  // Who it's 6 PM for right now, among those who want this alert. Most
+  // hourly runs find nobody and stop here. An admin's manual test run
+  // skips the hour check (null = everyone opted in).
+  let dueNow: Set<string> | null = null;
+  if (isServiceRole) {
+    const { data: optedIn, error: optedInError } = await supabase
+      .from('profiles')
+      .select('id, time_zone')
+      .or('alert_stale_data_push_enabled.eq.true,alert_stale_data_email_enabled.eq.true');
+    if (optedInError) {
+      return new Response(JSON.stringify({ error: optedInError.message }), { status: 500 });
+    }
+    dueNow = new Set(
+      (optedIn ?? [])
+        .filter((p: { time_zone: string | null }) => localClock(p.time_zone, now).hour === ALERT_HOUR)
+        .map((p: { id: string }) => p.id),
+    );
+    if (dueNow.size === 0) {
+      return new Response(JSON.stringify({ alertsSent: 0, errors: [] }), { headers: { 'Content-Type': 'application/json' } });
+    }
+  }
 
   const { data: challenges, error: challengesError } = await supabase
     .from('challenges')
@@ -132,7 +183,7 @@ Deno.serve(async (req) => {
         supabase
           .from('challenge_participants')
           .select(
-            'user_id, profiles(name, username, use_username, email, alert_stale_data_push_enabled, alert_stale_data_email_enabled)',
+            'user_id, profiles(time_zone, name, username, use_username, email, alert_stale_data_push_enabled, alert_stale_data_email_enabled)',
           )
           .eq('challenge_id', challenge.id)
           .returns<ParticipantRow[]>(),
@@ -159,23 +210,38 @@ Deno.serve(async (req) => {
       const staleMs = lastSynced ? now.getTime() - new Date(lastSynced).getTime() : STALE_MS;
       if (staleMs < STALE_MS) continue;
 
-      const recipients = participants.filter(
+      // Opted in, and it's 6 PM where they are.
+      const due = participants.filter(
         (p) =>
           p.user_id !== participant.user_id &&
-          (p.profiles?.alert_stale_data_push_enabled || p.profiles?.alert_stale_data_email_enabled),
+          (p.profiles?.alert_stale_data_push_enabled || p.profiles?.alert_stale_data_email_enabled) &&
+          (!dueNow || dueNow.has(p.user_id)),
       );
-      if (recipients.length === 0) continue;
+      if (due.length === 0) continue;
 
-      // Insert-if-not-already-recorded — checked only now that there's
-      // actually someone to notify, not before. Nobody opted in yet
-      // shouldn't burn today's one attempt at this (challenge, stale
-      // participant) fact: if it did, opting in later the same day
-      // would find the guard already tripped and silently get skipped
-      // until tomorrow.
-      const { error: guardError } = await supabase
-        .from('stale_data_alerts_sent')
-        .insert({ challenge_id: challenge.id, stale_user_id: participant.user_id, day: today });
-      if (guardError) continue; // 23505 (already sent) or any other failure — skip either way
+      // Record the sends first. Only new records come back from the
+      // insert, so anyone who already had this alert today (on their own
+      // calendar) is skipped.
+      const { data: recorded, error: guardError } = await supabase
+        .from('alert_deliveries')
+        .upsert(
+          due.map((p) => ({
+            kind: 'stale_data',
+            challenge_id: challenge.id,
+            subject_id: participant.user_id,
+            recipient_id: p.user_id,
+            day: localClock(p.profiles?.time_zone ?? null, now).day,
+          })),
+          { onConflict: 'kind,challenge_id,subject_id,recipient_id,day', ignoreDuplicates: true },
+        )
+        .select('recipient_id');
+      if (guardError) {
+        errors.push(`${challenge.name}: ${guardError.message}`);
+        continue;
+      }
+      const newlyRecorded = new Set((recorded ?? []).map((r: { recipient_id: string }) => r.recipient_id));
+      const recipients = due.filter((p) => newlyRecorded.has(p.user_id));
+      if (recipients.length === 0) continue;
 
       const staleName = participant.profiles ? displayName(participant.profiles) : 'A friend';
       const body = `${staleName} hasn't synced progress in "${challenge.name}" for over a day.`;
@@ -205,6 +271,12 @@ Deno.serve(async (req) => {
       alertsSent += 1;
     }
   }
+
+  // Old send records aren't needed once the day has passed.
+  await supabase
+    .from('alert_deliveries')
+    .delete()
+    .lt('day', new Date(now.getTime() - 14 * 86_400_000).toISOString().slice(0, 10));
 
   return new Response(JSON.stringify({ alertsSent, errors }), { headers: { 'Content-Type': 'application/json' } });
 });

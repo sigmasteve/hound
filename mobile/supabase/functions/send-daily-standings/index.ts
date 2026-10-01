@@ -1,14 +1,15 @@
-// Runs once a day on a schedule (see 0025_challenge_alerts.sql's pg_cron
-// job, at 8pm UTC to match the toggle's own label) — no signed-in user
-// drives this, so it authenticates with the service role key, same
-// reasoning as send-login-reminders.
+// Runs every hour on a schedule (0025_challenge_alerts.sql's pg_cron job,
+// hourly since 0088_local_time_alerts.sql) — no signed-in user drives
+// this, so it authenticates with the service role key, same reasoning as
+// send-login-reminders.
 //
 // For every still-running Step Race ('steps' kind — see
 // 0001_challenges_schema.sql's challenge_kind enum), ranks participants
 // by their total logged steps and notifies each one who has push and/or
 // email enabled for this alert (0026_alert_email_channels.sql) with
-// their own rank. daily_standings_sent guards against sending the same
-// challenge's standings twice in one day if this job is ever re-run.
+// their own rank, at 8 PM in their own time zone (the toggle's label;
+// profiles.time_zone, US Eastern when unknown). alert_deliveries keeps it
+// to once per challenge on each person's own calendar day.
 //
 // Deploy with the Supabase CLI:
 //   supabase functions deploy send-daily-standings
@@ -16,6 +17,9 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+// The local hour the standings go out.
+const ALERT_HOUR = 20;
+const DEFAULT_TIME_ZONE = 'America/New_York';
 
 interface ChallengeRow {
   id: string;
@@ -25,10 +29,36 @@ interface ChallengeRow {
 interface ParticipantRow {
   user_id: string;
   profiles: {
+    time_zone: string | null;
     email: string;
     alert_daily_standings_push_enabled: boolean;
     alert_daily_standings_email_enabled: boolean;
   } | null;
+}
+
+// The hour (0-23) and calendar day ('YYYY-MM-DD') at `at` in a time
+// zone, falling back to US Eastern for a missing or unknown one. Same
+// helper as send-login-reminders (each Edge Function is deployed on its
+// own, so it's copied rather than shared).
+function localClock(timeZone: string | null, at: Date = new Date()): { hour: number; day: string } {
+  for (const zone of [timeZone, DEFAULT_TIME_ZONE]) {
+    if (!zone) continue;
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: zone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(at);
+      const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+      return { hour: Number(part('hour')) % 24, day: `${part('year')}-${part('month')}-${part('day')}` };
+    } catch {
+      // Unknown zone: try the default.
+    }
+  }
+  return { hour: at.getUTCHours(), day: at.toISOString().slice(0, 10) };
 }
 
 async function sendPushBatch(entries: { token: string; body: string }[]): Promise<void> {
@@ -88,9 +118,33 @@ Deno.serve(async (req) => {
     }
   }
 
-  const now = new Date().toISOString();
-  const today = now.slice(0, 10);
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
   const resendApiKey = Deno.env.get('RESEND_API_KEY');
+
+  // Who it's 8 PM for right now, among those who want standings. Most
+  // hourly runs find nobody and stop here. An admin's manual test run
+  // skips the hour check (null = everyone opted in).
+  let dueNow: Set<string> | null = null;
+  if (isServiceRole) {
+    const { data: optedIn, error: optedInError } = await supabase
+      .from('profiles')
+      .select('id, time_zone')
+      .or('alert_daily_standings_push_enabled.eq.true,alert_daily_standings_email_enabled.eq.true');
+    if (optedInError) {
+      return new Response(JSON.stringify({ error: optedInError.message }), { status: 500 });
+    }
+    dueNow = new Set(
+      (optedIn ?? [])
+        .filter((p: { time_zone: string | null }) => localClock(p.time_zone, nowDate).hour === ALERT_HOUR)
+        .map((p: { id: string }) => p.id),
+    );
+    if (dueNow.size === 0) {
+      return new Response(JSON.stringify({ challengesSent: 0, errors: [] }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  }
 
   const { data: challenges, error: challengesError } = await supabase
     .from('challenges')
@@ -110,7 +164,9 @@ Deno.serve(async (req) => {
       await Promise.all([
         supabase
           .from('challenge_participants')
-          .select('user_id, profiles(email, alert_daily_standings_push_enabled, alert_daily_standings_email_enabled)')
+          .select(
+            'user_id, profiles(time_zone, email, alert_daily_standings_push_enabled, alert_daily_standings_email_enabled)',
+          )
           .eq('challenge_id', challenge.id)
           .returns<ParticipantRow[]>(),
         supabase.from('progress_snapshots').select('user_id, steps').eq('challenge_id', challenge.id),
@@ -125,20 +181,36 @@ Deno.serve(async (req) => {
     }
     if (!participants || participants.length === 0) continue;
 
-    const optedIn = participants.filter(
-      (p) => p.profiles?.alert_daily_standings_push_enabled || p.profiles?.alert_daily_standings_email_enabled,
+    // Opted in, and it's 8 PM where they are.
+    const due = participants.filter(
+      (p) =>
+        (p.profiles?.alert_daily_standings_push_enabled || p.profiles?.alert_daily_standings_email_enabled) &&
+        (!dueNow || dueNow.has(p.user_id)),
     );
-    if (optedIn.length === 0) continue;
+    if (due.length === 0) continue;
 
-    // Insert-if-not-already-recorded — checked only now that there's
-    // actually someone to notify, not before. A challenge with nobody
-    // opted in yet shouldn't burn today's one attempt: if it did, opting
-    // in later the same day would find the guard already tripped and
-    // silently get skipped until tomorrow.
-    const { error: guardError } = await supabase
-      .from('daily_standings_sent')
-      .insert({ challenge_id: challenge.id, day: today });
-    if (guardError) continue;
+    // Record the sends first. Only new records come back from the insert,
+    // so anyone who already had today's standings (on their own calendar)
+    // is skipped.
+    const { data: recorded, error: guardError } = await supabase
+      .from('alert_deliveries')
+      .upsert(
+        due.map((p) => ({
+          kind: 'daily_standings',
+          challenge_id: challenge.id,
+          recipient_id: p.user_id,
+          day: localClock(p.profiles?.time_zone ?? null, nowDate).day,
+        })),
+        { onConflict: 'kind,challenge_id,subject_id,recipient_id,day', ignoreDuplicates: true },
+      )
+      .select('recipient_id');
+    if (guardError) {
+      errors.push(`${challenge.name}: ${guardError.message}`);
+      continue;
+    }
+    const newlyRecorded = new Set((recorded ?? []).map((r: { recipient_id: string }) => r.recipient_id));
+    const optedIn = due.filter((p) => newlyRecorded.has(p.user_id));
+    if (optedIn.length === 0) continue;
 
     const totalsByUser = new Map<string, number>();
     for (const p of participants) totalsByUser.set(p.user_id, 0);
@@ -180,6 +252,12 @@ Deno.serve(async (req) => {
     await Promise.all([sendPushBatch(pushEntries), ...emailSends]);
     challengesSent += 1;
   }
+
+  // Old send records aren't needed once the day has passed.
+  await supabase
+    .from('alert_deliveries')
+    .delete()
+    .lt('day', new Date(nowDate.getTime() - 14 * 86_400_000).toISOString().slice(0, 10));
 
   return new Response(JSON.stringify({ challengesSent, errors }), { headers: { 'Content-Type': 'application/json' } });
 });

@@ -920,8 +920,8 @@ export function SettingsScreen({
               <View style={{ gap: 16 }}>
                 <View style={{ gap: 10 }}>
                   <Text style={styles.alertGroupLabel}>
-                    Login reminders &amp; Tag catch alerts — if you haven&rsquo;t opened Hound today, or
-                    someone catches you in Tag
+                    Login reminders &amp; Tag catch alerts — at 9pm your time if you haven&rsquo;t opened
+                    Hound today, or when someone catches you in Tag
                   </Text>
                   <ToggleRow
                     label="Push notification"
@@ -942,7 +942,7 @@ export function SettingsScreen({
                     rather than shown wired to nothing. See
                     notifications/types.ts. */}
                 <View style={{ gap: 10 }}>
-                  <Text style={styles.alertGroupLabel}>A friend's data goes stale mid-challenge — all challenges</Text>
+                  <Text style={styles.alertGroupLabel}>A friend's data goes stale mid-challenge — 6pm your time, all challenges</Text>
                   <ToggleRow
                     label="Push notification"
                     note={savingAlert === 'staleDataPush' ? 'Saving…' : 'Sent to this device'}
@@ -957,7 +957,7 @@ export function SettingsScreen({
                   />
                 </View>
                 <View style={{ gap: 10 }}>
-                  <Text style={styles.alertGroupLabel}>Daily standings at 8pm — step races</Text>
+                  <Text style={styles.alertGroupLabel}>Daily standings at 8pm your time — step races</Text>
                   <ToggleRow
                     label="Push notification"
                     note={savingAlert === 'dailyStandingsPush' ? 'Saving…' : 'Sent to this device'}

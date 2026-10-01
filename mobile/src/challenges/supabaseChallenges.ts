@@ -76,7 +76,7 @@ function challengeRowToInviteWindowInput(row: {
 }
 
 const CHALLENGE_COLUMNS =
-  'id, name, kind, created_by, duration_days, starts_at, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit, bingo_card_type, organization_id';
+  'id, name, kind, created_by, duration_days, starts_at, start_day, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit, bingo_card_type, organization_id';
 
 interface ChallengeRow {
   id: string;
@@ -85,6 +85,7 @@ interface ChallengeRow {
   created_by: string;
   duration_days: number;
   starts_at: string;
+  start_day: string | null;
   created_at: string;
   ends_at: string;
   daily_goal_steps: number | null;
@@ -120,6 +121,7 @@ function rowToChallenge(row: ChallengeRow): Challenge {
     createdBy: row.created_by,
     durationDays: row.duration_days,
     startsAt: row.starts_at,
+    startDay: row.start_day,
     createdAt: row.created_at,
     endsAt: row.ends_at,
     dailyGoalSteps: row.daily_goal_steps,
