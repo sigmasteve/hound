@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeftIcon, EnvelopeSimpleIcon, LockSimpleIcon } from 'phosphor-react-native';
 import { Button } from '../../components/Button';
 import { TextField } from '../../components/TextField';
@@ -10,6 +11,9 @@ import { useAuth } from '../../auth/AuthContext';
 export function LoginScreen({ onBack, onCreateAccount }: { onBack: () => void; onCreateAccount: () => void }) {
   const { signInWithEmail, resetPasswordForEmail } = useAuth();
   const { colors, text } = useTheme();
+  // Android draws under the system navigation bar (edge-to-edge), so the
+  // bottom of the screen needs its height as padding.
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,7 +64,7 @@ export function LoginScreen({ onBack, onCreateAccount }: { onBack: () => void; o
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 24 + insets.bottom }]} keyboardShouldPersistTaps="handled">
         <Button
           label="Back"
           variant="ghost"

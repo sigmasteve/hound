@@ -10,7 +10,7 @@ import { font, toneColor, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
 import { useAuth } from '../auth/AuthContext';
 import { PersonalRecordsCard } from '../components/PersonalRecordsCard';
-import type { DailySteps, WorkoutSample } from '../health/types';
+import type { DailySteps, DailyStepsWithDate, WorkoutSample } from '../health/types';
 import { computeReadiness, READINESS_COPY, SAMPLE_READINESS, type ReadinessResult } from '../health/readiness';
 
 type MetricTab = 'steps' | 'distance' | 'workouts' | 'hr' | 'weight';
@@ -65,11 +65,9 @@ function linearTrend(vals: number[]): { start: number; end: number } | null {
 
 // Every real workout's own day, bucketed into the same trailing N-day
 // window getWeeklySteps() covers (today and the N-1 days before it) —
-// this is "distance sourced from workouts," deliberately not the
-// passive/all-day walking-distance total getDailyStepsSince returns for
-// other callers (see ChallengeDetailScreen's own syncFromDevice, which
-// makes the same distinction for a hunt scored on gps_distance/
-// any_workout vs. one scored on device_steps). Returns exactly `days`
+// "distance sourced from workouts." On its own this read 0.0 mi on a day
+// with walking but no workouts, while Home showed the all-day total;
+// mergeDistanceByDay below combines the two. Returns exactly `days`
 // entries, oldest first, so it lines up positionally with weekly's own
 // (separately fetched) day labels without needing to recompute or match
 // them itself.
@@ -87,6 +85,25 @@ function bucketWorkoutDistanceByDay(workouts: WorkoutSample[], days: number): nu
     if (idx >= 0 && idx < days) buckets[idx] += w.distanceMi ?? 0;
   }
   return buckets.map((v) => Math.round(v * 10) / 10);
+}
+
+// Each day's distance: the phone's all-day total (the same number Home
+// shows) or the day's workouts added up, whichever is more. The all-day
+// total already includes walks and runs, so adding the two would count a
+// run twice; taking the larger still catches a bike ride, which the
+// all-day walking total leaves out. `allDay` is getDailyStepsSince's
+// output; `workoutDays` lines up with the same window, oldest first.
+function mergeDistanceByDay(allDay: DailyStepsWithDate[], workoutDays: number[]): number[] {
+  const days = workoutDays.length;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const byDate = new Map(allDay.map((d) => [d.date, d.distanceMi]));
+  return workoutDays.map((fromWorkouts, i) => {
+    const day = new Date(today);
+    day.setDate(day.getDate() - (days - 1 - i));
+    const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+    return Math.round(Math.max(byDate.get(key) ?? 0, fromWorkouts) * 10) / 10;
+  });
 }
 
 export interface ActivityTotal {
@@ -176,6 +193,7 @@ export function MetricsScreen() {
   const [weekly, setWeekly] = useState<DailySteps[]>([]);
   const [series, setSeries] = useState<number[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutSample[]>([]);
+  const [allDayDistance, setAllDayDistance] = useState<DailyStepsWithDate[]>([]);
   const [workoutsOpen, setWorkoutsOpen] = useState(false);
 
   useEffect(() => {
@@ -185,6 +203,14 @@ export function MetricsScreen() {
     // count below, which need a full week's worth, not just the 5 most
     // recent rows the table shows.
     health.getRecentWorkouts(50).then(setWorkouts);
+    // The all-day distance for the same 7 days (see mergeDistanceByDay).
+    const since = new Date();
+    since.setHours(0, 0, 0, 0);
+    since.setDate(since.getDate() - 6);
+    health
+      .getDailyStepsSince(since)
+      .then(setAllDayDistance)
+      .catch(() => setAllDayDistance([]));
   }, [health]);
 
   useEffect(() => {
@@ -193,7 +219,10 @@ export function MetricsScreen() {
   }, [tab, health]);
 
   const days = weekly.length || 7;
-  const distanceByDay = useMemo(() => bucketWorkoutDistanceByDay(workouts, days), [workouts, days]);
+  const distanceByDay = useMemo(
+    () => mergeDistanceByDay(allDayDistance, bucketWorkoutDistanceByDay(workouts, days)),
+    [allDayDistance, workouts, days],
+  );
   const activitySummary = useMemo(() => groupWorkoutsByActivity(workouts, days), [workouts, days]);
   const totalSteps = useMemo(() => weekly.reduce((sum, d) => sum + d.steps, 0), [weekly]);
   const totalDistanceMi = useMemo(() => distanceByDay.reduce((sum, v) => sum + v, 0), [distanceByDay]);
@@ -374,13 +403,21 @@ export function MetricsScreen() {
             <Text style={styles.weekTileValue}>{workoutCount}</Text>
           </View>
         </View>
+        <Text style={styles.footNote}>
+          Distance is measured by your phone or watch, so it won&rsquo;t always line up with your steps — roughly 2,000
+          steps make a mile.
+        </Text>
       </Card>
 
       {/* Last on the tab, on purpose — Phase 1 only (training load, no
           recovery signal yet — see the readiness plan doc), so it's not
           the polished, load-bearing feature the cards above it are. */}
       <Card style={{ gap: 10, padding: 18 }} elevated={false}>
-        <Text style={text.h4}>Readiness</Text>
+        <Text style={text.h4}>Training readiness</Text>
+        <Text style={styles.footNote}>
+          Compares this week&rsquo;s workout minutes with your average over the last 4 weeks, to suggest whether to
+          push harder or ease off.
+        </Text>
         <ReadinessSummary result={readiness} colors={colors} styles={styles} />
         {readiness.label === 'insufficient_data' && (
           <View style={styles.readinessPreview}>

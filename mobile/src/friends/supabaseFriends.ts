@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { extractFriendCode, type Friend, type FriendsProvider, type KudosCounts } from './types';
+import { extractFriendCode, KUDOS_COOLDOWN_MS, type Friend, type FriendsProvider, type KudosCounts } from './types';
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -170,13 +170,19 @@ export const supabaseFriendsProvider: FriendsProvider = {
   async getKudosCounts(friendUserId: string): Promise<KudosCounts> {
     const client = requireClient();
     const userId = await requireUserId();
-    const [given, received] = await Promise.all([
+    const [given, received, recent] = await Promise.all([
       client.from('kudos').select('id', { count: 'exact', head: true }).eq('giver_id', userId).eq('receiver_id', friendUserId),
       client.from('kudos').select('id', { count: 'exact', head: true }).eq('giver_id', friendUserId).eq('receiver_id', userId),
+      client
+        .from('kudos')
+        .select('id', { count: 'exact', head: true })
+        .eq('giver_id', userId)
+        .eq('receiver_id', friendUserId)
+        .gt('created_at', new Date(Date.now() - KUDOS_COOLDOWN_MS).toISOString()),
     ]);
     if (given.error) throw new Error(given.error.message);
     if (received.error) throw new Error(received.error.message);
-    return { given: given.count ?? 0, received: received.count ?? 0 };
+    return { given: given.count ?? 0, received: received.count ?? 0, givenRecently: (recent.count ?? 0) > 0 };
   },
 
   async giveKudos(friendUserId: string): Promise<void> {

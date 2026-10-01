@@ -87,4 +87,11 @@ export interface FriendsProvider {
 export interface KudosCounts {
   given: number;
   received: number;
+  // Already gave this friend kudos in the last 20 hours — the most
+  // allowed (0089_username_filter_kudos_limit.sql).
+  givenRecently: boolean;
 }
+
+// The server's refusal for a second kudos within 20 hours (0089).
+export const KUDOS_LIMIT_MESSAGE = 'Already gave kudos today. You can give more tomorrow.';
+export const KUDOS_COOLDOWN_MS = 20 * 3_600_000;

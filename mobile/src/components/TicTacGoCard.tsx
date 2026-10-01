@@ -346,7 +346,17 @@ function makeStyles(colors: Palette) {
     cellReady: { borderColor: colors.green, borderWidth: 1.5 },
     cellSelected: { borderColor: colors.accent, borderWidth: 2 },
     cellWinning: { borderColor: colors.green, borderWidth: 2.5 },
-    cellLabel: { fontSize: 12.5, textAlign: 'center', color: colors.text, fontFamily: font.heading },
+    // includeFontPadding off: Android otherwise adds space above the text,
+    // which pushes a label below the middle of its square.
+    cellLabel: {
+      width: '100%',
+      fontSize: 12.5,
+      textAlign: 'center',
+      textAlignVertical: 'center',
+      includeFontPadding: false,
+      color: colors.text,
+      fontFamily: font.heading,
+    },
     cellLabelCompact: { fontSize: 10.5, fontFamily: font.body },
     cellLabelClaimed: { fontSize: 10.5, textAlign: 'center', color: withAlpha(colors.text, 0.5) },
     mark: { fontFamily: font.heading, fontSize: 34, lineHeight: 38 },

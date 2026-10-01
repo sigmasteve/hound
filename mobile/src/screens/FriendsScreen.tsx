@@ -21,7 +21,7 @@ import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { FRIENDS } from '../data/sampleData';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
-import { friendCodeUrl, type Friend } from '../friends/types';
+import { KUDOS_LIMIT_MESSAGE, friendCodeUrl, type Friend } from '../friends/types';
 import { feedAction, getFriendActivityFeed, groupFeed, timeAgo, type FeedItem } from '../friends/activityFeed';
 import { useLabels } from '../labels/LabelsContext';
 import { useAuth } from '../auth/AuthContext';
@@ -86,7 +86,10 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
     setCheered((cur) => new Set(cur).add(item.id));
     try {
       await supabaseFriendsProvider.giveKudos(item.userId);
-    } catch {
+    } catch (e) {
+      // Already cheered this friend today (once a day, 0089): it still
+      // counts as cheered.
+      if (e instanceof Error && e.message.includes(KUDOS_LIMIT_MESSAGE)) return;
       setCheered((cur) => {
         const next = new Set(cur);
         next.delete(item.id);
@@ -351,11 +354,21 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
                 <QRCode value={friendCodeUrl(myCode)} size={140} color={colors.text} backgroundColor={colors.surface} />
               </View>
             )}
+            {/* The code itself, big enough to read out or type in — friends
+                enter it under "Add a friend's code". */}
+            {myCode && (
+              <View style={styles.myCodeBlock}>
+                <Text style={styles.myCodeLabel}>YOUR FRIEND CODE</Text>
+                <Text style={styles.myCodeValue} selectable>
+                  {myCode}
+                </Text>
+              </View>
+            )}
             <Text style={[styles.inviteLink, { textAlign: 'center' }]}>{myCode ? friendCodeUrl(myCode) : '—'}</Text>
             {myCode && (
               <Text style={[styles.footNote, { textAlign: 'center' }]}>
-                Your code: <Text style={styles.codeText}>{myCode}</Text>. The link helps friends without Hound get the
-                beta first, then add you.
+                Friends with Hound can enter the code. The link helps friends without Hound get the beta first, then
+                add you.
               </Text>
             )}
             <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
@@ -506,7 +519,6 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
-    codeText: { fontFamily: font.heading, color: colors.text },
     container: { padding: 16, gap: 12, paddingBottom: 48 },
     feedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
     feedMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -559,6 +571,9 @@ function makeStyles(colors: Palette) {
     friendListRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
     inviteText: { flex: 1, minWidth: 150, fontSize: 13.5, color: colors.text },
     inviteLink: { fontFamily: font.body, fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    myCodeBlock: { alignItems: 'center', gap: 2 },
+    myCodeLabel: { fontSize: 11, letterSpacing: 0.8, color: withAlpha(colors.text, 0.55), fontFamily: font.heading },
+    myCodeValue: { fontSize: 26, letterSpacing: 3, color: colors.text, fontFamily: font.headingSemibold },
     // Button pins itself to alignSelf: 'flex-start', so this wrapper is
     // what lines it up with the text input beside it, not the label.
     inlineAction: { marginBottom: 7 },
