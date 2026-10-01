@@ -15,7 +15,18 @@
 //   supabase functions deploy send-daily-standings
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { escapeHtml } from '../_shared/html.ts';
+
+// Escaping for names people typed themselves, so a name shows up as
+// text in the email, never as a link or an extra subject line. Kept in
+// this file so the function deploys on its own from the dashboard.
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 // The local hour the standings go out.

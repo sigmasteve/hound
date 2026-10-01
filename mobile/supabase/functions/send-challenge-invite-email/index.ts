@@ -37,7 +37,29 @@
 // invitee's own pending-invite card.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { escapeHtml, oneLine } from '../_shared/html.ts';
+
+// Escaping for names people typed themselves, so a name shows up as
+// text in the email, never as a link or an extra subject line. Kept in
+// this file so the function deploys on its own from the dashboard.
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// One line, no control characters, capped in length. For subjects and for
+// names that go into the text of an email.
+function oneLine(value: unknown, max = 60): string {
+  const cleaned = String(value ?? '')
+    // deno-lint-ignore no-control-regex
+    .replace(/[\u0000-\u001f\u007f‎‏‪-‮⁦-⁩]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned.length > max ? cleaned.slice(0, max - 1) + '…' : cleaned;
+}
 
 const HOUND_SIGNUP_URL = 'https://houndchallenge.net';
 
