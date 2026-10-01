@@ -13,7 +13,7 @@
 // Deploy with the Supabase CLI:
 //   supabase functions deploy send-social-push
 
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EMOJI = ['🔥', '💪', '👏', '😮'];
@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
 });
 
 // One new trash-talk message, to everyone post_trash_talk picked.
-async function trashTalk(supabase: ReturnType<typeof createClient>, body: RequestBody): Promise<Response> {
+async function trashTalk(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
   const toUsers = (body.to_users ?? []).filter((id) => typeof id === 'string');
   if (!body.from_user || !body.challenge_id || !body.message || toUsers.length === 0) {
     return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });

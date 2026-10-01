@@ -16,34 +16,42 @@
 -- updated in the same commit to send p_organization_id instead of
 -- organization_id.
 --
--- Run this once, after 0040, in the SQL Editor.
+-- Superseded: this file's create-or-replace failed in production
+-- ("cannot change name of input parameter"), so it never took effect.
+-- 0042 makes the same change with an explicit drop. The original body is
+-- kept below as comments, and the file now does nothing, so a fresh
+-- database (staging, CI) gets exactly what production has.
 
-create or replace function public.org_set_labels(p_organization_id uuid, hunter_label text, hunted_label text, zombie_label text)
-returns void
-language plpgsql
-security definer set search_path = public
-as $$
-begin
-  if not exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid()
-      and (p.is_admin or (p.organization_id = p_organization_id and p.org_role = 'admin'))
-  ) then
-    raise exception 'not authorized';
-  end if;
+-- -- Run this once, after 0040, in the SQL Editor.
+--
+-- create or replace function public.org_set_labels(p_organization_id uuid, hunter_label text, hunted_label text, zombie_label text)
+-- returns void
+-- language plpgsql
+-- security definer set search_path = public
+-- as $$
+-- begin
+--   if not exists (
+--     select 1 from public.profiles p
+--     where p.id = auth.uid()
+--       and (p.is_admin or (p.organization_id = p_organization_id and p.org_role = 'admin'))
+--   ) then
+--     raise exception 'not authorized';
+--   end if;
+--
+--   insert into public.organization_labels (organization_id, hunter_label, hunted_label, zombie_label, updated_at)
+--   values (p_organization_id, org_set_labels.hunter_label, org_set_labels.hunted_label, org_set_labels.zombie_label, now())
+--   on conflict (organization_id) do update
+--     set hunter_label = excluded.hunter_label,
+--         hunted_label = excluded.hunted_label,
+--         zombie_label = excluded.zombie_label,
+--         updated_at = now();
+-- end;
+-- $$;
+--
+-- -- The old (organization_id uuid, text, text, text) signature is gone —
+-- -- create or replace above only updates it in place because the
+-- -- parameter TYPES are unchanged (Postgres overloads by type, not name),
+-- -- so there's nothing to drop separately.
+-- grant execute on function public.org_set_labels(uuid, text, text, text) to authenticated;
 
-  insert into public.organization_labels (organization_id, hunter_label, hunted_label, zombie_label, updated_at)
-  values (p_organization_id, org_set_labels.hunter_label, org_set_labels.hunted_label, org_set_labels.zombie_label, now())
-  on conflict (organization_id) do update
-    set hunter_label = excluded.hunter_label,
-        hunted_label = excluded.hunted_label,
-        zombie_label = excluded.zombie_label,
-        updated_at = now();
-end;
-$$;
-
--- The old (organization_id uuid, text, text, text) signature is gone —
--- create or replace above only updates it in place because the
--- parameter TYPES are unchanged (Postgres overloads by type, not name),
--- so there's nothing to drop separately.
-grant execute on function public.org_set_labels(uuid, text, text, text) to authenticated;
+select 1;
