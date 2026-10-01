@@ -11,7 +11,9 @@
 --       shared challenges to another player, removes the rest, and
 --       clears the workout archive, which has no link to the user.
 --   M7  Some links to a user had no ON DELETE rule, so deleting a user
---       failed. They now cascade or clear.
+--       failed. They now cascade or clear. (challenge_participants.
+--       last_tagged_by has no foreign key on purpose, see 0046; it is
+--       cleared by delete_account_data instead.)
 --   H1  Step 1 of hiding email and friend code from other users: the
 --       functions the app needs instead of reading those columns
 --       (my_friend_code, profile_id_for_email, admin_search_users,
@@ -52,7 +54,9 @@ grant execute on function public.claim_push_token(text, text) to authenticated;
 -- ── M7: links to a user that blocked deleting them ───────────────────
 
 -- Finds the foreign key on (table, column) whatever it was named, and
--- recreates it with the given ON DELETE rule.
+-- recreates it with the given ON DELETE rule. Never adds a foreign key
+-- that isn't there: a new link to profiles can make PostgREST refuse
+-- older apps' embeds as ambiguous (0046).
 do $$
 declare
   r record;
@@ -65,7 +69,6 @@ begin
       ('tag_rounds', 'target_user_id', 'set null'),
       ('tag_events', 'tagger_id', 'cascade'),
       ('tag_events', 'tagged_id', 'cascade'),
-      ('challenge_participants', 'last_tagged_by', 'set null'),
       ('tictacgo_games', 'x_user_id', 'set null'),
       ('tictacgo_games', 'o_user_id', 'set null'),
       ('tictacgo_games', 'turn_user_id', 'set null'),
@@ -76,6 +79,7 @@ begin
                    where table_schema = 'public' and table_name = r.tbl and column_name = r.col) then
       continue;
     end if;
+    con := null;
     select c.conname into con
       from pg_constraint c
       join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
@@ -83,9 +87,10 @@ begin
         and c.contype = 'f'
         and c.confrelid = 'public.profiles'::regclass
         and a.attname = r.col;
-    if con is not null then
-      execute format('alter table public.%I drop constraint %I', r.tbl, con);
+    if con is null then
+      continue;
     end if;
+    execute format('alter table public.%I drop constraint %I', r.tbl, con);
     execute format(
       'alter table public.%I add constraint %I foreign key (%I) references public.profiles (id) on delete %s',
       r.tbl, r.tbl || '_' || r.col || '_fkey', r.col, r.rule
@@ -127,6 +132,9 @@ begin
       update public.challenges set created_by = heir where id = ch.id;
     end if;
   end loop;
+
+  -- No foreign key here (0046), so clear it by hand.
+  update public.challenge_participants set last_tagged_by = null where last_tagged_by = p_user;
 
   if to_regclass('public.workout_history_archive') is not null then
     delete from public.workout_history_archive where user_id = p_user;
