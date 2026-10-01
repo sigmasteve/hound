@@ -73,6 +73,10 @@ Deno.serve(async (req) => {
     }
 
     const adminClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    // Hands shared challenges to another player and clears what doesn't
+    // cascade (0091_security_followups.sql). Before 0091 has run the
+    // function doesn't exist; the delete below then behaves as it used to.
+    await adminClient.rpc('delete_account_data', { p_user: userId });
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
     if (deleteError) {
       // Postgres FK-violation code — the created-challenges case the

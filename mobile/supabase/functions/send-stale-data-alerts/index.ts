@@ -17,6 +17,7 @@
 //   supabase functions deploy send-stale-data-alerts
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { escapeHtml, oneLine } from '../_shared/html.ts';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const STALE_MS = 24 * 60 * 60 * 1000;
@@ -101,7 +102,7 @@ async function sendAlertEmail(resendApiKey: string, email: string, body: string)
       from: 'Hound <alerts@houndchallenge.net>',
       to: [email],
       subject: 'Hound alert',
-      html: `<p>${body}</p>`,
+      html: `<p>${escapeHtml(body)}</p>`,
     }),
   }).catch(() => {
     // Same "one failed send shouldn't stop the rest" reasoning

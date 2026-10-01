@@ -15,6 +15,7 @@
 //   supabase functions deploy send-daily-standings
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { escapeHtml } from '../_shared/html.ts';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 // The local hour the standings go out.
@@ -83,7 +84,7 @@ async function sendAlertEmail(resendApiKey: string, email: string, body: string)
       from: 'Hound <alerts@houndchallenge.net>',
       to: [email],
       subject: 'Hound alert',
-      html: `<p>${body}</p>`,
+      html: `<p>${escapeHtml(body)}</p>`,
     }),
   }).catch(() => {
     // Same "one failed send shouldn't stop the rest" reasoning

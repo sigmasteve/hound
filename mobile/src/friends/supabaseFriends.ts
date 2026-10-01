@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { isMissingFunction } from '../lib/rpcFallback';
 import { extractFriendCode, KUDOS_COOLDOWN_MS, type Friend, type FriendsProvider, type KudosCounts } from './types';
 
 function requireClient() {
@@ -70,12 +71,20 @@ export const supabaseFriendsProvider: FriendsProvider = {
     const userId = await requireUserId();
     const normalized = email.trim().toLowerCase();
 
-    const { data: target, error: lookupError } = await client
-      .from('profiles')
-      .select('id')
-      .eq('email', normalized)
-      .maybeSingle();
-    if (lookupError) throw new Error(lookupError.message);
+    // Who has this address. Other people's emails aren't readable directly
+    // (0092_hide_private_profile_columns.sql), so this asks the server;
+    // before 0091 has run, the direct lookup still works.
+    let target: { id: string } | null = null;
+    const { data: foundId, error: rpcError } = await client.rpc('profile_id_for_email', { p_email: normalized });
+    if (!rpcError) {
+      target = foundId ? { id: foundId as string } : null;
+    } else if (isMissingFunction(rpcError)) {
+      const { data, error: lookupError } = await client.from('profiles').select('id').eq('email', normalized).maybeSingle();
+      if (lookupError) throw new Error(lookupError.message);
+      target = data;
+    } else {
+      throw new Error(rpcError.message);
+    }
 
     if (!target) {
       // Nobody's signed up with this email yet — park the invite so it
@@ -155,6 +164,12 @@ export const supabaseFriendsProvider: FriendsProvider = {
   async getMyFriendCode(): Promise<string> {
     const client = requireClient();
     const userId = await requireUserId();
+    // Friend codes aren't readable from the profile table any more
+    // (0092_hide_private_profile_columns.sql) — your own comes from
+    // my_friend_code(); before 0091 has run, the direct read still works.
+    const { data: code, error: rpcError } = await client.rpc('my_friend_code');
+    if (!rpcError) return code as string;
+    if (!isMissingFunction(rpcError)) throw new Error(rpcError.message);
     const { data, error } = await client.from('profiles').select('friend_code').eq('id', userId).single();
     if (error) throw new Error(error.message);
     return data.friend_code;

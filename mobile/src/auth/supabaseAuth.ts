@@ -4,6 +4,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
 import { signInWithGoogleNative, signOutGoogleNative } from './googleSignIn';
 import { initialsFor } from './initials';
+import { forgetThisDevice } from '../notifications/pushToken';
 import type { AuthProviderId, AuthUser, SignUpInput } from './types';
 
 // Used instead of mockAuth.ts whenever a Supabase project is configured
@@ -25,7 +26,9 @@ export async function userFromSession(session: Session, provider: AuthProviderId
   const fallbackEmail = session.user.email ?? '';
   const { data } = await client
     .from('profiles')
-    .select('name, initials, email, is_admin, username, use_username, organization_id, org_role')
+    // Not email: other people's addresses aren't readable
+    // (0092_hide_private_profile_columns.sql), and yours is in the session.
+    .select('name, initials, is_admin, username, use_username, organization_id, org_role')
     .eq('id', session.user.id)
     .single();
   if (!data) {
@@ -39,7 +42,7 @@ export async function userFromSession(session: Session, provider: AuthProviderId
   return {
     id: session.user.id,
     name: data.name,
-    email: data.email,
+    email: fallbackEmail,
     initials: data.initials,
     provider,
     isAdmin: data.is_admin ?? false,
@@ -138,6 +141,9 @@ export async function signInWithProvider(provider: Exclude<AuthProviderId, 'emai
 
 export async function signOut(): Promise<void> {
   const client = requireClient();
+  // While still signed in: this phone stops getting this person's pushes
+  // and reminders (H7 in the security review). Never blocks signing out.
+  await forgetThisDevice();
   await signOutGoogleNative();
   const { error } = await client.auth.signOut();
   if (error) throw new Error(error.message);
