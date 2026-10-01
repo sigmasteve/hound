@@ -45,6 +45,10 @@ export interface Challenge {
   // hours from creation regardless of which start option was picked.
   createdAt: string;
   startsAt: string;
+  // The challenge's first calendar day ('YYYY-MM-DD'), the same for
+  // everyone in their own time zone (0085_challenge_start_day.sql).
+  // Optional: rows built without it fall back to startsAt's local day.
+  startDay?: string | null;
   endsAt: string;
   dailyGoalSteps: number | null;
   scoringMethod: ScoringMethod | null;

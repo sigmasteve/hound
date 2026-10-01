@@ -47,7 +47,7 @@ import {
 } from '../challenges/board';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import { syncChallengeProgressFromDevice, syncBingoProgressFromDevice, syncSeventyFiveFromDevice } from '../challenges/deviceSync';
-import { getChallengeDays, workoutCounts, type ChallengeDays } from '../challenges/challengeDays';
+import { challengeDayNumber, getChallengeDays, workoutCounts, type ChallengeDays } from '../challenges/challengeDays';
 import {
   BINGO_CARD_TYPE_NAME,
   BINGO_CATEGORY_LABEL,
@@ -859,7 +859,7 @@ export function ChallengeDetailScreen({
   // why a kind newer than this build falls back rather than crashing.
   const Icon = CHALLENGE_KIND_ICON[challenge.kind] ?? DEFAULT_CHALLENGE_ICON;
   const started = hasStarted(challenge, now);
-  const daysElapsed = Math.min(challenge.durationDays, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1);
+  const daysElapsed = challengeDayNumber(challenge, new Date(now));
   const endsLabel = formatEndsLabel(challenge.endsAt, now);
   // Before the challenge actually begins (CreateScreen's 'tomorrow' start
   // option, or any other future starts_at), "Day 1 of N" would read as

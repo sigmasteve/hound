@@ -1,17 +1,20 @@
-// Runs once a day on a schedule (see 0010_login_reminders.sql's pg_cron
-// job) — no signed-in user drives this, so unlike send-invite-email it
-// authenticates with the service role key, not a caller's JWT.
+// Runs every hour on a schedule (0010_login_reminders.sql's pg_cron job,
+// hourly since 0088_local_time_alerts.sql) — no signed-in user drives
+// this, so unlike send-invite-email it authenticates with the service
+// role key, not a caller's JWT.
 //
-// For every profile that hasn't been active since UTC midnight and has
+// Each run reaches the people for whom it's 9 PM right now in their own
+// time zone (profiles.time_zone; US Eastern when unknown). For each one
+// who hasn't opened the app yet today (their own calendar day) and has
 // at least one reminder channel turned on, sends:
 //   - a push notification, via Expo's push API, to every device token
 //     registered for that user (see device_push_tokens / src/notifications)
 //   - an email, via Resend, reusing the same setup as send-invite-email
 //
-// last_login_reminder_sent_at guards against sending twice if the cron
-// job is ever re-run the same day (a retry after a transient failure,
-// for instance) — it's set right after a user is processed, and the
-// query below skips anyone already marked for today.
+// last_login_reminder_sent_at guards against sending twice on the same
+// local day (a retry after a transient failure, for instance) — it's set
+// right after a user is processed, and anyone already reminded today is
+// skipped.
 //
 // Deploy with the Supabase CLI:
 //   supabase functions deploy send-login-reminders
@@ -19,15 +22,14 @@
 // platform's default verification like any other caller — the explicit
 // check below on top of that is what actually restricts this to the
 // scheduled job rather than any signed-in user's own JWT.
-//
-// TODO(timezone): this fires once, at whatever UTC hour 0010's cron
-// schedule uses, for every user regardless of their own local time. See
-// that migration's TODO for what per-user timezone support needs.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const HOUND_SIGNUP_URL = 'https://houndchallenge.net';
+// The local hour the reminder goes out.
+const REMINDER_HOUR = 21;
+const DEFAULT_TIME_ZONE = 'America/New_York';
 
 interface ProfileRow {
   id: string;
@@ -35,6 +37,9 @@ interface ProfileRow {
   email: string;
   notify_push_enabled: boolean;
   notify_email_enabled: boolean;
+  time_zone: string | null;
+  last_active_at: string | null;
+  last_login_reminder_sent_at: string | null;
 }
 
 interface PushTokenRow {
@@ -42,8 +47,29 @@ interface PushTokenRow {
   expo_push_token: string;
 }
 
-function startOfUtcDay(): string {
-  return new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z';
+// The hour (0-23) and calendar day ('YYYY-MM-DD') at `at` in a time
+// zone, falling back to US Eastern for a missing or unknown one. Same
+// helper as send-stale-data-alerts and send-daily-standings (each Edge
+// Function is deployed on its own, so it's copied rather than shared).
+function localClock(timeZone: string | null, at: Date = new Date()): { hour: number; day: string } {
+  for (const zone of [timeZone, DEFAULT_TIME_ZONE]) {
+    if (!zone) continue;
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: zone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(at);
+      const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+      return { hour: Number(part('hour')) % 24, day: `${part('year')}-${part('month')}-${part('day')}` };
+    } catch {
+      // Unknown zone: try the default.
+    }
+  }
+  return { hour: at.getUTCHours(), day: at.toISOString().slice(0, 10) };
 }
 
 async function sendPushBatch(tokens: string[]): Promise<void> {
@@ -117,20 +143,28 @@ Deno.serve(async (req) => {
     }
   }
 
-  const todayStart = startOfUtcDay();
-
-  const { data: profiles, error: profilesError } = await supabase
+  const { data: optedIn, error: profilesError } = await supabase
     .from('profiles')
-    .select('id, name, email, notify_push_enabled, notify_email_enabled')
+    .select(
+      'id, name, email, notify_push_enabled, notify_email_enabled, time_zone, last_active_at, last_login_reminder_sent_at',
+    )
     .or('notify_push_enabled.eq.true,notify_email_enabled.eq.true')
-    .or(`last_active_at.is.null,last_active_at.lt.${todayStart}`)
-    .or(`last_login_reminder_sent_at.is.null,last_login_reminder_sent_at.lt.${todayStart}`)
     .returns<ProfileRow[]>();
 
   if (profilesError) {
     return new Response(JSON.stringify({ error: profilesError.message }), { status: 500 });
   }
-  if (!profiles || profiles.length === 0) {
+
+  // An admin's manual test run skips the hour check: everyone not yet
+  // active (or reminded) today gets it now.
+  const now = new Date();
+  const profiles = (optedIn ?? []).filter((p) => {
+    const clock = localClock(p.time_zone, now);
+    if (isServiceRole && clock.hour !== REMINDER_HOUR) return false;
+    const sameDay = (at: string | null) => !!at && localClock(p.time_zone, new Date(at)).day === clock.day;
+    return !sameDay(p.last_active_at) && !sameDay(p.last_login_reminder_sent_at);
+  });
+  if (profiles.length === 0) {
     return new Response(JSON.stringify({ processed: 0 }), { headers: { 'Content-Type': 'application/json' } });
   }
 

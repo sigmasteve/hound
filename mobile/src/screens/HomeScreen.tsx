@@ -63,7 +63,7 @@ import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
 import { computePendingActions, needsManualEntry, type PendingAction } from '../challenges/pendingActions';
 import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
-import { getChallengeDays, localDayKey } from '../challenges/challengeDays';
+import { challengeDayNumber, getChallengeDays, localDayKey } from '../challenges/challengeDays';
 import { computeStreakStatus, type StreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
 import {
@@ -252,10 +252,7 @@ function heroCopy(
   tttGame: TicTacGoGame | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
-  const daysElapsed = Math.min(
-    challenge.durationDays,
-    Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
-  );
+  const daysElapsed = challengeDayNumber(challenge);
   const kindLabel = challenge.kind === 'hunt' ? huntKindName() : CHALLENGE_TYPES.find((t) => t.id === challenge.kind)?.name ?? challenge.kind;
   const eyebrow = `DAY ${daysElapsed} OF ${challenge.durationDays} · ${kindLabel.toUpperCase()}`;
 
@@ -1632,10 +1629,7 @@ function LiveHuntCard({
   const rival = board.find((r) => r.userId !== userId);
   if (!me || !rival) return null;
 
-  const daysElapsed = Math.min(
-    challenge.durationDays,
-    Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
-  );
+  const daysElapsed = challengeDayNumber(challenge);
   // Once either side is 'zombie' the chase is over — the marker gap and
   // lead/behind readout below stop meaning anything the moment that's
   // true, so both collapse to "caught" instead of stale numbers.
@@ -1741,10 +1735,7 @@ function LiveMultiHuntCard({
   const hunterName = hunterIsMe ? 'You' : hunter.name;
   const caughtCount = targets.length - stillOut.length;
 
-  const daysElapsed = Math.min(
-    challenge.durationDays,
-    Math.max(1, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1),
-  );
+  const daysElapsed = challengeDayNumber(challenge);
   const concluded = targets.length > 0 && stillOut.length === 0;
 
   // Most people read left to right, and the Hunter is the one *behind*,

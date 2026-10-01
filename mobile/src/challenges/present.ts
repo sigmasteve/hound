@@ -2,6 +2,7 @@ import { botToLeaderboardEntry, botToParticipant, daysElapsedFraction } from './
 import { buildBoard, headStartDaysLeft, isChallengeFinished, withHuntCatches } from './board';
 import { BINGO_SQUARE_COUNT } from './bingo';
 import { boardSortFor } from './scoring';
+import { challengeDayNumber } from './challengeDays';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { TINT_A, TINT_N } from '../theme/tokens';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
@@ -90,7 +91,8 @@ export function toChallengeCard(
   const tint = typeDef?.tint ?? TINT_N;
   const iconColor = typeDef?.iconColor ?? '#e9e9ed';
 
-  const daysElapsed = Math.min(challenge.durationDays, Math.floor((Date.now() - new Date(challenge.startsAt).getTime()) / 86_400_000) + 1);
+  // The challenge's own calendar days, counted on this phone.
+  const daysElapsed = challengeDayNumber(challenge);
 
   // Bots count as people for the summary card too — a bot always has
   // "logged" something (its steps are simulated, not recorded), so it

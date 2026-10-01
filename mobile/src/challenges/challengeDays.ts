@@ -55,9 +55,10 @@ async function fetchStartDay(challengeId: string): Promise<string | null> {
 
 export async function getChallengeDays(challenge: Challenge): Promise<ChallengeDays> {
   const startsAt = new Date(challenge.startsAt);
-  // Without a stored start day (older server), the old rule: the day
-  // the challenge starts in this phone's time zone.
-  const firstDay = (await fetchStartDay(challenge.id)) ?? localDayKey(startsAt);
+  // Usually read with the challenge itself; otherwise looked up. Without
+  // one at all (older server), the old rule: the day the challenge
+  // starts in this phone's time zone.
+  const firstDay = challenge.startDay ?? (await fetchStartDay(challenge.id)) ?? localDayKey(startsAt);
   const lastDay = addDaysToKey(firstDay, challenge.durationDays - 1);
   const startedNow = Math.abs(startsAt.getTime() - new Date(challenge.createdAt).getTime()) < NOW_START_WITHIN_MS;
   return { firstDay, lastDay, notBefore: startedNow ? startsAt : null };
@@ -68,4 +69,17 @@ export function workoutCounts(days: ChallengeDays, when: Date): boolean {
   const key = localDayKey(when);
   if (key < days.firstDay || key > days.lastDay) return false;
   return !days.notBefore || when >= days.notBefore;
+}
+
+// Which day of the challenge it is today on this phone: 1 on its first
+// calendar day, through durationDays. Before the first day (someone west
+// of the creator, late the evening before) it's still day 1.
+export function challengeDayNumber(challenge: Challenge, now: Date = new Date()): number {
+  const firstDay = challenge.startDay ?? localDayKey(new Date(challenge.startsAt));
+  const [y, m, d] = firstDay.split('-').map(Number);
+  const first = new Date(y, m - 1, d);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Rounded: a daylight-saving change makes one day 23 or 25 hours.
+  const n = Math.round((today.getTime() - first.getTime()) / 86_400_000) + 1;
+  return Math.min(challenge.durationDays, Math.max(1, n));
 }
