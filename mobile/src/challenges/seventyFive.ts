@@ -1,4 +1,5 @@
 import type { Challenge } from './types';
+import type { ChallengeDayRange } from './streak';
 
 // Deliberately duplicated rather than imported from streak.ts (which
 // duplicates it from supabaseChallenges.ts in turn) — this file stays a
@@ -11,21 +12,17 @@ function localDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function localMidnight(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+function addDays(day: string, n: number): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return localDateKey(new Date(y, m - 1, d + n));
 }
 
-// Every local calendar day from `from` through `to`, inclusive, as day
-// keys — small ranges only (one challenge's own duration), so a plain
-// loop is fine. Same shape as streak.ts's own daysBetween.
-function daysBetween(from: Date, to: Date): string[] {
+// Every day key from `from` through `to`, inclusive — small ranges only
+// (one challenge's own duration), so a plain loop is fine. Same shape
+// as streak.ts's own daysBetween.
+function daysBetween(from: string, to: string): string[] {
   const days: string[] = [];
-  const cur = localMidnight(from);
-  const end = localMidnight(to);
-  while (cur.getTime() <= end.getTime()) {
-    days.push(localDateKey(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
+  for (let day = from; day <= to; day = addDays(day, 1)) days.push(day);
   return days;
 }
 
@@ -72,19 +69,26 @@ export function computeSeventyFiveStatus(
   challenge: Challenge,
   joinedAtByUser: Map<string, Date>,
   checkins: SeventyFiveCheckin[],
+  // The challenge's calendar days (challengeDays.ts); without one, the
+  // day it starts on this phone through its last day.
+  range?: ChallengeDayRange,
 ): Map<string, SeventyFiveStatus> {
   const result = new Map<string, SeventyFiveStatus>();
 
   const byUserDay = new Map<string, SeventyFiveCheckin>();
   for (const c of checkins) byUserDay.set(`${c.userId}:${c.day}`, c);
 
+  const firstDay = range?.firstDay ?? localDateKey(new Date(challenge.startsAt));
+  const lastDay = range?.lastDay ?? addDays(firstDay, challenge.durationDays - 1);
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
+  // Days after the challenge ends never count as misses.
+  const judgeThrough = localDateKey(yesterday) < lastDay ? localDateKey(yesterday) : lastDay;
 
   for (const [userId, joinedAt] of joinedAtByUser) {
-    const challengeStart = new Date(challenge.startsAt);
-    const from = joinedAt > challengeStart ? joinedAt : challengeStart;
-    if (localMidnight(from).getTime() > localMidnight(yesterday).getTime()) {
+    const joinedDay = localDateKey(joinedAt);
+    const from = joinedDay > firstDay ? joinedDay : firstDay;
+    if (from > judgeThrough) {
       // Joined today (or the challenge itself hasn't had a full day yet)
       // — no elapsed day exists to judge them on.
       result.set(userId, { currentStreak: 0, longestStreak: 0 });
@@ -92,7 +96,7 @@ export function computeSeventyFiveStatus(
     }
     let currentStreak = 0;
     let longestStreak = 0;
-    for (const day of daysBetween(from, yesterday)) {
+    for (const day of daysBetween(from, judgeThrough)) {
       const row = byUserDay.get(`${userId}:${day}`);
       if (row && isSeventyFiveDayComplete(row)) {
         currentStreak += 1;

@@ -1054,9 +1054,13 @@ export function HomeScreen({
       // gated on `finished`), so a still-running streak never pays for
       // this extra round trip.
       if (primaryResult?.challenge.kind === 'streak' && isChallengeFinished(primaryResult.challenge, primaryResult.board)) {
-        Promise.all([listDailyProgress(primaryResult.challenge.id), listParticipantJoinDates(primaryResult.challenge.id)])
-          .then(([dailyRows, joinDates]) => {
-            if (!cancelled) setPrimaryStreakStatuses(computeStreakStatus(primaryResult.challenge, joinDates, dailyRows));
+        Promise.all([
+          listDailyProgress(primaryResult.challenge.id),
+          listParticipantJoinDates(primaryResult.challenge.id),
+          getChallengeDays(primaryResult.challenge),
+        ])
+          .then(([dailyRows, joinDates, days]) => {
+            if (!cancelled) setPrimaryStreakStatuses(computeStreakStatus(primaryResult.challenge, joinDates, dailyRows, days));
           })
           .catch(() => {
             if (!cancelled) setPrimaryStreakStatuses(new Map());

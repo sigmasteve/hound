@@ -41,21 +41,31 @@ export interface StreakStatus {
   streakDays: number;
 }
 
-function localMidnight(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+// A challenge's calendar days as the caller's phone counts them
+// (challengeDays.ts's getChallengeDays) — passed in rather than fetched
+// here so this file stays dependency-free.
+export interface ChallengeDayRange {
+  firstDay: string;
+  lastDay: string;
 }
 
-// Every local calendar day from `from` through `to`, inclusive, as day
-// keys — small ranges only (one challenge's own duration), so a plain
-// loop is fine.
-function daysBetween(from: Date, to: Date): string[] {
+function addDays(day: string, n: number): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return localDateKey(new Date(y, m - 1, d + n));
+}
+
+// Without a range from the server: the day the challenge starts on this
+// phone, through its last day.
+function fallbackRange(challenge: Challenge): ChallengeDayRange {
+  const firstDay = localDateKey(new Date(challenge.startsAt));
+  return { firstDay, lastDay: addDays(firstDay, challenge.durationDays - 1) };
+}
+
+// Every day key from `from` through `to`, inclusive — small ranges only
+// (one challenge's own duration), so a plain loop is fine.
+function daysBetween(from: string, to: string): string[] {
   const days: string[] = [];
-  const cur = localMidnight(from);
-  const end = localMidnight(to);
-  while (cur.getTime() <= end.getTime()) {
-    days.push(localDateKey(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
+  for (let day = from; day <= to; day = addDays(day, 1)) days.push(day);
   return days;
 }
 
@@ -69,6 +79,7 @@ export function computeStreakStatus(
   challenge: Challenge,
   joinedAtByUser: Map<string, Date>,
   dailyRows: DailyProgressRow[],
+  range: ChallengeDayRange = fallbackRange(challenge),
 ): Map<string, StreakStatus> {
   const result = new Map<string, StreakStatus>();
   const goal = challenge.dailyGoalSteps;
@@ -82,13 +93,20 @@ export function computeStreakStatus(
 
   // "Today" is still in progress — its steps aren't final yet, so only
   // a fully-elapsed day (yesterday or earlier) can eliminate anyone.
+  // Judged through yesterday, or the challenge's last day once it's
+  // over — days after the end never count against anyone.
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = localDateKey(yesterday);
+  const judgeThrough = yesterdayKey < range.lastDay ? yesterdayKey : range.lastDay;
 
   for (const [userId, joinedAt] of joinedAtByUser) {
-    const challengeStart = new Date(challenge.startsAt);
-    const from = joinedAt > challengeStart ? joinedAt : challengeStart;
-    if (localMidnight(from).getTime() > localMidnight(yesterday).getTime()) {
+    // From the challenge's first day — the same calendar day for
+    // everyone, in their own time zone (0085_challenge_start_day.sql) —
+    // or the day they joined, if later.
+    const joinedDay = localDateKey(joinedAt);
+    const from = joinedDay > range.firstDay ? joinedDay : range.firstDay;
+    if (from > judgeThrough) {
       // Joined today (or the challenge itself hasn't had a full day
       // yet) — no elapsed day exists to judge them on.
       result.set(userId, { eliminatedOnDay: null, streakDays: 0 });
@@ -96,7 +114,7 @@ export function computeStreakStatus(
     }
     let eliminatedOnDay: string | null = null;
     let streakDays = 0;
-    for (const day of daysBetween(from, yesterday)) {
+    for (const day of daysBetween(from, judgeThrough)) {
       const steps = stepsByUserDay.get(`${userId}:${day}`) ?? 0;
       if (steps < goal) {
         eliminatedOnDay = day;
