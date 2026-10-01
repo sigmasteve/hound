@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
       const pushRecipients = recipients.filter((r) => r.profiles?.alert_stale_data_push_enabled);
       const emailRecipients = recipients.filter((r) => r.profiles?.alert_stale_data_email_enabled);
 
-      const sends: Promise<void>[] = [];
+      const sends: PromiseLike<void>[] = [];
       if (pushRecipients.length > 0) {
         sends.push(
           supabase

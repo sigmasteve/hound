@@ -81,6 +81,7 @@ Details on iOS, Android, Google sign-in, push credentials and EAS are in [`mobil
   - `REVENUECAT_WEBHOOK_SECRET`, at least 32 characters.
 - **Scheduled jobs:** daily standings, stale-data alerts, login reminders and trash-talk cleanup run through `pg_cron`. They're set up by the migrations that add them.
 - **Website:** `site/` deploys to Vercel automatically on every merge to `master`. See [`site/README.md`](site/README.md) to configure it.
+- **Staging and tests:** every pull request is checked by CI: typechecks, all migrations applied to a fresh database, and the database tests in `mobile/supabase/tests/`. Merges to `master` deploy to the staging Supabase project. See [`mobile/supabase/STAGING.md`](mobile/supabase/STAGING.md).
 
 ## Shipping updates
 
