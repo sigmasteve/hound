@@ -34,7 +34,7 @@
     return div.innerHTML;
   }
 
-  // ---------- tab switching (called from index.html's inline onclick) ----------
+  // ---------- tab switching (buttons carry data-auth-tab; no inline handlers, so the CSP can forbid them) ----------
 
   window.setAuthTab = function (tab) {
     var signupOn = tab !== 'login';
@@ -62,6 +62,13 @@
       // still right there to select and copy by hand.
     }
   };
+
+  document.addEventListener('click', function (e) {
+    var tab = e.target.closest && e.target.closest('[data-auth-tab]');
+    if (tab) window.setAuthTab(tab.getAttribute('data-auth-tab'));
+    var copy = e.target.closest && e.target.closest('[data-copy-link]');
+    if (copy) window.copyLink(copy);
+  });
 
   // ---------- not configured yet: disable everything, say why ----------
 
