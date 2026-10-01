@@ -75,14 +75,36 @@ In staging's **Authentication**:
 - **URL Configuration:** use the same Site URL and redirect URLs as production.
 - **Providers:** turn on Google and Facebook with the same client IDs as production. Then add staging's callback, `https://quglaamzzhebqrlhvfuc.supabase.co/auth/v1/callback`, to the Google Cloud OAuth client and to the Facebook app.
 
-### 5. Point development builds at staging
+### 5. App builds: one profile per environment
 
-In expo.dev → the Hound project → **Environment variables**, change these for the **development** environment only:
+| Build profile | Who installs it | Update channel → branch | Supabase |
+|---|---|---|---|
+| `production` | TestFlight, App Store, Play Store | `production` → `production` | Production |
+| `production-apk` | Android testers, from the website's APK | `production` → `production` | Production |
+| `preview` | The team, for testing changes | `preview` → `preview` | Staging |
+| `development` | The team, with the dev client | none | Staging |
+
+**Moving the Android testers off `preview`.** The APK on the download page was built with `preview`. So that it would get production updates, the `preview` channel was pointed at the `production` branch (`eas channel:edit preview --branch production`). To undo that cleanly:
+
+1. Build a production APK with `npm run build:android:apk`. It's the same app and signing key, so it installs over the old one and testers stay signed in.
+2. Replace the APK behind the website's download link with this build, and ask the Android testers to install it.
+3. Watch **Admin → App versions** until no Android tester is left on the old build number.
+4. Point the `preview` channel back at its own branch: `eas channel:edit preview --branch preview`.
+
+Anyone still on the old APK at step 4 stops getting updates until they install the new one. Their app keeps working and still talks to production.
+
+**Pointing preview and development at staging.** In expo.dev → the Hound project → **Environment variables**, set these for the **preview** and **development** environments:
 
 - `EXPO_PUBLIC_SUPABASE_URL` → `https://quglaamzzhebqrlhvfuc.supabase.co`
 - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` → staging's publishable key, from **Project Settings → API Keys**
 
-Leave **preview** and **production** as they are for now. Preview builds use internal distribution, so the Android APK on the download page may be a preview build. Pointing preview at staging would move those testers onto the test database. Decide that once you know which profile built the APK.
+Leave **production** as it is. These values are baked in when an app is built or an update is published, so existing installs aren't affected. Only builds made, or updates published with `--environment preview`, after the change use staging. Staging updates go out with:
+
+```
+eas update --branch preview --environment preview
+```
+
+A preview build has the same app ID as the real app, so on one phone it replaces the production install. A separate "Hound Staging" app that installs side by side needs its own app ID. That's a native change, planned for the 0.11 build.
 
 ## Releasing to production
 
