@@ -2,7 +2,8 @@
   "rewrites": [
     { "source": "/f/:code", "destination": "/f.html" },
     { "source": "/get", "destination": "/download.html" },
-    { "source": "/whats-new", "destination": "/whats-new.html" }
+    { "source": "/whats-new", "destination": "/whats-new.html" },
+    { "source": "/survive-in-woods", "destination": "/survive-in-woods.html" }
   ],
   "redirects": [
     { "source": "/downloads/hound.apk", "destination": "https://drive.google.com/uc?export=download&id=1dbrBQtu7_OZsrCvBeRlZ8AiuEqShw0Em", "permanent": false },
