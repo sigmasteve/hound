@@ -81,7 +81,8 @@ In staging's **Authentication**:
 |---|---|---|---|
 | `production` | TestFlight, App Store, Play Store | `production` → `production` | Production |
 | `production-apk` | Android testers, from the website's APK | `production` → `production` | Production |
-| `preview` | The team, for testing changes | `preview` → `preview` | Staging |
+| `staging` | The team: **Hound Staging**, installs next to the real app | `staging` → `staging` | Staging |
+| `preview` | Older Android testers only, until they move to `production-apk` | `preview` → `production` for now | Production for now |
 | `development` | The team, with the dev client | none | Staging |
 
 **Moving the Android testers off `preview`.** The APK on the download page was built with `preview`. So that it would get production updates, the `preview` channel was pointed at the `production` branch (`eas channel:edit preview --branch production`). To undo that cleanly:
@@ -104,7 +105,20 @@ Leave **production** as it is. These values are baked in when an app is built or
 eas update --branch preview --environment preview
 ```
 
-A preview build has the same app ID as the real app, so on one phone it replaces the production install. A separate "Hound Staging" app that installs side by side needs its own app ID. That's a native change, planned for the 0.11 build.
+### 6. Hound Staging on your iPhone
+
+Hound Staging is a second app on the same phone. It has its own name, its own bundle ID (`app.hound.mobile.staging`) and its own URL scheme (`hound-staging`), and it talks to the staging project. `app.config.js` builds it only when `APP_VARIANT=staging`; every other build is the real Hound, exactly as `app.json` describes it.
+
+1. **Point the preview environment at staging.** In expo.dev → Hound → **Environment variables**, set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for **preview** to staging's values (step 5 above). Hound Staging builds and updates use the preview environment.
+2. **Register your iPhone.** Staging uses internal distribution, so Apple only lets it install on registered devices. From `mobile/`, run `npx eas-cli device:create` and follow the link on your phone. Do this once per phone.
+3. **Build it.** From `mobile/`, run `npm run build:ios:staging`.
+   - EAS asks to create the App ID `app.hound.mobile.staging` and a provisioning profile: say yes.
+   - For push notifications, reuse the existing Apple push key.
+4. **Install it** from the link or QR code EAS shows at the end. It appears as **Hound Staging**, next to Hound.
+5. **Sign in with email.** Staging has its own accounts, so create one. Google Sign-In on iOS is tied to the bundle ID, so it won't work in Hound Staging until staging has its own iOS OAuth client: set the preview environment's `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` and a `GOOGLE_IOS_URL_SCHEME_STAGING` build variable to it, then rebuild.
+6. **Send it JavaScript changes over the air** with `npm run update:staging` (from `mobile/`). Always use this script rather than a bare `eas update`. It sets `APP_VARIANT=staging`, so the update keeps the `hound-staging` scheme, and it publishes to the `staging` branch, which only Hound Staging listens to.
+
+None of this touches the real Hound: its bundle ID, channel (`production`) and environment are unchanged. Hound Staging never receives production updates, and production never receives staging updates.
 
 ## Releasing to production
 
