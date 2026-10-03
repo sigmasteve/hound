@@ -983,7 +983,7 @@ export function SettingsScreen({
                     rather than shown wired to nothing. See
                     notifications/types.ts. */}
                 <View style={{ gap: 10 }}>
-                  <Text style={styles.alertGroupLabel}>A friend's data goes stale mid-challenge — 6pm your time, all challenges</Text>
+                  <Text style={styles.alertGroupLabel}>You haven't synced in a day — 6pm your time, all challenges</Text>
                   <ToggleRow
                     label="Push notification"
                     note={savingAlert === 'staleDataPush' ? 'Saving…' : 'Sent to this device'}
