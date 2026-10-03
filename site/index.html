@@ -35,8 +35,8 @@
       same sign-in, same friends, same challenges. No download needed yet.
     </p>
     <div class="ctas">
-      <a href="#auth" class="btn btn-primary" onclick="setAuthTab('signup')">Create your account</a>
-      <a href="#auth" class="btn btn-secondary" onclick="setAuthTab('login')">Log in</a>
+      <a href="#auth" class="btn btn-primary" data-auth-tab="signup">Create your account</a>
+      <a href="#auth" class="btn btn-secondary" data-auth-tab="login">Log in</a>
     </div>
   </section>
 
@@ -82,8 +82,8 @@
     </p>
 
     <div class="auth-tabs">
-      <button class="auth-tab on" id="tab-signup" onclick="setAuthTab('signup')" type="button">Sign up</button>
-      <button class="auth-tab" id="tab-login" onclick="setAuthTab('login')" type="button">Log in</button>
+      <button class="auth-tab on" id="tab-signup" data-auth-tab="signup" type="button">Sign up</button>
+      <button class="auth-tab" id="tab-login" data-auth-tab="login" type="button">Log in</button>
     </div>
 
     <div class="oauth-row">
@@ -151,7 +151,7 @@
           <p>On the iPhone you'll actually use for testing, open this link and follow the prompts — it ties your device's Apple UDID to our Apple Developer profile:</p>
           <div class="linkbox">
             <a href="https://expo.dev/register-device/8a0e217a-6387-435b-9174-7c75706546e6" target="_blank" rel="noopener">https://expo.dev/register-device/8a0e217a-6387-435b-9174-7c75706546e6</a>
-            <button class="copy-btn" type="button" onclick="copyLink(this)">Copy</button>
+            <button class="copy-btn" type="button" data-copy-link>Copy</button>
           </div>
           <p class="sub">Open it in Safari, on that exact device — it registers that phone's UDID, so forwarding the link elsewhere won't work.</p>
         </div>
