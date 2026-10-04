@@ -3,12 +3,13 @@
     { "source": "/f/:code", "destination": "/f.html" },
     { "source": "/get", "destination": "/download.html" },
     { "source": "/whats-new", "destination": "/whats-new.html" },
-    { "source": "/survive-in-woods", "destination": "/survive-in-woods.html" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/delete-account", "destination": "/delete-account.html" }
   ],
   "redirects": [
+    { "source": "/survive-in-woods", "destination": "https://www.surviveinwoods.com/2d", "permanent": true },
+    { "source": "/survive-in-woods.html", "destination": "https://www.surviveinwoods.com/2d", "permanent": true },
     { "source": "/downloads/hound.apk", "destination": "https://drive.google.com/uc?export=download&id=1dbrBQtu7_OZsrCvBeRlZ8AiuEqShw0Em", "permanent": false },
     { "source": "/downloads/hound_0_9.apk", "destination": "/downloads/hound.apk", "permanent": false }
   ],
