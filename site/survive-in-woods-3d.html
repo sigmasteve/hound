@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Survive in Woods 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Same field-guide layout as the 2D page, plus a screenshot gallery (the 3D look is the point here).
+   Layout: a night-in-the-forest field guide — one readable column of "campsites" (sections), a trail-marker nav pinned on top,
+   tables in their own scroll boxes. Committed single dark world: the game itself happens by firelight. */
+:root {
+  --night: #10241b;        /* pine forest at night: page ground */
+  --canopy: #173326;       /* raised panels */
+  --moss: #2a4a37;         /* rules, borders */
+  --moon: #eef0dc;         /* main text: moonlit paper */
+  --fog: #a9bcaa;          /* secondary text */
+  --ember: #ff9a3c;        /* campfire accent */
+  --ember-deep: #c8581b;
+  --sky: #8fc7ff;          /* water / online */
+  --display: "Lilita One", "Arial Rounded MT Bold", "Trebuchet MS", sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--night);
+  color: var(--moon);
+  font: 17px/1.6 var(--body);
+  margin: 0;
+}
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 20px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; line-height: 1.1; text-wrap: balance; margin: 0; letter-spacing: 0.01em; }
+p { margin: 0; max-width: 65ch; }
+a { color: var(--ember); }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--ember); outline-offset: 3px; border-radius: 6px; }
+
+/* Hero */
+.hero {
+  position: relative;
+  padding-block: 64px 40px;
+  background:
+    radial-gradient(ellipse 60% 70% at 18% 105%, rgba(255, 154, 60, 0.35), transparent 70%),
+    radial-gradient(ellipse 35% 45% at 18% 100%, rgba(255, 200, 120, 0.25), transparent 70%);
+  border-bottom: 1px solid var(--moss);
+  overflow: hidden;
+}
+.eyebrow { font-family: var(--mono); font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ember); }
+.hero h1 { font-size: clamp(48px, 9vw, 104px); margin-block: 10px 14px; }
+.hero h1 .moon { color: var(--fog); }
+.lede { font-size: 20px; color: var(--moon); max-width: 52ch; }
+.hero-meta { margin-top: 10px; color: var(--fog); font-size: 15px; }
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 34px;
+}
+.figure { border-left: 2px solid var(--ember); padding: 2px 0 2px 14px; }
+.figure b { display: block; font-family: var(--display); font-weight: 400; font-size: 40px; line-height: 1; color: var(--ember); font-variant-numeric: tabular-nums; }
+.figure span { color: var(--fog); font-size: 14px; }
+canvas.fireflies { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.hero .wrap { position: relative; }
+
+/* Trail nav */
+nav.trail {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 10;
+  background: color-mix(in srgb, var(--night) 92%, transparent);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--moss);
+}
+.trail ol {
+  display: flex; gap: 6px; list-style: none; margin: 0 auto; padding: 10px 20px;
+  max-width: 1040px; overflow-x: auto; scrollbar-width: none;
+}
+.trail ol::-webkit-scrollbar { display: none; }
+.trail a {
+  display: block; white-space: nowrap; text-decoration: none; color: var(--fog);
+  font-size: 14px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--moss);
+}
+.trail a:hover { color: var(--moon); border-color: var(--fog); }
+
+/* Sections */
+section { padding-block: 56px 8px; scroll-margin-top: 64px; }
+.sec-head { display: grid; gap: 8px; margin-bottom: 22px; }
+.sec-head h2 { font-size: clamp(32px, 5vw, 48px); }
+.sec-head p { color: var(--fog); }
+h3 { font-size: 24px; margin-bottom: 6px; }
+
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+.grid > * { min-width: 0; }
+.panel { background: var(--canopy); border: 1px solid var(--moss); border-radius: 14px; padding: 18px 20px; }
+.panel h3 .ico { margin-right: 6px; }
+.panel p, .panel li { color: var(--moon); font-size: 16px; }
+.panel ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.panel .muted { color: var(--fog); font-size: 15px; }
+.tag { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ember); }
+
+/* Core loop: a real sequence, so it's numbered */
+.loop { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); counter-reset: step; list-style: none; padding: 0; margin: 0; }
+.loop li { counter-increment: step; background: var(--canopy); border: 1px solid var(--moss); border-radius: 14px; padding: 14px 16px; }
+.loop li::before { content: counter(step); font-family: var(--display); color: var(--ember); font-size: 28px; display: block; line-height: 1; margin-bottom: 4px; }
+.loop b { display: block; }
+.loop span { color: var(--fog); font-size: 15px; }
+
+/* Tables */
+.table-box { overflow-x: auto; border: 1px solid var(--moss); border-radius: 14px; background: var(--canopy); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 11px 14px; border-bottom: 1px solid var(--moss); }
+tr:last-child td { border-bottom: 0; }
+th { font-family: var(--mono); font-weight: 500; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fog); }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td .name { font-family: var(--display); font-size: 20px; display: block; line-height: 1.1; }
+td .sub { color: var(--fog); font-size: 14px; }
+
+/* Fire-level scale: drawn to scale from the game's own formula */
+.scale { display: grid; gap: 6px; }
+.bar-row { display: grid; grid-template-columns: 56px 1fr 70px; align-items: center; gap: 10px; font-size: 14px; }
+.bar-row .lv { font-family: var(--mono); color: var(--fog); }
+.bar-row .r { font-family: var(--mono); color: var(--fog); text-align: right; font-variant-numeric: tabular-nums; }
+.bar { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--ember-deep), var(--ember)); }
+.bar.camp { box-shadow: 0 0 0 2px var(--sky); }
+
+.callout { border-left: 3px solid var(--sky); padding: 10px 16px; background: var(--canopy); border-radius: 0 12px 12px 0; color: var(--moon); max-width: 72ch; }
+.status { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.pill { display: inline-block; font-family: var(--mono); font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+.pill.ok { color: #8fe3a2; } .pill.wait { color: var(--ember); } .pill.next { color: var(--sky); }
+
+/* Screenshot gallery */
+.shots { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.shot { margin: 0; background: var(--canopy); border: 1px solid var(--moss); border-radius: 14px; overflow: hidden; }
+.shot img { display: block; width: 100%; height: auto; aspect-ratio: 1400 / 973; object-fit: cover; background: var(--moss); }
+.shot figcaption { padding: 10px 14px 12px; font-size: 15px; color: var(--fog); }
+.shot figcaption b { color: var(--moon); font-weight: 700; }
+.shot.wide { grid-column: 1 / -1; }
+.hero-shot { margin-top: 30px; border-radius: 16px; overflow: hidden; border: 1px solid var(--moss); box-shadow: 0 20px 60px rgba(0,0,0,0.45); }
+.hero-shot img { display: block; width: 100%; height: auto; aspect-ratio: 1400 / 973; }
+.links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.links a { font-size: 15px; text-decoration: none; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--ember); }
+
+footer { margin-top: 64px; padding-block: 28px 40px; border-top: 1px solid var(--moss); color: var(--fog); font-size: 14px; }
+
+@media (max-width: 560px) {
+  body { font-size: 16px; }
+  .hero { padding-block: 44px 28px; }
+  .lede { font-size: 18px; }
+  .figure b { font-size: 32px; }
+}
+@media (prefers-reduced-motion: reduce) { canvas.fireflies { display: none; } html { scroll-behavior: auto; } }
+html { scroll-behavior: smooth; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <canvas class="fireflies" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <div class="eyebrow">The same family game, rebuilt in 3D · iPad &amp; iPhone</div>
+    <h1>Survive in Woods <span class="moon">3D</span></h1>
+    <p class="lede">Follow your hero from just behind the shoulder through a low-poly forest: chop, hunt, build the camp and hold out through the night, with the same rules, the same world and the same friends as the 2D game.</p>
+    <p class="hero-meta">SwiftUI + RealityKit on top of the 2D game's own engine · every model, animation and effect built in code</p>
+    <div class="figures">
+      <div class="figure"><b>7</b><span>heroes in 3D</span></div>
+      <div class="figure"><b>32</b><span>weapon models</span></div>
+      <div class="figure"><b>14</b><span>creature models</span></div>
+      <div class="figure"><b>4</b><span>rides to drive</span></div>
+      <div class="figure"><b>3</b><span>camera views</span></div>
+      <div class="figure"><b>5</b><span>players together</span></div>
+    </div>
+    <div class="hero-shot"><img src="images/survive-in-woods-3d/camp.jpg" width="1400" height="973" alt="A knight stands at the campfire in the Behind view, with a dog, a cat and a saddled horse beside the tent and smoke rising above the trees."></div>
+  </div>
+</header>
+
+<nav class="trail" aria-label="Sections">
+  <ol>
+    <li><a href="#screens">Screens</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#heroes">Heroes &amp; weapons</a></li>
+    <li><a href="#creatures">Creatures</a></li>
+    <li><a href="#camp">Camp</a></li>
+    <li><a href="#rides">Rides</a></li>
+    <li><a href="#world">World &amp; weather</a></li>
+    <li><a href="#effects">Effects</a></li>
+    <li><a href="#view">Camera &amp; graphics</a></li>
+    <li><a href="#together">Playing together</a></li>
+    <li><a href="#status">Status</a></li>
+  </ol>
+</nav>
+
+<main class="wrap">
+
+  <section id="screens">
+    <div class="sec-head">
+      <div class="eyebrow">Screens from the game</div>
+      <h2>What it looks like</h2>
+      <p>Straight from the game on an iPad, menus and all.</p>
+    </div>
+    <div class="shots">
+      <figure class="shot">
+        <img src="images/survive-in-woods-3d/heroes.jpg" width="1400" height="973" loading="lazy" alt="Seven heroes: Knight, Wizard, Vampire, Fairy, Druid, Angel and the Werewolf by day and by night, each holding their own weapons.">
+        <figcaption><b>Seven heroes.</b> Knight, Wizard, Vampire, Fairy, Druid, Angel and the Werewolf by day and by night, each holding their own weapons.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/survive-in-woods-3d/monsters.jpg" width="1400" height="973" loading="lazy" alt="Monsters and animals: Wolves, a zombie, a ghost, an ogre, the Forest Troll and the Shadow Wolf King around camp, with rabbits, deer and boar.">
+        <figcaption><b>Monsters and animals.</b> Wolves, a zombie, a ghost, an ogre, the Forest Troll and the Shadow Wolf King around camp, with rabbits, deer and boar.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/survive-in-woods-3d/fight.jpg" width="1400" height="973" loading="lazy" alt="Night fights: The Wizard casts Lightning at the Shadow Wolf King and the Troll; health bars show one block per hit.">
+        <figcaption><b>Night fights.</b> The Wizard casts Lightning at the Shadow Wolf King and the Troll; health bars show one block per hit.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/survive-in-woods-3d/rides.jpg" width="1400" height="973" loading="lazy" alt="Four rides: Go-karts (a friend rides in the back), a motorcycle, a speedboat and a flying saucer.">
+        <figcaption><b>Four rides.</b> Go-karts (a friend rides in the back), a motorcycle, a speedboat and a flying saucer.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/survive-in-woods-3d/race.jpg" width="1400" height="973" loading="lazy" alt="Racing in the rain: The racetrack with curbs and boost pads, a lap timer, and rain falling around you.">
+        <figcaption><b>Racing in the rain.</b> The racetrack with curbs and boost pads, a lap timer, and rain falling around you.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/survive-in-woods-3d/horse.jpg" width="1400" height="973" loading="lazy" alt="Riding the horse: Saddle up and gallop through the forest with the dog and cat close behind.">
+        <figcaption><b>Riding the horse.</b> Saddle up and gallop through the forest with the dog and cat close behind.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/survive-in-woods-3d/builds.jpg" width="1400" height="973" loading="lazy" alt="A built-up camp: Treehouse, thatched shed, turret, weapon rack, chest, barrel and tent inside the camp fence.">
+        <figcaption><b>A built-up camp.</b> Treehouse, thatched shed, turret, weapon rack, chest, barrel and tent inside the camp fence.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/survive-in-woods-3d/pond.jpg" width="1400" height="973" loading="lazy" alt="Ponds: Twelve fishing ponds with sandy shores, reeds and lily pads.">
+        <figcaption><b>Ponds.</b> Twelve fishing ponds with sandy shores, reeds and lily pads.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="images/survive-in-woods-3d/snow.jpg" width="1400" height="973" loading="lazy" alt="Weather: Snow whitens the ground; rain and fog change the sky and the light.">
+        <figcaption><b>Weather.</b> Snow whitens the ground; rain and fog change the sky and the light.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="sec-head">
+      <div class="eyebrow">How the 3D version works</div>
+      <h2>The same game underneath</h2>
+      <p>The 3D app runs the 2D game's own engine for every rule: the seeded forest, monsters, fires, building, scores and co-op messages. On top of it, a RealityKit scene draws that world in 3D every frame. So everything on the <a href="/survive-in-woods">2D features page</a> works exactly the same here, and 2D and 3D players can share a camp.</p>
+    </div>
+    <div class="grid">
+      <div class="panel"><h3><span class="ico">🎮</span>Every 2D feature</h3><p>Heroes, weapons, bosses, the Trading Post, mini-games, pets, achievements, Camp Score, saves and settings are all here, with the same numbers.</p></div>
+      <div class="panel"><h3><span class="ico">🔁</span>Switch any time</h3><p>Pause → 🧊 3D view flips between the new 3D look and the classic 2D view in the middle of a game.</p></div>
+      <div class="panel"><h3><span class="ico">🛠️</span>Made in code</h3><p>No 3D asset files: every hero, creature, building and effect is built from shapes in Swift when the game starts, in a faceted low-poly style.</p></div>
+    </div>
+  </section>
+
+  <section id="heroes">
+    <div class="sec-head">
+      <div class="eyebrow">Heroes and weapons</div>
+      <h2>Seven heroes, every weapon in hand</h2>
+      <p>Each hero walks, swings, casts, claws, chops with an axe, flies (Fairy and Angel) and lies down when knocked out, following the game's own attacks so teammates see it too.</p>
+    </div>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>Hero</th><th>In 3D</th></tr></thead>
+        <tbody>
+          <tr><td><span class="name">🤺 Knight</span></td><td>Steel armour, visored helmet with a blue plume, blue tunic and a shield with a gold cross.</td></tr>
+          <tr><td><span class="name">🧙 Wizard</span></td><td>Purple robe, starry pointed hat, long white beard; staffs with glowing orbs.</td></tr>
+          <tr><td><span class="name">🧛 Vampire</span></td><td>Red-lined cape that flows when running, tall collar, red eyes and fangs.</td></tr>
+          <tr><td><span class="name">🧚 Fairy</span></td><td>Petal dress, see-through buzzing wings and a tiara; floats and dangles her feet.</td></tr>
+          <tr><td><span class="name">🌿 Druid</span></td><td>Green hood, crown of leaves and a vine belt; a twisted staff with a glowing orb.</td></tr>
+          <tr><td><span class="name">😇 Angel</span></td><td>Glowing halo, big feathered wings, golden hair and a shining blade.</td></tr>
+          <tr><td><span class="name">🐺 Werewolf</span></td><td>A villager in red flannel by day; a shaggy wolf-man with glowing eyes and claws at night.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="margin-top:12px">Every weapon you hold has a model in the hand (32 of the 41; bites, claws, bat swarms and howls are attacks without one): swords, battle axe, trident, crossbow, staffs, wands with stars, flowers and moons, whips, the Shadow Scythe, hammers, the Divine Chain and the Judgment scepter. The golden Night Guardian from the Trading Post is a big gold knight with a glowing blade.</p>
+  </section>
+
+  <section id="creatures">
+    <div class="sec-head">
+      <div class="eyebrow">Animals, monsters and pets</div>
+      <h2>Fourteen creatures that move like they mean it</h2>
+      <p>They face where they're going and trot, hop, stomp, shamble or float in step with their speed. They squash and flash red when hit, lunge when they attack and topple over when beaten.</p>
+    </div>
+    <div class="grid">
+      <div class="panel"><h3><span class="ico">🦌</span>Animals</h3><ul><li>Rabbits that hop</li><li>Deer with antlers that graze</li><li>Boar with tusks and a bristly mane</li><li>Today's lost baby animal and its mom, with ❓ / 😢 / ❤️ bubbles</li></ul></div>
+      <div class="panel"><h3><span class="ico">🧟</span>Monsters</h3><ul><li>Shadow wolves with glowing red eyes</li><li>Zombies, arms out, shuffling</li><li>See-through glowing ghosts</li><li>Ogres with tusks and a club</li><li><b>Bosses:</b> a giant mossy Forest Troll with a stone club, and a purple Shadow Wolf King with a gold crown</li></ul></div>
+      <div class="panel"><h3><span class="ico">🐕</span>Pets</h3><ul><li>A golden dog with a wagging tail</li><li>An orange tabby, tail up</li><li>An owl with glowing eyes circling overhead</li><li>A horse with a red saddle you can ride</li><li>The Druid's bear</li></ul></div>
+      <div class="panel"><h3><span class="ico">🟩</span>Health bars</h3><p>Blocks over every animal (green) and monster (red, with a level badge), one block per hit, like the 2D game. Bosses keep their big bar at the top.</p></div>
+    </div>
+  </section>
+
+  <section id="camp">
+    <div class="sec-head">
+      <div class="eyebrow">The camp</div>
+      <h2>A camp you can walk around</h2>
+    </div>
+    <div class="grid">
+      <div class="panel"><h3><span class="ico">🔥</span>The fire</h3><p>Stones, a teepee of logs, glowing embers and flames that grow with every level. A column of smoke rises above the trees so you can find camp from far away; it thins to a wisp when the fire goes out. Leveling up shoots sparks into the sky.</p></div>
+      <div class="panel"><h3><span class="ico">🪢</span>Camp boundary</h3><p>A rope fence on stakes with little torches marks the edge of camp: as far as the fire's light can reach, and where you can build. The dashed glowing safe circle sits inside it and shrinks as the fire burns low.</p></div>
+      <div class="panel"><h3><span class="ico">🛖</span>Buildings</h3><ul><li>Thatched shed (the roof turns see-through while you're inside)</li><li>Treehouse with a deck, railings and ladder</li><li>Turret whose crossbow swings round and fires</li><li>Log Chest and Food Barrel with lids that pop open</li><li>Weapon rack, straw target range and bear traps</li></ul></div>
+      <div class="panel"><h3><span class="ico">📐</span>Placing</h3><p>A see-through preview of the building on a green (fits) or red (doesn't) ring; it pops up out of the ground when built. Buildings and trees between the camera and you fade so you never lose your hero.</p></div>
+    </div>
+  </section>
+
+  <section id="rides">
+    <div class="sec-head">
+      <div class="eyebrow">Rides</div>
+      <h2>Climb in and drive</h2>
+      <p>Every ride comes in all eight paint colours (Flame Black gets flame decals). Heroes sit with their hands on the wheel or handlebars and can still attack from the seat.</p>
+    </div>
+    <div class="grid">
+      <div class="panel"><h3>🏎️ Go-Kart</h3><p>Steering wheel, side pods, twin exhausts and a back seat for a friend. Leans into corners and bounces when it rams a monster.</p></div>
+      <div class="panel"><h3>🏍️ Motorcycle</h3><p>Fuel tank, chrome handlebars and a glowing headlight; the rider sits astride and leans hard into turns.</p></div>
+      <div class="panel"><h3>🚤 Speedboat</h3><p>Windscreen and outboard motor; bobs on the ponds and lifts its nose at speed.</p></div>
+      <div class="panel"><h3>🛸 Spaceship</h3><p>A flying saucer with a glass dome and spinning rim lights, hovering above everything.</p></div>
+    </div>
+  </section>
+
+  <section id="world">
+    <div class="sec-head">
+      <div class="eyebrow">World and weather</div>
+      <h2>The forest, the track and the sky</h2>
+    </div>
+    <div class="grid">
+      <div class="panel"><h3><span class="ico">🌲</span>Forest</h3><p>1,300 low-poly pines and round trees from the same shared seed as the 2D game; chopped trees leave stumps with sprouts. Night closes in around a pool of light at your hero.</p></div>
+      <div class="panel"><h3><span class="ico">🎣</span>Ponds</h3><p>Twelve ponds with a deep middle, sandy shores, rocks, cattails and bobbing lily pads.</p></div>
+      <div class="panel"><h3><span class="ico">🏁</span>Racetrack</h3><p>A dirt ring round the forest with red-and-white curbs, a chequered start line under a banner, and pulsing boost-pad arrows pointing the racing way.</p></div>
+      <div class="panel"><h3><span class="ico">🌦️</span>Weather</h3><ul><li>🌧️ Rain falls around you, the sky greys and the grass darkens</li><li>❄️ Snow drifts down and whitens the ground</li><li>🌫️ Fog: a white haze, clear only around you</li></ul></div>
+    </div>
+  </section>
+
+  <section id="effects">
+    <div class="sec-head">
+      <div class="eyebrow">Effects</div>
+      <h2>Every hit, spell and heal, in 3D</h2>
+    </div>
+    <div class="grid">
+      <div class="panel"><h3><span class="ico">⚔️</span>Weapons</h3><p>Glowing slashes, fireballs that light up the night, arrows, ninja stars, bats and bees, ice shards, chain lightning, flower-bomb bursts, howl rings and a meteor that falls from the sky.</p></div>
+      <div class="panel"><h3><span class="ico">💚</span>Healing and revives</h3><p>Green (Druid) and gold (Angel) healing pulses with rising sparkles; a spiral of gold sparkles when someone gets back up.</p></div>
+      <div class="panel"><h3><span class="ico">💥</span>Big moments</h3><p>The Troll's ground slam sends a dust shockwave and shakes the camera; the Wolf King howls a ring; treasure pops out of the ground as a golden chest; the screen edges flash red when you're hurt.</p></div>
+      <div class="panel"><h3><span class="ico">🔤</span>Floating text</h3><p>"+3 🪙", "BONK!", heal hearts and teammates' name tags float over the 3D world and stay readable at night.</p></div>
+    </div>
+  </section>
+
+  <section id="view">
+    <div class="sec-head">
+      <div class="eyebrow">Camera and graphics</div>
+      <h2>Choose how you see it</h2>
+      <p>Both are on the Pause screen.</p>
+    </div>
+    <div class="grid">
+      <div class="panel"><h3><span class="ico">🎥</span>Camera</h3><ul><li><b>Behind</b> (default): from just behind your hero; the camera swings round as you walk and the joystick turns with it. Swipe across the right of the screen to look around.</li><li><b>Close</b>: lower and nearer, still facing north</li><li><b>Top-down</b>: the original high angle</li></ul></div>
+      <div class="panel"><h3><span class="ico">✨</span>Graphics</h3><ul><li><b>Auto</b> (default): picks Lite on older iPads like the 8th generation</li><li><b>Full</b>: sun shadows, the most trees, all effects</li><li><b>Lite</b>: no shadows, fewer far trees and creatures, less smoke and rain</li></ul></div>
+    </div>
+  </section>
+
+  <section id="together">
+    <div class="sec-head">
+      <div class="eyebrow">Playing together</div>
+      <h2>3D and 2D in the same camp</h2>
+    </div>
+    <div class="grid">
+      <div class="panel"><h3><span class="ico">🏕️</span>Same Wi‑Fi</h3><p>Up to 5 players, mixing 3D and 2D apps in one camp with the same emoji camp code. 3D players see each other's real weapons; 2D players don't notice the difference.</p></div>
+      <div class="panel"><h3><span class="ico">🌐</span>Online</h3><p>Game Center invites work 3D to 3D. Online play between the 2D and 3D apps needs both in one Game Center group, which goes in once 2D version 1.0 is live.</p></div>
+    </div>
+  </section>
+
+  <section id="status">
+    <div class="sec-head">
+      <div class="eyebrow">Where things stand</div>
+      <h2>Status</h2>
+    </div>
+    <div class="status">
+      <div class="panel"><span class="pill ok">Done</span><p style="margin-top:8px">Everything above is built, checked on the 8th-gen iPad, installed on the family's devices and on TestFlight (build 2). Backed up to a private GitHub repository: 37 Swift files, about 19,200 lines, 4,800 of them for the 3D view.</p></div>
+      <div class="panel"><span class="pill wait">Waiting</span><p style="margin-top:8px">Apple's TestFlight review for outside testers, and the Game Center group for online 2D↔3D play (after 2D 1.0 is approved).</p></div>
+      <div class="panel"><span class="pill next">Next</span><p style="margin-top:8px">The Game Center group and 2D 1.0.1, then App Store screenshots and a first release of the 3D app.</p></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">Survive in Woods 3D · a family project, October 2026 · <a href="/survive-in-woods">The 2D game →</a></div>
+</footer>
+
+<script src="/survive-in-woods-3d.js"></script>
+
+</body>
+</html>

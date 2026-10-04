@@ -4,6 +4,7 @@
     { "source": "/get", "destination": "/download.html" },
     { "source": "/whats-new", "destination": "/whats-new.html" },
     { "source": "/survive-in-woods", "destination": "/survive-in-woods.html" },
+    { "source": "/survive-in-woods-3d", "destination": "/survive-in-woods-3d.html" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/delete-account", "destination": "/delete-account.html" }
