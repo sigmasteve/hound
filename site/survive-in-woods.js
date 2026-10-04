@@ -2,8 +2,8 @@
 (function () {
   const box = document.getElementById('fireScale');
   const radius = lv => 330 + 90 * (Math.min(lv, 5) - 1) + 50 * Math.max(0, lv - 5);
-  const max = radius(15);
-  for (let lv = 1; lv <= 15; lv++) {
+  const max = radius(30);
+  for (let lv = 1; lv <= 30; lv++) {
     const r = radius(lv);
     const row = document.createElement('div');
     row.className = 'bar-row';
