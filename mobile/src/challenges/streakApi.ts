@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { fetchAll } from '../lib/fetchAll';
 import type { DailyProgressRow } from './streak';
 
 // The two reads Daily Streak elimination needs, on top of what
@@ -19,12 +20,16 @@ function requireClient() {
 // needs to walk day by day).
 export async function listDailyProgress(challengeId: string): Promise<DailyProgressRow[]> {
   const client = requireClient();
-  const { data, error } = await client
-    .from('progress_snapshots')
-    .select('user_id, day, steps')
-    .eq('challenge_id', challengeId);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => ({ userId: row.user_id, day: row.day as string, steps: row.steps }));
+  const data = await fetchAll((from, to) =>
+    client
+      .from('progress_snapshots')
+      .select('user_id, day, steps')
+      .eq('challenge_id', challengeId)
+      .order('day')
+      .order('user_id')
+      .range(from, to),
+  );
+  return data.map((row) => ({ userId: row.user_id, day: row.day as string, steps: row.steps }));
 }
 
 // When each current participant joined — the day someone joined (not

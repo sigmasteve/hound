@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { displayInitials, displayName, type DisplayableProfile } from '../profiles/displayName';
+import { fetchAll } from '../lib/fetchAll';
 import { inviteWindowClosed } from './board';
 import type {
   Challenge,
@@ -222,19 +223,21 @@ export const supabaseChallengesProvider: ChallengesProvider = {
   async getLeaderboard(challengeId: string, asOfDay?: string): Promise<LeaderboardEntry[]> {
     const client = requireClient();
     // Aggregated client-side rather than via a Postgres view/RPC — the
-    // per-challenge row count is small (one row per participant per day),
-    // and keeping the aggregation in JS means the schema stays plain
-    // tables, nothing to keep in sync on top of it.
-    let query = client
-      .from('progress_snapshots')
-      .select('user_id, steps, distance_mi, profiles(name, initials, username, use_username)')
-      .eq('challenge_id', challengeId);
-    if (asOfDay) query = query.lte('day', asOfDay);
-    const { data, error } = await query;
-    if (error) throw new Error(error.message);
+    // The rows are read a page at a time (see fetchAll) because a long
+    // challenge goes past the 1000-row cap on a single read. Keeping the
+    // aggregation in JS means the schema stays plain tables, nothing to
+    // keep in sync on top of it.
+    const data = await fetchAll((from, to) => {
+      let query = client
+        .from('progress_snapshots')
+        .select('user_id, steps, distance_mi, profiles(name, initials, username, use_username)')
+        .eq('challenge_id', challengeId);
+      if (asOfDay) query = query.lte('day', asOfDay);
+      return query.order('day').order('user_id').range(from, to);
+    });
 
     const totals = new Map<string, LeaderboardEntry>();
-    for (const row of data ?? []) {
+    for (const row of data) {
       const profile = row.profiles as unknown as ProfileRow | null;
       const existing = totals.get(row.user_id);
       if (existing) {
