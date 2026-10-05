@@ -1751,6 +1751,11 @@ export function ChallengeDetailScreen({
                         )}.`}
             </Text>
           )}
+          {/* Time-based challenges settle 24 hours after they end (0095), so
+              late syncs still count. Game-event kinds settle when the game ends. */}
+          {finished && challenge.kind !== 'hunt' && challenge.kind !== 'tag' && (
+            <Text style={styles.footNote}>Results are final 24 hours after the end.</Text>
+          )}
           {headStartDaysLeft > 0 && (
             <Text style={styles.footNote}>
               Head start: the {labels.hunter}&rsquo;s total won&rsquo;t count toward a catch for{' '}

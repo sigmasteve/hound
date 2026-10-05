@@ -933,6 +933,11 @@ export function CreateScreen({
               goes first.
             </Text>
           )}
+          {draftType !== 'tictacgo' && draftType !== 'bingo' && draftType !== 'seventyfive' && (
+            <Text style={styles.footNote}>
+              Rewards need at least one friend to join. Bots and pending invites don&rsquo;t count.
+            </Text>
+          )}
           {!!myOrgId && (
             <View style={{ gap: 8 }}>
               <Text style={text.h4}>Who&rsquo;s this chase for?</Text>
