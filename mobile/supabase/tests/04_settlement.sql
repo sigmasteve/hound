@@ -33,8 +33,11 @@ select is((select hound_score from public.profiles where id = :'bob'), 50, 'The 
 -- C2 (deep review): Daily Streak used to fail with "date = text" and never settle.
 insert into public.challenges (id, name, kind, created_by, duration_days, starts_at, ends_at, daily_goal_steps, start_day)
 values ('44444444-0000-0000-0000-000000000002', 'Streak', 'streak', :'bob', 2, now() - interval '3 days', now() - interval '1 day', 5000, current_date - 3);
+-- 0095: a challenge needs two players to pay out. Bob joined too but never
+-- walked, so Cat is still the only survivor.
 insert into public.challenge_participants (challenge_id, user_id, joined_at) values
-  ('44444444-0000-0000-0000-000000000002', :'cat', now() - interval '4 days');
+  ('44444444-0000-0000-0000-000000000002', :'cat', now() - interval '4 days'),
+  ('44444444-0000-0000-0000-000000000002', :'bob', now() - interval '4 days');
 insert into public.progress_snapshots (challenge_id, user_id, day, steps) values
   ('44444444-0000-0000-0000-000000000002', :'cat', current_date - 3, 6000),
   ('44444444-0000-0000-0000-000000000002', :'cat', current_date - 2, 7000);
