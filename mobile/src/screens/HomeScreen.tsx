@@ -10,6 +10,7 @@ import {
   CrosshairIcon,
   EnvelopeOpenIcon,
   FlagCheckeredIcon,
+  GlobeHemisphereWestIcon,
   FootprintsIcon,
   MedalIcon,
   PathIcon,
@@ -93,7 +94,13 @@ import { checkAchievements, type NewlyEarnedAchievement } from '../achievements/
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
 import { GlobalChallengesCard } from '../components/GlobalChallengesCard';
-import { canJoin, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
+import {
+  canJoin,
+  globalTimingLine,
+  joinGlobalChallenge,
+  listGlobalChallenges,
+  type GlobalChallenge,
+} from '../challenges/globalChallenges';
 import { fetchWeeklyRecap, isRecapWindow, recapWeekKey, type WeeklyRecap } from '../home/weeklyRecap';
 import {
   getLocalRemindersEnabled,
@@ -1273,6 +1280,14 @@ export function HomeScreen({
     ...(friendRequests ?? []).map((friend) => ({ key: `friend-${friend.friendshipId}`, type: 'friend' as const, friend })),
   ];
   const shownNeedsYou = needsYouExpanded ? needsYou : needsYou.slice(0, NEEDS_YOU_LIMIT);
+  // Global challenges, split for the Your challenges card: ones you've
+  // joined are already among your challenges (marked with the globe);
+  // running ones you could still join get a Join row; ones that haven't
+  // started (and you haven't joined) keep their own card.
+  const nowMs = Date.now();
+  const globalIds = new Set(globalChallenges.map((c) => c.id));
+  const joinableGlobals = globalChallenges.filter((c) => !c.joined && nowMs >= new Date(c.startsAt).getTime());
+  const upcomingGlobals = globalChallenges.filter((c) => !c.joined && nowMs < new Date(c.startsAt).getTime());
   const openPrimary = primary ? () => onOpenChallenge(primary.challenge.id) : () => onGoTab('challenges');
 
   // While the real fetch above is still in flight, show a spinner instead
@@ -1338,32 +1353,6 @@ export function HomeScreen({
           ) : (
             <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} colors={colors} />
           )}
-        </View>
-      )}
-
-      {otherActive.length > 0 && (
-        <View style={{ gap: 8 }}>
-          {otherActive.map((c) => {
-            const KindIcon = CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
-            const typeName =
-              c.kind === 'hunt' ? huntKindName() : CHALLENGE_TYPES.find((t) => t.id === c.kind)?.name ?? 'Challenge';
-            return (
-              <Pressable
-                key={c.id}
-                style={({ pressed }) => [styles.otherRow, pressed && { opacity: 0.8 }]}
-                onPress={() => onOpenChallenge(c.id)}
-                accessibilityRole="button"
-              >
-                <KindIcon size={16} color={colors.accentActive} />
-                <Text style={styles.otherText} numberOfLines={1}>
-                  <Text style={styles.otherName}>{c.name}</Text>
-                  {' · '}
-                  {c.rank ? `${ordinal(c.rank)} of ${c.total}` : typeName} · {timeLeftLabel(c.endsAt)}
-                </Text>
-                <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
-              </Pressable>
-            );
-          })}
         </View>
       )}
 
@@ -1451,6 +1440,87 @@ export function HomeScreen({
         </Card>
       )}
 
+      {/* Your challenges in one card: the counts (tap for the Challenges
+          tab), then each other active challenge on one line, then any
+          global challenge that's already running and you could still
+          join. Global challenges you've joined are already in your list,
+          marked with the globe. Testers found the separate rows, global
+          card and counts pill crowded. */}
+      {(otherActive.length > 0 || joinableGlobals.length > 0 ||
+        (challengeCounts && challengeCounts.active + challengeCounts.finished + (liveInvites?.length ?? 0) > 0)) && (
+        <Card style={styles.yoursCard} elevated={false}>
+          <Pressable
+            style={({ pressed }) => [styles.yoursHeader, pressed && { opacity: 0.7 }]}
+            onPress={() => onGoTab('challenges')}
+            accessibilityRole="button"
+            accessibilityLabel="All challenges"
+          >
+            <FlagCheckeredIcon size={15} color={color.accent} />
+            <Text style={styles.yoursHeaderText}>
+              {challengeCounts ? `${challengeCounts.active} active · ${challengeCounts.finished} finished` : 'Your challenges'}
+              {(liveInvites?.length ?? 0) > 0 && (
+                <Text style={styles.countsInvited}> · {liveInvites!.length} invited</Text>
+              )}
+            </Text>
+            <Text style={styles.yoursSeeAll}>See all</Text>
+            <CaretRightIcon size={13} color={withAlpha(colors.text, 0.4)} />
+          </Pressable>
+          {otherActive.map((c) => {
+            const isGlobal = globalIds.has(c.id);
+            const KindIcon = isGlobal ? GlobeHemisphereWestIcon : CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
+            const typeName =
+              c.kind === 'hunt' ? huntKindName() : CHALLENGE_TYPES.find((t) => t.id === c.kind)?.name ?? 'Challenge';
+            return (
+              <Pressable
+                key={c.id}
+                style={({ pressed }) => [styles.yoursRow, pressed && { opacity: 0.7 }]}
+                onPress={() => onOpenChallenge(c.id)}
+                accessibilityRole="button"
+              >
+                <KindIcon size={16} color={colors.accentActive} />
+                <Text style={styles.otherText} numberOfLines={1}>
+                  <Text style={styles.otherName}>{c.name}</Text>
+                  {' · '}
+                  {c.rank ? `${ordinal(c.rank)} of ${c.total}` : typeName} · {timeLeftLabel(c.endsAt)}
+                </Text>
+                <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+              </Pressable>
+            );
+          })}
+          {joinableGlobals.map((c) => (
+            <Pressable
+              key={c.id}
+              style={({ pressed }) => [styles.yoursRow, pressed && { opacity: 0.7 }]}
+              onPress={() => onOpenChallenge(c.id)}
+              accessibilityRole="button"
+            >
+              <GlobeHemisphereWestIcon size={16} color={colors.accentActive} />
+              <Text style={styles.otherText} numberOfLines={1}>
+                <Text style={styles.otherName}>{c.name}</Text> · {globalTimingLine(c)}
+              </Text>
+              <Button
+                label={joiningGlobalId === c.id ? 'Joining…' : 'Join'}
+                variant="primary"
+                small
+                disabled={joiningGlobalId !== null}
+                onPress={() => joinGlobal(c)}
+              />
+            </Pressable>
+          ))}
+        </Card>
+      )}
+
+      {/* Global challenges that haven't started yet keep the full card,
+          with what they are and when joining closes. */}
+      {upcomingGlobals.length > 0 && (
+        <GlobalChallengesCard
+          challenges={upcomingGlobals}
+          joiningId={joiningGlobalId}
+          onJoin={joinGlobal}
+          onOpen={(c) => onOpenChallenge(c.id)}
+        />
+      )}
+
       {visibleNudges.length > 0 && (
         <NudgesCard nudges={visibleNudges} onOpenChallenge={onOpenChallenge} onDismiss={dismissNudges} />
       )}
@@ -1474,38 +1544,6 @@ export function HomeScreen({
           onClaim={claimGetStarted}
           onDismiss={dismissGetStarted}
         />
-      )}
-
-      {globalChallenges.length > 0 && (
-        <GlobalChallengesCard
-          challenges={globalChallenges}
-          joiningId={joiningGlobalId}
-          onJoin={joinGlobal}
-          onOpen={(c) => onOpenChallenge(c.id)}
-        />
-      )}
-
-      {/* Hidden until the counts fetch resolves (or never, unconfigured/
-          no challenges at all) — see challengeCounts' own state comment.
-          Exists for the same reason ChallengesScreen splits its own list
-          into "active" and "Finished": once there are more than a
-          handful of challenges, it's not obvious at a glance how many
-          are still actually running versus just sitting there finished. */}
-      {challengeCounts && challengeCounts.active + challengeCounts.finished + (liveInvites?.length ?? 0) > 0 && (
-        <Pressable style={styles.countsRow} onPress={() => onGoTab('challenges')}>
-          <FlagCheckeredIcon size={13} color={color.accent} />
-          <Text style={styles.countsText}>
-            {challengeCounts.active} active · {challengeCounts.finished} finished
-            {/* Called out in accentActive, not the row's own plain text
-                color — the invite cards above already surface these in
-                full, this just keeps the same at-a-glance summary the
-                Challenges tab shows. */}
-            {(liveInvites?.length ?? 0) > 0 && (
-              <Text style={styles.countsInvited}> · {liveInvites!.length} invited</Text>
-            )}
-          </Text>
-          <CaretRightIcon size={12} color={withAlpha(colors.text, 0.4)} />
-        </Pressable>
       )}
 
       {/* Resting HR and Weight moved to the Data tab (MetricsScreen already
@@ -2101,29 +2139,21 @@ function makeStyles(colors: Palette) {
     heroRow: { gap: 14 },
     heroText: { gap: 6 },
     heroTitle: { fontSize: 28 },
-    countsRow: {
+    yoursCard: { gap: 0, paddingVertical: 4 },
+    yoursHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
+    yoursHeaderText: { flex: 1, fontFamily: font.heading, fontSize: 14, color: colors.text },
+    yoursSeeAll: { fontSize: 13, color: colors.accentActive, fontFamily: font.heading },
+    yoursRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      alignSelf: 'flex-start',
-      gap: 7,
-      paddingVertical: 6,
-      paddingHorizontal: 12,
-      borderRadius: 999,
-      backgroundColor: colors.surface,
+      gap: 10,
+      paddingVertical: 11,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.divider,
     },
-    countsText: { fontSize: 12.5, color: colors.text, fontFamily: font.heading },
     countsInvited: { color: colors.accentActive },
     // Same shape as ChallengesScreen's own inviteCard/inviteTitle/inviteSub.
     // Same accent-wash look the separate invite cards had, now one card.
-    otherRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-    },
     otherText: { flex: 1, fontSize: 13.5, color: withAlpha(colors.text, 0.7) },
     otherName: { fontFamily: font.heading, color: colors.text },
     needsCard: {
