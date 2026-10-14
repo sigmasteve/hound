@@ -7,6 +7,7 @@ import {
   AndroidLogoIcon,
   ArrowsClockwiseIcon,
   AppleLogoIcon,
+  BoneIcon,
   CaretRightIcon,
   CaretUpIcon,
   InfoIcon,
@@ -40,6 +41,7 @@ import {
 import { setUseUsername, setUsername } from '../profiles/supabaseProfile';
 import { getOrganization, leaveOrganization, redeemOrganizationInvite } from '../organizations/supabaseOrganizations';
 import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
+import { useCurrencyName } from '../organizations/useCurrencyName';
 import { levelProgressForXp } from '../challenges/leveling';
 import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import { listAchievements, listEarnedAchievements } from '../achievements/achievementsApi';
@@ -270,6 +272,7 @@ export function SettingsScreen({
   // rather than showing a guessed 0, which could otherwise misread as a
   // genuine (if unfortunate) score.
   const [houndScore, setHoundScore] = useState<HoundScore | null>(null);
+  const currencyName = useCurrencyName();
   useFocusEffect(
     useCallback(() => {
       if (!isSupabaseConfigured || !user?.id) {
@@ -624,7 +627,7 @@ export function SettingsScreen({
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={text.h2}>Data & account</Text>
+      <Text style={text.h2}>Settings</Text>
 
       {houndScore && (
         <Card style={{ gap: 12 }} elevated={false}>
@@ -632,6 +635,13 @@ export function SettingsScreen({
             <View style={{ gap: 2 }}>
               <Text style={styles.scoreLabel}>Hound Score</Text>
               <Text style={styles.scoreValue}>{houndScore.houndScore.toLocaleString()}</Text>
+              {/* The balance used to sit on Today; this is its one home now. */}
+              <View style={styles.bonesRow}>
+                <BoneIcon size={13} color={color.accent} weight="fill" />
+                <Text style={styles.bonesText}>
+                  {houndScore.bonesBalance.toLocaleString()} {currencyName}
+                </Text>
+              </View>
             </View>
             <View style={styles.levelBadge}>
               <Text style={styles.levelBadgeText}>Lv {levelProgress.level}</Text>
@@ -731,7 +741,7 @@ export function SettingsScreen({
             thumbTintColor={colors.accent}
           />
         </View>
-        <Text style={styles.footNote}>Home&rsquo;s Steps and Distance bars fill toward these each day.</Text>
+        <Text style={styles.footNote}>Today&rsquo;s Steps and Distance bars fill toward these each day.</Text>
       </Card>
 
       {user && (
@@ -1109,6 +1119,8 @@ function makeStyles(colors: Palette) {
     scoreHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     scoreLabel: { fontSize: 12, letterSpacing: 0.5, color: withAlpha(colors.text, 0.55) },
     scoreValue: { fontFamily: font.headingSemibold, fontSize: 26, color: colors.text },
+    bonesRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    bonesText: { fontFamily: font.body, fontSize: 13, color: withAlpha(colors.text, 0.8) },
     levelBadge: {
       paddingHorizontal: 12,
       paddingVertical: 6,

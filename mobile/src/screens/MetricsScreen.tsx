@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
-import { CaretRightIcon, SunIcon } from 'phosphor-react-native';
+import { CaretRightIcon, SunIcon, TrophyIcon } from 'phosphor-react-native';
 import { Card } from '../components/Card';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { Tag } from '../components/Tag';
@@ -10,6 +10,8 @@ import { font, toneColor, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
 import { useAuth } from '../auth/AuthContext';
 import { PersonalRecordsCard } from '../components/PersonalRecordsCard';
+import { getMyDailyStepRank, getMyWeeklyStepRank, type StepRank } from '../leaderboard/supabaseStepsRank';
+import { isSupabaseConfigured } from '../lib/supabase';
 import type { DailySteps, DailyStepsWithDate, WorkoutSample } from '../health/types';
 import { computeReadiness, READINESS_COPY, SAMPLE_READINESS, type ReadinessResult } from '../health/readiness';
 
@@ -187,6 +189,23 @@ function categoryOf(w: WorkoutSample): WorkoutCategory {
 export function MetricsScreen() {
   const health = useHealthProvider();
   const { user } = useAuth();
+
+  // Steps rank among everyone on Hound (0027_daily_step_totals.sql). It
+  // used to sit on Today; Today still records the day's total, this only
+  // reads the ranks back. Hidden until both come back with a real row.
+  const [ranks, setRanks] = useState<{ daily: StepRank; weekly: StepRank } | null>(null);
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    let cancelled = false;
+    Promise.all([getMyDailyStepRank(), getMyWeeklyStepRank()])
+      .then(([daily, weekly]) => {
+        if (!cancelled && daily && weekly) setRanks({ daily, weekly });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [tab, setTab] = useState<MetricTab>('steps');
@@ -408,6 +427,21 @@ export function MetricsScreen() {
           steps make a mile.
         </Text>
       </Card>
+
+      {ranks && (
+        <Card style={styles.rankCard} elevated={false}>
+          <TrophyIcon size={16} color={colors.accent} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.rankText}>
+              #{ranks.weekly.rank} of {ranks.weekly.totalUsers} Hound users this week
+            </Text>
+            <Text style={styles.footNote}>
+              #{ranks.daily.rank} of {ranks.daily.totalUsers} today. &ldquo;Today&rdquo; resets at midnight UTC, not your
+              local midnight.
+            </Text>
+          </View>
+        </Card>
+      )}
 
       {/* Last on the tab, on purpose — Phase 1 only (training load, no
           recovery signal yet — see the readiness plan doc), so it's not
@@ -712,6 +746,8 @@ function makeStyles(colors: Palette) {
     workoutsCount: { fontSize: 13, color: withAlpha(colors.text, 0.5) },
     workoutsCaretOpen: { transform: [{ rotate: '90deg' }] },
     footNote: { fontSize: 13, color: withAlpha(colors.text, 0.65) },
+    rankCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+    rankText: { fontFamily: font.heading, fontSize: 14, color: colors.text },
     readinessBadge: { alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1 },
     readinessBadgeText: { fontSize: 12, fontFamily: font.heading },
     // Dashed border + a muted "EXAMPLE" tag — visually distinct from the
