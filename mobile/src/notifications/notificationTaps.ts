@@ -48,7 +48,7 @@ function routeFor(data: Record<string, unknown> | undefined): (() => [keyof Root
     ];
   }
   if (data.type === 'trash_talk' && typeof data.challengeId === 'string') {
-    return () => ['ChallengeDetail', { challengeId: data.challengeId }];
+    return () => ['ChallengeDetail', { challengeId: data.challengeId, tab: 'talk' }];
   }
   if (data.type === 'nudge' || data.type === 'reaction') {
     if (typeof data.challengeId === 'string') return () => ['ChallengeDetail', { challengeId: data.challengeId }];
