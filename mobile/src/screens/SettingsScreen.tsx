@@ -3,12 +3,8 @@ import { Alert, AppState, Pressable, ScrollView, StyleSheet, Text, View } from '
 import { useFocusEffect } from '@react-navigation/native';
 import Slider from '@react-native-community/slider';
 import {
-  AndroidLogoIcon,
-  ArrowsClockwiseIcon,
-  AppleLogoIcon,
   CaretRightIcon,
   CheckIcon,
-  ScalesIcon,
   SignOutIcon,
   TrashIcon,
 } from 'phosphor-react-native';
@@ -20,9 +16,6 @@ import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { useGoals } from '../goals/GoalsContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
-import { SOURCES } from '../data/sampleData';
-import { useHealthProvider } from '../health/HealthContext';
-import type { HealthSnapshot } from '../health/types';
 import { useAuth } from '../auth/AuthContext';
 import type { AuthProviderId } from '../auth/types';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -50,24 +43,6 @@ import {
 
 const USERNAME_FORMAT = /^[A-Za-z0-9_]{3,20}$/;
 
-const SOURCE_ICON: Record<string, React.ComponentType<any>> = {
-  'Apple Health': AppleLogoIcon,
-  'Health Connect': AndroidLogoIcon,
-};
-
-// Moved here from HomeScreen, which used to show this device's own real
-// sync status (formerly a badge + "Sync now" button above Today's metric
-// tiles) — that's data-source management, so it belongs in the
-// "Connected sources" card below instead. Home kept the metric tiles
-// themselves (Steps/Distance), which still read from their own snapshot.
-function timeAgo(d: Date | null): string {
-  if (!d) return '—';
-  const mins = Math.round((Date.now() - d.getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
-  return `${Math.round(mins / 60)}h ago`;
-}
-
 const PROVIDER_LABEL: Record<AuthProviderId, string> = {
   google: 'Google',
   facebook: 'Facebook',
@@ -76,7 +51,6 @@ const PROVIDER_LABEL: Record<AuthProviderId, string> = {
 };
 
 export function SettingsScreen() {
-  const health = useHealthProvider();
   const { user, signOut, updateUser } = useAuth();
 
   // Delete account (H8 in the security review): asks once, then deletes
@@ -241,16 +215,6 @@ export function SettingsScreen() {
       ],
     );
   };
-
-  // This device's own real sync status, for whichever "Connected sources"
-  // row matches health.platformLabel below — every other row there is
-  // still SOURCES' static sample data (a different, pre-existing gap;
-  // not what moved here from Home).
-  const [snap, setSnap] = useState<HealthSnapshot | null>(null);
-  const reloadSnap = useCallback(() => {
-    health.getSnapshot().then(setSnap);
-  }, [health]);
-  useFocusEffect(reloadSnap);
 
   // Null until it resolves (or if it fails) — the
   // account row's Avatar below just renders its plain default look until
@@ -719,44 +683,6 @@ export function SettingsScreen() {
         </Card>
       )}
 
-      <Card style={{ gap: 12 }} elevated={false}>
-        <Text style={text.h4}>Connected sources</Text>
-        {SOURCES.map((s) => {
-          const Icon = SOURCE_ICON[s.name] ?? ScalesIcon;
-          const isThisDevicesPlatform = s.name === health.platformLabel;
-          return (
-            <View key={s.name} style={styles.sourceRow}>
-              <View style={[styles.sourceIcon, { backgroundColor: s.tint }]}>
-                <Icon size={18} color={colors.text} weight={s.name === 'Apple Health' ? 'fill' : 'regular'} />
-              </View>
-              <View style={{ flex: 1, gap: 2, minWidth: 130 }}>
-                <Text style={styles.sourceName}>{s.name}</Text>
-                {isThisDevicesPlatform ? (
-                  <Text style={[styles.sourceStatus, { color: color.green }]}>
-                    Synced {timeAgo(snap?.lastSyncedAt ?? null)}
-                  </Text>
-                ) : (
-                  <Text style={[styles.sourceStatus, { color: s.statusColor }]}>{s.status}</Text>
-                )}
-              </View>
-              <Text style={styles.sourceScope}>{s.scope}</Text>
-              {isThisDevicesPlatform ? (
-                <Pressable style={styles.syncBtn} onPress={reloadSnap}>
-                  <ArrowsClockwiseIcon size={13} color={colors.accent} />
-                  <Text style={styles.syncLabel}>Sync now</Text>
-                </Pressable>
-              ) : (
-                <Button label={s.action} small variant="secondary" />
-              )}
-            </View>
-          );
-        })}
-        <Text style={styles.footNote}>
-          Hound reads steps, workouts, distance, heart rate and weight. It never writes back to
-          either platform.
-        </Text>
-      </Card>
-
       {isSupabaseConfigured &&
         pushEnabled !== null &&
         emailEnabled !== null &&
@@ -961,21 +887,7 @@ function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 14, paddingBottom: 48 },
     accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    sourceRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      paddingVertical: 10,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: withAlpha(colors.text, 0.07),
-      flexWrap: 'wrap',
-    },
-    sourceIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
     sourceName: { fontSize: 14.5, color: colors.text },
-    sourceStatus: { fontSize: 12 },
-    sourceScope: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
-    syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
-    syncLabel: { fontSize: 12, color: colors.accent, fontFamily: font.heading },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     phonePushNote: {
       gap: 10,

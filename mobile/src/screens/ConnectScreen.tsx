@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { AndroidLogoIcon, AppleLogoIcon, PawPrintIcon } from 'phosphor-react-native';
+import { AndroidLogoIcon, AppleLogoIcon, ArrowsClockwiseIcon, PawPrintIcon } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { DataSourcesCard } from '../components/DataSourcesCard';
@@ -22,6 +22,15 @@ const MANAGE_INSTRUCTIONS: Record<'ios' | 'android', string> = {
   android:
     'Already connected. To review or revoke access, open the Health Connect app → Data and access → App permissions → Hound on this device.',
 };
+
+function timeAgo(d: Date): string {
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${hours}h ago`;
+  return `${Math.round(hours / 24)} days ago`;
+}
 
 // Right after sign-up it asks ("Hound needs your health data", "Skip for
 // now"); opened later from You → Health data it's a plain settings page
@@ -46,10 +55,26 @@ export function ConnectScreen({
   // of whatever was true the first time this screen mounted.
   const [authStatus, setAuthStatus] = useState<HealthAuthStatus | null>(null);
 
+  // When this phone last synced, with Sync now. It used to be Settings'
+  // "Connected sources" card; this is its one home now.
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const syncNow = useCallback(() => {
+    setSyncing(true);
+    health
+      .getSnapshot()
+      .then((snap) => setLastSyncedAt(snap.lastSyncedAt))
+      .catch(() => {
+        // Leave the last known time.
+      })
+      .finally(() => setSyncing(false));
+  }, [health]);
+
   useFocusEffect(
     useCallback(() => {
       health.getAuthorizationStatus().then(setAuthStatus);
-    }, [health]),
+      syncNow();
+    }, [health, syncNow]),
   );
 
   const alreadyAuthorized = authStatus === 'authorized' && health.platform !== 'mock';
@@ -120,6 +145,25 @@ export function ConnectScreen({
 
       {status && <Text style={styles.status}>{status}</Text>}
 
+      {(alreadyAuthorized || health.platform === 'mock') && (
+        <Card style={styles.syncCard} elevated={false}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.syncTitle}>{health.platformLabel} on this phone</Text>
+            <Text style={styles.syncSub}>
+              {syncing ? 'Syncing…' : lastSyncedAt ? `Synced ${timeAgo(lastSyncedAt)}` : 'Not synced yet'}
+            </Text>
+          </View>
+          <Button
+            label="Sync now"
+            small
+            variant="secondary"
+            icon={<ArrowsClockwiseIcon size={13} color={colors.accent} />}
+            disabled={syncing}
+            onPress={syncNow}
+          />
+        </Card>
+      )}
+
       {/* Android: which apps are actually sharing, and a setup checklist
           (health/dataSources.ts). Sample data shows the same card off
           device, so it can be previewed. */}
@@ -142,6 +186,9 @@ export function ConnectScreen({
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    syncCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, alignSelf: 'stretch' },
+    syncTitle: { fontFamily: font.heading, fontSize: 14.5, color: colors.text },
+    syncSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
     container: { padding: 16, paddingTop: 24, gap: 20, alignItems: 'center', paddingBottom: 48 },
     badge: {
       width: 52,
