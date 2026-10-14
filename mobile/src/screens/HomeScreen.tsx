@@ -1321,6 +1321,35 @@ export function HomeScreen({
     <View style={{ flex: 1 }}>
       {announcementBar}
       <ScrollView contentContainerStyle={styles.container}>
+      {/* Where you're at today comes first, above any challenge —
+          testers wanted it on screen without scrolling. Resting HR and
+          Weight live in Stats & records; Today keeps the two metrics
+          that matter for a challenge in progress. */}
+      <View style={styles.tileGrid}>
+        <MetricTile
+          label="Steps"
+          Icon={FootprintsIcon}
+          value={(snap?.stepsToday ?? 0).toLocaleString()}
+          sub={`${Math.round(((snap?.stepsToday ?? 0) / stepsGoal) * 100)}% of ${stepsGoal.toLocaleString()} · ${snap?.source ?? ''}`}
+          pct={((snap?.stepsToday ?? 0) / stepsGoal) * 100}
+          onPress={() => onGoTab('stats')}
+          styles={styles}
+        />
+        <MetricTile
+          label="Distance"
+          Icon={PathIcon}
+          value={`${(snap?.distanceTodayMi ?? 0).toFixed(1)} mi`}
+          sub={`${Math.round(((snap?.distanceTodayMi ?? 0) / distanceGoalMi) * 100)}% of ${distanceGoalMi} mi · ${
+            todaysWorkoutCount === 0
+              ? 'no workouts yet'
+              : `${todaysWorkoutCount} ${todaysWorkoutCount === 1 ? 'workout' : 'workouts'} today`
+          }`}
+          pct={((snap?.distanceTodayMi ?? 0) / distanceGoalMi) * 100}
+          onPress={() => onGoTab('stats')}
+          styles={styles}
+        />
+      </View>
+
       <View style={styles.heroRow}>
         <View style={styles.heroText}>
           <Text style={text.eyebrow}>{hero?.eyebrow ?? 'GET STARTED'}</Text>
@@ -1547,35 +1576,6 @@ export function HomeScreen({
           onDismiss={dismissGetStarted}
         />
       )}
-
-      {/* Resting HR and Weight moved to the Data tab (MetricsScreen already
-          has its own dedicated "Heart rate"/"Weight" views with real
-          7-day charts) — Today only keeps the two metrics that matter
-          for a challenge in progress. */}
-      <View style={styles.tileGrid}>
-        <MetricTile
-          label="Steps"
-          Icon={FootprintsIcon}
-          value={(snap?.stepsToday ?? 0).toLocaleString()}
-          sub={`${Math.round(((snap?.stepsToday ?? 0) / stepsGoal) * 100)}% of ${stepsGoal.toLocaleString()} · ${snap?.source ?? ''}`}
-          pct={((snap?.stepsToday ?? 0) / stepsGoal) * 100}
-          onPress={() => onGoTab('stats')}
-          styles={styles}
-        />
-        <MetricTile
-          label="Distance"
-          Icon={PathIcon}
-          value={`${(snap?.distanceTodayMi ?? 0).toFixed(1)} mi`}
-          sub={`${Math.round(((snap?.distanceTodayMi ?? 0) / distanceGoalMi) * 100)}% of ${distanceGoalMi} mi · ${
-            todaysWorkoutCount === 0
-              ? 'no workouts yet'
-              : `${todaysWorkoutCount} ${todaysWorkoutCount === 1 ? 'workout' : 'workouts'} today`
-          }`}
-          pct={((snap?.distanceTodayMi ?? 0) / distanceGoalMi) * 100}
-          onPress={() => onGoTab('stats')}
-          styles={styles}
-        />
-      </View>
 
       {weeklyRecap && (
         <WeeklyRecapCard recap={weeklyRecap} currencyName={currencyName} onDismiss={dismissWeeklyRecap} />
