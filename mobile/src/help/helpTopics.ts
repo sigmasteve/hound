@@ -56,7 +56,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Allow Hound to read steps, distance, and workouts when your phone asks.',
         'That’s it — new activity syncs on its own whenever you open the app.',
       ],
-      tip: 'Numbers look behind? You → Settings → Connected sources → Sync now.',
+      tip: 'Numbers look behind? You → Health data → Sync now.',
     },
     {
       id: 'android-missing',
