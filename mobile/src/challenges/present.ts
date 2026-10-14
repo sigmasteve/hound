@@ -106,6 +106,17 @@ export function toChallengeCard(
     ? `Day ${daysElapsed} of ${challenge.durationDays} · ${peopleLabel}`
     : `${formatStartsLabel(challenge.startsAt)} · ${peopleLabel}`;
 
+  // See isChallengeFinished (src/challenges/board.ts) — a hunt finishes
+  // the moment there's nobody left to chase, however many scheduled days
+  // remain; anything else just runs out its clock.
+  const sortBy = boardSortFor(challenge);
+  const board = withHuntCatches(
+    buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy, challenge, headStartLeaderboard),
+    sortBy,
+    challenge,
+  );
+  const finished = isChallengeFinished(challenge, board);
+
   // Nothing calls recordProgress() yet (see README "What's not
   // implemented"), so a freshly created challenge always has an empty
   // leaderboard even though it has participants — this is the honest
@@ -132,7 +143,7 @@ export function toChallengeCard(
     // Board state lives in tictacgo_games, not progress_snapshots — the
     // live board is on the detail screen.
     stat = '1v1';
-    statLabel = 'three in a row wins';
+    statLabel = '3 in a row wins';
   } else if (challenge.kind === 'seventyfive') {
     // Same reasoning as bingo above — the real per-day checklist and
     // streak state live on the detail screen; this compact card just
@@ -146,37 +157,43 @@ export function toChallengeCard(
     // CreateScreen.tsx) add up toward the one shared goal, so the
     // card's stat is the group's combined progress, not this user's own
     // rank.
+    // Shown as a percentage, with the goal in short form first ("of 2M
+    // steps"), so it fits beside the challenge's name in the list.
     if (challenge.distanceGoalUnit === 'steps') {
       const groupTotalSteps = allLeaderboard.reduce((sum, p) => sum + p.totalSteps, 0);
-      stat = groupTotalSteps.toLocaleString();
-      statLabel = `of ${distanceGoal.toLocaleString()} steps goal`;
+      stat = `${Math.floor((groupTotalSteps / distanceGoal) * 100)}%`;
+      statLabel = `of ${compactNumber(distanceGoal)} steps · ${groupTotalSteps.toLocaleString()} so far`;
     } else {
       const groupTotalMi = allLeaderboard.reduce((sum, p) => sum + p.totalDistanceMi, 0);
-      stat = groupTotalMi.toFixed(1);
-      statLabel = `of ${distanceGoal} mi goal`;
+      stat = `${Math.floor((groupTotalMi / distanceGoal) * 100)}%`;
+      statLabel = `of ${compactNumber(distanceGoal)} mi · ${groupTotalMi.toFixed(1)} so far`;
     }
+  } else if (challenge.kind === 'streak') {
+    // Ranking a Daily Streak by total steps says nothing about who's
+    // still in. The caller fills in "Still in" / "Out" from the streak's
+    // own daily progress when it has it (see ChallengesScreen); until
+    // then, the goal.
+    stat = 'Streak';
+    statLabel = challenge.dailyGoalSteps ? `${challenge.dailyGoalSteps.toLocaleString()} steps a day` : 'every day';
   } else if (allLeaderboard.length > 0) {
-    const ranked = [...allLeaderboard].sort((a, b) => b.totalSteps - a.totalSteps);
-    const myRank = currentUserId ? ranked.findIndex((p) => p.userId === currentUserId) : -1;
+    // Ranked the same way the challenge itself is scored (miles for a
+    // Chase, steps for a Step Race) and in the same order Today and the
+    // challenge's own leaderboard use, so the three never disagree.
+    // This used to sort everyone by steps, which put a Chase leader 2nd
+    // "with 0 steps".
+    const myRank = currentUserId ? board.findIndex((r) => r.userId === currentUserId) : -1;
     if (myRank >= 0) {
+      const mine = board[myRank];
       stat = ordinal(myRank + 1);
-      statLabel = `of ${ranked.length} · ${ranked[myRank].totalSteps.toLocaleString()} steps`;
+      statLabel = `of ${board.length} · ${
+        sortBy === 'distance' ? `${mine.totalDistanceMi.toFixed(1)} mi` : `${mine.totalSteps.toLocaleString()} steps`
+      }`;
     } else {
-      stat = String(ranked.length);
-      statLabel = ranked.length === 1 ? 'person logging' : 'people logging';
+      stat = String(board.length);
+      statLabel = board.length === 1 ? 'person logging' : 'people logging';
     }
   }
 
-  // See isChallengeFinished (src/challenges/board.ts) — a hunt finishes
-  // the moment there's nobody left to chase, however many scheduled days
-  // remain; anything else just runs out its clock.
-  const sortBy = boardSortFor(challenge);
-  const board = withHuntCatches(
-    buildBoard(participants, leaderboard, bots, daysElapsedFraction(challenge), sortBy, challenge, headStartLeaderboard),
-    sortBy,
-    challenge,
-  );
-  const finished = isChallengeFinished(challenge, board);
 
   return {
     id: challenge.id,
@@ -199,6 +216,13 @@ export function toChallengeCard(
     // any kind can share, so this never points there.
     target: 'detail',
   };
+}
+
+// 2000000 → "2M", 306969 → "307K", 950 → "950".
+export function compactNumber(n: number): string {
+  if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (n >= 10_000) return `${Math.round(n / 1000)}K`;
+  return n.toLocaleString();
 }
 
 export function ordinal(n: number): string {

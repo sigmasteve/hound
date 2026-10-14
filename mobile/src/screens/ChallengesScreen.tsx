@@ -11,7 +11,6 @@ import {
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { LoadingView } from '../components/LoadingView';
-import { Tag } from '../components/Tag';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
@@ -23,6 +22,11 @@ import { huntKindName, toChallengeCard } from '../challenges/present';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { useLabels } from '../labels/LabelsContext';
 import type { Challenge, ChallengeInvite, LeaderboardEntry } from '../challenges/types';
+import { listGlobalChallenges } from '../challenges/globalChallenges';
+import { computeStreakStatus } from '../challenges/streak';
+import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
+import { getChallengeDays } from '../challenges/challengeDays';
+import { getOrganization } from '../organizations/supabaseOrganizations';
 import { useAuth } from '../auth/AuthContext';
 
 // A minimal, fetch-free stand-in for a challenge whose schedule has
@@ -56,7 +60,15 @@ let cachedChallengesState: {
   liveCards: ChallengeCard[];
   finishedRawChallenges: Challenge[];
   primaryChallengeId: string | null;
+  groupById: Map<string, ChallengeGroup>;
+  orgName: string | null;
 } | null = null;
+
+// The headings the active list is split under. Each only shows when it
+// has an active challenge in it, and none show when everything is in one
+// group.
+type ChallengeGroup = 'global' | 'personal' | 'org';
+const GROUP_ORDER: ChallengeGroup[] = ['global', 'personal', 'org'];
 let cachedInvites: ChallengeInvite[] | null = null;
 
 function placeholderFinishedCard(c: Challenge): ChallengeCard {
@@ -130,12 +142,25 @@ export function ChallengesScreen({
   // challenges themselves are detail you dig into, same "summary first,
   // list on demand" shape as MetricsScreen's Today's Workouts card.
   const [finishedExpanded, setFinishedExpanded] = useState(false);
+  const [groupById, setGroupById] = useState<Map<string, ChallengeGroup>>(
+    cachedChallengesState?.groupById ?? new Map(),
+  );
+  const [orgName, setOrgName] = useState<string | null>(cachedChallengesState?.orgName ?? null);
 
   const loadChallenges = async (): Promise<void> => {
-    const [challenges, highlighted] = await Promise.all([
+    const [challenges, highlighted, globals] = await Promise.all([
       supabaseChallengesProvider.listMyChallenges(),
       supabaseChallengesProvider.getHighlightedChallenge(),
+      // Only used to tell which of your challenges are global; a failure
+      // just files them under Personal.
+      listGlobalChallenges().catch(() => []),
     ]);
+    const globalIds = new Set(globals.map((g) => g.id));
+    const groups = new Map<string, ChallengeGroup>(
+      challenges.map((c) => [c.id, globalIds.has(c.id) ? 'global' : c.organizationId ? 'org' : 'personal']),
+    );
+    const orgId = challenges.find((c) => !globalIds.has(c.id) && c.organizationId)?.organizationId ?? null;
+    const org = orgId ? await getOrganization(orgId).catch(() => null) : null;
     const primaryId = pickPrimaryChallenge(challenges, highlighted)?.id ?? null;
     setPrimaryChallengeId(primaryId);
     // Only a challenge whose schedule hasn't ended yet needs the full
@@ -168,7 +193,7 @@ export function ChallengesScreen({
             ? supabaseChallengesProvider.getLeaderboard(c.id, headStartBaselineDayKey(c))
             : Promise.resolve<LeaderboardEntry[]>([]),
         ]);
-        return toChallengeCard(
+        const card = toChallengeCard(
           c,
           participants,
           leaderboard,
@@ -177,15 +202,49 @@ export function ChallengesScreen({
           headStartLeaderboard,
           labelsForOrg(c.organizationId),
         );
+        // A Daily Streak shows whether you're still in, from its own
+        // daily progress, rather than a rank by total steps.
+        if (c.kind === 'streak' && user?.id) {
+          try {
+            const [dailyRows, joinDates, days] = await Promise.all([
+              listDailyProgress(c.id),
+              listParticipantJoinDates(c.id),
+              getChallengeDays(c),
+            ]);
+            const statuses = computeStreakStatus(c, joinDates, dailyRows, days);
+            const mine = statuses.get(user.id);
+            const stillIn = [...statuses.values()].filter((st) => st.eliminatedOnDay === null).length;
+            if (mine) {
+              return {
+                ...card,
+                stat: mine.eliminatedOnDay ? 'Out' : 'Still in',
+                statLabel: mine.eliminatedOnDay
+                  ? `${stillIn} of ${statuses.size} still in`
+                  : `${mine.streakDays}-day streak · ${stillIn} of ${statuses.size} in`,
+              };
+            }
+          } catch {
+            // Keep the goal line from toChallengeCard.
+          }
+        }
+        return card;
       }),
     );
     setLiveCards(cards);
+    setGroupById(groups);
+    setOrgName(org?.name ?? null);
     setFinishedRawChallenges(pastSchedule);
     setFinishedCardOverrides(null);
     // Seeds the next mount's initial state (see cachedChallengesState's
     // own comment) — written only after a real fetch actually succeeded,
     // never speculatively.
-    cachedChallengesState = { liveCards: cards, finishedRawChallenges: pastSchedule, primaryChallengeId: primaryId };
+    cachedChallengesState = {
+      liveCards: cards,
+      finishedRawChallenges: pastSchedule,
+      primaryChallengeId: primaryId,
+      groupById: groups,
+      orgName: org?.name ?? null,
+    };
 
     // Best-effort, unawaited — settle_challenge_score (0058_hound_score.sql)
     // no-ops instantly unless this exact challenge just genuinely
@@ -312,6 +371,12 @@ export function ChallengesScreen({
   // fabricated content — see the challengesLoading comment below for why
   // that's correct even before Supabase's first fetch resolves.
   const challenges = liveCards?.filter((c) => !c.finished) ?? [];
+  const activeGroups = GROUP_ORDER.map((group) => ({
+    group,
+    cards: challenges.filter((c) => (groupById.get(c.id) ?? 'personal') === group),
+  })).filter((g) => g.cards.length > 0);
+  // Headings only help when there's more than one group to tell apart.
+  const showGroupHeadings = activeGroups.length > 1;
   // The early-concluded ones already came back from the eager fetch
   // above (they were still schedule-active, so toChallengeCard ran on
   // them); everything else past its own schedule gets either its real,
@@ -416,17 +481,32 @@ export function ChallengesScreen({
         </View>
       ) : (
         <>
-          {challenges.map((c) => (
-            <ChallengeRow
-              key={c.id}
-              c={c}
-              isPrimary={c.id === primaryChallengeId}
-              styles={styles}
-              colors={colors}
-              onPress={
-                c.target === 'hunt' ? onOpenHunt : c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined
-              }
-            />
+          {activeGroups.map(({ group, cards }) => (
+            <View key={group} style={{ gap: 8 }}>
+              {showGroupHeadings && (
+                <View style={styles.groupHeading}>
+                  <Text style={styles.groupTitle}>
+                    {group === 'global' ? 'Global' : group === 'org' ? orgName ?? 'Organization' : 'Personal'}
+                  </Text>
+                  <Text style={styles.groupCount}>{cards.length}</Text>
+                </View>
+              )}
+              <Card style={styles.listCard} elevated={false}>
+                {cards.map((c, i) => (
+                  <ChallengeRow
+                    key={c.id}
+                    c={c}
+                    first={i === 0}
+                    isPrimary={c.id === primaryChallengeId}
+                    styles={styles}
+                    colors={colors}
+                    onPress={
+                      c.target === 'hunt' ? onOpenHunt : c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined
+                    }
+                  />
+                ))}
+              </Card>
+            </View>
           ))}
 
           {challenges.length === 0 && (
@@ -487,14 +567,19 @@ export function ChallengesScreen({
   );
 }
 
+// Two lines: the name, then the type and where it's at, with your
+// standing on the right. The type badge, head-start tag and "On Today"
+// badge used to stack up on their own lines.
 function ChallengeRow({
   c,
+  first,
   isPrimary,
   onPress,
   styles,
   colors,
 }: {
   c: ChallengeCard;
+  first?: boolean;
   isPrimary?: boolean;
   onPress?: () => void;
   styles: ChallengesStyles;
@@ -504,43 +589,44 @@ function ChallengeRow({
   // list — a kind newer than this build (see DEFAULT_CHALLENGE_ICON's
   // own comment) falls back rather than crashing this whole screen.
   const Icon = CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
+  // Just the first part of each ("Day 14 of 31", "of 23"): the people
+  // count and your total are on the challenge itself, and the full line
+  // didn't fit next to the name.
+  const firstPart = (t: string) => t.split(' · ')[0];
+  const details = [c.kindLabel, firstPart(c.sub), c.headStartDaysLeft ? `head start ${c.headStartDaysLeft}d` : null]
+    .filter(Boolean)
+    .join(' · ');
   return (
-    <Pressable style={[styles.row, isPrimary && styles.rowPrimary]} onPress={onPress}>
+    <Pressable
+      style={({ pressed }) => [styles.row, !first && styles.rowDivider, pressed && { opacity: 0.7 }]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${c.name}${isPrimary ? ', on Today' : ''}`}
+    >
       <View style={[styles.rowIcon, { backgroundColor: c.tint }]}>
-        <Icon size={21} color={c.iconColor} weight={c.kind === 'hunt' ? 'fill' : 'regular'} />
+        <Icon size={18} color={c.iconColor} weight={c.kind === 'hunt' ? 'fill' : 'regular'} />
       </View>
-      <View style={{ flex: 1, gap: 3, minWidth: 140 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Text style={styles.rowName}>{c.name}</Text>
-          <Tag label={c.kindLabel} variant={c.kind === 'hunt' ? 'accent' : 'neutral'} />
-          {!!c.headStartDaysLeft && (
-            <Tag
-              label={`Head start · ${c.headStartDaysLeft}d left`}
-              variant="amber"
-            />
-          )}
-          {/* The one card whose own numbers are what Today's hero/
-              leaderboard card is currently showing — see
-              pickPrimaryChallenge (src/challenges/board.ts), the single
-              place that decision is made for both screens. A house icon
-              to echo the Today tab's own icon (see TopNav), not another
-              color of the kind/head-start tags above, so it reads as "is
-              shown there" rather than as one more property of the
-              challenge itself. */}
-          {isPrimary && (
-            <View style={styles.primaryBadge}>
-              <HouseIcon size={11} color={colors.accent200} weight="fill" />
-              <Text style={styles.primaryBadgeText}>On Today</Text>
-            </View>
-          )}
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {/* The one Today is showing (see pickPrimaryChallenge). */}
+          {isPrimary && <HouseIcon size={13} color={colors.accentActive} weight="fill" />}
+          <Text style={[styles.rowName, { flexShrink: 1 }]} numberOfLines={1}>
+            {c.name}
+          </Text>
         </View>
-        <Text style={styles.rowSub}>{c.sub}</Text>
+        <Text style={styles.rowSub} numberOfLines={1}>
+          {details}
+        </Text>
       </View>
-      <View style={{ alignItems: 'flex-end', gap: 2 }}>
-        <Text style={styles.rowStat}>{c.stat}</Text>
-        <Text style={styles.rowStatLabel}>{c.statLabel}</Text>
+      <View style={{ alignItems: 'flex-end', gap: 1, maxWidth: '36%' }}>
+        <Text style={styles.rowStat} numberOfLines={1}>
+          {c.stat}
+        </Text>
+        <Text style={styles.rowStatLabel} numberOfLines={1}>
+          {firstPart(c.statLabel)}
+        </Text>
       </View>
-      <CaretRightIcon size={16} color={withAlpha(colors.text, 0.5)} />
+      <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
     </Pressable>
   );
 }
@@ -578,7 +664,11 @@ function FinishedRow({
           {c.name}
         </Text>
         <Text style={styles.finishedMeta} numberOfLines={1}>
-          {c.stat === '—' ? c.statLabel : `You placed ${c.stat} ${c.statLabel}`}
+          {c.stat === '—'
+            ? c.statLabel
+            : /^\d+(st|nd|rd|th)$/.test(c.stat)
+              ? `You placed ${c.stat} ${c.statLabel}`
+              : `${c.stat} · ${c.statLabel}`}
         </Text>
       </View>
     </Pressable>
@@ -626,33 +716,16 @@ function makeStyles(colors: Palette) {
     },
     inviteTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
     inviteSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 14,
-      padding: 16,
-      borderRadius: 8,
-      backgroundColor: colors.surface,
-    },
-    // A visible border, not just a tag, so which card Today is showing
-    // reads at a glance scrolling past the whole list — the badge alone
-    // (see primaryBadge below) is easy to miss next to the kind/head-start
-    // tags already competing for attention on the same line.
-    rowPrimary: { borderWidth: 1, borderColor: colors.accent700 },
-    rowIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    rowName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
-    primaryBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingVertical: 3,
-      paddingHorizontal: 10,
-      borderRadius: 6,
-      backgroundColor: colors.accent800,
-    },
-    primaryBadgeText: { fontSize: 11, letterSpacing: 0.3, color: colors.accent200 },
+    groupHeading: { flexDirection: 'row', alignItems: 'baseline', gap: 8, paddingHorizontal: 4, marginTop: 4 },
+    groupTitle: { fontFamily: font.headingSemibold, fontSize: 13, letterSpacing: 0.6, color: withAlpha(colors.text, 0.7), textTransform: 'uppercase' },
+    groupCount: { fontSize: 12.5, color: withAlpha(colors.text, 0.45) },
+    listCard: { paddingVertical: 2, paddingHorizontal: 14 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+    rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+    rowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    rowName: { fontFamily: font.heading, fontSize: 15.5, color: colors.text },
     rowSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
-    rowStat: { fontFamily: font.heading, fontSize: 18, color: colors.text },
+    rowStat: { fontFamily: font.heading, fontSize: 16, color: colors.text },
     rowStatLabel: { fontSize: 11, color: withAlpha(colors.text, 0.55) },
     emptyNote: { fontSize: 13, color: withAlpha(colors.text, 0.55), textAlign: 'center', paddingVertical: 8 },
     loadingRow: { paddingVertical: 24, alignItems: 'center' },

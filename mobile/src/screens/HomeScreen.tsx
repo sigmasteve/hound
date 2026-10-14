@@ -427,7 +427,9 @@ function heroCopy(
 // AppState listener below).
 let popupUsedThisOpen = false;
 // Kinds where "3rd of 12" means something, for Today's one-line rows.
-const RANKED_KINDS = new Set<Challenge['kind']>(['steps', 'distance', 'streak', 'bingo', 'hunt']);
+// A Daily Streak isn't ranked by total steps (who's still in is what
+// counts), so it shows its type instead.
+const RANKED_KINDS = new Set<Challenge['kind']>(['steps', 'distance', 'bingo', 'hunt']);
 // "6 days left", "Ends today".
 function timeLeftLabel(endsAt: string, now: number = Date.now()): string {
   const days = Math.ceil((new Date(endsAt).getTime() - now) / 86_400_000);
