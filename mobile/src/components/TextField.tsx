@@ -24,7 +24,7 @@ export function TextField({
 
   return (
     <View style={style}>
-      <Text style={styles.label}>{label}</Text>
+      {!!label && <Text style={styles.label}>{label}</Text>}
       <View style={[styles.row, multiline && styles.rowMultiline, error && styles.rowError]}>
         {icon}
         <TextInput
