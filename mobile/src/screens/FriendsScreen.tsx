@@ -8,6 +8,7 @@ import {
   CaretRightIcon,
   EnvelopeSimpleIcon,
   HourglassIcon,
+  MagnifyingGlassIcon,
   QrCodeIcon,
   UserPlusIcon,
 } from 'phosphor-react-native';
@@ -38,10 +39,11 @@ const ADD_OPTIONS: { id: AddMode; label: string; Icon: typeof UserPlusIcon }[] =
   { id: 'enterCode', label: 'Enter a code', Icon: UserPlusIcon },
 ];
 
-// Fixed row height so the list box can cap itself at exactly
-// MAX_VISIBLE_FRIENDS rows and scroll past that.
 const FRIEND_ROW_HEIGHT = 52;
-const MAX_VISIBLE_FRIENDS = 10;
+// The list shows this many until "Show all"; past it, a search box
+// appears too. The whole page scrolls, not a box inside it: a capped
+// inner list hid everything below it once someone had dozens of friends.
+const FRIENDS_PREVIEW = 8;
 // The feed shows the most recent few; older items live on in each
 // friend's own profile (badges) and the challenge results themselves.
 const MAX_FEED_ITEMS = 8;
@@ -62,6 +64,8 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
   // instead of above it: testers had to scroll past them to find their
   // friends. Shown open while you have no friends yet.
   const [showAdd, setShowAdd] = useState(false);
+  const [friendQuery, setFriendQuery] = useState('');
+  const [showAllFriends, setShowAllFriends] = useState(false);
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
@@ -252,6 +256,10 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
     .sort((a, b) => a.name.localeCompare(b.name));
   const receivedInvites = liveFriends.filter((f) => f.status === 'pending' && !f.requestedByMe);
   const sentInvites = liveFriends.filter((f) => f.status === 'pending' && f.requestedByMe);
+  const query = friendQuery.trim().toLowerCase();
+  const searching = query.length > 0;
+  const matchingFriends = searching ? accepted.filter((f) => f.name.toLowerCase().includes(query)) : accepted;
+  const shownFriends = searching || showAllFriends ? matchingFriends : matchingFriends.slice(0, FRIENDS_PREVIEW);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -300,38 +308,8 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
         </>
       )}
 
-      {/* One card, one scroll box — at most MAX_VISIBLE_FRIENDS rows tall,
-          scrolling within itself past that, so a long friend list never
-          pushes Pending (below) off the page. */}
-      <Card style={{ gap: 8 }} elevated={false}>
-        <View style={styles.listHeader}>
-          <Text style={styles.sectionTitle}>Friends</Text>
-          {accepted.length > 0 && <Text style={styles.footNote}>{accepted.length}</Text>}
-        </View>
-        {accepted.length === 0 ? (
-          <Text style={styles.footNote}>No friends yet. Pick a way to add someone below.</Text>
-        ) : (
-          <ScrollView style={{ maxHeight: FRIEND_ROW_HEIGHT * MAX_VISIBLE_FRIENDS }} nestedScrollEnabled>
-            {accepted.map((f, i) => (
-              <Pressable
-                key={f.friendshipId}
-                onPress={() => onOpenFriend(f)}
-                style={[styles.friendListRow, i > 0 && styles.friendListRowDivider]}
-              >
-                <Avatar initials={f.initials} tint={TINT_N} frameId={f.frameId} backgroundId={f.backgroundId} iconId={f.iconId} />
-                <Text style={[styles.friendName, { flex: 1 }]} numberOfLines={1}>
-                  {f.name}
-                </Text>
-                <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
-              </Pressable>
-            ))}
-          </ScrollView>
-        )}
-        {accepted.length > MAX_VISIBLE_FRIENDS && (
-          <Text style={styles.footNote}>Scroll to see all {accepted.length}.</Text>
-        )}
-      </Card>
-
+      {/* The ways to add someone open here, near the top where the
+          button is, rather than below the whole list. */}
       {(showAdd || accepted.length === 0) && (
         <>
         {discovery && (
@@ -455,6 +433,53 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
         </Card>
         </>
       )}
+
+      <Card style={{ gap: 8 }} elevated={false}>
+        <View style={styles.listHeader}>
+          <Text style={styles.sectionTitle}>Friends</Text>
+          {accepted.length > 0 && <Text style={styles.footNote}>{accepted.length}</Text>}
+        </View>
+        {accepted.length > FRIENDS_PREVIEW && (
+          <TextField
+            label=""
+            value={friendQuery}
+            onChangeText={setFriendQuery}
+            placeholder="Search your friends"
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
+          />
+        )}
+        {accepted.length === 0 ? (
+          <Text style={styles.footNote}>No friends yet. Pick a way to add someone above.</Text>
+        ) : shownFriends.length === 0 ? (
+          <Text style={styles.footNote}>
+            No friends match &ldquo;{friendQuery.trim()}&rdquo;. To find someone new, tap Add friends.
+          </Text>
+        ) : (
+          <View>
+            {shownFriends.map((f, i) => (
+              <Pressable
+                key={f.friendshipId}
+                onPress={() => onOpenFriend(f)}
+                style={[styles.friendListRow, i > 0 && styles.friendListRowDivider]}
+              >
+                <Avatar initials={f.initials} tint={TINT_N} frameId={f.frameId} backgroundId={f.backgroundId} iconId={f.iconId} />
+                <Text style={[styles.friendName, { flex: 1 }]} numberOfLines={1}>
+                  {f.name}
+                </Text>
+                <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+              </Pressable>
+            ))}
+          </View>
+        )}
+        {!searching && accepted.length > FRIENDS_PREVIEW && (
+          <Pressable onPress={() => setShowAllFriends((v) => !v)} hitSlop={6} style={styles.showAll}>
+            <Text style={styles.showAllText}>{showAllFriends ? 'Show fewer' : `Show all ${accepted.length}`}</Text>
+          </Pressable>
+        )}
+      </Card>
 
       {/* Recent highlights from friends — wins and unlocked badges.
           Tap a row to open that friend; 👏 sends them kudos. */}
@@ -587,6 +612,8 @@ function makeStyles(colors: Palette) {
     optionLabel: { fontSize: 12, textAlign: 'center', color: withAlpha(colors.text, 0.75) },
     optionLabelOn: { color: colors.text },
     listHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    showAll: { alignSelf: 'flex-start', paddingVertical: 6 },
+    showAllText: { fontFamily: font.heading, fontSize: 13.5, color: colors.accentActive },
     friendListRow: { flexDirection: 'row', alignItems: 'center', gap: 12, height: FRIEND_ROW_HEIGHT },
     friendListRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
     inviteText: { flex: 1, minWidth: 150, fontSize: 13.5, color: colors.text },
