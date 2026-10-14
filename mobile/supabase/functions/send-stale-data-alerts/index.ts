@@ -3,8 +3,9 @@
 // this, so it authenticates with the service role key, same reasoning as
 // send-login-reminders.
 //
-// For every challenge still running, finds any participant who hasn't
-// recorded progress in it for over STALE_HOURS (or never has, if the
+// For every challenge still running whose progress is synced from the
+// phone (SYNCED_KINDS), finds any participant who hasn't recorded
+// progress in it for over STALE_HOURS (or never has, if the
 // challenge itself has been running that long), and reminds THAT
 // participant, if they have push and/or email enabled for this alert
 // (0026_alert_email_channels.sql), with a "you haven't synced" nudge.
@@ -48,6 +49,11 @@ const STALE_MS = 24 * 60 * 60 * 1000;
 // The local hour the alert goes out.
 const ALERT_HOUR = 18;
 const DEFAULT_TIME_ZONE = 'America/New_York';
+// The kinds whose progress the app writes to progress_snapshots
+// (deviceSync.ts's syncChallengeProgressFromDevice). Bingo and 75 keep
+// theirs in their own tables, and Tic-Tac-Go has nothing to sync, so a
+// snapshot-based check would call everyone in them stale every day.
+const SYNCED_KINDS = ['steps', 'distance', 'streak', 'hunt', 'tag'];
 
 interface ChallengeRow {
   id: string;
@@ -177,6 +183,7 @@ Deno.serve(async (req) => {
     .from('challenges')
     .select('id, name, starts_at')
     .gt('ends_at', now.toISOString())
+    .in('kind', SYNCED_KINDS)
     .returns<ChallengeRow[]>();
   if (challengesError) {
     return new Response(JSON.stringify({ error: challengesError.message }), { status: 500 });
