@@ -89,6 +89,20 @@ function startsAtFor(option: StartOption): Date {
 // there's no per-kind name validation to keep in sync.
 const NAME_MIN_LENGTH = 4;
 
+// One short line per game in "Pick the game"; the full description shows
+// only for the one you've picked. The list ran well past one screen with
+// every description open.
+const TAGLINES: Record<ChallengeKind, string> = {
+  hunt: 'Catch the runner before time runs out.',
+  tictacgo: 'Claim squares; three in a row wins.',
+  steps: 'Most steps wins.',
+  tag: 'Catch someone ahead of you, or stay It.',
+  distance: 'The group chases one shared target.',
+  streak: 'Hit your goal every day.',
+  bingo: 'Fill a card with different workouts.',
+  seventyfive: 'A daily checklist for 75 days.',
+};
+
 export function CreateScreen({
   onCancel,
   onFinish,
@@ -526,7 +540,7 @@ export function CreateScreen({
           {CHALLENGE_GROUPS.map((group, i) => (
             <View key={group.label || i} style={{ gap: 10 }}>
               {!!group.label && <Text style={styles.groupLabel}>{group.label}</Text>}
-              <View style={{ gap: 14 }}>
+              <View style={{ gap: 10 }}>
                 {group.kinds.filter((k) => !global || GLOBAL_KINDS.includes(k)).map((kindId) => {
                   const t = CHALLENGE_TYPES.find((ct) => ct.id === kindId);
                   if (!t) return null;
@@ -546,7 +560,9 @@ export function CreateScreen({
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
                         <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName() : t.name}</Text>
-                        <Text style={styles.typeDesc}>{locked ? `Unlocks at ${unlockBones} ${currencyName} earned` : t.desc}</Text>
+                        <Text style={styles.typeDesc}>
+                          {locked ? `Unlocks at ${unlockBones} ${currencyName} earned` : picked ? t.desc : TAGLINES[t.id]}
+                        </Text>
                       </View>
                       {locked ? (
                         <LockSimpleIcon size={16} color={withAlpha(colors.text, 0.4)} />
