@@ -1,6 +1,6 @@
 import type { RematchDraft } from '../challenges/rematch';
 
-export type MainTab = 'home' | 'challenges' | 'metrics' | 'friends' | 'settings' | 'connect';
+export type MainTab = 'home' | 'challenges' | 'friends' | 'you';
 
 // The challenge screen's three tabs.
 export type ChallengeTab = 'board' | 'talk' | 'details';
@@ -43,4 +43,8 @@ export type RootStackParamList = {
   Locker: undefined;
   Help: undefined;
   Achievements: undefined;
+  // Opened from the You tab (they used to be tabs or the top bar).
+  Stats: undefined;
+  Settings: undefined;
+  HealthData: undefined;
 };

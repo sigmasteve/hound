@@ -20,6 +20,9 @@ import { OrgDetailScreen } from '../screens/OrgDetailScreen';
 import { HelpScreen } from '../screens/HelpScreen';
 import { AchievementsScreen } from '../screens/AchievementsScreen';
 import { ConnectScreen } from '../screens/ConnectScreen';
+import { MetricsScreen } from '../screens/MetricsScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
+import { StackPage } from '../components/StackPage';
 import { WelcomeScreen } from '../screens/auth/WelcomeScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { SignUpScreen } from '../screens/auth/SignUpScreen';
@@ -42,8 +45,8 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const ConnectGateStack = createNativeStackNavigator();
 
 // Once someone's dealt with this (connected, or tapped "Skip for now"),
-// it never interrupts a launch again — from then on Connect is just the
-// normal tab, there to revisit whenever. Device-scoped rather than
+// it never interrupts a launch again — from then on it's You → Health
+// data, there to revisit whenever. Device-scoped rather than
 // per-account on purpose: whether this phone's HealthKit/Health Connect
 // access is granted is an OS-level fact, not something a second Hound
 // account signing in on the same device needs asked again.
@@ -258,8 +261,7 @@ export function RootNavigator() {
               )}
             </Stack.Screen>
             <Stack.Screen name="Locker" options={{ animation: 'slide_from_right' }}>
-              {/* Opened from Settings or TopNav's own Locker icon on any
-                  tab — goBack() returns to whichever one it was. */}
+              {/* Opened from the You tab — goBack() returns there. */}
               {({ navigation }) => <LockerScreen onBack={() => navigation.goBack()} />}
             </Stack.Screen>
             <Stack.Screen name="Admin" options={{ animation: 'slide_from_right' }}>
@@ -323,9 +325,32 @@ export function RootNavigator() {
               )}
             </Stack.Screen>
             <Stack.Screen name="Help" options={{ animation: 'slide_from_right' }}>
-              {/* Reached from TopNav's own ? icon on every tab — goBack()
-                  returns to whichever tab that was, same as Admin. */}
+              {/* Opened from the You tab — goBack() returns there. */}
               {({ navigation }) => <HelpScreen onBack={() => navigation.goBack()} />}
+            </Stack.Screen>
+            {/* Stats & records, Settings and Health data used to be tabs (or
+                behind your name in the top bar); now they open from You,
+                and goBack() returns there. */}
+            <Stack.Screen name="Stats" options={{ animation: 'slide_from_right' }}>
+              {({ navigation }) => (
+                <StackPage onBack={() => navigation.goBack()}>
+                  <MetricsScreen />
+                </StackPage>
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Settings" options={{ animation: 'slide_from_right' }}>
+              {({ navigation }) => (
+                <StackPage onBack={() => navigation.goBack()}>
+                  <SettingsScreen />
+                </StackPage>
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="HealthData" options={{ animation: 'slide_from_right' }}>
+              {({ navigation }) => (
+                <StackPage onBack={() => navigation.goBack()}>
+                  <ConnectScreen onDone={() => navigation.goBack()} title="Health data" doneLabel="Done" />
+                </StackPage>
+              )}
             </Stack.Screen>
             <Stack.Screen name="Achievements" options={{ animation: 'slide_from_right' }}>
               {/* Opened from Home's unlock popup or Settings — goBack()

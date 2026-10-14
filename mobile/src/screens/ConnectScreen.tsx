@@ -23,7 +23,18 @@ const MANAGE_INSTRUCTIONS: Record<'ios' | 'android', string> = {
     'Already connected. To review or revoke access, open the Health Connect app → Data and access → App permissions → Hound on this device.',
 };
 
-export function ConnectScreen({ onDone }: { onDone: () => void }) {
+// Right after sign-up it asks ("Hound needs your health data", "Skip for
+// now"); opened later from You → Health data it's a plain settings page
+// (title "Health data", "Done").
+export function ConnectScreen({
+  onDone,
+  title = 'Hound needs your health data',
+  doneLabel = 'Skip for now',
+}: {
+  onDone: () => void;
+  title?: string;
+  doneLabel?: string;
+}) {
   const health = useHealthProvider();
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -68,7 +79,7 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
       <View style={styles.badge}>
         <PawPrintIcon size={26} color={colors.accent} weight="fill" />
       </View>
-      <Text style={[text.h2, styles.title]}>Hound needs your health data</Text>
+      <Text style={[text.h2, styles.title]}>{title}</Text>
       <Text style={styles.body}>
         Connect the platform your phone already uses. Your friends connect theirs. Hound lines the
         numbers up so a Pixel and an iPhone can race fairly.
@@ -124,7 +135,7 @@ export function ConnectScreen({ onDone }: { onDone: () => void }) {
         </Text>
       </View>
 
-      <Button label="Skip for now" variant="ghost" small onPress={onDone} style={styles.skip} />
+      <Button label={doneLabel} variant="ghost" small onPress={onDone} style={styles.skip} />
     </ScrollView>
   );
 }

@@ -22,7 +22,7 @@ import { useCurrencyName } from '../organizations/useCurrencyName';
 import { buildHelpTopics, HELP_SECTIONS, type HelpTopic } from '../help/helpTopics';
 
 const QUICK_START: { Icon: React.ComponentType<any>; title: string; body: string }[] = [
-  { Icon: PlugsIcon, title: 'Connect your health app', body: 'Connect tab → Apple Health or Health Connect.' },
+  { Icon: PlugsIcon, title: 'Connect your health app', body: 'You → Health data → Apple Health or Health Connect.' },
   { Icon: FlagCheckeredIcon, title: 'Start or join a challenge', body: 'Challenges tab → New challenge, or Join an invite.' },
   { Icon: HouseIcon, title: 'Check Today every day', body: 'See your standing, grab your daily bonus, and clear anything waiting on you.' },
 ];

@@ -1,86 +1,30 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
-import {
-  BuildingsIcon,
-  ChartLineUpIcon,
-  CoatHangerIcon,
-  FlagCheckeredIcon,
-  HouseIcon,
-  PawPrintIcon,
-  PlugsIcon,
-  QuestionIcon,
-  ShieldCheckIcon,
-  UsersThreeIcon,
-} from 'phosphor-react-native';
+import { BuildingsIcon, PawPrintIcon, ShieldCheckIcon } from 'phosphor-react-native';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
-import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
-import { Avatar } from './Avatar';
-import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
-import { isSupabaseConfigured } from '../lib/supabase';
 
-const NAV: { id: MainTab; label: string; Icon: React.ComponentType<any> }[] = [
-  { id: 'home', label: 'Today', Icon: HouseIcon },
-  { id: 'challenges', label: 'Challenges', Icon: FlagCheckeredIcon },
-  { id: 'metrics', label: 'Data', Icon: ChartLineUpIcon },
-  { id: 'friends', label: 'Friends', Icon: UsersThreeIcon },
-  { id: 'connect', label: 'Connect', Icon: PlugsIcon },
-];
-
+// The slim bar above every tab: the Hound mark, and the two management
+// icons for the people who have something to manage. Everything else
+// that used to live up here (Help, Locker, your name for Settings) is on
+// the You tab, and the tabs themselves are at the bottom (TabBar).
 export function TopNav({
-  active,
-  onSelect,
-  onProfile,
   onAdmin,
   onOrgManagement,
-  onHelp,
-  onLocker,
 }: {
-  active: MainTab | 'hunt' | 'create';
-  onSelect: (tab: MainTab) => void;
-  onProfile: () => void;
   onAdmin: () => void;
   // Passed the caller's own org id when they're only an org admin (not a
   // platform admin) — MainScreen uses that to skip straight to
-  // OrgDetailScreen for their one org, same "no reason to pick one"
-  // shape as this icon existing at all only for someone who has
-  // somewhere to manage. Omitted (undefined) for a platform admin, who
-  // lands on the OrgManagementScreen hub instead to pick from every org.
+  // OrgDetailScreen for their one org. Omitted (undefined) for a
+  // platform admin, who lands on the OrgManagementScreen hub instead.
   onOrgManagement: (organizationId?: string) => void;
-  onHelp: () => void;
-  onLocker: () => void;
 }) {
   const { user } = useAuth();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  // First name only — the header's too narrow for "Stephen Washington
-  // Jr" alongside the nav row, and every other screen that shows the
-  // full name (Settings' account card) is right there one tap away via
-  // onProfile.
-  const firstName = user?.name.split(' ')[0] ?? '';
   const canManageOrgs = !!user?.isAdmin || user?.orgRole === 'admin';
-
-  // Re-fetched every time the Main screen regains focus (not just on
-  // mount) — TopNav stays mounted the whole time a stack screen like
-  // Locker is pushed on top of it, so a fetch-once-on-mount would go
-  // stale the moment someone equips something there and comes back.
-  // useFocusEffect fires on that return even though TopNav itself was
-  // never unmounted, same as every other screen's own refetch-on-focus.
-  const [equipped, setEquipped] = useState<EquippedCosmetics | null>(null);
-  useFocusEffect(
-    useCallback(() => {
-      if (!isSupabaseConfigured || !user?.id) return;
-      getMyEquippedCosmetics(user.id)
-        .then(setEquipped)
-        .catch(() => {
-          // Stay on whatever's already showing — same convention every
-          // other real-data fetch in this app follows.
-        });
-    }, [user?.id]),
-  );
 
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
@@ -89,15 +33,7 @@ export function TopNav({
           <PawPrintIcon size={16} color={colors.accent} weight="fill" />
         </View>
         <Text style={styles.brandName}>Hound</Text>
-        {/* Everyone gets Help and Locker, so Help is always the first icon
-            on the right — Locker, then the admin-only icons (and the
-            profile pill) follow it. */}
-        <Pressable style={[styles.iconButton, styles.pushRight]} onPress={onHelp} accessibilityLabel="Help">
-          <QuestionIcon size={16} color={colors.accent} />
-        </Pressable>
-        <Pressable style={styles.iconButton} onPress={onLocker} accessibilityLabel="Locker">
-          <CoatHangerIcon size={16} color={colors.accent} />
-        </Pressable>
+        <View style={styles.pushRight} />
         {canManageOrgs && (
           <Pressable
             style={styles.iconButton}
@@ -108,53 +44,10 @@ export function TopNav({
           </Pressable>
         )}
         {user?.isAdmin && (
-          <Pressable
-            style={styles.iconButton}
-            onPress={onAdmin}
-            accessibilityLabel="Admin"
-          >
+          <Pressable style={styles.iconButton} onPress={onAdmin} accessibilityLabel="Admin">
             <ShieldCheckIcon size={16} color={colors.accent} />
           </Pressable>
         )}
-        <Pressable style={styles.profile} onPress={onProfile}>
-          <Avatar
-            initials={user?.initials ?? ''}
-            tint={colors.accent800}
-            size={26}
-            fontSize={11}
-            frameId={equipped?.frameId}
-            backgroundId={equipped?.backgroundId}
-            iconId={equipped?.iconId}
-          />
-          <Text style={styles.profileName} numberOfLines={1}>
-            {firstName}
-          </Text>
-        </Pressable>
-      </View>
-      {/* Evenly split across the full width (flex: 1 per item) instead of
-          the old horizontal-scrolling row of pills — that layout let a 5th
-          tab (Connect) scroll off-screen with no visible affordance hinting
-          it was there at all. Each icon has its name under it: testers
-          couldn't tell the icons apart on their own. */}
-      <View style={styles.navRow}>
-        {NAV.map(({ id, label, Icon }) => {
-          const on = active === id || (id === 'challenges' && (active === 'hunt' || active === 'create'));
-          return (
-            <Pressable
-              key={id}
-              onPress={() => onSelect(id)}
-              style={[styles.navItem, on && styles.navItemOn]}
-              accessibilityRole="tab"
-              accessibilityLabel={label}
-              accessibilityState={{ selected: on }}
-            >
-              <Icon size={20} color={on ? colors.accentActive : withAlpha(colors.text, 0.68)} weight={on ? 'fill' : 'regular'} />
-              <Text style={[styles.navLabel, on && styles.navLabelOn]} numberOfLines={1}>
-                {label}
-              </Text>
-            </Pressable>
-          );
-        })}
       </View>
     </SafeAreaView>
   );
@@ -172,8 +65,9 @@ function makeStyles(colors: Palette) {
       alignItems: 'center',
       gap: 9,
       paddingHorizontal: 16,
-      paddingTop: 10,
-      paddingBottom: 6,
+      paddingTop: 8,
+      paddingBottom: 8,
+      minHeight: 48,
     },
     brandMark: {
       width: 28,
@@ -185,11 +79,7 @@ function makeStyles(colors: Palette) {
       justifyContent: 'center',
     },
     brandName: { fontFamily: font.headingSemibold, fontSize: 17, color: colors.text, letterSpacing: 0.2 },
-    // Only the Help icon gets this — it's always the first thing on the
-    // right (see the JSX above). flexbox `gap` still spaces everything
-    // after it normally; this just pushes that whole group to the row's
-    // far right.
-    pushRight: { marginLeft: 'auto' },
+    pushRight: { flex: 1 },
     iconButton: {
       width: 32,
       height: 32,
@@ -198,40 +88,6 @@ function makeStyles(colors: Palette) {
       justifyContent: 'center',
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.divider,
-    },
-    // flexShrink lets the pill (and its name) give way on a narrow phone
-    // once an admin's extra icons fill the row, instead of pushing it
-    // off-screen — the name truncates with an ellipsis.
-    profile: {
-      flexShrink: 1,
-      minWidth: 0,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingVertical: 4,
-      paddingLeft: 4,
-      paddingRight: 10,
-      borderRadius: 999,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.divider,
-    },
-    profileName: { flexShrink: 1, fontFamily: font.body, fontSize: 13, color: colors.text },
-    navRow: { flexDirection: 'row', paddingHorizontal: 10, paddingBottom: 10, gap: 4 },
-    navItem: {
-      flex: 1,
-      minWidth: 0,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 3,
-      paddingVertical: 6,
-      borderRadius: 8,
-    },
-    navLabel: { fontFamily: font.body, fontSize: 10.5, color: withAlpha(colors.text, 0.68) },
-    navLabelOn: { fontFamily: font.headingSemibold, color: colors.accentActive },
-    navItemOn: {
-      backgroundColor: withAlpha(colors.accent, 0.16),
-      borderWidth: 1,
-      borderColor: colors.accent,
     },
   });
 }
