@@ -11,6 +11,7 @@ import {
   EnvelopeOpenIcon,
   FlagCheckeredIcon,
   FootprintsIcon,
+  MedalIcon,
   PathIcon,
   PawPrintIcon,
   PlusCircleIcon,
@@ -26,10 +27,9 @@ import { Card } from '../components/Card';
 import { ProgressBar } from '../components/ProgressBar';
 import { Tag } from '../components/Tag';
 import { useTheme } from '../theme/ThemeContext';
-import { color, font, TINT_A, TINT_N, toneColor, withAlpha, type Palette } from '../theme/tokens';
+import { color, font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
 import type { HealthSnapshot, WorkoutSample } from '../health/types';
-import { computeReadiness, READINESS_COPY } from '../health/readiness';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import type { MainTab } from '../navigation/types';
@@ -40,7 +40,7 @@ import { supabaseChallengesProvider, hasLoggedProgressToday } from '../challenge
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { getAppBanner, isBannerActive, type AppBanner } from '../banner/supabaseBanner';
-import { getMyDailyStepRank, getMyWeeklyStepRank, recordDailyStepTotal, type StepRank } from '../leaderboard/supabaseStepsRank';
+import { recordDailyStepTotal } from '../leaderboard/supabaseStepsRank';
 import { recordWorkoutHistory } from '../workouts/supabaseWorkoutHistory';
 import {
   buildBoard,
@@ -76,7 +76,7 @@ import {
 import { listBingoProgress } from '../challenges/bingoApi';
 import { formatTimeLeft, turnDeadline } from '../challenges/tictacgo';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
-import { getMyHoundScore, settleChallengeScore, type HoundScore } from '../challenges/scoreApi';
+import { settleChallengeScore } from '../challenges/scoreApi';
 import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
 import { DailyBonusModal } from '../components/DailyBonusModal';
 import { AchievementUnlockedModal } from '../components/AchievementUnlockedModal';
@@ -85,7 +85,7 @@ import { InviteCodeCard } from '../components/InviteCodeCard';
 import { PushAskCard } from '../components/PushAskCard';
 import { NudgesCard } from '../components/NudgesCard';
 import { NewRecordModal } from '../components/NewRecordModal';
-import { syncPersonalRecords, takePendingNewRecords, type NewRecord } from '../records/personalRecords';
+import { RECORD_TITLE, syncPersonalRecords, takePendingNewRecords, type NewRecord } from '../records/personalRecords';
 import { nudgesReceived, type ReceivedNudge } from '../social/social';
 import { shouldOfferPush } from '../notifications/pushPermission';
 import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from '../onboarding/onboardingApi';
@@ -95,8 +95,13 @@ import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
 import { GlobalChallengesCard } from '../components/GlobalChallengesCard';
 import { canJoin, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
 import { fetchWeeklyRecap, isRecapWindow, recapWeekKey, type WeeklyRecap } from '../home/weeklyRecap';
-import { scheduleDailyBonusReminder, schedulePendingActionsNudge } from '../notifications/localReminders';
-import { levelProgressForXp } from '../challenges/leveling';
+import {
+  getLocalRemindersEnabled,
+  getReminderPermission,
+  scheduleDailyBonusReminder,
+  schedulePendingActionsNudge,
+} from '../notifications/localReminders';
+import { Toast, type ToastMessage } from '../components/Toast';
 import { TicTacGoBoard } from '../components/TicTacGoCard';
 import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
@@ -408,6 +413,19 @@ function heroCopy(
   return { eyebrow, headline: `You're ${ordinal(rank)} of ${board.length} in ${challenge.name}.` };
 }
 
+// At most one pop-up (daily bonus, achievement or new record) per app
+// open; anything after that becomes a toast. Testers found the stack of
+// pop-ups on open overwhelming. Module-level so switching tabs doesn't
+// reset it; coming back to the app from the background does (see the
+// AppState listener below).
+let popupUsedThisOpen = false;
+const NEEDS_YOU_LIMIT = 3;
+function takePopup(): boolean {
+  if (popupUsedThisOpen) return false;
+  popupUsedThisOpen = true;
+  return true;
+}
+
 export function HomeScreen({
   onOpenHunt,
   onOpenChallenge,
@@ -528,19 +546,23 @@ export function HomeScreen({
   const resolvedBannerMessage = banner ? resolveBannerMessage(banner.message) : '';
   const showBanner = !!banner && isBannerActive(banner) && !bannerDismissed && resolvedBannerMessage.trim().length > 0;
 
-  // Null until both rank RPCs resolve with an actual row — see
-  // 0027_daily_step_totals.sql's own comment on why an empty result
-  // (nothing synced yet in that window) reads as "hide the chip", not
-  // an error.
-  const [dailyRank, setDailyRank] = useState<StepRank | null>(null);
-  const [weeklyRank, setWeeklyRank] = useState<StepRank | null>(null);
-
-  // Null covers both "hasn't loaded yet" and "failed to load" — same
-  // "never show a confident wrong number" reasoning as Settings' own copy
-  // of this fetch. The tile below just doesn't render until this
-  // resolves with a real value.
-  const [houndScore, setHoundScore] = useState<HoundScore | null>(null);
   const currencyName = useCurrencyName();
+  // Read from inside reload() without making it a dependency — a
+  // currency name arriving late shouldn't re-run every fetch.
+  const currencyNameRef = useRef(currencyName);
+  currencyNameRef.current = currencyName;
+  // Same for the navigation props a toast's tap uses: they're new
+  // functions on every render of MainScreen.
+  const navRef = useRef({ onGoTab, onOpenAchievements });
+  navRef.current = { onGoTab, onOpenAchievements };
+
+  // Small news that arrives after this app open has had its one pop-up
+  // (see takePopup) — shown one at a time at the bottom of the screen.
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const pushToast = useCallback((t: ToastMessage) => setToasts((cur) => [...cur, t]), []);
+
+  // "Needs you" shows three things until expanded.
+  const [needsYouExpanded, setNeedsYouExpanded] = useState(false);
 
   // Start-of-week recap (Mon–Wed) — see src/home/weeklyRecap.ts. Dismissal
   // is local and per week, same shape as the banner's own dismissal above:
@@ -635,7 +657,19 @@ export function HomeScreen({
       (async () => {
         await syncPersonalRecords(health, userId);
         const pending = await takePendingNewRecords(userId);
-        if (!cancelled && pending.length > 0) setNewRecords((cur) => [...cur, ...pending]);
+        if (cancelled || pending.length === 0) return;
+        if (takePopup()) {
+          setNewRecords((cur) => [...cur, ...pending]);
+        } else {
+          for (const rec of pending) {
+            pushToast({
+              id: `record-${rec.kind}-${rec.achievedOn}`,
+              text: `New personal record: ${RECORD_TITLE[rec.kind]}`,
+              Icon: MedalIcon,
+              onPress: () => navRef.current.onGoTab('metrics'),
+            });
+          }
+        }
       })();
       return () => {
         cancelled = true;
@@ -682,7 +716,6 @@ export function HomeScreen({
     try {
       const bones = await claimOnboardingReward();
       setOnboarding((cur) => (cur ? { ...cur, rewardClaimed: true } : cur));
-      getMyHoundScore(user.id).then(setHoundScore).catch(() => {});
       Alert.alert('Nice start!', `+${bones} ${currencyName} added to your balance.`);
     } catch (e) {
       Alert.alert('Could not claim that', e instanceof Error ? e.message : 'Try again in a moment.');
@@ -749,55 +782,67 @@ export function HomeScreen({
   const reload = useCallback(() => {
     loadGlobalChallenges();
     if (isSupabaseConfigured && user?.id) {
-      const userId = user.id;
-      // Claim first, then read the score back — so the Bones shown right
-      // under Hound Score already includes today's bonus instead of
-      // jumping a moment later. Every open/focus/resume lands here, and a
-      // repeat claim the same day is a server-side no-op. A failed claim
-      // never blocks the score fetch.
+      // Every open/focus/resume lands here, and a repeat claim the same
+      // day is a server-side no-op.
       claimDailyBonus()
-        .then((result) => {
-          if (result.awarded) setDailyBonus(result);
+        .then(async (result) => {
           setLastClaim(result);
+          if (!result.awarded) return;
+          // The full pop-up only while it can still offer "Remind me
+          // tomorrow" (reminders on, permission never asked) and nothing
+          // else has popped up this open. Every other day it's a toast.
+          const [remindersOn, permission] = await Promise.all([
+            getLocalRemindersEnabled(),
+            getReminderPermission(),
+          ]).catch(() => [false, 'denied'] as const);
+          if (remindersOn && permission === 'undetermined' && takePopup()) {
+            setDailyBonus(result);
+          } else {
+            pushToast({
+              id: `bonus-${result.streak}-${Date.now()}`,
+              text: `+${result.bonesAwarded} ${currencyNameRef.current} daily bonus${
+                result.streak > 1 ? ` · ${result.streak}-day streak` : ''
+              }`,
+              Icon: BoneIcon,
+            });
+          }
         })
         .catch(() => {})
         // After the claim, so a login-streak achievement sees today's
-        // streak; before the score read, so the Bones shown already
-        // include anything just awarded (0072_achievements.sql).
+        // streak (0072_achievements.sql).
         .then(() => checkAchievements())
         .then((earned) => {
-          if (earned.length > 0) setUnlocked((cur) => [...cur, ...earned]);
+          if (earned.length === 0) return;
+          if (takePopup()) {
+            setUnlocked((cur) => [...cur, ...earned]);
+          } else {
+            for (const a of earned) {
+              pushToast({
+                id: `achievement-${a.id}`,
+                text: `Achievement unlocked: ${a.name}`,
+                Icon: TrophyIcon,
+                onPress: () => navRef.current.onOpenAchievements(),
+              });
+            }
+          }
         })
         .catch(() => {})
         .then(() => getOnboardingStatus())
         .then(setOnboarding)
-        .catch(() => {})
-        .then(() => getMyHoundScore(userId))
-        .then(setHoundScore)
-        .catch(() => setHoundScore(null));
-    } else {
-      setHoundScore(null);
+        .catch(() => {});
     }
     health.getSnapshot().then((s) => {
       setSnap(s);
       if (!isSupabaseConfigured || !user?.id) return;
-      // Upsert first, then read the ranks back — the RPCs only rank
-      // rows that already exist, so reading before the write lands would
-      // show yesterday's place for a click that just changed it.
-      recordDailyStepTotal(user.id, s.stepsToday)
-        .then(() => Promise.all([getMyDailyStepRank(), getMyWeeklyStepRank()]))
-        .then(([daily, weekly]) => {
-          setDailyRank(daily);
-          setWeeklyRank(weekly);
-        })
-        .catch(() => {
-          // Same "never break the screen" convention as the rest of
-          // Home's own fetches — the chip just stays hidden.
-        });
+      // Today's total feeds everyone's Hound-users rank, which the Data
+      // tab shows (0027_daily_step_totals.sql).
+      recordDailyStepTotal(user.id, s.stepsToday).catch(() => {
+        // Same "never break the screen" convention as the rest of
+        // Home's own fetches.
+      });
     });
-    // Same fetch MetricsScreen's own readiness card runs off — a big
-    // enough window (50 most recent) to cover computeReadiness's 28-day
-    // chronic baseline, not just today.
+    // Today's workout count, plus the history record. 50 most recent is
+    // the same window the Data tab's readiness card uses.
     health.getRecentWorkouts(50).then((w) => {
       setWorkouts(w);
       if (isSupabaseConfigured && user?.id) {
@@ -807,7 +852,7 @@ export function HomeScreen({
         });
       }
     });
-  }, [health, user?.id, loadGlobalChallenges]);
+  }, [health, user?.id, loadGlobalChallenges, pushToast]);
 
   useEffect(reload, [reload]);
 
@@ -876,7 +921,12 @@ export function HomeScreen({
   // there until something else happens to trigger a refresh.
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
-      if (nextState === 'active') refreshAll();
+      if (nextState === 'active') {
+        // Coming back to the app counts as a new open: it may have one
+        // pop-up again.
+        popupUsedThisOpen = false;
+        refreshAll();
+      }
     });
     return () => subscription.remove();
   }, [refreshAll]);
@@ -1108,7 +1158,6 @@ export function HomeScreen({
     };
   }, [user?.id, refreshKey]);
 
-  const readiness = useMemo(() => computeReadiness(workouts), [workouts]);
   // Local calendar day, same rule as MetricsScreen's "Today's Workouts" list,
   // so the two screens always count the same workouts.
   const todaysWorkoutCount = useMemo(() => {
@@ -1144,7 +1193,6 @@ export function HomeScreen({
     }
   };
 
-  const houndLevel = houndScore ? levelProgressForXp(houndScore.xpTotal) : null;
 
   // This challenge's own words, not the viewer's — see LabelsContext's
   // own comment on why those can differ.
@@ -1181,6 +1229,17 @@ export function HomeScreen({
   // unconfigured sandbox) to where "New challenge" actually lives,
   // instead of the old fallback of opening the hardcoded Hunt demo as if
   // it were this user's own chase.
+  // Everything waiting on you, for the Needs you card.
+  type NeedsYouItem =
+    | { key: string; type: 'action'; action: PendingAction }
+    | { key: string; type: 'invite'; invite: ChallengeInvite }
+    | { key: string; type: 'friend'; friend: Friend };
+  const needsYou: NeedsYouItem[] = [
+    ...pendingActions.map((action) => ({ key: `action-${action.challengeId}-${action.kind}`, type: 'action' as const, action })),
+    ...(liveInvites ?? []).map((invite) => ({ key: `invite-${invite.id}`, type: 'invite' as const, invite })),
+    ...(friendRequests ?? []).map((friend) => ({ key: `friend-${friend.friendshipId}`, type: 'friend' as const, friend })),
+  ];
+  const shownNeedsYou = needsYouExpanded ? needsYou : needsYou.slice(0, NEEDS_YOU_LIMIT);
   const openPrimary = primary ? () => onOpenChallenge(primary.challenge.id) : () => onGoTab('challenges');
 
   // While the real fetch above is still in flight, show a spinner instead
@@ -1231,6 +1290,108 @@ export function HomeScreen({
         />
       </View>
 
+      {/* Your challenge first — testers had to scroll past everything
+          else to reach it. */}
+      {primary && (
+        <View style={styles.cardsRow}>
+          {primary.challenge.kind === 'hunt' && primary.board.length === 2 ? (
+            <LiveHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
+          ) : primary.challenge.kind === 'hunt' ? (
+            <LiveMultiHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
+          ) : primary.challenge.kind === 'bingo' ? (
+            <BingoCardPreview primary={primary} filled={primaryBingoFilled} onOpen={openPrimary} styles={styles} />
+          ) : primary.challenge.kind === 'tictacgo' ? (
+            <TicTacGoPreview primary={primary} game={primaryTttGame} onOpen={openPrimary} styles={styles} />
+          ) : (
+            <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} colors={colors} />
+          )}
+        </View>
+      )}
+
+      {/* One list for everything waiting on you — your move or
+          checklist in a challenge, challenge invites, friend requests —
+          instead of a separate card for each. Three at a time; the rest
+          behind "See all". Time-sensitive challenge actions come first. */}
+      {needsYou.length > 0 && (
+        <Card style={styles.needsCard} elevated={false}>
+          <View style={styles.needsHeader}>
+            <Text style={styles.needsTitle}>Needs you</Text>
+            <Text style={styles.needsCount}>{needsYou.length}</Text>
+          </View>
+          {shownNeedsYou.map((item, i) => (
+            <View key={item.key} style={[styles.needsRow, i > 0 && styles.needsRowDivider]}>
+              {item.type === 'action' ? (
+                <Pressable style={styles.needsRowMain} onPress={() => onOpenChallenge(item.action.challengeId)}>
+                  <BellRingingIcon size={16} color={color.accent300} weight="fill" />
+                  <Text style={[styles.inviteTitle, { flex: 1 }]}>{item.action.label}</Text>
+                  <CaretRightIcon size={16} color={withAlpha(colors.text, 0.5)} />
+                </Pressable>
+              ) : item.type === 'invite' ? (
+                <>
+                  <View style={styles.needsRowMain}>
+                    <EnvelopeOpenIcon size={16} color={color.accent300} weight="fill" />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.inviteTitle}>
+                        {item.invite.inviterName} invited you to &ldquo;{item.invite.challengeName}&rdquo;
+                      </Text>
+                      <Text style={styles.inviteSub}>
+                        {item.invite.challengeKind === 'hunt'
+                          ? huntKindName()
+                          : CHALLENGE_TYPES.find((t) => t.id === item.invite.challengeKind)?.name ??
+                            item.invite.challengeKind}{' '}
+                        · {item.invite.durationDays} days
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.needsButtons}>
+                    <Button
+                      label="Join"
+                      variant="primary"
+                      small
+                      disabled={respondingId === item.invite.id}
+                      onPress={() => respondToInvite(item.invite, true)}
+                    />
+                    <Button
+                      label="Decline"
+                      small
+                      disabled={respondingId === item.invite.id}
+                      onPress={() => respondToInvite(item.invite, false)}
+                    />
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.needsRowMain}>
+                    <UserPlusIcon size={16} color={color.accent300} weight="fill" />
+                    <Text style={[styles.inviteTitle, { flex: 1 }]}>{item.friend.name} wants to be friends</Text>
+                  </View>
+                  <View style={styles.needsButtons}>
+                    <Button
+                      label="Accept"
+                      variant="primary"
+                      small
+                      disabled={respondingFriendId === item.friend.friendshipId}
+                      onPress={() => respondToFriendRequest(item.friend.friendshipId, true)}
+                    />
+                    <Button
+                      label="Decline"
+                      small
+                      disabled={respondingFriendId === item.friend.friendshipId}
+                      onPress={() => respondToFriendRequest(item.friend.friendshipId, false)}
+                    />
+                  </View>
+                </>
+              )}
+            </View>
+          ))}
+          {needsYou.length > NEEDS_YOU_LIMIT && (
+            <Pressable onPress={() => setNeedsYouExpanded((v) => !v)} hitSlop={6} style={styles.needsMore}>
+              <Text style={styles.needsMoreText}>{needsYouExpanded ? 'Show less' : `See all ${needsYou.length}`}</Text>
+            </Pressable>
+          )}
+        </Card>
+      )}
+
       {visibleNudges.length > 0 && (
         <NudgesCard nudges={visibleNudges} onOpenChallenge={onOpenChallenge} onDismiss={dismissNudges} />
       )}
@@ -1255,91 +1416,6 @@ export function HomeScreen({
           onDismiss={dismissGetStarted}
         />
       )}
-
-      {/* Incoming friend requests, ahead of challenge invites below —
-          the same Accept/Decline actions the Friends tab's own pending
-          list has, so responding doesn't need a trip there first. */}
-      {(friendRequests ?? []).map((f) => (
-        <Card key={f.friendshipId} style={styles.inviteCard} elevated={false}>
-          <UserPlusIcon size={18} color={color.accent300} weight="fill" />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.inviteTitle}>{f.name} wants to be friends</Text>
-          </View>
-          <View style={{ gap: 6 }}>
-            <Button
-              label="Accept"
-              variant="primary"
-              small
-              disabled={respondingFriendId === f.friendshipId}
-              onPress={() => respondToFriendRequest(f.friendshipId, true)}
-            />
-            <Button
-              label="Decline"
-              small
-              disabled={respondingFriendId === f.friendshipId}
-              onPress={() => respondToFriendRequest(f.friendshipId, false)}
-            />
-          </View>
-        </Card>
-      ))}
-
-      {/* Same card ChallengesScreen's own invite list renders — Home
-          shows the exact same pending invites (and the same Join/Decline
-          actions) instead of only the count badge below, so accepting
-          one doesn't require a trip to the Challenges tab first. */}
-      {(liveInvites ?? []).map((invite) => (
-        <Card key={invite.id} style={styles.inviteCard} elevated={false}>
-          <EnvelopeOpenIcon size={18} color={color.accent300} weight="fill" />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.inviteTitle}>
-              {invite.inviterName} invited you to &ldquo;{invite.challengeName}&rdquo;
-            </Text>
-            <Text style={styles.inviteSub}>
-              {invite.challengeKind === 'hunt'
-                ? huntKindName()
-                : CHALLENGE_TYPES.find((t) => t.id === invite.challengeKind)?.name ?? invite.challengeKind}{' '}
-              ·{' '}
-              {invite.durationDays} days
-            </Text>
-          </View>
-          <View style={{ gap: 6 }}>
-            <Button
-              label="Join"
-              variant="primary"
-              small
-              disabled={respondingId === invite.id}
-              onPress={() => respondToInvite(invite, true)}
-            />
-            <Button
-              label="Decline"
-              small
-              disabled={respondingId === invite.id}
-              onPress={() => respondToInvite(invite, false)}
-            />
-          </View>
-        </Card>
-      ))}
-
-      {/* "What do I need to do right now" across every active challenge —
-          Tag's own turn, Tic-Tac-Go's own turn, an unfinished 75 Day
-          checklist, or a manual-entry challenge nobody's logged today.
-          Same card shape as the invite/friend-request lists above, so
-          all three read as one "things needing you" area instead of
-          requiring a trip into each challenge individually to find out.
-          The whole card is tappable (there's only ever one thing to do
-          here, unlike Accept/Decline above), straight into that
-          challenge. */}
-      {pendingActions.map((action) => (
-        <Pressable key={`${action.challengeId}-${action.kind}`} onPress={() => onOpenChallenge(action.challengeId)}>
-          <Card style={styles.inviteCard} elevated={false}>
-            <BellRingingIcon size={18} color={color.accent300} weight="fill" />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={styles.inviteTitle}>{action.label}</Text>
-            </View>
-            <CaretRightIcon size={16} color={withAlpha(colors.text, 0.5)} />
-          </Card>
-        </Pressable>
-      ))}
 
       {globalChallenges.length > 0 && (
         <GlobalChallengesCard
@@ -1402,99 +1478,15 @@ export function HomeScreen({
         />
       </View>
 
-      {houndScore && houndLevel && (
-        <Pressable style={styles.scoreCard} onPress={() => onGoTab('settings')}>
-          <View style={{ gap: 2 }}>
-            <Text style={styles.scoreCardLabel}>Hound Score</Text>
-            <Text style={styles.scoreCardValue}>{houndScore.houndScore.toLocaleString()}</Text>
-            <View style={styles.scoreCardBones}>
-              <BoneIcon size={13} color={color.accent} weight="fill" />
-              <Text style={styles.scoreCardBonesText}>
-                {houndScore.bonesBalance.toLocaleString()} {currencyName}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.scoreCardLevel}>
-            <View style={styles.scoreCardLevelBadge}>
-              <Text style={styles.scoreCardLevelBadgeText}>Lv {houndLevel.level}</Text>
-            </View>
-            <View style={{ width: 84 }}>
-              <ProgressBar pct={houndLevel.pctToNextLevel} fillColor={color.accent} height={4} />
-            </View>
-          </View>
-          <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
-        </Pressable>
-      )}
-
       {weeklyRecap && (
         <WeeklyRecapCard recap={weeklyRecap} currencyName={currencyName} onDismiss={dismissWeeklyRecap} />
       )}
 
-      {/* One-line pointer to the Data tab's own Readiness card (see the
-          readiness plan doc) — Home is the screen someone actually opens
-          daily, so the signal gets a glance here even though the real
-          detail (reasoning, component breakdown) only lives on Data.
-          Hidden for insufficient_data — a "Not enough data yet" chip
-          here isn't worth a permanent slot on the one screen everyone
-          sees daily, unlike the Data tab's own card (which explains
-          itself with the EXAMPLE preview) — except for an admin, who
-          can still see it to test the feature without needing real
-          history. */}
-      {(readiness.label !== 'insufficient_data' || user?.isAdmin) && (
-        <Pressable style={styles.readinessChip} onPress={() => onGoTab('metrics')}>
-          <View style={[styles.readinessDot, { backgroundColor: toneColor(READINESS_COPY[readiness.label].tone, colors) }]} />
-          <Text style={styles.readinessChipText} numberOfLines={1}>
-            {READINESS_COPY[readiness.label].title}
-          </Text>
-          <CaretRightIcon size={12} color={withAlpha(colors.text, 0.4)} />
-        </Pressable>
-      )}
-
-      {/* Global (not challenge-scoped) steps rank — see
-          0027_daily_step_totals.sql. Hidden until both RPCs come back
-          with a real row, same "no metric is better than a wrong one"
-          rule the readiness chip above already follows. */}
-      {dailyRank && weeklyRank && (
-        <Pressable style={styles.stepsRankChip} onPress={() => onGoTab('metrics')}>
-          <TrophyIcon size={14} color={color.accent} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.stepsRankChipText} numberOfLines={1}>
-              #{dailyRank.rank} of {dailyRank.totalUsers} Hound users today
-            </Text>
-            <Text style={styles.stepsRankChipSub} numberOfLines={1}>
-              #{weeklyRank.rank} of {weeklyRank.totalUsers} this week
-            </Text>
-            {/* "Today" is a UTC calendar day (0027_daily_step_totals.sql),
-                not each viewer's own — for anyone west of UTC, that day
-                starts partway through their evening, so the "today"
-                headcount can look small right after it flips (US evening
-                = right after UTC midnight) before it fills back in.
-                Called out here instead of silently looking broken. */}
-            <Text style={styles.stepsRankChipNote} numberOfLines={1}>
-              &ldquo;Today&rdquo; resets at UTC midnight, not your local midnight
-            </Text>
-          </View>
-          <CaretRightIcon size={12} color={withAlpha(colors.text, 0.4)} />
-        </Pressable>
-      )}
-
-      <View style={styles.cardsRow}>
-        {primary ? (
-          primary.challenge.kind === 'hunt' && primary.board.length === 2 ? (
-            <LiveHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
-          ) : primary.challenge.kind === 'hunt' ? (
-            <LiveMultiHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
-          ) : primary.challenge.kind === 'bingo' ? (
-            <BingoCardPreview primary={primary} filled={primaryBingoFilled} onOpen={openPrimary} styles={styles} />
-          ) : primary.challenge.kind === 'tictacgo' ? (
-            <TicTacGoPreview primary={primary} game={primaryTttGame} onOpen={openPrimary} styles={styles} />
-          ) : (
-            <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} colors={colors} />
-          )
-        ) : (
+      {!primary && (
+        <View style={styles.cardsRow}>
           <GettingStartedCards onGoTab={onGoTab} styles={styles} />
-        )}
-      </View>
+        </View>
+      )}
     </ScrollView>
     {dailyBonus && (
       <DailyBonusModal
@@ -1526,6 +1518,9 @@ export function HomeScreen({
         }}
         onClose={() => setUnlocked([])}
       />
+    )}
+    {toasts.length > 0 && (
+      <Toast key={toasts[0].id} message={toasts[0]} onDone={() => setToasts((cur) => cur.slice(1))} />
     )}
     </View>
   );
@@ -2060,60 +2055,25 @@ function makeStyles(colors: Palette) {
     countsText: { fontSize: 12.5, color: colors.text, fontFamily: font.heading },
     countsInvited: { color: colors.accentActive },
     // Same shape as ChallengesScreen's own inviteCard/inviteTitle/inviteSub.
-    inviteCard: {
-      flexDirection: 'row',
-      gap: 12,
+    // Same accent-wash look the separate invite cards had, now one card.
+    needsCard: {
+      gap: 0,
+      paddingVertical: 6,
       backgroundColor: withAlpha(colors.accent, 0.12),
       borderWidth: 1,
       borderColor: withAlpha(colors.accent, 0.4),
-      alignItems: 'center',
     },
+    needsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 8, paddingBottom: 4 },
+    needsTitle: { fontFamily: font.headingSemibold, fontSize: 15, color: colors.text },
+    needsCount: { fontFamily: font.heading, fontSize: 12, color: colors.accentActive },
+    needsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+    needsRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: withAlpha(colors.accent, 0.35) },
+    needsRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    needsButtons: { flexDirection: 'row', gap: 6 },
+    needsMore: { alignSelf: 'flex-start', paddingTop: 4, paddingBottom: 8 },
+    needsMoreText: { fontFamily: font.heading, fontSize: 13, color: colors.accentActive },
     inviteTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
     inviteSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
-    scoreCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-      borderRadius: 14,
-      backgroundColor: colors.surface,
-    },
-    scoreCardLabel: { fontSize: 11.5, letterSpacing: 0.4, color: withAlpha(colors.text, 0.55) },
-    scoreCardValue: { fontFamily: font.headingSemibold, fontSize: 20, color: colors.text },
-    scoreCardBones: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-    scoreCardBonesText: { fontFamily: font.body, fontSize: 13, color: withAlpha(colors.text, 0.75) },
-    scoreCardLevel: { marginLeft: 'auto', alignItems: 'flex-end', gap: 5 },
-    scoreCardLevelBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 3,
-      borderRadius: 999,
-      backgroundColor: withAlpha(color.accent, 0.14),
-    },
-    scoreCardLevelBadgeText: { fontFamily: font.heading, fontSize: 12, color: color.accent },
-    readinessChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-    },
-    readinessDot: { width: 8, height: 8, borderRadius: 4 },
-    readinessChipText: { flex: 1, fontSize: 13.5, fontFamily: font.heading, color: colors.text },
-    stepsRankChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-    },
-    stepsRankChipText: { fontSize: 13.5, fontFamily: font.heading, color: colors.text },
-    stepsRankChipSub: { fontSize: 12, color: withAlpha(colors.text, 0.55), marginTop: 1 },
-    stepsRankChipNote: { fontSize: 10.5, color: withAlpha(colors.text, 0.4), marginTop: 2 },
     onboardCard: { padding: 16, gap: 10 },
     onboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     onboardTitle: { fontFamily: font.heading, fontSize: 15, color: colors.text, flex: 1 },

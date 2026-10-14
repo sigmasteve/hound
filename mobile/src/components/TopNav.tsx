@@ -131,12 +131,11 @@ export function TopNav({
           </Text>
         </Pressable>
       </View>
-      {/* Icon-only, evenly split across the full width (flex: 1 per item)
-          instead of the old horizontal-scrolling row of icon+label pills
-          — that layout let a 5th tab (Connect) scroll off-screen with no
-          visible affordance hinting it was there at all. Every item still
-          carries its label as an accessibilityLabel, just not rendered,
-          so this isn't a real loss for screen readers. */}
+      {/* Evenly split across the full width (flex: 1 per item) instead of
+          the old horizontal-scrolling row of pills — that layout let a 5th
+          tab (Connect) scroll off-screen with no visible affordance hinting
+          it was there at all. Each icon has its name under it: testers
+          couldn't tell the icons apart on their own. */}
       <View style={styles.navRow}>
         {NAV.map(({ id, label, Icon }) => {
           const on = active === id || (id === 'challenges' && (active === 'hunt' || active === 'create'));
@@ -149,7 +148,10 @@ export function TopNav({
               accessibilityLabel={label}
               accessibilityState={{ selected: on }}
             >
-              <Icon size={21} color={on ? colors.accentActive : withAlpha(colors.text, 0.68)} weight={on ? 'fill' : 'regular'} />
+              <Icon size={20} color={on ? colors.accentActive : withAlpha(colors.text, 0.68)} weight={on ? 'fill' : 'regular'} />
+              <Text style={[styles.navLabel, on && styles.navLabelOn]} numberOfLines={1}>
+                {label}
+              </Text>
             </Pressable>
           );
         })}
@@ -217,11 +219,15 @@ function makeStyles(colors: Palette) {
     navRow: { flexDirection: 'row', paddingHorizontal: 10, paddingBottom: 10, gap: 4 },
     navItem: {
       flex: 1,
+      minWidth: 0,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 9,
+      gap: 3,
+      paddingVertical: 6,
       borderRadius: 8,
     },
+    navLabel: { fontFamily: font.body, fontSize: 10.5, color: withAlpha(colors.text, 0.68) },
+    navLabelOn: { fontFamily: font.headingSemibold, color: colors.accentActive },
     navItemOn: {
       backgroundColor: withAlpha(colors.accent, 0.16),
       borderWidth: 1,

@@ -1281,8 +1281,8 @@ export function ChallengeDetailScreen({
       </View>
 
       <ToggleRow
-        label="Highlight on Home"
-        note="Feature this challenge on your Home screen"
+        label="Pin to Today"
+        note="Show this challenge at the top of Today"
         value={myHighlighted}
         onChange={togglingHighlight ? () => {} : toggleHighlight}
       />

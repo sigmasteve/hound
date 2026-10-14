@@ -84,9 +84,9 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'Your home base — check it once a day.',
       steps: [
         `New here? A Get started checklist walks you through connecting your health app, adding a friend, and joining a challenge — finish all three for a ${currency} reward.`,
-        `Hound Score and your ${currency} balance sit at the top.`,
-        'Needs attention lists anything waiting on you: your move in Tic-Tac-Go, picking a target when you’re It in Tag, today’s 75 Day checklist, or progress to log.',
-        'Challenges you’ve highlighted show up here too, so the ones you care about most are always one glance away.',
+        'Your challenge comes first: the one you’ve pinned with Pin to Today, or otherwise one of your active challenges.',
+        'Needs you lists anything waiting on you: challenge invites, friend requests, your move in Tic-Tac-Go, picking a target when you’re It in Tag, today’s 75 Day checklist, or progress to log.',
+        `Your Hound Score, level and ${currency} balance are in Settings (tap your name at the top).`,
         `Early in each week (Monday to Wednesday), a recap card shows last week’s steps, challenges finished, Hound Score, and ${currency} earned. Tap the X to hide it until next week.`,
       ],
     },
@@ -147,7 +147,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'Standings, highlights, and adding people you meet.',
       steps: [
         'Tap any challenge to see its leaderboard and progress.',
-        'Turn on Highlight on Home to pin it to your Today screen.',
+        'Turn on Pin to Today to show it at the top of your Today screen.',
         'See someone you’d like to keep up with? Tap Add next to their name to send a friend request (Tic-Tac-Go is one-on-one, so it has no leaderboard).',
         'In Step Races and Chases, the small ▲ or ▼ under a rank shows how many places someone has moved since yesterday.',
         'When a challenge ends, the result shows at the top of its leaderboard and your medal is added on the Challenges tab.',
