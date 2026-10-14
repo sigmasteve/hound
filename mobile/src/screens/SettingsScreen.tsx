@@ -7,6 +7,7 @@ import {
   ArrowsClockwiseIcon,
   AppleLogoIcon,
   CaretRightIcon,
+  CheckIcon,
   ScalesIcon,
   SignOutIcon,
   TrashIcon,
@@ -825,74 +826,86 @@ export function SettingsScreen() {
               />
             </Pressable>
 
+            {/* One row per alert, with Push and Email side by side, instead
+                of a heading and two switches for each (eleven switches in a
+                long list). A third alert ("Someone closes within 2 miles of
+                me") would belong here too, but needs live GPS tracking the
+                app doesn't have — see notifications/types.ts. */}
             {notificationsAdvancedExpanded && (
-              <View style={{ gap: 16 }}>
-                <View style={{ gap: 10 }}>
-                  <Text style={styles.alertGroupLabel}>
-                    Login reminders &amp; Tag catch alerts — at 9pm your time if you haven&rsquo;t opened
-                    Hound today, or when someone catches you in Tag
-                  </Text>
-                  <ToggleRow
-                    label="Push notification"
-                    note={savingChannel === 'push' ? 'Saving…' : 'Sent to this device'}
-                    value={pushEnabled}
-                    onChange={togglePush}
-                  />
-                  <ToggleRow
-                    label="Email"
-                    note={savingChannel === 'email' ? 'Saving…' : user?.email ?? ''}
-                    value={emailEnabled}
-                    onChange={toggleEmail}
-                  />
+              <View>
+                <View style={styles.alertTableHead}>
+                  <Text style={[styles.alertTableHeadText, { flex: 1 }]}>Alert</Text>
+                  <Text style={[styles.alertTableHeadText, styles.alertCell]}>Push</Text>
+                  <Text style={[styles.alertTableHeadText, styles.alertCell]}>Email</Text>
                 </View>
-                {/* A third alert ("Someone closes within 2 miles of me")
-                    belongs here too, but needs live GPS tracking this app
-                    doesn't have any infrastructure for yet — left out
-                    rather than shown wired to nothing. See
-                    notifications/types.ts. */}
-                <View style={{ gap: 10 }}>
-                  <Text style={styles.alertGroupLabel}>You haven't synced in a day — 6pm your time, all challenges</Text>
-                  <ToggleRow
-                    label="Push notification"
-                    note={savingAlert === 'staleDataPush' ? 'Saving…' : 'Sent to this device'}
-                    value={staleDataPushEnabled}
-                    onChange={toggleStaleDataPush}
-                  />
-                  <ToggleRow
-                    label="Email"
-                    note={savingAlert === 'staleDataEmail' ? 'Saving…' : user?.email ?? ''}
-                    value={staleDataEmailEnabled}
-                    onChange={toggleStaleDataEmail}
-                  />
-                </View>
-                <View style={{ gap: 10 }}>
-                  <Text style={styles.alertGroupLabel}>Daily standings at 8pm your time — step races</Text>
-                  <ToggleRow
-                    label="Push notification"
-                    note={savingAlert === 'dailyStandingsPush' ? 'Saving…' : 'Sent to this device'}
-                    value={dailyStandingsPushEnabled}
-                    onChange={toggleDailyStandingsPush}
-                  />
-                  <ToggleRow
-                    label="Email"
-                    note={savingAlert === 'dailyStandingsEmail' ? 'Saving…' : user?.email ?? ''}
-                    value={dailyStandingsEmailEnabled}
-                    onChange={toggleDailyStandingsEmail}
-                  />
-                </View>
-                {socialPushEnabled !== null && (
-                  <View style={{ gap: 10 }}>
-                    <Text style={styles.alertGroupLabel}>
-                      Nudges, reactions &amp; trash talk — when someone nudges you, reacts to your progress, or talks trash in a challenge
-                    </Text>
-                    <ToggleRow
-                      label="Push notification"
-                      note={savingSocialPush ? 'Saving…' : 'Sent to this device'}
-                      value={socialPushEnabled}
-                      onChange={toggleSocialPush}
-                    />
+                {[
+                  {
+                    key: 'login',
+                    title: 'Login reminders & Tag catches',
+                    sub: '9pm if you haven’t opened Hound that day, and when someone catches you in Tag',
+                    push: { on: !!pushEnabled, saving: savingChannel === 'push', toggle: togglePush },
+                    email: { on: !!emailEnabled, saving: savingChannel === 'email', toggle: toggleEmail },
+                  },
+                  {
+                    key: 'stale',
+                    title: 'You haven’t synced in a day',
+                    sub: '6pm your time, any challenge',
+                    push: { on: !!staleDataPushEnabled, saving: savingAlert === 'staleDataPush', toggle: toggleStaleDataPush },
+                    email: { on: !!staleDataEmailEnabled, saving: savingAlert === 'staleDataEmail', toggle: toggleStaleDataEmail },
+                  },
+                  {
+                    key: 'standings',
+                    title: 'Daily standings',
+                    sub: '8pm your time, step races',
+                    push: {
+                      on: !!dailyStandingsPushEnabled,
+                      saving: savingAlert === 'dailyStandingsPush',
+                      toggle: toggleDailyStandingsPush,
+                    },
+                    email: {
+                      on: !!dailyStandingsEmailEnabled,
+                      saving: savingAlert === 'dailyStandingsEmail',
+                      toggle: toggleDailyStandingsEmail,
+                    },
+                  },
+                  ...(socialPushEnabled !== null
+                    ? [
+                        {
+                          key: 'social',
+                          title: 'Nudges, reactions & trash talk',
+                          sub: 'When someone nudges you, reacts, or talks trash',
+                          push: { on: socialPushEnabled, saving: savingSocialPush, toggle: toggleSocialPush },
+                          email: null,
+                        },
+                      ]
+                    : []),
+                ].map((row) => (
+                  <View key={row.key} style={styles.alertTableRow}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.alertGroupLabel}>{row.title}</Text>
+                      <Text style={styles.footNote}>{row.sub}</Text>
+                    </View>
+                    {[row.push, row.email].map((cell, i) => (
+                      <View key={i} style={styles.alertCell}>
+                        {cell ? (
+                          <Pressable
+                            onPress={() => cell.toggle(!cell.on)}
+                            disabled={cell.saving}
+                            hitSlop={8}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: cell.on }}
+                            accessibilityLabel={`${row.title}, ${i === 0 ? 'push' : 'email'}`}
+                            style={[styles.alertBox, cell.on && styles.alertBoxOn, cell.saving && { opacity: 0.5 }]}
+                          >
+                            {cell.on && <CheckIcon size={14} color="#fff" weight="bold" />}
+                          </Pressable>
+                        ) : (
+                          <Text style={styles.footNote}>—</Text>
+                        )}
+                      </View>
+                    ))}
                   </View>
-                )}
+                ))}
               </View>
             )}
           </Card>
@@ -980,6 +993,33 @@ function makeStyles(colors: Palette) {
     deleteRow: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingVertical: 4 },
     deleteLabel: { fontSize: 14, color: colors.amber, fontFamily: font.heading },
     alertGroupLabel: { fontSize: 13.5, color: colors.text, fontFamily: font.heading },
+    alertTableHead: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingBottom: 6,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.divider,
+    },
+    alertTableHeadText: { fontSize: 11.5, letterSpacing: 0.4, color: withAlpha(colors.text, 0.55) },
+    alertTableRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.divider,
+    },
+    alertCell: { width: 48, alignItems: 'center', textAlign: 'center' },
+    alertBox: {
+      width: 22,
+      height: 22,
+      borderRadius: 6,
+      borderWidth: 1.5,
+      borderColor: withAlpha(colors.text, 0.35),
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    alertBoxOn: { backgroundColor: color.accent, borderColor: color.accent },
     collapsibleHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     collapsibleTitle: { fontSize: 15, fontFamily: font.heading, color: colors.text },
     versionNote: { fontSize: 12, color: withAlpha(colors.text, 0.4), textAlign: 'center', marginTop: 4 },
