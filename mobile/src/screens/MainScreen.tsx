@@ -2,14 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TopNav } from '../components/TopNav';
+import { TabBar } from '../components/TabBar';
 import { useTheme } from '../theme/ThemeContext';
 import type { MainTab, RootStackParamList } from '../navigation/types';
-import { HomeScreen } from './HomeScreen';
+import { HomeScreen, type HomeDestination } from './HomeScreen';
 import { ChallengesScreen } from './ChallengesScreen';
-import { MetricsScreen } from './MetricsScreen';
 import { FriendsScreen } from './FriendsScreen';
-import { SettingsScreen } from './SettingsScreen';
-import { ConnectScreen } from './ConnectScreen';
+import { YouScreen } from './YouScreen';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Main'>;
 
@@ -29,27 +28,29 @@ export function MainScreen({ route, navigation }: Props) {
     }
   }, [route.params?.tab]);
 
+  // Today links to a tab, or to a screen that used to be one.
+  const goFromHome = (dest: HomeDestination) => {
+    if (dest === 'stats') navigation.navigate('Stats');
+    else if (dest === 'healthData') navigation.navigate('HealthData');
+    else setTab(dest);
+  };
+
   return (
     <View style={styles.root}>
       <TopNav
-        active={tab}
-        onSelect={setTab}
-        onProfile={() => setTab('settings')}
         onAdmin={() => navigation.navigate('Admin')}
         onOrgManagement={(organizationId) =>
           organizationId
             ? navigation.navigate('OrgDetail', { organizationId })
             : navigation.navigate('OrgManagement')
         }
-        onHelp={() => navigation.navigate('Help')}
-        onLocker={() => navigation.navigate('Locker')}
       />
       <View style={styles.content}>
         {tab === 'home' && (
           <HomeScreen
             onOpenHunt={() => navigation.navigate('Hunt')}
             onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
-            onGoTab={setTab}
+            onGoTab={goFromHome}
             onOpenAchievements={() => navigation.navigate('Achievements')}
           />
         )}
@@ -60,7 +61,6 @@ export function MainScreen({ route, navigation }: Props) {
             onCreate={() => navigation.navigate('Create')}
           />
         )}
-        {tab === 'metrics' && <MetricsScreen />}
         {tab === 'friends' && (
           <FriendsScreen
             onOpenFriend={(friend) =>
@@ -76,12 +76,18 @@ export function MainScreen({ route, navigation }: Props) {
             }
           />
         )}
-        {tab === 'settings' && <SettingsScreen
-            onOpenLocker={() => navigation.navigate('Locker')}
+        {tab === 'you' && (
+          <YouScreen
+            onOpenStats={() => navigation.navigate('Stats')}
             onOpenAchievements={() => navigation.navigate('Achievements')}
-          />}
-        {tab === 'connect' && <ConnectScreen onDone={() => setTab('home')} />}
+            onOpenLocker={() => navigation.navigate('Locker')}
+            onOpenHealthData={() => navigation.navigate('HealthData')}
+            onOpenSettings={() => navigation.navigate('Settings')}
+            onOpenHelp={() => navigation.navigate('Help')}
+          />
+        )}
       </View>
+      <TabBar active={tab} onSelect={setTab} />
     </View>
   );
 }

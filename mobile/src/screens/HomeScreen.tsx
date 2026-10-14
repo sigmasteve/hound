@@ -31,7 +31,7 @@ import { color, font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/t
 import { useHealthProvider } from '../health/HealthContext';
 import type { HealthSnapshot, WorkoutSample } from '../health/types';
 import { CHALLENGE_TYPES } from '../data/sampleData';
-import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
+import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
 import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -419,12 +419,23 @@ function heroCopy(
 // reset it; coming back to the app from the background does (see the
 // AppState listener below).
 let popupUsedThisOpen = false;
+// Kinds where "3rd of 12" means something, for Today's one-line rows.
+const RANKED_KINDS = new Set<Challenge['kind']>(['steps', 'distance', 'streak', 'bingo', 'hunt']);
+// "6 days left", "Ends today".
+function timeLeftLabel(endsAt: string, now: number = Date.now()): string {
+  const days = Math.ceil((new Date(endsAt).getTime() - now) / 86_400_000);
+  return days <= 1 ? 'Ends today' : `${days} days left`;
+}
 const NEEDS_YOU_LIMIT = 3;
 function takePopup(): boolean {
   if (popupUsedThisOpen) return false;
   popupUsedThisOpen = true;
   return true;
 }
+
+// Where Today's links go: a tab, or a screen that used to be a tab and
+// now opens from You.
+export type HomeDestination = MainTab | 'stats' | 'healthData';
 
 export function HomeScreen({
   onOpenHunt,
@@ -434,7 +445,7 @@ export function HomeScreen({
 }: {
   onOpenHunt: () => void;
   onOpenChallenge: (challengeId: string) => void;
-  onGoTab: (tab: MainTab) => void;
+  onGoTab: (dest: HomeDestination) => void;
   onOpenAchievements: () => void;
 }) {
   const { user } = useAuth();
@@ -463,6 +474,11 @@ export function HomeScreen({
   // the "N active · N finished" row stays hidden rather than showing a
   // misleading 0/0 while this is still loading.
   const [challengeCounts, setChallengeCounts] = useState<{ active: number; finished: number } | null>(null);
+  // Every other active challenge, one line each under the main one: name,
+  // where you stand, time left.
+  const [otherActive, setOtherActive] = useState<
+    { id: string; name: string; kind: Challenge['kind']; endsAt: string; rank: number | null; total: number }[]
+  >([]);
 
   // Same convention, independently, for challenge invites — the single
   // source of truth for both the "· N invited" badge below and the
@@ -666,7 +682,7 @@ export function HomeScreen({
               id: `record-${rec.kind}-${rec.achievedOn}`,
               text: `New personal record: ${RECORD_TITLE[rec.kind]}`,
               Icon: MedalIcon,
-              onPress: () => navRef.current.onGoTab('metrics'),
+              onPress: () => navRef.current.onGoTab('stats'),
             });
           }
         }
@@ -1000,6 +1016,23 @@ export function HomeScreen({
         finished: results.filter((r) => r.finished).length,
       });
       setLiveInvites(invites);
+      setOtherActive(
+        results
+          .filter((r) => !r.finished && r.challenge.id !== primaryId)
+          .map((r) => {
+            const mine = user?.id ? r.board.findIndex((b) => b.userId === user.id) : -1;
+            return {
+              id: r.challenge.id,
+              name: r.challenge.name,
+              kind: r.challenge.kind,
+              endsAt: r.challenge.endsAt,
+              // Only where a place means something: Tag isn't ranked,
+              // Tic-Tac-Go is one-on-one, 75 Day is everyone on their own.
+              rank: mine >= 0 && RANKED_KINDS.has(r.challenge.kind) ? mine + 1 : null,
+              total: r.board.length,
+            };
+          }),
+      );
 
       // Every active challenge, not just primary — pendingActions.ts's
       // whole point is answering "what do I need to do" across
@@ -1308,6 +1341,32 @@ export function HomeScreen({
         </View>
       )}
 
+      {otherActive.length > 0 && (
+        <View style={{ gap: 8 }}>
+          {otherActive.map((c) => {
+            const KindIcon = CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
+            const typeName =
+              c.kind === 'hunt' ? huntKindName() : CHALLENGE_TYPES.find((t) => t.id === c.kind)?.name ?? 'Challenge';
+            return (
+              <Pressable
+                key={c.id}
+                style={({ pressed }) => [styles.otherRow, pressed && { opacity: 0.8 }]}
+                onPress={() => onOpenChallenge(c.id)}
+                accessibilityRole="button"
+              >
+                <KindIcon size={16} color={colors.accentActive} />
+                <Text style={styles.otherText} numberOfLines={1}>
+                  <Text style={styles.otherName}>{c.name}</Text>
+                  {' · '}
+                  {c.rank ? `${ordinal(c.rank)} of ${c.total}` : typeName} · {timeLeftLabel(c.endsAt)}
+                </Text>
+                <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
       {/* One list for everything waiting on you — your move or
           checklist in a challenge, challenge invites, friend requests —
           instead of a separate card for each. Three at a time; the rest
@@ -1409,7 +1468,7 @@ export function HomeScreen({
           status={onboarding}
           currencyName={currencyName}
           claiming={claimingOnboarding}
-          onConnect={() => onGoTab('connect')}
+          onConnect={() => onGoTab('healthData')}
           onAddFriend={() => onGoTab('friends')}
           onJoinChallenge={() => onGoTab('challenges')}
           onClaim={claimGetStarted}
@@ -1460,7 +1519,7 @@ export function HomeScreen({
           value={(snap?.stepsToday ?? 0).toLocaleString()}
           sub={`${Math.round(((snap?.stepsToday ?? 0) / stepsGoal) * 100)}% of ${stepsGoal.toLocaleString()} · ${snap?.source ?? ''}`}
           pct={((snap?.stepsToday ?? 0) / stepsGoal) * 100}
-          onPress={() => onGoTab('metrics')}
+          onPress={() => onGoTab('stats')}
           styles={styles}
         />
         <MetricTile
@@ -1473,7 +1532,7 @@ export function HomeScreen({
               : `${todaysWorkoutCount} ${todaysWorkoutCount === 1 ? 'workout' : 'workouts'} today`
           }`}
           pct={((snap?.distanceTodayMi ?? 0) / distanceGoalMi) * 100}
-          onPress={() => onGoTab('metrics')}
+          onPress={() => onGoTab('stats')}
           styles={styles}
         />
       </View>
@@ -1503,7 +1562,7 @@ export function HomeScreen({
         records={newRecords}
         onViewAll={() => {
           setNewRecords([]);
-          onGoTab('metrics');
+          onGoTab('stats');
         }}
         onClose={() => setNewRecords([])}
       />
@@ -1535,7 +1594,7 @@ export function HomeScreen({
 // ChallengesScreen's empty state fixed, except here there's no real
 // history to fall back to being honest about, so the honest content is
 // an explanation of what the app can actually do instead.
-function GettingStartedCards({ onGoTab, styles }: { onGoTab: (tab: MainTab) => void; styles: HomeStyles }) {
+function GettingStartedCards({ onGoTab, styles }: { onGoTab: (dest: HomeDestination) => void; styles: HomeStyles }) {
   const { user } = useAuth();
   const { labelsForOrg } = useLabels();
   // No specific challenge to key off yet (this only ever shows before
@@ -1586,7 +1645,7 @@ function GettingStartedCards({ onGoTab, styles }: { onGoTab: (tab: MainTab) => v
           Connect Apple Health or Health Connect once and every step-based challenge backfills and
           keeps updating on its own — no manual logging needed for steps.
         </Text>
-        <Button label="Manage data sources" variant="ghost" small onPress={() => onGoTab('metrics')} />
+        <Button label="Manage data sources" variant="ghost" small onPress={() => onGoTab('healthData')} />
       </Card>
 
       <Card style={styles.onboardCard} elevated={false}>
@@ -2056,6 +2115,17 @@ function makeStyles(colors: Palette) {
     countsInvited: { color: colors.accentActive },
     // Same shape as ChallengesScreen's own inviteCard/inviteTitle/inviteSub.
     // Same accent-wash look the separate invite cards had, now one card.
+    otherRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+    },
+    otherText: { flex: 1, fontSize: 13.5, color: withAlpha(colors.text, 0.7) },
+    otherName: { fontFamily: font.heading, color: colors.text },
     needsCard: {
       gap: 0,
       paddingVertical: 6,

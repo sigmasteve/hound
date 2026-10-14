@@ -36,15 +36,12 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       id: 'navigating',
       section: 'basics',
       title: 'Getting around',
-      summary: 'What each icon in the top bar does.',
+      summary: 'The four tabs at the bottom of the screen.',
       steps: [
-        'House — Today: your score, balance, and anything that needs you right now.',
-        'Flag — Challenges: everything you’re in, invites waiting on you, and your medals.',
-        'Chart — Data: your steps, distance, and workouts over time.',
-        'People — Friends: your friends, requests, and ways to add someone.',
-        'Plug — Connect: link your phone’s health app.',
-        'Hanger — Locker: customize your look and shop.',
-        'Your avatar (top right) opens Settings. The ? opens this guide.',
+        'Today: your challenges and anything that needs you right now.',
+        'Challenges: everything you’re in, invites waiting on you, and your medals.',
+        'Friends: your friends, requests, and ways to add someone.',
+        `You (your picture): your level, Hound Score and ${currency}, plus Stats & records, Achievements, Locker, Health data, Settings and this Help guide.`,
       ],
     },
     {
@@ -54,12 +51,12 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'Hound reads your steps, distance, and workouts from your phone.',
       numbered: true,
       steps: [
-        'Open the Connect tab (plug icon).',
+        'Open You → Health data. (Hound also asks right after you sign up.)',
         'Tap Apple Health on iPhone, or Health Connect on Android.',
         'Allow Hound to read steps, distance, and workouts when your phone asks.',
         'That’s it — new activity syncs on its own whenever you open the app.',
       ],
-      tip: 'Numbers look behind? Settings → Connected sources → Sync now.',
+      tip: 'Numbers look behind? You → Settings → Connected sources → Sync now.',
     },
     {
       id: 'android-missing',
@@ -69,7 +66,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       numbered: true,
       steps: [
         'On Android, Hound reads Health Connect, the phone’s shared health store. Samsung Health, WHOOP, Google Health and watch apps each have to share into it.',
-        'Open the Connect tab and look at “Where your data comes from” to see which apps shared this week, and which one Hound’s step total counts.',
+        'Open You → Health data and look at “Where your data comes from” to see which apps shared this week, and which one Hound’s step total counts.',
         'In Health Connect → Data and access → App permissions → Hound, allow Steps, Distance and Exercise.',
         'In Samsung Health → ⋮ → Settings → Health Connect, turn on syncing and allow Steps, Distance and Exercise.',
         'In WHOOP → More → Account & Settings → Integrations → Health Connect, allow Exercise.',
@@ -86,7 +83,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         `New here? A Get started checklist walks you through connecting your health app, adding a friend, and joining a challenge — finish all three for a ${currency} reward.`,
         'Your challenge comes first: the one you’ve pinned with Pin to Today, or otherwise one of your active challenges.',
         'Needs you lists anything waiting on you: challenge invites, friend requests, your move in Tic-Tac-Go, picking a target when you’re It in Tag, today’s 75 Day checklist, or progress to log.',
-        `Your Hound Score, level and ${currency} balance are in Settings (tap your name at the top).`,
+        `Your Hound Score, level and ${currency} balance are on the You tab.`,
         `Early in each week (Monday to Wednesday), a recap card shows last week’s steps, challenges finished, Hound Score, and ${currency} earned. Tap the X to hide it until next week.`,
       ],
     },
@@ -186,7 +183,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'Earn badges for milestones — your first finish and first win, a Bingo blackout, a perfect Daily Streak, friends, big step days and weeks, login streaks, and levels.',
         `Each one pays ${currency} once, the moment you earn it — a popup on Today tells you what you unlocked.`,
-        'See them all (and what’s left) under Settings → Achievements. Friends can see your badges on your profile, and you can see theirs.',
+        'See them all (and what’s left) under You → Achievements. Friends can see your badges on your profile, and you can see theirs.',
       ],
     },
     {
@@ -199,7 +196,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Come back on consecutive days to build a streak — every 7th day pays a bigger weekly bonus.',
         'Miss a day and your streak starts over at day 1 (you still get that day’s bonus).',
       ],
-      tip: 'Turn on Daily reminders in Settings and Hound will nudge you in the evening.',
+      tip: 'Turn on Daily reminders in You → Settings and Hound will nudge you in the evening.',
     },
     {
       id: 'locker',
@@ -208,7 +205,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'Frames, backgrounds, and avatar icons.',
       numbered: true,
       steps: [
-        'Tap the hanger icon in the top bar to open your Locker (it’s also under Settings → Customize your look).',
+        'Open your Locker from the You tab.',
         `Pick a frame, background, or icon you’ve unlocked — or buy one in the Shop with ${currency}.`,
         'Your look shows everywhere your avatar does: leaderboards, friends, and the top bar.',
       ],
@@ -225,7 +222,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Invite by email: if they’re not on Hound yet, they’ll get an invite and you’ll be connected when they sign up.',
         'From a leaderboard: tap Add next to anyone in a challenge with you.',
       ],
-      tip: 'Rather not be found? Settings → Show me in Find people.',
+      tip: 'Rather not be found? You → Settings → Show me in Find people.',
     },
     {
       id: 'requests',
@@ -265,7 +262,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'Notifications and reminders',
       summary: 'Choose what Hound tells you about.',
       steps: [
-        'Open Settings → Notifications to turn push and email notifications on or off.',
+        'Open You → Settings → Notifications to turn push and email notifications on or off.',
         'Daily reminders are on-device nudges for your daily bonus and anything on your Needs attention list.',
         'Open Advanced to pick exactly which alerts you get, and how.',
       ],
@@ -287,7 +284,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'Organizations',
       summary: 'For schools and companies using Hound together.',
       steps: [
-        'If you belong to an organization, it appears in Settings.',
+        'If you belong to an organization, it appears in You → Settings.',
         `Your organization may use its own words — for example, calling the Chase roles “${labels.hunter}” and “${labels.hunted}”, or renaming ${currency}.`,
         'Organization admins manage their members from the building icon in the top bar.',
       ],

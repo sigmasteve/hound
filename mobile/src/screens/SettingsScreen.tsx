@@ -1,16 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import {
   AndroidLogoIcon,
   ArrowsClockwiseIcon,
   AppleLogoIcon,
-  BoneIcon,
   CaretRightIcon,
-  CaretUpIcon,
-  InfoIcon,
   ScalesIcon,
   SignOutIcon,
   TrashIcon,
@@ -19,7 +15,6 @@ import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ToggleRow } from '../components/Selectable';
-import { ProgressBar } from '../components/ProgressBar';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { useGoals } from '../goals/GoalsContext';
@@ -40,11 +35,7 @@ import {
 } from '../notifications/localReminders';
 import { setUseUsername, setUsername } from '../profiles/supabaseProfile';
 import { getOrganization, leaveOrganization, redeemOrganizationInvite } from '../organizations/supabaseOrganizations';
-import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
-import { useCurrencyName } from '../organizations/useCurrencyName';
-import { levelProgressForXp } from '../challenges/leveling';
 import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
-import { listAchievements, listEarnedAchievements } from '../achievements/achievementsApi';
 import type { Organization } from '../organizations/types';
 import { getDiscoverable, setDiscoverable } from '../friends/discovery';
 import { getSocialPushEnabled, setSocialPushEnabled } from '../social/social';
@@ -83,13 +74,7 @@ const PROVIDER_LABEL: Record<AuthProviderId, string> = {
   email: 'Email & password',
 };
 
-export function SettingsScreen({
-  onOpenLocker,
-  onOpenAchievements,
-}: {
-  onOpenLocker: () => void;
-  onOpenAchievements: () => void;
-}) {
+export function SettingsScreen() {
   const health = useHealthProvider();
   const { user, signOut, updateUser } = useAuth();
 
@@ -266,38 +251,7 @@ export function SettingsScreen({
   }, [health]);
   useFocusEffect(reloadSnap);
 
-  // Null covers both "hasn't loaded yet" and "failed to load" — same
-  // "never show a confident wrong number" reasoning as every other
-  // real-data fetch in this app. The card below just doesn't render
-  // rather than showing a guessed 0, which could otherwise misread as a
-  // genuine (if unfortunate) score.
-  const [houndScore, setHoundScore] = useState<HoundScore | null>(null);
-  const currencyName = useCurrencyName();
-  useFocusEffect(
-    useCallback(() => {
-      if (!isSupabaseConfigured || !user?.id) {
-        setHoundScore(null);
-        return;
-      }
-      getMyHoundScore(user.id)
-        .then(setHoundScore)
-        .catch(() => setHoundScore(null));
-    }, [user?.id]),
-  );
-
-  // "N of M" on the Achievements row — hidden until it loads (or if it
-  // can't), rather than a guessed count.
-  const [achievementCounts, setAchievementCounts] = useState<{ earned: number; total: number } | null>(null);
-  useFocusEffect(
-    useCallback(() => {
-      if (!isSupabaseConfigured || !user?.id) return;
-      Promise.all([listAchievements(), listEarnedAchievements(user.id)])
-        .then(([all, mine]) => setAchievementCounts({ earned: all.filter((a) => mine.has(a.id)).length, total: all.length }))
-        .catch(() => setAchievementCounts(null));
-    }, [user?.id]),
-  );
-
-  // Same null-means-unresolved-or-failed shape as houndScore above — the
+  // Null until it resolves (or if it fails) — the
   // account row's Avatar below just renders its plain default look until
   // this actually resolves, rather than a guessed empty state.
   const [equipped, setEquipped] = useState<EquippedCosmetics | null>(null);
@@ -312,41 +266,6 @@ export function SettingsScreen({
         .catch(() => setEquipped(null));
     }, [user?.id]),
   );
-
-  // A one-line explainer under the Hound Score card, dismissed for good
-  // once tapped away — same local (AsyncStorage), per-device, shown-once
-  // shape as ChallengeDetailScreen's own Tag/Chase explainers, just an
-  // X-dismiss row (HomeScreen's own version-update banner) rather than a
-  // whole card with a "Got it" button, since this is one sentence, not a
-  // multi-paragraph mechanic to teach.
-  const SCORE_EXPLAINER_DISMISSED_KEY = 'houndScoreExplainerDismissed';
-  const [showScoreExplainer, setShowScoreExplainer] = useState(false);
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      AsyncStorage.getItem(SCORE_EXPLAINER_DISMISSED_KEY)
-        .then((dismissed) => {
-          if (!cancelled && dismissed !== 'true') setShowScoreExplainer(true);
-        })
-        .catch(() => {
-          // Best-effort — if this can't be read, just don't show it
-          // rather than risk showing it every single time.
-        });
-      return () => {
-        cancelled = true;
-      };
-    }, []),
-  );
-  const reopenScoreExplainer = () => {
-    setShowScoreExplainer(true);
-    AsyncStorage.setItem(SCORE_EXPLAINER_DISMISSED_KEY, 'false').catch(() => {});
-  };
-  const dismissScoreExplainer = () => {
-    setShowScoreExplainer(false);
-    AsyncStorage.setItem(SCORE_EXPLAINER_DISMISSED_KEY, 'true').catch(() => {
-      // Best-effort — worst case it shows again next time.
-    });
-  };
 
   // Login-reminder preferences live on the real profiles row — there's no
   // sample-fallback version of this like other screens have, since
@@ -623,71 +542,10 @@ export function SettingsScreen({
     setMasterToggling(null);
   };
 
-  const levelProgress = levelProgressForXp(houndScore?.xpTotal ?? 0);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={text.h2}>Settings</Text>
-
-      {houndScore && (
-        <Card style={{ gap: 12 }} elevated={false}>
-          <View style={styles.scoreHeader}>
-            <View style={{ gap: 2 }}>
-              <Text style={styles.scoreLabel}>Hound Score</Text>
-              <Text style={styles.scoreValue}>{houndScore.houndScore.toLocaleString()}</Text>
-              {/* The balance used to sit on Today; this is its one home now. */}
-              <View style={styles.bonesRow}>
-                <BoneIcon size={13} color={color.accent} weight="fill" />
-                <Text style={styles.bonesText}>
-                  {houndScore.bonesBalance.toLocaleString()} {currencyName}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.levelBadge}>
-              <Text style={styles.levelBadgeText}>Lv {levelProgress.level}</Text>
-            </View>
-          </View>
-          <View style={{ gap: 4 }}>
-            <ProgressBar pct={levelProgress.pctToNextLevel} fillColor={color.accent} height={5} />
-            <Text style={styles.footNote}>
-              {levelProgress.xpIntoLevel.toLocaleString()} /{' '}
-              {(levelProgress.xpIntoLevel + levelProgress.xpToNextLevel).toLocaleString()} XP to level{' '}
-              {levelProgress.level + 1}
-            </Text>
-          </View>
-          {/* Minimized rather than gone for good — "What's Hound Score?"
-              opens it again. */}
-          {showScoreExplainer ? (
-            <View style={styles.scoreExplainerRow}>
-              <Text style={styles.scoreExplainerText}>
-                Hound Score reflects how much you&rsquo;ve played and won, across challenges. Level and XP track your
-                participation, as well as rankings (win, lose, or draw).
-              </Text>
-              <Pressable onPress={dismissScoreExplainer} hitSlop={8} accessibilityLabel="Minimize">
-                <CaretUpIcon size={14} color={withAlpha(colors.text, 0.5)} />
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable onPress={reopenScoreExplainer} hitSlop={6} style={styles.scoreExplainerLink}>
-              <InfoIcon size={13} color={withAlpha(colors.text, 0.5)} />
-              <Text style={styles.scoreExplainerLinkText}>What&rsquo;s Hound Score?</Text>
-            </Pressable>
-          )}
-          <Pressable style={styles.lockerRow} onPress={onOpenLocker}>
-            <Text style={styles.lockerRowLabel}>Customize your look</Text>
-            <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
-          </Pressable>
-          <Pressable style={styles.lockerRow} onPress={onOpenAchievements}>
-            <Text style={[styles.lockerRowLabel, { flex: 1 }]}>Achievements</Text>
-            {achievementCounts && (
-              <Text style={styles.achievementCount}>
-                {achievementCounts.earned} of {achievementCounts.total}
-              </Text>
-            )}
-            <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
-          </Pressable>
-        </Card>
-      )}
 
       <Card style={{ gap: 14 }} elevated={false}>
         <Text style={text.h4}>Appearance</Text>
@@ -1116,39 +974,6 @@ function makeStyles(colors: Palette) {
       alignItems: 'flex-start',
     },
     phonePushText: { fontSize: 12.5, color: colors.text },
-    scoreHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    scoreLabel: { fontSize: 12, letterSpacing: 0.5, color: withAlpha(colors.text, 0.55) },
-    scoreValue: { fontFamily: font.headingSemibold, fontSize: 26, color: colors.text },
-    bonesRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    bonesText: { fontFamily: font.body, fontSize: 13, color: withAlpha(colors.text, 0.8) },
-    levelBadge: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 999,
-      backgroundColor: withAlpha(color.accent, 0.14),
-    },
-    levelBadgeText: { fontFamily: font.heading, fontSize: 13, color: color.accent },
-    scoreExplainerRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 8,
-      paddingTop: 10,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.divider,
-    },
-    scoreExplainerText: { flex: 1, fontSize: 12.5, lineHeight: 17, color: withAlpha(colors.text, 0.65) },
-    scoreExplainerLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
-    scoreExplainerLinkText: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
-    lockerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingTop: 10,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: colors.divider,
-    },
-    lockerRowLabel: { fontSize: 14, color: colors.text, fontFamily: font.heading },
-    achievementCount: { fontSize: 12.5, color: withAlpha(colors.text, 0.55), marginRight: 6 },
     goalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     goalValue: { fontSize: 14.5, color: colors.accent, fontFamily: font.heading },
     footNoteError: { fontSize: 12.5, color: colors.amber },

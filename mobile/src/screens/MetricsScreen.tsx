@@ -279,7 +279,7 @@ export function MetricsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={text.h2}>Your data</Text>
+      <Text style={text.h2}>Stats &amp; records</Text>
 
       <Card style={{ padding: 0, overflow: 'hidden' }} elevated={false}>
         <Pressable
