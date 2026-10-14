@@ -236,6 +236,7 @@ export function RootNavigator() {
               {({ navigation, route }) => (
                 <ChallengeDetailScreen
                   challengeId={route.params.challengeId}
+                  initialTab={route.params.tab}
                   onRematch={(rematch) => navigation.navigate('Create', { rematch })}
                   onBack={() => navigation.navigate('Main', { tab: 'challenges' })}
                   onGoHome={() => navigation.navigate('Main', { tab: 'home' })}

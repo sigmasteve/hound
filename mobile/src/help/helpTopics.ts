@@ -146,8 +146,8 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'Leaderboards and challenge details',
       summary: 'Standings, highlights, and adding people you meet.',
       steps: [
-        'Tap any challenge to see its leaderboard and progress.',
-        'Turn on Pin to Today to show it at the top of your Today screen.',
+        'Tap any challenge to open it. Board shows where everyone stands, Talk is the trash-talk wall, and Details has the rules, dates, inviting and deleting. The ⓘ at the top also opens Details.',
+        'In Details, turn on Pin to Today to show it at the top of your Today screen.',
         'See someone you’d like to keep up with? Tap Add next to their name to send a friend request (Tic-Tac-Go is one-on-one, so it has no leaderboard).',
         'In Step Races and Chases, the small ▲ or ▼ under a rank shows how many places someone has moved since yesterday.',
         'When a challenge ends, the result shows at the top of its leaderboard and your medal is added on the Challenges tab.',

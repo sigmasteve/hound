@@ -11,6 +11,11 @@ import { canJoin, globalTimingLine, joinDeadlineLine, type GlobalChallenge } fro
 // everyone (0075_global_challenges.sql). Each row is either joinable
 // (a Join button) or already joined (tap to open it). Ones the viewer
 // can no longer join, and never did, are left out by the caller.
+//
+// One that has already started is a single line (name, time left, Joined
+// or Join): testers found the full card took too much of Today for
+// something they'd already seen. The full card, with its explanation,
+// is only for ones that haven't started yet.
 export function GlobalChallengesCard({
   challenges,
   joiningId,
@@ -24,8 +29,52 @@ export function GlobalChallengesCard({
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const now = Date.now();
+  const started = challenges.filter((c) => now >= new Date(c.startsAt).getTime());
+  const upcoming = challenges.filter((c) => now < new Date(c.startsAt).getTime());
+
+  const joinButton = (c: GlobalChallenge, small = false) => (
+    <Pressable
+      style={({ pressed }) => [styles.joinButton, small && styles.joinButtonSmall, pressed && { opacity: 0.8 }]}
+      onPress={() => onJoin(c)}
+      disabled={joiningId !== null}
+      accessibilityRole="button"
+      accessibilityLabel={`Join ${c.name}`}
+    >
+      {joiningId === c.id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.joinText}>Join</Text>}
+    </Pressable>
+  );
 
   return (
+    <View style={{ gap: 8 }}>
+      {started.map((c) => (
+        <Pressable
+          key={c.id}
+          style={({ pressed }) => [styles.line, pressed && { opacity: 0.8 }]}
+          onPress={() => onOpen(c)}
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${c.name}${c.joined ? ', joined' : ''}`}
+        >
+          <GlobeHemisphereWestIcon size={16} color={colors.accentActive} />
+          <Text style={styles.lineText} numberOfLines={1}>
+            <Text style={styles.lineName}>{c.name}</Text> · {globalTimingLine(c, now)}
+          </Text>
+          {c.joined ? (
+            <>
+              <CheckCircleIcon size={15} color={colors.green} weight="fill" />
+              <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+            </>
+          ) : (
+            joinButton(c, true)
+          )}
+        </Pressable>
+      ))}
+      {upcoming.length > 0 && renderCard(upcoming)}
+    </View>
+  );
+
+  function renderCard(list: GlobalChallenge[]) {
+    return (
     <View style={styles.card}>
       <View style={styles.header}>
         <GlobeHemisphereWestIcon size={17} color={colors.accentActive} />
@@ -33,7 +82,7 @@ export function GlobalChallengesCard({
       </View>
       <Text style={styles.subtitle}>Open to everyone on Hound — jump in and see how you stack up.</Text>
 
-      {challenges.map((c) => {
+      {list.map((c) => {
         const KindIcon = CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
         const typeName = CHALLENGE_TYPES.find((t) => t.id === c.kind)?.name ?? 'Challenge';
         const joinable = canJoin(c);
@@ -81,20 +130,13 @@ export function GlobalChallengesCard({
         return (
           <View key={c.id} style={styles.row}>
             {body}
-            <Pressable
-              style={({ pressed }) => [styles.joinButton, pressed && { opacity: 0.8 }]}
-              onPress={() => onJoin(c)}
-              disabled={joiningId !== null}
-              accessibilityRole="button"
-              accessibilityLabel={`Join ${c.name}`}
-            >
-              {joiningId === c.id ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.joinText}>Join</Text>}
-            </Pressable>
+            {joinButton(c)}
           </View>
         );
       })}
     </View>
-  );
+    );
+  }
 }
 
 function makeStyles(colors: Palette) {
@@ -139,7 +181,20 @@ function makeStyles(colors: Palette) {
       justifyContent: 'center',
       backgroundColor: color.accent,
     },
+    joinButtonSmall: { minWidth: 52, height: 28, paddingHorizontal: 10, borderRadius: 8 },
     joinText: { fontSize: 14, color: '#fff', fontFamily: font.heading },
+    // The one-line version, for a challenge that has already started.
+    line: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+    },
+    lineText: { flex: 1, fontSize: 13.5, color: withAlpha(colors.text, 0.7) },
+    lineName: { fontFamily: font.heading, color: colors.text },
     joinedPill: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     joinedText: { fontSize: 12.5, color: colors.green, fontFamily: font.heading },
   });

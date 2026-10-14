@@ -30,6 +30,8 @@ import { TagRadar, type TagRadarMember } from '../components/TagRadar';
 import { TicTacGoCard } from '../components/TicTacGoCard';
 import { TextField } from '../components/TextField';
 import { ToggleRow } from '../components/Selectable';
+import { SegmentedControl } from '../components/SegmentedControl';
+import type { ChallengeTab } from '../navigation/types';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
@@ -124,8 +126,11 @@ export function ChallengeDetailScreen({
   onBack,
   onGoHome,
   onRematch,
+  initialTab,
 }: {
   challengeId: string;
+  // Which tab to open on; a trash-talk notification opens Talk.
+  initialTab?: ChallengeTab;
   onBack: () => void;
   onGoHome: () => void;
   // Opens Create prefilled from this (finished) challenge.
@@ -243,6 +248,16 @@ export function ChallengeDetailScreen({
       // Best-effort — worst case it shows again next time.
     });
   };
+
+  // Board (where everyone stands), Talk (trash talk) and Details (rules,
+  // dates, pinning, inviting, deleting). Testers found one long scroll
+  // mixing all of it hard to read.
+  const [tab, setTab] = useState<ChallengeTab>(initialTab ?? 'board');
+  // A notification tap can re-open this screen with a different tab while
+  // it's already showing.
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab, challengeId]);
 
   // Daily Streak's own elimination state — empty for any other kind.
   // Keyed by userId; see computeStreakStatus (src/challenges/streak.ts)
@@ -1278,767 +1293,812 @@ export function ChallengeDetailScreen({
             </Text>
           </View>
         </View>
+        <Pressable onPress={() => setTab('details')} hitSlop={10} accessibilityLabel="Details">
+          <InfoIcon size={22} color={colors.accent} />
+        </Pressable>
       </View>
 
-      <ToggleRow
-        label="Pin to Today"
-        note="Show this challenge at the top of Today"
-        value={myHighlighted}
-        onChange={togglingHighlight ? () => {} : toggleHighlight}
+      <SegmentedControl
+        options={[
+          { value: 'board', label: 'Board' },
+          { value: 'talk', label: 'Talk' },
+          { value: 'details', label: 'Details' },
+        ]}
+        value={tab}
+        onChange={setTab}
       />
 
-      {showTagExplainer && challenge.kind === 'tag' && (
-        <Card style={{ gap: 12 }} elevated={false}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <InfoIcon size={18} color={colors.accent} weight="fill" />
-            <Text style={text.h4}>How Game of Tag works</Text>
-          </View>
-          <Text style={styles.footNote}>
-            One player is "IT". IT picks a target who's currently ahead of them, and catches
-            them by reaching that target's total. Whoever gets caught becomes the new IT — no
-            tagging back the person who just tagged you.
-          </Text>
-          <Text style={styles.footNote}>
-            IT has {TAG_TIME_LIMIT_MINUTES} minutes to pick and catch a target, or IT passes to
-            someone else at random. There's no overall ranking or winner — the game ends once
-            the whole group's combined total hits the shared goal.
-          </Text>
-          <Button variant="primary" label="Got it" onPress={dismissTagExplainer} />
-        </Card>
-      )}
-
-      {showChaseExplainer && challenge.kind === 'hunt' && (
-        <Card style={{ gap: 12 }} elevated={false}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <InfoIcon size={18} color={colors.accent} weight="fill" />
-            <Text style={text.h4}>How {huntKindName()} works</Text>
-          </View>
-          <Text style={styles.footNote}>
-            One {labels.hunter} chases one or more {labels.hunted}. If the {labels.hunted} got
-            a head start, the {labels.hunter}&rsquo;s own progress during it doesn&rsquo;t
-            count — it starts from zero once the head start ends.
-          </Text>
-          <Text style={styles.footNote}>
-            A {labels.hunted} is caught once the {labels.hunter}&rsquo;s progress reaches their
-            total, becoming &ldquo;{labels.zombie}&rdquo;. The chase ends once everyone&rsquo;s
-            been caught, or the clock runs out — whichever comes first.
-          </Text>
-          <Button variant="primary" label="Got it" onPress={dismissChaseExplainer} />
-        </Card>
-      )}
-
-      {wrappedUp && (
-        <Card style={styles.wrapCard} elevated={false}>
-          <Text style={text.h4}>That&rsquo;s a wrap</Text>
-          {myResultLine && <Text style={styles.wrapLine}>{myResultLine}</Text>}
-          <View style={styles.wrapActions}>
-            <Button
-              label="Rematch"
-              variant="primary"
-              small
-              icon={<ArrowsClockwiseIcon size={14} color={colors.accent} />}
-              onPress={startRematch}
-            />
-            {myResultLine && (
-              <Button
-                label="Share result"
-                small
-                icon={<ShareNetworkIcon size={14} color={colors.text} />}
-                onPress={shareResult}
-              />
-            )}
-          </View>
-        </Card>
-      )}
-
-      {distanceGoal && (
-        <Card style={[{ gap: 10 }, goalMet ? styles.goalMetCard : {}]} elevated={false}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={text.h4}>Group progress</Text>
-            {goalMet && (
-              <View style={styles.goalMetBadge}>
-                <CheckCircleIcon size={14} color={colors.green} weight="fill" />
-                <Text style={styles.goalMetLabel}>Goal reached</Text>
-              </View>
-            )}
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-            <Text style={styles.groupTotal}>
-              {challenge.distanceGoalUnit === 'steps' ? groupTotal.toLocaleString() : groupTotal.toFixed(1) + ' mi'}
-            </Text>
-            <Text style={styles.footNote}>
-              of {challenge.distanceGoalUnit === 'steps' ? distanceGoal.toLocaleString() : `${distanceGoal} mi`} goal
-            </Text>
-          </View>
-          <ProgressBar
-            pct={Math.min(100, (groupTotal / distanceGoal) * 100)}
-            fillColor={goalMet ? colors.green : colors.accent}
-            height={6}
-          />
-          <Text style={styles.footNote}>
-            {challenge.kind === 'tag'
-              ? goalMet
-                ? 'The group hit its target — this game is over.'
-                : `Everyone’s logged ${challenge.distanceGoalUnit === 'steps' ? 'steps' : 'miles'} count toward this one shared target — once the group reaches it, the game ends, whoever’s It at the time.`
-              : goalMet
-                ? 'The group hit its target — anything still logged from here just adds to the total.'
-                : `Everyone’s logged ${challenge.distanceGoalUnit === 'steps' ? 'steps' : 'miles'} count toward this one shared target — it’s the whole group against the goal, not against each other.`}
-          </Text>
-        </Card>
-      )}
-
-      {challenge.kind === 'tag' && finished && (
-        <Card style={{ gap: 12 }} elevated={false}>
-          <Text style={text.h4}>Tag recap</Text>
-          <Text style={styles.footNote}>
-            No winner here — Game of Tag isn&rsquo;t ranked. Here&rsquo;s how the chase went for everyone.
-          </Text>
-          {tagRecapRows.map((r) => (
-            <View key={r.userId} style={[styles.inviteFriendRow, { alignItems: 'flex-start' }]}>
-              <Avatar
-                initials={r.initials}
-                tint={TINT_N}
-                size={30}
-                fontSize={11}
-                frameId={r.frameId}
-                backgroundId={r.backgroundId}
-                iconId={r.iconId}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.friendName}>{r.name}</Text>
-                <Text style={styles.footNote}>
-                  <Text style={styles.tagRecapLabel}>IT</Text> {r.stats.timesIt}× ·{' '}
-                  <Text style={styles.tagRecapLabel}>Tagged</Text> {r.stats.timesTagged}× ·{' '}
-                  <Text style={styles.tagRecapLabel}>Caught</Text> {r.stats.tagsMade}×
-                </Text>
-              </View>
-            </View>
-          ))}
-        </Card>
-      )}
-
-      {challenge.kind === 'tag' && tagRound && !finished && (
-        <Card style={{ gap: 12 }} elevated={false}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={text.h4}>Tag status</Text>
-            <Text style={[styles.footNote, { color: tagClockColor, fontFamily: font.heading }]}>
-              {tagMinutesLeft > 0 ? `${tagMinutesLeft}m left` : 'time’s up'}
-            </Text>
-          </View>
-          <TagRadar
-            itInitials={tagItMember?.initials ?? '?'}
-            itName={tagItMember?.name ?? 'Someone'}
-            itFrameId={tagItMember?.frameId}
-            itBackgroundId={tagItMember?.backgroundId}
-            itIconId={tagItMember?.iconId}
-            isMeIt={iAmTagIt}
-            members={tagRadarMembers}
-            colors={colors}
-            formatDistance={formatMetric}
-            minutesLeft={tagMinutesLeft}
-            timeLimitMinutes={TAG_TIME_LIMIT_MINUTES}
-          />
-          {iAmTagIt && !tagRound.targetUserId ? (
-            <>
-              <Text style={styles.footNote}>
-                You&rsquo;re It — pick who to tag. {tagMinutesLeft > 0 ? `${tagMinutesLeft} min left to pick and catch them.` : 'Time’s almost up.'}
-              </Text>
-              {tagActionError && <Text style={styles.loadError}>{tagActionError}</Text>}
-              {tagTargetableMembers.length === 0 ? (
-                <Text style={styles.footNote}>
-                  {tagMembers.length <= 1
-                    ? 'Nobody eligible to tag yet — wait for more people to join.'
-                    : tagMinutesLeft > 0
-                      ? `Nobody’s ahead of you yet — you can only tag someone who’s logged more than you have. If nobody catches up, It passes to someone else automatically in ${tagMinutesLeft} min.`
-                      : 'Nobody’s ahead of you yet — It is about to pass to someone else automatically.'}
-                </Text>
-              ) : (
-                tagTargetableMembers.map((m) => (
-                  <View key={m.userId} style={styles.inviteFriendRow}>
-                    <Avatar
-                      initials={m.initials}
-                      tint={TINT_N}
-                      size={30}
-                      fontSize={11}
-                      frameId={m.frameId}
-                      backgroundId={m.backgroundId}
-                      iconId={m.iconId}
-                    />
-                    <Text style={[styles.friendName, { flex: 1 }]}>{m.name}</Text>
-                    <Button
-                      label={selectingTargetId === m.userId ? 'Picking…' : 'Tag'}
-                      small
-                      disabled={selectingTargetId !== null}
-                      onPress={() => pickTagTarget(m.userId)}
-                    />
-                  </View>
-                ))
-              )}
-            </>
-          ) : iAmTagIt && tagRound.targetUserId ? (
-            <>
-              <Text style={styles.footNote}>
-                Chasing {tagTargetMember?.name ?? 'someone'} —{' '}
-                {tagMinutesLeft > 0 ? `${tagMinutesLeft} min left to catch them.` : 'time’s almost up.'}
-              </Text>
-              <ProgressBar pct={tagCatchPct} fillColor={colors.accent} height={6} />
-              <Text style={styles.footNote}>
-                {formatMetric(myTagMetricValue)} of {formatMetric(tagRound.targetSnapshotMetric ?? 0)} needed to catch them.
-              </Text>
-            </>
-          ) : (
-            <Text style={styles.footNote}>
-              {tagItMember?.name ?? 'Someone'} is It
-              {tagRound.targetUserId
-                ? `, chasing ${tagTargetMember?.userId === user?.id ? 'you' : tagTargetMember?.name ?? 'someone'}.`
-                : ' and hasn’t picked a target yet.'}
-            </Text>
-          )}
-        </Card>
-      )}
-
-      {challenge.kind === 'tictacgo' && (
-        <TicTacGoCard
-          game={tttGame}
-          participants={participants}
-          userId={user?.id}
-          health={health}
-          now={now}
-          onChanged={load}
-        />
-      )}
-
-      {challenge.kind === 'bingo' && (
-        <Card style={{ gap: 12 }} elevated={false}>
-          <Text style={text.h4}>Your {BINGO_CARD_TYPE_NAME[bingoCardType]} card</Text>
-          <Text style={styles.footNote}>
-            Fills itself from a matching workout, or tap a square to link one yourself — handy for a workout the
-            app can&rsquo;t guess a category for on its own.
-          </Text>
-          <View style={styles.bingoGrid}>
-            {bingoCategories.map((category) => {
-              const filled = myBingoCard?.filled.has(category) ?? false;
-              return (
-                <Pressable
-                  key={category}
-                  onPress={() => setLinkingCategory(category)}
-                  style={[styles.bingoSquare, filled && styles.bingoSquareFilled]}
-                >
-                  {filled && <CheckCircleIcon size={16} color={colors.green} weight="fill" />}
-                  <Text style={[styles.bingoSquareLabel, filled && styles.bingoSquareLabelFilled]}>
-                    {BINGO_CATEGORY_LABEL[category]}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <Text style={styles.footNote}>
-            {myBingoCard?.blackout
-              ? 'Blackout! You’ve filled every square.'
-              : `${myBingoCard?.squaresFilled ?? 0} of ${BINGO_SQUARE_COUNT} squares filled.`}
-          </Text>
-
-          {linkingCategory && (
-            <View style={styles.bingoLinkPanel}>
-              <View style={styles.bingoLinkHeader}>
-                <Text style={styles.bingoLinkTitle}>Link a workout to {BINGO_CATEGORY_LABEL[linkingCategory]}</Text>
-                <Pressable onPress={() => setLinkingCategory(null)} hitSlop={8}>
-                  <XIcon size={16} color={withAlpha(colors.text, 0.5)} />
-                </Pressable>
-              </View>
-              {myBingoCard?.entries.get(linkingCategory)?.workoutName && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <Text style={styles.footNote}>
-                    Currently linked to {myBingoCard.entries.get(linkingCategory)?.workoutName}.
-                  </Text>
-                  {myBingoCard.entries.get(linkingCategory)?.source === 'manual' && (
-                    <Pressable onPress={() => removeLink(linkingCategory)} disabled={removingLink} hitSlop={4}>
-                      <Text style={[styles.footNote, { color: colors.amber, fontFamily: font.heading }]}>
-                        {removingLink ? 'Removing…' : 'Remove link'}
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
-              )}
-              {linkError && <Text style={styles.loadError}>{linkError}</Text>}
-              {loadingTodaysWorkouts ? (
-                <ActivityIndicator color={colors.accent} />
-              ) : todaysWorkouts.length === 0 ? (
-                <Text style={styles.footNote}>No workouts logged today yet — log one on your device, then come back.</Text>
-              ) : (
-                todaysWorkouts.map((w) => (
-                  <Pressable
-                    key={w.id}
-                    onPress={() => linkWorkout(linkingCategory, w)}
-                    disabled={linkingWorkoutId !== null}
-                    style={styles.bingoWorkoutRow}
-                  >
-                    <View style={{ flex: 1, gap: 1 }}>
-                      <Text style={styles.boardName}>{w.name}</Text>
-                      <Text style={styles.footNote}>
-                        {formatWorkoutTime(w.when)}
-                        {w.distanceMi ? ` · ${w.distanceMi.toFixed(1)} mi` : ''}
-                      </Text>
-                    </View>
-                    {linkingWorkoutId === w.id ? (
-                      <ActivityIndicator color={colors.accent} />
-                    ) : (
-                      <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
-                    )}
-                  </Pressable>
-                ))
-              )}
-            </View>
-          )}
-        </Card>
-      )}
-
-      {challenge.kind === 'seventyfive' && (
-        <Card style={{ gap: 12 }} elevated={false}>
-          <Text style={text.h4}>Today&rsquo;s checklist</Text>
-          <View style={{ gap: 2 }}>
-            <SeventyFiveRow
-              label="Workout 1"
-              done={mySeventyFiveToday?.workout1Done ?? false}
-              readOnly
-              styles={styles}
-              colors={colors}
-            />
-            <SeventyFiveRow
-              label="Workout 2 (outdoors)"
-              done={mySeventyFiveToday?.workout2OutdoorDone ?? false}
-              readOnly
-              styles={styles}
-              colors={colors}
-            />
-            <SeventyFiveRow
-              label="Followed your diet"
-              done={mySeventyFiveToday?.dietDone ?? false}
-              busy={seventyFiveSaving === 'diet'}
-              onToggle={seventyFiveTogglesOpen ? (next) => toggleSeventyFiveItem('diet', next) : undefined}
-              styles={styles}
-              colors={colors}
-            />
-            <SeventyFiveRow
-              label="Drank a gallon of water"
-              done={mySeventyFiveToday?.waterDone ?? false}
-              busy={seventyFiveSaving === 'water'}
-              onToggle={seventyFiveTogglesOpen ? (next) => toggleSeventyFiveItem('water', next) : undefined}
-              styles={styles}
-              colors={colors}
-            />
-            <SeventyFiveRow
-              label="Read 10 pages"
-              done={mySeventyFiveToday?.readingDone ?? false}
-              busy={seventyFiveSaving === 'reading'}
-              onToggle={seventyFiveTogglesOpen ? (next) => toggleSeventyFiveItem('reading', next) : undefined}
-              styles={styles}
-              colors={colors}
-            />
-            <SeventyFiveRow
-              label="Progress photo"
-              done={mySeventyFiveToday?.photoDone ?? false}
-              busy={seventyFiveSaving === 'photo'}
-              onToggle={seventyFiveTogglesOpen ? (next) => toggleSeventyFiveItem('photo', next) : undefined}
-              styles={styles}
-              colors={colors}
-            />
-          </View>
-          <Text style={styles.footNote}>
-            {seventyFiveBeforeFirstDay && challengeDays
-              ? `Your day 1 is ${formatDayKey(challengeDays.firstDay)} — the checklist opens at midnight your time.`
-              : seventyFiveAfterLastDay
-                ? 'The last day has ended.'
-                : mySeventyFiveToday && isSeventyFiveDayComplete(mySeventyFiveToday)
-                  ? 'All done for today!'
-                  : 'The two workouts fill in on their own once logged on your device.'}
-          </Text>
-          <View style={styles.leaderboardHeader}>
-            <Text style={styles.footNote}>
-              Current streak: {mySeventyFiveStatus?.currentStreak ?? 0} day
-              {mySeventyFiveStatus?.currentStreak === 1 ? '' : 's'} · Longest:{' '}
-              {mySeventyFiveStatus?.longestStreak ?? 0} day{mySeventyFiveStatus?.longestStreak === 1 ? '' : 's'}
-            </Text>
-          </View>
-        </Card>
-      )}
-
-      {challenge.kind === 'seventyfive' && (
-        <Card style={{ gap: 10 }} elevated={false}>
-          <View style={styles.leaderboardHeader}>
-            <TrophyIcon size={16} color={colors.accent} />
-            <Text style={text.h4}>Everyone&rsquo;s streak</Text>
-          </View>
-          {seventyFiveBoard.some((r) => canInteractWith(r.userId)) && (
-            <Text style={styles.footNote}>Tap someone to cheer them on or nudge them.</Text>
-          )}
-          {seventyFiveBoard.map((row) => (
+      {tab === 'board' && (
+        <>
+          {/* First visit to a Tag or Chase: a one-line pointer to the rules in
+              Details, instead of a card above the board. */}
+          {((showTagExplainer && challenge.kind === 'tag') || (showChaseExplainer && challenge.kind === 'hunt')) && (
             <Pressable
-              key={row.userId}
-              style={styles.boardItem}
-              onPress={() => togglePerson(row.userId)}
-              disabled={!canInteractWith(row.userId)}
+              style={styles.rulesHint}
+              onPress={() => {
+                if (challenge.kind === 'tag') dismissTagExplainer();
+                else dismissChaseExplainer();
+                setTab('details');
+              }}
             >
-              <View style={styles.boardRowInner}>
-              <Avatar
-                initials={row.initials}
-                tint={row.userId === user?.id ? TINT_A : TINT_N}
-                size={30}
-                fontSize={11}
-                frameId={row.frameId}
-                backgroundId={row.backgroundId}
-                iconId={row.iconId}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.boardName}>{row.userId === user?.id ? 'You' : row.name}</Text>
-              </View>
-              {renderFriendChip(row.userId)}
-              <Tag
-                label={`${row.status?.currentStreak ?? 0}-day streak`}
-                variant={(row.status?.currentStreak ?? 0) > 0 ? 'accent' : 'outline'}
-              />
-              </View>
-              {renderPersonActions(row.userId, row.name, false, 30 + 12)}
+              <InfoIcon size={16} color={colors.accent} weight="fill" />
+              <Text style={styles.rulesHintText}>
+                New to {challenge.kind === 'tag' ? 'Game of Tag' : huntKindName()}? See how it works
+              </Text>
+              <CaretRightIcon size={14} color={withAlpha(colors.text, 0.5)} />
             </Pressable>
-          ))}
-        </Card>
-      )}
+          )}
 
-      {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && (
-        <Card style={{ gap: 12 }} elevated={false}>
-          <View style={styles.leaderboardHeader}>
-            <TrophyIcon size={16} color={colors.accent} />
-            <Text style={text.h4}>Leaderboard</Text>
-          </View>
-          {board.some((r) => canInteractWith(r.userId, r.isBot)) && (
-            <Text style={styles.footNote}>Tap someone to cheer them on{finished ? '' : ' or nudge them'}.</Text>
-          )}
-          {/* A finished-challenge acknowledgment — Tag gets its own recap
-              card above instead (never "won" — see that card's own
-              comment), and this Leaderboard already looks the same live
-              or finished otherwise, with nothing marking that it's over. */}
-          {finished && challenge.kind !== 'tag' && (
-            <Text style={styles.footNote}>
-              {challenge.kind === 'hunt'
-                ? isHuntConcluded(board)
-                  ? 'The chase is over — nobody’s left to catch.'
-                  : 'The chase’s clock ran out.'
-                : challenge.kind === 'distance'
-                  ? goalMet
-                    ? 'The group hit its target — this pool is complete.'
-                    : 'This pool has wrapped up without reaching its target.'
-                  : challenge.kind === 'streak'
-                    ? (() => {
-                        const survivors = board.filter((r) => streakStatuses.get(r.userId)?.eliminatedOnDay == null);
-                        if (survivors.length === 0) return 'Everyone’s streak ended before this one wrapped up.';
-                        if (survivors.length === 1) {
-                          const only = survivors[0];
-                          return `${only.userId === user?.id ? 'You' : only.name} won — the last one still on their streak!`;
-                        }
-                        return `${survivors.length} people made it the whole way without missing a day.`;
-                      })()
-                    : challenge.kind === 'bingo'
-                      ? (() => {
-                          const top = bingoBoardRows[0];
-                          if (!top || top.squaresFilled === 0) return 'Nobody filled a square before time ran out.';
-                          const label = top.userId === user?.id ? 'You' : top.name;
-                          return top.blackout
-                            ? `${label} filled the whole card — blackout!`
-                            : `${label} led with ${top.squaresFilled} of ${BINGO_SQUARE_COUNT} squares.`;
-                        })()
-                      : `${board[0]?.userId === user?.id ? 'You' : board[0]?.name ?? 'Someone'} won with ${formatMetric(
-                          scoredByDistance ? board[0]?.totalDistanceMi ?? 0 : board[0]?.totalSteps ?? 0,
-                        )}.`}
-            </Text>
-          )}
-          {/* Time-based challenges settle 24 hours after they end (0095), so
-              late syncs still count. Game-event kinds settle when the game ends. */}
-          {finished && challenge.kind !== 'hunt' && challenge.kind !== 'tag' && (
-            <Text style={styles.footNote}>Results are final 24 hours after the end.</Text>
-          )}
-          {headStartDaysLeft > 0 && (
-            <Text style={styles.footNote}>
-              Head start: the {labels.hunter}&rsquo;s total won&rsquo;t count toward a catch for{' '}
-              {headStartDaysLeft} more {headStartDaysLeft === 1 ? 'day' : 'days'}.
-            </Text>
-          )}
-          {hunterEffectiveNote && <Text style={styles.footNote}>{hunterEffectiveNote}</Text>}
-          {challenge.kind === 'bingo'
-            ? bingoBoardRows.map((card, i) => (
-                <Pressable
-                  key={card.userId}
-                  style={styles.boardItem}
-                  onPress={() => togglePerson(card.userId)}
-                  disabled={!canInteractWith(card.userId)}
-                >
-                  <View style={styles.boardRowInner}>
-                  <Text style={styles.boardRank}>{i + 1}</Text>
-                  <Avatar
-                    initials={card.initials}
-                    tint={card.userId === user?.id ? TINT_A : TINT_N}
-                    size={30}
-                    fontSize={11}
-                    frameId={card.frameId}
-                    backgroundId={card.backgroundId}
-                    iconId={card.iconId}
+          {wrappedUp && (
+            <Card style={styles.wrapCard} elevated={false}>
+              <Text style={text.h4}>That&rsquo;s a wrap</Text>
+              {myResultLine && <Text style={styles.wrapLine}>{myResultLine}</Text>}
+              <View style={styles.wrapActions}>
+                <Button
+                  label="Rematch"
+                  variant="primary"
+                  small
+                  icon={<ArrowsClockwiseIcon size={14} color={colors.accent} />}
+                  onPress={startRematch}
+                />
+                {myResultLine && (
+                  <Button
+                    label="Share result"
+                    small
+                    icon={<ShareNetworkIcon size={14} color={colors.text} />}
+                    onPress={shareResult}
                   />
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-                    <Text style={styles.boardName}>{card.userId === user?.id ? 'You' : card.name}</Text>
-                    {card.blackout && <Tag label="Blackout" variant="accent" />}
-                    {renderFriendChip(card.userId)}
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.boardSteps}>
-                      {card.squaresFilled} of {BINGO_SQUARE_COUNT}
-                    </Text>
-                  </View>
-                  </View>
-                  {renderPersonActions(card.userId, card.name, false, 16 + 12 + 30 + 12)}
-                </Pressable>
-              ))
-            : streakBoard.map((row, i) => {
-                // The Hunter's row shows their credited progress
-                // (huntEffectiveMetric), not their raw total — showing
-                // 50,610 here while the Chase progress card below says
-                // only 34,895 of it counts is confusing on its own
-                // screen: two different numbers for the same person,
-                // only one of which means anything toward a catch.
-                // huntEffectiveMetric already no-ops for every
-                // non-Hunter role, so this is exactly the raw total for
-                // everyone else on the board.
-                const displaySteps = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'steps') : row.totalSteps;
-                const displayMi = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'distance') : row.totalDistanceMi;
-                const streakStatus = challenge.kind === 'streak' ? streakStatuses.get(row.userId) : undefined;
-                const move = rankMoves.get(row.userId);
-                return (
-                  <Pressable
-                    key={row.userId}
-                    style={styles.boardItem}
-                    onPress={() => togglePerson(row.userId)}
-                    disabled={!canInteractWith(row.userId, row.isBot)}
-                  >
-                    <View style={styles.boardRowInner}>
-                    <View style={styles.rankCol}>
-                      <Text style={styles.boardRank}>{i + 1}</Text>
-                      {move !== undefined && (
-                        <Text
-                          style={[styles.rankMove, { color: move > 0 ? colors.green : colors.amber }]}
-                          accessibilityLabel={`${move > 0 ? 'Up' : 'Down'} ${Math.abs(move)} since yesterday`}
-                        >
-                          {move > 0 ? '▲' : '▼'}
-                          {Math.abs(move)}
-                        </Text>
-                      )}
-                    </View>
-                    <Avatar
-                      initials={row.initials}
-                      tint={row.userId === user?.id ? TINT_A : TINT_N}
-                      size={30}
-                      fontSize={11}
-                      frameId={row.frameId}
-                      backgroundId={row.backgroundId}
-                      iconId={row.iconId}
-                    />
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-                      <Text style={styles.boardName}>{row.name}</Text>
-                      {row.isBot && <RobotIcon size={13} color={withAlpha(colors.text, 0.55)} />}
-                      {row.role && <Tag label={huntRoleLabel(row.role, labels)} variant={HUNT_ROLE_TAG_VARIANT[row.role]} />}
-                      {streakStatus && (
-                        <Tag
-                          label={streakStatus.eliminatedOnDay == null ? `${streakStatus.streakDays}‑day streak` : 'Out'}
-                          variant={streakStatus.eliminatedOnDay == null ? 'accent' : 'outline'}
-                        />
-                      )}
-                      {renderFriendChip(row.userId, row.isBot)}
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      {scoredByDistance ? (
-                        <Text style={styles.boardSteps}>{displayMi.toFixed(1)} mi</Text>
-                      ) : (
-                        <>
-                          <Text style={styles.boardSteps}>{displaySteps.toLocaleString()} steps</Text>
-                          {displayMi > 0 && <Text style={styles.boardDistance}>{displayMi.toFixed(1)} mi</Text>}
-                        </>
-                      )}
-                    </View>
-                    </View>
-                    {renderPersonActions(row.userId, row.name, row.isBot, 22 + 12 + 30 + 12)}
-                  </Pressable>
-                );
-              })}
-          {board.length === 0 && <Text style={styles.footNote}>No participants found.</Text>}
-        </Card>
-      )}
+                )}
+              </View>
+            </Card>
+          )}
 
-      {chaseRows.length > 0 && (
-        <Card style={{ gap: 12 }} elevated={false}>
-          <Text style={text.h4}>Chase progress</Text>
-          <Text style={styles.footNote}>
-            How much of each gap the {labels.hunter}&rsquo;s actually closed since the head start
-            ended — not just the raw numbers above.
-          </Text>
-          {chaseRows.map(({ row, pct, hunterMetric, theirTotal }) => (
-            <View key={row.userId} style={{ gap: 4 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <Text style={styles.friendName}>{row.name}</Text>
+          {distanceGoal && (
+            <Card style={[{ gap: 10 }, goalMet ? styles.goalMetCard : {}]} elevated={false}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={text.h4}>Group progress</Text>
+                {goalMet && (
+                  <View style={styles.goalMetBadge}>
+                    <CheckCircleIcon size={14} color={colors.green} weight="fill" />
+                    <Text style={styles.goalMetLabel}>Goal reached</Text>
+                  </View>
+                )}
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                <Text style={styles.groupTotal}>
+                  {challenge.distanceGoalUnit === 'steps' ? groupTotal.toLocaleString() : groupTotal.toFixed(1) + ' mi'}
+                </Text>
                 <Text style={styles.footNote}>
-                  {row.role === 'zombie' ? 'Caught' : `${formatMetric(hunterMetric)} of ${formatMetric(theirTotal)}`}
+                  of {challenge.distanceGoalUnit === 'steps' ? distanceGoal.toLocaleString() : `${distanceGoal} mi`} goal
                 </Text>
               </View>
               <ProgressBar
-                pct={pct}
-                fillColor={row.role === 'zombie' ? colors.amber : colors.accent}
+                pct={Math.min(100, (groupTotal / distanceGoal) * 100)}
+                fillColor={goalMet ? colors.green : colors.accent}
                 height={6}
               />
-            </View>
-          ))}
-        </Card>
-      )}
+              <Text style={styles.footNote}>
+                {goalMet
+                  ? challenge.kind === 'tag'
+                    ? 'The group hit its target. This game is over.'
+                    : 'The group hit its target.'
+                  : 'Everyone’s total counts toward this goal.'}
+              </Text>
+            </Card>
+          )}
 
-      <TrashTalkCard
-        challengeId={challenge.id}
-        myId={user?.id}
-        standings={trashTalkBoard.standings}
-        unit={trashTalkBoard.unit}
-        participantIds={participants.map((p) => p.userId)}
-      />
+          {challenge.kind === 'tag' && finished && (
+            <Card style={{ gap: 12 }} elevated={false}>
+              <Text style={text.h4}>Tag recap</Text>
+              <Text style={styles.footNote}>
+                Game of Tag isn&rsquo;t ranked. Here&rsquo;s how it went.
+              </Text>
+              {tagRecapRows.map((r) => (
+                <View key={r.userId} style={[styles.inviteFriendRow, { alignItems: 'flex-start' }]}>
+                  <Avatar
+                    initials={r.initials}
+                    tint={TINT_N}
+                    size={30}
+                    fontSize={11}
+                    frameId={r.frameId}
+                    backgroundId={r.backgroundId}
+                    iconId={r.iconId}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.friendName}>{r.name}</Text>
+                    <Text style={styles.footNote}>
+                      <Text style={styles.tagRecapLabel}>IT</Text> {r.stats.timesIt}× ·{' '}
+                      <Text style={styles.tagRecapLabel}>Tagged</Text> {r.stats.timesTagged}× ·{' '}
+                      <Text style={styles.tagRecapLabel}>Caught</Text> {r.stats.tagsMade}×
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </Card>
+          )}
 
-      {/* A device-synced challenge (usesDeviceSteps/usesWorkoutDistance)
-          gets no card here at all — syncFromDevice already runs
-          automatically in the background (see the auto-sync effect
-          above) once Health Connect/HealthKit is connected, so there's
-          nothing for this screen to show or for the person to trigger
-          manually. Neither does Bingo: it's scored purely by filled
-          squares (bingo_progress, see src/challenges/bingoApi.ts), so
-          steps logged here would never show up anywhere for it. */}
-      {!usesDeviceSteps(challenge) &&
-        !usesWorkoutDistance(challenge) &&
-        challenge.kind !== 'tictacgo' &&
-        challenge.kind !== 'bingo' &&
-        challenge.kind !== 'seventyfive' && (
-        <Card style={{ gap: 14 }} elevated={false}>
-          <Text style={text.h4}>Log your progress</Text>
-          <Text style={styles.footNote}>
-            Manual entry for now — Hound doesn&rsquo;t automatically sync your HealthKit/Health Connect
-            steps into this kind of challenge yet.
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TextField
-              label="Steps today"
-              value={stepsInput}
-              onChangeText={setStepsInput}
-              placeholder="8,432"
-              keyboardType="number-pad"
-              style={{ flex: 1 }}
-            />
-            <TextField
-              label="Distance (mi)"
-              value={distanceInput}
-              onChangeText={setDistanceInput}
-              placeholder="optional"
-              keyboardType="decimal-pad"
-              style={{ flex: 1 }}
-            />
-          </View>
-          {logError && <Text style={styles.loadError}>{logError}</Text>}
-          {logSuccess && !logError && <Text style={styles.successNote}>Saved.</Text>}
-          <Button
-            label={logging ? 'Saving…' : 'Save'}
-            variant="primary"
-            block
-            disabled={logging || !stepsInput.trim()}
-            onPress={logProgress}
-          />
-        </Card>
-      )}
-
-      {/* Tic-Tac-Go is strictly 1v1 (CreateScreen's own toggleFriend already
-          enforces this at creation) — participants.length >= 2 alone only
-          closes this once someone has actually accepted, leaving a window
-          where a second, then a third, invite could go out while the first
-          is still pending and unanswered. invitedIds.size > 0 closes it the
-          moment even one invite is outstanding, so at most one ever exists
-          at a time; it reopens on its own once that invite is declined or
-          expires (see load()'s own invitedIds refresh, sourced from
-          listSentChallengeInvites — a no-longer-pending invite just drops
-          out of that list). */}
-      {!wrappedUp && isGlobal && (
-        <Card style={{ gap: 6 }} elevated={false}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <GlobeHemisphereWestIcon size={17} color={colors.accent} />
-            <Text style={text.h4}>Global Hound Challenge</Text>
-          </View>
-          <Text style={styles.footNote}>
-            Open to everyone on Hound — friends can join it from Global Hound Challenges on their Today screen
-            until joining closes.
-          </Text>
-        </Card>
-      )}
-
-      {!wrappedUp && !isGlobal && !(challenge.kind === 'tictacgo' && (participants.length >= 2 || invitedIds.size > 0)) && (
-        <Card style={{ gap: 10 }} elevated={false}>
-          <Text style={text.h4}>{challenge.kind === 'tictacgo' ? 'Invite your opponent' : 'Invite a friend'}</Text>
-          {inviteLocked ? (
-            <Text style={styles.footNote}>
-              {challenge.kind === 'hunt' && challenge.headStartDays
-                ? `This chase’s head start has already ended — a newly invited friend would join with no head start of their own, so new invites are closed for the rest of this chase.`
-                : `It’s been more than 24 hours since this challenge started, so new invites are closed — joining this late would give someone an unfair read on where everyone else already stands.`}
-            </Text>
-          ) : invitableFriends.length === 0 ? (
-            <Text style={styles.footNote}>
-              {friends.length === 0
-                ? 'Add friends from the Friends tab, then invite them here.'
-                : 'Everyone you’re friends with is already in this challenge.'}
-            </Text>
-          ) : (
-            <>
-              <TextField
-                label="Search friends"
-                value={friendSearch}
-                onChangeText={setFriendSearch}
-                placeholder="Search by name"
-                icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
-                autoCapitalize="none"
+          {challenge.kind === 'tag' && tagRound && !finished && (
+            <Card style={{ gap: 12 }} elevated={false}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={text.h4}>Tag status</Text>
+                <Text style={[styles.footNote, { color: tagClockColor, fontFamily: font.heading }]}>
+                  {tagMinutesLeft > 0 ? `${tagMinutesLeft}m left` : 'time’s up'}
+                </Text>
+              </View>
+              <TagRadar
+                itInitials={tagItMember?.initials ?? '?'}
+                itName={tagItMember?.name ?? 'Someone'}
+                itFrameId={tagItMember?.frameId}
+                itBackgroundId={tagItMember?.backgroundId}
+                itIconId={tagItMember?.iconId}
+                isMeIt={iAmTagIt}
+                members={tagRadarMembers}
+                colors={colors}
+                formatDistance={formatMetric}
+                minutesLeft={tagMinutesLeft}
+                timeLimitMinutes={TAG_TIME_LIMIT_MINUTES}
               />
-              {searchedFriends.length === 0 ? (
-                <Text style={styles.footNote}>No friends match “{friendSearch.trim()}”.</Text>
+              {iAmTagIt && !tagRound.targetUserId ? (
+                <>
+                  <Text style={styles.footNote}>
+                    You&rsquo;re It — pick who to tag. {tagMinutesLeft > 0 ? `${tagMinutesLeft} min left to pick and catch them.` : 'Time’s almost up.'}
+                  </Text>
+                  {tagActionError && <Text style={styles.loadError}>{tagActionError}</Text>}
+                  {tagTargetableMembers.length === 0 ? (
+                    <Text style={styles.footNote}>
+                      {tagMembers.length <= 1
+                        ? 'Nobody eligible to tag yet — wait for more people to join.'
+                        : tagMinutesLeft > 0
+                          ? `Nobody’s ahead of you yet — you can only tag someone who’s logged more than you have. If nobody catches up, It passes to someone else automatically in ${tagMinutesLeft} min.`
+                          : 'Nobody’s ahead of you yet — It is about to pass to someone else automatically.'}
+                    </Text>
+                  ) : (
+                    tagTargetableMembers.map((m) => (
+                      <View key={m.userId} style={styles.inviteFriendRow}>
+                        <Avatar
+                          initials={m.initials}
+                          tint={TINT_N}
+                          size={30}
+                          fontSize={11}
+                          frameId={m.frameId}
+                          backgroundId={m.backgroundId}
+                          iconId={m.iconId}
+                        />
+                        <Text style={[styles.friendName, { flex: 1 }]}>{m.name}</Text>
+                        <Button
+                          label={selectingTargetId === m.userId ? 'Picking…' : 'Tag'}
+                          small
+                          disabled={selectingTargetId !== null}
+                          onPress={() => pickTagTarget(m.userId)}
+                        />
+                      </View>
+                    ))
+                  )}
+                </>
+              ) : iAmTagIt && tagRound.targetUserId ? (
+                <>
+                  <Text style={styles.footNote}>
+                    Chasing {tagTargetMember?.name ?? 'someone'} —{' '}
+                    {tagMinutesLeft > 0 ? `${tagMinutesLeft} min left to catch them.` : 'time’s almost up.'}
+                  </Text>
+                  <ProgressBar pct={tagCatchPct} fillColor={colors.accent} height={6} />
+                  <Text style={styles.footNote}>
+                    {formatMetric(myTagMetricValue)} of {formatMetric(tagRound.targetSnapshotMetric ?? 0)} needed to catch them.
+                  </Text>
+                </>
               ) : (
-                searchedFriends.map((f) => {
-                  const invited = invitedIds.has(f.userId);
-                  const busy = invitingId === f.userId;
+                <Text style={styles.footNote}>
+                  {tagItMember?.name ?? 'Someone'} is It
+                  {tagRound.targetUserId
+                    ? `, chasing ${tagTargetMember?.userId === user?.id ? 'you' : tagTargetMember?.name ?? 'someone'}.`
+                    : ' and hasn’t picked a target yet.'}
+                </Text>
+              )}
+            </Card>
+          )}
+
+          {challenge.kind === 'tictacgo' && (
+            <TicTacGoCard
+              game={tttGame}
+              participants={participants}
+              userId={user?.id}
+              health={health}
+              now={now}
+              onChanged={load}
+            />
+          )}
+
+          {challenge.kind === 'bingo' && (
+            <Card style={{ gap: 12 }} elevated={false}>
+              <Text style={text.h4}>Your {BINGO_CARD_TYPE_NAME[bingoCardType]} card</Text>
+              <Text style={styles.footNote}>
+                Fills itself from a matching workout, or tap a square to link one yourself — handy for a workout the
+                app can&rsquo;t guess a category for on its own.
+              </Text>
+              <View style={styles.bingoGrid}>
+                {bingoCategories.map((category) => {
+                  const filled = myBingoCard?.filled.has(category) ?? false;
                   return (
-                    <View key={f.userId} style={styles.inviteFriendRow}>
+                    <Pressable
+                      key={category}
+                      onPress={() => setLinkingCategory(category)}
+                      style={[styles.bingoSquare, filled && styles.bingoSquareFilled]}
+                    >
+                      {filled && <CheckCircleIcon size={16} color={colors.green} weight="fill" />}
+                      <Text style={[styles.bingoSquareLabel, filled && styles.bingoSquareLabelFilled]}>
+                        {BINGO_CATEGORY_LABEL[category]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={styles.footNote}>
+                {myBingoCard?.blackout
+                  ? 'Blackout! You’ve filled every square.'
+                  : `${myBingoCard?.squaresFilled ?? 0} of ${BINGO_SQUARE_COUNT} squares filled.`}
+              </Text>
+
+              {linkingCategory && (
+                <View style={styles.bingoLinkPanel}>
+                  <View style={styles.bingoLinkHeader}>
+                    <Text style={styles.bingoLinkTitle}>Link a workout to {BINGO_CATEGORY_LABEL[linkingCategory]}</Text>
+                    <Pressable onPress={() => setLinkingCategory(null)} hitSlop={8}>
+                      <XIcon size={16} color={withAlpha(colors.text, 0.5)} />
+                    </Pressable>
+                  </View>
+                  {myBingoCard?.entries.get(linkingCategory)?.workoutName && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <Text style={styles.footNote}>
+                        Currently linked to {myBingoCard.entries.get(linkingCategory)?.workoutName}.
+                      </Text>
+                      {myBingoCard.entries.get(linkingCategory)?.source === 'manual' && (
+                        <Pressable onPress={() => removeLink(linkingCategory)} disabled={removingLink} hitSlop={4}>
+                          <Text style={[styles.footNote, { color: colors.amber, fontFamily: font.heading }]}>
+                            {removingLink ? 'Removing…' : 'Remove link'}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  )}
+                  {linkError && <Text style={styles.loadError}>{linkError}</Text>}
+                  {loadingTodaysWorkouts ? (
+                    <ActivityIndicator color={colors.accent} />
+                  ) : todaysWorkouts.length === 0 ? (
+                    <Text style={styles.footNote}>No workouts logged today yet — log one on your device, then come back.</Text>
+                  ) : (
+                    todaysWorkouts.map((w) => (
+                      <Pressable
+                        key={w.id}
+                        onPress={() => linkWorkout(linkingCategory, w)}
+                        disabled={linkingWorkoutId !== null}
+                        style={styles.bingoWorkoutRow}
+                      >
+                        <View style={{ flex: 1, gap: 1 }}>
+                          <Text style={styles.boardName}>{w.name}</Text>
+                          <Text style={styles.footNote}>
+                            {formatWorkoutTime(w.when)}
+                            {w.distanceMi ? ` · ${w.distanceMi.toFixed(1)} mi` : ''}
+                          </Text>
+                        </View>
+                        {linkingWorkoutId === w.id ? (
+                          <ActivityIndicator color={colors.accent} />
+                        ) : (
+                          <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+                        )}
+                      </Pressable>
+                    ))
+                  )}
+                </View>
+              )}
+            </Card>
+          )}
+
+          {challenge.kind === 'seventyfive' && (
+            <Card style={{ gap: 12 }} elevated={false}>
+              <Text style={text.h4}>Today&rsquo;s checklist</Text>
+              <View style={{ gap: 2 }}>
+                <SeventyFiveRow
+                  label="Workout 1"
+                  done={mySeventyFiveToday?.workout1Done ?? false}
+                  readOnly
+                  styles={styles}
+                  colors={colors}
+                />
+                <SeventyFiveRow
+                  label="Workout 2 (outdoors)"
+                  done={mySeventyFiveToday?.workout2OutdoorDone ?? false}
+                  readOnly
+                  styles={styles}
+                  colors={colors}
+                />
+                <SeventyFiveRow
+                  label="Followed your diet"
+                  done={mySeventyFiveToday?.dietDone ?? false}
+                  busy={seventyFiveSaving === 'diet'}
+                  onToggle={seventyFiveTogglesOpen ? (next) => toggleSeventyFiveItem('diet', next) : undefined}
+                  styles={styles}
+                  colors={colors}
+                />
+                <SeventyFiveRow
+                  label="Drank a gallon of water"
+                  done={mySeventyFiveToday?.waterDone ?? false}
+                  busy={seventyFiveSaving === 'water'}
+                  onToggle={seventyFiveTogglesOpen ? (next) => toggleSeventyFiveItem('water', next) : undefined}
+                  styles={styles}
+                  colors={colors}
+                />
+                <SeventyFiveRow
+                  label="Read 10 pages"
+                  done={mySeventyFiveToday?.readingDone ?? false}
+                  busy={seventyFiveSaving === 'reading'}
+                  onToggle={seventyFiveTogglesOpen ? (next) => toggleSeventyFiveItem('reading', next) : undefined}
+                  styles={styles}
+                  colors={colors}
+                />
+                <SeventyFiveRow
+                  label="Progress photo"
+                  done={mySeventyFiveToday?.photoDone ?? false}
+                  busy={seventyFiveSaving === 'photo'}
+                  onToggle={seventyFiveTogglesOpen ? (next) => toggleSeventyFiveItem('photo', next) : undefined}
+                  styles={styles}
+                  colors={colors}
+                />
+              </View>
+              <Text style={styles.footNote}>
+                {seventyFiveBeforeFirstDay && challengeDays
+                  ? `Your day 1 is ${formatDayKey(challengeDays.firstDay)} — the checklist opens at midnight your time.`
+                  : seventyFiveAfterLastDay
+                    ? 'The last day has ended.'
+                    : mySeventyFiveToday && isSeventyFiveDayComplete(mySeventyFiveToday)
+                      ? 'All done for today!'
+                      : 'The two workouts fill in on their own once logged on your device.'}
+              </Text>
+              <View style={styles.leaderboardHeader}>
+                <Text style={styles.footNote}>
+                  Current streak: {mySeventyFiveStatus?.currentStreak ?? 0} day
+                  {mySeventyFiveStatus?.currentStreak === 1 ? '' : 's'} · Longest:{' '}
+                  {mySeventyFiveStatus?.longestStreak ?? 0} day{mySeventyFiveStatus?.longestStreak === 1 ? '' : 's'}
+                </Text>
+              </View>
+            </Card>
+          )}
+
+          {challenge.kind === 'seventyfive' && (
+            <Card style={{ gap: 10 }} elevated={false}>
+              <View style={styles.leaderboardHeader}>
+                <TrophyIcon size={16} color={colors.accent} />
+                <Text style={text.h4}>Everyone&rsquo;s streak</Text>
+              </View>
+              {seventyFiveBoard.some((r) => canInteractWith(r.userId)) && (
+                <Text style={styles.footNote}>Tap someone to cheer them on or nudge them.</Text>
+              )}
+              {seventyFiveBoard.map((row) => (
+                <Pressable
+                  key={row.userId}
+                  style={styles.boardItem}
+                  onPress={() => togglePerson(row.userId)}
+                  disabled={!canInteractWith(row.userId)}
+                >
+                  <View style={styles.boardRowInner}>
+                  <Avatar
+                    initials={row.initials}
+                    tint={row.userId === user?.id ? TINT_A : TINT_N}
+                    size={30}
+                    fontSize={11}
+                    frameId={row.frameId}
+                    backgroundId={row.backgroundId}
+                    iconId={row.iconId}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.boardName}>{row.userId === user?.id ? 'You' : row.name}</Text>
+                  </View>
+                  {renderFriendChip(row.userId)}
+                  <Tag
+                    label={`${row.status?.currentStreak ?? 0}-day streak`}
+                    variant={(row.status?.currentStreak ?? 0) > 0 ? 'accent' : 'outline'}
+                  />
+                  </View>
+                  {renderPersonActions(row.userId, row.name, false, 30 + 12)}
+                </Pressable>
+              ))}
+            </Card>
+          )}
+
+          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && (
+            <Card style={{ gap: 12 }} elevated={false}>
+              <View style={styles.leaderboardHeader}>
+                <TrophyIcon size={16} color={colors.accent} />
+                <Text style={text.h4}>Leaderboard</Text>
+              </View>
+              {!finished && board.some((r) => canInteractWith(r.userId, r.isBot)) && (
+                <Text style={styles.footNote}>Tap someone to cheer them on or nudge them.</Text>
+              )}
+              {/* A finished-challenge acknowledgment — Tag gets its own recap
+                  card above instead (never "won" — see that card's own
+                  comment), and this Leaderboard already looks the same live
+                  or finished otherwise, with nothing marking that it's over. */}
+              {finished && challenge.kind !== 'tag' && (
+                <Text style={styles.footNote}>
+                  {challenge.kind === 'hunt'
+                    ? isHuntConcluded(board)
+                      ? 'The chase is over — nobody’s left to catch.'
+                      : 'The chase’s clock ran out.'
+                    : challenge.kind === 'distance'
+                      ? goalMet
+                        ? 'The group hit its target — this pool is complete.'
+                        : 'This pool has wrapped up without reaching its target.'
+                      : challenge.kind === 'streak'
+                        ? (() => {
+                            const survivors = board.filter((r) => streakStatuses.get(r.userId)?.eliminatedOnDay == null);
+                            if (survivors.length === 0) return 'Everyone’s streak ended before this one wrapped up.';
+                            if (survivors.length === 1) {
+                              const only = survivors[0];
+                              return `${only.userId === user?.id ? 'You' : only.name} won — the last one still on their streak!`;
+                            }
+                            return `${survivors.length} people made it the whole way without missing a day.`;
+                          })()
+                        : challenge.kind === 'bingo'
+                          ? (() => {
+                              const top = bingoBoardRows[0];
+                              if (!top || top.squaresFilled === 0) return 'Nobody filled a square before time ran out.';
+                              const label = top.userId === user?.id ? 'You' : top.name;
+                              return top.blackout
+                                ? `${label} filled the whole card — blackout!`
+                                : `${label} led with ${top.squaresFilled} of ${BINGO_SQUARE_COUNT} squares.`;
+                            })()
+                          : `${board[0]?.userId === user?.id ? 'You' : board[0]?.name ?? 'Someone'} won with ${formatMetric(
+                              scoredByDistance ? board[0]?.totalDistanceMi ?? 0 : board[0]?.totalSteps ?? 0,
+                            )}.`}
+                </Text>
+              )}
+              {headStartDaysLeft > 0 && (
+                <Text style={styles.footNote}>
+                  Head start: the {labels.hunter}&rsquo;s total won&rsquo;t count toward a catch for{' '}
+                  {headStartDaysLeft} more {headStartDaysLeft === 1 ? 'day' : 'days'}.
+                </Text>
+              )}
+              {hunterEffectiveNote && <Text style={styles.footNote}>{hunterEffectiveNote}</Text>}
+              {challenge.kind === 'bingo'
+                ? bingoBoardRows.map((card, i) => (
+                    <Pressable
+                      key={card.userId}
+                      style={styles.boardItem}
+                      onPress={() => togglePerson(card.userId)}
+                      disabled={!canInteractWith(card.userId)}
+                    >
+                      <View style={styles.boardRowInner}>
+                      <Text style={styles.boardRank}>{i + 1}</Text>
                       <Avatar
-                        initials={f.initials}
-                        tint={TINT_N}
+                        initials={card.initials}
+                        tint={card.userId === user?.id ? TINT_A : TINT_N}
                         size={30}
                         fontSize={11}
-                        frameId={f.frameId}
-                        backgroundId={f.backgroundId}
-                        iconId={f.iconId}
+                        frameId={card.frameId}
+                        backgroundId={card.backgroundId}
+                        iconId={card.iconId}
                       />
-                      <Text style={[styles.friendName, { flex: 1 }]}>{f.name}</Text>
-                      <Button
-                        label={busy ? (invited ? 'Reminding…' : 'Inviting…') : invited ? 'Remind' : 'Invite'}
-                        variant={invited ? 'ghost' : 'secondary'}
-                        small
-                        disabled={busy}
-                        onPress={() => (invited ? remindFriend(f) : inviteFriend(f))}
-                      />
-                    </View>
-                  );
-                })
-              )}
-            </>
+                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                        <Text style={styles.boardName}>{card.userId === user?.id ? 'You' : card.name}</Text>
+                        {card.blackout && <Tag label="Blackout" variant="accent" />}
+                        {renderFriendChip(card.userId)}
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={styles.boardSteps}>
+                          {card.squaresFilled} of {BINGO_SQUARE_COUNT}
+                        </Text>
+                      </View>
+                      </View>
+                      {renderPersonActions(card.userId, card.name, false, 16 + 12 + 30 + 12)}
+                    </Pressable>
+                  ))
+                : streakBoard.map((row, i) => {
+                    // The Hunter's row shows their credited progress
+                    // (huntEffectiveMetric), not their raw total — showing
+                    // 50,610 here while the Chase progress card below says
+                    // only 34,895 of it counts is confusing on its own
+                    // screen: two different numbers for the same person,
+                    // only one of which means anything toward a catch.
+                    // huntEffectiveMetric already no-ops for every
+                    // non-Hunter role, so this is exactly the raw total for
+                    // everyone else on the board.
+                    const displaySteps = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'steps') : row.totalSteps;
+                    const displayMi = challenge.kind === 'hunt' ? huntEffectiveMetric(row, 'distance') : row.totalDistanceMi;
+                    const streakStatus = challenge.kind === 'streak' ? streakStatuses.get(row.userId) : undefined;
+                    const move = rankMoves.get(row.userId);
+                    return (
+                      <Pressable
+                        key={row.userId}
+                        style={styles.boardItem}
+                        onPress={() => togglePerson(row.userId)}
+                        disabled={!canInteractWith(row.userId, row.isBot)}
+                      >
+                        <View style={styles.boardRowInner}>
+                        <View style={styles.rankCol}>
+                          <Text style={styles.boardRank}>{i + 1}</Text>
+                          {move !== undefined && (
+                            <Text
+                              style={[styles.rankMove, { color: move > 0 ? colors.green : colors.amber }]}
+                              accessibilityLabel={`${move > 0 ? 'Up' : 'Down'} ${Math.abs(move)} since yesterday`}
+                            >
+                              {move > 0 ? '▲' : '▼'}
+                              {Math.abs(move)}
+                            </Text>
+                          )}
+                        </View>
+                        <Avatar
+                          initials={row.initials}
+                          tint={row.userId === user?.id ? TINT_A : TINT_N}
+                          size={30}
+                          fontSize={11}
+                          frameId={row.frameId}
+                          backgroundId={row.backgroundId}
+                          iconId={row.iconId}
+                        />
+                        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                          <Text style={styles.boardName}>{row.name}</Text>
+                          {row.isBot && <RobotIcon size={13} color={withAlpha(colors.text, 0.55)} />}
+                          {row.role && <Tag label={huntRoleLabel(row.role, labels)} variant={HUNT_ROLE_TAG_VARIANT[row.role]} />}
+                          {streakStatus && (
+                            <Tag
+                              label={streakStatus.eliminatedOnDay == null ? `${streakStatus.streakDays}‑day streak` : 'Out'}
+                              variant={streakStatus.eliminatedOnDay == null ? 'accent' : 'outline'}
+                            />
+                          )}
+                          {renderFriendChip(row.userId, row.isBot)}
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          {scoredByDistance ? (
+                            <Text style={styles.boardSteps}>{displayMi.toFixed(1)} mi</Text>
+                          ) : (
+                            <>
+                              <Text style={styles.boardSteps}>{displaySteps.toLocaleString()} steps</Text>
+                              {displayMi > 0 && <Text style={styles.boardDistance}>{displayMi.toFixed(1)} mi</Text>}
+                            </>
+                          )}
+                        </View>
+                        </View>
+                        {renderPersonActions(row.userId, row.name, row.isBot, 22 + 12 + 30 + 12)}
+                      </Pressable>
+                    );
+                  })}
+              {board.length === 0 && <Text style={styles.footNote}>No participants found.</Text>}
+            </Card>
           )}
-        </Card>
+
+          {chaseRows.length > 0 && (
+            <Card style={{ gap: 12 }} elevated={false}>
+              <Text style={text.h4}>Chase progress</Text>
+              <Text style={styles.footNote}>
+                How much of each gap the {labels.hunter} has closed since the head start ended.
+              </Text>
+              {chaseRows.map(({ row, pct, hunterMetric, theirTotal }) => (
+                <View key={row.userId} style={{ gap: 4 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <Text style={styles.friendName}>{row.name}</Text>
+                    <Text style={styles.footNote}>
+                      {row.role === 'zombie' ? 'Caught' : `${formatMetric(hunterMetric)} of ${formatMetric(theirTotal)}`}
+                    </Text>
+                  </View>
+                  <ProgressBar
+                    pct={pct}
+                    fillColor={row.role === 'zombie' ? colors.amber : colors.accent}
+                    height={6}
+                  />
+                </View>
+              ))}
+            </Card>
+          )}
+
+          {/* A device-synced challenge (usesDeviceSteps/usesWorkoutDistance)
+              gets no card here at all — syncFromDevice already runs
+              automatically in the background (see the auto-sync effect
+              above) once Health Connect/HealthKit is connected, so there's
+              nothing for this screen to show or for the person to trigger
+              manually. Neither does Bingo: it's scored purely by filled
+              squares (bingo_progress, see src/challenges/bingoApi.ts), so
+              steps logged here would never show up anywhere for it. */}
+          {!usesDeviceSteps(challenge) &&
+            !usesWorkoutDistance(challenge) &&
+            challenge.kind !== 'tictacgo' &&
+            challenge.kind !== 'bingo' &&
+            challenge.kind !== 'seventyfive' && (
+            <Card style={{ gap: 14 }} elevated={false}>
+              <Text style={text.h4}>Log your progress</Text>
+              <Text style={styles.footNote}>
+                This challenge doesn&rsquo;t sync from your phone yet, so enter today&rsquo;s totals here.
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TextField
+                  label="Steps today"
+                  value={stepsInput}
+                  onChangeText={setStepsInput}
+                  placeholder="8,432"
+                  keyboardType="number-pad"
+                  style={{ flex: 1 }}
+                />
+                <TextField
+                  label="Distance (mi)"
+                  value={distanceInput}
+                  onChangeText={setDistanceInput}
+                  placeholder="optional"
+                  keyboardType="decimal-pad"
+                  style={{ flex: 1 }}
+                />
+              </View>
+              {logError && <Text style={styles.loadError}>{logError}</Text>}
+              {logSuccess && !logError && <Text style={styles.successNote}>Saved.</Text>}
+              <Button
+                label={logging ? 'Saving…' : 'Save'}
+                variant="primary"
+                block
+                disabled={logging || !stepsInput.trim()}
+                onPress={logProgress}
+              />
+            </Card>
+          )}
+        </>
       )}
 
-      {challenge.createdBy === user?.id && (
-        <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteRow}>
-          <TrashIcon size={14} color={colors.amber} />
-          <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete challenge'}</Text>
-        </Pressable>
+      {tab === 'talk' && (
+        <TrashTalkCard
+          challengeId={challenge.id}
+          myId={user?.id}
+          standings={trashTalkBoard.standings}
+          unit={trashTalkBoard.unit}
+          participantIds={participants.map((p) => p.userId)}
+        />
+      )}
+
+      {tab === 'details' && (
+        <>
+          <Card style={{ gap: 10 }} elevated={false}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <InfoIcon size={18} color={colors.accent} weight="fill" />
+              <Text style={text.h4}>
+                How {challenge.kind === 'hunt' ? huntKindName() : (typeDef?.name ?? 'this challenge')} works
+              </Text>
+            </View>
+            {challenge.kind === 'tag' ? (
+              <>
+                <Text style={styles.footNote}>
+                  One player is "IT". IT picks a target who's currently ahead of them, and catches
+                  them by reaching that target's total. Whoever gets caught becomes the new IT — no
+                  tagging back the person who just tagged you.
+                </Text>
+                <Text style={styles.footNote}>
+                  IT has {TAG_TIME_LIMIT_MINUTES} minutes to pick and catch a target, or IT passes to
+                  someone else at random. There's no overall ranking or winner — the game ends once
+                  the whole group's combined total hits the shared goal.
+                </Text>
+              </>
+            ) : challenge.kind === 'hunt' ? (
+              <>
+                <Text style={styles.footNote}>
+                  One {labels.hunter} chases one or more {labels.hunted}. If the {labels.hunted} got
+                  a head start, the {labels.hunter}&rsquo;s own progress during it doesn&rsquo;t
+                  count — it starts from zero once the head start ends.
+                </Text>
+                <Text style={styles.footNote}>
+                  A {labels.hunted} is caught once the {labels.hunter}&rsquo;s progress reaches their
+                  total, becoming &ldquo;{labels.zombie}&rdquo;. The chase ends once everyone&rsquo;s
+                  been caught, or the clock runs out — whichever comes first.
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.footNote}>{typeDef?.desc}</Text>
+            )}
+          </Card>
+
+          <Card style={{ gap: 8 }} elevated={false}>
+            <Text style={text.h4}>Dates</Text>
+            <Text style={styles.detailsLine}>
+              {formatShortDate(challenge.startsAt)} – {formatShortDate(challenge.endsAt)} · {challenge.durationDays}{' '}
+              {challenge.durationDays === 1 ? 'day' : 'days'}
+            </Text>
+            <Text style={styles.footNote}>{dayLabel} · {endsLabel}</Text>
+            {/* Time-based challenges settle 24 hours after they end (0095), so
+                late syncs still count. Game-event kinds settle when the game ends. */}
+            {challenge.kind !== 'hunt' && challenge.kind !== 'tag' && challenge.kind !== 'tictacgo' && (
+              <Text style={styles.footNote}>Results are final 24 hours after the end, so late syncs still count.</Text>
+            )}
+          </Card>
+
+          <ToggleRow
+            label="Pin to Today"
+            note="Show this challenge at the top of Today"
+            value={myHighlighted}
+            onChange={togglingHighlight ? () => {} : toggleHighlight}
+          />
+
+          {/* Tic-Tac-Go is strictly 1v1 (CreateScreen's own toggleFriend already
+              enforces this at creation) — participants.length >= 2 alone only
+              closes this once someone has actually accepted, leaving a window
+              where a second, then a third, invite could go out while the first
+              is still pending and unanswered. invitedIds.size > 0 closes it the
+              moment even one invite is outstanding, so at most one ever exists
+              at a time; it reopens on its own once that invite is declined or
+              expires (see load()'s own invitedIds refresh, sourced from
+              listSentChallengeInvites — a no-longer-pending invite just drops
+              out of that list). */}
+          {!wrappedUp && isGlobal && (
+            <Card style={{ gap: 6 }} elevated={false}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <GlobeHemisphereWestIcon size={17} color={colors.accent} />
+                <Text style={text.h4}>Global Hound Challenge</Text>
+              </View>
+              <Text style={styles.footNote}>
+                Open to everyone on Hound — friends can join it from Global Hound Challenges on their Today screen
+                until joining closes.
+              </Text>
+            </Card>
+          )}
+
+          {!wrappedUp && !isGlobal && !(challenge.kind === 'tictacgo' && (participants.length >= 2 || invitedIds.size > 0)) && (
+            <Card style={{ gap: 10 }} elevated={false}>
+              <Text style={text.h4}>{challenge.kind === 'tictacgo' ? 'Invite your opponent' : 'Invite a friend'}</Text>
+              {inviteLocked ? (
+                <Text style={styles.footNote}>
+                  {challenge.kind === 'hunt' && challenge.headStartDays
+                    ? `This chase’s head start has already ended — a newly invited friend would join with no head start of their own, so new invites are closed for the rest of this chase.`
+                    : `It’s been more than 24 hours since this challenge started, so new invites are closed — joining this late would give someone an unfair read on where everyone else already stands.`}
+                </Text>
+              ) : invitableFriends.length === 0 ? (
+                <Text style={styles.footNote}>
+                  {friends.length === 0
+                    ? 'Add friends from the Friends tab, then invite them here.'
+                    : 'Everyone you’re friends with is already in this challenge.'}
+                </Text>
+              ) : (
+                <>
+                  <TextField
+                    label="Search friends"
+                    value={friendSearch}
+                    onChangeText={setFriendSearch}
+                    placeholder="Search by name"
+                    icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
+                    autoCapitalize="none"
+                  />
+                  {searchedFriends.length === 0 ? (
+                    <Text style={styles.footNote}>No friends match “{friendSearch.trim()}”.</Text>
+                  ) : (
+                    searchedFriends.map((f) => {
+                      const invited = invitedIds.has(f.userId);
+                      const busy = invitingId === f.userId;
+                      return (
+                        <View key={f.userId} style={styles.inviteFriendRow}>
+                          <Avatar
+                            initials={f.initials}
+                            tint={TINT_N}
+                            size={30}
+                            fontSize={11}
+                            frameId={f.frameId}
+                            backgroundId={f.backgroundId}
+                            iconId={f.iconId}
+                          />
+                          <Text style={[styles.friendName, { flex: 1 }]}>{f.name}</Text>
+                          <Button
+                            label={busy ? (invited ? 'Reminding…' : 'Inviting…') : invited ? 'Remind' : 'Invite'}
+                            variant={invited ? 'ghost' : 'secondary'}
+                            small
+                            disabled={busy}
+                            onPress={() => (invited ? remindFriend(f) : inviteFriend(f))}
+                          />
+                        </View>
+                      );
+                    })
+                  )}
+                </>
+              )}
+            </Card>
+          )}
+
+          {challenge.createdBy === user?.id && (
+            <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteRow}>
+              <TrashIcon size={14} color={colors.amber} />
+              <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete challenge'}</Text>
+            </Pressable>
+          )}
+        </>
       )}
     </ScrollView>
     </SafeAreaView>
@@ -2066,6 +2126,11 @@ function formatEndsLabel(endsAt: string, now: number): string {
 // Local-calendar day key, same convention as deviceSync.ts's own —
 // "today's workouts" for linking has to agree with what someone's phone
 // itself calls today, not a UTC day that can be off by one near midnight.
+// "Oct 1", for the Details tab's date range.
+function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -2129,6 +2194,17 @@ function makeStyles(colors: Palette) {
     headerRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
     headerIcon: { width: 46, height: 46, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
     headerMeta: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    detailsLine: { fontFamily: font.heading, fontSize: 14, color: colors.text },
+    rulesHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      backgroundColor: withAlpha(colors.accent, 0.12),
+    },
+    rulesHintText: { flex: 1, fontFamily: font.heading, fontSize: 13.5, color: colors.text },
     leaderboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     // Same accent-wash spotlight as Home's hunt card — the first thing a
     // finished challenge shows is what to do next.

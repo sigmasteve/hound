@@ -2,6 +2,9 @@ import type { RematchDraft } from '../challenges/rematch';
 
 export type MainTab = 'home' | 'challenges' | 'metrics' | 'friends' | 'settings' | 'connect';
 
+// The challenge screen's three tabs.
+export type ChallengeTab = 'board' | 'talk' | 'details';
+
 export type RootStackParamList = {
   Welcome: undefined;
   Login: undefined;
@@ -12,7 +15,8 @@ export type RootStackParamList = {
   // src/challenges/rematch.ts) to prefill the wizard.
   // global: an admin publishing a Global Hound Challenge from Admin.
   Create: { rematch?: RematchDraft; global?: boolean } | undefined;
-  ChallengeDetail: { challengeId: string };
+  // tab: which part of the challenge to open on (Board by default).
+  ChallengeDetail: { challengeId: string; tab?: ChallengeTab };
   FriendDetail: {
     friendshipId: string;
     friendUserId: string;
