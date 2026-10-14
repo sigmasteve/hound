@@ -58,6 +58,10 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
   // Which add-a-friend panel is open, if any — nothing opens until the
   // viewer picks an option tile.
   const [addMode, setAddMode] = useState<AddMode | null>(null);
+  // The ways to add someone sit behind "Add friends", below your list,
+  // instead of above it: testers had to scroll past them to find their
+  // friends. Shown open while you have no friends yet.
+  const [showAdd, setShowAdd] = useState(false);
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
@@ -251,7 +255,18 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={text.h2}>Friends</Text>
+      <View style={styles.titleRow}>
+        <Text style={text.h2}>Friends</Text>
+        {accepted.length > 0 && (
+          <Button
+            label={showAdd ? 'Done' : 'Add friends'}
+            variant={showAdd ? 'secondary' : 'primary'}
+            small
+            icon={showAdd ? undefined : <UserPlusIcon size={14} color={colors.accent} />}
+            onPress={() => setShowAdd((v) => !v)}
+          />
+        )}
+      </View>
 
       {/* Ahead of every invite/QR/code card below — a friend request is
           the one thing here that actually needs a response from someone
@@ -285,126 +300,6 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
         </>
       )}
 
-      {discovery && (
-        <FindPeopleCard
-          searchEnabled={discovery.searchEnabled}
-          suggestionsEnabled={discovery.suggestionsEnabled}
-          onChanged={load}
-        />
-      )}
-
-      {/* Every way to add someone is one tap away, side by side — the
-          options themselves are always visible, and only the one actually
-          picked opens its panel below, rather than all three hiding behind
-          a single collapsed header. */}
-      <Card style={{ gap: 12 }} elevated={false}>
-        <View style={{ gap: 2 }}>
-          <Text style={styles.sectionTitle}>Enjoy with Friends</Text>
-          <Text style={styles.footNote}>Pick how you want to connect.</Text>
-        </View>
-        <View style={styles.optionRow}>
-          {ADD_OPTIONS.map(({ id, label, Icon }) => {
-            const on = addMode === id;
-            return (
-              <Pressable
-                key={id}
-                onPress={() => setAddMode(on ? null : id)}
-                style={[styles.optionTile, on && styles.optionTileOn]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
-              >
-                <Icon size={20} color={colors.accentActive} weight={on ? 'fill' : 'regular'} />
-                <Text style={[styles.optionLabel, on && styles.optionLabelOn]}>{label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {addMode === 'email' && (
-          <View style={{ gap: 10 }}>
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
-              <TextField
-                label="Their email"
-                value={inviteEmail}
-                onChangeText={setInviteEmail}
-                placeholder="friend@example.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={{ flex: 1 }}
-              />
-              <View style={styles.inlineAction}>
-                <Button
-                  label={inviting ? 'Sending…' : 'Send'}
-                  variant="primary"
-                  small
-                  disabled={inviting || !inviteEmail.trim()}
-                  onPress={sendInvite}
-                />
-              </View>
-            </View>
-            {inviteError && <Text style={styles.errorNote}>{inviteError}</Text>}
-            {inviteSuccess && !inviteError && <Text style={styles.successNote}>{inviteSuccess}</Text>}
-          </View>
-        )}
-
-        {addMode === 'myCode' && (
-          <View style={{ gap: 12 }}>
-            {myCode && (
-              <View style={styles.qrWrap}>
-                <QRCode value={friendCodeUrl(myCode)} size={140} color={colors.text} backgroundColor={colors.surface} />
-              </View>
-            )}
-            {/* The code itself, big enough to read out or type in — friends
-                enter it under "Add a friend's code". */}
-            {myCode && (
-              <View style={styles.myCodeBlock}>
-                <Text style={styles.myCodeLabel}>YOUR FRIEND CODE</Text>
-                <Text style={styles.myCodeValue} selectable>
-                  {myCode}
-                </Text>
-              </View>
-            )}
-            <Text style={[styles.inviteLink, { textAlign: 'center' }]}>{myCode ? friendCodeUrl(myCode) : '—'}</Text>
-            {myCode && (
-              <Text style={[styles.footNote, { textAlign: 'center' }]}>
-                Friends with Hound can enter the code. The link helps friends without Hound get the beta first, then
-                add you.
-              </Text>
-            )}
-            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
-              <Button label={copied ? 'Copied!' : 'Copy link'} small disabled={!myCode} onPress={copyMyLink} />
-              <Button label="Share" variant="primary" small disabled={!myCode} onPress={shareMyLink} />
-            </View>
-          </View>
-        )}
-
-        {addMode === 'enterCode' && (
-          <View style={{ gap: 10 }}>
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
-              <TextField
-                label="Friend's code or link"
-                value={redeemInput}
-                onChangeText={setRedeemInput}
-                placeholder="e.g. Ab3xK9pQ"
-                autoCapitalize="none"
-                style={{ flex: 1 }}
-              />
-              <View style={styles.inlineAction}>
-                <Button
-                  label={redeeming ? 'Adding…' : 'Add'}
-                  variant="primary"
-                  small
-                  disabled={redeeming || !redeemInput.trim()}
-                  onPress={redeemCode}
-                />
-              </View>
-            </View>
-            {redeemError && <Text style={styles.errorNote}>{redeemError}</Text>}
-            {redeemSuccess && !redeemError && <Text style={styles.successNote}>{redeemSuccess}</Text>}
-          </View>
-        )}
-      </Card>
-
       {/* One card, one scroll box — at most MAX_VISIBLE_FRIENDS rows tall,
           scrolling within itself past that, so a long friend list never
           pushes Pending (below) off the page. */}
@@ -414,7 +309,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
           {accepted.length > 0 && <Text style={styles.footNote}>{accepted.length}</Text>}
         </View>
         {accepted.length === 0 ? (
-          <Text style={styles.footNote}>No friends yet — pick an option above to add someone.</Text>
+          <Text style={styles.footNote}>No friends yet. Pick a way to add someone below.</Text>
         ) : (
           <ScrollView style={{ maxHeight: FRIEND_ROW_HEIGHT * MAX_VISIBLE_FRIENDS }} nestedScrollEnabled>
             {accepted.map((f, i) => (
@@ -436,6 +331,130 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
           <Text style={styles.footNote}>Scroll to see all {accepted.length}.</Text>
         )}
       </Card>
+
+      {(showAdd || accepted.length === 0) && (
+        <>
+        {discovery && (
+          <FindPeopleCard
+            searchEnabled={discovery.searchEnabled}
+            suggestionsEnabled={discovery.suggestionsEnabled}
+            onChanged={load}
+          />
+        )}
+
+        {/* Every way to add someone is one tap away, side by side — the
+            options themselves are always visible, and only the one actually
+            picked opens its panel below, rather than all three hiding behind
+            a single collapsed header. */}
+        <Card style={{ gap: 12 }} elevated={false}>
+          <View style={{ gap: 2 }}>
+            <Text style={styles.sectionTitle}>Enjoy with Friends</Text>
+            <Text style={styles.footNote}>Pick how you want to connect.</Text>
+          </View>
+          <View style={styles.optionRow}>
+            {ADD_OPTIONS.map(({ id, label, Icon }) => {
+              const on = addMode === id;
+              return (
+                <Pressable
+                  key={id}
+                  onPress={() => setAddMode(on ? null : id)}
+                  style={[styles.optionTile, on && styles.optionTileOn]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                >
+                  <Icon size={20} color={colors.accentActive} weight={on ? 'fill' : 'regular'} />
+                  <Text style={[styles.optionLabel, on && styles.optionLabelOn]}>{label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {addMode === 'email' && (
+            <View style={{ gap: 10 }}>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
+                <TextField
+                  label="Their email"
+                  value={inviteEmail}
+                  onChangeText={setInviteEmail}
+                  placeholder="friend@example.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  style={{ flex: 1 }}
+                />
+                <View style={styles.inlineAction}>
+                  <Button
+                    label={inviting ? 'Sending…' : 'Send'}
+                    variant="primary"
+                    small
+                    disabled={inviting || !inviteEmail.trim()}
+                    onPress={sendInvite}
+                  />
+                </View>
+              </View>
+              {inviteError && <Text style={styles.errorNote}>{inviteError}</Text>}
+              {inviteSuccess && !inviteError && <Text style={styles.successNote}>{inviteSuccess}</Text>}
+            </View>
+          )}
+
+          {addMode === 'myCode' && (
+            <View style={{ gap: 12 }}>
+              {myCode && (
+                <View style={styles.qrWrap}>
+                  <QRCode value={friendCodeUrl(myCode)} size={140} color={colors.text} backgroundColor={colors.surface} />
+                </View>
+              )}
+              {/* The code itself, big enough to read out or type in — friends
+                  enter it under "Add a friend's code". */}
+              {myCode && (
+                <View style={styles.myCodeBlock}>
+                  <Text style={styles.myCodeLabel}>YOUR FRIEND CODE</Text>
+                  <Text style={styles.myCodeValue} selectable>
+                    {myCode}
+                  </Text>
+                </View>
+              )}
+              <Text style={[styles.inviteLink, { textAlign: 'center' }]}>{myCode ? friendCodeUrl(myCode) : '—'}</Text>
+              {myCode && (
+                <Text style={[styles.footNote, { textAlign: 'center' }]}>
+                  Friends with Hound can enter the code. The link helps friends without Hound get the beta first, then
+                  add you.
+                </Text>
+              )}
+              <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
+                <Button label={copied ? 'Copied!' : 'Copy link'} small disabled={!myCode} onPress={copyMyLink} />
+                <Button label="Share" variant="primary" small disabled={!myCode} onPress={shareMyLink} />
+              </View>
+            </View>
+          )}
+
+          {addMode === 'enterCode' && (
+            <View style={{ gap: 10 }}>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
+                <TextField
+                  label="Friend's code or link"
+                  value={redeemInput}
+                  onChangeText={setRedeemInput}
+                  placeholder="e.g. Ab3xK9pQ"
+                  autoCapitalize="none"
+                  style={{ flex: 1 }}
+                />
+                <View style={styles.inlineAction}>
+                  <Button
+                    label={redeeming ? 'Adding…' : 'Add'}
+                    variant="primary"
+                    small
+                    disabled={redeeming || !redeemInput.trim()}
+                    onPress={redeemCode}
+                  />
+                </View>
+              </View>
+              {redeemError && <Text style={styles.errorNote}>{redeemError}</Text>}
+              {redeemSuccess && !redeemError && <Text style={styles.successNote}>{redeemSuccess}</Text>}
+            </View>
+          )}
+        </Card>
+        </>
+      )}
 
       {/* Recent highlights from friends — wins and unlocked badges.
           Tap a row to open that friend; 👏 sends them kudos. */}
@@ -520,6 +539,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 12, paddingBottom: 48 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
     feedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
     feedMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
     feedAvatar: { width: 38, alignItems: 'center' },
