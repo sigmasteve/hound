@@ -9,6 +9,7 @@ import { HomeScreen, type HomeDestination } from './HomeScreen';
 import { ChallengesScreen } from './ChallengesScreen';
 import { FriendsScreen } from './FriendsScreen';
 import { YouScreen } from './YouScreen';
+import { startBackgroundSync } from '../background';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Main'>;
 
@@ -27,6 +28,12 @@ export function MainScreen({ route, navigation }: Props) {
       navigation.setParams({ tab: undefined });
     }
   }, [route.params?.tab]);
+
+  // Main only shows once someone is signed in: from here on the phone may
+  // sync in the background.
+  useEffect(() => {
+    startBackgroundSync();
+  }, []);
 
   // Today links to a tab, or to a screen that used to be one.
   const goFromHome = (dest: HomeDestination) => {

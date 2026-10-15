@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import type { PendingAction } from '../challenges/pendingActions';
@@ -58,10 +59,21 @@ let lastSavedThrough: string | null = null;
 // One reschedule at a time, so two can't cancel each other's reminders.
 let running: Promise<void> = Promise.resolve();
 
+// The bonus and the "still on your list" items only come from Home, so
+// they're kept on the phone for a background refresh (background/
+// backgroundSync.ts) to reuse when the app isn't open.
+const SAVED_INPUTS_KEY = 'hound:saved-inputs';
+
+function remember(patch: Partial<HoundInputs>): void {
+  if (!('bonus' in patch) && !('pending' in patch)) return;
+  AsyncStorage.setItem(SAVED_INPUTS_KEY, JSON.stringify({ bonus: inputs.bonus, pending: inputs.pending })).catch(() => {});
+}
+
 // Merges what changed and reschedules shortly after, so a burst of
 // updates during one Home load schedules once.
 export function updateHound(patch: Partial<HoundInputs>): void {
   Object.assign(inputs, patch);
+  remember(patch);
   if (timer) clearTimeout(timer);
   timer = setTimeout(() => {
     timer = null;
@@ -72,6 +84,24 @@ export function updateHound(patch: Partial<HoundInputs>): void {
       }),
     );
   }, 1500);
+}
+
+// For a background refresh: reschedules right away and waits for it,
+// with the bonus and list items Home last saw.
+export async function refreshHoundNow(patch: Partial<HoundInputs>): Promise<void> {
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
+  try {
+    const saved = await AsyncStorage.getItem(SAVED_INPUTS_KEY);
+    if (saved) Object.assign(inputs, JSON.parse(saved) as Partial<HoundInputs>);
+  } catch {
+    // Nothing saved: go without them.
+  }
+  Object.assign(inputs, patch);
+  running = running.then(() => reschedule().catch(() => {}));
+  await running;
 }
 
 async function permissionGranted(): Promise<boolean> {

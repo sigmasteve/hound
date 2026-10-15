@@ -3,7 +3,7 @@
     "name": "Hound",
     "slug": "hound",
     "scheme": "hound",
-    "version": "0.10.0",
+    "version": "0.10.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -72,7 +72,16 @@
           }
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Hound uses the camera to scan a friend's QR code so you can add them.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-background-task"
     ],
     "extra": {
       "eas": {

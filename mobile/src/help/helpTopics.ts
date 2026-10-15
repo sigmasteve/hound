@@ -199,7 +199,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Choose how hard Hound hounds you: Gentle (one evening reminder), Persistent (up to 3 a day), Relentless (up to 5) or Off.',
         'Reminders stop for the day once your goals are done. Weekly goals only remind you when you’re behind pace.',
       ],
-      tip: 'Reminders say what time their numbers are from, because your phone can’t check again before they go off.',
+      tip: 'Hound checks your progress in the background every so often, so reminders stop once you hit a goal. Your phone decides how often, so a reminder can still say what time its numbers are from.',
     },
     {
       id: 'daily-bonus',
@@ -233,7 +233,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'Find people: on the Friends tab, search by name or username, or pick from People you may know (people in your challenges, friends of friends, and new members). Tap Add to send a request.',
         'Share my code: show your QR code, or share your link. The link helps friends who don’t have Hound yet get the beta first, then shows them your code.',
-        'Enter a code: paste a friend’s code or link to connect instantly. New members also see a “Got an invite code?” card on Today.',
+        'Enter a code: paste a friend’s code or link, or tap Scan their QR code and point your camera at theirs, to connect instantly. New members also see a “Got an invite code?” card on Today.',
         'Invite by email: if they’re not on Hound yet, they’ll get an invite and you’ll be connected when they sign up.',
         'From a leaderboard: tap Add next to anyone in a challenge with you.',
       ],
