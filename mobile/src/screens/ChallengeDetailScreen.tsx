@@ -1270,7 +1270,14 @@ export function ChallengeDetailScreen({
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-    <ScrollView contentContainerStyle={styles.container}>
+    {/* Talk's message box sits at the bottom of the page: on iOS this
+        makes room for the keyboard and scrolls whatever field you're
+        typing in back above it, instead of leaving it underneath. */}
+    <ScrollView
+      contentContainerStyle={styles.container}
+      automaticallyAdjustKeyboardInsets
+      keyboardShouldPersistTaps="handled"
+    >
       <Button label="All challenges" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
       <View style={styles.headerRow}>
