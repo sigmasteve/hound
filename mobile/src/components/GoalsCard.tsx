@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { BarbellIcon, CheckCircleIcon, FootprintsIcon, PathIcon, TimerIcon } from 'phosphor-react-native';
+import { Button } from './Button';
 import { Card } from './Card';
 import { ProgressBar } from './ProgressBar';
 import { useTheme } from '../theme/ThemeContext';
@@ -18,12 +19,17 @@ const ICONS: Record<GoalMetric, React.ComponentType<any>> = {
 // The heading says whether the Hound is still on you.
 export function GoalsCard({
   progress,
+  needsSetup,
   onOpenGoal,
   onEdit,
+  onSetGoals,
 }: {
   progress: GoalProgress[];
+  // Goals nobody has chosen yet (the starters): offer to set them.
+  needsSetup: boolean;
   onOpenGoal: (p: GoalProgress) => void;
   onEdit: () => void;
+  onSetGoals: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -43,10 +49,19 @@ export function GoalsCard({
                 : `${done} of ${progress.length} goals done`}
           </Text>
         </View>
-        <Pressable onPress={onEdit} hitSlop={8} accessibilityRole="button">
-          <Text style={styles.edit}>{progress.length === 0 ? 'Add a goal' : 'Edit'}</Text>
-        </Pressable>
+        {!needsSetup && (
+          <Pressable onPress={onEdit} hitSlop={8} accessibilityRole="button">
+            <Text style={styles.edit}>{progress.length === 0 ? 'Add a goal' : 'Edit'}</Text>
+          </Pressable>
+        )}
       </View>
+
+      {needsSetup && (
+        <View style={styles.setup}>
+          <Text style={styles.setupText}>These are starter goals. Make them yours.</Text>
+          <Button label="Set your goals" variant="primary" small onPress={onSetGoals} />
+        </View>
+      )}
 
       {progress.map((p) => {
         const Icon = ICONS[p.goal.metric];
@@ -86,6 +101,15 @@ function makeStyles(colors: Palette) {
     subtitle: { fontSize: 13, color: withAlpha(colors.text, 0.6) },
     edit: { fontFamily: font.heading, fontSize: 14, color: colors.accentActive, paddingTop: 2 },
     row: { gap: 6 },
+    setup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      padding: 12,
+      borderRadius: 10,
+      backgroundColor: withAlpha(colors.accent, 0.1),
+    },
+    setupText: { flex: 1, fontSize: 13, color: colors.text },
     rowTop: { flexDirection: 'row', alignItems: 'center', gap: 7 },
     goalName: { flex: 1, fontSize: 13, color: withAlpha(colors.text, 0.75) },
     valueRow: { flexDirection: 'row', alignItems: 'baseline' },

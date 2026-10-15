@@ -14,7 +14,10 @@
 -- The app works out progress from the phone's health data, the same
 -- source as challenges. New users get three starter goals from
 -- ensure_starter_goals(): 10,000 steps a day, 3 miles a day and 3 workouts
--- a week, or whatever the phone already had in its sliders.
+-- a week, or whatever the phone already had in its sliders. It also says
+-- whether the account is new (under a week old), so Today can open goal
+-- setup for a new account and just offer a "Set your goals" button to
+-- everyone else, until hound_settings.goals_set_at says they've done it.
 --
 -- hound_settings holds how hard to hound (off, gentle, persistent,
 -- relentless; no row = gentle) and the last day the phone has scheduled
@@ -92,24 +95,26 @@ revoke execute on function public.goals_limit() from public, anon, authenticated
 -- ever had a goal, archived ones included, so removing all your goals
 -- doesn't bring them back.
 create or replace function public.ensure_starter_goals(p_steps integer, p_distance_mi numeric)
-returns void
+returns boolean
 language plpgsql
 security definer set search_path = public
 as $$
 declare
   me uuid := auth.uid();
+  is_new boolean;
 begin
   if me is null then
-    return;
+    return false;
   end if;
+  select p.created_at > now() - interval '7 days' into is_new from public.profiles p where p.id = me;
   perform pg_advisory_xact_lock(hashtext('ensure_starter_goals:' || me::text));
-  if exists (select 1 from public.goals where user_id = me) then
-    return;
+  if not exists (select 1 from public.goals where user_id = me) then
+    insert into public.goals (user_id, metric, period, target, sort) values
+      (me, 'steps', 'day', least(greatest(coalesce(p_steps, 10000), 1000), 100000), 0),
+      (me, 'distance_mi', 'day', least(greatest(coalesce(p_distance_mi, 3), 0.5), 100), 1),
+      (me, 'workouts', 'week', 3, 2);
   end if;
-  insert into public.goals (user_id, metric, period, target, sort) values
-    (me, 'steps', 'day', least(greatest(coalesce(p_steps, 10000), 1000), 100000), 0),
-    (me, 'distance_mi', 'day', least(greatest(coalesce(p_distance_mi, 3), 0.5), 100), 1),
-    (me, 'workouts', 'week', 3, 2);
+  return coalesce(is_new, false);
 end;
 $$;
 
@@ -121,6 +126,9 @@ create table public.hound_settings (
   level text not null default 'gentle' check (level in ('off', 'gentle', 'persistent', 'relentless')),
   -- The last local calendar day the phone has scheduled reminders for.
   scheduled_through date,
+  -- When this person last set their goals themselves (goal setup on
+  -- Today, or the Goals screen). Null until then.
+  goals_set_at timestamptz,
   updated_at timestamptz not null default now()
 );
 

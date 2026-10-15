@@ -24,9 +24,12 @@ function client() {
   return supabase;
 }
 
-export async function ensureStarterGoals(steps: number, distanceMi: number): Promise<void> {
-  const { error } = await client().rpc('ensure_starter_goals', { p_steps: Math.round(steps), p_distance_mi: distanceMi });
+// Adds the starter goals if this person has never had any, and says
+// whether the account is new (under a week old).
+export async function ensureStarterGoals(steps: number, distanceMi: number): Promise<boolean> {
+  const { data, error } = await client().rpc('ensure_starter_goals', { p_steps: Math.round(steps), p_distance_mi: distanceMi });
   if (error) throw new Error(error.message);
+  return data === true;
 }
 
 export async function listGoals(userId: string): Promise<Goal[]> {
@@ -78,27 +81,29 @@ export async function removeGoal(goalId: string): Promise<void> {
 
 export async function getHoundSettings(
   userId: string,
-): Promise<{ level: HoundLevel; scheduledThrough: string | null; saved: boolean }> {
+): Promise<{ level: HoundLevel; scheduledThrough: string | null; goalsSetAt: string | null; saved: boolean }> {
   const { data, error } = await client()
     .from('hound_settings')
-    .select('level, scheduled_through')
+    .select('level, scheduled_through, goals_set_at')
     .eq('user_id', userId)
     .maybeSingle();
   if (error) throw new Error(error.message);
   return {
     level: (data?.level as HoundLevel) ?? DEFAULT_HOUND_LEVEL,
     scheduledThrough: data?.scheduled_through ?? null,
+    goalsSetAt: data?.goals_set_at ?? null,
     saved: !!data,
   };
 }
 
 export async function saveHoundSettings(
   userId: string,
-  patch: { level?: HoundLevel; scheduledThrough?: string | null },
+  patch: { level?: HoundLevel; scheduledThrough?: string | null; goalsSetAt?: string },
 ): Promise<void> {
   const row: Record<string, unknown> = { user_id: userId, updated_at: new Date().toISOString() };
   if (patch.level !== undefined) row.level = patch.level;
   if (patch.scheduledThrough !== undefined) row.scheduled_through = patch.scheduledThrough;
+  if (patch.goalsSetAt !== undefined) row.goals_set_at = patch.goalsSetAt;
   const { error } = await client().from('hound_settings').upsert(row, { onConflict: 'user_id' });
   if (error) throw new Error(error.message);
 }

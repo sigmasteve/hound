@@ -1,13 +1,13 @@
 -- 0097: goals and hound settings are private, starter goals arrive once,
 -- and nobody has more than 8 goals at a time.
-select plan(9);
+select plan(10);
 
 select tests.new_user('Ann') as ann \gset
 select tests.new_user('Bob') as bob \gset
 
 select tests.sign_in(:'ann');
 set local role authenticated;
-select public.ensure_starter_goals(8000, 2.5);
+select is(public.ensure_starter_goals(8000, 2.5), true, 'A new account is reported as new');
 select is((select count(*)::int from public.goals), 3, 'Starter goals: three of them');
 select is((select target from public.goals where metric = 'steps'), 8000::numeric,
   'The steps goal keeps the phone''s own setting');

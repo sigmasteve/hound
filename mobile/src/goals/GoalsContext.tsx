@@ -27,6 +27,7 @@ import { updateHound } from './hound';
 const LEGACY_SLIDERS_KEY = 'hound:daily-goals';
 const LOCAL_GOALS_KEY = 'hound:goals';
 const LOCAL_LEVEL_KEY = 'hound:hound-level';
+const LOCAL_SET_KEY = 'hound:goals-set';
 
 export const DEFAULT_STEPS_GOAL = 10_000;
 export const DEFAULT_DISTANCE_GOAL_MI = 3;
@@ -65,6 +66,12 @@ interface GoalsContextValue {
   updateGoal: (id: string, patch: Partial<GoalDraft>) => Promise<void>;
   removeGoal: (id: string) => Promise<void>;
   setHoundLevel: (level: HoundLevel) => Promise<void>;
+  // Whether this person has set their goals themselves yet (goal setup on
+  // Today, or the Goals screen). Until then Today offers to.
+  goalsSet: boolean;
+  // An account under a week old: Today opens goal setup for them.
+  isNewAccount: boolean;
+  markGoalsSet: () => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -76,16 +83,21 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [houndLevel, setLevel] = useState<HoundLevel>(DEFAULT_HOUND_LEVEL);
+  const [goalsSet, setGoalsSet] = useState(true);
+  const [isNewAccount, setIsNewAccount] = useState(false);
   // Whether goals are on this phone rather than the server.
   const localRef = useRef(!isSupabaseConfigured);
 
   const loadLocal = useCallback(async () => {
     localRef.current = true;
     try {
-      const [savedGoals, savedLevel] = await Promise.all([
+      const [savedGoals, savedLevel, savedSet] = await Promise.all([
         AsyncStorage.getItem(LOCAL_GOALS_KEY),
         AsyncStorage.getItem(LOCAL_LEVEL_KEY),
+        AsyncStorage.getItem(LOCAL_SET_KEY),
       ]);
+      setGoalsSet(savedSet === 'true');
+      setIsNewAccount(false);
       if (savedGoals) {
         setGoals(JSON.parse(savedGoals) as Goal[]);
       } else {
@@ -106,10 +118,12 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       const { steps, distanceMi } = await readLegacySliders();
-      await ensureStarterGoals(steps, distanceMi);
+      const isNew = await ensureStarterGoals(steps, distanceMi);
       const [list, settings] = await Promise.all([listGoals(userId), getHoundSettings(userId)]);
       localRef.current = false;
       setGoals(list);
+      setIsNewAccount(isNew);
+      setGoalsSet(!!settings.goalsSetAt);
       let level = settings.level;
       // Someone who had turned the old "Daily reminders" switch off keeps
       // their reminders off.
@@ -193,6 +207,15 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     [userId],
   );
 
+  const markGoalsSet = useCallback(async () => {
+    setGoalsSet(true);
+    if (localRef.current || !userId) {
+      AsyncStorage.setItem(LOCAL_SET_KEY, 'true').catch(() => {});
+      return;
+    }
+    await saveHoundSettings(userId, { goalsSetAt: new Date().toISOString() });
+  }, [userId]);
+
   const value = useMemo<GoalsContextValue>(() => {
     const steps = goals.find((g) => g.metric === 'steps' && g.period === 'day' && !g.label);
     const distance = goals.find((g) => g.metric === 'distance_mi' && g.period === 'day' && !g.label);
@@ -206,9 +229,12 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       updateGoal,
       removeGoal,
       setHoundLevel,
+      goalsSet,
+      isNewAccount,
+      markGoalsSet,
       refresh,
     };
-  }, [goals, loaded, houndLevel, addGoal, updateGoal, removeGoal, setHoundLevel, refresh]);
+  }, [goals, loaded, houndLevel, addGoal, updateGoal, removeGoal, setHoundLevel, goalsSet, isNewAccount, markGoalsSet, refresh]);
 
   return <GoalsReactContext.Provider value={value}>{children}</GoalsReactContext.Provider>;
 }

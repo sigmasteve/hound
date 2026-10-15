@@ -193,7 +193,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'Goals and the Hound',
       summary: 'Set a goal and Hound won’t let it go.',
       steps: [
-        'Everyone starts with three goals: 10,000 steps a day, 3 miles a day and 3 workouts a week. Change or remove them under You → Goals.',
+        'Everyone starts with three goals: 10,000 steps a day, 3 miles a day and 3 workouts a week. Tap Set your goals on Today to make them yours, or change them any time under You → Goals.',
         'Add your own goal: pick steps, distance, workouts or workout minutes, every day or every week. For workouts you can choose the kind, like runs or strength.',
         'Hound looks at your last four weeks and suggests a target a little above what you usually do.',
         'Choose how hard Hound hounds you: Gentle (one evening reminder), Persistent (up to 3 a day), Relentless (up to 5) or Off.',

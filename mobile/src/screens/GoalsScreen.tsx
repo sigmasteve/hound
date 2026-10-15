@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { MinusIcon, PlusIcon, TrashIcon } from 'phosphor-react-native';
+import { PlusIcon, TrashIcon } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { RadioPill } from '../components/Selectable';
@@ -8,8 +8,8 @@ import { SegmentedControl } from '../components/SegmentedControl';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { useHealthProvider } from '../health/HealthContext';
-import type { DailyStepsWithDate, WorkoutSample } from '../health/types';
+import { useGoalHistory, type GoalHistory } from '../goals/useGoalHistory';
+import { GoalStepper } from '../components/GoalStepper';
 import { useGoals } from '../goals/GoalsContext';
 import { HOUND_LEVELS } from '../goals/hound';
 import {
@@ -21,7 +21,6 @@ import {
   MAX_GOALS,
   METRIC_NAMES,
   metricTakesActivity,
-  roundTarget,
   suggestTarget,
   type Goal,
   type GoalActivity,
@@ -31,35 +30,23 @@ import {
 
 const METRICS: GoalMetric[] = ['steps', 'distance_mi', 'workouts', 'workout_minutes'];
 
-const STEP: Record<GoalMetric, number> = { steps: 500, distance_mi: 0.5, workouts: 1, workout_minutes: 5 };
-
-function nudge(metric: GoalMetric, value: number, dir: 1 | -1): number {
-  return roundTarget(metric, value + STEP[metric] * dir);
-}
-
 // Your goals, and how hard the Hound reminds you about them. Opened from
 // the You tab and from the goals card on Today.
 export function GoalsScreen() {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { goals, houndLevel, setHoundLevel, updateGoal, removeGoal, addGoal } = useGoals();
-  const health = useHealthProvider();
+  const { goals, houndLevel, setHoundLevel, updateGoal, removeGoal, addGoal, markGoalsSet } = useGoals();
+  // Any change here counts as having set your goals.
+  const changed = () => markGoalsSet().catch(() => {});
 
-  // The last four weeks, for "you average…" suggestions.
-  const [history, setHistory] = useState<{ days: DailyStepsWithDate[]; workouts: WorkoutSample[] } | null>(null);
-  useEffect(() => {
-    const since = new Date();
-    since.setDate(since.getDate() - 29);
-    Promise.all([health.getDailyStepsSince(since), health.getRecentWorkouts(200)])
-      .then(([days, workouts]) => setHistory({ days, workouts }))
-      .catch(() => setHistory({ days: [], workouts: [] }));
-  }, [health]);
+  const history = useGoalHistory();
 
   const [adding, setAdding] = useState(false);
 
   const changeLevel = async (level: typeof houndLevel) => {
     try {
       await setHoundLevel(level);
+      changed();
     } catch (err) {
       Alert.alert('Hounding', err instanceof Error ? err.message : 'Something went wrong.');
     }
@@ -103,11 +90,11 @@ export function GoalsScreen() {
             goal={g}
             styles={styles}
             colors={colors}
-            onChange={(target) => updateGoal(g.id, { target }).catch(() => {})}
+            onChange={(target) => updateGoal(g.id, { target }).then(changed, () => {})}
             onRemove={() =>
               Alert.alert('Remove this goal?', g.label ?? describeGoal(g), [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Remove', style: 'destructive', onPress: () => removeGoal(g.id).catch(() => {}) },
+                { text: 'Remove', style: 'destructive', onPress: () => removeGoal(g.id).then(changed, () => {}) },
               ])
             }
           />
@@ -131,47 +118,12 @@ export function GoalsScreen() {
           onCancel={() => setAdding(false)}
           onSave={async (draft) => {
             await addGoal(draft);
+            changed();
             setAdding(false);
           }}
         />
       )}
     </ScrollView>
-  );
-}
-
-function Stepper({
-  metric,
-  value,
-  onChange,
-  styles,
-  colors,
-}: {
-  metric: GoalMetric;
-  value: number;
-  onChange: (v: number) => void;
-  styles: GoalsStyles;
-  colors: Palette;
-}) {
-  return (
-    <View style={styles.stepper}>
-      <Pressable
-        onPress={() => onChange(nudge(metric, value, -1))}
-        style={styles.stepButton}
-        hitSlop={6}
-        accessibilityLabel="Less"
-      >
-        <MinusIcon size={14} color={colors.accentActive} />
-      </Pressable>
-      <Text style={styles.stepValue}>{formatAmount(metric, value)}</Text>
-      <Pressable
-        onPress={() => onChange(nudge(metric, value, 1))}
-        style={styles.stepButton}
-        hitSlop={6}
-        accessibilityLabel="More"
-      >
-        <PlusIcon size={14} color={colors.accentActive} />
-      </Pressable>
-    </View>
   );
 }
 
@@ -207,7 +159,7 @@ function GoalRow({
           {describeGoal({ ...goal, target: draft })}
         </Text>
       </View>
-      <Stepper metric={goal.metric} value={draft} onChange={setDraft} styles={styles} colors={colors} />
+      <GoalStepper metric={goal.metric} value={draft} onChange={setDraft} />
       <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel="Remove goal">
         <TrashIcon size={16} color={withAlpha(colors.text, 0.5)} />
       </Pressable>
@@ -222,7 +174,7 @@ function NewGoalCard({
   styles,
   colors,
 }: {
-  history: { days: DailyStepsWithDate[]; workouts: WorkoutSample[] } | null;
+  history: GoalHistory | null;
   onSave: (draft: Omit<Goal, 'id' | 'sort'>) => Promise<void>;
   onCancel: () => void;
   styles: GoalsStyles;
@@ -298,7 +250,7 @@ function NewGoalCard({
         <Text style={styles.fieldLabel}>Target</Text>
         <View style={styles.targetRow}>
           <Text style={styles.goalDetail}>{describeGoal(draft)}</Text>
-          <Stepper metric={metric} value={target} onChange={setTarget} styles={styles} colors={colors} />
+          <GoalStepper metric={metric} value={target} onChange={setTarget} />
         </View>
         <Text style={styles.footNote}>
           {history === null
@@ -346,16 +298,6 @@ function makeStyles(colors: Palette) {
     goalRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     goalName: { fontFamily: font.heading, fontSize: 14.5, color: colors.text },
     goalDetail: { flex: 1, fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
-    stepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    stepButton: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: withAlpha(colors.accent, 0.14),
-    },
-    stepValue: { minWidth: 64, textAlign: 'center', fontFamily: font.heading, fontSize: 14, color: colors.text },
     fieldLabel: { fontSize: 12, letterSpacing: 0.4, color: withAlpha(colors.text, 0.55) },
     wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     targetRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

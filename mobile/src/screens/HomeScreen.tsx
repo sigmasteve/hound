@@ -113,6 +113,8 @@ import { useLabels } from '../labels/LabelsContext';
 import { useGoalProgress } from '../goals/useGoalProgress';
 import { updateHound } from '../goals/hound';
 import { GoalsCard } from '../components/GoalsCard';
+import { GoalSetupCard } from '../components/GoalSetupCard';
+import { useGoals } from '../goals/GoalsContext';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 
 interface PrimaryChallenge {
@@ -470,6 +472,21 @@ export function HomeScreen({
   useEffect(() => {
     if (goalProgress) updateHound({ progress: goalProgress });
   }, [goalProgress]);
+  // Goal setup on Today: opens by itself once, on a new account's first
+  // visit; everyone else opens it from the goals card.
+  const { goalsSet, isNewAccount, loaded: goalsLoaded } = useGoals();
+  const [setupOpen, setSetupOpen] = useState(false);
+  useEffect(() => {
+    if (!goalsLoaded || goalsSet || !isNewAccount || !user?.id) return;
+    const key = `hound:goal-setup-shown:${user.id}`;
+    AsyncStorage.getItem(key)
+      .then((shown) => {
+        if (shown) return;
+        setSetupOpen(true);
+        AsyncStorage.setItem(key, 'true').catch(() => {});
+      })
+      .catch(() => {});
+  }, [goalsLoaded, goalsSet, isNewAccount, user?.id]);
   // null = either no real active challenge to headline, or the fetch
   // below hasn't resolved yet — same "never break the screen, just fall
   // back" pattern ChallengesScreen uses for its own list. Distinct from
@@ -1317,12 +1334,25 @@ export function HomeScreen({
       {/* Where you're at today comes first, above any challenge —
           testers wanted it on screen without scrolling. One row per goal
           (0097_goals.sql), with whatever's left on each. */}
-      {goalProgress && (
-        <GoalsCard
-          progress={goalProgress}
-          onOpenGoal={() => onGoTab('stats')}
-          onEdit={() => onGoTab('goals')}
+      {setupOpen ? (
+        <GoalSetupCard
+          canDismiss
+          onDone={() => setSetupOpen(false)}
+          onMoreOptions={() => {
+            setSetupOpen(false);
+            onGoTab('goals');
+          }}
         />
+      ) : (
+        goalProgress && (
+          <GoalsCard
+            progress={goalProgress}
+            needsSetup={!goalsSet}
+            onOpenGoal={() => onGoTab('stats')}
+            onEdit={() => onGoTab('goals')}
+            onSetGoals={() => setSetupOpen(true)}
+          />
+        )
       )}
 
       <View style={styles.heroRow}>
