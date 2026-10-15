@@ -1818,6 +1818,10 @@ Apple accounts, so this is written for you to run on your own machine.
    prompts you through picking or creating one. Internal testers (up to
    100, your own Apple Developer team) don't need Apple's review; external
    testers do.
+6. **Every new build: set the Home banner** (Admin → Home banner) so
+   people on older versions find the new one. The template, and when to
+   turn it on and off, is in the repo's root `CLAUDE.md` under "New app
+   builds".
 
 ### What this sandbox could and couldn't verify
 
