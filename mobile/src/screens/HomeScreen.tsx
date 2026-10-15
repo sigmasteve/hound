@@ -1355,43 +1355,6 @@ export function HomeScreen({
         )
       )}
 
-      <View style={styles.heroRow}>
-        <View style={styles.heroText}>
-          <Text style={text.eyebrow}>{hero?.eyebrow ?? 'GET STARTED'}</Text>
-          <Text style={[text.h2, styles.heroTitle]}>{heroHeadline}</Text>
-        </View>
-        <Button
-          label={primary ? 'View challenge' : 'New challenge'}
-          variant="primary"
-          icon={
-            primary ? (
-              <CrosshairIcon size={15} color={color.accent} />
-            ) : (
-              <PlusCircleIcon size={15} color={color.accent} />
-            )
-          }
-          onPress={openPrimary}
-        />
-      </View>
-
-      {/* Your challenge first — testers had to scroll past everything
-          else to reach it. */}
-      {primary && (
-        <View style={styles.cardsRow}>
-          {primary.challenge.kind === 'hunt' && primary.board.length === 2 ? (
-            <LiveHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
-          ) : primary.challenge.kind === 'hunt' ? (
-            <LiveMultiHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
-          ) : primary.challenge.kind === 'bingo' ? (
-            <BingoCardPreview primary={primary} filled={primaryBingoFilled} onOpen={openPrimary} styles={styles} />
-          ) : primary.challenge.kind === 'tictacgo' ? (
-            <TicTacGoPreview primary={primary} game={primaryTttGame} onOpen={openPrimary} styles={styles} />
-          ) : (
-            <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} colors={colors} />
-          )}
-        </View>
-      )}
-
       {/* One list for everything waiting on you — your move or
           checklist in a challenge, challenge invites, friend requests —
           instead of a separate card for each. Three at a time; the rest
@@ -1544,6 +1507,43 @@ export function HomeScreen({
             </Pressable>
           ))}
         </Card>
+      )}
+
+      <View style={styles.heroRow}>
+        <View style={styles.heroText}>
+          <Text style={text.eyebrow}>{hero?.eyebrow ?? 'GET STARTED'}</Text>
+          <Text style={[text.h2, styles.heroTitle]}>{heroHeadline}</Text>
+        </View>
+        <Button
+          label={primary ? 'View challenge' : 'New challenge'}
+          variant="primary"
+          icon={
+            primary ? (
+              <CrosshairIcon size={15} color={color.accent} />
+            ) : (
+              <PlusCircleIcon size={15} color={color.accent} />
+            )
+          }
+          onPress={openPrimary}
+        />
+      </View>
+
+      {/* Your highlighted challenge, after the goals and the summary of
+          all your challenges. */}
+      {primary && (
+        <View style={styles.cardsRow}>
+          {primary.challenge.kind === 'hunt' && primary.board.length === 2 ? (
+            <LiveHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
+          ) : primary.challenge.kind === 'hunt' ? (
+            <LiveMultiHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
+          ) : primary.challenge.kind === 'bingo' ? (
+            <BingoCardPreview primary={primary} filled={primaryBingoFilled} onOpen={openPrimary} styles={styles} />
+          ) : primary.challenge.kind === 'tictacgo' ? (
+            <TicTacGoPreview primary={primary} game={primaryTttGame} onOpen={openPrimary} styles={styles} />
+          ) : (
+            <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} colors={colors} />
+          )}
+        </View>
       )}
 
       {/* Global challenges that haven't started yet keep the full card,
