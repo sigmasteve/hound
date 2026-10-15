@@ -70,12 +70,12 @@ const SCORING_METHODS: { id: ScoringMethod; label: string }[] = [
   { id: 'device_steps', label: 'Device step count' },
 ];
 
-type StartOption = 'today' | 'now' | 'tomorrow';
+type StartOption = 'now' | 'tomorrow';
 
 // The actual Challenge.startsAt this challenge gets created with — every
 // downstream read (ChallengeDetailScreen's syncFromDevice, daysElapsedFraction,
 // the head-start math) just works off whatever this resolves to, so this
-// is the one place the three choices below turn into a real Date.
+// is the one place the two choices below turn into a real Date.
 function startsAtFor(option: StartOption): Date {
   const d = new Date();
   if (option === 'now') return d;
@@ -143,14 +143,11 @@ export function CreateScreen({
   const [distanceGoalMi, setDistanceGoalMi] = useState(rematch?.distanceGoalMi ?? 100);
   const [distanceGoalSteps, setDistanceGoalSteps] = useState(rematch?.distanceGoalSteps ?? 500_000);
   const [dailyGoalSteps, setDailyGoalSteps] = useState(rematch?.dailyGoalSteps ?? 10_000);
-  const [length, setLength] = useState(rematch ? String(rematch.durationDays) : '21');
-  // Defaults to 'today' (retroactive to midnight) — matches what people
-  // reasonably expect "I started this today" to mean, without needing to
-  // find this control at all. 'now'/'tomorrow' are here for the two
-  // real cases that default doesn't cover: wanting today's earlier
-  // activity to NOT count, or wanting a clean first day starting
-  // tomorrow instead.
-  const [startOption, setStartOption] = useState<StartOption>('today');
+  const [length, setLength] = useState(rematch ? String(rematch.durationDays) : '7');
+  // Now or Tomorrow, nothing else: the old third choice ("Today",
+  // counting from midnight) was one more thing to read for a difference
+  // most people never needed.
+  const [startOption, setStartOption] = useState<StartOption>('now');
   // Global only: which day it starts (0 = today), and how long after
   // that people can still join.
   const [startInDays, setStartInDays] = useState(1);
@@ -660,7 +657,6 @@ export function CreateScreen({
             <Text style={styles.fieldLabel}>Starts</Text>
             <SegmentedControl
               options={[
-                { value: 'today', label: 'Today' },
                 { value: 'now', label: 'Now' },
                 { value: 'tomorrow', label: 'Tomorrow' },
               ]}
@@ -668,36 +664,28 @@ export function CreateScreen({
               onChange={setStartOption}
             />
             <Text style={styles.footNote}>
-              {startOption === 'today'
-                ? 'Counts everything logged today, even before this challenge existed.'
-                : startOption === 'now'
-                  ? 'Only counts what you log from this moment forward — earlier today doesn’t count.'
-                  : 'Starts fresh tomorrow — nothing today counts, even if you log something right after creating this.'}
-              {usesStepsOnly && startOption !== 'tomorrow'
-                ? ' For a step-count challenge, “Today” and “Now” count the same — your phone only reports a whole day’s steps at a time, not by the minute.'
-                : ''}
+              {startOption === 'tomorrow'
+                ? 'Starts fresh tomorrow. Nothing from today counts.'
+                : usesStepsOnly
+                  ? 'Starts now. Today’s steps count, since phones report steps for the whole day.'
+                  : 'Starts now. Workouts from earlier today don’t count.'}
             </Text>
           </View>
           )}
 
           <View style={{ gap: 5 }}>
-            <Text style={styles.fieldLabel}>Runs for</Text>
+            <View style={styles.huntBlockHeader}>
+              <Text style={styles.fieldLabel}>Runs for</Text>
+              <Text style={styles.huntBlockValue}>{customLengthLabel}</Text>
+            </View>
             <SegmentedControl
               options={[
                 { value: '7', label: '7 days' },
-                { value: '21', label: '21 days' },
                 { value: '30', label: '30 days' },
               ]}
               value={length}
               onChange={setLength}
             />
-          </View>
-
-          <View style={{ gap: 5 }}>
-            <View style={styles.huntBlockHeader}>
-              <Text style={styles.fieldLabel}>Or pick any length</Text>
-              <Text style={styles.huntBlockValue}>{customLengthLabel}</Text>
-            </View>
             <Slider
               minimumValue={1}
               // Every other kind keeps its existing 45-day ceiling
