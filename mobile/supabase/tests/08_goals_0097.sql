@@ -16,14 +16,15 @@ select public.ensure_starter_goals(10000, 3);
 select is((select count(*)::int from public.goals where archived_at is null), 0,
   'Removing every goal does not bring the starters back');
 
+select throws_ok(
+  $q$insert into public.goals (user_id, metric, period, target, activity) values (auth.uid(), 'steps', 'day', 5000, 'run')$q$,
+  '23514', null, 'Only workout goals take an activity');
+
 insert into public.goals (user_id, metric, period, target, activity, label)
 select :'ann', 'workouts', 'week', 2, 'run', 'Run twice a week' from generate_series(1, 8);
 select throws_ok(
   $q$insert into public.goals (user_id, metric, period, target) values (auth.uid(), 'steps', 'day', 5000)$q$,
   'You can have up to 8 goals at a time.', 'A ninth goal is refused');
-select throws_ok(
-  $q$insert into public.goals (user_id, metric, period, target, activity) values (auth.uid(), 'steps', 'day', 5000, 'run')$q$,
-  '23514', null, 'Only workout goals take an activity');
 
 insert into public.hound_settings (user_id, level) values (auth.uid(), 'relentless');
 reset role;
