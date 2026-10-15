@@ -6,8 +6,11 @@ select tests.new_user('Ben') as ben \gset
 select tests.new_user('Cy') as cy \gset
 
 -- A Step Race that ended 30 hours ago, Ann and Ben in it. Cy is not.
-insert into public.challenges (id, name, kind, created_by, duration_days, starts_at, ends_at)
-values ('66666666-0000-0000-0000-000000000001', 'Late', 'steps', :'ann', 3, now() - interval '5 days', now() - interval '30 hours');
+-- start_day is set so the snapshot day below is always inside it. Left to
+-- default, it's starts_at's New York date, which between midnight and
+-- 4 AM UTC is a day earlier, and the snapshots were then dropped.
+insert into public.challenges (id, name, kind, created_by, duration_days, starts_at, ends_at, start_day)
+values ('66666666-0000-0000-0000-000000000001', 'Late', 'steps', :'ann', 3, now() - interval '5 days', now() - interval '30 hours', current_date - 4);
 insert into public.challenge_participants (challenge_id, user_id) values
   ('66666666-0000-0000-0000-000000000001', :'ann'),
   ('66666666-0000-0000-0000-000000000001', :'ben');
