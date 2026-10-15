@@ -32,6 +32,7 @@ export function MainScreen({ route, navigation }: Props) {
   const goFromHome = (dest: HomeDestination) => {
     if (dest === 'stats') navigation.navigate('Stats');
     else if (dest === 'healthData') navigation.navigate('HealthData');
+    else if (dest === 'goals') navigation.navigate('Goals');
     else setTab(dest);
   };
 
@@ -78,6 +79,7 @@ export function MainScreen({ route, navigation }: Props) {
         )}
         {tab === 'you' && (
           <YouScreen
+            onOpenGoals={() => navigation.navigate('Goals')}
             onOpenStats={() => navigation.navigate('Stats')}
             onOpenAchievements={() => navigation.navigate('Achievements')}
             onOpenLocker={() => navigation.navigate('Locker')}

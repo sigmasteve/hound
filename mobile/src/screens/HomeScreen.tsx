@@ -11,9 +11,7 @@ import {
   EnvelopeOpenIcon,
   FlagCheckeredIcon,
   GlobeHemisphereWestIcon,
-  FootprintsIcon,
   MedalIcon,
-  PathIcon,
   PawPrintIcon,
   PlusCircleIcon,
   SneakerMoveIcon,
@@ -112,6 +110,10 @@ import { Toast, type ToastMessage } from '../components/Toast';
 import { TicTacGoBoard } from '../components/TicTacGoCard';
 import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
+import { useGoalProgress } from '../goals/useGoalProgress';
+import { updateHound } from '../goals/hound';
+import { GoalsCard } from '../components/GoalsCard';
+import { GoalSetupCard } from '../components/GoalSetupCard';
 import { useGoals } from '../goals/GoalsContext';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 
@@ -444,7 +446,7 @@ function takePopup(): boolean {
 
 // Where Today's links go: a tab, or a screen that used to be a tab and
 // now opens from You.
-export type HomeDestination = MainTab | 'stats' | 'healthData';
+export type HomeDestination = MainTab | 'stats' | 'healthData' | 'goals';
 
 export function HomeScreen({
   onOpenHunt,
@@ -461,10 +463,30 @@ export function HomeScreen({
   const health = useHealthProvider();
   const { colors, text } = useTheme();
   const { labelsForOrg } = useLabels();
-  const { stepsGoal, distanceGoalMi } = useGoals();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [snap, setSnap] = useState<HealthSnapshot | null>(null);
   const [workouts, setWorkouts] = useState<WorkoutSample[]>([]);
+  // Progress on every goal, for the card at the top and for the Hound's
+  // reminders, which are rescheduled whenever it changes.
+  const goalProgress = useGoalProgress(snap, workouts);
+  useEffect(() => {
+    if (goalProgress) updateHound({ progress: goalProgress });
+  }, [goalProgress]);
+  // Goal setup on Today: opens by itself once, on a new account's first
+  // visit; everyone else opens it from the goals card.
+  const { goalsSet, isNewAccount, loaded: goalsLoaded } = useGoals();
+  const [setupOpen, setSetupOpen] = useState(false);
+  useEffect(() => {
+    if (!goalsLoaded || goalsSet || !isNewAccount || !user?.id) return;
+    const key = `hound:goal-setup-shown:${user.id}`;
+    AsyncStorage.getItem(key)
+      .then((shown) => {
+        if (shown) return;
+        setSetupOpen(true);
+        AsyncStorage.setItem(key, 'true').catch(() => {});
+      })
+      .catch(() => {});
+  }, [goalsLoaded, goalsSet, isNewAccount, user?.id]);
   // null = either no real active challenge to headline, or the fetch
   // below hasn't resolved yet — same "never break the screen, just fall
   // back" pattern ChallengesScreen uses for its own list. Distinct from
@@ -1200,18 +1222,6 @@ export function HomeScreen({
     };
   }, [user?.id, refreshKey]);
 
-  // Local calendar day, same rule as MetricsScreen's "Today's Workouts" list,
-  // so the two screens always count the same workouts.
-  const todaysWorkoutCount = useMemo(() => {
-    const now = new Date();
-    return workouts.filter(
-      (w) =>
-        w.when.getFullYear() === now.getFullYear() &&
-        w.when.getMonth() === now.getMonth() &&
-        w.when.getDate() === now.getDate(),
-    ).length;
-  }, [workouts]);
-
   // Same shape as ChallengesScreen's own respondToInvite — Join re-runs
   // the whole primary-challenge effect above (a newly-accepted challenge
   // needs its board fetched and the counts/primary card recomputed),
@@ -1322,33 +1332,28 @@ export function HomeScreen({
       {announcementBar}
       <ScrollView contentContainerStyle={styles.container}>
       {/* Where you're at today comes first, above any challenge —
-          testers wanted it on screen without scrolling. Resting HR and
-          Weight live in Stats & records; Today keeps the two metrics
-          that matter for a challenge in progress. */}
-      <View style={styles.tileGrid}>
-        <MetricTile
-          label="Steps"
-          Icon={FootprintsIcon}
-          value={(snap?.stepsToday ?? 0).toLocaleString()}
-          sub={`${Math.round(((snap?.stepsToday ?? 0) / stepsGoal) * 100)}% of ${stepsGoal.toLocaleString()} · ${snap?.source ?? ''}`}
-          pct={((snap?.stepsToday ?? 0) / stepsGoal) * 100}
-          onPress={() => onGoTab('stats')}
-          styles={styles}
+          testers wanted it on screen without scrolling. One row per goal
+          (0097_goals.sql), with whatever's left on each. */}
+      {setupOpen ? (
+        <GoalSetupCard
+          canDismiss
+          onDone={() => setSetupOpen(false)}
+          onMoreOptions={() => {
+            setSetupOpen(false);
+            onGoTab('goals');
+          }}
         />
-        <MetricTile
-          label="Distance"
-          Icon={PathIcon}
-          value={`${(snap?.distanceTodayMi ?? 0).toFixed(1)} mi`}
-          sub={`${Math.round(((snap?.distanceTodayMi ?? 0) / distanceGoalMi) * 100)}% of ${distanceGoalMi} mi · ${
-            todaysWorkoutCount === 0
-              ? 'no workouts yet'
-              : `${todaysWorkoutCount} ${todaysWorkoutCount === 1 ? 'workout' : 'workouts'} today`
-          }`}
-          pct={((snap?.distanceTodayMi ?? 0) / distanceGoalMi) * 100}
-          onPress={() => onGoTab('stats')}
-          styles={styles}
-        />
-      </View>
+      ) : (
+        goalProgress && (
+          <GoalsCard
+            progress={goalProgress}
+            needsSetup={!goalsSet}
+            onOpenGoal={() => onGoTab('stats')}
+            onEdit={() => onGoTab('goals')}
+            onSetGoals={() => setSetupOpen(true)}
+          />
+        )
+      )}
 
       <View style={styles.heroRow}>
         <View style={styles.heroText}>
@@ -2075,38 +2080,6 @@ function TicTacGoPreview({
   );
 }
 
-function MetricTile({
-  label,
-  Icon,
-  value,
-  sub,
-  pct,
-  barColor = color.accent,
-  onPress,
-  styles,
-}: {
-  label: string;
-  Icon: React.ComponentType<any>;
-  value: string;
-  sub: string;
-  pct: number;
-  barColor?: string;
-  onPress: () => void;
-  styles: HomeStyles;
-}) {
-  return (
-    <Pressable style={styles.tile} onPress={onPress}>
-      <View style={styles.tileLabelRow}>
-        <Icon size={14} color={color.accent} />
-        <Text style={styles.tileLabel}>{label.toUpperCase()}</Text>
-      </View>
-      <Text style={styles.tileValue}>{value}</Text>
-      <ProgressBar pct={pct} fillColor={barColor} />
-      <Text style={styles.tileSub}>{sub}</Text>
-    </Pressable>
-  );
-}
-
 // The hunt card's own background used to be a fixed, hand-tuned dark navy
 // regardless of theme, so it'd keep reading as a branded highlight
 // instead of turning white like every other card in Light mode — but a
@@ -2186,18 +2159,6 @@ function makeStyles(colors: Palette) {
     typeText: { flex: 1, gap: 1 },
     typeName: { fontFamily: font.heading, fontSize: 13.5, color: colors.text },
     typeDesc: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
-    tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    tile: {
-      flexBasis: '47%',
-      flexGrow: 1,
-      gap: 10,
-      padding: 14,
-      borderRadius: 8,
-      backgroundColor: colors.surface,
-    },
-    tileLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-    tileLabel: { fontSize: 11, letterSpacing: 1, color: colors.accent },
-    tileValue: { fontFamily: font.heading, fontSize: 28, color: colors.text },
     tileSub: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
     cardsRow: { gap: 12 },
     // Fixed, hand-tuned dark background regardless of theme — the same

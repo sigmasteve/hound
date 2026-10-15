@@ -9,6 +9,7 @@ import {
   GearSixIcon,
   HeartbeatIcon,
   QuestionIcon,
+  TargetIcon,
   TrophyIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
@@ -24,12 +25,15 @@ import { levelProgressForXp } from '../challenges/leveling';
 import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import { listAchievements, listEarnedAchievements } from '../achievements/achievementsApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
+import { useGoals } from '../goals/GoalsContext';
+import { HOUND_LEVELS } from '../goals/hound';
 
 // The You tab: who you are and how you're doing (level, Hound Score,
 // Bones), then one row for each place that's about you. Everything here
 // used to be spread across Settings, the Data and Connect tabs, and icons
 // in the top bar.
 export function YouScreen({
+  onOpenGoals,
   onOpenStats,
   onOpenAchievements,
   onOpenLocker,
@@ -37,6 +41,7 @@ export function YouScreen({
   onOpenSettings,
   onOpenHelp,
 }: {
+  onOpenGoals: () => void;
   onOpenStats: () => void;
   onOpenAchievements: () => void;
   onOpenLocker: () => void;
@@ -49,6 +54,7 @@ export function YouScreen({
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const currencyName = useCurrencyName();
+  const { goals, houndLevel } = useGoals();
 
   // Null until loaded (or if it fails): the numbers just don't show,
   // rather than a guessed 0.
@@ -76,6 +82,12 @@ export function YouScreen({
     health.platform === 'ios' ? 'Apple Health' : health.platform === 'android' ? 'Health Connect' : 'Sample data';
 
   const rows: { label: string; Icon: React.ComponentType<any>; detail?: string | null; onPress: () => void }[] = [
+    {
+      label: 'Goals',
+      Icon: TargetIcon,
+      detail: `${goals.length} ${goals.length === 1 ? 'goal' : 'goals'} · ${HOUND_LEVELS.find((l) => l.id === houndLevel)?.name ?? ''}`,
+      onPress: onOpenGoals,
+    },
     { label: 'Stats & records', Icon: ChartLineUpIcon, onPress: onOpenStats },
     {
       label: 'Achievements',

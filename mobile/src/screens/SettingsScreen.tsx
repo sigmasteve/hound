@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import Slider from '@react-native-community/slider';
 import {
   CaretRightIcon,
   CheckIcon,
@@ -14,7 +13,6 @@ import { Card } from '../components/Card';
 import { ToggleRow } from '../components/Selectable';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
-import { useGoals } from '../goals/GoalsContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import type { AuthProviderId } from '../auth/types';
@@ -22,11 +20,6 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { APP_VERSION } from '../lib/appVersion';
 import { deleteMyAccount } from '../auth/deleteAccount';
 import * as notifications from '../notifications/supabaseNotifications';
-import {
-  getLocalRemindersEnabled,
-  getReminderPermission,
-  setLocalRemindersEnabled,
-} from '../notifications/localReminders';
 import { setUseUsername, setUsername } from '../profiles/supabaseProfile';
 import { getOrganization, leaveOrganization, redeemOrganizationInvite } from '../organizations/supabaseOrganizations';
 import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
@@ -79,10 +72,6 @@ export function SettingsScreen() {
     );
   };
   const { colors, text, mode, setMode } = useTheme();
-  const { stepsGoal, distanceGoalMi, setStepsGoal, setDistanceGoalMi } = useGoals();
-  // Shown while a slider is mid-drag; the goal itself only saves on release.
-  const [stepsDraft, setStepsDraft] = useState<number | null>(null);
-  const [distanceDraft, setDistanceDraft] = useState<number | null>(null);
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   // Seeded from the signed-in user, not a separate fetch — profiles.username
@@ -291,32 +280,6 @@ export function SettingsScreen() {
     setAskingPush(false);
   };
 
-  // On-device reminders (src/notifications/localReminders.ts) — a device
-  // preference, not a profiles column, since they're scheduled locally
-  // per phone. Reads as on only when both the preference and the OS
-  // permission allow it, so a denied permission never shows a toggle
-  // that looks on but delivers nothing.
-  const [localRemindersOn, setLocalRemindersOn] = useState<boolean | null>(null);
-  const [savingLocalReminders, setSavingLocalReminders] = useState(false);
-  useFocusEffect(
-    useCallback(() => {
-      Promise.all([getLocalRemindersEnabled(), getReminderPermission()])
-        .then(([enabled, permission]) => setLocalRemindersOn(enabled && permission === 'granted'))
-        .catch(() => setLocalRemindersOn(false));
-    }, []),
-  );
-  const toggleLocalReminders = async (next: boolean) => {
-    setSavingLocalReminders(true);
-    try {
-      await setLocalRemindersEnabled(next);
-      setLocalRemindersOn(next);
-    } catch (err) {
-      Alert.alert('Daily reminders', err instanceof Error ? err.message : 'Something went wrong.');
-    } finally {
-      setSavingLocalReminders(false);
-    }
-  };
-
   // Two of the three Alerts, each its own Push + Email pair — see
   // notifications/types.ts's own comment on why the third (proximity)
   // isn't part of this shape.
@@ -522,50 +485,6 @@ export function SettingsScreen() {
         />
       </Card>
 
-      <Card style={{ gap: 14 }} elevated={false}>
-        <Text style={text.h4}>Daily goals</Text>
-        <View style={{ gap: 4 }}>
-          <View style={styles.goalRow}>
-            <Text style={styles.sourceName}>Steps</Text>
-            <Text style={styles.goalValue}>{(stepsDraft ?? stepsGoal).toLocaleString()}</Text>
-          </View>
-          <Slider
-            minimumValue={2_000}
-            maximumValue={30_000}
-            step={500}
-            value={stepsGoal}
-            onValueChange={(v) => setStepsDraft(Math.round(v))}
-            onSlidingComplete={(v) => {
-              setStepsGoal(Math.round(v));
-              setStepsDraft(null);
-            }}
-            minimumTrackTintColor={colors.accent}
-            maximumTrackTintColor={colors.neutral700}
-            thumbTintColor={colors.accent}
-          />
-        </View>
-        <View style={{ gap: 4 }}>
-          <View style={styles.goalRow}>
-            <Text style={styles.sourceName}>Distance</Text>
-            <Text style={styles.goalValue}>{distanceDraft ?? distanceGoalMi} mi</Text>
-          </View>
-          <Slider
-            minimumValue={0.5}
-            maximumValue={15}
-            step={0.5}
-            value={distanceGoalMi}
-            onValueChange={(v) => setDistanceDraft(Math.round(v * 2) / 2)}
-            onSlidingComplete={(v) => {
-              setDistanceGoalMi(Math.round(v * 2) / 2);
-              setDistanceDraft(null);
-            }}
-            minimumTrackTintColor={colors.accent}
-            maximumTrackTintColor={colors.neutral700}
-            thumbTintColor={colors.accent}
-          />
-        </View>
-        <Text style={styles.footNote}>Today&rsquo;s Steps and Distance bars fill toward these each day.</Text>
-      </Card>
 
       {user && (
         <Card style={styles.accountRow} elevated={false}>
@@ -693,8 +612,8 @@ export function SettingsScreen() {
           <Card style={{ gap: 16 }} elevated={false}>
             <Text style={text.h4}>Notifications</Text>
             <Text style={styles.footNote}>
-              Covers login reminders, Tag catch alerts, stale-data alerts, daily standings, and nudges, reactions and trash
-              talk.
+              Covers Tag catch alerts, stale-data alerts, daily standings, and nudges, reactions and trash talk. Goal
+              reminders are set under You → Goals.
             </Text>
             {phonePush === 'denied' && (
               <View style={styles.phonePushNote}>
@@ -731,14 +650,6 @@ export function SettingsScreen() {
               value={allEmailEnabled}
               onChange={toggleMasterEmail}
             />
-            {localRemindersOn !== null && (
-              <ToggleRow
-                label="Daily reminders"
-                note={savingLocalReminders ? 'Saving…' : 'Your daily bonus and anything still waiting on you'}
-                value={localRemindersOn}
-                onChange={toggleLocalReminders}
-              />
-            )}
 
             <Pressable
               style={styles.collapsibleHeader}
@@ -899,8 +810,6 @@ function makeStyles(colors: Palette) {
       alignItems: 'flex-start',
     },
     phonePushText: { fontSize: 12.5, color: colors.text },
-    goalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    goalValue: { fontSize: 14.5, color: colors.accent, fontFamily: font.heading },
     footNoteError: { fontSize: 12.5, color: colors.amber },
     deleteRow: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingVertical: 4 },
     deleteLabel: { fontSize: 14, color: colors.amber, fontFamily: font.heading },

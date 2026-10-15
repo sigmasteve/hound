@@ -1,32 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { updateHound } from '../goals/hound';
 import type { PendingAction } from '../challenges/pendingActions';
 
-// On-device reminders, scheduled locally with expo-notifications rather
-// than pushed from a server job — so they fire at the user's own local
-// time (the server-side send-login-reminders fires once at a fixed UTC
-// hour for everyone, see its own TODO) and can say something specific
-// about this user's day. Both are rescheduled from scratch on every Home
-// load, under a fixed identifier, so a newer schedule always replaces the
-// previous one instead of stacking duplicates:
-//   - daily bonus: tomorrow at 6pm, "your bonus is waiting" — pushed back
-//     a day every time the app is opened, so it only ever fires on a day
-//     the user hasn't opened the app by then
-//   - pending actions: today at 7pm, only if something's actually waiting
-//     (Home's own Needs Attention list), cancelled once nothing is
+// Permission for on-device reminders, and the two reminder inputs Home
+// and the daily bonus popup feed in. The reminders themselves are
+// scheduled by the Hound (src/goals/hound.ts) at the user's own local
+// times.
 //
-// Never prompts for permission on its own: scheduling silently does
-// nothing unless notifications are already allowed. The two places that
-// do ask are deliberate, user-initiated ones — the daily bonus popup's
-// "Remind me tomorrow" button and Settings' own toggle.
+// Never prompts for permission on its own. The places that ask are
+// deliberate, user-initiated ones: the daily bonus popup's "Remind me
+// tomorrow" button and choosing a hounding level on the Goals screen.
 
-const BONUS_REMINDER_ID = 'hound-daily-bonus-reminder';
-const PENDING_NUDGE_ID = 'hound-pending-actions-nudge';
 const ENABLED_KEY = 'hound.localReminders.enabled';
-const ANDROID_CHANNEL_ID = 'reminders';
-const BONUS_REMINDER_HOUR = 18;
-const PENDING_NUDGE_HOUR = 19;
 
 // expo-notifications' scheduling APIs don't exist on web (this app also
 // ships a react-native-web build) — everything below no-ops there.
@@ -70,75 +57,19 @@ export async function setLocalRemindersEnabled(enabled: boolean): Promise<void> 
   if (!enabled) await cancelAll();
 }
 
-async function canSchedule(): Promise<boolean> {
-  return supported && (await getLocalRemindersEnabled()) && (await getReminderPermission()) === 'granted';
-}
-
-async function ensureAndroidChannel(): Promise<void> {
-  if (Platform.OS !== 'android') return;
-  await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-    name: 'Reminders',
-    importance: Notifications.AndroidImportance.DEFAULT,
-  });
-}
-
-async function scheduleAt(identifier: string, date: Date, title: string, body: string): Promise<void> {
-  await ensureAndroidChannel();
-  await Notifications.scheduleNotificationAsync({
-    identifier,
-    content: { title, body, sound: 'default' },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date, channelId: ANDROID_CHANNEL_ID },
-  });
-}
-
-async function cancel(identifier: string): Promise<void> {
-  if (!supported) return;
-  await Notifications.cancelScheduledNotificationAsync(identifier).catch(() => {});
-}
-
 async function cancelAll(): Promise<void> {
-  await Promise.all([cancel(BONUS_REMINDER_ID), cancel(PENDING_NUDGE_ID)]);
+  // The Hound owns every scheduled reminder now; with reminders turned
+  // off it has nothing left to say.
+  updateHound({ bonus: null, pending: [] });
 }
 
-function atLocalHour(daysFromToday: number, hour: number): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromToday);
-  d.setHours(hour, 0, 0, 0);
-  return d;
-}
-
-// Best-effort throughout — a reminder that fails to schedule should never
-// surface as an error on Home.
+// The daily bonus reminder and the "still on your list" nudge are part of
+// the Hound now (src/goals/hound.ts), which decides when they go out and
+// how many reminders fit in a day.
 export async function scheduleDailyBonusReminder(nextStreak: number, nextBonus: number, currencyName: string): Promise<void> {
-  try {
-    if (!(await canSchedule())) return;
-    const body =
-      nextStreak > 1
-        ? `Open Hound to claim +${nextBonus} ${currencyName} and make it a ${nextStreak}-day streak.`
-        : `Open Hound to claim +${nextBonus} ${currencyName}.`;
-    await scheduleAt(BONUS_REMINDER_ID, atLocalHour(1, BONUS_REMINDER_HOUR), 'Your daily bonus is waiting', body);
-  } catch {
-    // See this function's own comment.
-  }
+  updateHound({ bonus: { nextStreak, nextBonus, currencyName } });
 }
 
 export async function schedulePendingActionsNudge(actions: PendingAction[]): Promise<void> {
-  try {
-    if (actions.length === 0 || !(await canSchedule())) {
-      await cancel(PENDING_NUDGE_ID);
-      return;
-    }
-    const at = atLocalHour(0, PENDING_NUDGE_HOUR);
-    // Already past tonight's slot — nothing useful left to schedule today;
-    // tomorrow's first Home load reschedules against tomorrow's list.
-    if (at.getTime() <= Date.now()) {
-      await cancel(PENDING_NUDGE_ID);
-      return;
-    }
-    const [first, ...rest] = actions;
-    const body = rest.length > 0 ? `${first.label} — and ${rest.length} more.` : `${first.label}.`;
-    await scheduleAt(PENDING_NUDGE_ID, at, 'Still on your list today', body);
-  } catch {
-    // Same best-effort reasoning as scheduleDailyBonusReminder.
-  }
+  updateHound({ pending: actions });
 }

@@ -22,6 +22,7 @@ import { AchievementsScreen } from '../screens/AchievementsScreen';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { MetricsScreen } from '../screens/MetricsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { GoalsScreen } from '../screens/GoalsScreen';
 import { StackPage } from '../components/StackPage';
 import { WelcomeScreen } from '../screens/auth/WelcomeScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -335,6 +336,15 @@ export function RootNavigator() {
               {({ navigation }) => (
                 <StackPage onBack={() => navigation.goBack()}>
                   <MetricsScreen />
+                </StackPage>
+              )}
+            </Stack.Screen>
+            {/* Opened from the You tab and from Today's goals card, so the
+                back button just says Back. */}
+            <Stack.Screen name="Goals" options={{ animation: 'slide_from_right' }}>
+              {({ navigation }) => (
+                <StackPage backLabel="Back" onBack={() => navigation.goBack()}>
+                  <GoalsScreen />
                 </StackPage>
               )}
             </Stack.Screen>

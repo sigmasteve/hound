@@ -46,5 +46,6 @@ export type RootStackParamList = {
   // Opened from the You tab (they used to be tabs or the top bar).
   Stats: undefined;
   Settings: undefined;
+  Goals: undefined;
   HealthData: undefined;
 };

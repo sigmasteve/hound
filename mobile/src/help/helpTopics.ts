@@ -80,6 +80,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'The Today screen',
       summary: 'Your home base — check it once a day.',
       steps: [
+        'Your goals come first: the Hound’s on you card shows each goal, where you are on it, and what’s left. Tap Edit to change them.',
         `New here? A Get started checklist walks you through connecting your health app, adding a friend, and joining a challenge — finish all three for a ${currency} reward.`,
         'Your challenge comes first: the one you’ve pinned with Pin to Today, or otherwise one of your active challenges.',
         'Needs you lists anything waiting on you: challenge invites, friend requests, your move in Tic-Tac-Go, picking a target when you’re It in Tag, today’s 75 Day checklist, or progress to log.',
@@ -187,6 +188,20 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'goals',
+      section: 'basics',
+      title: 'Goals and the Hound',
+      summary: 'Set a goal and Hound won’t let it go.',
+      steps: [
+        'Everyone starts with three goals: 10,000 steps a day, 3 miles a day and 3 workouts a week. Tap Set your goals on Today to make them yours, or change them any time under You → Goals.',
+        'Add your own goal: pick steps, distance, workouts or workout minutes, every day or every week. For workouts you can choose the kind, like runs or strength.',
+        'Hound looks at your last four weeks and suggests a target a little above what you usually do.',
+        'Choose how hard Hound hounds you: Gentle (one evening reminder), Persistent (up to 3 a day), Relentless (up to 5) or Off.',
+        'Reminders stop for the day once your goals are done. Weekly goals only remind you when you’re behind pace.',
+      ],
+      tip: 'Reminders say what time their numbers are from, because your phone can’t check again before they go off.',
+    },
+    {
       id: 'daily-bonus',
       section: 'rewards',
       title: 'Daily bonus and streak',
@@ -196,7 +211,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Come back on consecutive days to build a streak — every 7th day pays a bigger weekly bonus.',
         'Miss a day and your streak starts over at day 1 (you still get that day’s bonus).',
       ],
-      tip: 'Turn on Daily reminders in You → Settings and Hound will nudge you in the evening.',
+      tip: 'With hounding on (You → Goals), your evening reminder mentions the bonus too.',
     },
     {
       id: 'locker',
@@ -263,18 +278,17 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'Choose what Hound tells you about.',
       steps: [
         'Open You → Settings → Notifications to turn push and email notifications on or off.',
-        'Daily reminders are on-device nudges for your daily bonus and anything on your Needs attention list.',
+        'Goal reminders (the Hound) are set under You → Goals: Gentle, Persistent, Relentless or Off.',
         'Open Advanced to pick exactly which alerts you get, and how.',
       ],
     },
     {
       id: 'account',
       section: 'settings',
-      title: 'Appearance, goals, and username',
+      title: 'Appearance and username',
       summary: 'Make the app yours.',
       steps: [
         'Appearance: Hound is dark by default — turn on Light mode for a bright background.',
-        'Daily goals: set your daily steps and distance targets with the sliders.',
         'Username: save a username, then turn on Use username in challenges to show it instead of your real name on leaderboards and invites.',
       ],
     },

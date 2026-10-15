@@ -3,10 +3,16 @@
 // this, so unlike send-invite-email it authenticates with the service
 // role key, not a caller's JWT.
 //
-// Each run reaches the people for whom it's 9 PM right now in their own
-// time zone (profiles.time_zone; US Eastern when unknown). For each one
-// who hasn't opened the app yet today (their own calendar day) and has
-// at least one reminder channel turned on, sends:
+// The Hound's backup (0097_goals.sql). Each run reaches the people for
+// whom it's 9 PM right now in their own time zone (profiles.time_zone; US
+// Eastern when unknown) and who haven't opened the app yet today (their
+// own calendar day). It names their daily goals: "Hound hasn't seen you
+// today. 10,000 steps and 3 mi are still on the table."
+//
+// It stays quiet for anyone whose hounding is off, and for anyone whose
+// phone has already scheduled its own reminders for today
+// (hound_settings.scheduled_through), so nobody gets both. Channels are
+// the same as before:
 //   - a push notification, via Expo's push API, to every device token
 //     registered for that user (see device_push_tokens / src/notifications)
 //   - an email, via Resend, reusing the same setup as send-invite-email
@@ -65,6 +71,20 @@ interface ProfileRow {
   last_login_reminder_sent_at: string | null;
 }
 
+interface HoundRow {
+  user_id: string;
+  level: string;
+  scheduled_through: string | null;
+}
+
+interface GoalRow {
+  user_id: string;
+  metric: string;
+  period: string;
+  target: number;
+  label: string | null;
+}
+
 interface PushTokenRow {
   user_id: string;
   expo_push_token: string;
@@ -95,20 +115,32 @@ function localClock(timeZone: string | null, at: Date = new Date()): { hour: num
   return { hour: at.getUTCHours(), day: at.toISOString().slice(0, 10) };
 }
 
-async function sendPushBatch(tokens: string[]): Promise<void> {
-  if (tokens.length === 0) return;
-  const messages = tokens.map((to) => ({
-    to,
-    title: 'Hound',
-    body: "You haven't logged in today — check in before the day's over.",
-    sound: 'default',
-  }));
+// "10,000 steps", "3 mi", or the goal's own name.
+function goalPhrase(g: GoalRow): string {
+  if (g.label) return oneLine(g.label, 40);
+  const n = Number(g.target);
+  if (g.metric === 'steps') return `${Math.round(n).toLocaleString('en-US')} steps`;
+  if (g.metric === 'distance_mi') return `${Math.round(n * 10) / 10} mi`;
+  if (g.metric === 'workout_minutes') return `${Math.round(n)} workout minutes`;
+  return `${Math.round(n)} ${n === 1 ? 'workout' : 'workouts'}`;
+}
+
+function reminderBody(goals: GoalRow[]): string {
+  const daily = goals.filter((g) => g.period === 'day').slice(0, 3).map(goalPhrase);
+  if (daily.length === 0) return "Hound hasn't seen you today. Check in before the day's over.";
+  const list = daily.length === 1 ? daily[0] : `${daily.slice(0, -1).join(', ')} and ${daily[daily.length - 1]}`;
+  return `Hound hasn't seen you today. ${list} ${daily.length === 1 && !/s$/.test(list) ? 'is' : 'are'} still on the table.`;
+}
+
+async function sendPushBatch(messages: { to: string; body: string }[]): Promise<void> {
+  if (messages.length === 0) return;
+  const payload = messages.map(({ to, body }) => ({ to, title: 'Hound', body, sound: 'default' }));
   // Expo's push API accepts up to 100 messages per request.
-  for (let i = 0; i < messages.length; i += 100) {
+  for (let i = 0; i < payload.length; i += 100) {
     await fetch(EXPO_PUSH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(messages.slice(i, i + 100)),
+      body: JSON.stringify(payload.slice(i, i + 100)),
     }).catch(() => {
       // A batch failing shouldn't stop the rest, and there's no per-user
       // UI to report a push failure to anyway — same "never break,
@@ -117,17 +149,17 @@ async function sendPushBatch(tokens: string[]): Promise<void> {
   }
 }
 
-async function sendReminderEmail(resendApiKey: string, name: string, email: string): Promise<void> {
+async function sendReminderEmail(resendApiKey: string, name: string, email: string, body: string): Promise<void> {
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: 'Hound <reminders@houndchallenge.net>',
       to: [email],
-      subject: "Don't lose your streak — log in to Hound today",
+      subject: "Hound hasn't seen you today",
       html:
         `<p>Hey ${escapeHtml(oneLine(name))},</p>` +
-        `<p>You haven't opened Hound today. Log in before the day's over so your progress keeps counting.</p>` +
+        `<p>${escapeHtml(body)}</p>` +
         `<p><a href="${HOUND_SIGNUP_URL}">Open Hound</a></p>`,
     }),
   }).catch(() => {
@@ -181,11 +213,41 @@ Deno.serve(async (req) => {
   // An admin's manual test run skips the hour check: everyone not yet
   // active (or reminded) today gets it now.
   const now = new Date();
-  const profiles = (optedIn ?? []).filter((p) => {
+  const candidates = (optedIn ?? []).filter((p) => {
     const clock = localClock(p.time_zone, now);
     if (isServiceRole && clock.hour !== REMINDER_HOUR) return false;
     const sameDay = (at: string | null) => !!at && localClock(p.time_zone, new Date(at)).day === clock.day;
     return !sameDay(p.last_active_at) && !sameDay(p.last_login_reminder_sent_at);
+  });
+  if (candidates.length === 0) {
+    return new Response(JSON.stringify({ processed: 0 }), { headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // Hounding off, or the phone already has today covered: skip. No row
+  // means the default, gentle, with nothing scheduled.
+  const ids = candidates.map((p) => p.id);
+  const [{ data: houndRows }, { data: goalRows }] = await Promise.all([
+    supabase.from('hound_settings').select('user_id, level, scheduled_through').in('user_id', ids).returns<HoundRow[]>(),
+    supabase
+      .from('goals')
+      .select('user_id, metric, period, target, label')
+      .in('user_id', ids)
+      .is('archived_at', null)
+      .order('sort')
+      .returns<GoalRow[]>(),
+  ]);
+  const houndByUser = new Map((houndRows ?? []).map((h) => [h.user_id, h]));
+  const goalsByUser = new Map<string, GoalRow[]>();
+  for (const g of goalRows ?? []) {
+    const list = goalsByUser.get(g.user_id) ?? [];
+    list.push(g);
+    goalsByUser.set(g.user_id, list);
+  }
+  const profiles = candidates.filter((p) => {
+    const hound = houndByUser.get(p.id);
+    if (hound?.level === 'off') return false;
+    const today = localClock(p.time_zone, now).day;
+    return !(hound?.scheduled_through && hound.scheduled_through >= today);
   });
   if (profiles.length === 0) {
     return new Response(JSON.stringify({ processed: 0 }), { headers: { 'Content-Type': 'application/json' } });
@@ -207,19 +269,20 @@ Deno.serve(async (req) => {
   }
 
   const resendApiKey = Deno.env.get('RESEND_API_KEY');
-  const allTokens: string[] = [];
+  const pushes: { to: string; body: string }[] = [];
   const emailSends: Promise<void>[] = [];
 
   for (const profile of profiles) {
+    const body = reminderBody(goalsByUser.get(profile.id) ?? []);
     if (profile.notify_push_enabled) {
-      allTokens.push(...(tokensByUser.get(profile.id) ?? []));
+      for (const to of tokensByUser.get(profile.id) ?? []) pushes.push({ to, body });
     }
     if (profile.notify_email_enabled && resendApiKey) {
-      emailSends.push(sendReminderEmail(resendApiKey, profile.name, profile.email));
+      emailSends.push(sendReminderEmail(resendApiKey, profile.name, profile.email, body));
     }
   }
 
-  await Promise.all([sendPushBatch(allTokens), ...emailSends]);
+  await Promise.all([sendPushBatch(pushes), ...emailSends]);
 
   await supabase
     .from('profiles')
