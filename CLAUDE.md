@@ -15,8 +15,10 @@ version in place of `X.Y.Z`:
 - The banner matches versions exactly, so this shows to every version
   except the new one.
 - Turn it on only once the builds are installable: available in
-  TestFlight, and the new APK uploaded over the Google Drive file behind
-  the website's download link.
+  TestFlight, and the new APK live behind the website's download link
+  (`/downloads/hound.apk` in `site/vercel.json` points at the Google
+  Drive file; update its id if the APK is a new Drive file, and the
+  version on `site/download.html`'s button).
 - Remove it once most testers have moved (Admin → App versions), or when
   the next version comes out.
 
