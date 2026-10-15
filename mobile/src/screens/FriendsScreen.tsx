@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, Share, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, Share, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
 import {
@@ -17,6 +17,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { LoadingView } from '../components/LoadingView';
 import { TextField } from '../components/TextField';
+import { ScanCodeModal } from '../components/ScanCodeModal';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { FRIENDS } from '../data/sampleData';
@@ -60,6 +61,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
   // Which add-a-friend panel is open, if any — nothing opens until the
   // viewer picks an option tile.
   const [addMode, setAddMode] = useState<AddMode | null>(null);
+  const [scanning, setScanning] = useState(false);
   // The ways to add someone sit behind "Add friends", below your list,
   // instead of above it: testers had to scroll past them to find their
   // friends. Shown open while you have no friends yet.
@@ -158,12 +160,12 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
     Share.share({ message: inviteMessage(myCode) }).catch(() => {});
   };
 
-  const redeemCode = async () => {
+  const redeemCode = async (code: string = redeemInput) => {
     setRedeemError(null);
     setRedeemSuccess(null);
     setRedeeming(true);
     try {
-      await supabaseFriendsProvider.addFriendByCode(redeemInput);
+      await supabaseFriendsProvider.addFriendByCode(code);
       setRedeemSuccess("You're now friends!");
       setRedeemInput('');
       await load();
@@ -422,10 +424,30 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
                     variant="primary"
                     small
                     disabled={redeeming || !redeemInput.trim()}
-                    onPress={redeemCode}
+                    onPress={() => redeemCode()}
                   />
                 </View>
               </View>
+              {/* Phones only: the web preview has no camera to scan with. */}
+              {Platform.OS !== 'web' && (
+                <>
+                  <Button
+                    label="Scan their QR code"
+                    icon={<QrCodeIcon size={14} color={colors.accent} />}
+                    disabled={redeeming}
+                    onPress={() => setScanning(true)}
+                  />
+                  <ScanCodeModal
+                    visible={scanning}
+                    onClose={() => setScanning(false)}
+                    onScanned={(data) => {
+                      setScanning(false);
+                      setRedeemInput(data);
+                      redeemCode(data);
+                    }}
+                  />
+                </>
+              )}
               {redeemError && <Text style={styles.errorNote}>{redeemError}</Text>}
               {redeemSuccess && !redeemError && <Text style={styles.successNote}>{redeemSuccess}</Text>}
             </View>
