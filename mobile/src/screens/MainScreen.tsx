@@ -46,6 +46,7 @@ export function MainScreen({ route, navigation }: Props) {
   return (
     <View style={styles.root}>
       <TopNav
+        onHome={() => setTab('home')}
         onAdmin={() => navigation.navigate('Admin')}
         onOrgManagement={(organizationId) =>
           organizationId
