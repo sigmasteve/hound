@@ -13,6 +13,7 @@ import { CreateScreen } from '../screens/CreateScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { FriendDetailScreen } from '../screens/FriendDetailScreen';
 import { LockerScreen } from '../screens/LockerScreen';
+import { KennelScreen } from '../screens/KennelScreen';
 import { AdminScreen } from '../screens/AdminScreen';
 import { AdminUserDetailScreen } from '../screens/AdminUserDetailScreen';
 import { OrgManagementScreen } from '../screens/OrgManagementScreen';
@@ -264,6 +265,10 @@ export function RootNavigator() {
             <Stack.Screen name="Locker" options={{ animation: 'slide_from_right' }}>
               {/* Opened from the You tab — goBack() returns there. */}
               {({ navigation }) => <LockerScreen onBack={() => navigation.goBack()} />}
+            </Stack.Screen>
+            <Stack.Screen name="Kennel" options={{ animation: 'slide_from_right' }}>
+              {/* Opened from Today or the You tab — goBack() returns there. */}
+              {({ navigation }) => <KennelScreen onBack={() => navigation.goBack()} />}
             </Stack.Screen>
             <Stack.Screen name="Admin" options={{ animation: 'slide_from_right' }}>
               {/* Reached from TopNav's own admin icon, visible on every

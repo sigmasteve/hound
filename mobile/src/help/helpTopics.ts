@@ -255,6 +255,19 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'kennel',
+      section: 'rewards',
+      title: 'Your hound (Kennel)',
+      summary: 'A hound who’s happy when you hit your goals.',
+      steps: [
+        'Open the Kennel from Today or the You tab. Tap the name to rename your hound.',
+        'Their mood follows your goal days over the last week, and a goal day today always makes them happy. A quiet week just makes them sleepy.',
+        `Give a treat once a day for ${currency} to cheer them up.`,
+        `They grow with your rank: Pup, Tracker, Hunter, Alpha, then Legend. Collars, bandanas, hats and glasses are bought with ${currency} and kept for good.`,
+        'Care style: Gentle is the default. Classic pet adds 3 meal hearts; one empties each day they aren’t fed, and with none left they’re hungry until you feed them. You can switch back any time.',
+      ],
+    },
+    {
       id: 'locker',
       section: 'rewards',
       title: 'Customize your look',
