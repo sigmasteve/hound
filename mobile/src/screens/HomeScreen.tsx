@@ -53,6 +53,7 @@ import {
   type BoardEntry,
 } from '../challenges/board';
 import { getFeatureNewest } from '../challenges/todayFeature';
+import { readTodayCache, writeTodayCache } from '../home/todayCache';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import {
   syncChallengeProgressFromDevice,
@@ -125,6 +126,26 @@ import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 interface PrimaryChallenge {
   challenge: Challenge;
   board: BoardEntry[];
+}
+
+interface OtherActiveChallenge {
+  id: string;
+  name: string;
+  kind: Challenge['kind'];
+  endsAt: string;
+  rank: number | null;
+  total: number;
+}
+
+// What Today saves of its challenge section for the next open.
+interface TodayChallengesCache {
+  primary: PrimaryChallenge | null;
+  challengeCounts: { active: number; finished: number } | null;
+  otherActive: OtherActiveChallenge[];
+  liveInvites: ChallengeInvite[] | null;
+  tagRound: TagRound | null;
+  bingoFilled: BingoCategory[];
+  tttGame: TicTacGoGame | null;
 }
 
 // The banner's message is a single free-text field an admin types
@@ -512,9 +533,7 @@ export function HomeScreen({
   const [challengeCounts, setChallengeCounts] = useState<{ active: number; finished: number } | null>(null);
   // Every other active challenge, one line each under the main one: name,
   // where you stand, time left.
-  const [otherActive, setOtherActive] = useState<
-    { id: string; name: string; kind: Challenge['kind']; endsAt: string; rank: number | null; total: number }[]
-  >([]);
+  const [otherActive, setOtherActive] = useState<OtherActiveChallenge[]>([]);
 
   // Same convention, independently, for challenge invites — the single
   // source of truth for both the "· N invited" badge below and the
@@ -822,6 +841,42 @@ export function HomeScreen({
   // Only populated when `primary` is a Tic-Tac-Go game.
   const [primaryTttGame, setPrimaryTttGame] = useState<TicTacGoGame | null>(null);
 
+  // The challenge section from last time (todayCache.ts), shown on open
+  // until this open's own data is in. Never applied once fresh data has
+  // arrived, and saved again whenever fresh data changes.
+  const freshChallenges = useRef(false);
+  useEffect(() => {
+    freshChallenges.current = false;
+    if (!isSupabaseConfigured || !user?.id) return;
+    let cancelled = false;
+    readTodayCache<TodayChallengesCache>(user.id).then((saved) => {
+      if (cancelled || !saved || freshChallenges.current) return;
+      setPrimary(saved.primary);
+      setChallengeCounts(saved.challengeCounts);
+      setOtherActive(saved.otherActive);
+      setLiveInvites(saved.liveInvites);
+      setPrimaryTagRound(saved.tagRound);
+      setPrimaryBingoFilled(new Set(saved.bingoFilled));
+      setPrimaryTttGame(saved.tttGame);
+      setLoadingPrimary(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+  useEffect(() => {
+    if (!freshChallenges.current || !user?.id) return;
+    writeTodayCache<TodayChallengesCache>(user.id, {
+      primary,
+      challengeCounts,
+      otherActive,
+      liveInvites,
+      tagRound: primaryTagRound,
+      bingoFilled: [...primaryBingoFilled],
+      tttGame: primaryTttGame,
+    });
+  }, [user?.id, primary, challengeCounts, otherActive, liveInvites, primaryTagRound, primaryBingoFilled, primaryTttGame]);
+
   // "What do I need to do right now" across every active challenge, not
   // just the primary one — Tag's "you're It," Tic-Tac-Go's "your move,"
   // an unfinished 75 Day checklist, or a manual-entry challenge nobody's
@@ -1080,6 +1135,7 @@ export function HomeScreen({
         }),
       );
       if (cancelled) return;
+      freshChallenges.current = true;
       setChallengeCounts({
         active: results.filter((r) => !r.finished).length,
         finished: results.filter((r) => r.finished).length,
