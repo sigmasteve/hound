@@ -14,7 +14,18 @@ export interface GoalStreak {
   // What today's goal day pays (0 once it's paid), and a goal week.
   nextBones: number;
   weekBones: number;
+  // Streak Shields (0101_streak_shield.sql): how many you hold (up to
+  // SHIELD_MAX) and what one costs. shieldCovering: yesterday was missed
+  // and a shield will cover it once today's goals are done.
+  // shieldCooldown: one was used in the last 7 days, so the next miss
+  // isn't covered.
+  shields: number;
+  shieldCost: number;
+  shieldCovering: boolean;
+  shieldCooldown: boolean;
 }
+
+export const SHIELD_MAX = 2;
 
 export interface GoalDayClaim {
   awarded: boolean;
@@ -39,6 +50,11 @@ export async function getGoalStreak(): Promise<GoalStreak> {
     weekPaid: r.week_paid,
     nextBones: r.next_bones,
     weekBones: r.week_bones,
+    // Missing before 0101 has run: no shields yet.
+    shields: r.shields ?? 0,
+    shieldCost: r.shield_bones ?? 50,
+    shieldCovering: r.shield_covering ?? false,
+    shieldCooldown: r.shield_cooldown ?? false,
   };
 }
 
@@ -56,27 +72,48 @@ export async function claimGoalWeek(): Promise<{ awarded: boolean; bonesAwarded:
   return { awarded: r.awarded, bonesAwarded: r.bones_awarded };
 }
 
+// Spends Bones on one Streak Shield. Throws the server's own message
+// ("Not enough Bones…", "You already have 2 shields…").
+export async function buyStreakShield(): Promise<{ shields: number; bonesBalance: number }> {
+  const { data, error } = await client().rpc('buy_streak_shield').single();
+  if (error) throw new Error(error.message);
+  const r = data as any;
+  return { shields: r.shields, bonesBalance: r.bones_balance };
+}
+
 export interface GoalRewardConfig {
   dayBones: number;
   streakBones: number;
   weekBones: number;
+  shieldBones: number;
 }
 
 export async function getGoalRewardConfig(): Promise<GoalRewardConfig> {
   const { data, error } = await client()
     .from('goal_reward_config')
-    .select('day_bones, streak_bones, week_bones')
+    .select('day_bones, streak_bones, week_bones, shield_bones')
     .eq('id', true)
     .single();
   if (error) throw new Error(error.message);
-  return { dayBones: data.day_bones, streakBones: data.streak_bones, weekBones: data.week_bones };
+  return {
+    dayBones: data.day_bones,
+    streakBones: data.streak_bones,
+    weekBones: data.week_bones,
+    shieldBones: data.shield_bones,
+  };
 }
 
 // Admin only: goal_reward_config's own RLS is the real check.
 export async function setGoalRewardConfig(c: GoalRewardConfig): Promise<void> {
   const { error } = await client()
     .from('goal_reward_config')
-    .update({ day_bones: c.dayBones, streak_bones: c.streakBones, week_bones: c.weekBones, updated_at: new Date().toISOString() })
+    .update({
+      day_bones: c.dayBones,
+      streak_bones: c.streakBones,
+      week_bones: c.weekBones,
+      shield_bones: c.shieldBones,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', true);
   if (error) throw new Error(error.message);
 }

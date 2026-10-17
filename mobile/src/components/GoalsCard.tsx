@@ -1,13 +1,21 @@
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { BarbellIcon, CheckCircleIcon, FireIcon, FootprintsIcon, PathIcon, TimerIcon } from 'phosphor-react-native';
+import {
+  BarbellIcon,
+  CheckCircleIcon,
+  FireIcon,
+  FootprintsIcon,
+  PathIcon,
+  ShieldCheckIcon,
+  TimerIcon,
+} from 'phosphor-react-native';
 import { Button } from './Button';
 import { Card } from './Card';
 import { GoalTrail, type TrailAvatar } from './GoalTrail';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { formatAmount, goalTitle, pacePct, progressLine, type GoalMetric, type GoalProgress } from '../goals/goals';
-import type { GoalStreak } from '../goals/goalStreakApi';
+import { SHIELD_MAX, type GoalStreak } from '../goals/goalStreakApi';
 
 const ICONS: Record<GoalMetric, React.ComponentType<any>> = {
   steps: FootprintsIcon,
@@ -24,7 +32,15 @@ function streakText(s: GoalStreak, currencyName: string): { title: string; detai
   if (s.streak === 0) return { title: 'Start a streak', detail: `Hit every daily goal today: ${pays}.` };
   const title = s.streak === 1 ? '1 goal day' : `${s.streak} days in a row`;
   if (s.hitToday) return { title, detail: `Back tomorrow for day ${next}.` };
+  if (s.shieldCovering) return { title, detail: `Yesterday was missed: a shield covers it once today's goals are done.` };
   return { title, detail: `Hit today's goals for day ${next}: ${pays}.` };
+}
+
+// The shield line under the streak: how many you hold, and whether this
+// week's cover is already used.
+function shieldText(s: GoalStreak): string {
+  const held = s.shields === 0 ? 'No shields' : s.shields === 1 ? '1 shield' : `${s.shields} shields`;
+  return s.shields > 0 && s.shieldCooldown && !s.shieldCovering ? `${held} · used one this week` : held;
 }
 
 // Today's first card: every goal, where you are on it, and what's left.
@@ -33,6 +49,7 @@ export function GoalsCard({
   progress,
   streak,
   currencyName,
+  onBuyShield,
   avatar,
   needsSetup,
   onOpenGoal,
@@ -43,6 +60,8 @@ export function GoalsCard({
   // Goal days in a row (0099_goal_streaks.sql); null until it loads.
   streak: GoalStreak | null;
   currencyName: string;
+  // Spends Bones on a Streak Shield (asks first); null hides the button.
+  onBuyShield: (() => void) | null;
   // You, running each goal's trail (GoalTrail).
   avatar: TrailAvatar;
   // Goals nobody has chosen yet (the starters): offer to set them.
@@ -80,12 +99,31 @@ export function GoalsCard({
 
       {streakLine && streak && (
         <View style={styles.streak}>
-          <FireIcon size={20} color={streak.streak > 0 ? colors.amber : withAlpha(colors.text, 0.4)} weight="fill" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.streakTitle}>{streakLine.title}</Text>
-            <Text style={styles.streakDetail}>{streakLine.detail}</Text>
+          <View style={styles.streakRow}>
+            <FireIcon size={20} color={streak.streak > 0 ? colors.amber : withAlpha(colors.text, 0.4)} weight="fill" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.streakTitle}>{streakLine.title}</Text>
+              <Text style={styles.streakDetail}>{streakLine.detail}</Text>
+            </View>
+            {streak.best > streak.streak && <Text style={styles.best}>Best {streak.best}</Text>}
           </View>
-          {streak.best > streak.streak && <Text style={styles.best}>Best {streak.best}</Text>}
+          <View style={styles.shieldRow}>
+            <ShieldCheckIcon
+              size={16}
+              color={streak.shields > 0 ? colors.accentActive : withAlpha(colors.text, 0.4)}
+              weight={streak.shields > 0 ? 'fill' : 'regular'}
+            />
+            <Text style={styles.shieldText} numberOfLines={1}>
+              {shieldText(streak)}
+            </Text>
+            {onBuyShield && streak.shields < SHIELD_MAX && (
+              <Pressable onPress={onBuyShield} hitSlop={8} accessibilityRole="button">
+                <Text style={styles.shieldBuy}>
+                  Get one · {streak.shieldCost} {currencyName}
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </View>
       )}
 
@@ -149,9 +187,7 @@ function makeStyles(colors: Palette) {
     },
     setupText: { flex: 1, fontSize: 13, color: colors.text },
     streak: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
+      gap: 8,
       paddingVertical: 10,
       paddingHorizontal: 12,
       borderRadius: 10,
@@ -160,6 +196,17 @@ function makeStyles(colors: Palette) {
     streakTitle: { fontFamily: font.heading, fontSize: 15, color: colors.text },
     streakDetail: { fontSize: 12.5, color: withAlpha(colors.text, 0.65) },
     best: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    streakRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    shieldRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingTop: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: withAlpha(colors.text, 0.1),
+    },
+    shieldText: { flex: 1, fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    shieldBuy: { fontFamily: font.heading, fontSize: 13, color: colors.accentActive },
     rowTop: { flexDirection: 'row', alignItems: 'center', gap: 7 },
     goalName: { flex: 1, fontSize: 13, color: withAlpha(colors.text, 0.75) },
     valueRow: { flexDirection: 'row', alignItems: 'baseline' },
