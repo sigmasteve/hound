@@ -1490,7 +1490,11 @@ Cloud Console](https://console.cloud.google.com/apis/credentials):
 3. Supabase dashboard → Authentication → Providers → Google: paste in
    the **Web** client ID plus its client secret, enable. (The iOS client
    ID doesn't go here — Supabase only ever sees the Web one, since
-   that's what audiences the ID token.)
+   that's what audiences the ID token.) Turn on **Skip nonce checks**
+   too: Google's iOS library puts a nonce in the ID token that the app
+   can't read, and without this Supabase refuses it with "Passed nonce
+   and nonce in id_token should either both exist or not." Do it in every
+   project (production and staging).
 4. Needs a native rebuild either way (`npx expo prebuild --clean` +
    `expo run:ios` / `expo run:android`) — this is a native module, so it
    doesn't exist in Expo Go and can't be picked up by just reloading JS.
