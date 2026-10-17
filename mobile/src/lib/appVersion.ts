@@ -12,6 +12,8 @@ export const APP_VERSION = Constants.expoConfig?.version ?? 'unknown';
 // which database (PR = production, STG = staging), which update channel,
 // and which update. Added after a production update went out with
 // staging's database address (17 Oct 2026), so a mix-up shows at a glance.
+// Bare project ids only: scripts/publish-update.sh checks the code for the
+// full https://<id>.supabase.co address, so never write that out here.
 const DATABASES: Record<string, string> = {
   vaypjksgpuuopqvurcus: 'PR',
   quglaamzzhebqrlhvfuc: 'STG',
