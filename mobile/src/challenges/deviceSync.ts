@@ -5,7 +5,45 @@ import { recordBingoProgress } from './bingoApi';
 import { recordSeventyFiveWorkouts } from './seventyFiveApi';
 import { getChallengeDays, localDayKey as dateKey, workoutCounts } from './challengeDays';
 import type { Challenge } from './types';
-import type { HealthProvider, WorkoutSample } from '../health/types';
+import type { DailyStepsWithDate, HealthProvider, WorkoutSample } from '../health/types';
+
+const DAY_MS = 86_400_000;
+// Late steps still count until a challenge settles, a day after it ends
+// (0095_settlement_rules.sql); one more day covers time zones.
+const SYNC_AFTER_END_MS = 2 * DAY_MS;
+
+// Whether a sync can still change anything: the challenge is running or
+// ended in the last two days. Today used to re-sync every challenge you'd
+// ever been in on every open.
+export function isWorthSyncing(challenge: Challenge, now: number = Date.now()): boolean {
+  return new Date(challenge.endsAt).getTime() > now - SYNC_AFTER_END_MS;
+}
+
+// A health provider for syncing several challenges at once: the phone's
+// daily steps (back to the earliest start among them) and recent
+// workouts are read once and shared, instead of once per challenge. Each
+// sync below already keeps only the days and workouts inside its own
+// challenge, so the extra earlier days are harmless.
+export function sharedHealthReads(health: HealthProvider, challenges: Challenge[]): HealthProvider {
+  const earliest = challenges.reduce(
+    (min, c) => Math.min(min, new Date(c.startsAt).getTime()),
+    Number.POSITIVE_INFINITY,
+  );
+  // Two days early: a challenge's first day can be the day before it
+  // starts in this phone's time zone (challengeDays.ts).
+  const since = new Date(Number.isFinite(earliest) ? earliest - 2 * DAY_MS : Date.now());
+  since.setHours(0, 0, 0, 0);
+  let days: Promise<DailyStepsWithDate[]> | null = null;
+  let workouts: Promise<WorkoutSample[]> | null = null;
+  const shared = Object.create(health) as HealthProvider;
+  shared.getDailyStepsSince = (from: Date) =>
+    from.getTime() >= since.getTime()
+      ? (days ??= health.getDailyStepsSince(since))
+      : health.getDailyStepsSince(from);
+  shared.getRecentWorkouts = (limit: number) =>
+    limit <= 200 ? (workouts ??= health.getRecentWorkouts(200)).then((w) => w.slice(0, limit)) : health.getRecentWorkouts(limit);
+  return shared;
+}
 
 // Backfills one challenge's entire progress from real device history —
 // every calendar day from when it started through today, not just
@@ -75,10 +113,9 @@ export async function syncChallengeProgressFromDevice(challenge: Challenge, heal
       // matching workout yet would just never get synced at all.
       if (!byDay.has(todayKey) && todayKey <= endCap) byDay.set(todayKey, 0);
 
-      await Promise.all(
-        Array.from(byDay.entries()).map(([day, distanceMi]) =>
-          supabaseChallengesProvider.recordProgress(challenge.id, 0, distanceMi, day),
-        ),
+      await supabaseChallengesProvider.recordProgressDays(
+        challenge.id,
+        Array.from(byDay.entries()).map(([day, distanceMi]) => ({ day, steps: 0, distanceMi })),
       );
     } else {
       // getDailyStepsSince is asked for history back to the
@@ -98,8 +135,9 @@ export async function syncChallengeProgressFromDevice(challenge: Challenge, heal
           d.date <= endCap &&
           (d.date === todayKey || d.steps > 0 || d.distanceMi > 0),
       );
-      await Promise.all(
-        daily.map((d) => supabaseChallengesProvider.recordProgress(challenge.id, d.steps, d.distanceMi, d.date)),
+      await supabaseChallengesProvider.recordProgressDays(
+        challenge.id,
+        daily.map((d) => ({ day: d.date, steps: d.steps, distanceMi: d.distanceMi })),
       );
     }
   } catch {

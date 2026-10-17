@@ -228,6 +228,8 @@ export interface ChallengesProvider {
   // started using real device history instead of only ever writing
   // today's row).
   recordProgress(challengeId: string, steps: number, distanceMi: number, day?: string): Promise<void>;
+  // Several days of one challenge in one request (device sync).
+  recordProgressDays(challengeId: string, days: { day: string; steps: number; distanceMi: number }[]): Promise<void>;
   // Only the creator can do this — see 0005_challenges_delete_policy.sql.
   // Cascades to that challenge's participants, bots, and progress.
   deleteChallenge(challengeId: string): Promise<void>;

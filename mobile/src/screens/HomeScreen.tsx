@@ -58,6 +58,8 @@ import {
   syncChallengeProgressFromDevice,
   syncBingoProgressFromDevice,
   syncSeventyFiveFromDevice,
+  isWorthSyncing,
+  sharedHealthReads,
 } from '../challenges/deviceSync';
 import { boardSortFor } from '../challenges/scoring';
 import { huntKindName, ordinal } from '../challenges/present';
@@ -1027,10 +1029,16 @@ export function HomeScreen({
       // challenge can't delay Home's own render, and
       // syncChallengeProgressFromDevice already swallows its own
       // failures — there's nothing here to catch.
-      challenges.forEach((c) => {
-        syncChallengeProgressFromDevice(c, health);
-        syncBingoProgressFromDevice(c, health);
-        syncSeventyFiveFromDevice(c, health);
+      //
+      // Only challenges still running or just ended (late steps still
+      // count until settlement, a day after the end), all reading the
+      // phone's health data once between them instead of once each.
+      const toSync = challenges.filter(isWorthSyncing);
+      const sharedHealth = sharedHealthReads(health, toSync);
+      toSync.forEach((c) => {
+        syncChallengeProgressFromDevice(c, sharedHealth);
+        syncBingoProgressFromDevice(c, sharedHealth);
+        syncSeventyFiveFromDevice(c, sharedHealth);
       });
 
       // One board per challenge, not just the primary one — needed for
@@ -1043,8 +1051,19 @@ export function HomeScreen({
       // participants/leaderboard/bots is fetched exactly once here and
       // reused below for whichever one turns out to be primary, rather
       // than fetching that one a second time.
+      //
+      // Only a challenge that's still running needs its board: one whose
+      // end has passed is finished whatever the board says (see
+      // isChallengeFinished), and a featured challenge is always a
+      // running one (pickPrimaryChallenge). Fetching every finished
+      // challenge's board too made Today take 7-11 seconds for someone
+      // with a long history.
+      const nowMs = Date.now();
       const results = await Promise.all(
         challenges.map(async (c) => {
+          if (new Date(c.endsAt).getTime() <= nowMs) {
+            return { challenge: c, board: [] as BoardEntry[], finished: true };
+          }
           const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
           const [participants, leaderboard, bots, headStartLeaderboard] = await Promise.all([
             supabaseChallengesProvider.listParticipants(c.id),
@@ -1083,6 +1102,83 @@ export function HomeScreen({
             };
           }),
       );
+
+      const primaryResult = results.find((r) => r.challenge.id === primaryId);
+      setPrimary(primaryResult ? { challenge: primaryResult.challenge, board: primaryResult.board } : null);
+      // Best-effort, unawaited — same "safe to call on every load" shape
+      // as ChallengesScreen/ChallengeDetailScreen's own call sites.
+      if (primaryResult) settleChallengeScore(primaryResult.challenge.id).catch(() => {});
+      // Whether Home's own hero card needs "you've been tagged" — only
+      // ever relevant when the primary challenge itself is a Tag game,
+      // so this stays null (and skips the extra fetch) for every other
+      // kind, same as ChallengeDetailScreen's own needsTag guard.
+      if (primaryResult?.challenge.kind === 'tag') {
+        getTagRound(primaryResult.challenge.id)
+          .then((round) => {
+            if (!cancelled) setPrimaryTagRound(round);
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryTagRound(null);
+          });
+      } else {
+        setPrimaryTagRound(null);
+      }
+
+      // Same shape as the tag round fetch above, for Daily Streak's own
+      // finished-headline framing — only worth fetching once the
+      // challenge is actually over (heroCopy's streak branch is itself
+      // gated on `finished`), so a still-running streak never pays for
+      // this extra round trip.
+      if (primaryResult?.challenge.kind === 'streak' && isChallengeFinished(primaryResult.challenge, primaryResult.board)) {
+        Promise.all([
+          listDailyProgress(primaryResult.challenge.id),
+          listParticipantJoinDates(primaryResult.challenge.id),
+          getChallengeDays(primaryResult.challenge),
+        ])
+          .then(([dailyRows, joinDates, days]) => {
+            if (!cancelled) setPrimaryStreakStatuses(computeStreakStatus(primaryResult.challenge, joinDates, dailyRows, days));
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryStreakStatuses(new Map());
+          });
+      } else {
+        setPrimaryStreakStatuses(new Map());
+      }
+
+      // Same shape as the tag/streak fetches above, for Bingo's own hero
+      // copy and mini card preview — listBingoProgress returns every
+      // participant's rows, filtered down to just the viewer's own (see
+      // primaryBingoFilled's own comment).
+      if (primaryResult?.challenge.kind === 'bingo' && user?.id) {
+        const myId = user.id;
+        listBingoProgress(primaryResult.challenge.id)
+          .then((rows) => {
+            if (!cancelled) setPrimaryBingoFilled(new Set(rows.filter((r) => r.userId === myId).map((r) => r.category)));
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryBingoFilled(new Set());
+          });
+      } else {
+        setPrimaryBingoFilled(new Set());
+      }
+      if (primaryResult?.challenge.kind === 'tictacgo') {
+        const tttId = primaryResult.challenge.id;
+        settleTicTacGo(tttId)
+          .catch(() => {})
+          .then(() => getTicTacGoGame(tttId))
+          .then((game) => {
+            if (!cancelled) setPrimaryTttGame(game);
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryTttGame(null);
+          });
+      } else {
+        setPrimaryTttGame(null);
+      }
+
+      // The challenge section can show now. Needs you fills in below,
+      // once the per-kind checks for every active challenge are back.
+      setLoadingPrimary(false);
 
       // Every active challenge, not just primary — pendingActions.ts's
       // whole point is answering "what do I need to do" across
@@ -1157,78 +1253,6 @@ export function HomeScreen({
         schedulePendingActionsNudge([]);
       }
 
-      const primaryResult = results.find((r) => r.challenge.id === primaryId);
-      setPrimary(primaryResult ? { challenge: primaryResult.challenge, board: primaryResult.board } : null);
-      // Best-effort, unawaited — same "safe to call on every load" shape
-      // as ChallengesScreen/ChallengeDetailScreen's own call sites.
-      if (primaryResult) settleChallengeScore(primaryResult.challenge.id).catch(() => {});
-      // Whether Home's own hero card needs "you've been tagged" — only
-      // ever relevant when the primary challenge itself is a Tag game,
-      // so this stays null (and skips the extra fetch) for every other
-      // kind, same as ChallengeDetailScreen's own needsTag guard.
-      if (primaryResult?.challenge.kind === 'tag') {
-        getTagRound(primaryResult.challenge.id)
-          .then((round) => {
-            if (!cancelled) setPrimaryTagRound(round);
-          })
-          .catch(() => {
-            if (!cancelled) setPrimaryTagRound(null);
-          });
-      } else {
-        setPrimaryTagRound(null);
-      }
-
-      // Same shape as the tag round fetch above, for Daily Streak's own
-      // finished-headline framing — only worth fetching once the
-      // challenge is actually over (heroCopy's streak branch is itself
-      // gated on `finished`), so a still-running streak never pays for
-      // this extra round trip.
-      if (primaryResult?.challenge.kind === 'streak' && isChallengeFinished(primaryResult.challenge, primaryResult.board)) {
-        Promise.all([
-          listDailyProgress(primaryResult.challenge.id),
-          listParticipantJoinDates(primaryResult.challenge.id),
-          getChallengeDays(primaryResult.challenge),
-        ])
-          .then(([dailyRows, joinDates, days]) => {
-            if (!cancelled) setPrimaryStreakStatuses(computeStreakStatus(primaryResult.challenge, joinDates, dailyRows, days));
-          })
-          .catch(() => {
-            if (!cancelled) setPrimaryStreakStatuses(new Map());
-          });
-      } else {
-        setPrimaryStreakStatuses(new Map());
-      }
-
-      // Same shape as the tag/streak fetches above, for Bingo's own hero
-      // copy and mini card preview — listBingoProgress returns every
-      // participant's rows, filtered down to just the viewer's own (see
-      // primaryBingoFilled's own comment).
-      if (primaryResult?.challenge.kind === 'bingo' && user?.id) {
-        const myId = user.id;
-        listBingoProgress(primaryResult.challenge.id)
-          .then((rows) => {
-            if (!cancelled) setPrimaryBingoFilled(new Set(rows.filter((r) => r.userId === myId).map((r) => r.category)));
-          })
-          .catch(() => {
-            if (!cancelled) setPrimaryBingoFilled(new Set());
-          });
-      } else {
-        setPrimaryBingoFilled(new Set());
-      }
-      if (primaryResult?.challenge.kind === 'tictacgo') {
-        const tttId = primaryResult.challenge.id;
-        settleTicTacGo(tttId)
-          .catch(() => {})
-          .then(() => getTicTacGoGame(tttId))
-          .then((game) => {
-            if (!cancelled) setPrimaryTttGame(game);
-          })
-          .catch(() => {
-            if (!cancelled) setPrimaryTttGame(null);
-          });
-      } else {
-        setPrimaryTttGame(null);
-      }
     })()
       .catch(() => {
         // Stay on the sample fallback on any failure.
@@ -1334,17 +1358,6 @@ export function HomeScreen({
       </Pressable>
     </View>
   );
-
-  if (loadingPrimary) {
-    return (
-      <View style={{ flex: 1 }}>
-        {announcementBar}
-        <View style={[styles.container, styles.loadingContainer]}>
-          <LoadingView />
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={{ flex: 1 }}>
@@ -1466,6 +1479,14 @@ export function HomeScreen({
           join. Global challenges you've joined are already in your list,
           marked with the globe. Testers found the separate rows, global
           card and counts pill crowded. */}
+      {/* Goals and Needs you show straight away; only this section
+          waits for your challenges. */}
+      {loadingPrimary && (
+        <Card style={styles.yoursCard} elevated={false}>
+          <LoadingView style={styles.challengesLoading} />
+        </Card>
+      )}
+
       {(otherActive.length > 0 || joinableGlobals.length > 0 ||
         (challengeCounts && challengeCounts.active + challengeCounts.finished + (liveInvites?.length ?? 0) > 0)) && (
         <Card style={styles.yoursCard} elevated={false}>
@@ -1534,7 +1555,7 @@ export function HomeScreen({
 
       {/* Nothing featured though challenges are running (Settings → don't
           feature my newest challenge): they're all in the list above. */}
-      {(primary || !challengeCounts || challengeCounts.active === 0) && (
+      {!loadingPrimary && (primary || !challengeCounts || challengeCounts.active === 0) && (
         <View style={styles.heroRow}>
           <View style={styles.heroText}>
             <Text style={text.eyebrow}>{hero?.eyebrow ?? 'GET STARTED'}</Text>
@@ -1615,7 +1636,7 @@ export function HomeScreen({
 
       {/* For someone who's never had a challenge, not for anyone who
           just has nothing featured (Settings → Newest challenge on Today). */}
-      {!primary && (!challengeCounts || challengeCounts.active + challengeCounts.finished === 0) && (
+      {!loadingPrimary && !primary && (!challengeCounts || challengeCounts.active + challengeCounts.finished === 0) && (
         <View style={styles.cardsRow}>
           <GettingStartedCards onGoTab={onGoTab} styles={styles} />
         </View>
@@ -2124,7 +2145,7 @@ function TicTacGoPreview({
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 20, paddingBottom: 48 },
-    loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    challengesLoading: { paddingVertical: 18 },
     announcementBar: {
       flexDirection: 'row',
       // flex-start, not center — now that the message can wrap to as
