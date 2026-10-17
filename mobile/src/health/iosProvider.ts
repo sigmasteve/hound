@@ -220,7 +220,17 @@ export const iosHealthProvider: HealthProvider = {
   },
 
   async getRecentWorkouts(limit: number): Promise<WorkoutSample[]> {
-    const rawWorkouts = await orDefault(queryWorkoutSamples({ limit, ascending: false }), []);
+    // The last 30 days, newest first, same window as androidProvider.
+    // Without the date range this was only "the newest `limit` records",
+    // which for someone who logs a lot (and has Watch + iPhone duplicates,
+    // see below) covered as little as 11 days, so readiness never saw the
+    // 3+ weeks of history it needs (#232).
+    const endDate = new Date();
+    const startDate = new Date(endDate.getTime() - 30 * 86_400_000);
+    const rawWorkouts = await orDefault(
+      queryWorkoutSamples({ limit, ascending: false, filter: { date: { startDate, endDate } } }),
+      [],
+    );
     // See dedupeWorkouts.ts's own comment — a Watch + companion-app pair
     // both writing the same session shows up here as two HKWorkout
     // records with the same activity type and overlapping start/end.
