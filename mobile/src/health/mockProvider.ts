@@ -90,15 +90,18 @@ export const mockProvider: HealthProvider = {
     return out;
   },
 
-  // What an Android phone with Samsung Health and WHOOP typically shows.
+  // What an Android phone with Samsung Health and WHOOP typically shows:
+  // Health Connect puts the phone's own counter first, so Hound uses
+  // Samsung Health's higher total instead.
   async getDataSources(days: number): Promise<DataSourcesReport> {
     const at = new Date(Date.now() - 40 * 60 * 1000).toISOString();
     return {
       days,
       countedSteps: 61840,
+      usingSamsungHealth: true,
       sources: [
         { packageName: 'com.sec.android.app.shealth', name: 'Samsung Health', steps: 61840, workouts: 2, countedForSteps: true, lastAt: at },
-        { packageName: 'android', name: 'This phone', steps: 48210, workouts: 0, countedForSteps: false, lastAt: at },
+        { packageName: 'com.android.healthconnect.phone', name: 'This phone', steps: 28210, workouts: 0, countedForSteps: false, lastAt: at },
         { packageName: 'com.whoop.android', name: 'WHOOP', steps: 0, workouts: 4, countedForSteps: false, lastAt: at },
       ],
     };
