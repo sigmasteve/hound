@@ -18,9 +18,28 @@ function timeLeft(iso: string, now = Date.now()): string {
   return `${Math.floor(mins / 60)}h left`;
 }
 
+// "10k", "12.5k": short enough for a one-line result.
+function k(steps: number): string {
+  return `${Math.round(steps / 100) / 10}k`;
+}
+
+// One line on how a settled bounty went.
+function result(b: Bounty, currencyName: string): string {
+  if (b.mine) {
+    return b.status === 'claimed'
+      ? `${b.claimerName ?? 'A friend'} won your ${k(b.targetSteps)} bounty`
+      : `Nobody won your ${k(b.targetSteps)} bounty · ${b.bones} ${currencyName} back`;
+  }
+  return b.claimedByMe
+    ? `You won ${b.posterName}'s bounty · +${b.bones} ${currencyName}`
+    : `${b.claimerName ?? 'Someone'} won ${b.posterName}'s ${k(b.targetSteps)} bounty`;
+}
+
 // Today: your bounty and your friends' (0102_bounties.sql). A friend's
 // bounty shows how close today's steps are; reaching it claims it
-// (useBounties).
+// (useBounties). With nothing open, it's one slim line: the latest
+// result (or what bounties are) and Post one. Settled ones under open
+// ones are a line each.
 export function BountiesCard({
   bounties,
   stepsToday,
@@ -37,8 +56,29 @@ export function BountiesCard({
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const mine = bounties.filter((b) => b.mine);
-  const friends = bounties.filter((b) => !b.mine);
+  const open = bounties.filter((b) => b.status === 'open');
+  const settled = bounties.filter((b) => b.status !== 'open');
+  const mine = open.filter((b) => b.mine);
+  const friends = open.filter((b) => !b.mine);
+  const postLink = onPost && (
+    <Pressable onPress={onPost} hitSlop={8} accessibilityRole="button">
+      <Text style={styles.action}>Post one</Text>
+    </Pressable>
+  );
+
+  if (open.length === 0) {
+    return (
+      <Card elevated={false}>
+        <View style={styles.slim}>
+          <TargetIcon size={16} color={withAlpha(colors.text, 0.6)} weight="bold" />
+          <Text style={styles.slimText} numberOfLines={1}>
+            {settled.length > 0 ? result(settled[0], currencyName) : `Bounties: put ${currencyName} on a step target`}
+          </Text>
+          {postLink}
+        </View>
+      </Card>
+    );
+  }
 
   return (
     <Card style={{ gap: 12 }} elevated={false}>
@@ -46,46 +86,22 @@ export function BountiesCard({
         <TargetIcon size={18} color={colors.accentActive} weight="bold" />
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={styles.title}>Bounties</Text>
-          {bounties.length === 0 && (
-            <Text style={styles.subtitle}>
-              Put {currencyName} on a step target. The first friend to hit it today gets them.
-            </Text>
-          )}
         </View>
-        {onPost && (
-          <Pressable onPress={onPost} hitSlop={8} accessibilityRole="button">
-            <Text style={styles.action}>Post one</Text>
-          </Pressable>
-        )}
+        {postLink}
       </View>
 
       {mine.map((b) => (
         <View key={b.id} style={styles.mine}>
           <Text style={styles.line}>
-            {b.status === 'open' ? (
-              <>
-                <Text style={styles.strong}>Your bounty:</Text> first to {n(b.targetSteps)} steps gets {b.bones}{' '}
-                {currencyName}
-              </>
-            ) : b.status === 'claimed' ? (
-              <>
-                <Text style={styles.strong}>{b.claimerName ?? 'A friend'}</Text> hit {n(b.targetSteps)} steps and got
-                your {b.bones} {currencyName}
-              </>
-            ) : (
-              <>
-                Nobody hit {n(b.targetSteps)} steps. Your {b.bones} {currencyName} are back.
-              </>
-            )}
+            <Text style={styles.strong}>Your bounty:</Text> first to {n(b.targetSteps)} steps gets {b.bones}{' '}
+            {currencyName}
           </Text>
-          {b.status === 'open' && (
-            <View style={styles.mineFoot}>
-              <Text style={styles.detail}>{timeLeft(b.endsAt)}</Text>
-              <Pressable onPress={() => onCancel(b)} hitSlop={8} accessibilityRole="button">
-                <Text style={styles.cancel}>Take it back</Text>
-              </Pressable>
-            </View>
-          )}
+          <View style={styles.mineFoot}>
+            <Text style={styles.detail}>{timeLeft(b.endsAt)}</Text>
+            <Pressable onPress={() => onCancel(b)} hitSlop={8} accessibilityRole="button">
+              <Text style={styles.cancel}>Take it back</Text>
+            </Pressable>
+          </View>
         </View>
       ))}
 
@@ -104,34 +120,23 @@ export function BountiesCard({
             />
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={styles.line} numberOfLines={2}>
-                {b.status === 'open' ? (
-                  <>
-                    <Text style={styles.strong}>{b.posterName}:</Text> first to {n(b.targetSteps)} steps gets {b.bones}{' '}
-                    {currencyName}
-                  </>
-                ) : b.claimedByMe ? (
-                  <>
-                    You got <Text style={styles.strong}>{b.posterName}'s</Text> bounty: +{b.bones} {currencyName}
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.strong}>{b.claimerName ?? 'Someone'}</Text> got {b.posterName}'s{' '}
-                    {n(b.targetSteps)}-step bounty
-                  </>
-                )}
+                <Text style={styles.strong}>{b.posterName}:</Text> first to {n(b.targetSteps)} steps gets {b.bones}{' '}
+                {currencyName}
               </Text>
-              {b.status === 'open' && (
-                <>
-                  <ProgressBar pct={Math.min(100, (steps / b.targetSteps) * 100)} height={5} />
-                  <Text style={styles.detail}>
-                    {n(Math.min(steps, b.targetSteps))} of {n(b.targetSteps)} · {timeLeft(b.endsAt)}
-                  </Text>
-                </>
-              )}
+              <ProgressBar pct={Math.min(100, (steps / b.targetSteps) * 100)} height={5} />
+              <Text style={styles.detail}>
+                {n(Math.min(steps, b.targetSteps))} of {n(b.targetSteps)} · {timeLeft(b.endsAt)}
+              </Text>
             </View>
           </View>
         );
       })}
+
+      {settled.map((b) => (
+        <Text key={b.id} style={styles.detail} numberOfLines={1}>
+          {result(b, currencyName)}
+        </Text>
+      ))}
     </Card>
   );
 }
@@ -145,7 +150,8 @@ function makeStyles(colors: Palette) {
       color: colors.text,
       marginTop: -2,
     },
-    subtitle: { fontSize: 13, color: withAlpha(colors.text, 0.6) },
+    slim: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    slimText: { flex: 1, fontFamily: font.heading, fontSize: 13.5, color: withAlpha(colors.text, 0.8) },
     action: {
       fontFamily: font.heading,
       fontSize: 14,
