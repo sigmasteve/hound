@@ -26,6 +26,10 @@ export interface CosmeticItem {
   // available_until): the Shop groups them under their collection and
   // stops offering them once it ends. Owning one is still permanent.
   collection?: SeasonalCollectionId;
+  // Set only on Dig items (0103_bone_dig.sql): owned once you've dug up
+  // this many pieces in all, never bought or leveled into. Such an item
+  // has neither unlockXp nor costBones.
+  digPieces?: number;
 }
 
 export type SeasonalCollectionId = 'halloween_2026';
@@ -84,6 +88,8 @@ export const FRAMES: FrameStyle[] = [
   // Halloween 2026 — limited time, see 0071_halloween_cosmetics.sql.
   { id: 'frame_pumpkin', slot: 'frame', name: 'Pumpkin Ring', unlockXp: null, costBones: 300, ringColor: '#ff7a1a', collection: 'halloween_2026' },
   { id: 'frame_slime', slot: 'frame', name: 'Slime Ring', unlockXp: null, costBones: 450, ringColor: '#8fe33b', collection: 'halloween_2026' },
+  // Bone Dig — see 0103_bone_dig.sql.
+  { id: 'frame_fossil', slot: 'frame', name: 'Fossil Ring', unlockXp: null, costBones: null, digPieces: 5, ringColor: '#d9c7a3' },
 ];
 
 export const BACKGROUNDS: BackgroundStyle[] = [
@@ -172,6 +178,17 @@ export const BACKGROUNDS: BackgroundStyle[] = [
     gradientTo: '#ff7a1a',
     collection: 'halloween_2026',
   },
+  // Bone Dig — see 0103_bone_dig.sql.
+  {
+    id: 'bg_dig_site',
+    slot: 'background',
+    name: 'Dig Site',
+    unlockXp: null,
+    costBones: null,
+    digPieces: 10,
+    gradientFrom: '#6b4423',
+    gradientTo: '#c9995a',
+  },
 ];
 
 // Mirrors 0069_avatar_icon_cosmetics.sql's own seeded icon rows — see
@@ -191,6 +208,8 @@ export const ICONS: IconStyle[] = [
   { id: 'icon_ghost', slot: 'icon', name: 'Ghost', unlockXp: null, costBones: 300, icon: 'ghost', collection: 'halloween_2026' },
   { id: 'icon_broom', slot: 'icon', name: 'Witch’s Broom', unlockXp: null, costBones: 400, icon: 'broom', collection: 'halloween_2026' },
   { id: 'icon_skull', slot: 'icon', name: 'Skull', unlockXp: null, costBones: 550, icon: 'skull', collection: 'halloween_2026' },
+  // Bone Dig — see 0103_bone_dig.sql.
+  { id: 'icon_bone', slot: 'icon', name: 'Bone', unlockXp: null, costBones: null, digPieces: 15, icon: 'bone' },
 ];
 
 const FRAMES_BY_ID = new Map(FRAMES.map((f) => [f.id, f] as const));
@@ -208,3 +227,8 @@ export function backgroundById(id: string | null | undefined): BackgroundStyle |
 export function iconStyleById(id: string | null | undefined): IconStyle | null {
   return id ? (ICONS_BY_ID.get(id) ?? null) : null;
 }
+
+// The Dig items in the order pieces unlock them.
+export const DIG_ITEMS: (FrameStyle | BackgroundStyle | IconStyle)[] = [...FRAMES, ...BACKGROUNDS, ...ICONS]
+  .filter((i) => i.digPieces != null)
+  .sort((a, b) => (a.digPieces ?? 0) - (b.digPieces ?? 0));
