@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import { resolveHealthProvider } from '../health';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import {
+  isWorthSyncing,
+  sharedHealthReads,
   syncBingoProgressFromDevice,
   syncChallengeProgressFromDevice,
   syncSeventyFiveFromDevice,
@@ -31,7 +33,6 @@ import { refreshHoundNow } from '../goals/hound';
 
 const TASK_NAME = 'hound-background-sync';
 const MINIMUM_INTERVAL_MIN = 30;
-const DAY_MS = 86_400_000;
 
 TaskManager.defineTask(TASK_NAME, async () => {
   try {
@@ -55,15 +56,17 @@ async function syncNow(): Promise<void> {
   const [snap, workouts] = await Promise.all([health.getSnapshot(), health.getRecentWorkouts(50)]);
   await recordDailyStepTotal(userId, snap.stepsToday).catch(() => {});
 
-  // Running challenges, plus ones that ended in the last day (their last
-  // day can still be filling in).
-  const challenges = await supabaseChallengesProvider.listMyChallenges().catch(() => []);
-  const now = Date.now();
-  for (const c of challenges.filter((c) => new Date(c.endsAt).getTime() > now - DAY_MS)) {
+  // Running challenges, plus ones that just ended (late steps count
+  // until they settle), reading the phone's health data once for all.
+  const challenges = (await supabaseChallengesProvider.listMyChallenges().catch(() => [])).filter((c) =>
+    isWorthSyncing(c),
+  );
+  const shared = sharedHealthReads(health, challenges);
+  for (const c of challenges) {
     await Promise.all([
-      syncChallengeProgressFromDevice(c, health),
-      syncBingoProgressFromDevice(c, health),
-      syncSeventyFiveFromDevice(c, health),
+      syncChallengeProgressFromDevice(c, shared),
+      syncBingoProgressFromDevice(c, shared),
+      syncSeventyFiveFromDevice(c, shared),
     ]);
   }
 
