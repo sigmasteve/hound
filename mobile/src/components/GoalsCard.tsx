@@ -26,21 +26,15 @@ const ICONS: Record<GoalMetric, React.ComponentType<any>> = {
 
 // What the streak line says: how many days in a row, and what today
 // adds. Only for someone with a daily goal.
+// The streak line: short enough for one row, with what today pays or
+// that today's done.
 function streakText(s: GoalStreak, currencyName: string): { title: string; detail: string } {
-  const next = s.streak + 1;
-  const pays = `+${s.nextBones} ${currencyName}`;
-  if (s.streak === 0) return { title: 'Start a streak', detail: `Hit every daily goal today: ${pays}.` };
-  const title = s.streak === 1 ? '1 goal day' : `${s.streak} days in a row`;
-  if (s.hitToday) return { title, detail: `Back tomorrow for day ${next}.` };
-  if (s.shieldCovering) return { title, detail: `Yesterday was missed: a shield covers it once today's goals are done.` };
-  return { title, detail: `Hit today's goals for day ${next}: ${pays}.` };
-}
-
-// The shield line under the streak: how many you hold, and whether this
-// week's cover is already used.
-function shieldText(s: GoalStreak): string {
-  const held = s.shields === 0 ? 'No shields' : s.shields === 1 ? '1 shield' : `${s.shields} shields`;
-  return s.shields > 0 && s.shieldCooldown && !s.shieldCovering ? `${held} · used one this week` : held;
+  const pays = `+${s.nextBones} ${currencyName} today`;
+  if (s.streak === 0) return { title: 'Start a streak', detail: pays };
+  const title = `${s.streak}-day streak`;
+  if (s.hitToday) return { title, detail: 'back tomorrow' };
+  if (s.shieldCovering) return { title, detail: 'a shield covers yesterday' };
+  return { title, detail: pays };
 }
 
 // Today's first card: every goal, where you are on it, and what's left.
@@ -97,33 +91,33 @@ export function GoalsCard({
         )}
       </View>
 
+      {/* One row: the streak, and your shields on the right (tap to get
+          one while you hold fewer than SHIELD_MAX). */}
       {streakLine && streak && (
         <View style={styles.streak}>
-          <View style={styles.streakRow}>
-            <FireIcon size={20} color={streak.streak > 0 ? colors.amber : withAlpha(colors.text, 0.4)} weight="fill" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.streakTitle}>{streakLine.title}</Text>
-              <Text style={styles.streakDetail}>{streakLine.detail}</Text>
-            </View>
-            {streak.best > streak.streak && <Text style={styles.best}>Best {streak.best}</Text>}
-          </View>
-          <View style={styles.shieldRow}>
+          <FireIcon size={18} color={streak.streak > 0 ? colors.amber : withAlpha(colors.text, 0.4)} weight="fill" />
+          <Text style={styles.streakLine} numberOfLines={1}>
+            <Text style={styles.streakTitle}>{streakLine.title}</Text>
+            <Text style={styles.streakDetail}> · {streakLine.detail}</Text>
+          </Text>
+          <Pressable
+            style={styles.shieldChip}
+            onPress={onBuyShield && streak.shields < SHIELD_MAX ? onBuyShield : undefined}
+            disabled={!onBuyShield || streak.shields >= SHIELD_MAX}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={`${streak.shields} of ${SHIELD_MAX} Streak Shields${
+              streak.shields < SHIELD_MAX ? `. Get one for ${streak.shieldCost} ${currencyName}` : ''
+            }`}
+          >
             <ShieldCheckIcon
-              size={16}
-              color={streak.shields > 0 ? colors.accentActive : withAlpha(colors.text, 0.4)}
+              size={15}
+              color={streak.shields > 0 ? colors.accentActive : withAlpha(colors.text, 0.45)}
               weight={streak.shields > 0 ? 'fill' : 'regular'}
             />
-            <Text style={styles.shieldText} numberOfLines={1}>
-              {shieldText(streak)}
-            </Text>
-            {onBuyShield && streak.shields < SHIELD_MAX && (
-              <Pressable onPress={onBuyShield} hitSlop={8} accessibilityRole="button">
-                <Text style={styles.shieldBuy}>
-                  Get one · {streak.shieldCost} {currencyName}
-                </Text>
-              </Pressable>
-            )}
-          </View>
+            <Text style={styles.shieldCount}>{streak.shields}</Text>
+            {onBuyShield && streak.shields < SHIELD_MAX && <Text style={styles.shieldBuy}>+</Text>}
+          </Pressable>
         </View>
       )}
 
@@ -187,26 +181,28 @@ function makeStyles(colors: Palette) {
     },
     setupText: { flex: 1, fontSize: 13, color: colors.text },
     streak: {
+      flexDirection: 'row',
+      alignItems: 'center',
       gap: 8,
-      paddingVertical: 10,
+      paddingVertical: 8,
       paddingHorizontal: 12,
       borderRadius: 10,
       backgroundColor: withAlpha(colors.amber, 0.1),
     },
-    streakTitle: { fontFamily: font.heading, fontSize: 15, color: colors.text },
-    streakDetail: { fontSize: 12.5, color: withAlpha(colors.text, 0.65) },
-    best: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
-    streakRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    shieldRow: {
+    streakLine: { flex: 1 },
+    streakTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
+    streakDetail: { fontSize: 13, color: withAlpha(colors.text, 0.65) },
+    shieldChip: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      paddingTop: 8,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: withAlpha(colors.text, 0.1),
+      gap: 4,
+      paddingVertical: 3,
+      paddingHorizontal: 8,
+      borderRadius: 999,
+      backgroundColor: withAlpha(colors.accent, 0.12),
     },
-    shieldText: { flex: 1, fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
-    shieldBuy: { fontFamily: font.heading, fontSize: 13, color: colors.accentActive },
+    shieldCount: { fontFamily: font.heading, fontSize: 13, color: colors.text },
+    shieldBuy: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.accentActive },
     rowTop: { flexDirection: 'row', alignItems: 'center', gap: 7 },
     goalName: { flex: 1, fontSize: 13, color: withAlpha(colors.text, 0.75) },
     valueRow: { flexDirection: 'row', alignItems: 'baseline' },
