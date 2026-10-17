@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon, LockSimpleIcon, PlusIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon, LockSimpleIcon, PlusIcon, ShovelIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -11,6 +11,7 @@ import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import {
   BACKGROUNDS,
+  DIG_ITEMS,
   FRAMES,
   ICONS,
   isCollectionOnSale,
@@ -28,6 +29,8 @@ import {
   type EquippedCosmetics,
 } from '../cosmetics/cosmeticsApi';
 import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
+import { getBoneDig } from '../goals/boneDigApi';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { levelProgressForXp } from '../challenges/leveling';
 import { listBonesPackOffers, purchaseBonesPack, type BonesPackOffer } from '../bones/purchasesApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
@@ -49,6 +52,8 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   const [houndScore, setHoundScore] = useState<HoundScore | null>(null);
   const [equipped, setEquipped] = useState<EquippedCosmetics | null>(null);
   const [purchasedIds, setPurchasedIds] = useState<Set<string> | null>(null);
+  // Bone Dig pieces found in all, for the Dig items' notes.
+  const [digPieces, setDigPieces] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [equippingId, setEquippingId] = useState<string | null>(null);
   const [buyingId, setBuyingId] = useState<string | null>(null);
@@ -87,6 +92,11 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
         setLoadError(null);
       })
       .catch((e) => setLoadError(e instanceof Error ? e.message : 'Could not load your locker.'));
+    if (isSupabaseConfigured) {
+      getBoneDig()
+        .then((d) => setDigPieces(d.pieces))
+        .catch(() => {});
+    }
   }, [user?.id]);
 
   useFocusEffect(reload);
@@ -173,9 +183,11 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
 
   const renderItem = (item: FrameStyle | BackgroundStyle | IconStyle, slot: CosmeticSlot) => {
     const isShopItem = item.costBones !== null;
-    const owned = isShopItem
-      ? !!purchasedIds?.has(item.id)
-      : xpTotal !== null && item.unlockXp !== null && xpTotal >= item.unlockXp;
+    const isDigItem = item.digPieces != null;
+    const owned =
+      isShopItem || isDigItem
+        ? !!purchasedIds?.has(item.id)
+        : xpTotal !== null && item.unlockXp !== null && xpTotal >= item.unlockXp;
     const isEquipped =
       slot === 'frame' ? equipped?.frameId === item.id : slot === 'background' ? equipped?.backgroundId === item.id : equipped?.iconId === item.id;
     const affordable = isShopItem && bonesBalance !== null && item.costBones !== null && bonesBalance >= item.costBones;
@@ -197,6 +209,8 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
     let noteText: string;
     if (owned) {
       noteText = isEquipped ? 'Equipped — tap to remove' : 'Tap to equip';
+    } else if (isDigItem) {
+      noteText = `Dig up ${item.digPieces} pieces in Bone Dig${digPieces !== null ? ` · you have ${digPieces}` : ''}`;
     } else if (isShopItem) {
       noteText = affordable ? `Buy for ${item.costBones} ${currencyName}` : `Need ${item.costBones} ${currencyName}`;
     } else {
@@ -318,6 +332,17 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
               <Text style={text.h4}>Icons</Text>
               {leveledIcons.map((i) => renderItem(i, 'icon'))}
             </Card>
+
+            <Card style={{ gap: 4 }} elevated={false}>
+              <View style={styles.digHeader}>
+                <ShovelIcon size={18} color={colors.amber} weight="fill" />
+                <Text style={text.h4}>Bone Dig</Text>
+              </View>
+              <Text style={styles.footNote}>
+                Finish your daily goals to dig once a day. Some digs turn up a piece toward these.
+              </Text>
+              {DIG_ITEMS.map((i) => renderItem(i, i.slot))}
+            </Card>
           </>
         ) : (
           <>
@@ -435,6 +460,7 @@ const SEASON_ORANGE = '#ff7a1a';
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    digHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     seasonCard: {
       gap: 4,
       borderWidth: 1,

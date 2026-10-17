@@ -128,6 +128,9 @@ import { useGoalStreak } from '../goals/useGoalStreak';
 import { buyStreakShield } from '../goals/goalStreakApi';
 import { updateHound } from '../goals/hound';
 import { GoalsCard } from '../components/GoalsCard';
+import { BoneDigCard } from '../components/BoneDigCard';
+import { BoneDigModal } from '../components/BoneDigModal';
+import { digBone, getBoneDig, type BoneDigResult, type BoneDigState } from '../goals/boneDigApi';
 import { BountiesCard } from '../components/BountiesCard';
 import { PostBountyModal } from '../components/PostBountyModal';
 import { useBounties } from '../bounties/useBounties';
@@ -1102,6 +1105,31 @@ export function HomeScreen({
 
   // Your Locker look, for your avatar on the goal trails. Re-read on every
   // refresh, so a change in the Locker shows when you come back.
+  // Bone Dig (0103_bone_dig.sql): one free dig a day once every daily
+  // goal is done. Re-read when the goal day lands, so the Dig button
+  // shows right away.
+  const [boneDig, setBoneDig] = useState<BoneDigState | null>(null);
+  const [digging, setDigging] = useState<{ result: BoneDigResult | null } | null>(null);
+  const goalDayHit = goalStreak?.hitToday ?? false;
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    getBoneDig()
+      .then(setBoneDig)
+      .catch(() => {});
+  }, [user?.id, refreshKey, goalDayHit]);
+  const dig = () => {
+    setDigging({ result: null });
+    digBone()
+      .then((result) => {
+        setDigging({ result });
+        setBoneDig({ dugToday: true, prize: result.prize, bones: result.bones, pieces: result.pieces });
+      })
+      .catch((e: Error) => {
+        setDigging(null);
+        Alert.alert("Couldn't dig", e.message);
+      });
+  };
+
   const [myLook, setMyLook] = useState<EquippedCosmetics | null>(null);
   useEffect(() => {
     if (!isSupabaseConfigured || !user?.id) return;
@@ -1568,6 +1596,10 @@ export function HomeScreen({
         )
       )}
 
+      {!setupOpen && boneDig && goalProgress?.some((p) => p.goal.period === 'day') && (
+        <BoneDigCard dig={boneDig} goalsDone={goalDayHit} currencyName={currencyName} onDig={dig} />
+      )}
+
       {bounties && (bounties.length > 0 || onboarding?.hasFriend) && (
         <BountiesCard
           bounties={bounties}
@@ -1852,6 +1884,19 @@ export function HomeScreen({
         posting={bountyModal === 'posting'}
         onPost={submitBounty}
         onClose={() => setBountyModal('closed')}
+      />
+    )}
+    {digging && (
+      <BoneDigModal
+        result={digging.result}
+        avatar={{
+          initials: user?.initials ?? '',
+          frameId: myLook?.frameId,
+          backgroundId: myLook?.backgroundId,
+          iconId: myLook?.iconId,
+        }}
+        currencyName={currencyName}
+        onClose={() => setDigging(null)}
       />
     )}
     {dailyBonus && (

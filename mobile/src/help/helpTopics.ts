@@ -242,6 +242,19 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'bone-dig',
+      section: 'rewards',
+      title: 'Bone Dig',
+      summary: 'A free surprise once a day for finishing your goals.',
+      steps: [
+        'Finish every daily goal and the Bone Dig card on Today lights up. Tap Dig.',
+        `A dig turns up 5 ${currency} (35% of digs), 10 (25%), 20 (10%), 50 (3%), or a piece (27%).`,
+        'Pieces unlock Dig items in your Locker that can’t be bought: the Fossil Ring at 5 pieces, the Dig Site background at 10, and the Bone icon at 15.',
+        `Once you have all three, a piece is worth 25 ${currency} instead.`,
+        'One dig a day. It’s free, and you can’t buy more.',
+      ],
+    },
+    {
       id: 'locker',
       section: 'rewards',
       title: 'Customize your look',
