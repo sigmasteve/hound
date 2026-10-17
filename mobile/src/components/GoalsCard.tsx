@@ -3,10 +3,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { BarbellIcon, CheckCircleIcon, FireIcon, FootprintsIcon, PathIcon, TimerIcon } from 'phosphor-react-native';
 import { Button } from './Button';
 import { Card } from './Card';
-import { ProgressBar } from './ProgressBar';
+import { GoalTrail, type TrailAvatar } from './GoalTrail';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { formatAmount, goalTitle, progressLine, type GoalMetric, type GoalProgress } from '../goals/goals';
+import { formatAmount, goalTitle, pacePct, progressLine, type GoalMetric, type GoalProgress } from '../goals/goals';
 import type { GoalStreak } from '../goals/goalStreakApi';
 
 const ICONS: Record<GoalMetric, React.ComponentType<any>> = {
@@ -33,6 +33,7 @@ export function GoalsCard({
   progress,
   streak,
   currencyName,
+  avatar,
   needsSetup,
   onOpenGoal,
   onEdit,
@@ -42,6 +43,8 @@ export function GoalsCard({
   // Goal days in a row (0099_goal_streaks.sql); null until it loads.
   streak: GoalStreak | null;
   currencyName: string;
+  // You, running each goal's trail (GoalTrail).
+  avatar: TrailAvatar;
   // Goals nobody has chosen yet (the starters): offer to set them.
   needsSetup: boolean;
   onOpenGoal: (p: GoalProgress) => void;
@@ -95,6 +98,8 @@ export function GoalsCard({
 
       {progress.map((p) => {
         const Icon = ICONS[p.goal.metric];
+        const pace = pacePct(p.goal);
+        const houndOnYou = !p.done && pace > p.pct;
         return (
           <Pressable
             key={p.goal.id}
@@ -112,11 +117,14 @@ export function GoalsCard({
             <View style={styles.valueRow}>
               <Text style={styles.value}>{formatAmount(p.goal.metric, p.value)}</Text>
               <Text style={styles.target}> / {formatAmount(p.goal.metric, p.goal.target)}</Text>
-              <Text style={[styles.status, p.done && { color: colors.green }]} numberOfLines={1}>
+              <Text
+                style={[styles.status, p.done && { color: colors.green }, houndOnYou && { color: colors.amber }]}
+                numberOfLines={1}
+              >
                 {progressLine(p)}
               </Text>
             </View>
-            <ProgressBar pct={p.pct} fillColor={p.done ? colors.green : colors.accent} height={5} />
+            <GoalTrail pct={p.pct} done={p.done} pace={p.done ? null : pace} avatar={avatar} />
           </Pressable>
         );
       })}

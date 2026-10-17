@@ -53,6 +53,7 @@ import {
   type BoardEntry,
 } from '../challenges/board';
 import { getFeatureNewest } from '../challenges/todayFeature';
+import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import { readTodayCache, writeTodayCache } from '../home/todayCache';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import {
@@ -990,6 +991,16 @@ export function HomeScreen({
   // invite itself removed from the list.
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Your Locker look, for your avatar on the goal trails. Re-read on every
+  // refresh, so a change in the Locker shows when you come back.
+  const [myLook, setMyLook] = useState<EquippedCosmetics | null>(null);
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    getMyEquippedCosmetics(user.id)
+      .then(setMyLook)
+      .catch(() => {});
+  }, [user?.id, refreshKey]);
+
   const refreshAll = useCallback(() => {
     reload();
     setRefreshKey((k) => k + 1);
@@ -1433,6 +1444,12 @@ export function HomeScreen({
             progress={goalProgress}
             streak={goalStreak}
             currencyName={currencyName}
+            avatar={{
+              initials: user?.initials ?? '',
+              frameId: myLook?.frameId,
+              backgroundId: myLook?.backgroundId,
+              iconId: myLook?.iconId,
+            }}
             needsSetup={!goalsSet}
             onOpenGoal={() => onGoTab('stats')}
             onEdit={() => onGoTab('goals')}
