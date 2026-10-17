@@ -73,7 +73,7 @@ In staging's **Edge Functions → Secrets**:
 In staging's **Authentication**:
 
 - **URL Configuration:** use the same Site URL and redirect URLs as production.
-- **Providers:** turn on Google and Facebook with the same client IDs as production. Then add staging's callback, `https://quglaamzzhebqrlhvfuc.supabase.co/auth/v1/callback`, to the Google Cloud OAuth client and to the Facebook app.
+- **Providers:** turn on Google and Facebook with the same client IDs as production, and turn on Google's **Skip nonce checks** like production (without it, Google sign-in on iPhone fails with "Passed nonce and nonce in id_token should either both exist or not"). Then add staging's callback, `https://quglaamzzhebqrlhvfuc.supabase.co/auth/v1/callback`, to the Google Cloud OAuth client and to the Facebook app.
 
 ### 5. App builds: one profile per environment
 
