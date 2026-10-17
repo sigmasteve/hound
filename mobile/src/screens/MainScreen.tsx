@@ -47,7 +47,9 @@ export function MainScreen({ route, navigation }: Props) {
   return (
     <View style={styles.root}>
       <TopNav
+        tab={tab}
         onHome={() => setTab('home')}
+        onOpenLevel={() => navigation.navigate('Locker')}
         onAdmin={() => navigation.navigate('Admin')}
         onOrgManagement={(organizationId) =>
           organizationId
