@@ -31,7 +31,9 @@ select is((select awarded from public.claim_goal_week(:'today')), false, 'A week
 select throws_ok('update public.goal_streaks set streak = 99', '42501', null, 'Nobody can change their own streak');
 reset role;
 
-select is((select bones_balance from public.profiles where id = :'ann'), :ann_bones + 25,
+-- 5 + 5 for the goal days and 15 for the week, plus 25 for reaching
+-- level 1 on the XP those earned (0100_faster_leveling.sql).
+select is((select bones_balance from public.profiles where id = :'ann'), :ann_bones + 50,
   'Bones go to the balance');
 
 -- Six days in a row, then the seventh pays the bigger amount.

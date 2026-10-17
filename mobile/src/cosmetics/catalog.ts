@@ -1,6 +1,7 @@
 // Pure cosmetics data — no Supabase/RN imports, same discipline as
 // bingo.ts/tictacgo.ts. Mirrors 0059_cosmetics.sql's own seeded
-// cosmetic_items rows by hand (ids, slot, unlock_xp) — kept in sync the
+// cosmetic_items rows by hand (ids, slot, unlock_xp, the latter as moved
+// by 0100_faster_leveling.sql to keep each item at its level) — kept in sync the
 // same "two lists, no generator" way bingo.ts's own BINGO_CATEGORIES
 // already is with its migration's check constraint. The actual render
 // colors (gradient stops, ring color) live only here — the database
@@ -71,11 +72,11 @@ export interface IconStyle extends CosmeticItem {
 }
 
 export const FRAMES: FrameStyle[] = [
-  { id: 'frame_bronze', slot: 'frame', name: 'Bronze Ring', unlockXp: 450, costBones: null, ringColor: '#c17f4f' },
-  { id: 'frame_silver', slot: 'frame', name: 'Silver Ring', unlockXp: 2450, costBones: null, ringColor: '#c4c8d6' },
-  { id: 'frame_gold', slot: 'frame', name: 'Gold Ring', unlockXp: 7200, costBones: null, ringColor: '#e0b84f' },
-  { id: 'frame_glow', slot: 'frame', name: 'Accent Glow', unlockXp: 16200, costBones: null, ringColor: '#9184d9' },
-  { id: 'frame_diamond', slot: 'frame', name: 'Diamond Ring', unlockXp: 31250, costBones: null, ringColor: '#bdeafd' },
+  { id: 'frame_bronze', slot: 'frame', name: 'Bronze Ring', unlockXp: 150, costBones: null, ringColor: '#c17f4f' },
+  { id: 'frame_silver', slot: 'frame', name: 'Silver Ring', unlockXp: 630, costBones: null, ringColor: '#c4c8d6' },
+  { id: 'frame_gold', slot: 'frame', name: 'Gold Ring', unlockXp: 1680, costBones: null, ringColor: '#e0b84f' },
+  { id: 'frame_glow', slot: 'frame', name: 'Accent Glow', unlockXp: 3600, costBones: null, ringColor: '#9184d9' },
+  { id: 'frame_diamond', slot: 'frame', name: 'Diamond Ring', unlockXp: 6750, costBones: null, ringColor: '#bdeafd' },
   // Shop-only — see 0060_bones_shop.sql. Bought outright with Bones, no
   // level ever unlocks these.
   { id: 'frame_neon', slot: 'frame', name: 'Neon Ring', unlockXp: null, costBones: 250, ringColor: '#39ff88' },
@@ -90,7 +91,7 @@ export const BACKGROUNDS: BackgroundStyle[] = [
     id: 'bg_sunset',
     slot: 'background',
     name: 'Sunset',
-    unlockXp: 1250,
+    unlockXp: 350,
     costBones: null,
     gradientFrom: '#e0a94f',
     gradientTo: '#c1507f',
@@ -99,7 +100,7 @@ export const BACKGROUNDS: BackgroundStyle[] = [
     id: 'bg_ocean',
     slot: 'background',
     name: 'Ocean',
-    unlockXp: 5000,
+    unlockXp: 1200,
     costBones: null,
     gradientFrom: '#4f9fe0',
     gradientTo: '#4fd3c4',
@@ -108,7 +109,7 @@ export const BACKGROUNDS: BackgroundStyle[] = [
     id: 'bg_forest',
     slot: 'background',
     name: 'Forest',
-    unlockXp: 11250,
+    unlockXp: 2550,
     costBones: null,
     gradientFrom: '#4fbf7a',
     gradientTo: '#2f8f6a',
@@ -117,7 +118,7 @@ export const BACKGROUNDS: BackgroundStyle[] = [
     id: 'bg_aurora',
     slot: 'background',
     name: 'Aurora',
-    unlockXp: 20000,
+    unlockXp: 4400,
     costBones: null,
     gradientFrom: '#9184d9',
     gradientTo: '#e04fb0',
@@ -126,7 +127,7 @@ export const BACKGROUNDS: BackgroundStyle[] = [
     id: 'bg_midnight',
     slot: 'background',
     name: 'Midnight',
-    unlockXp: 45000,
+    unlockXp: 9600,
     costBones: null,
     gradientFrom: '#232532',
     gradientTo: '#0d0e14',
@@ -177,11 +178,11 @@ export const BACKGROUNDS: BackgroundStyle[] = [
 // that migration's own comment for why a curated set (not a custom photo
 // upload) is this feature's scope.
 export const ICONS: IconStyle[] = [
-  { id: 'icon_paw', slot: 'icon', name: 'Paw Print', unlockXp: 800, costBones: null, icon: 'paw' },
-  { id: 'icon_dog', slot: 'icon', name: 'Dog', unlockXp: 4050, costBones: null, icon: 'dog' },
-  { id: 'icon_cat', slot: 'icon', name: 'Cat', unlockXp: 9800, costBones: null, icon: 'cat' },
-  { id: 'icon_rabbit', slot: 'icon', name: 'Rabbit', unlockXp: 20000, costBones: null, icon: 'rabbit' },
-  { id: 'icon_fire', slot: 'icon', name: 'Fire', unlockXp: 36450, costBones: null, icon: 'fire' },
+  { id: 'icon_paw', slot: 'icon', name: 'Paw Print', unlockXp: 240, costBones: null, icon: 'paw' },
+  { id: 'icon_dog', slot: 'icon', name: 'Dog', unlockXp: 990, costBones: null, icon: 'dog' },
+  { id: 'icon_cat', slot: 'icon', name: 'Cat', unlockXp: 2240, costBones: null, icon: 'cat' },
+  { id: 'icon_rabbit', slot: 'icon', name: 'Rabbit', unlockXp: 4400, costBones: null, icon: 'rabbit' },
+  { id: 'icon_fire', slot: 'icon', name: 'Fire', unlockXp: 7830, costBones: null, icon: 'fire' },
   // Shop-only — see 0069_avatar_icon_cosmetics.sql.
   { id: 'icon_robot', slot: 'icon', name: 'Robot', unlockXp: null, costBones: 300, icon: 'robot' },
   { id: 'icon_rocket', slot: 'icon', name: 'Rocket', unlockXp: null, costBones: 550, icon: 'rocket' },
