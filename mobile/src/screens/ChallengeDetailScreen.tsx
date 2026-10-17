@@ -2012,7 +2012,7 @@ export function ChallengeDetailScreen({
 
           <ToggleRow
             label="Pin to Today"
-            note="Show this challenge at the top of Today"
+            note="Feature this challenge on Today"
             value={myHighlighted}
             onChange={togglingHighlight ? () => {} : toggleHighlight}
           />

@@ -52,6 +52,7 @@ import {
   withHuntCatches,
   type BoardEntry,
 } from '../challenges/board';
+import { getFeatureNewest } from '../challenges/todayFeature';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import {
   syncChallengeProgressFromDevice,
@@ -1003,7 +1004,7 @@ export function HomeScreen({
       // challenge does Today show" — ChallengesScreen calls the exact
       // same function to mark that one in its own list, so the two
       // screens can't quietly disagree about it.
-      const [highlighted, challenges, invites] = await Promise.all([
+      const [highlighted, challenges, invites, featureNewest] = await Promise.all([
         supabaseChallengesProvider.getHighlightedChallenge(),
         supabaseChallengesProvider.listMyChallenges(),
         // Same list ChallengesScreen's own invite cards come from — a
@@ -1012,8 +1013,9 @@ export function HomeScreen({
         // include one just because it's visible under RLS), so this is
         // a separate count, not part of the active/finished split below.
         supabaseChallengesProvider.listMyChallengeInvites(),
+        getFeatureNewest(),
       ]);
-      const primaryId = pickPrimaryChallenge(challenges, highlighted)?.id ?? null;
+      const primaryId = pickPrimaryChallenge(challenges, highlighted, featureNewest)?.id ?? null;
 
       // Best-effort background sync — every device-scored challenge this
       // user has joined gets its progress backfilled here, not just
@@ -1156,7 +1158,7 @@ export function HomeScreen({
       }
 
       const primaryResult = results.find((r) => r.challenge.id === primaryId);
-      if (primaryResult) setPrimary({ challenge: primaryResult.challenge, board: primaryResult.board });
+      setPrimary(primaryResult ? { challenge: primaryResult.challenge, board: primaryResult.board } : null);
       // Best-effort, unawaited — same "safe to call on every load" shape
       // as ChallengesScreen/ChallengeDetailScreen's own call sites.
       if (primaryResult) settleChallengeScore(primaryResult.challenge.id).catch(() => {});
@@ -1528,24 +1530,28 @@ export function HomeScreen({
         </Card>
       )}
 
-      <View style={styles.heroRow}>
-        <View style={styles.heroText}>
-          <Text style={text.eyebrow}>{hero?.eyebrow ?? 'GET STARTED'}</Text>
-          <Text style={[text.h2, styles.heroTitle]}>{heroHeadline}</Text>
+      {/* Nothing featured though challenges are running (Settings → don't
+          feature my newest challenge): they're all in the list above. */}
+      {(primary || !challengeCounts || challengeCounts.active === 0) && (
+        <View style={styles.heroRow}>
+          <View style={styles.heroText}>
+            <Text style={text.eyebrow}>{hero?.eyebrow ?? 'GET STARTED'}</Text>
+            <Text style={[text.h2, styles.heroTitle]}>{heroHeadline}</Text>
+          </View>
+          <Button
+            label={primary ? 'View challenge' : 'New challenge'}
+            variant="primary"
+            icon={
+              primary ? (
+                <CrosshairIcon size={15} color={color.accent} />
+              ) : (
+                <PlusCircleIcon size={15} color={color.accent} />
+              )
+            }
+            onPress={openPrimary}
+          />
         </View>
-        <Button
-          label={primary ? 'View challenge' : 'New challenge'}
-          variant="primary"
-          icon={
-            primary ? (
-              <CrosshairIcon size={15} color={color.accent} />
-            ) : (
-              <PlusCircleIcon size={15} color={color.accent} />
-            )
-          }
-          onPress={openPrimary}
-        />
-      </View>
+      )}
 
       {/* Your highlighted challenge, after the goals and the summary of
           all your challenges. */}
