@@ -53,6 +53,7 @@ import {
   type BoardEntry,
 } from '../challenges/board';
 import { getFeatureNewest } from '../challenges/todayFeature';
+import { readTodayCache, writeTodayCache } from '../home/todayCache';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 import {
   syncChallengeProgressFromDevice,
@@ -125,6 +126,26 @@ import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 interface PrimaryChallenge {
   challenge: Challenge;
   board: BoardEntry[];
+}
+
+interface OtherActiveChallenge {
+  id: string;
+  name: string;
+  kind: Challenge['kind'];
+  endsAt: string;
+  rank: number | null;
+  total: number;
+}
+
+// What Today saves of its challenge section for the next open: only
+// what doesn't change with anyone's steps (names, counts, invites).
+// Standings, ranks and the featured challenge's card always wait for
+// fresh data, so a step count on Today is never an old one.
+interface TodayChallengesCache {
+  challengeCounts: { active: number; finished: number } | null;
+  otherActive: OtherActiveChallenge[];
+  liveInvites: ChallengeInvite[] | null;
+  featured: { id: string; name: string } | null;
 }
 
 // The banner's message is a single free-text field an admin types
@@ -512,9 +533,7 @@ export function HomeScreen({
   const [challengeCounts, setChallengeCounts] = useState<{ active: number; finished: number } | null>(null);
   // Every other active challenge, one line each under the main one: name,
   // where you stand, time left.
-  const [otherActive, setOtherActive] = useState<
-    { id: string; name: string; kind: Challenge['kind']; endsAt: string; rank: number | null; total: number }[]
-  >([]);
+  const [otherActive, setOtherActive] = useState<OtherActiveChallenge[]>([]);
 
   // Same convention, independently, for challenge invites — the single
   // source of truth for both the "· N invited" badge below and the
@@ -822,6 +841,38 @@ export function HomeScreen({
   // Only populated when `primary` is a Tic-Tac-Go game.
   const [primaryTttGame, setPrimaryTttGame] = useState<TicTacGoGame | null>(null);
 
+  // The step-free parts of the challenge section from last time
+  // (todayCache.ts), shown on open until this open's own data is in.
+  // Never applied once fresh data has arrived, and saved again whenever
+  // fresh data changes.
+  const freshChallenges = useRef(false);
+  const [cachedFeatured, setCachedFeatured] = useState<{ id: string; name: string } | null>(null);
+  useEffect(() => {
+    freshChallenges.current = false;
+    if (!isSupabaseConfigured || !user?.id) return;
+    let cancelled = false;
+    readTodayCache<TodayChallengesCache>(user.id).then((saved) => {
+      if (cancelled || !saved || freshChallenges.current) return;
+      setChallengeCounts(saved.challengeCounts);
+      setOtherActive(saved.otherActive);
+      setLiveInvites(saved.liveInvites);
+      setCachedFeatured(saved.featured);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+  useEffect(() => {
+    if (!freshChallenges.current || !user?.id) return;
+    writeTodayCache<TodayChallengesCache>(user.id, {
+      challengeCounts,
+      // A place in the standings is step-based, so it isn't kept.
+      otherActive: otherActive.map((c) => ({ ...c, rank: null })),
+      liveInvites,
+      featured: primary ? { id: primary.challenge.id, name: primary.challenge.name } : null,
+    });
+  }, [user?.id, primary, challengeCounts, otherActive, liveInvites]);
+
   // "What do I need to do right now" across every active challenge, not
   // just the primary one — Tag's "you're It," Tic-Tac-Go's "your move,"
   // an unfinished 75 Day checklist, or a manual-entry challenge nobody's
@@ -1080,6 +1131,7 @@ export function HomeScreen({
         }),
       );
       if (cancelled) return;
+      freshChallenges.current = true;
       setChallengeCounts({
         active: results.filter((r) => !r.finished).length,
         finished: results.filter((r) => r.finished).length,
@@ -1481,7 +1533,7 @@ export function HomeScreen({
           card and counts pill crowded. */}
       {/* Goals and Needs you show straight away; only this section
           waits for your challenges. */}
-      {loadingPrimary && (
+      {loadingPrimary && !challengeCounts && (
         <Card style={styles.yoursCard} elevated={false}>
           <LoadingView style={styles.challengesLoading} />
         </Card>
@@ -1578,6 +1630,17 @@ export function HomeScreen({
 
       {/* Your highlighted challenge, after the goals and the summary of
           all your challenges. */}
+      {/* Last time's featured challenge, by name only, while its
+          standings load: steps on Today are never old ones. */}
+      {loadingPrimary && !primary && cachedFeatured && (
+        <Card style={styles.featuredLoading} elevated={false}>
+          <Text style={text.h4} numberOfLines={1}>
+            {cachedFeatured.name}
+          </Text>
+          <LoadingView style={styles.challengesLoading} />
+        </Card>
+      )}
+
       {primary && (
         <View style={styles.cardsRow}>
           {primary.challenge.kind === 'hunt' && primary.board.length === 2 ? (
@@ -2146,6 +2209,7 @@ function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 20, paddingBottom: 48 },
     challengesLoading: { paddingVertical: 18 },
+    featuredLoading: { gap: 4 },
     announcementBar: {
       flexDirection: 'row',
       // flex-start, not center — now that the message can wrap to as
