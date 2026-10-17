@@ -228,6 +228,19 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       tip: 'Hound checks in the background, so a goal you hit without opening the app still counts once your phone lets it run. Opening Hound before midnight makes sure.',
     },
     {
+      id: 'bounties',
+      section: 'friends',
+      title: 'Bounties',
+      summary: `Put ${currency} on a step target for your friends.`,
+      steps: [
+        `On Today, tap Post one on the Bounties card. Pick a step target and how many ${currency} go on it.`,
+        `The ${currency} come off your balance straight away, and your friends get a heads-up.`,
+        `The first friend whose steps today reach the target gets the ${currency}. Nobody by midnight, and they come back to you.`,
+        'You can have one bounty out at a time, and take it back until someone claims it.',
+        `A friend’s bounty shows on your Today with how close you are. Reach it and Hound claims it for you.`,
+      ],
+    },
+    {
       id: 'locker',
       section: 'rewards',
       title: 'Customize your look',
