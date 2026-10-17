@@ -128,6 +128,8 @@ import { useGoalStreak } from '../goals/useGoalStreak';
 import { buyStreakShield } from '../goals/goalStreakApi';
 import { updateHound } from '../goals/hound';
 import { GoalsCard } from '../components/GoalsCard';
+import { KennelCard } from '../components/KennelCard';
+import { getKennel, type Kennel } from '../kennel/kennelApi';
 import { BoneDigCard } from '../components/BoneDigCard';
 import { BoneDigModal } from '../components/BoneDigModal';
 import { digBone, getBoneDig, type BoneDigResult, type BoneDigState } from '../goals/boneDigApi';
@@ -488,7 +490,7 @@ function takePopup(): boolean {
 
 // Where Today's links go: a tab, or a screen that used to be a tab and
 // now opens from You.
-export type HomeDestination = MainTab | 'stats' | 'healthData' | 'goals';
+export type HomeDestination = MainTab | 'stats' | 'healthData' | 'goals' | 'kennel';
 
 export function HomeScreen({
   onOpenHunt,
@@ -1117,6 +1119,16 @@ export function HomeScreen({
       .then(setBoneDig)
       .catch(() => {});
   }, [user?.id, refreshKey, goalDayHit]);
+  // Your hound (0104_kennel.sql), re-read when the goal day lands so its
+  // mood updates straight away.
+  const [kennel, setKennel] = useState<Kennel | null>(null);
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    getKennel()
+      .then(setKennel)
+      .catch(() => {});
+  }, [user?.id, refreshKey, goalDayHit]);
+
   const dig = () => {
     setDigging({ result: null });
     digBone()
@@ -1599,6 +1611,8 @@ export function HomeScreen({
       {!setupOpen && boneDig && goalProgress?.some((p) => p.goal.period === 'day') && (
         <BoneDigCard dig={boneDig} goalsDone={goalDayHit} currencyName={currencyName} onDig={dig} />
       )}
+
+      {!setupOpen && kennel && <KennelCard kennel={kennel} onOpen={() => onGoTab('kennel')} />}
 
       {bounties && (bounties.length > 0 || onboarding?.hasFriend) && (
         <BountiesCard

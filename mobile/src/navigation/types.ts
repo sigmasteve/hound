@@ -41,6 +41,7 @@ export type RootStackParamList = {
   OrgManagement: undefined;
   OrgDetail: { organizationId: string };
   Locker: undefined;
+  Kennel: undefined;
   Help: undefined;
   Achievements: undefined;
   // Opened from the You tab (they used to be tabs or the top bar).
