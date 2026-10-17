@@ -223,6 +223,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         `Finish every daily goal on a day and you earn ${currency} for it. Today’s goals card shows what the day pays.`,
         'Days in a row build your goal streak, shown on the goals card. Every 7th day in a row pays a bigger bonus.',
         'Miss a day and the streak starts over.',
+        `A Streak Shield (bought with ${currency} on the goals card) covers one missed day, so the streak keeps going. You can hold 2, and one covers a miss each week. Two missed days in a row still end the streak.`,
         `Finish every weekly goal in a week (Monday to Sunday) for a weekly ${currency} bonus.`,
       ],
       tip: 'Hound checks in the background, so a goal you hit without opening the app still counts once your phone lets it run. Opening Hound before midnight makes sure.',

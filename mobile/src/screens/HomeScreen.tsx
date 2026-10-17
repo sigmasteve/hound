@@ -10,6 +10,7 @@ import {
   CrosshairIcon,
   EnvelopeOpenIcon,
   FireIcon,
+  ShieldCheckIcon,
   FlagCheckeredIcon,
   GlobeHemisphereWestIcon,
   MedalIcon,
@@ -124,6 +125,7 @@ import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../
 import { useLabels } from '../labels/LabelsContext';
 import { useGoalProgress } from '../goals/useGoalProgress';
 import { useGoalStreak } from '../goals/useGoalStreak';
+import { buyStreakShield } from '../goals/goalStreakApi';
 import { updateHound } from '../goals/hound';
 import { GoalsCard } from '../components/GoalsCard';
 import { BountiesCard } from '../components/BountiesCard';
@@ -645,6 +647,36 @@ export function HomeScreen({
 
   // Goal days in a row, and the Bones for hitting every daily (or
   // weekly) goal, claimed as soon as the card shows them done.
+  // Streak Shield (0101_streak_shield.sql): asks, spends the Bones,
+  // then shows the new count on the goals card.
+  const buyShield = () => {
+    if (!goalStreak) return;
+    const cost = goalStreak.shieldCost;
+    const currency = currencyNameRef.current;
+    Alert.alert(
+      'Get a Streak Shield?',
+      `It costs ${cost} ${currency}. Miss a day and it covers it, so your goal streak keeps going. You can hold 2, and one covers a miss each week.`,
+      [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: `Spend ${cost}`,
+          onPress: () => {
+            buyStreakShield()
+              .then(() => {
+                refreshGoalStreak();
+                pushToast({
+                  id: `shield-${Date.now()}`,
+                  text: 'Shield ready: your streak is covered for one missed day',
+                  Icon: ShieldCheckIcon,
+                });
+              })
+              .catch((e) => Alert.alert('Couldn’t get a shield', e instanceof Error ? e.message : 'Try again in a moment.'));
+          },
+        },
+      ],
+    );
+  };
+
   const { streak: goalStreak, refresh: refreshGoalStreak } = useGoalStreak(user?.id, goalProgress, (award) => {
     const bones = `+${award.bones} ${currencyNameRef.current}`;
     pushToast({
@@ -1521,6 +1553,7 @@ export function HomeScreen({
             progress={goalProgress}
             streak={goalStreak}
             currencyName={currencyName}
+            onBuyShield={isSupabaseConfigured ? buyShield : null}
             avatar={{
               initials: user?.initials ?? '',
               frameId: myLook?.frameId,
