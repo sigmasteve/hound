@@ -85,6 +85,9 @@ as $$
   select case when (streak + 1) % 7 = 0 then streak_amt else day_amt end;
 $$;
 
+-- Only the functions below use it.
+revoke execute on function public.goal_day_reward(integer, integer, integer) from public, anon, authenticated;
+
 -- Today's goal streak, for Today's goals card. `streak` already counts
 -- as broken if neither today nor yesterday was a goal day.
 create or replace function public.my_goal_streak(p_local_date date)
