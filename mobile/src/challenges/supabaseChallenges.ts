@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase, signedInUserId } from '../lib/supabase';
 import { displayInitials, displayName, type DisplayableProfile } from '../profiles/displayName';
 import { fetchAll } from '../lib/fetchAll';
 import { inviteWindowClosed } from './board';
@@ -49,10 +49,8 @@ function requireClient() {
   return supabase;
 }
 
-async function requireUserId(): Promise<string> {
-  const { data } = await requireClient().auth.getUser();
-  if (!data.user) throw new Error('Sign in to do that.');
-  return data.user.id;
+function requireUserId(): Promise<string> {
+  return signedInUserId();
 }
 
 // inviteWindowClosed (src/challenges/board.ts) only ever reads these four

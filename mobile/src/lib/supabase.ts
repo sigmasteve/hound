@@ -31,3 +31,16 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
       },
     })
   : null;
+
+// The signed-in user's id, from the session already stored on the phone.
+// auth.getUser() asks the server every time, and Today's load calls this
+// once per challenge and list, so that was a few dozen requests per open.
+// The server still checks who's asking on every query (Row Level
+// Security), so the stored session is enough here.
+export async function signedInUserId(): Promise<string> {
+  if (!supabase) throw new Error('Supabase is not configured.');
+  const { data } = await supabase.auth.getSession();
+  const id = data.session?.user.id;
+  if (!id) throw new Error('Sign in to do that.');
+  return id;
+}
