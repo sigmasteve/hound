@@ -86,8 +86,9 @@ export function DataSourcesCard({ health }: { health: HealthProvider }) {
                 </View>
               ))}
               <Text style={styles.total}>
-                Hound counts {report.countedSteps.toLocaleString()} steps this week — Health Connect&rsquo;s total, with
-                overlapping minutes counted once.
+                {report.usingSamsungHealth
+                  ? `Hound counts ${report.countedSteps.toLocaleString()} steps this week, from Samsung Health: it has more than Health Connect’s own total.`
+                  : `Hound counts ${report.countedSteps.toLocaleString()} steps this week. When two apps record the same minutes, only one is counted.`}
               </Text>
             </View>
           )}

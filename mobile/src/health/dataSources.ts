@@ -20,10 +20,18 @@ export interface DataSourceSummary {
 
 export interface DataSourcesReport {
   days: number;
-  // Health Connect's total for the window — what Hound uses.
+  // What Hound counts for the window: Health Connect's total, or Samsung
+  // Health's own total when that's higher (usingSamsungHealth).
   countedSteps: number;
+  usingSamsungHealth: boolean;
   sources: DataSourceSummary[];
 }
+
+// Where Health Connect keeps the setting that decides which app's steps
+// count. Samsung and Google move it between Android versions, so both
+// places are named.
+const PRIORITY_PATH =
+  'open Health Connect → Data and access → Activity and scroll to Data sources and priority (on some phones it’s in the ⋮ menu on Steps), then put it first';
 
 // Friendly names for the apps people actually connect. Anything else
 // shows its package name.
@@ -35,6 +43,7 @@ const KNOWN_APPS: Record<string, string> = {
   'com.fitbit.FitbitMobile': 'Google Health (Fitbit)',
   'com.google.android.apps.healthdata': 'This phone',
   'com.google.android.healthconnect.controller': 'This phone',
+  'com.android.healthconnect.phone': 'This phone',
   android: 'This phone',
   'com.garmin.android.apps.connectmobile': 'Garmin Connect',
   'com.ouraring.oura': 'Oura',
@@ -55,7 +64,12 @@ const KNOWN_APPS: Record<string, string> = {
 
 export const WHOOP_PACKAGE = 'com.whoop.android';
 // Steps the phone counted itself (Android 14+ Health Connect step tracking).
-const PHONE_PACKAGES = ['android', 'com.google.android.apps.healthdata', 'com.google.android.healthconnect.controller'];
+const PHONE_PACKAGES = [
+  'android',
+  'com.google.android.apps.healthdata',
+  'com.google.android.healthconnect.controller',
+  'com.android.healthconnect.phone',
+];
 export const SAMSUNG_HEALTH_PACKAGES = ['com.sec.android.app.shealth', 'com.samsung.android.wear.shealth'];
 
 export function appName(packageName: string): string {
@@ -78,6 +92,20 @@ export function diagnose(report: DataSourcesReport): DataSourceIssue[] {
       text: `No app has shared steps with Health Connect in the last ${report.days} days, so Hound has none to count. Use the checklist below to turn on sharing in the app that counts your steps.`,
     });
   }
+  // An app with clearly more steps than Hound counts is losing out in
+  // Health Connect's priority order: say how many, and how to fix it.
+  // (Samsung Health never lands here: Hound already uses its total
+  // whenever it's higher.)
+  const notCounted = stepSources.filter((s) => !s.countedForSteps);
+  const missingOut = notCounted.filter(
+    (s) => s.steps - report.countedSteps >= 1000 && s.steps > report.countedSteps * 1.1,
+  );
+  for (const s of missingOut) {
+    issues.push({
+      tone: 'warn',
+      text: `${s.name} has ${(s.steps - report.countedSteps).toLocaleString()} more steps this week than Hound is counting. Health Connect counts only one app for the same minutes. To count ${s.name}, ${PRIORITY_PATH}.`,
+    });
+  }
   if (whoop) {
     issues.push({
       tone: 'info',
@@ -90,11 +118,11 @@ export function diagnose(report: DataSourcesReport): DataSourceIssue[] {
       text: 'Only your phone is counting steps. Use Samsung Health or a watch? Turn on its Health Connect sharing so those steps count too.',
     });
   }
-  const notCounted = stepSources.filter((s) => !s.countedForSteps);
-  if (notCounted.length > 0 && stepSources.length > 1) {
+  const quietlyNotCounted = notCounted.filter((s) => !missingOut.includes(s));
+  if (quietlyNotCounted.length > 0 && stepSources.length > 1) {
     issues.push({
       tone: 'info',
-      text: `${notCounted.map((s) => s.name).join(' and ')} ${notCounted.length === 1 ? 'also shares' : 'also share'} steps, but Health Connect only counts one app for the same minutes, so nothing is counted twice. To change which app wins, open Health Connect → Data and access → Activity → Steps → Data sources and priority.`,
+      text: `${quietlyNotCounted.map((s) => s.name).join(' and ')} ${quietlyNotCounted.length === 1 ? 'also shares' : 'also share'} steps, but only one app is counted for the same minutes, so nothing is counted twice.`,
     });
   }
   if (workoutSources.length === 0) {

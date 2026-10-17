@@ -17,7 +17,7 @@ import type {
   WorkoutSample,
 } from './types';
 import { pickNonOverlapping } from './dedupeWorkouts';
-import { appName, type DataSourcesReport, type DataSourceSummary } from './dataSources';
+import { appName, SAMSUNG_HEALTH_PACKAGES, type DataSourcesReport, type DataSourceSummary } from './dataSources';
 
 // Real Health Connect integration. Requires a custom dev client or a
 // standalone build (`npx expo prebuild` + `expo run:android`, or an EAS
@@ -81,13 +81,32 @@ function orEmpty<T>(promise: Promise<{ records: T[] }>): Promise<{ records: T[] 
 // multiple dataOrigins into one true total.
 type BetweenFilter = { operator: 'between'; startTime: string; endTime: string };
 
-async function aggregateStepsTotal(timeRangeFilter: BetweenFilter): Promise<number> {
+async function healthConnectSteps(timeRangeFilter: BetweenFilter, dataOriginFilter?: string[]): Promise<number> {
   try {
-    const result = await aggregateRecord({ recordType: 'Steps', timeRangeFilter });
+    const result = await aggregateRecord({ recordType: 'Steps', timeRangeFilter, dataOriginFilter });
     return result.COUNT_TOTAL ?? 0;
   } catch {
     return 0;
   }
+}
+
+// Health Connect's total keeps only the highest-priority app for the same
+// minutes, and on Samsung phones that's often the phone's own step
+// counter, which drops Samsung Health's count (phone plus Galaxy Watch)
+// even when it's far higher. The setting is hard to find, so Hound takes
+// the larger of the two totals: Health Connect's, or Samsung Health's
+// alone. Still one source for the range, never the two added together.
+async function stepTotals(timeRangeFilter: BetweenFilter): Promise<{ all: number; samsung: number }> {
+  const [all, samsung] = await Promise.all([
+    healthConnectSteps(timeRangeFilter),
+    healthConnectSteps(timeRangeFilter, SAMSUNG_HEALTH_PACKAGES),
+  ]);
+  return { all, samsung };
+}
+
+async function aggregateStepsTotal(timeRangeFilter: BetweenFilter): Promise<number> {
+  const { all, samsung } = await stepTotals(timeRangeFilter);
+  return Math.max(all, samsung);
 }
 async function aggregateDistanceMi(timeRangeFilter: BetweenFilter): Promise<number> {
   try {
@@ -338,6 +357,7 @@ export const androidHealthProvider: HealthProvider = {
     }
 
     let countedSteps = 0;
+    let usingSamsungHealth = false;
     try {
       const agg = await aggregateRecord({ recordType: 'Steps', timeRangeFilter: filter });
       countedSteps = Math.round(agg.COUNT_TOTAL ?? 0);
@@ -348,11 +368,18 @@ export const androidHealthProvider: HealthProvider = {
     } catch {
       // Leave the counted total at 0 — the per-app list still helps.
     }
+    // Same rule as every step total Hound reads (stepTotals above).
+    const samsungSteps = Math.round(await healthConnectSteps(filter, SAMSUNG_HEALTH_PACKAGES));
+    if (samsungSteps > countedSteps) {
+      countedSteps = samsungSteps;
+      usingSamsungHealth = true;
+      for (const e of byApp.values()) e.countedForSteps = SAMSUNG_HEALTH_PACKAGES.includes(e.packageName);
+    }
 
     const sources = [...byApp.values()]
       .map((e) => ({ ...e, steps: Math.round(e.steps) }))
       .sort((a, b) => b.steps - a.steps || b.workouts - a.workouts);
-    return { days, countedSteps, sources };
+    return { days, countedSteps, usingSamsungHealth, sources };
   },
 
   async getStepsSince(since: Date): Promise<number> {
