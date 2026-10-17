@@ -29,12 +29,16 @@ export interface ReadinessResult {
 
 const MS_PER_DAY = 86_400_000;
 
-// Below this many days of workout history, there's no real 4-week
-// baseline to compare this week against yet — a brand-new account (or
-// one that just connected a device) would otherwise read as an extreme
-// spike simply for having any history at all. See the plan doc's own
-// "Cold start" risk.
-const MIN_HISTORY_DAYS = 21;
+// Below this many days of workout history there's nothing to compare
+// this week against: the baseline would be this week itself. A
+// brand-new account (or one that just connected a device) would
+// otherwise read as an extreme spike simply for having any history at
+// all. See the plan doc's own "Cold start" risk.
+const MIN_HISTORY_DAYS = 14;
+// From MIN_HISTORY_DAYS up to this, readiness is an early read: the
+// baseline is the weekly average over however many days there are,
+// instead of the full four weeks, and the reason says so.
+const FULL_HISTORY_DAYS = 28;
 
 // The standard ACWR bands (sports-science defaults, tuned for
 // structured athletic training) — see the plan doc's "Threshold tuning"
@@ -76,7 +80,11 @@ export function computeReadiness(workouts: WorkoutSample[], now: Date = new Date
     };
   }
 
-  const chronicWeeklyAvgMinutes = sumMinutesInWindow(workouts, now, 28) / 4;
+  const baselineDays = Math.min(historyDays, FULL_HISTORY_DAYS);
+  const early = baselineDays < FULL_HISTORY_DAYS;
+  const chronicWeeklyAvgMinutes = (sumMinutesInWindow(workouts, now, baselineDays) / baselineDays) * 7;
+  const versus = early ? `your average over the last ${baselineDays} days` : "your last month's average";
+  const earlyNote = early ? ' (Early read: this sharpens as Hound sees more of your history.)' : '';
   if (chronicWeeklyAvgMinutes === 0) {
     return {
       label: 'insufficient_data',
@@ -94,7 +102,7 @@ export function computeReadiness(workouts: WorkoutSample[], now: Date = new Date
   if (acwr > OVERLOAD_THRESHOLD) {
     return {
       label: 'overload_risk',
-      reason: `This week's training is ${pctChange}% above your last month's average — that's a sharp jump. Consider an easier day.`,
+      reason: `This week's training is ${pctChange}% above ${versus} — that's a sharp jump. Consider an easier day.${earlyNote}`,
       acuteMinutes,
       chronicWeeklyAvgMinutes,
       acwr,
@@ -104,7 +112,7 @@ export function computeReadiness(workouts: WorkoutSample[], now: Date = new Date
   if (acwr > SLOW_DOWN_THRESHOLD) {
     return {
       label: 'slow_down',
-      reason: `This week's training is ${pctChange}% above your last month's average. Ease up a bit if you're feeling it.`,
+      reason: `This week's training is ${pctChange}% above ${versus}. Ease up a bit if you're feeling it.${earlyNote}`,
       acuteMinutes,
       chronicWeeklyAvgMinutes,
       acwr,
@@ -114,7 +122,7 @@ export function computeReadiness(workouts: WorkoutSample[], now: Date = new Date
   if (acwr < READY_FOR_MORE_THRESHOLD) {
     return {
       label: 'ready_for_more',
-      reason: `This week's training is ${Math.abs(pctChange)}% below your last month's average — there's room to add more.`,
+      reason: `This week's training is ${Math.abs(pctChange)}% below ${versus} — there's room to add more.${earlyNote}`,
       acuteMinutes,
       chronicWeeklyAvgMinutes,
       acwr,
@@ -123,7 +131,7 @@ export function computeReadiness(workouts: WorkoutSample[], now: Date = new Date
   }
   return {
     label: 'on_track',
-    reason: "This week's training load is in line with your last month's average.",
+    reason: `This week's training load is in line with ${versus}.${earlyNote}`,
     acuteMinutes,
     chronicWeeklyAvgMinutes,
     acwr,

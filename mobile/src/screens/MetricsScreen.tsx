@@ -218,10 +218,10 @@ export function MetricsScreen() {
   useEffect(() => {
     health.getWeeklySteps().then(setWeekly);
     // A bigger fetch than the table at the bottom needs on its own — this
-    // same list also feeds the weekly distance bucketing and workout
-    // count below, which need a full week's worth, not just the 5 most
-    // recent rows the table shows.
-    health.getRecentWorkouts(50).then(setWorkouts);
+    // same list also feeds the weekly distance bucketing, the workout
+    // count and readiness, which needs four weeks even for someone who
+    // works out a few times a day. Both providers stop at 30 days.
+    health.getRecentWorkouts(200).then(setWorkouts);
     // The all-day distance for the same 7 days (see mergeDistanceByDay).
     const since = new Date();
     since.setHours(0, 0, 0, 0);
