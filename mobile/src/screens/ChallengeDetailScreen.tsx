@@ -1695,6 +1695,7 @@ export function ChallengeDetailScreen({
                     frameId={row.frameId}
                     backgroundId={row.backgroundId}
                     iconId={row.iconId}
+                    level={row.level}
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.boardName}>{row.userId === user?.id ? 'You' : row.name}</Text>
@@ -1840,6 +1841,7 @@ export function ChallengeDetailScreen({
                           frameId={row.frameId}
                           backgroundId={row.backgroundId}
                           iconId={row.iconId}
+                          level={row.level}
                         />
                         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
                           <Text style={styles.boardName}>{row.name}</Text>

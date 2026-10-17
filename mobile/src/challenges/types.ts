@@ -108,6 +108,9 @@ export interface Participant {
   // Same as frameId/backgroundId above, for the equipped-icon slot
   // (profiles.equipped_icon_id — 0069_avatar_icon_cosmetics.sql).
   iconId: string | null;
+  // Their level, from profiles.xp_total (ranks.ts), for the badge on
+  // their avatar.
+  level?: number | null;
 }
 
 // A bot never signs in and never calls recordProgress() — its steps are

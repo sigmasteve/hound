@@ -42,6 +42,9 @@ export interface Friend {
   frameId: string | null;
   backgroundId: string | null;
   iconId: string | null;
+  // Their level, from profiles.xp_total (ranks.ts), for the badge on
+  // their avatar. Missing where it wasn't read.
+  level?: number | null;
 }
 
 export interface FriendsProvider {

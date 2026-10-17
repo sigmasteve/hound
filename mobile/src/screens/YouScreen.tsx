@@ -22,6 +22,7 @@ import { useHealthProvider } from '../health/HealthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
 import { levelProgressForXp } from '../challenges/leveling';
+import { rankForLevel } from '../challenges/ranks';
 import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import { listAchievements, listEarnedAchievements } from '../achievements/achievementsApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
@@ -112,12 +113,17 @@ export function YouScreen({
           frameId={equipped?.frameId}
           backgroundId={equipped?.backgroundId}
           iconId={equipped?.iconId}
+          level={level?.level}
         />
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={[text.h2, { fontSize: 24 }]} numberOfLines={1}>
             {user?.name ?? 'You'}
           </Text>
-          {level && <Text style={styles.levelLine}>Level {level.level}</Text>}
+          {level && (
+            <Text style={styles.levelLine}>
+              Level {level.level} · <Text style={{ color: rankForLevel(level.level).color }}>{rankForLevel(level.level).name}</Text>
+            </Text>
+          )}
         </View>
       </View>
 

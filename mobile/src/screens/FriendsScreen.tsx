@@ -287,7 +287,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
           <Text style={styles.pendingLabel}>Friend requests</Text>
           {receivedInvites.map((f) => (
             <Card key={f.friendshipId} style={styles.pendingRow} elevated={false}>
-              <Avatar initials={f.initials} tint={TINT_A} frameId={f.frameId} backgroundId={f.backgroundId} iconId={f.iconId} />
+              <Avatar initials={f.initials} tint={TINT_A} frameId={f.frameId} backgroundId={f.backgroundId} iconId={f.iconId} level={f.level} />
               <Text style={styles.friendName}>{f.name}</Text>
               <Text style={styles.pendingMeta}>wants to be friends</Text>
               <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -487,7 +487,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
                 onPress={() => onOpenFriend(f)}
                 style={[styles.friendListRow, i > 0 && styles.friendListRowDivider]}
               >
-                <Avatar initials={f.initials} tint={TINT_N} frameId={f.frameId} backgroundId={f.backgroundId} iconId={f.iconId} />
+                <Avatar initials={f.initials} tint={TINT_N} frameId={f.frameId} backgroundId={f.backgroundId} iconId={f.iconId} level={f.level} />
                 <Text style={[styles.friendName, { flex: 1 }]} numberOfLines={1}>
                   {f.name}
                 </Text>
