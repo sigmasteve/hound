@@ -99,11 +99,7 @@ Anyone still on the old APK at step 4 stops getting updates until they install t
 - `EXPO_PUBLIC_SUPABASE_URL` → `https://quglaamzzhebqrlhvfuc.supabase.co`
 - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` → staging's publishable key, from **Project Settings → API Keys**
 
-Leave **production** as it is. These values are baked in when an app is built or an update is published, so existing installs aren't affected. Only builds made, or updates published with `--environment preview`, after the change use staging. Staging updates go out with:
-
-```
-eas update --branch preview --environment preview
-```
+Leave **production** as it is. These values are baked in when an app is built or an update is published, so existing installs aren't affected. Only builds made, or updates published with `--environment preview`, after the change use staging. Staging updates go out with `npm run update:staging` (step 6 below).
 
 ### 6. Hound Staging on your iPhone
 
@@ -116,7 +112,7 @@ Hound Staging is a second app on the same phone. It has its own name, its own bu
    - For push notifications, reuse the existing Apple push key.
 4. **Install it** from the link or QR code EAS shows at the end. It appears as **Hound Staging**, next to Hound.
 5. **Sign in with email.** Staging has its own accounts, so create one. Google Sign-In on iOS is tied to the bundle ID, so it won't work in Hound Staging until staging has its own iOS OAuth client: set the preview environment's `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` and a `GOOGLE_IOS_URL_SCHEME_STAGING` build variable to it, then rebuild.
-6. **Send it JavaScript changes over the air** with `npm run update:staging` (from `mobile/`). Always use this script rather than a bare `eas update`. It sets `APP_VARIANT=staging`, so the update keeps the `hound-staging` scheme, and it publishes to the `staging` branch, which only Hound Staging listens to.
+6. **Send it JavaScript changes over the air** with `npm run update:staging` (from `mobile/`). Always use this script rather than a bare `eas update`. It sets `APP_VARIANT=staging`, so the update keeps the `hound-staging` scheme, publishes to the `staging` branch, which only Hound Staging listens to, and stops before uploading if the code points at production's database.
 
 None of this touches the real Hound: its bundle ID, channel (`production`) and environment are unchanged. Hound Staging never receives production updates, and production never receives staging updates.
 
@@ -128,7 +124,7 @@ Until production's migration history is recorded (below), it stays manual, in th
 2. Run the release checklist on staging.
 3. Run the new migration files in production's SQL Editor, in number order.
 4. Deploy the changed edge functions to production.
-5. Publish the update with `eas update --branch production --environment production`.
+5. Publish the update with `npm run update:production -- --message "What changed"` (from `mobile/`). It builds into its own folder and stops before uploading if the code points at staging's database. Don't use a bare `eas update`: it shares `dist/` with the staging publish, and on 17 Oct 2026 that sent staging's address to every production phone.
 
 ### Recording production's history (later)
 
