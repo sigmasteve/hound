@@ -4,12 +4,13 @@
 // profiles.xp_total through xpForLevel below, so it can never drift out
 // of sync with the number it actually means.
 //
-// Curve: reaching level L takes 50 * L^2 total XP (level 1: 50, level 5:
-// 1,250, level 10: 5,000, level 20: 20,000) — early levels come quickly
-// (a couple of finished challenges), later ones need sustained play,
-// classic increasing-threshold RPG shape.
+// Curve: reaching level L takes 10·L² + 20·L total XP (level 1: 30,
+// level 5: 350, level 10: 1,200, level 20: 4,400), mirroring
+// level_for_xp in 0100_faster_leveling.sql. XP comes from challenges and
+// from daily habits (opening Hound, goal days, goal weeks), so an active
+// player reaches Tracker (level 5) in two or three weeks.
 export function xpForLevel(level: number): number {
-  return 50 * level * level;
+  return 10 * level * level + 20 * level;
 }
 
 export interface LevelProgress {

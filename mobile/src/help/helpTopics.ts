@@ -159,7 +159,8 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'Two numbers: how much you’ve won, and how much you’ve played.',
       steps: [
         'Hound Score grows from your results when a challenge wraps up. It never goes down.',
-        'XP comes from simply taking part, win or lose, and fills up your level.',
+        'XP fills up your level. You earn it by taking part in challenges (win or lose), opening Hound each day, and hitting your goals.',
+        'Your level gives you a rank: Pup, Tracker (level 5), Hunter (10), Alpha (15) and Legend (20). It shows on your avatar for everyone to see.',
         'New levels unlock new frames and backgrounds in your Locker.',
       ],
     },
