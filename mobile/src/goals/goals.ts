@@ -191,6 +191,24 @@ function sumWeek(inputs: GoalInputs, now: Date, pick: (d: DailyStepsWithDate) =>
   return sum + today;
 }
 
+// Where an even pace would have you by now, as a percent of the goal:
+// the Hound's spot on Today's goal trail. A day runs 7 AM to 9 PM local
+// (before 7 the Hound hasn't set off; after 9 it's at the finish), a
+// week Monday to Sunday.
+const PACE_DAY_START_MIN = 7 * 60;
+const PACE_DAY_END_MIN = 21 * 60;
+
+export function pacePct(goal: Goal, now: Date = new Date()): number {
+  let fraction: number;
+  if (goal.period === 'day') {
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    fraction = (minutes - PACE_DAY_START_MIN) / (PACE_DAY_END_MIN - PACE_DAY_START_MIN);
+  } else {
+    fraction = (now.getTime() - weekStart(now).getTime()) / (7 * 86_400_000);
+  }
+  return Math.max(0, Math.min(1, fraction)) * 100;
+}
+
 export function goalProgress(goal: Goal, inputs: GoalInputs): GoalProgress {
   const now = inputs.now ?? new Date();
   const value = goalValue(goal, inputs);
