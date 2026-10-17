@@ -85,6 +85,11 @@ import { settleChallengeScore } from '../challenges/scoreApi';
 import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
 import { DailyBonusModal } from '../components/DailyBonusModal';
 import { AchievementUnlockedModal } from '../components/AchievementUnlockedModal';
+import { LevelUpModal } from '../components/LevelUpModal';
+import { getMyHoundScore } from '../challenges/scoreApi';
+import { levelProgressForXp } from '../challenges/leveling';
+import { rankForLevel } from '../challenges/ranks';
+import { BACKGROUNDS, FRAMES, ICONS } from '../cosmetics/catalog';
 import { GetStartedCard } from '../components/GetStartedCard';
 import { InviteCodeCard } from '../components/InviteCodeCard';
 import { PushAskCard } from '../components/PushAskCard';
@@ -686,6 +691,8 @@ export function HomeScreen({
   // two quick reloads can each unlock something. Shown only once the daily
   // bonus popup (if any) has closed, never stacked on top of it.
   const [unlocked, setUnlocked] = useState<NewlyEarnedAchievement[]>([]);
+  // Set when this open finds you a level up since last time (LevelUpModal).
+  const [levelUp, setLevelUp] = useState<{ from: number; to: number; unlockedNames: string[] } | null>(null);
   // New-user "Get started" checklist (0074_onboarding_checklist.sql).
   // null = not loaded (or failed) — the card just doesn't render. Hidden
   // for good once the reward's claimed, or locally if dismissed.
@@ -943,6 +950,34 @@ export function HomeScreen({
                 onPress: () => navRef.current.onOpenAchievements(),
               });
             }
+          }
+        })
+        .catch(() => {})
+        // Your XP against what this phone saw last time: a new level gets
+        // the level-up pop-up (or a toast, if this open already had one).
+        // The first check on a phone just records where you are.
+        .then(async () => {
+          const myId = user.id;
+          const { xpTotal } = await getMyHoundScore(myId);
+          const key = `hound:seen-xp:${myId}`;
+          const seenRaw = await AsyncStorage.getItem(key).catch(() => null);
+          await AsyncStorage.setItem(key, String(xpTotal)).catch(() => {});
+          if (seenRaw === null) return;
+          const seenXp = Number(seenRaw);
+          const from = levelProgressForXp(seenXp).level;
+          const to = levelProgressForXp(xpTotal).level;
+          if (to <= from) return;
+          const unlockedNames = [...FRAMES, ...BACKGROUNDS, ...ICONS]
+            .filter((i) => i.unlockXp != null && i.unlockXp > seenXp && i.unlockXp <= xpTotal)
+            .map((i) => i.name);
+          if (takePopup()) {
+            setLevelUp({ from, to, unlockedNames });
+          } else {
+            pushToast({
+              id: `level-${to}`,
+              text: `Level up! You're level ${to}, ${rankForLevel(to).name}`,
+              Icon: TrophyIcon,
+            });
           }
         })
         .catch(() => {})
@@ -1751,6 +1786,20 @@ export function HomeScreen({
           onOpenAchievements();
         }}
         onClose={() => setUnlocked([])}
+      />
+    )}
+    {levelUp && !dailyBonus && unlocked.length === 0 && (
+      <LevelUpModal
+        fromLevel={levelUp.from}
+        toLevel={levelUp.to}
+        avatar={{
+          initials: user?.initials ?? '',
+          frameId: myLook?.frameId,
+          backgroundId: myLook?.backgroundId,
+          iconId: myLook?.iconId,
+        }}
+        unlockedNames={levelUp.unlockedNames}
+        onClose={() => setLevelUp(null)}
       />
     )}
     {toasts.length > 0 && (

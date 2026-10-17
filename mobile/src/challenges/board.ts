@@ -23,6 +23,8 @@ export interface BoardEntry {
   frameId: string | null;
   backgroundId: string | null;
   iconId: string | null;
+  // Level badge on the avatar (ranks.ts); none for bots.
+  level?: number | null;
 }
 
 // Merges real participants (joined with whatever they've actually logged)
@@ -75,6 +77,7 @@ export function buildBoard(
         frameId: p.frameId,
         backgroundId: p.backgroundId,
         iconId: p.iconId,
+        level: p.level ?? null,
       };
     }),
     ...bots.map((b) => ({

@@ -4,6 +4,8 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { font } from '../theme/tokens';
 import { backgroundById, frameById, iconStyleById } from '../cosmetics/catalog';
 import { DEFAULT_AVATAR_ICON, ICON_COMPONENTS } from '../cosmetics/avatarIcons';
+import { rankForLevel } from '../challenges/ranks';
+import { useTheme } from '../theme/ThemeContext';
 
 let gradientIdCounter = 0;
 
@@ -15,6 +17,7 @@ export function Avatar({
   frameId,
   backgroundId,
   iconId,
+  level,
 }: {
   initials: string;
   tint: string;
@@ -33,6 +36,10 @@ export function Avatar({
   // glyph (see cosmetics/avatarIcons.ts). Frame/background still layer
   // around it exactly as they would around initials.
   iconId?: string | null;
+  // Their level (ranks.ts): a small badge in the rank's color at the
+  // bottom right. Omitted, null, or on an avatar too small to read it,
+  // there's no badge.
+  level?: number | null;
 }) {
   const frame = frameById(frameId);
   const background = backgroundById(backgroundId);
@@ -85,7 +92,18 @@ export function Avatar({
     </View>
   );
 
-  if (!frame) return circle;
+  const badge = level != null && size >= MIN_BADGE_AVATAR ? <LevelBadge level={level} avatarSize={size} /> : null;
+
+  if (!frame) {
+    return badge ? (
+      <View>
+        {circle}
+        {badge}
+      </View>
+    ) : (
+      circle
+    );
+  }
 
   // A frame grows the rendered footprint slightly beyond `size` — opt-in
   // only (see frameId's own comment above), so this never shifts layout
@@ -105,6 +123,35 @@ export function Avatar({
       }}
     >
       {circle}
+      {badge}
+    </View>
+  );
+}
+
+// Smaller avatars (the goal trail, tight lists) don't get a badge.
+const MIN_BADGE_AVATAR = 28;
+
+function LevelBadge({ level, avatarSize }: { level: number; avatarSize: number }) {
+  const { colors } = useTheme();
+  const rank = rankForLevel(level);
+  const size = Math.round(Math.min(22, Math.max(15, avatarSize * 0.4)));
+  return (
+    <View
+      style={[
+        styles.badge,
+        {
+          minWidth: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: rank.color,
+          borderColor: colors.surface,
+          right: -size * 0.3,
+          bottom: -size * 0.25,
+        },
+      ]}
+      accessibilityLabel={`Level ${level}, ${rank.name}`}
+    >
+      <Text style={[styles.badgeText, { fontSize: size * 0.55 }]}>{level}</Text>
     </View>
   );
 }
@@ -112,4 +159,12 @@ export function Avatar({
 const styles = StyleSheet.create({
   base: { alignItems: 'center', justifyContent: 'center' },
   label: { fontFamily: font.headingSemibold, color: '#fff' },
+  badge: {
+    position: 'absolute',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { fontFamily: font.heading, color: '#fff' },
 });

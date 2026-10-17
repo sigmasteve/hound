@@ -1,4 +1,5 @@
 import { supabase, signedInUserId } from '../lib/supabase';
+import { levelForXp } from './ranks';
 import { displayInitials, displayName, type DisplayableProfile } from '../profiles/displayName';
 import { fetchAll } from '../lib/fetchAll';
 import { inviteWindowClosed } from './board';
@@ -38,6 +39,7 @@ interface ParticipantProfileRow extends ProfileRow {
   equipped_frame_id: string | null;
   equipped_background_id: string | null;
   equipped_icon_id: string | null;
+  xp_total?: number | null;
 }
 
 function toDisplayable(p: ProfileRow): DisplayableProfile & { initials: string } {
@@ -183,7 +185,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       // embed means and returns a 300 "multiple relationships" error on
       // every challenge, not just a 'tag' one, without this hint.
       .select(
-        'user_id, role, highlighted, profiles!user_id(name, initials, username, use_username, equipped_frame_id, equipped_background_id, equipped_icon_id)',
+        'user_id, role, highlighted, profiles!user_id(name, initials, username, use_username, equipped_frame_id, equipped_background_id, equipped_icon_id, xp_total)',
       )
       .eq('challenge_id', challengeId);
     if (error) throw new Error(error.message);
@@ -198,6 +200,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         frameId: profile?.equipped_frame_id ?? null,
         backgroundId: profile?.equipped_background_id ?? null,
         iconId: profile?.equipped_icon_id ?? null,
+        level: levelForXp(profile?.xp_total),
       };
     });
   },
