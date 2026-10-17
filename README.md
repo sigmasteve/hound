@@ -85,10 +85,11 @@ Details on iOS, Android, Google sign-in, push credentials and EAS are in [`mobil
 
 ## Shipping updates
 
-- **JavaScript-only changes** go out over the air to every build of the same app version:
+- **JavaScript-only changes** go out over the air to every build of the same app version. From `mobile/`:
   ```
-  eas update --branch production --environment production
+  npm run update:production -- --message "What changed"
   ```
+  Always use this script (and `npm run update:staging` for Hound Staging), not a bare `eas update`. Each app builds into its own folder, and nothing is uploaded unless the code points at that app's own database. A bare `eas update` builds into the shared `dist/` folder, so a staging and a production publish at the same time can upload each other's code.
 - **Native changes** need a new app version and store build: new native modules, permissions, or anything in `app.json` that touches the native project. See issue #288 for the checklist.
 - **App and database together:** when a release needs both, the app falls back to the old behavior until the new database functions exist, so the update and the migrations can go out in either order.
 

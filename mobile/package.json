@@ -56,7 +56,8 @@
     "build:ios:preview": "npx eas-cli build --platform ios --profile preview",
     "build:ios:production": "npx eas-cli build --platform ios --profile production",
     "build:ios:staging": "APP_VARIANT=staging npx eas-cli build --platform ios --profile staging",
-    "update:staging": "APP_VARIANT=staging npx eas-cli update --branch staging --environment preview",
+    "update:staging": "bash scripts/publish-update.sh staging",
+    "update:production": "bash scripts/publish-update.sh production",
     "build:android:apk": "npx eas-cli build --platform android --profile production-apk",
     "submit:ios": "npx eas-cli submit --platform ios --profile production"
   },
