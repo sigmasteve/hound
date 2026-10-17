@@ -10,7 +10,7 @@ import { nextDigItem, type BoneDigState } from '../goals/boneDigApi';
 
 // Today: once every daily goal is done, one dig a day for a free
 // surprise (0103_bone_dig.sql). Before that it says what finishing gets
-// you; after, what today's dig turned up.
+// you; once dug, it shrinks to one line with today's find.
 export function BoneDigCard({
   dig,
   goalsDone,
@@ -27,13 +27,25 @@ export function BoneDigCard({
   const ready = goalsDone && !dig.dugToday;
   const next = nextDigItem(dig.pieces);
 
-  const line = dig.dugToday
-    ? dig.prize === 'piece'
-      ? 'Today’s dig: a piece! Back tomorrow for another dig.'
-      : `Today’s dig: +${dig.bones} ${currencyName}. Back tomorrow for another dig.`
-    : ready
-      ? 'Your goals are done. Dig for today’s surprise!'
-      : 'Finish today’s goals to dig for a surprise.';
+  if (dig.dugToday) {
+    return (
+      <Card style={styles.card} elevated={false}>
+        <View style={styles.row}>
+          <ShovelIcon size={16} color={withAlpha(colors.text, 0.6)} weight="fill" />
+          <Text style={styles.compactText} numberOfLines={1}>
+            Dug today: {dig.prize === 'piece' ? 'a piece' : `+${dig.bones} ${currencyName}`}
+          </Text>
+          {next && (
+            <Text style={styles.piecesText} numberOfLines={1}>
+              {next.have}/{next.need} to {next.item.name}
+            </Text>
+          )}
+        </View>
+      </Card>
+    );
+  }
+
+  const line = ready ? 'Your goals are done. Dig for today’s surprise!' : 'Finish today’s goals to dig for a surprise.';
 
   return (
     <Card style={ready ? [styles.card, styles.ready] : styles.card} elevated={false}>
@@ -65,6 +77,7 @@ function makeStyles(colors: Palette) {
       borderColor: withAlpha(colors.amber, 0.6),
       backgroundColor: withAlpha(colors.amber, 0.08),
     },
+    compactText: { flex: 1, fontFamily: font.heading, fontSize: 13.5, color: withAlpha(colors.text, 0.8) },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     title: { fontFamily: font.headingSemibold, fontSize: 16, color: colors.text },
     line: { fontSize: 13, color: withAlpha(colors.text, 0.7) },

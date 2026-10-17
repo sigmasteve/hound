@@ -1608,11 +1608,11 @@ export function HomeScreen({
         )
       )}
 
+      {!setupOpen && kennel && <KennelCard kennel={kennel} onOpen={() => onGoTab('kennel')} />}
+
       {!setupOpen && boneDig && goalProgress?.some((p) => p.goal.period === 'day') && (
         <BoneDigCard dig={boneDig} goalsDone={goalDayHit} currencyName={currencyName} onDig={dig} />
       )}
-
-      {!setupOpen && kennel && <KennelCard kennel={kennel} onOpen={() => onGoTab('kennel')} />}
 
       {bounties && (bounties.length > 0 || onboarding?.hasFriend) && (
         <BountiesCard
