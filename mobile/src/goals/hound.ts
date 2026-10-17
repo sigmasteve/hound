@@ -51,22 +51,28 @@ interface HoundInputs {
   progress: GoalProgress[] | null;
   pending: PendingAction[];
   bonus: { nextStreak: number; nextBonus: number; currencyName: string } | null;
+  // A goal streak that `day` (a local day key) could still break; 0
+  // once that day's goals are done.
+  streak: { count: number; day: string } | null;
 }
 
-const inputs: HoundInputs = { userId: null, level: null, progress: null, pending: [], bonus: null };
+const inputs: HoundInputs = { userId: null, level: null, progress: null, pending: [], bonus: null, streak: null };
 let timer: ReturnType<typeof setTimeout> | null = null;
 let lastSavedThrough: string | null = null;
 // One reschedule at a time, so two can't cancel each other's reminders.
 let running: Promise<void> = Promise.resolve();
 
-// The bonus and the "still on your list" items only come from Home, so
-// they're kept on the phone for a background refresh (background/
-// backgroundSync.ts) to reuse when the app isn't open.
+// The bonus, the goal streak and the "still on your list" items only
+// come from Home, so they're kept on the phone for a background refresh
+// (background/backgroundSync.ts) to reuse when the app isn't open.
 const SAVED_INPUTS_KEY = 'hound:saved-inputs';
 
 function remember(patch: Partial<HoundInputs>): void {
-  if (!('bonus' in patch) && !('pending' in patch)) return;
-  AsyncStorage.setItem(SAVED_INPUTS_KEY, JSON.stringify({ bonus: inputs.bonus, pending: inputs.pending })).catch(() => {});
+  if (!('bonus' in patch) && !('pending' in patch) && !('streak' in patch)) return;
+  AsyncStorage.setItem(
+    SAVED_INPUTS_KEY,
+    JSON.stringify({ bonus: inputs.bonus, pending: inputs.pending, streak: inputs.streak }),
+  ).catch(() => {});
 }
 
 // Merges what changed and reschedules shortly after, so a burst of
@@ -178,6 +184,10 @@ function todayMessage(slotIndex: number, slotCount: number, now: Date): { title:
   }
   let body = goalSentence(open[0], timeLabel(now));
   if (open.length > 1) body += ` Plus ${open.length - 1} more ${open.length - 1 === 1 ? 'goal' : 'goals'}.`;
+  const streak = inputs.streak;
+  if (streak && streak.count > 0 && streak.day === localDayKey(now) && open.some((p) => p.goal.period === 'day')) {
+    body += ` Keep your ${streak.count}-day streak going.`;
+  }
   if (pending.length > 0) body += ` ${pending.length} ${pending.length === 1 ? 'thing is' : 'things are'} waiting on you.`;
   return { title, body };
 }

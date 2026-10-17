@@ -1,7 +1,8 @@
 import { supabase } from '../lib/supabase';
 
-// Admin → Goals (0098_admin_goals_overview.sql): how goals and the Hound
-// are being used, over everyone who's opened Hound in the last 14 days.
+// Admin → Goals (0098_admin_goals_overview.sql, with streaks from
+// 0099_goal_streaks.sql): how goals and the Hound are being used, over
+// everyone who's opened Hound in the last 14 days.
 export interface GoalsOverview {
   active: number;
   goalsSet: number;
@@ -11,6 +12,8 @@ export interface GoalsOverview {
   backups24h: number;
   stepsHit: number;
   stepsTracked: number;
+  streaking: number;
+  goalDays7d: number;
 }
 
 export async function getGoalsOverview(): Promise<GoalsOverview> {
@@ -33,5 +36,7 @@ export async function getGoalsOverview(): Promise<GoalsOverview> {
     backups24h: n(d.backups_24h),
     stepsHit: n(d.steps_hit),
     stepsTracked: n(d.steps_tracked),
+    streaking: n(d.streaking),
+    goalDays7d: n(d.goal_days_7d),
   };
 }

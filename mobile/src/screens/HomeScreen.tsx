@@ -9,6 +9,7 @@ import {
   CaretRightIcon,
   CrosshairIcon,
   EnvelopeOpenIcon,
+  FireIcon,
   FlagCheckeredIcon,
   GlobeHemisphereWestIcon,
   MedalIcon,
@@ -111,6 +112,7 @@ import { TicTacGoBoard } from '../components/TicTacGoCard';
 import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
 import { useGoalProgress } from '../goals/useGoalProgress';
+import { useGoalStreak } from '../goals/useGoalStreak';
 import { updateHound } from '../goals/hound';
 import { GoalsCard } from '../components/GoalsCard';
 import { GoalSetupCard } from '../components/GoalSetupCard';
@@ -608,6 +610,20 @@ export function HomeScreen({
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const pushToast = useCallback((t: ToastMessage) => setToasts((cur) => [...cur, t]), []);
 
+  // Goal days in a row, and the Bones for hitting every daily (or
+  // weekly) goal, claimed as soon as the card shows them done.
+  const { streak: goalStreak, refresh: refreshGoalStreak } = useGoalStreak(user?.id, goalProgress, (award) => {
+    const bones = `+${award.bones} ${currencyNameRef.current}`;
+    pushToast({
+      id: `goal-${award.kind}-${Date.now()}`,
+      text:
+        award.kind === 'week'
+          ? `${bones}: every weekly goal done`
+          : `${bones}: every daily goal done${award.streak > 1 ? ` · ${award.streak} days in a row` : ''}`,
+      Icon: FireIcon,
+    });
+  });
+
   // "Needs you" shows three things until expanded.
   const [needsYouExpanded, setNeedsYouExpanded] = useState(false);
 
@@ -828,6 +844,7 @@ export function HomeScreen({
 
   const reload = useCallback(() => {
     loadGlobalChallenges();
+    refreshGoalStreak();
     if (isSupabaseConfigured && user?.id) {
       // Every open/focus/resume lands here, and a repeat claim the same
       // day is a server-side no-op.
@@ -899,7 +916,7 @@ export function HomeScreen({
         });
       }
     });
-  }, [health, user?.id, loadGlobalChallenges, pushToast]);
+  }, [health, user?.id, loadGlobalChallenges, pushToast, refreshGoalStreak]);
 
   useEffect(reload, [reload]);
 
@@ -1347,6 +1364,8 @@ export function HomeScreen({
         goalProgress && (
           <GoalsCard
             progress={goalProgress}
+            streak={goalStreak}
+            currencyName={currencyName}
             needsSetup={!goalsSet}
             onOpenGoal={() => onGoTab('stats')}
             onEdit={() => onGoTab('goals')}

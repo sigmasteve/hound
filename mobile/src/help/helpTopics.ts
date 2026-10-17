@@ -170,7 +170,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: `How you earn ${currency}, and what they’re for.`,
       steps: [
         `You earn ${currency} every time a challenge you’re in wraps up, plus a bonus each time you level up.`,
-        `Opening the app each day adds a daily bonus (see below).`,
+        `Opening the app each day adds a daily bonus, and hitting your goals pays too (see below).`,
         `Spend ${currency} in the Shop tab of your Locker on looks no level unlocks.`,
         'Limited-time drops (like Halloween) sit at the top of the Shop until they end — anything you buy from one is yours to keep afterward.',
         `Some challenge types unlock after you’ve earned enough ${currency} through play. Spending never re-locks them.`,
@@ -212,6 +212,19 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Miss a day and your streak starts over at day 1 (you still get that day’s bonus).',
       ],
       tip: 'With hounding on (You → Goals), your evening reminder mentions the bonus too.',
+    },
+    {
+      id: 'goal-streak',
+      section: 'rewards',
+      title: 'Goal streak',
+      summary: `Hit your goals for ${currency}, and keep the streak going.`,
+      steps: [
+        `Finish every daily goal on a day and you earn ${currency} for it. Today’s goals card shows what the day pays.`,
+        'Days in a row build your goal streak, shown on the goals card. Every 7th day in a row pays a bigger bonus.',
+        'Miss a day and the streak starts over.',
+        `Finish every weekly goal in a week (Monday to Sunday) for a weekly ${currency} bonus.`,
+      ],
+      tip: 'Hound checks in the background, so a goal you hit without opening the app still counts once your phone lets it run. Opening Hound before midnight makes sure.',
     },
     {
       id: 'locker',
