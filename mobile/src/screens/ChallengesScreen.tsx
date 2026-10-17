@@ -18,6 +18,7 @@ import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIc
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { headStartBaselineDayKey, pickPrimaryChallenge } from '../challenges/board';
+import { getFeatureNewest } from '../challenges/todayFeature';
 import { huntKindName, toChallengeCard } from '../challenges/present';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { useLabels } from '../labels/LabelsContext';
@@ -148,12 +149,13 @@ export function ChallengesScreen({
   const [orgName, setOrgName] = useState<string | null>(cachedChallengesState?.orgName ?? null);
 
   const loadChallenges = async (): Promise<void> => {
-    const [challenges, highlighted, globals] = await Promise.all([
+    const [challenges, highlighted, globals, featureNewest] = await Promise.all([
       supabaseChallengesProvider.listMyChallenges(),
       supabaseChallengesProvider.getHighlightedChallenge(),
       // Only used to tell which of your challenges are global; a failure
       // just files them under Personal.
       listGlobalChallenges().catch(() => []),
+      getFeatureNewest(),
     ]);
     const globalIds = new Set(globals.map((g) => g.id));
     const groups = new Map<string, ChallengeGroup>(
@@ -161,7 +163,7 @@ export function ChallengesScreen({
     );
     const orgId = challenges.find((c) => !globalIds.has(c.id) && c.organizationId)?.organizationId ?? null;
     const org = orgId ? await getOrganization(orgId).catch(() => null) : null;
-    const primaryId = pickPrimaryChallenge(challenges, highlighted)?.id ?? null;
+    const primaryId = pickPrimaryChallenge(challenges, highlighted, featureNewest)?.id ?? null;
     setPrimaryChallengeId(primaryId);
     // Only a challenge whose schedule hasn't ended yet needs the full
     // participants/leaderboard/bots fetch here — one still genuinely

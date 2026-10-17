@@ -39,6 +39,8 @@ export function GoalsAdminCard() {
           `Gentle ${data.levels.gentle} · Persistent ${data.levels.persistent} · Relentless ${data.levels.relentless} · Off ${data.levels.off}`,
         ],
         ['Hit their steps goal yesterday', `${data.stepsHit} of ${data.stepsTracked}${pct(data.stepsHit, data.stepsTracked)}`],
+        ['On a goal streak', `${data.streaking}${pct(data.streaking, data.active)}`],
+        ['Goal days paid, last 7 days', `${data.goalDays7d}`],
         ['Phones scheduling today’s reminders', `${data.phoneScheduled}`],
         ['9 PM backup reminders, last 24 hours', `${data.backups24h}`],
       ]

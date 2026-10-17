@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { BarbellIcon, CheckCircleIcon, FootprintsIcon, PathIcon, TimerIcon } from 'phosphor-react-native';
+import { BarbellIcon, CheckCircleIcon, FireIcon, FootprintsIcon, PathIcon, TimerIcon } from 'phosphor-react-native';
 import { Button } from './Button';
 import { Card } from './Card';
 import { ProgressBar } from './ProgressBar';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { formatAmount, goalTitle, progressLine, type GoalMetric, type GoalProgress } from '../goals/goals';
+import type { GoalStreak } from '../goals/goalStreakApi';
 
 const ICONS: Record<GoalMetric, React.ComponentType<any>> = {
   steps: FootprintsIcon,
@@ -15,16 +16,32 @@ const ICONS: Record<GoalMetric, React.ComponentType<any>> = {
   workout_minutes: TimerIcon,
 };
 
+// What the streak line says: how many days in a row, and what today
+// adds. Only for someone with a daily goal.
+function streakText(s: GoalStreak, currencyName: string): { title: string; detail: string } {
+  const next = s.streak + 1;
+  const pays = `+${s.nextBones} ${currencyName}`;
+  if (s.streak === 0) return { title: 'Start a streak', detail: `Hit every daily goal today: ${pays}.` };
+  const title = s.streak === 1 ? '1 goal day' : `${s.streak} days in a row`;
+  if (s.hitToday) return { title, detail: `Back tomorrow for day ${next}.` };
+  return { title, detail: `Hit today's goals for day ${next}: ${pays}.` };
+}
+
 // Today's first card: every goal, where you are on it, and what's left.
 // The heading says whether the Hound is still on you.
 export function GoalsCard({
   progress,
+  streak,
+  currencyName,
   needsSetup,
   onOpenGoal,
   onEdit,
   onSetGoals,
 }: {
   progress: GoalProgress[];
+  // Goal days in a row (0099_goal_streaks.sql); null until it loads.
+  streak: GoalStreak | null;
+  currencyName: string;
   // Goals nobody has chosen yet (the starters): offer to set them.
   needsSetup: boolean;
   onOpenGoal: (p: GoalProgress) => void;
@@ -35,6 +52,8 @@ export function GoalsCard({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const done = progress.filter((p) => p.done).length;
   const allDone = progress.length > 0 && done === progress.length;
+  const streakLine =
+    streak && progress.some((p) => p.goal.period === 'day') ? streakText(streak, currencyName) : null;
 
   return (
     <Card style={{ gap: 14 }} elevated={false}>
@@ -55,6 +74,17 @@ export function GoalsCard({
           </Pressable>
         )}
       </View>
+
+      {streakLine && streak && (
+        <View style={styles.streak}>
+          <FireIcon size={20} color={streak.streak > 0 ? colors.amber : withAlpha(colors.text, 0.4)} weight="fill" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.streakTitle}>{streakLine.title}</Text>
+            <Text style={styles.streakDetail}>{streakLine.detail}</Text>
+          </View>
+          {streak.best > streak.streak && <Text style={styles.best}>Best {streak.best}</Text>}
+        </View>
+      )}
 
       {needsSetup && (
         <View style={styles.setup}>
@@ -110,6 +140,18 @@ function makeStyles(colors: Palette) {
       backgroundColor: withAlpha(colors.accent, 0.1),
     },
     setupText: { flex: 1, fontSize: 13, color: colors.text },
+    streak: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      backgroundColor: withAlpha(colors.amber, 0.1),
+    },
+    streakTitle: { fontFamily: font.heading, fontSize: 15, color: colors.text },
+    streakDetail: { fontSize: 12.5, color: withAlpha(colors.text, 0.65) },
+    best: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
     rowTop: { flexDirection: 'row', alignItems: 'center', gap: 7 },
     goalName: { flex: 1, fontSize: 13, color: withAlpha(colors.text, 0.75) },
     valueRow: { flexDirection: 'row', alignItems: 'baseline' },

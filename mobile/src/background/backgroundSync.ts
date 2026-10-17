@@ -11,6 +11,7 @@ import {
 import { recordDailyStepTotal } from '../leaderboard/supabaseStepsRank';
 import { getHoundSettings, listGoals } from '../goals/goalsApi';
 import { goalProgress, weekStart } from '../goals/goals';
+import { claimGoalDay, claimGoalWeek, goalsEarned } from '../goals/goalStreakApi';
 import { refreshHoundNow } from '../goals/hound';
 
 // Background sync (from 0.10.2, the first build with the native module):
@@ -18,6 +19,8 @@ import { refreshHoundNow } from '../goals/hound';
 //   - read today's steps, distance and workouts,
 //   - bring every running challenge up to date (the same sync Today does
 //     on open, deviceSync.ts),
+//   - claim the Bones for a goal day or week that's just been done, so a
+//     streak doesn't break because Hound wasn't opened that day,
 //   - and reschedule the Hound's reminders with fresh numbers, so it stops
 //     reminding you about a goal you've already hit.
 //
@@ -68,10 +71,17 @@ async function syncNow(): Promise<void> {
   const needsWeek = goals.some((g) => g.period === 'week' && (g.metric === 'steps' || g.metric === 'distance_mi'));
   const weekDays = needsWeek ? await health.getDailyStepsSince(weekStart()).catch(() => []) : [];
   const inputs = { stepsToday: snap.stepsToday, distanceTodayMi: snap.distanceTodayMi, weekDays, workouts };
+  const progress = goals.map((g) => goalProgress(g, inputs));
+
+  // The server pays each day and week once, so asking again is harmless.
+  const earned = goalsEarned(progress);
+  if (earned.day) await claimGoalDay().catch(() => {});
+  if (earned.week) await claimGoalWeek().catch(() => {});
+
   await refreshHoundNow({
     userId,
     level: settings.level,
-    progress: goals.map((g) => goalProgress(g, inputs)),
+    progress,
   });
 }
 

@@ -25,6 +25,7 @@ import { getOrganization, leaveOrganization, redeemOrganizationInvite } from '..
 import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import type { Organization } from '../organizations/types';
 import { getDiscoverable, setDiscoverable } from '../friends/discovery';
+import { getFeatureNewest, setFeatureNewest } from '../challenges/todayFeature';
 import { getSocialPushEnabled, setSocialPushEnabled } from '../social/social';
 import {
   askForPush,
@@ -103,6 +104,17 @@ export function SettingsScreen() {
     } finally {
       setSavingUsername(false);
     }
+  };
+
+  // Whether Today features your newest challenge when none is pinned
+  // (todayFeature.ts). Null until loaded.
+  const [featureNewest, setFeatureNewestState] = useState<boolean | null>(null);
+  useEffect(() => {
+    getFeatureNewest().then(setFeatureNewestState);
+  }, []);
+  const toggleFeatureNewest = (next: boolean) => {
+    setFeatureNewestState(next);
+    setFeatureNewest(next).catch(() => setFeatureNewestState(!next));
   };
 
   // Whether this account shows up in Friends → Find people (0080). Null
@@ -483,6 +495,14 @@ export function SettingsScreen() {
           value={mode === 'light'}
           onChange={(v) => setMode(v ? 'light' : 'dark')}
         />
+        {featureNewest !== null && (
+          <ToggleRow
+            label="Newest challenge on Today"
+            note={featureNewest ? 'Featured when you haven’t pinned one' : 'Only a pinned challenge is featured'}
+            value={featureNewest}
+            onChange={toggleFeatureNewest}
+          />
+        )}
       </Card>
 
 
