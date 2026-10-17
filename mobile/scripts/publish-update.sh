@@ -39,14 +39,20 @@ echo "Building the $target update into $out/ with the $environment environment..
 npx eas-cli env:exec "$environment" \
   "npx expo export --output-dir $out --dump-assetmap --dump-sourcemap --platform ios --platform android --clear"
 
+# The full address, as EXPO_PUBLIC_SUPABASE_URL puts it in the code. The
+# bare project ids also appear in the app on purpose (Settings shows PR or
+# STG, src/lib/appVersion.ts), so they can't be what's checked. Source
+# maps are skipped: they hold the app's source text, not its settings.
+expect_url="https://$expect.supabase.co"
+reject_url="https://$reject.supabase.co"
 for platform in ios android; do
   bundle_dir="$out/_expo/static/js/$platform"
-  if grep -rqs "$reject" "$bundle_dir"; then
-    echo "STOPPED: the $platform code points at the wrong database ($reject). Nothing was published."
+  if grep -rqsF --exclude='*.map' "$reject_url" "$bundle_dir"; then
+    echo "STOPPED: the $platform code points at the wrong database ($reject_url). Nothing was published."
     exit 1
   fi
-  if ! grep -rqs "$expect" "$bundle_dir"; then
-    echo "STOPPED: the $platform code doesn't point at the $target database ($expect). Nothing was published."
+  if ! grep -rqsF --exclude='*.map' "$expect_url" "$bundle_dir"; then
+    echo "STOPPED: the $platform code doesn't point at the $target database ($expect_url). Nothing was published."
     exit 1
   fi
 done
