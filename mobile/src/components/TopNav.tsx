@@ -6,14 +6,17 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../auth/AuthContext';
 
-// The slim bar above every tab: the Hound mark, and the two management
-// icons for the people who have something to manage. Everything else
+// The slim bar above every tab: the Hound mark (tap it to go to Today),
+// and the two management icons for the people who have something to
+// manage. Everything else
 // that used to live up here (Help, Locker, your name for Settings) is on
 // the You tab, and the tabs themselves are at the bottom (TabBar).
 export function TopNav({
+  onHome,
   onAdmin,
   onOrgManagement,
 }: {
+  onHome: () => void;
   onAdmin: () => void;
   // Passed the caller's own org id when they're only an org admin (not a
   // platform admin) — MainScreen uses that to skip straight to
@@ -29,10 +32,18 @@ export function TopNav({
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
       <View style={styles.brandRow}>
-        <View style={styles.brandMark}>
-          <PawPrintIcon size={16} color={colors.accent} weight="fill" />
-        </View>
-        <Text style={styles.brandName}>Hound</Text>
+        <Pressable
+          style={({ pressed }) => [styles.brandLink, pressed && { opacity: 0.7 }]}
+          onPress={onHome}
+          hitSlop={6}
+          accessibilityRole="link"
+          accessibilityLabel="Hound, go to Today"
+        >
+          <View style={styles.brandMark}>
+            <PawPrintIcon size={16} color={colors.accent} weight="fill" />
+          </View>
+          <Text style={styles.brandName}>Hound</Text>
+        </Pressable>
         <View style={styles.pushRight} />
         {canManageOrgs && (
           <Pressable
@@ -69,6 +80,8 @@ function makeStyles(colors: Palette) {
       paddingBottom: 8,
       minHeight: 48,
     },
+    // The mark and name together, as one tap target, gapped like the row.
+    brandLink: { flexDirection: 'row', alignItems: 'center', gap: 9 },
     brandMark: {
       width: 28,
       height: 28,
