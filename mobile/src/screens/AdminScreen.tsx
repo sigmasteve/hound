@@ -384,6 +384,7 @@ export function AdminScreen({
   const [goalDayInput, setGoalDayInput] = useState('');
   const [goalStreakInput, setGoalStreakInput] = useState('');
   const [goalWeekInput, setGoalWeekInput] = useState('');
+  const [shieldInput, setShieldInput] = useState('');
   const [savingGoalRewards, setSavingGoalRewards] = useState(false);
   const [goalRewardsError, setGoalRewardsError] = useState<string | null>(null);
   const [goalRewardsSaved, setGoalRewardsSaved] = useState(false);
@@ -396,23 +397,24 @@ export function AdminScreen({
           setGoalDayInput(String(c.dayBones));
           setGoalStreakInput(String(c.streakBones));
           setGoalWeekInput(String(c.weekBones));
+          setShieldInput(String(c.shieldBones));
         })
         .catch(() => {});
     }, [user?.isAdmin]),
   );
 
   const saveGoalRewards = async () => {
-    const amounts = [goalDayInput, goalStreakInput, goalWeekInput].map(Number);
+    const amounts = [goalDayInput, goalStreakInput, goalWeekInput, shieldInput].map(Number);
     if (amounts.some((n) => !Number.isInteger(n) || n < 1)) {
-      setGoalRewardsError('All three amounts need to be whole numbers of at least 1.');
+      setGoalRewardsError('All four amounts need to be whole numbers of at least 1.');
       return;
     }
-    const [dayBones, streakBones, weekBones] = amounts;
+    const [dayBones, streakBones, weekBones, shieldBones] = amounts;
     setGoalRewardsError(null);
     setGoalRewardsSaved(false);
     setSavingGoalRewards(true);
     try {
-      await setGoalRewardConfig({ dayBones, streakBones, weekBones });
+      await setGoalRewardConfig({ dayBones, streakBones, weekBones, shieldBones });
       setGoalRewardsSaved(true);
     } catch (e) {
       setGoalRewardsError(e instanceof Error ? e.message : 'Could not save that — try again.');
@@ -644,14 +646,16 @@ export function AdminScreen({
               <Text style={text.h4}>Goal rewards</Text>
               <Text style={styles.footNote}>
                 What hitting your goals pays. A goal day is every daily goal done; every 7th goal day in a row pays the
-                streak amount instead. A goal week is every weekly goal done, paid once a week. Changes apply to
-                everyone&rsquo;s next claim. These Bones never count toward challenge unlocks.
+                streak amount instead. A goal week is every weekly goal done, paid once a week. A Streak Shield is
+                what players pay to cover one missed day. Changes apply to everyone&rsquo;s next claim. These Bones
+                never count toward challenge unlocks.
               </Text>
               {(
                 [
                   ['Each goal day', goalDayInput, setGoalDayInput, 'e.g. 5'],
                   ['Every 7th goal day in a row', goalStreakInput, setGoalStreakInput, 'e.g. 25'],
                   ['Each goal week', goalWeekInput, setGoalWeekInput, 'e.g. 15'],
+                  ['Streak Shield price', shieldInput, setShieldInput, 'e.g. 50'],
                 ] as const
               ).map(([label, value, set, placeholder]) => (
                 <TextField
