@@ -40,6 +40,7 @@ export function MainScreen({ route, navigation }: Props) {
     if (dest === 'stats') navigation.navigate('Stats');
     else if (dest === 'healthData') navigation.navigate('HealthData');
     else if (dest === 'goals') navigation.navigate('Goals');
+    else if (dest === 'kennel') navigation.navigate('Kennel');
     else setTab(dest);
   };
 
@@ -91,6 +92,7 @@ export function MainScreen({ route, navigation }: Props) {
             onOpenStats={() => navigation.navigate('Stats')}
             onOpenAchievements={() => navigation.navigate('Achievements')}
             onOpenLocker={() => navigation.navigate('Locker')}
+            onOpenKennel={() => navigation.navigate('Kennel')}
             onOpenHealthData={() => navigation.navigate('HealthData')}
             onOpenSettings={() => navigation.navigate('Settings')}
             onOpenHelp={() => navigation.navigate('Help')}

@@ -6,6 +6,7 @@ import {
   CaretRightIcon,
   ChartLineUpIcon,
   CoatHangerIcon,
+  DogIcon,
   GearSixIcon,
   HeartbeatIcon,
   QuestionIcon,
@@ -38,6 +39,7 @@ export function YouScreen({
   onOpenStats,
   onOpenAchievements,
   onOpenLocker,
+  onOpenKennel,
   onOpenHealthData,
   onOpenSettings,
   onOpenHelp,
@@ -46,6 +48,7 @@ export function YouScreen({
   onOpenStats: () => void;
   onOpenAchievements: () => void;
   onOpenLocker: () => void;
+  onOpenKennel: () => void;
   onOpenHealthData: () => void;
   onOpenSettings: () => void;
   onOpenHelp: () => void;
@@ -97,6 +100,7 @@ export function YouScreen({
       onPress: onOpenAchievements,
     },
     { label: 'Locker', Icon: CoatHangerIcon, detail: 'Frames, backgrounds, icons', onPress: onOpenLocker },
+    { label: 'Kennel', Icon: DogIcon, detail: 'Your hound', onPress: onOpenKennel },
     { label: 'Health data', Icon: HeartbeatIcon, detail: healthSource, onPress: onOpenHealthData },
     { label: 'Settings', Icon: GearSixIcon, detail: 'Notifications, goals, account', onPress: onOpenSettings },
     { label: 'Help', Icon: QuestionIcon, onPress: onOpenHelp },
