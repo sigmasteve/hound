@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase, signedInUserId } from '../lib/supabase';
 import { BINGO_CATEGORY_LABEL, type BingoCategory, type BingoFillSource, type BingoProgressRow } from './bingo';
 
 function requireClient() {
@@ -6,10 +6,8 @@ function requireClient() {
   return supabase;
 }
 
-async function requireUserId(): Promise<string> {
-  const { data } = await requireClient().auth.getUser();
-  if (!data.user) throw new Error('Sign in to do that.');
-  return data.user.id;
+function requireUserId(): Promise<string> {
+  return signedInUserId();
 }
 
 // Every category any participant has ever filled for this challenge — see

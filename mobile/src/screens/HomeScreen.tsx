@@ -1477,7 +1477,9 @@ export function HomeScreen({
           >
             <FlagCheckeredIcon size={15} color={color.accent} />
             <Text style={styles.yoursHeaderText}>
-              {challengeCounts ? `${challengeCounts.active} active · ${challengeCounts.finished} finished` : 'Your challenges'}
+              {challengeCounts
+                ? `${challengeCounts.active} active ${challengeCounts.active === 1 ? 'challenge' : 'challenges'} · ${challengeCounts.finished} finished`
+                : 'Your challenges'}
               {(liveInvites?.length ?? 0) > 0 && (
                 <Text style={styles.countsInvited}> · {liveInvites!.length} invited</Text>
               )}

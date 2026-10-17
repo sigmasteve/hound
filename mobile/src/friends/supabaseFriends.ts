@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase, signedInUserId } from '../lib/supabase';
 import { isMissingFunction } from '../lib/rpcFallback';
 import { extractFriendCode, KUDOS_COOLDOWN_MS, type Friend, type FriendsProvider, type KudosCounts } from './types';
 
@@ -7,10 +7,8 @@ function requireClient() {
   return supabase;
 }
 
-async function requireUserId(): Promise<string> {
-  const { data } = await requireClient().auth.getUser();
-  if (!data.user) throw new Error('Sign in to do that.');
-  return data.user.id;
+function requireUserId(): Promise<string> {
+  return signedInUserId();
 }
 
 interface ProfileRef {

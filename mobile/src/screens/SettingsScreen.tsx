@@ -17,7 +17,7 @@ import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import type { AuthProviderId } from '../auth/types';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { APP_VERSION } from '../lib/appVersion';
+import { APP_VERSION, runningOnLabel } from '../lib/appVersion';
 import { deleteMyAccount } from '../auth/deleteAccount';
 import * as notifications from '../notifications/supabaseNotifications';
 import { setUseUsername, setUsername } from '../profiles/supabaseProfile';
@@ -810,6 +810,7 @@ export function SettingsScreen() {
       )}
 
       <Text style={styles.versionNote}>Hound v{APP_VERSION}</Text>
+      <Text style={styles.versionNote}>{runningOnLabel()}</Text>
     </ScrollView>
   );
 }
