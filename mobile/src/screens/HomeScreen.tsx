@@ -1611,7 +1611,9 @@ export function HomeScreen({
         <WeeklyRecapCard recap={weeklyRecap} currencyName={currencyName} onDismiss={dismissWeeklyRecap} />
       )}
 
-      {!primary && (
+      {/* For someone who's never had a challenge, not for anyone who
+          just has nothing featured (Settings → Newest challenge on Today). */}
+      {!primary && (!challengeCounts || challengeCounts.active + challengeCounts.finished === 0) && (
         <View style={styles.cardsRow}>
           <GettingStartedCards onGoTab={onGoTab} styles={styles} />
         </View>
