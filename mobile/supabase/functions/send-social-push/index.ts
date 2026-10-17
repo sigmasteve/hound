@@ -6,6 +6,11 @@
 //   'trash_talk'  "Jordan in Week Race: Catch me if you can 🐾" — to
 //                 everyone in to_users (the RPC already applied mutes and
 //                 the 2-hour limit)
+//   'bounty_posted'  "Jordan posted a bounty: first to 15,000 steps
+//                 today gets 30 Bones 🎯" — to everyone in to_users
+//                 (post_bounty, 0102_bounties.sql)
+//   'bounty_claimed' "Jordan hit 15,000 steps and claimed your 30-Bone
+//                 bounty" — to the poster (claim_bounty)
 // The RPC has already checked who can do what, and that each recipient
 // has these pushes on; a failure here never undoes the nudge, reaction
 // or message — the calling side swallows it.
@@ -18,7 +23,7 @@ import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EMOJI = ['🔥', '💪', '👏', '😮'];
 
-type Kind = 'nudge' | 'reaction' | 'trash_talk';
+type Kind = 'nudge' | 'reaction' | 'trash_talk' | 'bounty_posted' | 'bounty_claimed';
 
 interface RequestBody {
   kind: Kind;
@@ -30,6 +35,9 @@ interface RequestBody {
   message?: string;
   challenge_id: string | null;
   emoji?: string;
+  // bounty_posted / bounty_claimed
+  target_steps?: number;
+  bones?: number;
 }
 
 interface ProfileRow {
@@ -63,10 +71,11 @@ Deno.serve(async (req) => {
 
   const body = (await req.json()) as RequestBody;
   if (body?.kind === 'trash_talk') return trashTalk(supabase, body);
+  if (body?.kind === 'bounty_posted') return bountyPosted(supabase, body);
   if (
     !body?.from_user ||
     !body?.to_user ||
-    (body.kind !== 'nudge' && body.kind !== 'reaction') ||
+    (body.kind !== 'nudge' && body.kind !== 'reaction' && body.kind !== 'bounty_claimed') ||
     (body.kind === 'reaction' && (!body.challenge_id || !EMOJI.includes(body.emoji ?? '')))
   ) {
     return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
@@ -99,7 +108,9 @@ Deno.serve(async (req) => {
   const name = displayName(sender);
   const challengeName = challenge?.name ?? null;
   const messageBody =
-    body.kind === 'nudge'
+    body.kind === 'bounty_claimed'
+      ? `${name} hit ${steps(body.target_steps)} steps and claimed your ${body.bones ?? ''}-Bone bounty 🎯`
+      : body.kind === 'nudge'
       ? challengeName
         ? `${name} nudged you in ${challengeName} 👋 Time to get moving!`
         : `${name} nudged you 👋 Time to get moving!`
@@ -166,6 +177,54 @@ async function trashTalk(supabase: SupabaseClient, body: RequestBody): Promise<R
   const data = { type: 'trash_talk', challengeId: body.challenge_id, fromUserId: body.from_user, fromName: name };
   const messages = tokens.map((to) => ({ to, title: `${name}${where}`, body: message, sound: 'default', data }));
   // Expo takes up to 100 messages per request.
+  for (let i = 0; i < messages.length; i += 100) {
+    await fetch(EXPO_PUSH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(messages.slice(i, i + 100)),
+    }).catch(() => {
+      // One failed send shouldn't surface as a 500 — same as the other jobs.
+    });
+  }
+  return new Response(JSON.stringify({ sent: true, recipients: tokens.length }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function steps(n: number | undefined): string {
+  return (n ?? 0).toLocaleString('en-US');
+}
+
+// A new bounty, to the poster's friends post_bounty picked.
+async function bountyPosted(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
+  const toUsers = (body.to_users ?? []).filter((id) => typeof id === 'string');
+  if (!body.from_user || !body.target_steps || !body.bones || toUsers.length === 0) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
+  }
+  const [{ data: sender }, { data: recipients }, { data: tokenRows }] = await Promise.all([
+    supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', body.from_user).single<ProfileRow>(),
+    supabase.from('profiles').select('id, alert_social_push_enabled').in('id', toUsers),
+    supabase.from('device_push_tokens').select('user_id, expo_push_token').in('user_id', toUsers),
+  ]);
+  if (!sender) {
+    return new Response(JSON.stringify({ sent: false, reason: 'Profile not found' }), { status: 404 });
+  }
+  const allowed = new Set(
+    ((recipients ?? []) as { id: string; alert_social_push_enabled: boolean }[])
+      .filter((r) => r.alert_social_push_enabled)
+      .map((r) => r.id),
+  );
+  const tokens = ((tokenRows ?? []) as { user_id: string; expo_push_token: string }[])
+    .filter((t) => allowed.has(t.user_id))
+    .map((t) => t.expo_push_token);
+  if (tokens.length === 0) {
+    return new Response(JSON.stringify({ sent: false, reason: 'No registered device' }));
+  }
+
+  const name = displayName(sender);
+  const message = `${name} posted a bounty: first to ${steps(body.target_steps)} steps today gets ${body.bones} Bones 🎯`;
+  const data = { type: 'bounty_posted', fromUserId: body.from_user, fromName: name };
+  const messages = tokens.map((to) => ({ to, title: 'Hound', body: message, sound: 'default', data }));
   for (let i = 0; i < messages.length; i += 100) {
     await fetch(EXPO_PUSH_URL, {
       method: 'POST',

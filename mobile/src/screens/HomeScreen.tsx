@@ -17,6 +17,7 @@ import {
   PawPrintIcon,
   PlusCircleIcon,
   SneakerMoveIcon,
+  TargetIcon,
   TrophyIcon,
   UserPlusIcon,
   XIcon,
@@ -127,6 +128,10 @@ import { useGoalStreak } from '../goals/useGoalStreak';
 import { buyStreakShield } from '../goals/goalStreakApi';
 import { updateHound } from '../goals/hound';
 import { GoalsCard } from '../components/GoalsCard';
+import { BountiesCard } from '../components/BountiesCard';
+import { PostBountyModal } from '../components/PostBountyModal';
+import { useBounties } from '../bounties/useBounties';
+import { cancelBounty, canPostToday, postBounty, type Bounty } from '../bounties/bountiesApi';
 import { GoalSetupCard } from '../components/GoalSetupCard';
 import { useGoals } from '../goals/GoalsContext';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
@@ -1058,6 +1063,43 @@ export function HomeScreen({
   // invite itself removed from the list.
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Your bounty and your friends' (0102_bounties.sql). Reaching a
+  // friend's target claims it.
+  const { bounties, refresh: refreshBounties } = useBounties(user?.id, snap?.stepsToday ?? null, refreshKey, (b) => {
+    pushToast({
+      id: `bounty-${b.id}`,
+      text: `+${b.bones} ${currencyNameRef.current}: you got ${b.posterName}'s bounty`,
+      Icon: TargetIcon,
+    });
+  });
+  const [bountyModal, setBountyModal] = useState<'closed' | 'open' | 'posting'>('closed');
+  const submitBounty = (targetSteps: number, bones: number) => {
+    setBountyModal('posting');
+    postBounty(targetSteps, bones)
+      .then(() => {
+        setBountyModal('closed');
+        refreshBounties();
+        pushToast({ id: `bounty-posted-${Date.now()}`, text: 'Bounty posted: your friends have till midnight', Icon: TargetIcon });
+      })
+      .catch((e: Error) => {
+        setBountyModal('open');
+        Alert.alert("Couldn't post the bounty", e.message);
+      });
+  };
+  const takeBackBounty = (b: Bounty) => {
+    Alert.alert('Take back your bounty?', `Your ${b.bones} ${currencyName} come back to you.`, [
+      { text: 'Keep it', style: 'cancel' },
+      {
+        text: 'Take it back',
+        style: 'destructive',
+        onPress: () =>
+          cancelBounty(b.id)
+            .then(refreshBounties)
+            .catch((e: Error) => Alert.alert("Couldn't take it back", e.message)),
+      },
+    ]);
+  };
+
   // Your Locker look, for your avatar on the goal trails. Re-read on every
   // refresh, so a change in the Locker shows when you come back.
   const [myLook, setMyLook] = useState<EquippedCosmetics | null>(null);
@@ -1526,6 +1568,20 @@ export function HomeScreen({
         )
       )}
 
+      {bounties && (bounties.length > 0 || onboarding?.hasFriend) && (
+        <BountiesCard
+          bounties={bounties}
+          stepsToday={snap?.stepsToday ?? null}
+          currencyName={currencyName}
+          onPost={
+            onboarding?.hasFriend && canPostToday() && !bounties.some((b) => b.mine && b.status === 'open')
+              ? () => setBountyModal('open')
+              : null
+          }
+          onCancel={takeBackBounty}
+        />
+      )}
+
       {/* One list for everything waiting on you — your move or
           checklist in a challenge, challenge invites, friend requests —
           instead of a separate card for each. Three at a time; the rest
@@ -1790,6 +1846,14 @@ export function HomeScreen({
         </View>
       )}
     </ScrollView>
+    {bountyModal !== 'closed' && (
+      <PostBountyModal
+        currencyName={currencyName}
+        posting={bountyModal === 'posting'}
+        onPost={submitBounty}
+        onClose={() => setBountyModal('closed')}
+      />
+    )}
     {dailyBonus && (
       <DailyBonusModal
         bonesAwarded={dailyBonus.bonesAwarded}

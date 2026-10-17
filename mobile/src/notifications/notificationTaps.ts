@@ -13,6 +13,8 @@ import type { RootStackParamList } from '../navigation/types';
 //   nudge / reaction     → the challenge it came from; a nudge from a
 //                          friend's page opens Today, which lists it
 //   trash_talk           → the challenge whose wall it's on
+//   bounty_posted /
+//   bounty_claimed       → Today, which lists bounties
 function routeFor(data: Record<string, unknown> | undefined): (() => [keyof RootStackParamList, any]) | null {
   if (!data) return null;
   if (data.type === 'admin_signup' && typeof data.userId === 'string') {
@@ -50,6 +52,7 @@ function routeFor(data: Record<string, unknown> | undefined): (() => [keyof Root
   if (data.type === 'trash_talk' && typeof data.challengeId === 'string') {
     return () => ['ChallengeDetail', { challengeId: data.challengeId, tab: 'talk' }];
   }
+  if (data.type === 'bounty_posted' || data.type === 'bounty_claimed') return () => ['Main', { tab: 'home' }];
   if (data.type === 'nudge' || data.type === 'reaction') {
     if (typeof data.challengeId === 'string') return () => ['ChallengeDetail', { challengeId: data.challengeId }];
     return () => ['Main', { tab: 'home' }];
