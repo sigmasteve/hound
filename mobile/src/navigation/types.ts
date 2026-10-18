@@ -1,4 +1,5 @@
 import type { RematchDraft } from '../challenges/rematch';
+import type { ChallengeKind } from '../data/sampleData';
 
 export type MainTab = 'home' | 'challenges' | 'friends' | 'you';
 
@@ -14,7 +15,9 @@ export type RootStackParamList = {
   // rematch: set by a finished challenge's Rematch button (see
   // src/challenges/rematch.ts) to prefill the wizard.
   // global: an admin publishing a Global Hound Challenge from Admin.
-  Create: { rematch?: RematchDraft; global?: boolean } | undefined;
+  // kind: picks that kind to start with; fromSetup: opened from the
+  // setup wizard, so it returns there.
+  Create: { rematch?: RematchDraft; global?: boolean; kind?: ChallengeKind; fromSetup?: boolean } | undefined;
   // tab: which part of the challenge to open on (Board by default).
   ChallengeDetail: { challengeId: string; tab?: ChallengeTab };
   FriendDetail: {
@@ -49,4 +52,7 @@ export type RootStackParamList = {
   Settings: undefined;
   Goals: undefined;
   HealthData: undefined;
+  // The setup wizard (src/onboarding/SetupWizardScreen.tsx). resume: from
+  // Today's "Finish setting up", only the steps still left.
+  Setup: { resume?: boolean } | undefined;
 };

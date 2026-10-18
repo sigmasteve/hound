@@ -109,6 +109,7 @@ export function CreateScreen({
   onFinish,
   rematch,
   global = false,
+  kind,
 }: {
   onCancel: () => void;
   onFinish: () => void;
@@ -121,6 +122,8 @@ export function CreateScreen({
   // field below starts from it instead of the usual defaults, and the
   // wizard opens on "Set the rules" since the game's already picked.
   rematch?: RematchDraft;
+  // The kind to start with (the setup wizard's suggestion).
+  kind?: ChallengeKind;
 }) {
   const { user } = useAuth();
   // Pulled out once as a plain string|null rather than repeating
@@ -133,7 +136,7 @@ export function CreateScreen({
   const { labelsForOrg } = useLabels();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [step, setStep] = useState<1 | 2 | 3>(rematch ? 2 : 1);
-  const [draftType, setDraftType] = useState<ChallengeKind>(rematch?.kind ?? (global ? 'steps' : 'hunt'));
+  const [draftType, setDraftType] = useState<ChallengeKind>(rematch?.kind ?? kind ?? (global ? 'steps' : 'hunt'));
   const [draftName, setDraftName] = useState(rematch?.name ?? '');
   const [headStart, setHeadStart] = useState(rematch?.headStartDays ?? 2);
   const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>(rematch?.distanceGoalUnit ?? 'miles');
