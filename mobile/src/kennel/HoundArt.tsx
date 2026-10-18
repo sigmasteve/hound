@@ -2,18 +2,16 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, Path, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type { Rank } from '../challenges/ranks';
-import { kennelItemById, type KennelItem } from './kennelItems';
+import { coatColors, kennelItemById, type HoundEars, type HoundMarkings, type HoundTail, type KennelItem } from './kennelItems';
 
 // The Kennel's hound, drawn in code (issue #344 tracks better art). A
 // sitting hound facing you: how big it is comes from your rank, its face
-// from its mood, and accessories layer on top. Happy hounds bounce;
-// sleepy ones breathe slowly.
+// from its mood, its coat, ears, tail and markings from its look, and
+// accessories layer on top. Happy hounds bounce; sleepy ones breathe
+// slowly.
 
 export type HoundMood = 'happy' | 'okay' | 'sleepy' | 'hungry';
 
-const COAT = '#c98a4b';
-const COAT_DARK = '#7a4a24';
-const LIGHT = '#f1d7b0';
 const NOSE = '#2b1d14';
 const INK = '#2b1d14';
 
@@ -33,6 +31,10 @@ export function HoundArt({
   neckId,
   headId,
   faceId,
+  coatId,
+  ears = 'floppy',
+  tail = 'wavy',
+  markings = 'none',
   size = 160,
   animate = true,
 }: {
@@ -41,6 +43,10 @@ export function HoundArt({
   neckId?: string | null;
   headId?: string | null;
   faceId?: string | null;
+  coatId?: string | null;
+  ears?: HoundEars;
+  tail?: HoundTail;
+  markings?: HoundMarkings;
   size?: number;
   animate?: boolean;
 }) {
@@ -83,6 +89,9 @@ export function HoundArt({
   const head = kennelItemById(headId);
   const face = kennelItemById(faceId);
   const eyeY = headCy - 4;
+  const { coat: COAT, dark: COAT_DARK, light: LIGHT, eyeSpots } = coatColors(coatId);
+  const tailX = 100 + s.bodyRx - 10;
+  const tailY = bodyCy + 14;
 
   return (
     <Animated.View style={{ width: size, height: size * 1.2, transform }}>
@@ -99,10 +108,17 @@ export function HoundArt({
         <G transform={`translate(${100 * (1 - s.scale)} ${200 * (1 - s.scale)}) scale(${s.scale})`}>
           {/* Tail, behind the body. */}
           <Path
-            d={`M ${100 + s.bodyRx - 10} ${bodyCy + 14} Q ${100 + s.bodyRx + 30} ${bodyCy + 6} ${100 + s.bodyRx + 26} ${bodyCy - 30}`}
+            d={
+              tail === 'curly'
+                ? `M ${tailX} ${tailY} Q ${tailX + 34} ${tailY - 4} ${tailX + 30} ${tailY - 30} Q ${tailX + 26} ${tailY - 48} ${tailX + 12} ${tailY - 38} Q ${tailX + 4} ${tailY - 28} ${tailX + 18} ${tailY - 24}`
+                : tail === 'stubby'
+                  ? `M ${tailX} ${tailY} L ${tailX + 18} ${tailY - 8}`
+                  : `M ${tailX} ${tailY} Q ${tailX + 40} ${tailY - 8} ${tailX + 36} ${tailY - 44}`
+            }
             stroke={COAT}
-            strokeWidth={11}
+            strokeWidth={tail === 'stubby' ? 13 : 11}
             strokeLinecap="round"
+            strokeLinejoin="round"
             fill="none"
           />
 
@@ -113,30 +129,62 @@ export function HoundArt({
           {(rank === 'alpha' || rank === 'legend') && (
             <Ellipse cx={100} cy={bodyCy - s.bodyRy * 0.55} rx={s.bodyRx * 0.85} ry={s.bodyRy * 0.35} fill={COAT_DARK} opacity={0.55} />
           )}
+          {markings === 'spots' && (
+            <>
+              <Circle cx={100 - s.bodyRx * 0.68} cy={bodyCy - s.bodyRy * 0.15} r={7} fill={COAT_DARK} />
+              <Circle cx={100 - s.bodyRx * 0.6} cy={bodyCy + s.bodyRy * 0.22} r={5} fill={COAT_DARK} />
+              <Circle cx={100 + s.bodyRx * 0.7} cy={bodyCy + s.bodyRy * 0.05} r={8} fill={COAT_DARK} />
+              <Circle cx={100 + s.bodyRx * 0.55} cy={bodyCy - s.bodyRy * 0.4} r={4.5} fill={COAT_DARK} />
+            </>
+          )}
           <Ellipse cx={100} cy={bodyCy + 6} rx={s.bodyRx * 0.5} ry={s.bodyRy * 0.68} fill={LIGHT} />
           <Rect x={100 - 30} y={bodyCy + s.bodyRy * 0.35} width={20} height={s.bodyRy * 0.62} rx={10} fill={COAT} />
           <Rect x={100 + 10} y={bodyCy + s.bodyRy * 0.35} width={20} height={s.bodyRy * 0.62} rx={10} fill={COAT} />
           <Ellipse cx={100 - 20} cy={198} rx={13} ry={7} fill={LIGHT} />
           <Ellipse cx={100 + 20} cy={198} rx={13} ry={7} fill={LIGHT} />
 
-          {/* Head, with long hound ears over its sides. */}
+          {/* Head, with its ears: long and floppy over its sides, short,
+              or perked up on top. */}
+          {ears === 'perky' &&
+            [-1, 1].map((side) => (
+              <G key={side}>
+                <Path
+                  d={`M ${100 + side * s.headR * 0.2} ${headCy - s.headR * 0.85} L ${100 + side * s.headR * 0.95} ${headCy - s.headR * 1.45} L ${100 + side * s.headR * 0.92} ${headCy - s.headR * 0.35} Z`}
+                  fill={COAT_DARK}
+                  strokeLinejoin="round"
+                />
+                <Path
+                  d={`M ${100 + side * s.headR * 0.42} ${headCy - s.headR * 0.8} L ${100 + side * s.headR * 0.86} ${headCy - s.headR * 1.2} L ${100 + side * s.headR * 0.82} ${headCy - s.headR * 0.55} Z`}
+                  fill={LIGHT}
+                  opacity={0.7}
+                />
+              </G>
+            ))}
           <Circle cx={100} cy={headCy} r={s.headR} fill={COAT} />
-          <Ellipse
-            cx={100 - s.headR * 0.9}
-            cy={headCy + s.ear * 0.28}
-            rx={15}
-            ry={s.ear * 0.56}
-            fill={COAT_DARK}
-            transform={`rotate(14 ${100 - s.headR * 0.9} ${headCy + s.ear * 0.28})`}
-          />
-          <Ellipse
-            cx={100 + s.headR * 0.9}
-            cy={headCy + s.ear * 0.28}
-            rx={15}
-            ry={s.ear * 0.56}
-            fill={COAT_DARK}
-            transform={`rotate(-14 ${100 + s.headR * 0.9} ${headCy + s.ear * 0.28})`}
-          />
+          {ears !== 'perky' &&
+            [-1, 1].map((side) => {
+              const len = ears === 'short' ? s.ear * 0.55 : s.ear;
+              const cx = 100 + side * s.headR * 0.9;
+              const cy = ears === 'short' ? headCy - s.headR * 0.25 + len * 0.28 : headCy + len * 0.28;
+              return (
+                <Ellipse
+                  key={side}
+                  cx={cx}
+                  cy={cy}
+                  rx={ears === 'short' ? 13 : 15}
+                  ry={len * 0.56}
+                  fill={COAT_DARK}
+                  transform={`rotate(${-side * (ears === 'short' ? 30 : 14)} ${cx} ${cy})`}
+                />
+              );
+            })}
+          {markings === 'eye_patch' && <Ellipse cx={83} cy={eyeY + 1} rx={15} ry={13} fill={COAT_DARK} />}
+          {eyeSpots && (
+            <>
+              <Ellipse cx={83} cy={eyeY - 10} rx={6} ry={4} fill={LIGHT} />
+              <Ellipse cx={117} cy={eyeY - 10} rx={6} ry={4} fill={LIGHT} />
+            </>
+          )}
           <Ellipse cx={100} cy={headCy + 18} rx={27} ry={20} fill={LIGHT} />
           <Ellipse cx={100} cy={headCy + 9} rx={9.5} ry={7} fill={NOSE} />
           <Path d={`M 100 ${headCy + 15} L 100 ${headCy + 21}`} stroke={INK} strokeWidth={2.5} strokeLinecap="round" />
