@@ -8,11 +8,13 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { notifyBonesChanged } from '../bones/bonesChanged';
 import { getChallengePot, getGlobalPrizes, joinChallengePot, type ChallengePot } from '../challenges/potApi';
+import { getChallengeSponsor, type ChallengeSponsor } from '../challenges/globalChallenges';
+import { SponsorLine } from './SponsorLine';
 
 // A challenge's Bones pot (0107_challenge_pot.sql): what's in it, who's
 // in, a button to join while it's open, and how it ended. For a global
-// challenge, the prizes for the top 3 instead. Shows nothing when there's
-// neither.
+// challenge, the prizes for the top 3 and its sponsor (0111) instead.
+// Shows nothing when there's none of those.
 export function ChallengePotCard({
   challengeId,
   isGlobal,
@@ -31,6 +33,7 @@ export function ChallengePotCard({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [pot, setPot] = useState<ChallengePot | null>(null);
   const [prizes, setPrizes] = useState<[number, number, number] | null>(null);
+  const [sponsor, setSponsor] = useState<ChallengeSponsor | null>(null);
   const [joining, setJoining] = useState(false);
 
   const load = useCallback(() => {
@@ -38,6 +41,9 @@ export function ChallengePotCard({
     if (isGlobal) {
       getGlobalPrizes(challengeId)
         .then(setPrizes)
+        .catch(() => {});
+      getChallengeSponsor(challengeId)
+        .then(setSponsor)
         .catch(() => {});
     } else {
       getChallengePot(challengeId)
@@ -49,17 +55,22 @@ export function ChallengePotCard({
   useEffect(load, [load]);
 
   if (isGlobal) {
-    if (!prizes) return null;
-    const places = (['1st', '2nd', '3rd'] as const).map((p, i) => [p, prizes[i]] as const).filter(([, b]) => b > 0);
+    if (!prizes && !sponsor) return null;
+    const places = (['1st', '2nd', '3rd'] as const).map((p, i) => [p, prizes?.[i] ?? 0] as const).filter(([, b]) => b > 0);
     return (
       <Card style={styles.card} elevated={false}>
-        <View style={styles.row}>
-          <TrophyIcon size={18} color={colors.amber} weight="fill" />
-          <Text style={styles.title}>
-            Prizes: {places.map(([p, b]) => `${p} ${b}`).join(' · ')} {currencyName}
-          </Text>
-        </View>
-        <Text style={styles.note}>Paid by Hound when it ends. Ties share a place.</Text>
+        {places.length > 0 && (
+          <>
+            <View style={styles.row}>
+              <TrophyIcon size={18} color={colors.amber} weight="fill" />
+              <Text style={styles.title}>
+                Prizes: {places.map(([p, b]) => `${p} ${b}`).join(' · ')} {currencyName}
+              </Text>
+            </View>
+            <Text style={styles.note}>Paid by Hound when it ends. Ties share a place.</Text>
+          </>
+        )}
+        {sponsor && <SponsorLine sponsor={sponsor} />}
       </Card>
     );
   }

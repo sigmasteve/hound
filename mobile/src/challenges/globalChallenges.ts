@@ -132,7 +132,17 @@ export interface GlobalChallenge {
   participantCount: number;
   // Bones for 1st, 2nd and 3rd (0107_challenge_pot.sql), or null for none.
   prizes: [number, number, number] | null;
+  // Who sponsors it (0111_sponsored_challenges.sql), or null.
+  sponsor: ChallengeSponsor | null;
   joined: boolean;
+}
+
+export interface ChallengeSponsor {
+  name: string;
+  // One line, often a real prize ("Winner gets a $50 gift card").
+  message: string | null;
+  // Their site, opened when someone taps the sponsor line.
+  url: string | null;
 }
 
 export function canJoin(c: GlobalChallenge, now: number = Date.now()): boolean {
@@ -182,6 +192,7 @@ function rowToGlobal(r: any): GlobalChallenge {
     bingoCardType: r.bingo_card_type,
     participantCount: r.participant_count ?? 0,
     prizes: null,
+    sponsor: null,
     joined: !!r.joined,
   };
 }
@@ -208,10 +219,48 @@ export async function listGlobalChallenges(includeEnded = false): Promise<Global
       list.map((c) => c.id),
     );
   const prizes = new Map(((prizeRows ?? []) as { id: string; prize_bones: number[] | null }[]).map((r) => [r.id, r.prize_bones]));
+  // And their sponsors, in a read of their own so the prizes still show
+  // before 0111 has run.
+  const sponsors = await readSponsors(list.map((c) => c.id));
   return list.map((c) => {
     const p = prizes.get(c.id);
-    return p && p.length === 3 ? { ...c, prizes: [p[0], p[1], p[2]] } : c;
+    return {
+      ...c,
+      prizes: p && p.length === 3 ? [p[0], p[1], p[2]] : null,
+      sponsor: sponsors.get(c.id) ?? null,
+    };
   });
+}
+
+async function readSponsors(ids: string[]): Promise<Map<string, ChallengeSponsor>> {
+  const { data, error } = await requireClient()
+    .from('challenges')
+    .select('id, sponsor_name, sponsor_message, sponsor_url')
+    .in('id', ids)
+    .not('sponsor_name', 'is', null);
+  const sponsors = new Map<string, ChallengeSponsor>();
+  if (error) return sponsors;
+  for (const r of (data ?? []) as { id: string; sponsor_name: string; sponsor_message: string | null; sponsor_url: string | null }[]) {
+    sponsors.set(r.id, { name: r.sponsor_name, message: r.sponsor_message, url: r.sponsor_url });
+  }
+  return sponsors;
+}
+
+// One challenge's sponsor, for its page; null for none.
+export async function getChallengeSponsor(challengeId: string): Promise<ChallengeSponsor | null> {
+  if (!supabase) return null;
+  return (await readSponsors([challengeId])).get(challengeId) ?? null;
+}
+
+// Admin only. A blank name takes the sponsor off.
+export async function setChallengeSponsor(challengeId: string, sponsor: ChallengeSponsor | null): Promise<void> {
+  const { error } = await requireClient().rpc('set_challenge_sponsor', {
+    p_challenge_id: challengeId,
+    p_name: sponsor?.name ?? null,
+    p_message: sponsor?.message ?? null,
+    p_url: sponsor?.url ?? null,
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function joinGlobalChallenge(challengeId: string): Promise<void> {

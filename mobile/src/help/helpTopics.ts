@@ -124,6 +124,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Once you’re in, it works like any other challenge: it’s on your Challenges tab, your steps sync on their own, and it pays Hound Score and rewards when it wraps up.',
         'Spot someone on its leaderboard you’d like to keep up with? Tap Add next to their name.',
         `Some have prizes for the top 3, shown on the card. Hound pays them in ${currency} when it ends, and ties share a place.`,
+        'Some are sponsored by a brand, shown as “Sponsored by” on the card. Tap it to visit their site. Any real prize they offer comes from the sponsor, and Hound never shares your details with them.',
       ],
     },
     {

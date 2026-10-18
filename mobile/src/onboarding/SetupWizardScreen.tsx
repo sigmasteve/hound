@@ -23,6 +23,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { GoalSetupCard } from '../components/GoalSetupCard';
 import { ProgressBar } from '../components/ProgressBar';
+import { SponsorLine } from '../components/SponsorLine';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { font, radius, withAlpha, type Palette } from '../theme/tokens';
@@ -494,6 +495,7 @@ function ChallengeStep({
             {globalTimingLine(c)} · {c.participantCount} {c.participantCount === 1 ? 'player' : 'players'}
             {c.prizes ? ` · 1st wins ${c.prizes[0]} ${currencyName}` : ''}
           </Text>
+          {c.sponsor && <SponsorLine sponsor={c.sponsor} />}
           <Button
             label={joined ? 'Joined' : joiningId === c.id ? 'Joining…' : 'Join'}
             variant="primary"

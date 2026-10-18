@@ -2,7 +2,15 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, CaretRightIcon, GlobeHemisphereWestIcon, MagnifyingGlassIcon, PlusIcon, TrashIcon } from 'phosphor-react-native';
+import {
+  ArrowLeftIcon,
+  CaretRightIcon,
+  GlobeHemisphereWestIcon,
+  HandshakeIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  TrashIcon,
+} from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -36,6 +44,7 @@ import {
   deleteGlobalChallenge,
   globalTimingLine,
   listGlobalChallenges,
+  setChallengeSponsor,
   type GlobalChallenge,
 } from '../challenges/globalChallenges';
 import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
@@ -122,6 +131,29 @@ export function AdminScreen({
       loadGlobal();
     }, [user?.isAdmin, loadGlobal]),
   );
+  // Its sponsor (0111_sponsored_challenges.sql), edited in place: one
+  // challenge at a time. A blank name takes the sponsor off.
+  const [sponsorFor, setSponsorFor] = useState<string | null>(null);
+  const [sponsorDraft, setSponsorDraft] = useState({ name: '', message: '', url: '' });
+  const [savingSponsor, setSavingSponsor] = useState(false);
+  const editSponsor = (c: GlobalChallenge) => {
+    setSponsorFor(c.id);
+    setSponsorDraft({ name: c.sponsor?.name ?? '', message: c.sponsor?.message ?? '', url: c.sponsor?.url ?? '' });
+  };
+  const saveSponsor = (c: GlobalChallenge) => {
+    const name = sponsorDraft.name.trim();
+    setSavingSponsor(true);
+    setChallengeSponsor(
+      c.id,
+      name ? { name, message: sponsorDraft.message.trim() || null, url: sponsorDraft.url.trim() || null } : null,
+    )
+      .then(() => {
+        setSponsorFor(null);
+        loadGlobal();
+      })
+      .catch((e) => Alert.alert('Couldn’t save the sponsor', e instanceof Error ? e.message : 'Try again.'))
+      .finally(() => setSavingSponsor(false));
+  };
   const confirmTakeDown = (c: GlobalChallenge) => {
     Alert.alert(
       `Take down “${c.name}”?`,
@@ -449,24 +481,75 @@ export function AdminScreen({
                   const KindIcon = CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
                   const ended = Date.now() >= new Date(c.endsAt).getTime();
                   return (
-                    <View key={c.id} style={styles.userRow}>
-                      <KindIcon size={18} color={withAlpha(colors.text, ended ? 0.4 : 0.8)} />
-                      <View style={{ flex: 1, gap: 1 }}>
-                        <Text style={[styles.userName, ended && { color: withAlpha(colors.text, 0.5) }]} numberOfLines={1}>
-                          {c.name}
-                        </Text>
-                        <Text style={styles.footNote}>
-                          {globalTimingLine(c)} · {c.durationDays} days · {c.participantCount} joined
-                        </Text>
+                    <View key={c.id} style={{ gap: 8 }}>
+                      <View style={styles.userRow}>
+                        <KindIcon size={18} color={withAlpha(colors.text, ended ? 0.4 : 0.8)} />
+                        <View style={{ flex: 1, gap: 1 }}>
+                          <Text style={[styles.userName, ended && { color: withAlpha(colors.text, 0.5) }]} numberOfLines={1}>
+                            {c.name}
+                          </Text>
+                          <Text style={styles.footNote}>
+                            {globalTimingLine(c)} · {c.durationDays} days · {c.participantCount} joined
+                          </Text>
+                          {c.sponsor && <Text style={styles.footNote}>Sponsored by {c.sponsor.name}</Text>}
+                        </View>
+                        {!ended && (
+                          <Pressable
+                            onPress={() => (sponsorFor === c.id ? setSponsorFor(null) : editSponsor(c))}
+                            hitSlop={8}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Sponsor for ${c.name}`}
+                          >
+                            <HandshakeIcon size={17} color={c.sponsor ? colors.accent : withAlpha(colors.text, 0.5)} />
+                          </Pressable>
+                        )}
+                        <Pressable
+                          onPress={() => confirmTakeDown(c)}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Take down ${c.name}`}
+                        >
+                          <TrashIcon size={17} color={withAlpha(colors.text, 0.5)} />
+                        </Pressable>
                       </View>
-                      <Pressable
-                        onPress={() => confirmTakeDown(c)}
-                        hitSlop={8}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Take down ${c.name}`}
-                      >
-                        <TrashIcon size={17} color={withAlpha(colors.text, 0.5)} />
-                      </Pressable>
+                      {sponsorFor === c.id && (
+                        <View style={{ gap: 8 }}>
+                          <TextField
+                            label="Sponsor name"
+                            value={sponsorDraft.name}
+                            onChangeText={(name) => setSponsorDraft((d) => ({ ...d, name }))}
+                            placeholder="Blank takes the sponsor off"
+                            maxLength={40}
+                          />
+                          <TextField
+                            label="Message"
+                            value={sponsorDraft.message}
+                            onChangeText={(message) => setSponsorDraft((d) => ({ ...d, message }))}
+                            placeholder="e.g. Winner gets a $50 gift card"
+                            maxLength={100}
+                          />
+                          <TextField
+                            label="Link"
+                            value={sponsorDraft.url}
+                            onChangeText={(url) => setSponsorDraft((d) => ({ ...d, url }))}
+                            placeholder="https://"
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            keyboardType="url"
+                            maxLength={200}
+                          />
+                          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+                            <Button label="Cancel" variant="ghost" small onPress={() => setSponsorFor(null)} />
+                            <Button
+                              label={savingSponsor ? 'Saving…' : 'Save sponsor'}
+                              variant="primary"
+                              small
+                              disabled={savingSponsor}
+                              onPress={() => saveSponsor(c)}
+                            />
+                          </View>
+                        </View>
+                      )}
                     </View>
                   );
                 })

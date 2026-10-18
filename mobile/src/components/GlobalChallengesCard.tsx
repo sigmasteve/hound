@@ -7,6 +7,7 @@ import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
 import { canJoin, globalTimingLine, joinDeadlineLine, type GlobalChallenge } from '../challenges/globalChallenges';
+import { SponsorLine } from './SponsorLine';
 
 // Today's "Global Hound Challenges" — challenges an admin published to
 // everyone (0075_global_challenges.sql). Each row is either joinable
@@ -115,6 +116,7 @@ export function GlobalChallengesCard({
                   </Text>
                 </View>
               )}
+              {c.sponsor && <SponsorLine sponsor={c.sponsor} />}
               {deadline && <Text style={styles.deadline}>{deadline}</Text>}
             </View>
           </>
