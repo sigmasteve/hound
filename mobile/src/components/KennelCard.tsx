@@ -19,7 +19,18 @@ export function KennelCard({ kennel, onOpen }: { kennel: Kennel; onOpen: () => v
     <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`Open the Kennel: ${moodLine(kennel)}`}>
       <Card style={styles.card} elevated={false}>
         <View style={styles.art}>
-          <HoundArt rank={rank.id} mood={kennel.mood} neckId={kennel.neckId} headId={kennel.headId} faceId={kennel.faceId} size={62} />
+          <HoundArt
+            rank={rank.id}
+            mood={kennel.mood}
+            neckId={kennel.neckId}
+            headId={kennel.headId}
+            faceId={kennel.faceId}
+            coatId={kennel.coatId}
+            ears={kennel.ears}
+            tail={kennel.tail}
+            markings={kennel.markings}
+            size={62}
+          />
         </View>
         <View style={{ flex: 1, gap: 3 }}>
           <Text style={styles.title}>Kennel</Text>

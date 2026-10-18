@@ -13,6 +13,11 @@ import { KUDOS_LIMIT_MESSAGE, type KudosCounts } from '../friends/types';
 import { listAchievements, listEarnedAchievements, type Achievement } from '../achievements/achievementsApi';
 import { achievementIcon } from '../achievements/achievementIcons';
 import { myRecentNudges, nudgeAgainLabel, sendNudge } from '../social/social';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { levelProgressForXp } from '../challenges/leveling';
+import { rankForLevel } from '../challenges/ranks';
+import { HoundArt } from '../kennel/HoundArt';
+import { friendMoodLine, getFriendKennel, type FriendKennel } from '../kennel/kennelApi';
 
 export function FriendDetailScreen({
   friendshipId,
@@ -43,6 +48,16 @@ export function FriendDetailScreen({
   // 0072_achievements.sql's select policy). null until loaded; stays null
   // (card just shows nothing) if it can't load, without failing the page.
   const [friendBadges, setFriendBadges] = useState<{ earned: Achievement[]; total: number } | null>(null);
+  // Their hound (0105_kennel_friends_coats.sql). The card just doesn't
+  // show if it can't load.
+  const [hound, setHound] = useState<FriendKennel | null>(null);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    getFriendKennel(friendUserId)
+      .then(setHound)
+      .catch(() => {});
+  }, [friendUserId]);
+
   useEffect(() => {
     Promise.all([listAchievements(), listEarnedAchievements(friendUserId)])
       .then(([all, theirs]) => setFriendBadges({ earned: all.filter((a) => theirs.has(a.id)), total: all.length }))
@@ -162,6 +177,37 @@ export function FriendDetailScreen({
 
         {loadError && <Text style={styles.errorNote}>{loadError}</Text>}
 
+        {hound && (
+          <Card style={styles.houndCard} elevated={false}>
+            <View style={styles.houndArt}>
+              <HoundArt
+                rank={rankForLevel(levelProgressForXp(hound.xpTotal).level).id}
+                mood={hound.mood}
+                neckId={hound.neckId}
+                headId={hound.headId}
+                faceId={hound.faceId}
+                coatId={hound.coatId}
+                ears={hound.ears}
+                tail={hound.tail}
+                markings={hound.markings}
+                size={84}
+              />
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={text.h4}>{hound.name}</Text>
+              {(() => {
+                const rank = rankForLevel(levelProgressForXp(hound.xpTotal).level);
+                return (
+                  <View style={[styles.houndRank, { backgroundColor: withAlpha(rank.color, 0.18) }]}>
+                    <Text style={[styles.houndRankText, { color: rank.color }]}>{rank.name}</Text>
+                  </View>
+                );
+              })()}
+              <Text style={styles.footNote}>{friendMoodLine(hound.name, hound.mood)}</Text>
+            </View>
+          </Card>
+        )}
+
         <Card style={{ gap: 14, padding: 18 }} elevated={false}>
           <Text style={text.h4}>Head-to-head</Text>
           {record ? (
@@ -269,6 +315,18 @@ function Stat({ label, value, styles }: { label: string; value: string; styles: 
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    houndCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 },
+    houndArt: {
+      width: 92,
+      height: 104,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+      backgroundColor: withAlpha(colors.amber, 0.08),
+      overflow: 'hidden',
+    },
+    houndRank: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
+    houndRankText: { fontFamily: font.headingSemibold, fontSize: 12.5 },
     container: { padding: 16, gap: 16, paddingBottom: 48 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     headerName: { flex: 1, minWidth: 0 },

@@ -11,8 +11,27 @@ import { useCurrencyName } from '../organizations/useCurrencyName';
 import { levelProgressForXp } from '../challenges/leveling';
 import { RANKS, rankForLevel } from '../challenges/ranks';
 import { HoundArt } from '../kennel/HoundArt';
-import { KENNEL_ITEMS, KENNEL_SLOTS, TREAT_BONES, type KennelItem } from '../kennel/kennelItems';
-import { buyKennelItem, equipKennelItem, getKennel, giveTreat, moodLine, setKennel, type CareMode, type Kennel } from '../kennel/kennelApi';
+import {
+  EAR_OPTIONS,
+  KENNEL_ITEMS,
+  KENNEL_SLOTS,
+  MARKING_OPTIONS,
+  TAIL_OPTIONS,
+  TAN_SWATCH,
+  TREAT_BONES,
+  type KennelItem,
+} from '../kennel/kennelItems';
+import {
+  buyKennelItem,
+  equipKennelItem,
+  getKennel,
+  giveTreat,
+  moodLine,
+  setKennel,
+  setKennelLook,
+  type CareMode,
+  type Kennel,
+} from '../kennel/kennelApi';
 
 const CARE_MODES: { id: CareMode; name: string; detail: string }[] = [
   {
@@ -84,6 +103,25 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
     if (name && name !== kennel.name) run('name', () => setKennel(name, null), "Couldn't rename");
   };
 
+  // Free coats are picked straight away; the rest are bought first.
+  const pressCoat = (item: KennelItem) => {
+    const wear = () => equipKennelItem('coat', item.id);
+    if (kennel.owned.includes(item.id)) {
+      run('coat', wear, "Couldn't change the coat");
+    } else if (item.costBones === 0) {
+      run(
+        'coat',
+        async () => {
+          await buyKennelItem(item.id);
+          await wear();
+        },
+        "Couldn't change the coat",
+      );
+    } else {
+      pressItem(item);
+    }
+  };
+
   const pressItem = (item: KennelItem) => {
     const owned = kennel.owned.includes(item.id);
     if (owned) {
@@ -115,7 +153,18 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
 
         <Card style={styles.hero} elevated={false}>
           <View style={styles.kennelFloor}>
-            <HoundArt rank={rank.id} mood={kennel.mood} neckId={kennel.neckId} headId={kennel.headId} faceId={kennel.faceId} size={190} />
+            <HoundArt
+              rank={rank.id}
+              mood={kennel.mood}
+              neckId={kennel.neckId}
+              headId={kennel.headId}
+              faceId={kennel.faceId}
+              coatId={kennel.coatId}
+              ears={kennel.ears}
+              tail={kennel.tail}
+              markings={kennel.markings}
+              size={190}
+            />
           </View>
 
           {editingName !== null ? (
@@ -172,6 +221,58 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
           </Text>
         </Card>
 
+        <Card style={{ gap: 10 }} elevated={false}>
+          <Text style={text.h4}>Look</Text>
+          <Text style={styles.label}>Coat</Text>
+          <View style={styles.swatches}>
+            {[null, ...KENNEL_ITEMS.filter((i) => i.slot === 'coat')].map((item) => {
+              const on = kennel.coatId === (item?.id ?? null);
+              const owned = !item || item.costBones === 0 || kennel.owned.includes(item.id);
+              return (
+                <Pressable
+                  key={item?.id ?? 'tan'}
+                  style={styles.swatchCell}
+                  disabled={on || busyId !== null}
+                  onPress={() => (item ? pressCoat(item) : run('coat', () => equipKennelItem('coat', null), "Couldn't change the coat"))}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item?.name ?? 'Tan'} coat${owned ? '' : `, ${item!.costBones} ${currencyName}`}`}
+                >
+                  <View style={[styles.swatch, { backgroundColor: item?.color ?? TAN_SWATCH }, on && styles.swatchOn]} />
+                  <Text style={styles.swatchName} numberOfLines={2}>
+                    {item?.name ?? 'Tan'}
+                  </Text>
+                  {!owned && <Text style={styles.swatchPrice}>{item!.costBones}</Text>}
+                </Pressable>
+              );
+            })}
+          </View>
+          {(
+            [
+              ['Ears', EAR_OPTIONS, kennel.ears, (v: string) => ({ ears: v as Kennel['ears'] })],
+              ['Tail', TAIL_OPTIONS, kennel.tail, (v: string) => ({ tail: v as Kennel['tail'] })],
+              ['Markings', MARKING_OPTIONS, kennel.markings, (v: string) => ({ markings: v as Kennel['markings'] })],
+            ] as const
+          ).map(([label, options, current, toLook]) => (
+            <View key={label} style={{ gap: 6 }}>
+              <Text style={styles.label}>{label}</Text>
+              <View style={styles.chips}>
+                {options.map((o) => (
+                  <Pressable
+                    key={o.id}
+                    style={[styles.chip, current === o.id && styles.chipOn]}
+                    disabled={current === o.id || busyId !== null}
+                    onPress={() => run(`look-${o.id}`, () => setKennelLook(toLook(o.id)), "Couldn't change the look")}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: current === o.id }}
+                  >
+                    <Text style={[styles.chipText, current === o.id && styles.chipTextOn]}>{o.name}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ))}
+        </Card>
+
         {KENNEL_SLOTS.map(({ slot, label }) => (
           <Card key={slot} style={{ gap: 4 }} elevated={false}>
             <Text style={text.h4}>{label}</Text>
@@ -187,6 +288,10 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
                       neckId={slot === 'neck' ? item.id : null}
                       headId={slot === 'head' ? item.id : null}
                       faceId={slot === 'face' ? item.id : null}
+                      coatId={kennel.coatId}
+                      ears={kennel.ears}
+                      tail={kennel.tail}
+                      markings={kennel.markings}
                       size={44}
                       animate={false}
                     />
@@ -291,5 +396,23 @@ function makeStyles(colors: Palette) {
       borderColor: withAlpha(colors.text, 0.12),
     },
     modeOn: { borderColor: colors.accent, backgroundColor: withAlpha(colors.accent, 0.08) },
+    label: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
+    swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    swatchCell: { width: 74, alignItems: 'center', gap: 4 },
+    swatch: { width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: withAlpha(colors.text, 0.12) },
+    swatchOn: { borderColor: colors.accent, borderWidth: 3 },
+    swatchName: { fontSize: 11.5, color: colors.text, textAlign: 'center' },
+    swatchPrice: { fontSize: 11, color: withAlpha(colors.text, 0.55), marginTop: -3 },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chip: {
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.text, 0.2),
+    },
+    chipOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+    chipText: { fontFamily: font.heading, fontSize: 13.5, color: colors.text },
+    chipTextOn: { color: '#ffffff' },
   });
 }
