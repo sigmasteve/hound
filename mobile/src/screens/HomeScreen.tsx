@@ -1585,6 +1585,18 @@ export function HomeScreen({
         <KennelCard kennel={kennel} currencyName={currencyName} onOpen={() => onGoTab('kennel')} onChanged={reloadKennel} />
       )}
 
+      {/* Global challenges that haven't started yet keep the full card,
+          with what they are and when joining closes. Near the top, so a
+          new one is seen while there's still time to join. */}
+      {upcomingGlobals.length > 0 && (
+        <GlobalChallengesCard
+          challenges={upcomingGlobals}
+          joiningId={joiningGlobalId}
+          onJoin={joinGlobal}
+          onOpen={(c) => onOpenChallenge(c.id)}
+        />
+      )}
+
       {!setupOpen && boneDig && goalProgress?.some((p) => p.goal.period === 'day') && (
         <BoneDigCard dig={boneDig} goalsDone={goalDayHit} currencyName={currencyName} onDig={dig} />
       )}
@@ -1817,17 +1829,6 @@ export function HomeScreen({
             <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} colors={colors} />
           )}
         </View>
-      )}
-
-      {/* Global challenges that haven't started yet keep the full card,
-          with what they are and when joining closes. */}
-      {upcomingGlobals.length > 0 && (
-        <GlobalChallengesCard
-          challenges={upcomingGlobals}
-          joiningId={joiningGlobalId}
-          onJoin={joinGlobal}
-          onOpen={(c) => onOpenChallenge(c.id)}
-        />
       )}
 
       {visibleNudges.length > 0 && (
