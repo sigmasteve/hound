@@ -37,6 +37,7 @@ export function HoundArt({
   markings = 'none',
   size = 160,
   animate = true,
+  variant = 'full',
 }: {
   rank: Rank['id'];
   mood: HoundMood;
@@ -49,11 +50,15 @@ export function HoundArt({
   markings?: HoundMarkings;
   size?: number;
   animate?: boolean;
+  // 'avatar': just the head and shoulders, square, still, for an avatar
+  // circle (see Avatar and houndAvatar.ts).
+  variant?: 'full' | 'avatar';
 }) {
+  const asAvatar = variant === 'avatar';
   const motion = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (!animate || mood === 'hungry') return;
+    if (!animate || asAvatar || mood === 'hungry') return;
     const happy = mood === 'happy';
     const loop = Animated.loop(
       Animated.sequence([
@@ -81,7 +86,7 @@ export function HoundArt({
       ? [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [0, -size * 0.04] }) }]
       : [{ scale: motion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] }) }];
 
-  const s = STAGES[rank];
+  const s = STAGES[asAvatar ? 'alpha' : rank];
   const bodyCy = 200 - s.bodyRy;
   const headCy = bodyCy - s.bodyRy * 0.85 - s.headR * 0.5;
   const neckY = headCy + s.headR - 7;
@@ -94,8 +99,8 @@ export function HoundArt({
   const tailY = bodyCy + 14;
 
   return (
-    <Animated.View style={{ width: size, height: size * 1.2, transform }}>
-      <Svg width={size} height={size * 1.2} viewBox="0 -30 200 240">
+    <Animated.View style={{ width: size, height: asAvatar ? size : size * 1.2, transform }}>
+      <Svg width={size} height={asAvatar ? size : size * 1.2} viewBox={asAvatar ? `38 ${headCy - 52} 124 124` : '0 -30 200 240'}>
         <Defs>
           <RadialGradient id="aura" cx="50%" cy="50%" r="50%">
             <Stop offset="0" stopColor="#e0b84f" stopOpacity="0.55" />
@@ -103,8 +108,8 @@ export function HoundArt({
           </RadialGradient>
         </Defs>
 
-        {rank === 'legend' && <Circle cx={100} cy={115} r={100} fill="url(#aura)" />}
-        <Ellipse cx={100} cy={204} rx={(s.bodyRx + 12) * s.scale} ry={6} fill="#000" opacity={0.15} />
+        {!asAvatar && rank === 'legend' && <Circle cx={100} cy={115} r={100} fill="url(#aura)" />}
+        {!asAvatar && <Ellipse cx={100} cy={204} rx={(s.bodyRx + 12) * s.scale} ry={6} fill="#000" opacity={0.15} />}
         <G transform={`translate(${100 * (1 - s.scale)} ${200 * (1 - s.scale)}) scale(${s.scale})`}>
           {/* Tail, behind the body. */}
           <Path
@@ -194,7 +199,7 @@ export function HoundArt({
           {face && <FaceItem item={face} eyeY={eyeY} />}
           {head && <HeadItem item={head} headCy={headCy} headR={s.headR} />}
 
-          {mood === 'sleepy' && (
+          {!asAvatar && mood === 'sleepy' && (
             <SvgText x={150} y={headCy - s.headR + 4} fontSize={22} fontWeight="bold" fill="#8a8fa3">
               z
             </SvgText>

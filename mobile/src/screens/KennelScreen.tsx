@@ -1,13 +1,17 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, HeartIcon, PencilSimpleIcon } from 'phosphor-react-native';
+import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useCurrencyName } from '../organizations/useCurrencyName';
+import { useAuth } from '../auth/AuthContext';
+import { getMyEquippedCosmetics } from '../cosmetics/cosmeticsApi';
+import { HOUND_AVATAR_PREFIX } from '../kennel/houndAvatar';
 import { levelProgressForXp } from '../challenges/leveling';
 import { RANKS, rankForLevel } from '../challenges/ranks';
 import { HoundArt } from '../kennel/HoundArt';
@@ -28,6 +32,7 @@ import {
   giveTreat,
   moodLine,
   setKennel,
+  setHoundAvatar,
   setKennelLook,
   type CareMode,
   type Kennel,
@@ -57,6 +62,10 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
 
+  // Whether your avatar is this hound (0106_hound_avatar.sql).
+  const { user } = useAuth();
+  const [houndIsAvatar, setHoundIsAvatar] = useState(false);
+
   const reload = useCallback(() => {
     getKennel()
       .then((k) => {
@@ -64,7 +73,12 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
         setLoadError(null);
       })
       .catch((e) => setLoadError(e instanceof Error ? e.message : 'Could not load the Kennel.'));
-  }, []);
+    if (user?.id) {
+      getMyEquippedCosmetics(user.id)
+        .then((c) => setHoundIsAvatar(!!c.iconId?.startsWith(HOUND_AVATAR_PREFIX)))
+        .catch(() => {});
+    }
+  }, [user?.id]);
 
   useFocusEffect(reload);
 
@@ -219,6 +233,43 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
           <Text style={styles.note}>
             {kennel.bonesBalance.toLocaleString()} {currencyName} to spend
           </Text>
+        </Card>
+
+        {/* Your hound in your avatar's place on leaderboards, friends,
+            chats and Today. Your frame and background stay. */}
+        <Card style={styles.avatarCard} elevated={false}>
+          <Avatar
+            initials={user?.initials ?? '?'}
+            tint={colors.accent800}
+            size={44}
+            fontSize={15}
+            iconId={`${HOUND_AVATAR_PREFIX}${kennel.coatId ?? ''}.${kennel.ears}.${kennel.tail}.${kennel.markings}.${kennel.neckId ?? ''}.${kennel.headId ?? ''}.${kennel.faceId ?? ''}`}
+          />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.itemName}>Use {kennel.name} as my avatar</Text>
+            <Text style={styles.itemNote}>On leaderboards, friends and everywhere else your avatar shows.</Text>
+          </View>
+          <Switch
+            value={houndIsAvatar}
+            disabled={busyId !== null}
+            onValueChange={(on) => {
+              setHoundIsAvatar(on);
+              run(
+                'avatar',
+                async () => {
+                  try {
+                    await setHoundAvatar(on);
+                  } catch (e) {
+                    setHoundIsAvatar(!on);
+                    throw e;
+                  }
+                },
+                "Couldn't change your avatar",
+              );
+            }}
+            trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }}
+            accessibilityLabel={`Use ${kennel.name} as my avatar`}
+          />
         </Card>
 
         <Card style={{ gap: 10 }} elevated={false}>
@@ -397,6 +448,7 @@ function makeStyles(colors: Palette) {
     },
     modeOn: { borderColor: colors.accent, backgroundColor: withAlpha(colors.accent, 0.08) },
     label: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
+    avatarCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
     swatchCell: { width: 74, alignItems: 'center', gap: 4 },
     swatch: { width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: withAlpha(colors.text, 0.12) },
