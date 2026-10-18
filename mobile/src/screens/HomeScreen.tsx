@@ -37,7 +37,7 @@ import type { MainTab } from '../navigation/types';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { APP_VERSION } from '../lib/appVersion';
-import { supabaseChallengesProvider, hasLoggedProgressToday } from '../challenges/supabaseChallenges';
+import { supabaseChallengesProvider, hasLoggedProgressToday, loadBoardInputs } from '../challenges/supabaseChallenges';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { getAppBanner, isBannerActive, type AppBanner } from '../banner/supabaseBanner';
@@ -46,7 +46,6 @@ import { recordWorkoutHistory } from '../workouts/supabaseWorkoutHistory';
 import {
   buildBoard,
   hasHeadStartElapsed,
-  headStartBaselineDayKey,
   huntEffectiveMetric,
   isChallengeFinished,
   pickPrimaryChallenge,
@@ -120,7 +119,7 @@ import {
 } from '../notifications/localReminders';
 import { Toast, type ToastMessage } from '../components/Toast';
 import { TicTacGoBoard } from '../components/TicTacGoCard';
-import type { Challenge, ChallengeInvite, LeaderboardEntry, TagRound } from '../challenges/types';
+import type { Challenge, ChallengeInvite, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
 import { useGoalProgress } from '../goals/useGoalProgress';
 import { useGoalStreak } from '../goals/useGoalStreak';
@@ -1246,21 +1245,18 @@ export function HomeScreen({
       // running one (pickPrimaryChallenge). Fetching every finished
       // challenge's board too made Today take 7-11 seconds for someone
       // with a long history.
+      //
+      // All the running ones' boards come in one request
+      // (loadBoardInputs, 0110_challenge_boards.sql).
       const nowMs = Date.now();
+      const boardInputs = await loadBoardInputs(challenges.filter((c) => new Date(c.endsAt).getTime() > nowMs));
       const results = await Promise.all(
         challenges.map(async (c) => {
-          if (new Date(c.endsAt).getTime() <= nowMs) {
+          const inputs = boardInputs.get(c.id);
+          if (!inputs) {
             return { challenge: c, board: [] as BoardEntry[], finished: true };
           }
-          const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
-          const [participants, leaderboard, bots, headStartLeaderboard] = await Promise.all([
-            supabaseChallengesProvider.listParticipants(c.id),
-            supabaseChallengesProvider.getLeaderboard(c.id),
-            supabaseChallengesProvider.listBots(c.id),
-            needsHeadStart
-              ? supabaseChallengesProvider.getLeaderboard(c.id, headStartBaselineDayKey(c))
-              : Promise.resolve<LeaderboardEntry[]>([]),
-          ]);
+          const { participants, leaderboard, bots, headStartLeaderboard } = inputs;
           const sortBy = boardSortFor(c);
           const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(c), sortBy, c, headStartLeaderboard);
           const board = c.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy, c) : rawBoard;

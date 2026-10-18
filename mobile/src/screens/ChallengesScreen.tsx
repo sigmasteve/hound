@@ -16,13 +16,13 @@ import { color, font, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
-import { headStartBaselineDayKey, pickPrimaryChallenge } from '../challenges/board';
+import { loadBoardInputs, supabaseChallengesProvider } from '../challenges/supabaseChallenges';
+import { pickPrimaryChallenge } from '../challenges/board';
 import { getFeatureNewest } from '../challenges/todayFeature';
 import { huntKindName, toChallengeCard } from '../challenges/present';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { useLabels } from '../labels/LabelsContext';
-import type { Challenge, ChallengeInvite, LeaderboardEntry } from '../challenges/types';
+import type { Challenge, ChallengeInvite } from '../challenges/types';
 import { listGlobalChallenges } from '../challenges/globalChallenges';
 import { computeStreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
@@ -179,22 +179,13 @@ export function ChallengesScreen({
     const now = Date.now();
     const stillScheduled = challenges.filter((c) => new Date(c.endsAt).getTime() > now);
     const pastSchedule = challenges.filter((c) => new Date(c.endsAt).getTime() <= now);
+    // Every board in one request (loadBoardInputs, 0110_challenge_boards.sql),
+    // including a hunt's head-start totals, which toChallengeCard needs
+    // to tell whether it's already concluded.
+    const boardInputs = await loadBoardInputs(stillScheduled);
     const cards = await Promise.all(
       stillScheduled.map(async (c) => {
-        // A hunt with a head start needs one extra fetch — everyone's
-        // total as of the day the head start ended, not just now — to
-        // correctly tell whether it's already concluded (see
-        // toChallengeCard/withHuntCatches). Skipped for anything else,
-        // since there's nothing to credit.
-        const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
-        const [participants, leaderboard, bots, headStartLeaderboard] = await Promise.all([
-          supabaseChallengesProvider.listParticipants(c.id),
-          supabaseChallengesProvider.getLeaderboard(c.id),
-          supabaseChallengesProvider.listBots(c.id),
-          needsHeadStart
-            ? supabaseChallengesProvider.getLeaderboard(c.id, headStartBaselineDayKey(c))
-            : Promise.resolve<LeaderboardEntry[]>([]),
-        ]);
+        const { participants, leaderboard, bots, headStartLeaderboard } = boardInputs.get(c.id)!;
         const card = toChallengeCard(
           c,
           participants,
@@ -331,23 +322,16 @@ export function ChallengesScreen({
     }
     let cancelled = false;
     setLoadingFinishedDetails(true);
-    Promise.all(
-      finishedRawChallenges.map(async (c) => {
-        const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
-        const [participants, leaderboard, bots, headStartLeaderboard] = await Promise.all([
-          supabaseChallengesProvider.listParticipants(c.id),
-          supabaseChallengesProvider.getLeaderboard(c.id),
-          supabaseChallengesProvider.listBots(c.id),
-          needsHeadStart
-            ? supabaseChallengesProvider.getLeaderboard(c.id, headStartBaselineDayKey(c))
-            : Promise.resolve<LeaderboardEntry[]>([]),
-        ]);
-        return [
-          c.id,
-          toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null, headStartLeaderboard, labelsForOrg(c.organizationId)),
-        ] as const;
-      }),
-    )
+    loadBoardInputs(finishedRawChallenges)
+      .then((boardInputs) =>
+        finishedRawChallenges.map((c) => {
+          const { participants, leaderboard, bots, headStartLeaderboard } = boardInputs.get(c.id)!;
+          return [
+            c.id,
+            toChallengeCard(c, participants, leaderboard, bots, user?.id ?? null, headStartLeaderboard, labelsForOrg(c.organizationId)),
+          ] as const;
+        }),
+      )
       .then((entries) => {
         if (!cancelled) setFinishedCardOverrides(new Map(entries));
       })
