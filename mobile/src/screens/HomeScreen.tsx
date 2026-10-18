@@ -1128,12 +1128,15 @@ export function HomeScreen({
   // Your hound (0104_kennel.sql), re-read when the goal day lands so its
   // mood updates straight away.
   const [kennel, setKennel] = useState<Kennel | null>(null);
-  useEffect(() => {
-    if (!isSupabaseConfigured || !user?.id) return;
+  const reloadKennel = useCallback(() => {
     getKennel()
       .then(setKennel)
       .catch(() => {});
-  }, [user?.id, refreshKey, goalDayHit]);
+  }, []);
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return;
+    reloadKennel();
+  }, [user?.id, refreshKey, goalDayHit, reloadKennel]);
 
   const dig = () => {
     setDigging({ result: null });
@@ -1614,7 +1617,9 @@ export function HomeScreen({
         )
       )}
 
-      {!setupOpen && kennel && <KennelCard kennel={kennel} onOpen={() => onGoTab('kennel')} />}
+      {!setupOpen && kennel && (
+        <KennelCard kennel={kennel} currencyName={currencyName} onOpen={() => onGoTab('kennel')} onChanged={reloadKennel} />
+      )}
 
       {!setupOpen && boneDig && goalProgress?.some((p) => p.goal.period === 'day') && (
         <BoneDigCard dig={boneDig} goalsDone={goalDayHit} currencyName={currencyName} onDig={dig} />
