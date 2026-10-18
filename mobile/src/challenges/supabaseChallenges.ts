@@ -2,7 +2,7 @@ import { supabase, signedInUserId } from '../lib/supabase';
 import { levelForXp } from './ranks';
 import { displayInitials, displayName, type DisplayableProfile } from '../profiles/displayName';
 import { fetchAll } from '../lib/fetchAll';
-import { inviteWindowClosed } from './board';
+import { headStartBaselineDayKey, inviteWindowClosed } from './board';
 import type {
   Challenge,
   ChallengeBot,
@@ -618,4 +618,116 @@ export async function hasLoggedProgressToday(challengeId: string, userId: string
     .maybeSingle();
   if (error) throw new Error(error.message);
   return !!data;
+}
+
+// What buildBoard (board.ts) needs for one challenge.
+export interface BoardInputs {
+  participants: Participant[];
+  leaderboard: LeaderboardEntry[];
+  bots: ChallengeBot[];
+  // Everyone's totals as of a hunt's head start ending; empty otherwise.
+  headStartLeaderboard: LeaderboardEntry[];
+}
+
+interface BoardParticipantRow extends ProfileRow {
+  xp_total: number | null;
+  user_id: string;
+  role: string | null;
+  highlighted: boolean;
+  frame_id: string | null;
+  background_id: string | null;
+  icon_id: string | null;
+  steps: number | null;
+  distance_mi: number | string | null;
+  as_of_steps: number | null;
+  as_of_distance_mi: number | string | null;
+}
+
+function needsHeadStart(c: Challenge): boolean {
+  return c.kind === 'hunt' && !!c.headStartDays;
+}
+
+// challenge_boards (0110_challenge_boards.sql): every challenge's board
+// inputs in one request, added up in Postgres. Null when it can't (before
+// 0110 has run); a challenge the caller isn't in is left out.
+async function fetchChallengeBoards(challenges: Challenge[]): Promise<Map<string, BoardInputs> | null> {
+  const client = requireClient();
+  const { data, error } = await client.rpc('challenge_boards', {
+    p_challenge_ids: challenges.map((c) => c.id),
+    p_as_of_days: challenges.map((c) => (needsHeadStart(c) ? headStartBaselineDayKey(c) : null)),
+  });
+  if (error) return null;
+  const boards = new Map<string, BoardInputs>();
+  for (const row of (data ?? []) as { challenge_id: string; participants: BoardParticipantRow[]; bots: any[] }[]) {
+    const participants: Participant[] = [];
+    const leaderboard: LeaderboardEntry[] = [];
+    const headStartLeaderboard: LeaderboardEntry[] = [];
+    for (const p of row.participants ?? []) {
+      const known = p.name != null;
+      const profile = { name: p.name, initials: p.initials, username: p.username, use_username: p.use_username };
+      const name = known ? displayName(toDisplayable(profile)) : 'Someone';
+      const initials = known ? displayInitials(toDisplayable(profile)) : '?';
+      participants.push({
+        userId: p.user_id,
+        name,
+        initials,
+        role: (p.role as HuntRole | null) ?? null,
+        highlighted: p.highlighted,
+        frameId: p.frame_id ?? null,
+        backgroundId: p.background_id ?? null,
+        iconId: p.icon_id ?? null,
+        level: levelForXp(p.xp_total),
+      });
+      // Like getLeaderboard: only people with logged progress have a row.
+      if (p.steps != null) {
+        leaderboard.push({ userId: p.user_id, name, initials, totalSteps: Number(p.steps), totalDistanceMi: Number(p.distance_mi ?? 0) });
+      }
+      if (p.as_of_steps != null) {
+        headStartLeaderboard.push({
+          userId: p.user_id,
+          name,
+          initials,
+          totalSteps: Number(p.as_of_steps),
+          totalDistanceMi: Number(p.as_of_distance_mi ?? 0),
+        });
+      }
+    }
+    leaderboard.sort((a, b) => b.totalSteps - a.totalSteps);
+    headStartLeaderboard.sort((a, b) => b.totalSteps - a.totalSteps);
+    const bots: ChallengeBot[] = (row.bots ?? []).map((b) => ({
+      id: b.id,
+      challengeId: row.challenge_id,
+      name: b.name,
+      fitnessLevel: b.fitness_level,
+      role: (b.role as HuntRole | null) ?? null,
+    }));
+    boards.set(row.challenge_id, { participants, leaderboard, bots, headStartLeaderboard });
+  }
+  return boards;
+}
+
+// One challenge the old way: three or four requests.
+async function loadBoardInputsSeparately(c: Challenge): Promise<BoardInputs> {
+  const [participants, leaderboard, bots, headStartLeaderboard] = await Promise.all([
+    supabaseChallengesProvider.listParticipants(c.id),
+    supabaseChallengesProvider.getLeaderboard(c.id),
+    supabaseChallengesProvider.listBots(c.id),
+    needsHeadStart(c) ? supabaseChallengesProvider.getLeaderboard(c.id, headStartBaselineDayKey(c)) : Promise.resolve([]),
+  ]);
+  return { participants, leaderboard, bots, headStartLeaderboard };
+}
+
+// Board inputs for many challenges at once (Today, the Challenges tab):
+// one challenge_boards request, and the old per-challenge requests only
+// for whatever it didn't return.
+export async function loadBoardInputs(challenges: Challenge[]): Promise<Map<string, BoardInputs>> {
+  const boards = new Map<string, BoardInputs>();
+  if (challenges.length === 0) return boards;
+  const fetched = await fetchChallengeBoards(challenges).catch(() => null);
+  await Promise.all(
+    challenges.map(async (c) => {
+      boards.set(c.id, fetched?.get(c.id) ?? (await loadBoardInputsSeparately(c)));
+    }),
+  );
+  return boards;
 }
