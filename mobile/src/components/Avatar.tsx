@@ -6,6 +6,8 @@ import { backgroundById, frameById, iconStyleById } from '../cosmetics/catalog';
 import { DEFAULT_AVATAR_ICON, ICON_COMPONENTS } from '../cosmetics/avatarIcons';
 import { rankForLevel } from '../challenges/ranks';
 import { useTheme } from '../theme/ThemeContext';
+import { HoundArt } from '../kennel/HoundArt';
+import { parseHoundAvatar } from '../kennel/houndAvatar';
 
 let gradientIdCounter = 0;
 
@@ -43,6 +45,8 @@ export function Avatar({
 }) {
   const frame = frameById(frameId);
   const background = backgroundById(backgroundId);
+  // Their Kennel hound (houndAvatar.ts), drawn in place of an icon.
+  const hound = parseHoundAvatar(iconId);
   const iconStyle = iconStyleById(iconId);
   const IconGlyph = iconStyle ? (ICON_COMPONENTS[iconStyle.icon] ?? DEFAULT_AVATAR_ICON) : null;
   // Stable for this component instance, not regenerated every render —
@@ -74,7 +78,23 @@ export function Avatar({
           <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${gradientId})`} />
         </Svg>
       )}
-      {IconGlyph ? (
+      {hound ? (
+        <View>
+          <HoundArt
+            rank="alpha"
+            mood="happy"
+            variant="avatar"
+            coatId={hound.coatId}
+            ears={hound.ears}
+            tail={hound.tail}
+            markings={hound.markings}
+            neckId={hound.neckId}
+            headId={hound.headId}
+            faceId={hound.faceId}
+            size={size}
+          />
+        </View>
+      ) : IconGlyph ? (
         // Sized relative to the circle, not fontSize — an icon glyph and
         // a line of initials text don't scale the same way, and every
         // existing call site's fontSize was tuned for text, not a glyph.

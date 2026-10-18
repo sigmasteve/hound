@@ -125,6 +125,14 @@ export function friendMoodLine(name: string, mood: Kennel['mood']): string {
   }
 }
 
+// Your hound as your avatar everywhere (0106_hound_avatar.sql), or back
+// to initials. Returns the avatar's new icon id.
+export async function setHoundAvatar(on: boolean): Promise<string | null> {
+  const { data, error } = await client().rpc('use_hound_avatar', { p_local_date: today(), p_on: on });
+  if (error) throw new Error(error.message);
+  return (data as string | null) ?? null;
+}
+
 export async function giveTreat(): Promise<void> {
   const { error } = await client().rpc('give_treat', { p_local_date: today() });
   if (error) throw new Error(error.message);
