@@ -148,6 +148,20 @@ export async function equipKennelItem(slot: KennelSlot, itemId: string | null): 
   if (error) throw new Error(error.message);
 }
 
+// Why they feel that way, for Today's Kennel card.
+export function moodReason(k: Kennel): string {
+  switch (k.mood) {
+    case 'hungry':
+      return 'A meal fills a heart.';
+    case 'happy':
+      return k.goalDayToday ? 'Every goal done today.' : `${k.goalDays7} goal day${k.goalDays7 === 1 ? '' : 's'} this week.`;
+    case 'okay':
+      return "Finish today's goals to cheer them up.";
+    default:
+      return 'Hit your goals to wake them up.';
+  }
+}
+
 // One line on how the hound is doing, and why.
 export function moodLine(k: Kennel): string {
   switch (k.mood) {
