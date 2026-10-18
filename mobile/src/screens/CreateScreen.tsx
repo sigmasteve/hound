@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import {
@@ -46,6 +46,7 @@ import {
   type TicTacGoDifficulty,
 } from '../challenges/tictacgo';
 import { setupTicTacGoBoard } from '../challenges/tictacgoApi';
+import { DEFAULT_GLOBAL_PRIZES, POT_CHOICES, POT_KINDS, setChallengePot, setGlobalPrizes } from '../challenges/potApi';
 import type { DistanceGoalUnit, HuntRole, ScoringMethod } from '../challenges/types';
 import type { RematchDraft } from '../challenges/rematch';
 import { useAuth } from '../auth/AuthContext';
@@ -197,6 +198,20 @@ export function CreateScreen({
   // Hunter; every other selected bot/invited friend (and the creator, if
   // they're not it) is Hunted. Only meaningful for draftType === 'hunt'.
   const [hunterId, setHunterId] = useState<string>(rematch?.hunterId ?? 'me');
+  // Bones pot entry (0107_challenge_pot.sql), Step Race and Tic-Tac-Go
+  // only; 'none' for no pot.
+  const [potChoice, setPotChoice] = useState<string>('none');
+  // Global challenges: Bones for 1st, 2nd and 3rd place, as typed.
+  const [prizeText, setPrizeText] = useState<[string, string, string]>(
+    DEFAULT_GLOBAL_PRIZES.map(String) as [string, string, string],
+  );
+  const prizes = prizeText.map((t) => Math.max(0, Math.min(1000, Math.round(Number(t.replace(/[^0-9]/g, '')) || 0)))) as [
+    number,
+    number,
+    number,
+  ];
+  const canHavePot = !global && POT_KINDS.includes(draftType);
+  const canHavePrizes = global && draftType !== 'seventyfive';
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -390,7 +405,7 @@ export function CreateScreen({
       setSaving(true);
       try {
         const isDistance = draftType === 'distance';
-        await publishGlobalChallenge({
+        const globalId = await publishGlobalChallenge({
           name: draftName.trim(),
           kind: draftType,
           durationDays: Number(length),
@@ -402,6 +417,11 @@ export function CreateScreen({
           distanceGoalSteps: isDistance && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
           bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
         });
+        if (canHavePrizes && prizes.some((b) => b > 0)) {
+          await setGlobalPrizes(globalId, prizes).catch((e: Error) =>
+            Alert.alert('Published, but the prizes didn’t save', `${e.message} Set them from the Admin screen.`),
+          );
+        }
         onFinish();
       } catch (e) {
         setSaveError(e instanceof Error ? e.message : 'Could not publish that challenge — try again.');
@@ -462,6 +482,11 @@ export function CreateScreen({
         startsAt: startsAtFor(startOption).toISOString(),
         organizationId: challengeScope === 'org' && myOrgId ? myOrgId : undefined,
       });
+      if (canHavePot && potChoice !== 'none') {
+        await setChallengePot(created.id, Number(potChoice)).catch((e: Error) =>
+          Alert.alert('Created, but the pot didn’t save', e.message),
+        );
+      }
       if (draftType === 'tictacgo') {
         try {
           await setupTicTacGoBoard(created.id, tictacgoDifficulty, tictacgoBoard, tictacgoWindow);
@@ -701,6 +726,26 @@ export function CreateScreen({
             />
           </View>
 
+          {canHavePot && (
+            <View style={{ gap: 5 }}>
+              <Text style={styles.fieldLabel}>{currencyName} pot (optional)</Text>
+              <SegmentedControl
+                options={[{ value: 'none', label: 'None' }, ...POT_CHOICES.map((b) => ({ value: String(b), label: String(b) }))]}
+                value={potChoice}
+                onChange={setPotChoice}
+              />
+              <Text style={styles.footNote}>
+                {potChoice === 'none'
+                  ? `Add a pot and players can each put in ${currencyName} they’ve earned. ${
+                      draftType === 'tictacgo' ? 'The winner takes it.' : 'Whoever in the pot has the most steps takes it.'
+                    }`
+                  : `Joining the pot is optional: ${potChoice} ${currencyName} each, until a day after it starts. ${
+                      draftType === 'tictacgo' ? 'The winner takes it; a draw gives everyone theirs back.' : 'Most steps in the pot takes it; a tie splits it.'
+                    }`}
+              </Text>
+            </View>
+          )}
+
           {(draftType === 'distance' || draftType === 'tag') && (
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
@@ -913,6 +958,11 @@ export function CreateScreen({
                     : `${distanceGoalSteps.toLocaleString()} steps`,
                 ]);
               if (draftType === 'bingo') rows.push(['Card', BINGO_CARD_TYPE_NAME[bingoCardType]]);
+              if (canHavePrizes)
+                rows.push([
+                  'Prizes',
+                  prizes.some((b) => b > 0) ? prizes.map((b) => `${b}`).join(' / ') + ` ${currencyName}` : 'None',
+                ]);
               return rows.map(([k, v]) => (
                 <View key={k} style={styles.huntBlockHeader}>
                   <Text style={styles.huntBlockLabel}>{k}</Text>
@@ -921,6 +971,36 @@ export function CreateScreen({
               ));
             })()}
           </View>
+          {canHavePrizes && (
+            <View style={styles.huntBlock}>
+              <Text style={styles.huntBlockLabel}>{currencyName} for the top 3</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {(['1st', '2nd', '3rd'] as const).map((place, i) => (
+                  <View key={place} style={{ flex: 1 }}>
+                    <TextField
+                      label={place}
+                      value={prizeText[i]}
+                      onChangeText={(t: string) =>
+                        setPrizeText((cur) => cur.map((v, j) => (j === i ? t : v)) as [string, string, string])
+                      }
+                      keyboardType="number-pad"
+                      maxLength={4}
+                    />
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.footNote}>
+                {draftType === 'bingo'
+                  ? 'Most squares wins'
+                  : draftType === 'streak'
+                    ? 'Finishing the streak comes first, then most steps'
+                    : draftType === 'distance' && distanceGoalUnit === 'miles'
+                      ? 'Most miles wins'
+                      : 'Most steps wins'}
+                . Ties share a place. 0 means no prize for that place; up to 1,000 each.
+              </Text>
+            </View>
+          )}
           <Text style={styles.footNote}>
             Publishing shows it on everyone’s Today screen under Global Hound Challenges. You’re not added
             automatically — join it from Today like anyone else. You can take it down from the Admin screen.
