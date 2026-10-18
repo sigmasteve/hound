@@ -130,6 +130,8 @@ export interface GlobalChallenge {
   distanceGoalSteps: number | null;
   bingoCardType: BingoCardType | null;
   participantCount: number;
+  // Bones for 1st, 2nd and 3rd (0107_challenge_pot.sql), or null for none.
+  prizes: [number, number, number] | null;
   joined: boolean;
 }
 
@@ -179,6 +181,7 @@ function rowToGlobal(r: any): GlobalChallenge {
     distanceGoalSteps: r.distance_goal_steps,
     bingoCardType: r.bingo_card_type,
     participantCount: r.participant_count ?? 0,
+    prizes: null,
     joined: !!r.joined,
   };
 }
@@ -193,7 +196,22 @@ function requireClient() {
 export async function listGlobalChallenges(includeEnded = false): Promise<GlobalChallenge[]> {
   const { data, error } = await requireClient().rpc('list_global_challenges', { p_include_ended: includeEnded });
   if (error) throw new Error(error.message);
-  return ((data ?? []) as any[]).map(rowToGlobal);
+  const list = ((data ?? []) as any[]).map(rowToGlobal);
+  if (list.length === 0) return list;
+  // Their prizes, read alongside (anyone signed in can read a global
+  // challenge's row). Missing before 0107 has run: no prizes shown.
+  const { data: prizeRows } = await requireClient()
+    .from('challenges')
+    .select('id, prize_bones')
+    .in(
+      'id',
+      list.map((c) => c.id),
+    );
+  const prizes = new Map(((prizeRows ?? []) as { id: string; prize_bones: number[] | null }[]).map((r) => [r.id, r.prize_bones]));
+  return list.map((c) => {
+    const p = prizes.get(c.id);
+    return p && p.length === 3 ? { ...c, prizes: [p[0], p[1], p[2]] } : c;
+  });
 }
 
 export async function joinGlobalChallenge(challengeId: string): Promise<void> {

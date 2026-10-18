@@ -65,6 +65,8 @@ import { listBingoProgress, recordBingoProgress, unlinkBingoProgress } from '../
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { isGlobalChallenge } from '../challenges/globalChallenges';
+import { ChallengePotCard } from '../components/ChallengePotCard';
+import { useCurrencyName } from '../organizations/useCurrencyName';
 import type { WorkoutSample } from '../health/types';
 import { boardSortFor, usesDeviceSteps, usesDistanceRanking, usesWorkoutDistance } from '../challenges/scoring';
 import { formatStartsLabel, hasStarted, huntKindName, huntRoleLabel, HUNT_ROLE_TAG_VARIANT } from '../challenges/present';
@@ -137,6 +139,7 @@ export function ChallengeDetailScreen({
   onRematch: (draft: RematchDraft) => void;
 }) {
   const { user } = useAuth();
+  const currencyName = useCurrencyName();
   const health = useHealthProvider();
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -1359,6 +1362,14 @@ export function ChallengeDetailScreen({
               </View>
             </Card>
           )}
+
+          <ChallengePotCard
+            challengeId={challengeId}
+            isGlobal={isGlobal}
+            names={new Map(participants.map((p) => [p.userId, p.name]))}
+            myUserId={user?.id ?? null}
+            currencyName={currencyName}
+          />
 
           {distanceGoal && (
             <Card style={[{ gap: 10 }, goalMet ? styles.goalMetCard : {}]} elevated={false}>

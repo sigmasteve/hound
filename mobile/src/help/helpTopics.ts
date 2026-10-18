@@ -123,6 +123,19 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Each one shows when it starts, how many people have joined, and when joining closes. After that, it drops off Today for anyone who hasn’t joined.',
         'Once you’re in, it works like any other challenge: it’s on your Challenges tab, your steps sync on their own, and it pays Hound Score and rewards when it wraps up.',
         'Spot someone on its leaderboard you’d like to keep up with? Tap Add next to their name.',
+        `Some have prizes for the top 3, shown on the card. Hound pays them in ${currency} when it ends, and ties share a place.`,
+      ],
+    },
+    {
+      id: 'pot',
+      section: 'challenges',
+      title: `${currency} pots`,
+      summary: `Put ${currency} in a Step Race or Tic-Tac-Go, winner takes all.`,
+      steps: [
+        `When you create a Step Race or Tic-Tac-Go, you can add a pot: 10, 25, 50 or 100 ${currency} each.`,
+        'Joining the pot is optional. Anyone in the challenge can join from its page until a day after it starts.',
+        `Step Race: whoever in the pot has the most steps takes it all, and a tie splits it. Tic-Tac-Go: the winner takes it, and a draw gives everyone theirs back.`,
+        `Only ${currency} you’ve earned by playing can go in a pot, never bought ones. If the pot has no winner, everyone gets their entry back.`,
       ],
     },
     {

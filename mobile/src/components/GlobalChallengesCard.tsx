@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { CaretRightIcon, CheckCircleIcon, GlobeHemisphereWestIcon, UsersThreeIcon } from 'phosphor-react-native';
+import { CaretRightIcon, CheckCircleIcon, GlobeHemisphereWestIcon, TrophyIcon, UsersThreeIcon } from 'phosphor-react-native';
+import { useCurrencyName } from '../organizations/useCurrencyName';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
@@ -29,6 +30,7 @@ export function GlobalChallengesCard({
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const currencyName = useCurrencyName();
   const now = Date.now();
   const started = challenges.filter((c) => now >= new Date(c.startsAt).getTime());
   const upcoming = challenges.filter((c) => now < new Date(c.startsAt).getTime());
@@ -105,6 +107,14 @@ export function GlobalChallengesCard({
                   {globalTimingLine(c)} · {c.participantCount.toLocaleString()} joined
                 </Text>
               </View>
+              {c.prizes && (
+                <View style={styles.metaRow}>
+                  <TrophyIcon size={12} color={color.amber} weight="fill" />
+                  <Text style={[styles.meta, { flexShrink: 1 }]} numberOfLines={1}>
+                    Top 3 win {c.prizes.filter((b) => b > 0).join(' / ')} {currencyName}
+                  </Text>
+                </View>
+              )}
               {deadline && <Text style={styles.deadline}>{deadline}</Text>}
             </View>
           </>
