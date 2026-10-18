@@ -85,6 +85,7 @@ import { formatTimeLeft, turnDeadline } from '../challenges/tictacgo';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
+import { notifyBonesChanged } from '../bones/bonesChanged';
 import { DailyBonusModal } from '../components/DailyBonusModal';
 import { AchievementUnlockedModal } from '../components/AchievementUnlockedModal';
 import { LevelUpModal } from '../components/LevelUpModal';
@@ -648,7 +649,12 @@ export function HomeScreen({
   // Small news that arrives after this app open has had its one pop-up
   // (see takePopup) — shown one at a time at the bottom of the screen.
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const pushToast = useCallback((t: ToastMessage) => setToasts((cur) => [...cur, t]), []);
+  // Toasts here are nearly all Bones news (an award, a purchase, a
+  // bounty), so each one also has the top bar re-read the balance.
+  const pushToast = useCallback((t: ToastMessage) => {
+    setToasts((cur) => [...cur, t]);
+    notifyBonesChanged();
+  }, []);
 
   // Goal days in a row, and the Bones for hitting every daily (or
   // weekly) goal, claimed as soon as the card shows them done.
@@ -1910,7 +1916,10 @@ export function HomeScreen({
           iconId: myLook?.iconId,
         }}
         currencyName={currencyName}
-        onClose={() => setDigging(null)}
+        onClose={() => {
+          setDigging(null);
+          notifyBonesChanged();
+        }}
       />
     )}
     {dailyBonus && (
@@ -1920,7 +1929,10 @@ export function HomeScreen({
         nextBonus={dailyBonus.nextBones}
         weeklyBonus={dailyBonus.weeklyBones}
         currencyName={currencyName}
-        onClose={() => setDailyBonus(null)}
+        onClose={() => {
+          setDailyBonus(null);
+          notifyBonesChanged();
+        }}
       />
     )}
     {!dailyBonus && unlocked.length === 0 && newRecords.length > 0 && (
@@ -1955,7 +1967,10 @@ export function HomeScreen({
           iconId: myLook?.iconId,
         }}
         unlockedNames={levelUp.unlockedNames}
-        onClose={() => setLevelUp(null)}
+        onClose={() => {
+          setLevelUp(null);
+          notifyBonesChanged();
+        }}
       />
     )}
     {toasts.length > 0 && (
