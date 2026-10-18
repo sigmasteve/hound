@@ -24,13 +24,15 @@ function shortCount(n: number): string {
 // manage. Everything else
 // that used to live up here (Help, Locker, your name for Settings) is on
 // the You tab, and the tabs themselves are at the bottom (TabBar). Your
-// level and rank sit up here too, on every tab, and your Bones balance,
-// which pops when it goes up; tap either for the Locker. With the
+// level and rank sit up here too, on every tab (tap for the Kennel, whose
+// hound grows with your rank), and your Bones balance, which pops when it
+// goes up (tap for the Locker). With the
 // management icons there too, the "Hound" name gives them the room.
 export function TopNav({
   tab,
   onHome,
   onOpenLevel,
+  onOpenBones,
   onAdmin,
   onOrgManagement,
 }: {
@@ -38,6 +40,7 @@ export function TopNav({
   tab: string;
   onHome: () => void;
   onOpenLevel: () => void;
+  onOpenBones: () => void;
   onAdmin: () => void;
   // Passed the caller's own org id when they're only an org admin (not a
   // platform admin) — MainScreen uses that to skip straight to
@@ -119,7 +122,7 @@ export function TopNav({
             onPress={onOpenLevel}
             hitSlop={6}
             accessibilityRole="button"
-            accessibilityLabel={`Level ${level}, ${rank.name}. Open the Locker`}
+            accessibilityLabel={`Level ${level}, ${rank.name}. Open the Kennel`}
           >
             <Text style={[styles.levelNumber, { color: rank.color }]}>Lv {level}</Text>
             <Text style={styles.rankName}>{rank.name}</Text>
@@ -129,7 +132,7 @@ export function TopNav({
           <Animated.View style={{ transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] }) }] }}>
             <Pressable
               style={({ pressed }) => [styles.bonesChip, pressed && { opacity: 0.7 }]}
-              onPress={onOpenLevel}
+              onPress={onOpenBones}
               hitSlop={6}
               accessibilityRole="button"
               accessibilityLabel={`${bones} ${currencyName}. Open the Locker`}
