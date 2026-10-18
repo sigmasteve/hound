@@ -41,6 +41,7 @@ export function MainScreen({ route, navigation }: Props) {
     else if (dest === 'healthData') navigation.navigate('HealthData');
     else if (dest === 'goals') navigation.navigate('Goals');
     else if (dest === 'kennel') navigation.navigate('Kennel');
+    else if (dest === 'setup') navigation.navigate('Setup', { resume: true });
     else setTab(dest);
   };
 

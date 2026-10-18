@@ -81,7 +81,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'Your home base — check it once a day.',
       steps: [
         'Your goals come first: the Hound’s on you card shows each goal, where you are on it, and what’s left. Tap Edit to change them.',
-        `New here? A Get started checklist walks you through connecting your health app, adding a friend, and joining a challenge — finish all three for a ${currency} reward.`,
+        `New here? A short setup walks you through it one step at a time: connect your health app, say how you’ll use Hound, set goals, turn on notifications, add a friend, join a challenge and meet your hound. Connect health, add a friend and join a challenge for a ${currency} reward. Skipped something? Today’s “Finish setting up” picks up where you left off.`,
         'Below your challenges list is one featured challenge: the one you’ve pinned with Pin to Today, or otherwise your newest active one. To only feature one you pin, turn off Newest challenge on Today in Settings.',
         'Needs you lists anything waiting on you: challenge invites, friend requests, your move in Tic-Tac-Go, picking a target when you’re It in Tag, today’s 75 Day checklist, or progress to log.',
         `Your Hound Score, level and ${currency} balance are on the You tab.`,
@@ -303,7 +303,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'Find people: on the Friends tab, search by name or username, or pick from People you may know (people in your challenges, friends of friends, and new members). Tap Add to send a request.',
         'Share my code: show your QR code, or share your link. The link helps friends who don’t have Hound yet get the beta first, then shows them your code.',
-        'Enter a code: paste a friend’s code or link, or tap Scan their QR code and point your camera at theirs, to connect instantly. New members also see a “Got an invite code?” card on Today.',
+        'Enter a code: paste a friend’s code or link, or tap Scan their QR code and point your camera at theirs, to connect instantly. New members can also enter one during setup.',
         'Invite by email: if they’re not on Hound yet, they’ll get an invite and you’ll be connected when they sign up.',
         'From a leaderboard: tap Add next to anyone in a challenge with you.',
       ],

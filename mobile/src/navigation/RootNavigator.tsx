@@ -31,6 +31,8 @@ import { SignUpScreen } from '../screens/auth/SignUpScreen';
 import { useAuth } from '../auth/AuthContext';
 import { useHealthProvider } from '../health/HealthContext';
 import { useNotificationTaps } from '../notifications/notificationTaps';
+import { SetupWizardScreen } from '../onboarding/SetupWizardScreen';
+import { CONNECT_PROMPT_SEEN_KEY, getWelcome } from '../onboarding/welcomeApi';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 // A separate, untyped single-screen navigator just for the connect-gate
@@ -51,8 +53,15 @@ const ConnectGateStack = createNativeStackNavigator();
 // data, there to revisit whenever. Device-scoped rather than
 // per-account on purpose: whether this phone's HealthKit/Health Connect
 // access is granted is an OS-level fact, not something a second Hound
-// account signing in on the same device needs asked again.
-const CONNECT_PROMPT_SEEN_KEY = 'hound:connect-prompt-seen';
+// account signing in on the same device needs asked again. The key
+// (CONNECT_PROMPT_SEEN_KEY) lives in welcomeApi.ts, since the setup
+// wizard's health step sets it too.
+//
+// The setup wizard (0109_welcome_wizard.sql) comes first when the
+// server says this account should see it; it has its own health step,
+// so the prompt above doesn't show then. Once an account is past it,
+// that's remembered on the phone so later launches don't ask again.
+const welcomeDoneKey = (userId: string) => `hound:welcome-done:${userId}`;
 
 // 'checking': the AsyncStorage read + health.getAuthorizationStatus() call
 // below haven't resolved yet — rendered the same as `initializing`, so a
@@ -64,10 +73,11 @@ const CONNECT_PROMPT_SEEN_KEY = 'hound:connect-prompt-seen';
 type ConnectGate = 'checking' | 'show' | 'hide';
 
 export function RootNavigator() {
-  const { status, initializing } = useAuth();
+  const { status, initializing, user } = useAuth();
   const health = useHealthProvider();
   const { colors } = useTheme();
   const [connectGate, setConnectGate] = useState<ConnectGate>('checking');
+  const [showSetup, setShowSetup] = useState(false);
   // Lets a tapped push open a screen (src/notifications/notificationTaps.ts).
   // Only the main, signed-in container below carries the ref.
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
@@ -80,15 +90,25 @@ export function RootNavigator() {
       // fresh, rather than reusing whichever gate the previous session
       // last landed on.
       setConnectGate('checking');
+      setShowSetup(false);
       return;
     }
     let cancelled = false;
     (async () => {
-      const [seen, authStatus] = await Promise.all([
+      const userId = user?.id ?? null;
+      const [seen, authStatus, welcomeDone] = await Promise.all([
         AsyncStorage.getItem(CONNECT_PROMPT_SEEN_KEY),
         health.getAuthorizationStatus(),
+        userId ? AsyncStorage.getItem(welcomeDoneKey(userId)).catch(() => null) : 'true',
       ]);
+      const welcome = welcomeDone === 'true' ? null : await getWelcome();
       if (cancelled) return;
+      if (userId && welcome && !welcome.show) AsyncStorage.setItem(welcomeDoneKey(userId), 'true').catch(() => {});
+      if (welcome?.show) {
+        setShowSetup(true);
+        setConnectGate('hide');
+        return;
+      }
       setConnectGate(seen !== 'true' && authStatus !== 'authorized' ? 'show' : 'hide');
     })().catch(() => {
       // health.getAuthorizationStatus() is now guarded not to throw on
@@ -104,7 +124,7 @@ export function RootNavigator() {
     return () => {
       cancelled = true;
     };
-  }, [status, health]);
+  }, [status, health, user?.id]);
 
   const dismissConnectPrompt = useCallback(() => {
     setConnectGate('hide');
@@ -167,7 +187,10 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer theme={navTheme} ref={navigationRef} onReady={() => setNavReady(true)}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        screenOptions={{ headerShown: false }}
+        initialRouteName={status === 'signedOut' ? 'Welcome' : showSetup ? 'Setup' : 'Main'}
+      >
         {status === 'signedOut' ? (
           // Rendering a completely different set of Stack.Screen children
           // swaps the navigator's whole state — the standard React
@@ -220,8 +243,11 @@ export function RootNavigator() {
                   // place.
                   // A global challenge is published from Admin, so it
                   // returns there instead.
+                  kind={route.params?.kind}
                   onCancel={() =>
-                    route.params?.global ? navigation.goBack() : navigation.navigate('Main', { tab: 'challenges' })
+                    route.params?.global || route.params?.fromSetup
+                      ? navigation.goBack()
+                      : navigation.navigate('Main', { tab: 'challenges' })
                   }
                   // Used to always go to the static Hunt screen, regardless
                   // of what kind of challenge (or name) was actually
@@ -232,7 +258,9 @@ export function RootNavigator() {
                   // read (src/challenges/present.ts) shows the actual new
                   // challenge.
                   onFinish={() =>
-                    route.params?.global ? navigation.goBack() : navigation.navigate('Main', { tab: 'challenges' })
+                    route.params?.global || route.params?.fromSetup
+                      ? navigation.goBack()
+                      : navigation.navigate('Main', { tab: 'challenges' })
                   }
                 />
               )}
@@ -365,6 +393,19 @@ export function RootNavigator() {
                 <StackPage onBack={() => navigation.goBack()}>
                   <ConnectScreen onDone={() => navigation.goBack()} title="Health data" doneLabel="Done" />
                 </StackPage>
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Setup" options={{ animation: 'slide_from_right', gestureEnabled: false }}>
+              {({ navigation, route }) => (
+                <SetupWizardScreen
+                  resume={route.params?.resume}
+                  onOpenGoals={() => navigation.navigate('Goals')}
+                  onCreateChallenge={(kind) => navigation.navigate('Create', { kind, fromSetup: true })}
+                  onFinish={() => {
+                    if (user?.id) AsyncStorage.setItem(welcomeDoneKey(user.id), 'true').catch(() => {});
+                    navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+                  }}
+                />
               )}
             </Stack.Screen>
             <Stack.Screen name="Achievements" options={{ animation: 'slide_from_right' }}>

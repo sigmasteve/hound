@@ -3,7 +3,6 @@ import { Alert, AppState, type AppStateStatus, Linking, Pressable, ScrollView, S
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  ArrowsClockwiseIcon,
   BellRingingIcon,
   BoneIcon,
   CaretRightIcon,
@@ -94,7 +93,6 @@ import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
 import { BACKGROUNDS, FRAMES, ICONS } from '../cosmetics/catalog';
 import { GetStartedCard } from '../components/GetStartedCard';
-import { InviteCodeCard } from '../components/InviteCodeCard';
 import { PushAskCard } from '../components/PushAskCard';
 import { NudgesCard } from '../components/NudgesCard';
 import { NewRecordModal } from '../components/NewRecordModal';
@@ -491,7 +489,7 @@ function takePopup(): boolean {
 
 // Where Today's links go: a tab, or a screen that used to be a tab and
 // now opens from You.
-export type HomeDestination = MainTab | 'stats' | 'healthData' | 'goals' | 'kennel';
+export type HomeDestination = MainTab | 'stats' | 'healthData' | 'goals' | 'kennel' | 'setup';
 
 export function HomeScreen({
   onOpenHunt,
@@ -517,21 +515,10 @@ export function HomeScreen({
   useEffect(() => {
     if (goalProgress) updateHound({ progress: goalProgress });
   }, [goalProgress]);
-  // Goal setup on Today: opens by itself once, on a new account's first
-  // visit; everyone else opens it from the goals card.
-  const { goalsSet, isNewAccount, loaded: goalsLoaded } = useGoals();
+  // Goal setup on Today, opened from the goals card. New accounts set
+  // theirs in the setup wizard (src/onboarding/SetupWizardScreen.tsx).
+  const { goalsSet } = useGoals();
   const [setupOpen, setSetupOpen] = useState(false);
-  useEffect(() => {
-    if (!goalsLoaded || goalsSet || !isNewAccount || !user?.id) return;
-    const key = `hound:goal-setup-shown:${user.id}`;
-    AsyncStorage.getItem(key)
-      .then((shown) => {
-        if (shown) return;
-        setSetupOpen(true);
-        AsyncStorage.setItem(key, 'true').catch(() => {});
-      })
-      .catch(() => {});
-  }, [goalsLoaded, goalsSet, isNewAccount, user?.id]);
   // null = either no real active challenge to headline, or the fetch
   // below hasn't resolved yet — same "never break the screen, just fall
   // back" pattern ChallengesScreen uses for its own list. Distinct from
@@ -758,21 +745,6 @@ export function HomeScreen({
     setGetStartedDismissed(true);
     AsyncStorage.setItem(GET_STARTED_DISMISSED_KEY, '1').catch(() => {});
   };
-  // "Got an invite code?" — shown until this account has a friend, or
-  // it's dismissed. Uses onboarding's has_friend (0074), so it disappears
-  // on its own once they connect with anyone.
-  const INVITE_CODE_DISMISSED_KEY = 'homeInviteCodeDismissed';
-  const [inviteCodeDismissed, setInviteCodeDismissed] = useState(true);
-  useEffect(() => {
-    AsyncStorage.getItem(INVITE_CODE_DISMISSED_KEY)
-      .then((v) => setInviteCodeDismissed(v === '1'))
-      .catch(() => setInviteCodeDismissed(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const dismissInviteCode = () => {
-    setInviteCodeDismissed(true);
-    AsyncStorage.setItem(INVITE_CODE_DISMISSED_KEY, '1').catch(() => {});
-  };
   // "Turn on notifications" (src/notifications/pushPermission.ts) — once
   // someone has a friend or a challenge, so there's something worth
   // being notified about. Only while the phone has never been asked.
@@ -846,10 +818,6 @@ export function HomeScreen({
     const newest = nudges[0]?.createdAt ?? new Date().toISOString();
     setNudgesDismissedAt(newest);
     AsyncStorage.setItem(NUDGES_DISMISSED_KEY, newest).catch(() => {});
-  };
-  const inviteCodeAdded = () => {
-    setOnboarding((cur) => (cur ? { ...cur, hasFriend: true } : cur));
-    Alert.alert('You’re now friends!', 'Find them on your Friends tab — and challenge them to something.');
   };
   const claimGetStarted = async () => {
     if (!user?.id) return;
@@ -1874,18 +1842,12 @@ export function HomeScreen({
         <PushAskCard userId={user.id} onDone={() => setOfferPush(false)} />
       )}
 
-      {onboarding && !onboarding.hasFriend && !inviteCodeDismissed && (
-        <InviteCodeCard onAdded={inviteCodeAdded} onDismiss={dismissInviteCode} />
-      )}
-
       {onboarding && !onboarding.rewardClaimed && !getStartedDismissed && (
         <GetStartedCard
           status={onboarding}
           currencyName={currencyName}
           claiming={claimingOnboarding}
-          onConnect={() => onGoTab('healthData')}
-          onAddFriend={() => onGoTab('friends')}
-          onJoinChallenge={() => onGoTab('challenges')}
+          onContinue={() => onGoTab('setup')}
           onClaim={claimGetStarted}
           onDismiss={dismissGetStarted}
         />
@@ -1895,13 +1857,6 @@ export function HomeScreen({
         <WeeklyRecapCard recap={weeklyRecap} currencyName={currencyName} onDismiss={dismissWeeklyRecap} />
       )}
 
-      {/* For someone who's never had a challenge, not for anyone who
-          just has nothing featured (Settings → Newest challenge on Today). */}
-      {!loadingPrimary && !primary && (!challengeCounts || challengeCounts.active + challengeCounts.finished === 0) && (
-        <View style={styles.cardsRow}>
-          <GettingStartedCards onGoTab={onGoTab} styles={styles} />
-        </View>
-      )}
     </ScrollView>
     {bountyModal !== 'closed' && (
       <PostBountyModal
@@ -1982,84 +1937,6 @@ export function HomeScreen({
       <Toast key={toasts[0].id} message={toasts[0]} onDone={() => setToasts((cur) => cur.slice(1))} />
     )}
     </View>
-  );
-}
-
-// Shown in place of a live challenge card whenever there's no real one
-// to headline — a brand-new user with nothing yet, or Supabase
-// unconfigured. Replaces the old hardcoded "Jordan vs Marcus" hunt +
-// "March Step Race" cards, which rendered as if they were this user's
-// own history with nothing marking them as sample — exactly the
-// "fabricated data indistinguishable from real data" problem
-// ChallengesScreen's empty state fixed, except here there's no real
-// history to fall back to being honest about, so the honest content is
-// an explanation of what the app can actually do instead.
-function GettingStartedCards({ onGoTab, styles }: { onGoTab: (dest: HomeDestination) => void; styles: HomeStyles }) {
-  const { user } = useAuth();
-  const { labelsForOrg } = useLabels();
-  // No specific challenge to key off yet (this only ever shows before
-  // there's a real one) — previews the viewer's own org words if they
-  // have any, same as what they'd actually see once they create one.
-  const labels = labelsForOrg(user?.organizationId);
-  return (
-    <>
-      <Card style={styles.onboardCard} elevated={false}>
-        <View style={styles.onboardHeader}>
-          <TrophyIcon size={15} color={color.accent} />
-          <Text style={styles.onboardTitle}>Ways to compete</Text>
-        </View>
-        <Text style={styles.onboardBody}>
-          Every challenge here runs on real logged steps or distance. Pick a kind and invite people in.
-        </Text>
-        <View style={styles.typeList}>
-          {CHALLENGE_TYPES.map((t) => {
-            const Icon = CHALLENGE_KIND_ICON[t.id];
-            return (
-              <View key={t.id} style={styles.typeRow}>
-                <View style={[styles.typeIcon, { backgroundColor: t.tint }]}>
-                  <Icon size={16} color={t.iconColor} weight={t.id === 'hunt' ? 'fill' : 'regular'} />
-                </View>
-                <View style={styles.typeText}>
-                  <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName() : t.name}</Text>
-                  <Text style={styles.typeDesc}>{t.desc}</Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-        <Button
-          label="New challenge"
-          variant="primary"
-          small
-          icon={<PlusCircleIcon size={14} color={color.accent} />}
-          onPress={() => onGoTab('challenges')}
-        />
-      </Card>
-
-      <Card style={styles.onboardCard} elevated={false}>
-        <View style={styles.onboardHeader}>
-          <ArrowsClockwiseIcon size={15} color={color.accent} />
-          <Text style={styles.onboardTitle}>Your data syncs automatically</Text>
-        </View>
-        <Text style={styles.onboardBody}>
-          Connect Apple Health or Health Connect once and every step-based challenge backfills and
-          keeps updating on its own — no manual logging needed for steps.
-        </Text>
-        <Button label="Manage data sources" variant="ghost" small onPress={() => onGoTab('healthData')} />
-      </Card>
-
-      <Card style={styles.onboardCard} elevated={false}>
-        <View style={styles.onboardHeader}>
-          <UserPlusIcon size={15} color={color.accent} />
-          <Text style={styles.onboardTitle}>Bring your friends in</Text>
-        </View>
-        <Text style={styles.onboardBody}>
-          Find a friend by email and invite them straight into a challenge — that's how a {labels.hunter}{' '}
-          and {labels.hunted} end up chasing each other.
-        </Text>
-        <Button label="Find friends" variant="ghost" small onPress={() => onGoTab('friends')} />
-      </Card>
-    </>
   );
 }
 
@@ -2505,16 +2382,6 @@ function makeStyles(colors: Palette) {
     needsMoreText: { fontFamily: font.heading, fontSize: 13, color: colors.accentActive },
     inviteTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
     inviteSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
-    onboardCard: { padding: 16, gap: 10 },
-    onboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    onboardTitle: { fontFamily: font.heading, fontSize: 15, color: colors.text, flex: 1 },
-    onboardBody: { fontSize: 13, color: withAlpha(colors.text, 0.7), lineHeight: 18 },
-    typeList: { gap: 10, marginTop: 2 },
-    typeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-    typeIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-    typeText: { flex: 1, gap: 1 },
-    typeName: { fontFamily: font.heading, fontSize: 13.5, color: colors.text },
-    typeDesc: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
     tileSub: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
     cardsRow: { gap: 12 },
     // Fixed, hand-tuned dark background regardless of theme — the same
