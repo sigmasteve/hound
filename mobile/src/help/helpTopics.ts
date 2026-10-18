@@ -280,7 +280,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         `Under Look, pick their coat, ears, tail and markings. Tan, Chocolate, Cream and Gray coats are free, special coats cost ${currency}, and the rest of the look is free to change any time.`,
         'Your friends see your hound on your friend page, and you see theirs.',
         'Turn on “Use as my avatar” in the Kennel and your hound replaces your initials everywhere: leaderboards, friends and chats. It keeps your frame and background, and picking a Locker icon switches back.',
-        'Care style: Gentle is the default. Classic pet adds 3 meal hearts; one empties each day they aren’t fed, and with none left they’re hungry until you feed them. You can switch back any time.',
+        'Care style: Gentle is the default. Classic pet adds 3 meal hearts; one empties each day they aren’t fed, and with none left they’re hungry until you feed them. Going up a level fills every heart. You can switch back any time.',
       ],
     },
     {
