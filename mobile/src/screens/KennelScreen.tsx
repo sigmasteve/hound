@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, HeartIcon, PencilSimpleIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon, HeartIcon, PencilSimpleIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -23,8 +23,11 @@ import {
   TAIL_OPTIONS,
   TAN_SWATCH,
   TREAT_BONES,
+  onSale,
+  saleEndsLabel,
   type KennelItem,
 } from '../kennel/kennelItems';
+import { localDayKey } from '../goals/goals';
 import {
   buyKennelItem,
   equipKennelItem,
@@ -160,6 +163,62 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
+  // Limited-time items (0112_halloween_kennel.sql): their own section
+  // while on sale; afterwards, only the ones you bought, in their usual
+  // place.
+  const today = localDayKey(new Date());
+  const seasonItems = KENNEL_ITEMS.filter((i) => i.season && onSale(i, today));
+  const season = seasonItems[0]?.season ?? null;
+  const inShop = (i: KennelItem) => !i.season || (!onSale(i, today) && kennel.owned.includes(i.id));
+
+  const itemRow = (item: KennelItem) => {
+    const isCoat = item.slot === 'coat';
+    const owned = kennel.owned.includes(item.id);
+    const wearing = isCoat ? kennel.coatId === item.id : equippedIn(item) === item.id;
+    const ends = saleEndsLabel(item);
+    return (
+      <Pressable
+        key={item.id}
+        style={styles.itemRow}
+        disabled={busyId !== null || (isCoat && wearing)}
+        onPress={() => (isCoat ? pressCoat(item) : pressItem(item))}
+      >
+        <View style={styles.itemPreview}>
+          <HoundArt
+            rank={rank.id}
+            mood="okay"
+            neckId={item.slot === 'neck' ? item.id : null}
+            headId={item.slot === 'head' ? item.id : null}
+            faceId={item.slot === 'face' ? item.id : null}
+            coatId={isCoat ? item.id : kennel.coatId}
+            ears={kennel.ears}
+            tail={kennel.tail}
+            markings={kennel.markings}
+            size={44}
+            animate={false}
+          />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.itemName}>{item.name}</Text>
+          <Text style={styles.itemNote}>
+            {wearing
+              ? isCoat
+                ? 'Wearing'
+                : 'Wearing · tap to take off'
+              : owned
+                ? 'Tap to put on'
+                : `${item.costBones} ${currencyName}${item.season && ends ? ` · ${ends}` : ''}`}
+          </Text>
+        </View>
+        {busyId === item.id ? (
+          <ActivityIndicator color={colors.accent} />
+        ) : wearing ? (
+          <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
+        ) : null}
+      </Pressable>
+    );
+  };
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
@@ -276,7 +335,7 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
           <Text style={text.h4}>Look</Text>
           <Text style={styles.label}>Coat</Text>
           <View style={styles.swatches}>
-            {[null, ...KENNEL_ITEMS.filter((i) => i.slot === 'coat')].map((item) => {
+            {[null, ...KENNEL_ITEMS.filter((i) => i.slot === 'coat' && inShop(i))].map((item) => {
               const on = kennel.coatId === (item?.id ?? null);
               const owned = !item || item.costBones === 0 || kennel.owned.includes(item.id);
               return (
@@ -324,43 +383,22 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
           ))}
         </Card>
 
+        {season && seasonItems.length > 0 && (
+          <Card style={[{ gap: 4 }, styles.seasonCard]} elevated={false}>
+            <View style={styles.seasonHeader}>
+              <GhostIcon size={18} color={colors.amber} weight="fill" />
+              <Text style={text.h4}>{season}</Text>
+              <Text style={styles.seasonEnds}>{saleEndsLabel(seasonItems[0])}</Text>
+            </View>
+            <Text style={styles.itemNote}>Only around for a little while. Anything you get, you keep.</Text>
+            {seasonItems.map(itemRow)}
+          </Card>
+        )}
+
         {KENNEL_SLOTS.map(({ slot, label }) => (
           <Card key={slot} style={{ gap: 4 }} elevated={false}>
             <Text style={text.h4}>{label}</Text>
-            {KENNEL_ITEMS.filter((i) => i.slot === slot).map((item) => {
-              const owned = kennel.owned.includes(item.id);
-              const wearing = equippedIn(item) === item.id;
-              return (
-                <Pressable key={item.id} style={styles.itemRow} disabled={busyId !== null} onPress={() => pressItem(item)}>
-                  <View style={styles.itemPreview}>
-                    <HoundArt
-                      rank={rank.id}
-                      mood="okay"
-                      neckId={slot === 'neck' ? item.id : null}
-                      headId={slot === 'head' ? item.id : null}
-                      faceId={slot === 'face' ? item.id : null}
-                      coatId={kennel.coatId}
-                      ears={kennel.ears}
-                      tail={kennel.tail}
-                      markings={kennel.markings}
-                      size={44}
-                      animate={false}
-                    />
-                  </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemNote}>
-                      {wearing ? 'Wearing · tap to take off' : owned ? 'Tap to put on' : `${item.costBones} ${currencyName}`}
-                    </Text>
-                  </View>
-                  {busyId === item.id ? (
-                    <ActivityIndicator color={colors.accent} />
-                  ) : wearing ? (
-                    <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
-                  ) : null}
-                </Pressable>
-              );
-            })}
+            {KENNEL_ITEMS.filter((i) => i.slot === slot && inShop(i)).map(itemRow)}
           </Card>
         ))}
 
@@ -417,6 +455,9 @@ function makeStyles(colors: Palette) {
     mood: { fontSize: 14.5, color: colors.text, textAlign: 'center' },
     note: { fontSize: 12.5, color: withAlpha(colors.text, 0.6), textAlign: 'center' },
     hearts: { flexDirection: 'row', gap: 6 },
+    seasonCard: { borderWidth: 1.5, borderColor: withAlpha(colors.amber, 0.6), backgroundColor: withAlpha(colors.amber, 0.08) },
+    seasonHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    seasonEnds: { marginLeft: 'auto', fontSize: 12.5, fontFamily: font.heading, color: colors.amber },
     treatRow: { marginTop: 4 },
     itemRow: {
       flexDirection: 'row',

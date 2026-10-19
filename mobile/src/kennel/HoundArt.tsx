@@ -276,9 +276,9 @@ function NeckItem({ item, y, width }: { item: KennelItem; y: number; width: numb
     return (
       <G>
         <Path d={`M ${100 - width / 2} ${y} L ${100 + width / 2} ${y} L 100 ${y + 36} Z`} fill={item.color} />
-        <Circle cx={88} cy={y + 8} r={2.5} fill="#fff" opacity={0.8} />
-        <Circle cx={110} cy={y + 10} r={2.5} fill="#fff" opacity={0.8} />
-        <Circle cx={100} cy={y + 22} r={2.5} fill="#fff" opacity={0.8} />
+        <Circle cx={88} cy={y + 8} r={2.5} fill={item.accent ?? '#fff'} opacity={0.8} />
+        <Circle cx={110} cy={y + 10} r={2.5} fill={item.accent ?? '#fff'} opacity={0.8} />
+        <Circle cx={100} cy={y + 22} r={2.5} fill={item.accent ?? '#fff'} opacity={0.8} />
       </G>
     );
   }
@@ -314,6 +314,31 @@ function HeadItem({ item, headCy, headR }: { item: KennelItem; headCy: number; h
       </G>
     );
   }
+  if (item.kind === 'pumpkin') {
+    // A small pumpkin sitting on top, with ribs and a stem and leaf.
+    const cy = top - 6;
+    return (
+      <G>
+        <Ellipse cx={100} cy={cy} rx={30} ry={20} fill={item.color} />
+        <Ellipse cx={100} cy={cy} rx={17} ry={20} fill="none" stroke="#c96a12" strokeWidth={2} />
+        <Ellipse cx={100} cy={cy} rx={5} ry={20} fill="none" stroke="#c96a12" strokeWidth={2} />
+        <Path d={`M 100 ${cy - 19} Q 98 ${cy - 30} 104 ${cy - 32}`} stroke="#4f7a2b" strokeWidth={5} strokeLinecap="round" fill="none" />
+        <Path d={`M 103 ${cy - 26} Q 116 ${cy - 34} 120 ${cy - 24} Q 110 ${cy - 22} 103 ${cy - 26} Z`} fill="#5f9a35" />
+      </G>
+    );
+  }
+  if (item.kind === 'witch') {
+    // A wide brim and a tall, crooked point, with a band.
+    const brim = top + 10;
+    return (
+      <G>
+        <Ellipse cx={100} cy={brim} rx={46} ry={9} fill={item.color} />
+        <Path d={`M 78 ${brim} L 96 ${brim - 52} Q 104 ${brim - 64} 118 ${brim - 58} L 106 ${brim - 48} L 122 ${brim} Z`} fill={item.color} />
+        <Path d={`M 80 ${brim - 4} L 120 ${brim - 4}`} stroke={item.accent ?? '#f08a24'} strokeWidth={7} />
+        <Rect x={96} y={brim - 9} width={9} height={9} rx={1.5} fill="none" stroke="#e0b84f" strokeWidth={2} />
+      </G>
+    );
+  }
   // Crown
   const y = top + 8;
   return (
@@ -333,6 +358,21 @@ function HeadItem({ item, headCy, headR }: { item: KennelItem; headCy: number; h
 }
 
 function FaceItem({ item, eyeY }: { item: KennelItem; eyeY: number }) {
+  if (item.kind === 'mask') {
+    // A masquerade mask across both eyes, with eye holes and a gold trim.
+    return (
+      <G>
+        <Path
+          d={`M 66 ${eyeY - 4} Q 70 ${eyeY - 16} 88 ${eyeY - 12} Q 100 ${eyeY - 8} 112 ${eyeY - 12} Q 130 ${eyeY - 16} 134 ${eyeY - 4} Q 130 ${eyeY + 12} 112 ${eyeY + 9} Q 100 ${eyeY + 4} 88 ${eyeY + 9} Q 70 ${eyeY + 12} 66 ${eyeY - 4} Z`}
+          fill={item.color}
+          stroke={item.accent ?? '#e0b84f'}
+          strokeWidth={2}
+        />
+        <Ellipse cx={84} cy={eyeY} rx={8} ry={5.5} fill="#fff" fillOpacity={0.25} />
+        <Ellipse cx={116} cy={eyeY} rx={8} ry={5.5} fill="#fff" fillOpacity={0.25} />
+      </G>
+    );
+  }
   if (item.kind === 'sun') {
     return (
       <G>
