@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import {
+  AtIcon,
   BarbellIcon,
   BellRingingIcon,
   CalendarCheckIcon,
@@ -43,6 +44,7 @@ import { buyKennelItem, equipKennelItem, getKennel, setHoundAvatar, setKennel, s
 import { notifyBonesChanged } from '../bones/bonesChanged';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from './onboardingApi';
+import { chooseUsername, USERNAME_FORMAT } from '../profiles/supabaseProfile';
 import {
   CONNECT_PROMPT_SEEN_KEY,
   extraGoalsFor,
@@ -54,7 +56,7 @@ import {
   type HoundUse,
 } from './welcomeApi';
 
-type StepId = 'health' | 'uses' | 'goals' | 'push' | 'friend' | 'challenge' | 'hound' | 'done';
+type StepId = 'health' | 'name' | 'uses' | 'goals' | 'push' | 'friend' | 'challenge' | 'hound' | 'done';
 
 const USE_ICONS: Record<HoundUse, typeof FootprintsIcon> = {
   steps: FootprintsIcon,
@@ -83,6 +85,7 @@ export function SetupWizardScreen({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const health = useHealthProvider();
+  const { user } = useAuth();
   const { goalsSet } = useGoals();
   const [plan, setPlan] = useState<StepId[] | null>(null);
   const [index, setIndex] = useState(0);
@@ -102,6 +105,8 @@ export function SetupWizardScreen({
       setUses(saved);
       const steps: StepId[] = [];
       if (auth !== 'authorized') steps.push('health');
+      // Anyone without a username yet, new or finishing setup.
+      if (!user?.username) steps.push('name');
       if (!resume || saved.length === 0) steps.push('uses');
       if (!resume || !goalsSet) steps.push('goals');
       if (push === 'undetermined') steps.push('push');
@@ -157,6 +162,7 @@ export function SetupWizardScreen({
         </View>
       )}
       {step === 'health' && <HealthStep styles={styles} onNext={next} />}
+      {step === 'name' && <NameStep styles={styles} onNext={next} />}
       {step === 'uses' && <UsesStep styles={styles} initial={uses} onNext={(u) => (setUses(u), next())} />}
       {step === 'goals' && <GoalsStep styles={styles} uses={uses} onOpenGoals={onOpenGoals} onNext={next} />}
       {step === 'push' && <PushStep styles={styles} onNext={next} />}
@@ -233,6 +239,120 @@ function HealthStep({ styles, onNext }: { styles: Styles; onNext: () => void }) 
         </>
       }
     />
+  );
+}
+
+// Usernames to suggest from the name someone signed up with: "Stephen
+// Washington" gives StephenW, Stephen_Washington and Stephen23. Only
+// letters, numbers and underscores, 3 to 20 long (USERNAME_FORMAT).
+function usernameIdeas(name: string): string[] {
+  const words = name
+    .normalize('NFKD')
+    .replace(/[^A-Za-z0-9 ]/g, '')
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return [];
+  const [first, ...rest] = words;
+  const last = rest.find((w) => !/^(jr|sr|ii|iii|iv)$/i.test(w));
+  const ideas = [
+    last ? `${first}${last[0].toUpperCase()}` : null,
+    last ? `${first}_${last}` : null,
+    `${first}${10 + Math.floor(Math.random() * 90)}`,
+  ];
+  return [...new Set(ideas.filter((i): i is string => !!i).map((i) => i.slice(0, 20)))].filter((i) =>
+    USERNAME_FORMAT.test(i),
+  );
+}
+
+// A username for leaderboards and challenges instead of the name from
+// sign-up (0030_username.sql). Choosing one turns it on there right away
+// (chooseUsername); friends still see the real name. "Keep my name" moves
+// on without one.
+function NameStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
+  const { colors } = useTheme();
+  const { user, updateUser } = useAuth();
+  const ideas = useMemo(() => usernameIdeas(user?.name ?? ''), [user?.name]);
+  const [value, setValue] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const trimmed = value.trim();
+  const valid = USERNAME_FORMAT.test(trimmed);
+
+  const save = async () => {
+    if (!user?.id) return;
+    if (!valid) {
+      setProblem('3–20 letters, numbers or underscores.');
+      return;
+    }
+    setSaving(true);
+    setProblem(null);
+    try {
+      await chooseUsername(user.id, trimmed);
+      updateUser({ username: trimmed, useUsername: true });
+      onNext();
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : 'Could not save that. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <StepPage
+      styles={styles}
+      icon={<AtIcon size={28} color={colors.accent} weight="bold" />}
+      title="Pick a username"
+      body={`It's what others see on leaderboards and in challenges, instead of ${user?.name ? `"${user.name}"` : 'your name'}. Friends still see your name.`}
+      footer={
+        <>
+          {problem && <Text style={styles.problem}>{problem}</Text>}
+          <Button
+            label={saving ? 'Saving…' : 'Use this username'}
+            variant="primary"
+            block
+            disabled={!valid || saving}
+            onPress={save}
+          />
+          <Button label="Keep my name" variant="ghost" block disabled={saving} onPress={onNext} />
+        </>
+      }
+    >
+      <View style={{ gap: 12, alignSelf: 'stretch' }}>
+        <TextField
+          label="Username"
+          value={value}
+          onChangeText={(v) => {
+            setValue(v.replace(/\s/g, ''));
+            setProblem(null);
+          }}
+          placeholder="NightRunner99"
+          maxLength={20}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoFocus
+          icon={<AtIcon size={16} color={withAlpha(colors.text, 0.5)} />}
+        />
+        {ideas.length > 0 && (
+          <View style={styles.ideas}>
+            {ideas.map((idea) => (
+              <Pressable
+                key={idea}
+                onPress={() => {
+                  setValue(idea);
+                  setProblem(null);
+                }}
+                style={trimmed === idea ? [styles.idea, styles.optionOn] : styles.idea}
+                accessibilityRole="button"
+                accessibilityLabel={`Use ${idea}`}
+              >
+                <Text style={styles.ideaText}>{idea}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+        <Text style={styles.optionDetail}>3–20 letters, numbers or underscores. You can change it in Settings.</Text>
+      </View>
+    </StepPage>
   );
 }
 
@@ -728,6 +848,15 @@ function makeStyles(colors: Palette) {
     optionOn: { borderColor: colors.accent, borderWidth: 1.5, backgroundColor: withAlpha(colors.accent, 0.1) },
     optionName: { fontFamily: font.heading, fontSize: 15, color: colors.text },
     optionDetail: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
+    ideas: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    idea: {
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.text, 0.15),
+    },
+    ideaText: { fontFamily: font.heading, fontSize: 14, color: colors.text },
     panel: { gap: 10, alignSelf: 'stretch' },
     panelLabel: { fontSize: 12, letterSpacing: 0.4, color: withAlpha(colors.text, 0.55) },
     code: { fontFamily: font.headingSemibold, fontSize: 28, letterSpacing: 2, color: colors.text },

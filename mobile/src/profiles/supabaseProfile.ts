@@ -15,6 +15,10 @@ function requireClient() {
 // uses for its own non-2xx body.
 const UNIQUE_VIOLATION = '23505';
 
+// 0030_username.sql's profiles_username_format, checked before saving so
+// the message can say what's allowed.
+export const USERNAME_FORMAT = /^[A-Za-z0-9_]{3,20}$/;
+
 export async function setUsername(userId: string, username: string | null): Promise<void> {
   const client = requireClient();
   const { error } = await client.from('profiles').update({ username }).eq('id', userId);
@@ -28,4 +32,12 @@ export async function setUseUsername(userId: string, useUsername: boolean): Prom
   const client = requireClient();
   const { error } = await client.from('profiles').update({ use_username: useUsername }).eq('id', userId);
   if (error) throw new Error(error.message);
+}
+
+// Picking a username (the setup wizard, or Settings the first time) also
+// turns it on for leaderboards and challenges: someone who chose one wants
+// to be seen by it. They can still turn it off in Settings.
+export async function chooseUsername(userId: string, username: string): Promise<void> {
+  await setUsername(userId, username);
+  await setUseUsername(userId, true);
 }

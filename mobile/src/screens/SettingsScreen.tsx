@@ -22,7 +22,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { APP_VERSION, runningOnLabel } from '../lib/appVersion';
 import { deleteMyAccount } from '../auth/deleteAccount';
 import * as notifications from '../notifications/supabaseNotifications';
-import { setUseUsername, setUsername } from '../profiles/supabaseProfile';
+import { setUseUsername, setUsername, USERNAME_FORMAT, chooseUsername } from '../profiles/supabaseProfile';
 import { getOrganization, leaveOrganization, redeemOrganizationInvite } from '../organizations/supabaseOrganizations';
 import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import type { Organization } from '../organizations/types';
@@ -37,7 +37,6 @@ import {
   type PushPermission,
 } from '../notifications/pushPermission';
 
-const USERNAME_FORMAT = /^[A-Za-z0-9_]{3,20}$/;
 
 const PROVIDER_LABEL: Record<AuthProviderId, string> = {
   google: 'Google',
@@ -95,12 +94,16 @@ export function SettingsScreen() {
     setUsernameError(null);
     setSavingUsername(true);
     try {
-      await setUsername(user.id, trimmed || null);
+      // A first username turns itself on for challenges (chooseUsername);
+      // changing an existing one leaves that switch as it was.
+      const first = !!trimmed && !user.username;
+      if (first) await chooseUsername(user.id, trimmed);
+      else await setUsername(user.id, trimmed || null);
       // Clearing the username makes "use it in challenges" meaningless —
       // turn that back off too rather than leaving a stale true with
       // nothing left to show.
       if (!trimmed && user.useUsername) await setUseUsername(user.id, false);
-      updateUser({ username: trimmed || null, useUsername: trimmed ? user.useUsername : false });
+      updateUser({ username: trimmed || null, useUsername: first ? true : trimmed ? user.useUsername : false });
     } catch (e) {
       setUsernameError(e instanceof Error ? e.message : 'Could not save that — try again.');
     } finally {
