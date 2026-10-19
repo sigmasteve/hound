@@ -29,6 +29,7 @@ import { huntKindName } from '../challenges/present';
 import { AppVersionsCard } from '../components/AppVersionsCard';
 import { GoalsAdminCard } from '../components/GoalsAdminCard';
 import { EngagementAdminCard } from '../components/EngagementAdminCard';
+import { AdsAdminCard } from '../components/AdsAdminCard';
 import { PushReachCard } from '../components/PushReachCard';
 import { SignupAlertsCard } from '../components/SignupAlertsCard';
 import { FindPeopleAdminCard } from '../components/FindPeopleAdminCard';
@@ -733,6 +734,8 @@ export function AdminScreen({
               {bonusSaved && !bonusError && <Text style={styles.successNote}>Saved.</Text>}
               <Button label={savingBonus ? 'Saving…' : 'Save'} variant="primary" disabled={savingBonus} onPress={saveBonus} />
             </Card>
+
+            <AdsAdminCard />
 
             <Card style={{ gap: 12 }} elevated={false}>
               <Text style={text.h4}>Goal rewards</Text>

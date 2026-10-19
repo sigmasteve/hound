@@ -15,3 +15,9 @@
 # there and re-verifies the caller inside the function too.
 [functions.revenuecat-webhook]
 verify_jwt = false
+
+# admob-reward is called by Google's servers (AdMob server-side
+# verification), which send no Supabase JWT; it checks Google's own
+# signature inside the function instead (0114_rewarded_ads.sql).
+[functions.admob-reward]
+verify_jwt = false
