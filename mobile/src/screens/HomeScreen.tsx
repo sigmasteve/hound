@@ -42,6 +42,9 @@ import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { UpdateReadyBanner } from '../components/UpdateReadyBanner';
 import { ShareSheet } from '../share/ShareSheet';
+import { WidgetHound } from '../widgets/WidgetHound';
+import { updateWidgets } from '../widgets/widgetData';
+import { houndFields, numbersFromProgress } from '../widgets/widgetModel';
 import type { ShareContent } from '../share/ShareCard';
 import { getAppBanner, isBannerActive, type AppBanner } from '../banner/supabaseBanner';
 import { recordDailyStepTotal } from '../leaderboard/supabaseStepsRank';
@@ -1119,6 +1122,17 @@ export function HomeScreen({
     reloadKennel();
   }, [user?.id, refreshKey, goalDayHit, reloadKennel]);
 
+  // The home screen widgets (src/widgets) get Today's numbers whenever they
+  // change: steps, each goal, the streak and how your hound is doing.
+  useEffect(() => {
+    if (!goalProgress || !snap) return;
+    updateWidgets({
+      ...numbersFromProgress(goalProgress, snap.stepsToday),
+      streak: goalStreak,
+      ...(kennel ? houndFields(kennel) : {}),
+    });
+  }, [goalProgress, snap, goalStreak, kennel]);
+
   const dig = () => {
     setDigging({ result: null });
     digBone()
@@ -1561,6 +1575,7 @@ export function HomeScreen({
   return (
     <View style={{ flex: 1 }}>
       {sharing && <ShareSheet content={sharing} onClose={() => setSharing(null)} />}
+      {kennel && <WidgetHound kennel={kennel} />}
       <UpdateReadyBanner />
       {announcementBar}
       <ScrollView contentContainerStyle={styles.container}>
