@@ -41,6 +41,8 @@ import { supabaseChallengesProvider, hasLoggedProgressToday, loadBoardInputs } f
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { UpdateReadyBanner } from '../components/UpdateReadyBanner';
+import { ShareSheet } from '../share/ShareSheet';
+import type { ShareContent } from '../share/ShareCard';
 import { getAppBanner, isBannerActive, type AppBanner } from '../banner/supabaseBanner';
 import { recordDailyStepTotal } from '../leaderboard/supabaseStepsRank';
 import { recordWorkoutHistory } from '../workouts/supabaseWorkoutHistory';
@@ -1018,6 +1020,8 @@ export function HomeScreen({
   // is local and per week, same shape as the banner's own dismissal above:
   // hiding this week's recap never hides next week's.
   const RECAP_DISMISSED_KEY = 'homeWeeklyRecapDismissedWeek';
+  // What the share sheet is showing (Week in review or today's goals).
+  const [sharing, setSharing] = useState<ShareContent | null>(null);
   const [weeklyRecap, setWeeklyRecap] = useState<WeeklyRecap | null>(null);
   // Re-checked whenever Today refreshes (refreshKey, e.g. coming back to
   // it), not only when the app starts: the app can stay open from Sunday
@@ -1556,6 +1560,7 @@ export function HomeScreen({
 
   return (
     <View style={{ flex: 1 }}>
+      {sharing && <ShareSheet content={sharing} onClose={() => setSharing(null)} />}
       <UpdateReadyBanner />
       {announcementBar}
       <ScrollView contentContainerStyle={styles.container}>
@@ -1588,6 +1593,7 @@ export function HomeScreen({
             onOpenGoal={() => onGoTab('stats')}
             onEdit={() => onGoTab('goals')}
             onSetGoals={() => setSetupOpen(true)}
+            onShare={goalsSet ? () => setSharing({ kind: 'goals', progress: goalProgress, streak: goalStreak }) : null}
           />
         )
       )}
@@ -1794,7 +1800,12 @@ export function HomeScreen({
       {/* Monday to Wednesday: last week in review, always right above
           the pinned (highlighted) challenge and its heading. */}
       {weeklyRecap && (
-        <WeeklyRecapCard recap={weeklyRecap} currencyName={currencyName} onDismiss={dismissWeeklyRecap} />
+        <WeeklyRecapCard
+          recap={weeklyRecap}
+          currencyName={currencyName}
+          onDismiss={dismissWeeklyRecap}
+          onShare={() => setSharing({ kind: 'week', recap: weeklyRecap })}
+        />
       )}
 
       {/* Nothing featured though challenges are running (Settings → don't

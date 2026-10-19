@@ -6,6 +6,7 @@ import {
   FireIcon,
   FootprintsIcon,
   PathIcon,
+  ShareNetworkIcon,
   ShieldCheckIcon,
   TimerIcon,
 } from 'phosphor-react-native';
@@ -49,6 +50,7 @@ export function GoalsCard({
   onOpenGoal,
   onEdit,
   onSetGoals,
+  onShare,
 }: {
   progress: GoalProgress[];
   // Goal days in a row (0099_goal_streaks.sql); null until it loads.
@@ -63,6 +65,8 @@ export function GoalsCard({
   onOpenGoal: (p: GoalProgress) => void;
   onEdit: () => void;
   onSetGoals: () => void;
+  // Shares today's goals as a picture (ShareSheet); null hides it.
+  onShare: (() => void) | null;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -84,6 +88,11 @@ export function GoalsCard({
                 : `${done} of ${progress.length} goals done`}
           </Text>
         </View>
+        {onShare && progress.length > 0 && (
+          <Pressable onPress={onShare} hitSlop={8} accessibilityRole="button" accessibilityLabel="Share today's goals">
+            <ShareNetworkIcon size={18} color={colors.accentActive} style={{ marginTop: 2 }} />
+          </Pressable>
+        )}
         {!needsSetup && (
           <Pressable onPress={onEdit} hitSlop={8} accessibilityRole="button">
             <Text style={styles.edit}>{progress.length === 0 ? 'Add a goal' : 'Edit'}</Text>
