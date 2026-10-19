@@ -25,3 +25,21 @@ version in place of `X.Y.Z`:
 The rest of the release steps are in `mobile/supabase/STAGING.md` (build
 profiles: Android testers get `npm run build:android:apk`, not
 `--profile preview`) and issue #288.
+
+## Today screen order
+
+Steve's agreed order for Today (`mobile/src/screens/HomeScreen.tsx`).
+Keep it when adding or moving cards, and ask before changing a fixed
+spot:
+
+1. Goals card (or goal setup while it's open)
+2. Kennel card
+3. Global Hound Challenges, for ones not started yet. **Fixed: always
+   directly under the Kennel card.**
+4. Bone Dig, then Bounties
+5. Needs you
+6. Your challenges
+7. Your week in review (Monday to Wednesday). **Fixed: always right
+   above the pinned challenge and its heading.**
+8. The pinned (highlighted) challenge: its heading, then its card
+9. Nudges, the notifications ask, and Finish setting up

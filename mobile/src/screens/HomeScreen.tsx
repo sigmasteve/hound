@@ -1594,15 +1594,10 @@ export function HomeScreen({
         <KennelCard kennel={kennel} currencyName={currencyName} onOpen={() => onGoTab('kennel')} onChanged={reloadKennel} />
       )}
 
-      {/* Monday to Wednesday: last week in review, with your goals and
-          hound, before any challenges. */}
-      {weeklyRecap && (
-        <WeeklyRecapCard recap={weeklyRecap} currencyName={currencyName} onDismiss={dismissWeeklyRecap} />
-      )}
-
       {/* Global challenges that haven't started yet keep the full card,
-          with what they are and when joining closes. Near the top, so a
-          new one is seen while there's still time to join. */}
+          with what they are and when joining closes. Always directly
+          under the Kennel card, so a new one is seen while there's still
+          time to join. */}
       {upcomingGlobals.length > 0 && (
         <GlobalChallengesCard
           challenges={upcomingGlobals}
@@ -1792,6 +1787,12 @@ export function HomeScreen({
             </Pressable>
           ))}
         </Card>
+      )}
+
+      {/* Monday to Wednesday: last week in review, always right above
+          the pinned (highlighted) challenge and its heading. */}
+      {weeklyRecap && (
+        <WeeklyRecapCard recap={weeklyRecap} currencyName={currencyName} onDismiss={dismissWeeklyRecap} />
       )}
 
       {/* Nothing featured though challenges are running (Settings → don't
