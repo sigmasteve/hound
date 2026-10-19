@@ -81,7 +81,48 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-background-task"
+      "expo-background-task",
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "HoundGoals",
+              "displayName": "Hound",
+              "description": "Your hound and today's goals.",
+              "supportedFamilies": ["systemSmall", "systemMedium"],
+              "contentMarginsDisabled": false
+            },
+            {
+              "name": "HoundSteps",
+              "displayName": "Hound steps",
+              "description": "Today's steps toward your goal.",
+              "supportedFamilies": ["accessoryCircular", "accessoryRectangular", "accessoryInline"],
+              "contentMarginsDisabled": false
+            }
+          ]
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "HoundGoals",
+              "label": "Hound",
+              "description": "Your hound and today's goals.",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "maxResizeWidth": "420dp",
+              "maxResizeHeight": "220dp",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
     ],
     "extra": {
       "eas": {

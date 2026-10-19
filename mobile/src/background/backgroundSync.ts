@@ -13,8 +13,10 @@ import {
 import { recordDailyStepTotal } from '../leaderboard/supabaseStepsRank';
 import { getHoundSettings, listGoals } from '../goals/goalsApi';
 import { goalProgress, weekStart } from '../goals/goals';
-import { claimGoalDay, claimGoalWeek, goalsEarned } from '../goals/goalStreakApi';
+import { claimGoalDay, claimGoalWeek, getGoalStreak, goalsEarned } from '../goals/goalStreakApi';
 import { refreshHoundNow } from '../goals/hound';
+import { updateWidgets } from '../widgets/widgetData';
+import { numbersFromProgress } from '../widgets/widgetModel';
 
 // Background sync (from 0.10.2, the first build with the native module):
 // every so often, even with Hound closed, the phone wakes the app to
@@ -23,8 +25,9 @@ import { refreshHoundNow } from '../goals/hound';
 //     on open, deviceSync.ts),
 //   - claim the Bones for a goal day or week that's just been done, so a
 //     streak doesn't break because Hound wasn't opened that day,
-//   - and reschedule the Hound's reminders with fresh numbers, so it stops
-//     reminding you about a goal you've already hit.
+//   - reschedule the Hound's reminders with fresh numbers, so it stops
+//     reminding you about a goal you've already hit,
+//   - and (from 0.11.0) update the home screen widgets.
 //
 // The phone decides when: at least every 30 minutes is what we ask for,
 // but iOS in particular runs it when it suits the battery, often less.
@@ -80,6 +83,13 @@ async function syncNow(): Promise<void> {
   const earned = goalsEarned(progress);
   if (earned.day) await claimGoalDay().catch(() => {});
   if (earned.week) await claimGoalWeek().catch(() => {});
+
+  // The home screen widgets, so they keep up while Hound is closed. Your
+  // hound's picture and mood stay as Today last saved them.
+  await updateWidgets({
+    ...numbersFromProgress(progress, snap.stepsToday),
+    streak: await getGoalStreak().catch(() => null),
+  });
 
   await refreshHoundNow({
     userId,
