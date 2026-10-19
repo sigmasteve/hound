@@ -5,7 +5,6 @@ import { useCurrencyName } from '../organizations/useCurrencyName';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
-import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
 import { canJoin, globalTimingLine, joinDeadlineLine, type GlobalChallenge } from '../challenges/globalChallenges';
 import { SponsorLine } from './SponsorLine';
 
@@ -16,8 +15,9 @@ import { SponsorLine } from './SponsorLine';
 //
 // One that has already started is a single line (name, time left, Joined
 // or Join): testers found the full card took too much of Today for
-// something they'd already seen. The full card, with its explanation,
-// is only for ones that haven't started yet.
+// something they'd already seen. One that hasn't started yet gets a
+// compact card: its name, what and when, prizes, sponsor and when
+// joining closes.
 export function GlobalChallengesCard({
   challenges,
   joiningId,
@@ -80,32 +80,24 @@ export function GlobalChallengesCard({
     return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <GlobeHemisphereWestIcon size={17} color={colors.accentActive} />
-        <Text style={styles.title}>Global Hound Challenges</Text>
+        <GlobeHemisphereWestIcon size={14} color={colors.accentActive} />
+        <Text style={styles.title}>{list.length === 1 ? 'GLOBAL HOUND CHALLENGE' : 'GLOBAL HOUND CHALLENGES'}</Text>
       </View>
-      <Text style={styles.subtitle}>Open to everyone on Hound — jump in and see how you stack up.</Text>
 
-      {list.map((c) => {
-        const KindIcon = CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
+      {list.map((c, i) => {
         const typeName = CHALLENGE_TYPES.find((t) => t.id === c.kind)?.name ?? 'Challenge';
         const joinable = canJoin(c);
         const deadline = joinable ? joinDeadlineLine(c) : null;
         const body = (
           <>
-            <View style={styles.kindIcon}>
-              <KindIcon size={18} color={colors.text} />
-            </View>
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={styles.name} numberOfLines={1}>
                 {c.name}
               </Text>
-              <Text style={styles.meta} numberOfLines={1}>
-                {typeName} · {c.durationDays} days
-              </Text>
               <View style={styles.metaRow}>
                 <UsersThreeIcon size={12} color={withAlpha(colors.text, 0.55)} />
-                <Text style={[styles.meta, { flexShrink: 1 }]}>
-                  {globalTimingLine(c)} · {c.participantCount.toLocaleString()} joined
+                <Text style={[styles.meta, { flexShrink: 1 }]} numberOfLines={1}>
+                  {typeName} · {globalTimingLine(c)} · {c.participantCount.toLocaleString()} joined
                 </Text>
               </View>
               {c.prizes && (
@@ -116,7 +108,7 @@ export function GlobalChallengesCard({
                   </Text>
                 </View>
               )}
-              {c.sponsor && <SponsorLine challengeId={c.id} sponsor={c.sponsor} />}
+              {c.sponsor && <SponsorLine challengeId={c.id} sponsor={c.sponsor} compact />}
               {deadline && <Text style={styles.deadline}>{deadline}</Text>}
             </View>
           </>
@@ -125,7 +117,7 @@ export function GlobalChallengesCard({
           return (
             <Pressable
               key={c.id}
-              style={({ pressed }) => [styles.row, pressed && { opacity: 0.8 }]}
+              style={({ pressed }) => [styles.row, i > 0 && styles.rowDivider, pressed && { opacity: 0.8 }]}
               onPress={() => onOpen(c)}
               accessibilityRole="button"
               accessibilityLabel={`Open ${c.name}`}
@@ -140,7 +132,7 @@ export function GlobalChallengesCard({
           );
         }
         return (
-          <View key={c.id} style={styles.row}>
+          <View key={c.id} style={[styles.row, i > 0 && styles.rowDivider]}>
             {body}
             {joinButton(c)}
           </View>
@@ -154,31 +146,20 @@ export function GlobalChallengesCard({
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     card: {
-      gap: 10,
-      padding: 14,
+      gap: 8,
+      padding: 12,
       borderRadius: 16,
       backgroundColor: withAlpha(colors.accent, 0.12),
       borderWidth: 1,
       borderColor: withAlpha(colors.accent, 0.4),
     },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    title: { fontSize: 16, fontFamily: font.heading, color: colors.text },
-    subtitle: { fontSize: 12.5, color: withAlpha(colors.text, 0.65) },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      paddingTop: 10,
+    header: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    title: { fontSize: 11, letterSpacing: 0.8, fontFamily: font.heading, color: colors.accentActive },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    rowDivider: {
+      paddingTop: 8,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: withAlpha(colors.text, 0.1),
-    },
-    kindIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: withAlpha(colors.text, 0.08),
     },
     name: { fontSize: 14.5, fontFamily: font.heading, color: colors.text },
     meta: { fontSize: 12, color: withAlpha(colors.text, 0.6) },
