@@ -689,34 +689,6 @@ export function HomeScreen({
   // "Needs you" shows three things until expanded.
   const [needsYouExpanded, setNeedsYouExpanded] = useState(false);
 
-  // Start-of-week recap (Mon–Wed) — see src/home/weeklyRecap.ts. Dismissal
-  // is local and per week, same shape as the banner's own dismissal above:
-  // hiding this week's recap never hides next week's.
-  const RECAP_DISMISSED_KEY = 'homeWeeklyRecapDismissedWeek';
-  const [weeklyRecap, setWeeklyRecap] = useState<WeeklyRecap | null>(null);
-  useEffect(() => {
-    if (!isRecapWindow()) return;
-    let cancelled = false;
-    (async () => {
-      const dismissedWeek = await AsyncStorage.getItem(RECAP_DISMISSED_KEY).catch(() => null);
-      if (dismissedWeek === recapWeekKey()) return;
-      const recap = await fetchWeeklyRecap(health, isSupabaseConfigured ? user?.id ?? null : null).catch(() => null);
-      if (!cancelled) setWeeklyRecap(recap);
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
-  const dismissWeeklyRecap = () => {
-    if (weeklyRecap) {
-      AsyncStorage.setItem(RECAP_DISMISSED_KEY, weeklyRecap.weekKey).catch(() => {
-        // Best-effort — still hidden for the rest of this session.
-      });
-    }
-    setWeeklyRecap(null);
-  };
-
   // Set only when claim_daily_bonus actually awards today's bonus (see
   // 0070_daily_bonus.sql) — drives the one-per-day popup; every later
   // claim the same day comes back awarded: false and leaves this alone.
@@ -1040,6 +1012,43 @@ export function HomeScreen({
   // counts and primary card recomputed to include it, not just the
   // invite itself removed from the list.
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Start-of-week recap (Mon–Wed) — see src/home/weeklyRecap.ts. Dismissal
+  // is local and per week, same shape as the banner's own dismissal above:
+  // hiding this week's recap never hides next week's.
+  const RECAP_DISMISSED_KEY = 'homeWeeklyRecapDismissedWeek';
+  const [weeklyRecap, setWeeklyRecap] = useState<WeeklyRecap | null>(null);
+  // Re-checked whenever Today refreshes (refreshKey, e.g. coming back to
+  // it), not only when the app starts: the app can stay open from Sunday
+  // into Monday, or from Wednesday into Thursday.
+  useEffect(() => {
+    if (!isRecapWindow()) {
+      setWeeklyRecap(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const dismissedWeek = await AsyncStorage.getItem(RECAP_DISMISSED_KEY).catch(() => null);
+      if (dismissedWeek === recapWeekKey()) {
+        if (!cancelled) setWeeklyRecap(null);
+        return;
+      }
+      const recap = await fetchWeeklyRecap(health, isSupabaseConfigured ? user?.id ?? null : null).catch(() => null);
+      if (!cancelled) setWeeklyRecap(recap);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, refreshKey]);
+  const dismissWeeklyRecap = () => {
+    if (weeklyRecap) {
+      AsyncStorage.setItem(RECAP_DISMISSED_KEY, weeklyRecap.weekKey).catch(() => {
+        // Best-effort — still hidden for the rest of this session.
+      });
+    }
+    setWeeklyRecap(null);
+  };
 
   // Your bounty and your friends' (0102_bounties.sql). Reaching a
   // friend's target claims it.
@@ -1586,8 +1595,9 @@ export function HomeScreen({
       )}
 
       {/* Global challenges that haven't started yet keep the full card,
-          with what they are and when joining closes. Near the top, so a
-          new one is seen while there's still time to join. */}
+          with what they are and when joining closes. Always directly
+          under the Kennel card, so a new one is seen while there's still
+          time to join. */}
       {upcomingGlobals.length > 0 && (
         <GlobalChallengesCard
           challenges={upcomingGlobals}
@@ -1779,6 +1789,12 @@ export function HomeScreen({
         </Card>
       )}
 
+      {/* Monday to Wednesday: last week in review, always right above
+          the pinned (highlighted) challenge and its heading. */}
+      {weeklyRecap && (
+        <WeeklyRecapCard recap={weeklyRecap} currencyName={currencyName} onDismiss={dismissWeeklyRecap} />
+      )}
+
       {/* Nothing featured though challenges are running (Settings → don't
           feature my newest challenge): they're all in the list above. */}
       {!loadingPrimary && (primary || !challengeCounts || challengeCounts.active === 0) && (
@@ -1848,10 +1864,6 @@ export function HomeScreen({
           onClaim={claimGetStarted}
           onDismiss={dismissGetStarted}
         />
-      )}
-
-      {weeklyRecap && (
-        <WeeklyRecapCard recap={weeklyRecap} currencyName={currencyName} onDismiss={dismissWeeklyRecap} />
       )}
 
     </ScrollView>

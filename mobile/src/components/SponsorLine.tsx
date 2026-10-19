@@ -15,7 +15,16 @@ function openSponsor(challengeId: string, url: string) {
 // with the sponsor's message under it. With a link, tapping opens their
 // site in the browser and counts the tap for Admin; nothing about the
 // member goes to the sponsor.
-export function SponsorLine({ challengeId, sponsor }: { challengeId: string; sponsor: ChallengeSponsor }) {
+// compact: the name and message run together, for Today's card.
+export function SponsorLine({
+  challengeId,
+  sponsor,
+  compact = false,
+}: {
+  challengeId: string;
+  sponsor: ChallengeSponsor;
+  compact?: boolean;
+}) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const url = sponsor.url;
@@ -23,16 +32,23 @@ export function SponsorLine({ challengeId, sponsor }: { challengeId: string; spo
   const body = (
     <View style={styles.row}>
       <HandshakeIcon size={13} color={colors.accentActive} />
-      <View style={{ flex: 1 }}>
-        <Text style={styles.name} numberOfLines={2}>
-          Sponsored by {sponsor.name}
+      {compact ? (
+        <Text style={[styles.message, { flex: 1 }]} numberOfLines={2}>
+          <Text style={styles.name}>Sponsored by {sponsor.name}</Text>
+          {sponsor.message ? ` · ${sponsor.message}` : ''}
         </Text>
-        {sponsor.message && (
-          <Text style={styles.message} numberOfLines={2}>
-            {sponsor.message}
+      ) : (
+        <View style={{ flex: 1 }}>
+          <Text style={styles.name} numberOfLines={2}>
+            Sponsored by {sponsor.name}
           </Text>
-        )}
-      </View>
+          {sponsor.message && (
+            <Text style={styles.message} numberOfLines={2}>
+              {sponsor.message}
+            </Text>
+          )}
+        </View>
+      )}
       {url && <ArrowSquareOutIcon size={13} color={withAlpha(colors.text, 0.5)} />}
     </View>
   );
