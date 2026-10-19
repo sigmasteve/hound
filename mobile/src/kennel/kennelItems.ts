@@ -4,7 +4,18 @@
 
 export type KennelSlot = 'neck' | 'head' | 'face' | 'coat';
 
-export type KennelItemKind = 'collar' | 'bandana' | 'beanie' | 'party' | 'crown' | 'round' | 'sun' | 'coat';
+export type KennelItemKind =
+  | 'collar'
+  | 'bandana'
+  | 'beanie'
+  | 'party'
+  | 'crown'
+  | 'pumpkin'
+  | 'witch'
+  | 'round'
+  | 'sun'
+  | 'mask'
+  | 'coat';
 
 export interface KennelItem {
   id: string;
@@ -13,6 +24,12 @@ export interface KennelItem {
   costBones: number;
   kind: KennelItemKind;
   color: string;
+  // A second color where the drawing needs one (a bandana's dots).
+  accent?: string;
+  // Limited-time items (0112_halloween_kennel.sql): the season's name and
+  // the last day it can be bought, YYYY-MM-DD. Owned ones stay for good.
+  season?: string;
+  availableUntil?: string;
 }
 
 export const KENNEL_ITEMS: KennelItem[] = [
@@ -35,7 +52,29 @@ export const KENNEL_ITEMS: KennelItem[] = [
   { id: 'coat_golden', slot: 'coat', name: 'Golden', costBones: 100, kind: 'coat', color: '#e3a83b' },
   { id: 'coat_midnight', slot: 'coat', name: 'Midnight Blue', costBones: 150, kind: 'coat', color: '#3b3f8f' },
   { id: 'coat_candy', slot: 'coat', name: 'Cotton Candy', costBones: 150, kind: 'coat', color: '#f2a7c3' },
+  // Halloween 2026, through October 31.
+  ...(
+    [
+      { id: 'hat_pumpkin', slot: 'head', name: 'Pumpkin Hat', costBones: 80, kind: 'pumpkin', color: '#f08a24' },
+      { id: 'hat_witch', slot: 'head', name: 'Witch Hat', costBones: 120, kind: 'witch', color: '#3b2a5c', accent: '#f08a24' },
+      { id: 'bandana_spooky', slot: 'neck', name: 'Spooky Bandana', costBones: 60, kind: 'bandana', color: '#f08a24', accent: '#2b1d14' },
+      { id: 'mask_masquerade', slot: 'face', name: 'Masquerade Mask', costBones: 100, kind: 'mask', color: '#2b1d3a', accent: '#e0b84f' },
+      { id: 'coat_pumpkin', slot: 'coat', name: 'Pumpkin Spice', costBones: 120, kind: 'coat', color: '#e07b2a' },
+    ] as const
+  ).map((i) => ({ ...i, season: 'Halloween', availableUntil: '2026-10-31' })),
 ];
+
+// Whether it can be bought on this day (YYYY-MM-DD, the member's own).
+export function onSale(item: KennelItem, dayKey: string): boolean {
+  return !item.availableUntil || dayKey <= item.availableUntil;
+}
+
+// "Until Oct 31", for a limited-time item.
+export function saleEndsLabel(item: KennelItem): string | null {
+  if (!item.availableUntil) return null;
+  const [y, m, d] = item.availableUntil.split('-').map(Number);
+  return `Until ${new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+}
 
 export interface CoatColors {
   coat: string;
@@ -58,6 +97,7 @@ const COATS: Record<string, CoatColors> = {
   coat_golden: { coat: '#e3a83b', dark: '#b5741c', light: '#fbe3a6' },
   coat_midnight: { coat: '#3b3f8f', dark: '#24275c', light: '#a9b1f0', eyeSpots: true },
   coat_candy: { coat: '#f2a7c3', dark: '#c96b92', light: '#fde3ee' },
+  coat_pumpkin: { coat: '#e07b2a', dark: '#8a3f12', light: '#fbd9a8' },
 };
 
 export function coatColors(coatId: string | null | undefined): CoatColors {
@@ -97,7 +137,7 @@ export function kennelItemById(id: string | null | undefined): KennelItem | null
 export const KENNEL_SLOTS: { slot: KennelSlot; label: string }[] = [
   { slot: 'neck', label: 'Collars & bandanas' },
   { slot: 'head', label: 'Hats' },
-  { slot: 'face', label: 'Glasses' },
+  { slot: 'face', label: 'Glasses & masks' },
 ];
 
 // What a treat (or, in classic care, a meal) costs. give_treat's own

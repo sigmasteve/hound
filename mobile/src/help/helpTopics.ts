@@ -278,6 +278,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Their mood follows your goal days over the last week, and a goal day today always makes them happy. A quiet week just makes them sleepy.',
         `Give a treat once a day for ${currency} to cheer them up. Today’s Kennel card lists what’s left to do, and its Treat chip gives one right there.`,
         `They grow with your rank: Pup, Tracker, Hunter, Alpha, then Legend. Collars, bandanas, hats and glasses are bought with ${currency} and kept for good.`,
+        `Now and then, limited-time items show up at the top of the Kennel, like a Halloween set each October. Each one is only for sale until its date, and anything you buy, you keep.`,
         `Under Look, pick their coat, ears, tail and markings. Tan, Chocolate, Cream and Gray coats are free, special coats cost ${currency}, and the rest of the look is free to change any time.`,
         'Your friends see your hound on your friend page, and you see theirs.',
         'Turn on “Use as my avatar” in the Kennel and your hound replaces your initials everywhere: leaderboards, friends and chats. It keeps your frame and background, and picking a Locker icon switches back.',

@@ -8,7 +8,8 @@ import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
 import { notifyBonesChanged } from '../bones/bonesChanged';
 import { HoundArt } from '../kennel/HoundArt';
-import { KENNEL_ITEMS, TREAT_BONES } from '../kennel/kennelItems';
+import { KENNEL_ITEMS, TREAT_BONES, onSale } from '../kennel/kennelItems';
+import { localDayKey } from '../goals/goals';
 import { giveTreat, moodReason, type Kennel } from '../kennel/kennelApi';
 
 const MOOD_WORD: Record<Kennel['mood'], string> = {
@@ -37,11 +38,13 @@ export function KennelCard({
   const [treating, setTreating] = useState(false);
   const rank = rankForLevel(levelProgressForXp(kennel.xpTotal).level);
   const classic = kennel.careMode === 'classic';
-  // The cheapest gear you don't have yet and can pay for.
+  // The cheapest gear you don't have yet, can pay for and can still buy;
+  // a limited-time one (0112) first while it's around.
+  const today = localDayKey(new Date());
   const shopItem =
-    KENNEL_ITEMS.filter((i) => i.costBones > 0 && i.costBones <= kennel.bonesBalance && !kennel.owned.includes(i.id)).sort(
-      (a, b) => a.costBones - b.costBones,
-    )[0] ?? null;
+    KENNEL_ITEMS.filter(
+      (i) => i.costBones > 0 && i.costBones <= kennel.bonesBalance && !kennel.owned.includes(i.id) && onSale(i, today),
+    ).sort((a, b) => Number(!a.season) - Number(!b.season) || a.costBones - b.costBones)[0] ?? null;
 
   const treat = async () => {
     setTreating(true);
