@@ -80,3 +80,27 @@ export function resultLine(challengeName: string, outcome: ResultOutcome, labels
 export function shareMessage(line: string, inviteUrl: string | null): string {
   return inviteUrl ? `${line}\n\nChallenge me on Hound: ${inviteUrl}` : `${line}\n\nChallenge me on Hound!`;
 }
+
+// Whether the outcome is one to celebrate: the share card shows a trophy
+// for these.
+export function isWin(outcome: ResultOutcome): boolean {
+  switch (outcome.type) {
+    case 'ranked':
+      return outcome.rank === 1;
+    case 'hunter':
+      return outcome.caught === outcome.of;
+    case 'hunted':
+      return !outcome.caught;
+    case 'streak':
+      return outcome.survived;
+    case 'bingo':
+      return outcome.blackout;
+    case 'pool':
+    case 'tag':
+      return outcome.goalMet;
+    case 'seventyfive':
+      return outcome.longestStreak >= outcome.days;
+    case 'tictacgo':
+      return outcome.result === 'won';
+  }
+}

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -94,9 +94,10 @@ import {
   type SelfReportItem,
 } from '../challenges/seventyFiveApi';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
-import { friendCodeUrl, type Friend } from '../friends/types';
+import type { Friend } from '../friends/types';
 import { buildRematchDraft, type RematchDraft } from '../challenges/rematch';
-import { resultLine, shareMessage, type ResultOutcome } from '../challenges/shareResult';
+import { resultLine, type ResultOutcome } from '../challenges/shareResult';
+import { ShareSheet } from '../share/ShareSheet';
 import { friendEligible } from '../friends/eligibility';
 import { useAuth } from '../auth/AuthContext';
 import {
@@ -146,6 +147,8 @@ export function ChallengeDetailScreen({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { labelsForOrg } = useLabels();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
+  // The finished challenge's Share result sheet is open.
+  const [sharingResult, setSharingResult] = useState(false);
   // Which calendar days count on this phone (challengeDays.ts) — for
   // Bingo's workout picker and the 75 Day checklist.
   const [challengeDays, setChallengeDays] = useState<ChallengeDays | null>(null);
@@ -1163,17 +1166,9 @@ export function ChallengeDetailScreen({
   })();
   const myResultLine = myOutcome ? resultLine(challenge.name, myOutcome, labels) : null;
 
-  const shareResult = async () => {
-    if (!myResultLine) return;
-    // The viewer's own friend code doubles as the invite link — whoever
-    // opens it lands on "add me on Hound". Best-effort: no code, no link.
-    let inviteUrl: string | null = null;
-    try {
-      inviteUrl = friendCodeUrl(await supabaseFriendsProvider.getMyFriendCode());
-    } catch {
-      inviteUrl = null;
-    }
-    Share.share({ message: shareMessage(myResultLine, inviteUrl) }).catch(() => {});
+  // Shares the result as a picture (ShareSheet), with the same line.
+  const shareResult = () => {
+    if (myResultLine) setSharingResult(true);
   };
 
   const startRematch = () => {
@@ -1279,6 +1274,12 @@ export function ChallengeDetailScreen({
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+    {sharingResult && myOutcome && myResultLine && (
+      <ShareSheet
+        content={{ kind: 'challenge', name: challenge.name, outcome: myOutcome, line: myResultLine }}
+        onClose={() => setSharingResult(false)}
+      />
+    )}
     {/* Talk's message box sits at the bottom of the page: on iOS this
         makes room for the keyboard and scrolls whatever field you're
         typing in back above it, instead of leaving it underneath. */}

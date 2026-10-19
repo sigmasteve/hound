@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { BoneIcon, CalendarCheckIcon, FlagCheckeredIcon, FootprintsIcon, TrophyIcon, XIcon } from 'phosphor-react-native';
+import { BoneIcon, CalendarCheckIcon, FlagCheckeredIcon, FootprintsIcon, ShareNetworkIcon, TrophyIcon, XIcon } from 'phosphor-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { stepsChangePct, type WeeklyRecap } from '../home/weeklyRecap';
@@ -12,10 +12,12 @@ export function WeeklyRecapCard({
   recap,
   currencyName,
   onDismiss,
+  onShare,
 }: {
   recap: WeeklyRecap;
   currencyName: string;
   onDismiss: () => void;
+  onShare: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -26,6 +28,9 @@ export function WeeklyRecapCard({
       <View style={styles.header}>
         <CalendarCheckIcon size={16} color={colors.accentActive} />
         <Text style={styles.title}>Your week in review</Text>
+        <Pressable onPress={onShare} hitSlop={10} accessibilityRole="button" accessibilityLabel="Share your week">
+          <ShareNetworkIcon size={16} color={colors.accentActive} />
+        </Pressable>
         <Pressable onPress={onDismiss} hitSlop={10} accessibilityRole="button" accessibilityLabel="Dismiss weekly recap">
           <XIcon size={14} color={withAlpha(colors.text, 0.5)} />
         </Pressable>
@@ -115,7 +120,7 @@ function makeStyles(colors: Palette) {
       borderWidth: 1,
       borderColor: withAlpha(colors.accent, 0.4),
     },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     title: { flex: 1, fontSize: 15, fontFamily: font.heading, color: colors.text },
     grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },
     stat: { width: '50%', gap: 2, paddingRight: 8 },
