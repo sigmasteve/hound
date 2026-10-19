@@ -19,6 +19,7 @@ import { GoalsProvider } from './src/goals/GoalsContext';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { applyLatestUpdateOnLaunch } from './src/updates/startupUpdate';
+import { useForegroundUpdateCheck } from './src/updates/updateReady';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -44,6 +45,9 @@ Notifications.setNotificationHandler({
 // fonts loading before any of this mounts at all.
 function AppContent() {
   const { colors, mode } = useTheme();
+  // Coming back to the app checks for a newer update; Today offers the
+  // restart (src/updates/updateReady.ts).
+  useForegroundUpdateCheck();
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaProvider>

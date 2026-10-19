@@ -40,6 +40,7 @@ import { APP_VERSION } from '../lib/appVersion';
 import { supabaseChallengesProvider, hasLoggedProgressToday, loadBoardInputs } from '../challenges/supabaseChallenges';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
+import { UpdateReadyBanner } from '../components/UpdateReadyBanner';
 import { getAppBanner, isBannerActive, type AppBanner } from '../banner/supabaseBanner';
 import { recordDailyStepTotal } from '../leaderboard/supabaseStepsRank';
 import { recordWorkoutHistory } from '../workouts/supabaseWorkoutHistory';
@@ -1555,6 +1556,7 @@ export function HomeScreen({
 
   return (
     <View style={{ flex: 1 }}>
+      <UpdateReadyBanner />
       {announcementBar}
       <ScrollView contentContainerStyle={styles.container}>
       {/* Where you're at today comes first, above any challenge —

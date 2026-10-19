@@ -30,7 +30,9 @@ profiles: Android testers get `npm run build:android:apk`, not
 
 Steve's agreed order for Today (`mobile/src/screens/HomeScreen.tsx`).
 Keep it when adding or moving cards, and ask before changing a fixed
-spot:
+spot. Above all of it, outside the scrolling list, sit two bars: "A new
+version of Hound is ready" (UpdateReadyBanner) and then the announcement
+banner.
 
 1. Goals card (or goal setup while it's open)
 2. Kennel card
