@@ -1,6 +1,7 @@
 import React, { type Ref } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import QRCode from 'react-native-qrcode-svg';
 import {
   BarbellIcon,
   CheckCircleIcon,
@@ -98,6 +99,7 @@ export function ShareCard({
   cardRef?: Ref<View>;
 }) {
   const celebrate = content.kind === 'challenge' && isWin(content.outcome);
+  const link = inviteUrl ?? 'https://houndchallenge.net';
   return (
     <View ref={cardRef} collapsable={false} style={styles.card}>
       <Svg style={StyleSheet.absoluteFill} width={CARD_WIDTH} height={CARD_HEIGHT}>
@@ -144,11 +146,21 @@ export function ShareCard({
         {content.kind === 'challenge' && <ChallengeBody name={content.name} outcome={content.outcome} line={content.line} />}
       </View>
 
+      {/* A link can't be tapped or copied out of a story or a saved
+          picture, so the QR code carries it too: a phone camera opens it
+          (the website's /f/ page for a friend code). Dark on white, which
+          every scanner reads. */}
       <View style={styles.footer}>
-        <Text style={styles.footerTitle}>Challenge me on Hound</Text>
-        <Text style={styles.footerUrl} numberOfLines={1}>
-          {(inviteUrl ?? 'https://houndchallenge.net').replace(/^https:\/\//, '')}
-        </Text>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.footerTitle}>Challenge me on Hound</Text>
+          <Text style={styles.footerHint}>{inviteUrl ? 'Scan to add me' : 'Scan to get Hound'}</Text>
+          <Text style={styles.footerUrl} numberOfLines={1}>
+            {link.replace(/^https:\/\//, '')}
+          </Text>
+        </View>
+        <View style={styles.qr}>
+          <QRCode value={link} size={64} color={C.bg} backgroundColor="#ffffff" quietZone={0} />
+        </View>
       </View>
     </View>
   );
@@ -303,11 +315,15 @@ const styles = StyleSheet.create({
   track: { height: 6, borderRadius: 3, backgroundColor: withAlpha(C.text, 0.1), overflow: 'hidden' },
   fill: { height: 6, borderRadius: 3 },
   footer: {
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
     paddingTop: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: withAlpha(C.text, 0.2),
   },
   footerTitle: { fontFamily: font.headingSemibold, fontSize: 15, color: C.text },
+  footerHint: { fontSize: 12.5, color: withAlpha(C.text, 0.65) },
   footerUrl: { fontSize: 13, color: C.accent300 },
+  qr: { padding: 5, borderRadius: 8, backgroundColor: '#ffffff' },
 });
