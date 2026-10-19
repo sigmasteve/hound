@@ -77,7 +77,17 @@ export async function registerForPushNotifications(userId: string): Promise<void
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) throw new Error('Missing EAS project id — cannot register for push.');
 
-  const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
+  let token: string;
+  try {
+    ({ data: token } = await Notifications.getExpoPushTokenAsync({ projectId }));
+  } catch (e) {
+    // An Android build without Firebase (README "Android push
+    // notifications") throws a long native error; say it plainly.
+    if (Platform.OS === 'android' && e instanceof Error && /firebase/i.test(e.message)) {
+      throw new Error("Push notifications aren't ready on Android yet. They'll work after the next app update. Email works now.");
+    }
+    throw e;
+  }
 
   requireClient();
   // Moves the token from whoever was signed in on this phone before

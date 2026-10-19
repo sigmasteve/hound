@@ -1533,24 +1533,27 @@ Setting this up needs a real Firebase project — an account and console
 Claude can't create or click through on your behalf:
 
 1. [Firebase Console](https://console.firebase.google.com/) → create
-   (or pick) a project → **Add app → Android**, package name
-   `app.hound.mobile` (`app.json`'s `android.package`) → download the
-   resulting `google-services.json` into `mobile/` (repo root of this
-   package, alongside `app.json` — never committed, see `.gitignore`).
-2. Add `"googleServicesFile": "./google-services.json"` to `app.json`'s
-   `android` block, in the same edit as step 1 — this key makes Expo's
-   Android prebuild step fail outright if the file it points at doesn't
-   exist yet, so don't add one without the other.
+   (or pick) a project → **Add app → Android** twice: package
+   `app.hound.mobile` and package `app.hound.mobile.staging` (Hound
+   Staging, `app.config.js`). Then download `google-services.json`; it
+   covers both apps. Leaving staging out breaks the staging build ("No
+   matching client found for package name").
+2. Give it to EAS builds as a file variable (it's never committed, see
+   `.gitignore`):
+   `eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json --visibility secret --environment production --environment preview`.
+   `app.config.js` points `android.googleServicesFile` at it. For a local
+   build, put the same file in `mobile/` instead; with neither, the build
+   leaves Firebase out and Android push says it isn't ready yet.
 3. Same Firebase project → **Project settings → Service accounts →
-   Generate new private key** (a different JSON file — this one
-   authorizes sending, step 1's authorizes the app to receive). Upload
-   it to Expo via `eas credentials` → Android → **Push Notifications:
-   Google Service Account Key** → Upload, so Expo's push service can
-   call FCM's v1 API using *your* project rather than a shared one.
-4. Needs a native rebuild either way (`npx expo prebuild --clean` +
-   `expo run:android`, or a fresh EAS build) — `google-services.json` is
-   read at prebuild time, not just JS reload, same as every other native
-   config change in this project (see "Google Sign-In (native)" above).
+   Generate new private key** (a different JSON file: this one lets Expo
+   send, step 1's lets the app receive). Upload it with `eas credentials`
+   → Android → `production` (and again for `staging`) → **Google Service
+   Account Key for Push Notifications (FCM V1)** → Upload.
+4. Rebuild Android (`eas build --platform android --profile
+   production-apk`, and `staging`). `google-services.json` is read when
+   the native app is built, so an OTA update can't add it. The version in
+   `app.json` can stay the same, so OTA updates keep reaching the new
+   build.
 
 Not set up yet in this pass — every Android push toggle fails with the
 native error above until someone runs this checklist against a real

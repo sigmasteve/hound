@@ -13,9 +13,27 @@
 // environment's EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID to it), use email sign-in
 // in Hound Staging.
 
+//
+// Android push needs Firebase's google-services.json (README "Android push
+// notifications (FCM credentials)"). EAS builds get it from the
+// GOOGLE_SERVICES_JSON file variable; a local build uses
+// mobile/google-services.json. With neither, it's left out so the build
+// still works and Android push says it isn't ready yet.
+
+const fs = require('fs');
+const path = require('path');
+
 const STAGING_ID = 'app.hound.mobile.staging';
 
-module.exports = ({ config }) => {
+function googleServicesFile() {
+  if (process.env.GOOGLE_SERVICES_JSON) return process.env.GOOGLE_SERVICES_JSON;
+  if (fs.existsSync(path.join(__dirname, 'google-services.json'))) return './google-services.json';
+  return undefined;
+}
+
+module.exports = ({ config: base }) => {
+  const firebase = googleServicesFile();
+  const config = firebase ? { ...base, android: { ...base.android, googleServicesFile: firebase } } : base;
   if (process.env.APP_VARIANT !== 'staging') return config;
 
   const googleScheme = process.env.GOOGLE_IOS_URL_SCHEME_STAGING;
