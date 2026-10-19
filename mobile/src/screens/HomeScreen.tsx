@@ -1585,6 +1585,12 @@ export function HomeScreen({
         <KennelCard kennel={kennel} currencyName={currencyName} onOpen={() => onGoTab('kennel')} onChanged={reloadKennel} />
       )}
 
+      {/* Monday to Wednesday: last week in review, with your goals and
+          hound, before any challenges. */}
+      {weeklyRecap && (
+        <WeeklyRecapCard recap={weeklyRecap} currencyName={currencyName} onDismiss={dismissWeeklyRecap} />
+      )}
+
       {/* Global challenges that haven't started yet keep the full card,
           with what they are and when joining closes. Near the top, so a
           new one is seen while there's still time to join. */}
@@ -1848,10 +1854,6 @@ export function HomeScreen({
           onClaim={claimGetStarted}
           onDismiss={dismissGetStarted}
         />
-      )}
-
-      {weeklyRecap && (
-        <WeeklyRecapCard recap={weeklyRecap} currencyName={currencyName} onDismiss={dismissWeeklyRecap} />
       )}
 
     </ScrollView>
