@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import {
+  AtIcon,
   BarbellIcon,
   BellRingingIcon,
   CalendarCheckIcon,
@@ -43,6 +44,7 @@ import { buyKennelItem, equipKennelItem, getKennel, setHoundAvatar, setKennel, s
 import { notifyBonesChanged } from '../bones/bonesChanged';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from './onboardingApi';
+import { markAskedForUsername, useUsernameForm, usernameBody, UsernameFields } from '../profiles/UsernameForm';
 import {
   CONNECT_PROMPT_SEEN_KEY,
   extraGoalsFor,
@@ -54,7 +56,7 @@ import {
   type HoundUse,
 } from './welcomeApi';
 
-type StepId = 'health' | 'uses' | 'goals' | 'push' | 'friend' | 'challenge' | 'hound' | 'done';
+type StepId = 'health' | 'name' | 'uses' | 'goals' | 'push' | 'friend' | 'challenge' | 'hound' | 'done';
 
 const USE_ICONS: Record<HoundUse, typeof FootprintsIcon> = {
   steps: FootprintsIcon,
@@ -83,6 +85,7 @@ export function SetupWizardScreen({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const health = useHealthProvider();
+  const { user } = useAuth();
   const { goalsSet } = useGoals();
   const [plan, setPlan] = useState<StepId[] | null>(null);
   const [index, setIndex] = useState(0);
@@ -102,6 +105,8 @@ export function SetupWizardScreen({
       setUses(saved);
       const steps: StepId[] = [];
       if (auth !== 'authorized') steps.push('health');
+      // Anyone without a username yet, new or finishing setup.
+      if (!user?.username) steps.push('name');
       if (!resume || saved.length === 0) steps.push('uses');
       if (!resume || !goalsSet) steps.push('goals');
       if (push === 'undetermined') steps.push('push');
@@ -134,6 +139,7 @@ export function SetupWizardScreen({
 
   const skip = () => {
     if (step === 'push') dismissPushOffer();
+    if (step === 'name' && user?.id) markAskedForUsername(user.id);
     next();
   };
 
@@ -157,6 +163,7 @@ export function SetupWizardScreen({
         </View>
       )}
       {step === 'health' && <HealthStep styles={styles} onNext={next} />}
+      {step === 'name' && <NameStep styles={styles} onNext={next} />}
       {step === 'uses' && <UsesStep styles={styles} initial={uses} onNext={(u) => (setUses(u), next())} />}
       {step === 'goals' && <GoalsStep styles={styles} uses={uses} onOpenGoals={onOpenGoals} onNext={next} />}
       {step === 'push' && <PushStep styles={styles} onNext={next} />}
@@ -233,6 +240,50 @@ function HealthStep({ styles, onNext }: { styles: Styles; onNext: () => void }) 
         </>
       }
     />
+  );
+}
+
+// A username for leaderboards and challenges instead of the name from
+// sign-up (0030_username.sql). Choosing one turns it on there right away;
+// friends still see the real name. "Keep my name" moves on without one.
+// The form is shared with Today's ask (profiles/UsernameForm.tsx).
+function NameStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
+  const { colors } = useTheme();
+  const form = useUsernameForm();
+
+  return (
+    <StepPage
+      styles={styles}
+      icon={<AtIcon size={28} color={colors.accent} weight="bold" />}
+      title="Pick a username"
+      body={usernameBody(form.name)}
+      footer={
+        <>
+          {form.problem && <Text style={styles.problem}>{form.problem}</Text>}
+          <Button
+            label={form.saving ? 'Saving…' : 'Use this username'}
+            variant="primary"
+            block
+            disabled={!form.valid || form.saving}
+            onPress={async () => {
+              if (await form.save()) onNext();
+            }}
+          />
+          <Button
+            label="Keep my name"
+            variant="ghost"
+            block
+            disabled={form.saving}
+            onPress={() => {
+              form.keepName();
+              onNext();
+            }}
+          />
+        </>
+      }
+    >
+      <UsernameFields form={form} />
+    </StepPage>
   );
 }
 

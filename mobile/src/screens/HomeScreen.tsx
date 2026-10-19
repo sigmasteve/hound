@@ -46,6 +46,8 @@ import { WidgetHound } from '../widgets/WidgetHound';
 import { Confetti } from '../celebrate/Confetti';
 import { CelebrationModal } from '../celebrate/CelebrationModal';
 import { useCelebrations } from '../celebrate/useCelebrations';
+import { UsernamePrompt } from '../profiles/UsernamePrompt';
+import { wasAskedForUsername } from '../profiles/UsernameForm';
 import { updateWidgets } from '../widgets/widgetData';
 import { houndFields, numbersFromProgress } from '../widgets/widgetModel';
 import type { ShareContent } from '../share/ShareCard';
@@ -1136,6 +1138,21 @@ export function HomeScreen({
     });
   }, [goalProgress, snap, goalStreak, kennel]);
 
+  // Members who set up before the wizard asked for a username get asked
+  // once here (profiles/UsernamePrompt.tsx), as this open's pop-up.
+  const [askUsername, setAskUsername] = useState(false);
+  const hasUsername = !!user?.username;
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id || hasUsername) return;
+    let cancelled = false;
+    wasAskedForUsername(user.id).then((asked) => {
+      if (!cancelled && !asked && takePopup()) setAskUsername(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, hasUsername]);
+
   // Confetti and a sound for goals done, "Oh snap…" after a missed day
   // (src/celebrate).
   const celebrations = useCelebrations({
@@ -1984,6 +2001,7 @@ export function HomeScreen({
         }}
       />
     )}
+    {askUsername && <UsernamePrompt onClose={() => setAskUsername(false)} />}
     {celebrations.card && (
       <CelebrationModal
         kind={celebrations.card.kind}
