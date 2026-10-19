@@ -43,6 +43,9 @@ import type { Friend } from '../friends/types';
 import { UpdateReadyBanner } from '../components/UpdateReadyBanner';
 import { ShareSheet } from '../share/ShareSheet';
 import { WidgetHound } from '../widgets/WidgetHound';
+import { Confetti } from '../celebrate/Confetti';
+import { CelebrationModal } from '../celebrate/CelebrationModal';
+import { useCelebrations } from '../celebrate/useCelebrations';
 import { updateWidgets } from '../widgets/widgetData';
 import { houndFields, numbersFromProgress } from '../widgets/widgetModel';
 import type { ShareContent } from '../share/ShareCard';
@@ -1133,6 +1136,17 @@ export function HomeScreen({
     });
   }, [goalProgress, snap, goalStreak, kennel]);
 
+  // Confetti and a sound for goals done, "Oh snap…" after a missed day
+  // (src/celebrate).
+  const celebrations = useCelebrations({
+    userId: isSupabaseConfigured ? user?.id : null,
+    progress: goalsSet ? goalProgress : null,
+    streak: goalStreak,
+    houndName: kennel?.name ?? 'Your hound',
+    takePopup,
+    pushToast,
+  });
+
   const dig = () => {
     setDigging({ result: null });
     digBone()
@@ -1969,6 +1983,31 @@ export function HomeScreen({
           notifyBonesChanged();
         }}
       />
+    )}
+    {celebrations.card && (
+      <CelebrationModal
+        kind={celebrations.card.kind}
+        title={celebrations.card.title}
+        body={celebrations.card.body}
+        kennel={kennel}
+        onShare={
+          celebrations.card.kind === 'allDone' && goalProgress
+            ? () => {
+                celebrations.closeCard();
+                setSharing({ kind: 'goals', progress: goalProgress, streak: goalStreak });
+              }
+            : undefined
+        }
+        onClose={celebrations.closeCard}
+        confetti={
+          celebrations.confetti && (
+            <Confetti key={celebrations.confetti.key} big={celebrations.confetti.big} onDone={celebrations.clearConfetti} />
+          )
+        }
+      />
+    )}
+    {celebrations.confetti && !celebrations.card && (
+      <Confetti key={celebrations.confetti.key} big={celebrations.confetti.big} onDone={celebrations.clearConfetti} />
     )}
     {toasts.length > 0 && (
       <Toast key={toasts[0].id} message={toasts[0]} onDone={() => setToasts((cur) => cur.slice(1))} />
