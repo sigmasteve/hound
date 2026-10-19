@@ -43,9 +43,11 @@ import { getGoalRewardConfig, setGoalRewardConfig } from '../goals/goalStreakApi
 import {
   deleteGlobalChallenge,
   globalTimingLine,
+  getSponsorClickCounts,
   listGlobalChallenges,
   setChallengeSponsor,
   type GlobalChallenge,
+  type SponsorClicks,
 } from '../challenges/globalChallenges';
 import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
 
@@ -117,11 +119,14 @@ export function AdminScreen({
   // published from the Create wizard shows up on return.
   const [globalChallenges, setGlobalChallenges] = useState<GlobalChallenge[] | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  // Taps on each sponsored one's link (0111_sponsored_challenges.sql).
+  const [sponsorClicks, setSponsorClicks] = useState<Map<string, SponsorClicks>>(new Map());
   const loadGlobal = useCallback(() => {
     listGlobalChallenges(true)
       .then((list) => {
         setGlobalChallenges(list);
         setGlobalError(null);
+        return getSponsorClickCounts(list.filter((c) => c.sponsor).map((c) => c.id)).then(setSponsorClicks);
       })
       .catch((e) => setGlobalError(e instanceof Error ? e.message : 'Could not load global challenges.'));
   }, []);
@@ -492,6 +497,7 @@ export function AdminScreen({
                             {globalTimingLine(c)} · {c.durationDays} days · {c.participantCount} joined
                           </Text>
                           {c.sponsor && <Text style={styles.footNote}>Sponsored by {c.sponsor.name}</Text>}
+                          {c.sponsor?.url && <Text style={styles.footNote}>{sponsorClicksLine(sponsorClicks.get(c.id))}</Text>}
                         </View>
                         {!ended && (
                           <Pressable
@@ -823,4 +829,12 @@ function makeStyles(colors: Palette) {
     },
     userName: { fontFamily: font.body, fontSize: 14.5, color: colors.text },
   });
+}
+
+// "42 link taps by 31 people · 38 while it ran", for a sponsored global
+// challenge's row.
+function sponsorClicksLine(c: SponsorClicks | undefined): string {
+  if (!c || c.clicks === 0) return 'No link taps yet';
+  const taps = `${c.clicks.toLocaleString()} link ${c.clicks === 1 ? 'tap' : 'taps'} by ${c.people.toLocaleString()} ${c.people === 1 ? 'person' : 'people'}`;
+  return c.clicksDuring === c.clicks ? taps : `${taps} · ${c.clicksDuring.toLocaleString()} while it ran`;
 }

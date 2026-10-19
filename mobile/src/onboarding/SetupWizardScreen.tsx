@@ -495,7 +495,7 @@ function ChallengeStep({
             {globalTimingLine(c)} · {c.participantCount} {c.participantCount === 1 ? 'player' : 'players'}
             {c.prizes ? ` · 1st wins ${c.prizes[0]} ${currencyName}` : ''}
           </Text>
-          {c.sponsor && <SponsorLine sponsor={c.sponsor} />}
+          {c.sponsor && <SponsorLine challengeId={c.id} sponsor={c.sponsor} />}
           <Button
             label={joined ? 'Joined' : joiningId === c.id ? 'Joining…' : 'Join'}
             variant="primary"

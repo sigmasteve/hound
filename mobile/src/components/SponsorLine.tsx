@@ -3,12 +3,19 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ArrowSquareOutIcon, HandshakeIcon } from 'phosphor-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import type { ChallengeSponsor } from '../challenges/globalChallenges';
+import { recordSponsorClick, type ChallengeSponsor } from '../challenges/globalChallenges';
+
+// Counts the tap (0111), then opens the sponsor's site.
+function openSponsor(challengeId: string, url: string) {
+  recordSponsorClick(challengeId);
+  Linking.openURL(url).catch(() => {});
+}
 
 // "Sponsored by …" on a global challenge (0111_sponsored_challenges.sql),
 // with the sponsor's message under it. With a link, tapping opens their
-// site in the browser; nothing else about the member goes to them.
-export function SponsorLine({ sponsor }: { sponsor: ChallengeSponsor }) {
+// site in the browser and counts the tap for Admin; nothing about the
+// member goes to the sponsor.
+export function SponsorLine({ challengeId, sponsor }: { challengeId: string; sponsor: ChallengeSponsor }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const url = sponsor.url;
@@ -33,7 +40,7 @@ export function SponsorLine({ sponsor }: { sponsor: ChallengeSponsor }) {
   if (!url) return body;
   return (
     <Pressable
-      onPress={() => Linking.openURL(url).catch(() => {})}
+      onPress={() => openSponsor(challengeId, url)}
       hitSlop={6}
       accessibilityRole="link"
       accessibilityLabel={`Sponsored by ${sponsor.name}. Opens their site.`}
@@ -53,7 +60,7 @@ function makeStyles(colors: Palette) {
 
 // The challenge page's version, at the top under its name: the sponsor
 // stands out, with a button to their site.
-export function SponsorBanner({ sponsor }: { sponsor: ChallengeSponsor }) {
+export function SponsorBanner({ challengeId, sponsor }: { challengeId: string; sponsor: ChallengeSponsor }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeBannerStyles(colors), [colors]);
   const url = sponsor.url;
@@ -69,7 +76,7 @@ export function SponsorBanner({ sponsor }: { sponsor: ChallengeSponsor }) {
       </View>
       {url && (
         <Pressable
-          onPress={() => Linking.openURL(url).catch(() => {})}
+          onPress={() => openSponsor(challengeId, url)}
           style={styles.visit}
           hitSlop={6}
           accessibilityRole="link"

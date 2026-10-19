@@ -116,7 +116,7 @@ export function GlobalChallengesCard({
                   </Text>
                 </View>
               )}
-              {c.sponsor && <SponsorLine sponsor={c.sponsor} />}
+              {c.sponsor && <SponsorLine challengeId={c.id} sponsor={c.sponsor} />}
               {deadline && <Text style={styles.deadline}>{deadline}</Text>}
             </View>
           </>

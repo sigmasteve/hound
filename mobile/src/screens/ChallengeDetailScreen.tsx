@@ -1314,7 +1314,7 @@ export function ChallengeDetailScreen({
         </Pressable>
       </View>
 
-      {sponsor && <SponsorBanner sponsor={sponsor} />}
+      {sponsor && <SponsorBanner challengeId={challengeId} sponsor={sponsor} />}
 
       <SegmentedControl
         options={[

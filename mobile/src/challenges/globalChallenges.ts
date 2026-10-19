@@ -252,6 +252,43 @@ export async function getChallengeSponsor(challengeId: string): Promise<Challeng
   return (await readSponsors([challengeId])).get(challengeId) ?? null;
 }
 
+// Counts a tap on a sponsor's link (0111). Never throws: a missed count
+// mustn't stop the link opening.
+export async function recordSponsorClick(challengeId: string): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase.rpc('record_sponsor_click', { p_challenge_id: challengeId });
+  } catch {
+    // Offline, or before 0111 has run.
+  }
+}
+
+export interface SponsorClicks {
+  clicks: number;
+  people: number;
+  // Between the challenge's start and end.
+  clicksDuring: number;
+  peopleDuring: number;
+}
+
+// Admin only: taps on each challenge's sponsor link. Empty when it can't
+// tell (before 0111 has run).
+export async function getSponsorClickCounts(challengeIds: string[]): Promise<Map<string, SponsorClicks>> {
+  const counts = new Map<string, SponsorClicks>();
+  if (!supabase || challengeIds.length === 0) return counts;
+  const { data, error } = await supabase.rpc('sponsor_click_counts', { p_challenge_ids: challengeIds });
+  if (error) return counts;
+  for (const r of (data ?? []) as { challenge_id: string; clicks: number; people: number; clicks_during: number; people_during: number }[]) {
+    counts.set(r.challenge_id, {
+      clicks: Number(r.clicks),
+      people: Number(r.people),
+      clicksDuring: Number(r.clicks_during),
+      peopleDuring: Number(r.people_during),
+    });
+  }
+  return counts;
+}
+
 // Admin only. A blank name takes the sponsor off.
 export async function setChallengeSponsor(challengeId: string, sponsor: ChallengeSponsor | null): Promise<void> {
   const { error } = await requireClient().rpc('set_challenge_sponsor', {

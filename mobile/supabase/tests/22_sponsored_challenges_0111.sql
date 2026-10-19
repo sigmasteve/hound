@@ -1,6 +1,7 @@
 -- 0111: an admin can put a sponsor on a global challenge, with a checked
--- link; nobody else can, and an ordinary challenge can't have one.
-select plan(7);
+-- link; nobody else can, and an ordinary challenge can't have one. Taps
+-- on the link are counted, and only admins can see the counts.
+select plan(11);
 
 select tests.new_user('Ada', true) as ada \gset
 select tests.new_user('Bob') as bob \gset
@@ -20,6 +21,22 @@ select throws_ok(format($q$select public.set_challenge_sponsor(%L, 'Acme', null,
   'The sponsor''s link must start with https://', 'A link must be https');
 select throws_ok(format($q$select public.set_challenge_sponsor(%L, 'Acme', null, null)$q$, :'n'),
   'Only a global challenge can have a sponsor.', 'An ordinary challenge can''t have a sponsor');
+reset role;
+
+-- Bob taps the link twice in a row (a double tap) and it counts once.
+select tests.sign_in(:'bob');
+set local role authenticated;
+select public.record_sponsor_click(:'g');
+select public.record_sponsor_click(:'g');
+select throws_ok('select count(*) from public.sponsor_link_clicks', '42501', null, 'Members can''t read who tapped');
+select throws_ok(format('select * from public.sponsor_click_counts(array[%L]::uuid[])', :'g'), 'not authorized',
+  'or see the counts');
+reset role;
+
+select tests.sign_in(:'ada');
+set local role authenticated;
+select is((select clicks from public.sponsor_click_counts(array[:'g']::uuid[])), 1::bigint, 'A double tap counts once');
+select is((select people_during from public.sponsor_click_counts(array[:'g']::uuid[])), 1::bigint, 'by one person, while it ran');
 select lives_ok(format($q$select public.set_challenge_sponsor(%L, '', null, null)$q$, :'g'), 'A blank name');
 select is((select sponsor_name from public.challenges where id = :'g'), null, 'takes the sponsor off');
 reset role;
