@@ -34,6 +34,9 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { levelProgressForXp } from '../challenges/leveling';
 import { listBonesPackOffers, purchaseBonesPack, type BonesPackOffer } from '../bones/purchasesApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
+import { useRewardedBones } from '../ads/rewardedBones';
+import { WatchAdCard } from '../ads/WatchAdCard';
+import { notifyBonesChanged } from '../bones/bonesChanged';
 
 type LockerTab = 'locker' | 'shop';
 
@@ -155,6 +158,12 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
       .then(setBonesOffers)
       .catch((e) => setBonesOffersError(e instanceof Error ? e.message : 'Could not load Bones packs.'));
   }, [tab, user?.id, bonesOffers, bonesOffersError]);
+
+  // Watch an ad for Bones (0114_rewarded_ads.sql), when Admin has ads on.
+  const rewardedBones = useRewardedBones(isSupabaseConfigured ? user?.id : null, (bones) => {
+    setHoundScore((prev) => (prev ? { ...prev, bonesBalance: prev.bonesBalance + bones } : prev));
+    notifyBonesChanged();
+  });
 
   const buyBonesPack = async (offer: BonesPackOffer) => {
     if (!user?.id) return;
@@ -365,6 +374,8 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
               </View>
               <Text style={styles.footNote}>Earned from finishing challenges and leveling up.</Text>
             </Card>
+
+            <WatchAdCard ads={rewardedBones} currencyName={currencyName} />
 
             {halloweenItems.length > 0 && (
               <Card style={styles.seasonCard} elevated={false}>
