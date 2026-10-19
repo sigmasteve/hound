@@ -60,6 +60,7 @@ import {
   globalStartDate,
   joinClosesAt,
   publishGlobalChallenge,
+  setChallengeSponsor,
   startsLabel,
   type GlobalTemplate,
   type JoinWindow,
@@ -213,6 +214,10 @@ export function CreateScreen({
     number,
     number,
   ];
+  // Global challenges: an optional sponsor (0111_sponsored_challenges.sql).
+  const [sponsorName, setSponsorName] = useState('');
+  const [sponsorMessage, setSponsorMessage] = useState('');
+  const [sponsorUrl, setSponsorUrl] = useState('');
   const canHavePot = !global && POT_KINDS.includes(draftType);
   const canHavePrizes = global && draftType !== 'seventyfive';
   const [saving, setSaving] = useState(false);
@@ -404,6 +409,14 @@ export function CreateScreen({
       return;
     }
     if (global) {
+      if (sponsorUrl.trim() && !/^https:\/\/\S+$/.test(sponsorUrl.trim())) {
+        setSaveError('The sponsor’s link must start with https://');
+        return;
+      }
+      if (!sponsorName.trim() && (sponsorMessage.trim() || sponsorUrl.trim())) {
+        setSaveError('Add the sponsor’s name, or clear the message and link.');
+        return;
+      }
       setSaveError(null);
       setSaving(true);
       try {
@@ -423,6 +436,15 @@ export function CreateScreen({
         if (canHavePrizes && prizes.some((b) => b > 0)) {
           await setGlobalPrizes(globalId, prizes).catch((e: Error) =>
             Alert.alert('Published, but the prizes didn’t save', `${e.message} Set them from the Admin screen.`),
+          );
+        }
+        if (sponsorName.trim()) {
+          await setChallengeSponsor(globalId, {
+            name: sponsorName.trim(),
+            message: sponsorMessage.trim() || null,
+            url: sponsorUrl.trim() || null,
+          }).catch((e: Error) =>
+            Alert.alert('Published, but the sponsor didn’t save', `${e.message} Add it from the Admin screen.`),
           );
         }
         onFinish();
@@ -966,6 +988,7 @@ export function CreateScreen({
                   'Prizes',
                   prizes.some((b) => b > 0) ? prizes.map((b) => `${b}`).join(' / ') + ` ${currencyName}` : 'None',
                 ]);
+              if (sponsorName.trim()) rows.push(['Sponsor', sponsorName.trim()]);
               return rows.map(([k, v]) => (
                 <View key={k} style={styles.huntBlockHeader}>
                   <Text style={styles.huntBlockLabel}>{k}</Text>
@@ -1004,6 +1027,31 @@ export function CreateScreen({
               </Text>
             </View>
           )}
+          <View style={styles.huntBlock}>
+            <Text style={styles.huntBlockLabel}>Sponsor (optional)</Text>
+            <TextField label="Sponsor name" value={sponsorName} onChangeText={setSponsorName} placeholder="e.g. Acme Running" maxLength={40} />
+            <TextField
+              label="Message"
+              value={sponsorMessage}
+              onChangeText={setSponsorMessage}
+              placeholder="e.g. Winner gets a $50 gift card"
+              maxLength={100}
+            />
+            <TextField
+              label="Link"
+              value={sponsorUrl}
+              onChangeText={setSponsorUrl}
+              placeholder="https://"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              maxLength={200}
+            />
+            <Text style={styles.footNote}>
+              Shows “Sponsored by” with the message on the challenge. Tapping it opens the link. A real prize is sent by
+              the sponsor, not Hound.
+            </Text>
+          </View>
           <Text style={styles.footNote}>
             Publishing shows it on everyone’s Today screen under Global Hound Challenges. You’re not added
             automatically — join it from Today like anyone else. You can take it down from the Admin screen.

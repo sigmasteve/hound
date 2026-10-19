@@ -40,11 +40,14 @@ select throws_ok('insert into public.challenge_pot_entries (challenge_id, user_i
   '42501', null, 'Nobody writes pot entries directly');
 reset role;
 
--- Ann out-walks Steve; Bob (not in the pot) out-walks both.
-insert into public.progress_snapshots (challenge_id, user_id, day, steps) values
-  ('00000000-0000-0000-0000-0000000000c1', :'steve', current_date, 9000),
-  ('00000000-0000-0000-0000-0000000000c1', :'ann', current_date, 12000),
-  ('00000000-0000-0000-0000-0000000000c1', :'bob', current_date, 20000);
+-- Ann out-walks Steve; Bob (not in the pot) out-walks both. Logged on
+-- the challenge's own day (start_day, New York time), which just after
+-- midnight UTC is still yesterday.
+insert into public.progress_snapshots (challenge_id, user_id, day, steps)
+  select c.id, v.user_id, c.start_day, v.steps
+  from public.challenges c,
+       (values (:'steve'::uuid, 9000), (:'ann'::uuid, 12000), (:'bob'::uuid, 20000)) as v(user_id, steps)
+  where c.id = '00000000-0000-0000-0000-0000000000c1';
 -- Over now, so it can settle.
 update public.challenges set ends_at = now() - interval '1 hour' where id = '00000000-0000-0000-0000-0000000000c1';
 select public.settle_challenge_score_core('00000000-0000-0000-0000-0000000000c1');
@@ -77,9 +80,11 @@ insert into public.challenges (id, name, kind, created_by, duration_days, starts
   values ('00000000-0000-0000-0000-0000000000c3', 'Global', 'steps', :'steve', 1, now() - interval '2 hours', now() + interval '1 day', true);
 insert into public.challenge_participants (challenge_id, user_id)
   values ('00000000-0000-0000-0000-0000000000c3', :'ann'), ('00000000-0000-0000-0000-0000000000c3', :'bob');
-insert into public.progress_snapshots (challenge_id, user_id, day, steps) values
-  ('00000000-0000-0000-0000-0000000000c3', :'ann', current_date, 30000),
-  ('00000000-0000-0000-0000-0000000000c3', :'bob', current_date, 10000);
+insert into public.progress_snapshots (challenge_id, user_id, day, steps)
+  select c.id, v.user_id, c.start_day, v.steps
+  from public.challenges c,
+       (values (:'ann'::uuid, 30000), (:'bob'::uuid, 10000)) as v(user_id, steps)
+  where c.id = '00000000-0000-0000-0000-0000000000c3';
 select tests.sign_in(:'ann');
 set local role authenticated;
 select throws_ok('select public.set_global_prizes(''00000000-0000-0000-0000-0000000000c3'', 100, 50, 25)',

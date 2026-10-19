@@ -64,7 +64,8 @@ import {
 import { listBingoProgress, recordBingoProgress, unlinkBingoProgress } from '../challenges/bingoApi';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { settleChallengeScore } from '../challenges/scoreApi';
-import { isGlobalChallenge } from '../challenges/globalChallenges';
+import { getChallengeSponsor, isGlobalChallenge, type ChallengeSponsor } from '../challenges/globalChallenges';
+import { SponsorBanner } from '../components/SponsorLine';
 import { ChallengePotCard } from '../components/ChallengePotCard';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import type { WorkoutSample } from '../health/types';
@@ -377,8 +378,13 @@ export function ChallengeDetailScreen({
   // A Global Hound Challenge (0075_global_challenges.sql) takes no
   // invites — anyone can join it from Today instead.
   const [isGlobal, setIsGlobal] = useState(false);
+  // Its sponsor (0111_sponsored_challenges.sql), shown under the name.
+  const [sponsor, setSponsor] = useState<ChallengeSponsor | null>(null);
   useEffect(() => {
-    isGlobalChallenge(challengeId).then(setIsGlobal);
+    isGlobalChallenge(challengeId).then((global) => {
+      setIsGlobal(global);
+      if (global) getChallengeSponsor(challengeId).then(setSponsor).catch(() => {});
+    });
   }, [challengeId]);
   const [friendSearch, setFriendSearch] = useState('');
 
@@ -1307,6 +1313,8 @@ export function ChallengeDetailScreen({
           <InfoIcon size={22} color={colors.accent} />
         </Pressable>
       </View>
+
+      {sponsor && <SponsorBanner challengeId={challengeId} sponsor={sponsor} />}
 
       <SegmentedControl
         options={[
