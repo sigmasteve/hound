@@ -145,5 +145,10 @@
     "updates": {
       "url": "https://u.expo.dev/844311e3-1bd2-4be3-85b1-a8b9c25196b0"
     }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-5172900554113864~3767325277",
+    "ios_app_id": "ca-app-pub-5172900554113864~3364659733",
+    "delay_app_measurement_init": true
   }
 }
