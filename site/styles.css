@@ -313,6 +313,10 @@ code.cmd {
   background: var(--divider); margin-top: 6px; flex-shrink: 0;
 }
 .notes b { color: var(--text); }
+/* Numbered steps inside a .notes section (download.html) keep their own
+   layout instead of the bulleted list's. */
+.notes li.step { display: grid; font-size: inherit; color: inherit; }
+.notes li.step::before { content: none; }
 
 footer {
   text-align: center;
