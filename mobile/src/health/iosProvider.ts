@@ -288,6 +288,20 @@ export const iosHealthProvider: HealthProvider = {
     return out;
   },
 
+  async canReadNow(): Promise<boolean> {
+    const now = new Date();
+    const today = startOfDay(now);
+    try {
+      await queryStatisticsCollectionForQuantity('HKQuantityTypeIdentifierStepCount', ['cumulativeSum'], today, { day: 1 }, {
+        filter: { date: { startDate: today, endDate: now } },
+        unit: 'count',
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   async getStepsSince(since: Date): Promise<number> {
     // Same collection query as the day totals above, just anchored at
     // `since` instead of midnight, so a step sample straddling `since`

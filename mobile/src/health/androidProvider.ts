@@ -307,6 +307,19 @@ export const androidHealthProvider: HealthProvider = {
     return out;
   },
 
+  async canReadNow(): Promise<boolean> {
+    try {
+      if (!(await ensureInitialized())) return false;
+      await aggregateRecord({
+        recordType: 'Steps',
+        timeRangeFilter: { operator: 'between', startTime: startOfDayIso(), endTime: new Date().toISOString() },
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   openSettings() {
     try {
       openHealthConnectSettings();

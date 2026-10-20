@@ -84,6 +84,12 @@ export interface HealthProvider {
   // Total steps from an exact moment (not a day boundary) until now —
   // Tic-Tac-Go's step goals count only steps taken since your turn began.
   getStepsSince(since: Date): Promise<number>;
+  // Whether health data can be read right now. Every read above returns
+  // nothing instead of failing, which looks like 0 steps, so background
+  // sync asks first: a locked iPhone can't read Apple Health, and Android
+  // can't read Health Connect in the background without its own
+  // permission.
+  canReadNow?(): Promise<boolean>;
   // Android only (see dataSources.ts): which apps wrote steps and
   // workouts to Health Connect over the last `days` days.
   getDataSources?(days: number): Promise<DataSourcesReport>;

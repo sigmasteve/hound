@@ -55,6 +55,11 @@ async function syncNow(): Promise<void> {
   const health = await resolveHealthProvider();
   // Sample data isn't real activity: nothing to sync.
   if (health.platform === 'mock') return;
+  // When the phone can't read its health data (locked, or no background
+  // access), every read comes back as 0 steps. Syncing that would put 0
+  // on the leaderboards (0115_keep_synced_steps.sql) and the widgets, so
+  // leave it to the next run.
+  if (health.canReadNow && !(await health.canReadNow())) return;
 
   const [snap, workouts] = await Promise.all([health.getSnapshot(), health.getRecentWorkouts(50)]);
   await recordDailyStepTotal(userId, snap.stepsToday).catch(() => {});
