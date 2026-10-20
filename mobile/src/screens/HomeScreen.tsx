@@ -116,12 +116,11 @@ import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
 import { GlobalChallengesCard } from '../components/GlobalChallengesCard';
 import {
   canJoin,
-  globalTimingLine,
   joinGlobalChallenge,
   listGlobalChallenges,
   type GlobalChallenge,
 } from '../challenges/globalChallenges';
-import { fetchWeeklyRecap, isRecapWindow, recapWeekKey, type WeeklyRecap } from '../home/weeklyRecap';
+import { fetchWeeklyRecap, isRecapWindow, recapWeekKey, stepsChangePct, type WeeklyRecap } from '../home/weeklyRecap';
 import {
   getLocalRemindersEnabled,
   getReminderPermission,
@@ -147,6 +146,8 @@ import { PostBountyModal } from '../components/PostBountyModal';
 import { useBounties } from '../bounties/useBounties';
 import { cancelBounty, canPostToday, postBounty, type Bounty } from '../bounties/bountiesApi';
 import { GoalSetupCard } from '../components/GoalSetupCard';
+import { GoalsTile, HoundTile, SheetLink, Tile, TileSheet, TileValue, tileGrid } from '../home/TodayTiles';
+import { useGoalsTileStyle } from '../home/todayPrefs';
 import { useGoals } from '../goals/GoalsContext';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 
@@ -779,6 +780,10 @@ export function HomeScreen({
   const NUDGES_DISMISSED_KEY = 'homeNudgesDismissedAt';
   const [nudges, setNudges] = useState<ReceivedNudge[]>([]);
   const [nudgesDismissedAt, setNudgesDismissedAt] = useState<string | null>(null);
+  // Which tile's sheet is open (TodayTiles.tsx), and how the goals tile
+  // looks (Settings → Today).
+  const [openTile, setOpenTile] = useState<'goals' | 'hound' | 'needs' | 'challenges' | 'week' | null>(null);
+  const goalsTileStyle = useGoalsTileStyle();
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -1589,6 +1594,112 @@ export function HomeScreen({
   const upcomingGlobals = globalChallenges.filter((c) => !c.joined && nowMs < new Date(c.startsAt).getTime());
   const openPrimary = primary ? () => onOpenChallenge(primary.challenge.id) : () => onGoTab('challenges');
 
+  // Leaving Today from inside a sheet closes the sheet first, so it isn't
+  // still open on the way back.
+  const closeTile = useCallback(() => setOpenTile(null), []);
+  const sheetGoTab: typeof onGoTab = (tab) => {
+    setOpenTile(null);
+    onGoTab(tab);
+  };
+  const sheetOpenChallenge = (challengeId: string) => {
+    setOpenTile(null);
+    onOpenChallenge(challengeId);
+  };
+  const sheetOpenPrimary = () => {
+    setOpenTile(null);
+    openPrimary();
+  };
+  const trailAvatar = {
+    initials: user?.initials ?? '',
+    frameId: myLook?.frameId,
+    backgroundId: myLook?.backgroundId,
+    iconId: myLook?.iconId,
+  };
+
+  // The Needs you tile: everything waiting on you, newest kinds last.
+  const digReady =
+    !!boneDig && goalDayHit && !boneDig.dugToday && !!goalProgress?.some((p) => p.goal.period === 'day');
+  const needsLines = [
+    ...needsYou.map((item) =>
+      item.type === 'action'
+        ? item.action.label
+        : item.type === 'invite'
+          ? `${item.invite.inviterName} invited you`
+          : `${item.friend.name} wants to be friends`,
+    ),
+    ...(digReady ? ['Bone Dig is ready'] : []),
+    ...visibleNudges.map((n) => `${n.name} nudged you`),
+    ...(bounties ?? []).filter((b) => !b.mine && b.status === 'open').map((b) => `${b.posterName}'s bounty`),
+  ];
+  const recapPct = weeklyRecap ? stepsChangePct(weeklyRecap) : null;
+  const activeCount = challengeCounts?.active ?? (primary ? 1 : 0);
+
+  // The small tiles, two to a row; an odd last one spans the row.
+  const smallTiles: { key: string; render: (wide: boolean) => React.ReactNode }[] = [
+    ...(kennel ? [{ key: 'hound', render: () => <HoundTile kennel={kennel} onPress={() => setOpenTile('hound')} /> }] : []),
+    {
+      key: 'needs',
+      render: (wide: boolean) => (
+        <Tile
+          label="Needs you"
+          badge={needsLines.length}
+          wide={wide}
+          onPress={() => setOpenTile('needs')}
+          accessibilityLabel={`Needs you, ${needsLines.length} waiting. Open`}
+        >
+          <TileValue
+            value={needsLines.length > 0 ? `${needsLines.length} waiting` : 'All caught up'}
+            lines={needsLines.slice(0, 3)}
+          />
+        </Tile>
+      ),
+    },
+    {
+      key: 'challenges',
+      render: (wide: boolean) => (
+        <Tile
+          label="Challenges"
+          wide={wide}
+          onPress={activeCount > 0 || loadingPrimary ? () => setOpenTile('challenges') : openPrimary}
+          accessibilityLabel={`Challenges, ${activeCount} running. Open`}
+        >
+          {loadingPrimary && !challengeCounts ? (
+            <TileValue value="…" lines={['Loading your challenges']} />
+          ) : activeCount > 0 ? (
+            <TileValue
+              value={`${activeCount} running`}
+              lines={
+                primary
+                  ? [`📌 ${primary.challenge.name}`, heroHeadline]
+                  : otherActive.slice(0, 2).map((c) => c.name)
+              }
+            />
+          ) : (
+            <TileValue value="None yet" lines={['Start one with friends ›']} />
+          )}
+        </Tile>
+      ),
+    },
+    ...(weeklyRecap
+      ? [
+          {
+            key: 'week',
+            render: (wide: boolean) => (
+              <Tile label="Week in review" wide={wide} onPress={() => setOpenTile('week')} accessibilityLabel="Week in review. Open">
+                <TileValue
+                  value={weeklyRecap.stepsLastWeek !== null ? weeklyRecap.stepsLastWeek.toLocaleString() : '—'}
+                  lines={[
+                    `steps${recapPct !== null ? ` · ${recapPct >= 0 ? '▲' : '▼'} ${Math.abs(recapPct)}%` : ''}`,
+                    `${weeklyRecap.challengesFinished} ${weeklyRecap.challengesFinished === 1 ? 'challenge' : 'challenges'} finished`,
+                  ]}
+                />
+              </Tile>
+            ),
+          },
+        ]
+      : []),
+  ];
+
   // While the real fetch above is still in flight, show a spinner instead
   // of the sample "Marcus" content — that content used to render first and
   // get swapped out once real data arrived, which on a slow connection
@@ -1610,10 +1721,18 @@ export function HomeScreen({
       <UpdateReadyBanner />
       {announcementBar}
       <ScrollView contentContainerStyle={styles.container}>
-      {/* Where you're at today comes first, above any challenge —
-          testers wanted it on screen without scrolling. One row per goal
-          (0097_goals.sql), with whatever's left on each. */}
-      {setupOpen ? (
+      {/* Global challenges you can still join stand apart, above the
+          tiles, so they're seen without opening anything. */}
+      {(upcomingGlobals.length > 0 || joinableGlobals.length > 0) && (
+        <GlobalChallengesCard
+          challenges={[...upcomingGlobals, ...joinableGlobals]}
+          joiningId={joiningGlobalId}
+          onJoin={joinGlobal}
+          onOpen={(c) => onOpenChallenge(c.id)}
+        />
+      )}
+
+      {setupOpen && (
         <GoalSetupCard
           canDismiss
           onDone={() => setSetupOpen(false)}
@@ -1622,293 +1741,28 @@ export function HomeScreen({
             onGoTab('goals');
           }}
         />
-      ) : (
-        goalProgress && (
-          <GoalsCard
+      )}
+
+      {/* Today as tiles (TodayTiles.tsx): goals across the top, then your
+          hound, what needs you, your challenges and last week. Each opens
+          a sheet with the full cards. Testers found the long stack of
+          cards too much at once. */}
+      <View style={tileGrid}>
+        {!setupOpen && goalProgress && goalsTileStyle && (
+          <GoalsTile
             progress={goalProgress}
             streak={goalStreak}
-            currencyName={currencyName}
-            onBuyShield={isSupabaseConfigured ? buyShield : null}
-            avatar={{
-              initials: user?.initials ?? '',
-              frameId: myLook?.frameId,
-              backgroundId: myLook?.backgroundId,
-              iconId: myLook?.iconId,
-            }}
+            tileStyle={goalsTileStyle}
+            avatar={trailAvatar}
             needsSetup={!goalsSet}
-            onOpenGoal={() => onGoTab('stats')}
-            onEdit={() => onGoTab('goals')}
+            onOpen={() => setOpenTile('goals')}
             onSetGoals={() => setSetupOpen(true)}
-            onShare={goalsSet ? () => setSharing({ kind: 'goals', progress: goalProgress, streak: goalStreak }) : null}
           />
-        )
-      )}
-
-      {!setupOpen && kennel && (
-        <KennelCard kennel={kennel} currencyName={currencyName} onOpen={() => onGoTab('kennel')} onChanged={reloadKennel} />
-      )}
-
-      {/* Global challenges that haven't started yet keep the full card,
-          with what they are and when joining closes. Always directly
-          under the Kennel card, so a new one is seen while there's still
-          time to join. */}
-      {upcomingGlobals.length > 0 && (
-        <GlobalChallengesCard
-          challenges={upcomingGlobals}
-          joiningId={joiningGlobalId}
-          onJoin={joinGlobal}
-          onOpen={(c) => onOpenChallenge(c.id)}
-        />
-      )}
-
-      {!setupOpen && boneDig && goalProgress?.some((p) => p.goal.period === 'day') && (
-        <BoneDigCard dig={boneDig} goalsDone={goalDayHit} currencyName={currencyName} onDig={dig} />
-      )}
-
-      {bounties && (bounties.length > 0 || onboarding?.hasFriend) && (
-        <BountiesCard
-          bounties={bounties}
-          stepsToday={snap?.stepsToday ?? null}
-          currencyName={currencyName}
-          onPost={
-            onboarding?.hasFriend && canPostToday() && !bounties.some((b) => b.mine && b.status === 'open')
-              ? () => setBountyModal('open')
-              : null
-          }
-          onCancel={takeBackBounty}
-        />
-      )}
-
-      {/* One list for everything waiting on you — your move or
-          checklist in a challenge, challenge invites, friend requests —
-          instead of a separate card for each. Three at a time; the rest
-          behind "See all". Time-sensitive challenge actions come first. */}
-      {needsYou.length > 0 && (
-        <Card style={styles.needsCard} elevated={false}>
-          <View style={styles.needsHeader}>
-            <Text style={styles.needsTitle}>Needs you</Text>
-            <Text style={styles.needsCount}>{needsYou.length}</Text>
-          </View>
-          {shownNeedsYou.map((item, i) => (
-            <View key={item.key} style={[styles.needsRow, i > 0 && styles.needsRowDivider]}>
-              {item.type === 'action' ? (
-                <Pressable style={styles.needsRowMain} onPress={() => onOpenChallenge(item.action.challengeId)}>
-                  <BellRingingIcon size={16} color={color.accent300} weight="fill" />
-                  <Text style={[styles.inviteTitle, { flex: 1 }]}>{item.action.label}</Text>
-                  <CaretRightIcon size={16} color={withAlpha(colors.text, 0.5)} />
-                </Pressable>
-              ) : item.type === 'invite' ? (
-                <>
-                  <View style={styles.needsRowMain}>
-                    <EnvelopeOpenIcon size={16} color={color.accent300} weight="fill" />
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={styles.inviteTitle}>
-                        {item.invite.inviterName} invited you to &ldquo;{item.invite.challengeName}&rdquo;
-                      </Text>
-                      <Text style={styles.inviteSub}>
-                        {item.invite.challengeKind === 'hunt'
-                          ? huntKindName()
-                          : CHALLENGE_TYPES.find((t) => t.id === item.invite.challengeKind)?.name ??
-                            item.invite.challengeKind}{' '}
-                        · {item.invite.durationDays} days
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.needsButtons}>
-                    <Button
-                      label="Join"
-                      variant="primary"
-                      small
-                      disabled={respondingId === item.invite.id}
-                      onPress={() => respondToInvite(item.invite, true)}
-                    />
-                    <Button
-                      label="Decline"
-                      small
-                      disabled={respondingId === item.invite.id}
-                      onPress={() => respondToInvite(item.invite, false)}
-                    />
-                  </View>
-                </>
-              ) : (
-                <>
-                  <View style={styles.needsRowMain}>
-                    <UserPlusIcon size={16} color={color.accent300} weight="fill" />
-                    <Text style={[styles.inviteTitle, { flex: 1 }]}>{item.friend.name} wants to be friends</Text>
-                  </View>
-                  <View style={styles.needsButtons}>
-                    <Button
-                      label="Accept"
-                      variant="primary"
-                      small
-                      disabled={respondingFriendId === item.friend.friendshipId}
-                      onPress={() => respondToFriendRequest(item.friend.friendshipId, true)}
-                    />
-                    <Button
-                      label="Decline"
-                      small
-                      disabled={respondingFriendId === item.friend.friendshipId}
-                      onPress={() => respondToFriendRequest(item.friend.friendshipId, false)}
-                    />
-                  </View>
-                </>
-              )}
-            </View>
-          ))}
-          {needsYou.length > NEEDS_YOU_LIMIT && (
-            <Pressable onPress={() => setNeedsYouExpanded((v) => !v)} hitSlop={6} style={styles.needsMore}>
-              <Text style={styles.needsMoreText}>{needsYouExpanded ? 'Show less' : `See all ${needsYou.length}`}</Text>
-            </Pressable>
-          )}
-        </Card>
-      )}
-
-      {/* Your challenges in one card: the counts (tap for the Challenges
-          tab), then each other active challenge on one line, then any
-          global challenge that's already running and you could still
-          join. Global challenges you've joined are already in your list,
-          marked with the globe. Testers found the separate rows, global
-          card and counts pill crowded. */}
-      {/* Goals and Needs you show straight away; only this section
-          waits for your challenges. */}
-      {loadingPrimary && !challengeCounts && (
-        <Card style={styles.yoursCard} elevated={false}>
-          <LoadingView style={styles.challengesLoading} />
-        </Card>
-      )}
-
-      {(otherActive.length > 0 || joinableGlobals.length > 0 ||
-        (challengeCounts && challengeCounts.active + challengeCounts.finished + (liveInvites?.length ?? 0) > 0)) && (
-        <Card style={styles.yoursCard} elevated={false}>
-          <Pressable
-            style={({ pressed }) => [styles.yoursHeader, pressed && { opacity: 0.7 }]}
-            onPress={() => onGoTab('challenges')}
-            accessibilityRole="button"
-            accessibilityLabel="All challenges"
-          >
-            <FlagCheckeredIcon size={15} color={color.accent} />
-            <Text style={styles.yoursHeaderText}>
-              {challengeCounts
-                ? `${challengeCounts.active} active ${challengeCounts.active === 1 ? 'challenge' : 'challenges'} · ${challengeCounts.finished} finished`
-                : 'Your challenges'}
-              {(liveInvites?.length ?? 0) > 0 && (
-                <Text style={styles.countsInvited}> · {liveInvites!.length} invited</Text>
-              )}
-            </Text>
-            <Text style={styles.yoursSeeAll}>See all</Text>
-            <CaretRightIcon size={13} color={withAlpha(colors.text, 0.4)} />
-          </Pressable>
-          {otherActive.map((c) => {
-            const isGlobal = globalIds.has(c.id);
-            const KindIcon = isGlobal ? GlobeHemisphereWestIcon : CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
-            const typeName =
-              c.kind === 'hunt' ? huntKindName() : CHALLENGE_TYPES.find((t) => t.id === c.kind)?.name ?? 'Challenge';
-            return (
-              <Pressable
-                key={c.id}
-                style={({ pressed }) => [styles.yoursRow, pressed && { opacity: 0.7 }]}
-                onPress={() => onOpenChallenge(c.id)}
-                accessibilityRole="button"
-              >
-                <KindIcon size={16} color={colors.accentActive} />
-                <Text style={styles.otherText} numberOfLines={1}>
-                  <Text style={styles.otherName}>{c.name}</Text>
-                  {' · '}
-                  {c.rank ? `${ordinal(c.rank)} of ${c.total}` : typeName} · {timeLeftLabel(c.endsAt)}
-                </Text>
-                <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
-              </Pressable>
-            );
-          })}
-          {joinableGlobals.map((c) => (
-            <Pressable
-              key={c.id}
-              style={({ pressed }) => [styles.yoursRow, pressed && { opacity: 0.7 }]}
-              onPress={() => onOpenChallenge(c.id)}
-              accessibilityRole="button"
-            >
-              <GlobeHemisphereWestIcon size={16} color={colors.accentActive} />
-              <Text style={styles.otherText} numberOfLines={1}>
-                <Text style={styles.otherName}>{c.name}</Text> · {globalTimingLine(c)}
-              </Text>
-              <Button
-                label={joiningGlobalId === c.id ? 'Joining…' : 'Join'}
-                variant="primary"
-                small
-                disabled={joiningGlobalId !== null}
-                onPress={() => joinGlobal(c)}
-              />
-            </Pressable>
-          ))}
-        </Card>
-      )}
-
-      {/* Monday to Wednesday: last week in review, always right above
-          the pinned (highlighted) challenge and its heading. */}
-      {weeklyRecap && (
-        <WeeklyRecapCard
-          recap={weeklyRecap}
-          currencyName={currencyName}
-          onDismiss={dismissWeeklyRecap}
-          onShare={() => setSharing({ kind: 'week', recap: weeklyRecap })}
-        />
-      )}
-
-      {/* Nothing featured though challenges are running (Settings → don't
-          feature my newest challenge): they're all in the list above. */}
-      {!loadingPrimary && (primary || !challengeCounts || challengeCounts.active === 0) && (
-        <View style={styles.heroRow}>
-          <View style={styles.heroText}>
-            <Text style={text.eyebrow}>{hero?.eyebrow ?? 'GET STARTED'}</Text>
-            <Text style={[text.h2, styles.heroTitle]}>{heroHeadline}</Text>
-          </View>
-          <Button
-            label={primary ? 'View challenge' : 'New challenge'}
-            variant="primary"
-            icon={
-              primary ? (
-                <CrosshairIcon size={15} color={color.accent} />
-              ) : (
-                <PlusCircleIcon size={15} color={color.accent} />
-              )
-            }
-            onPress={openPrimary}
-          />
-        </View>
-      )}
-
-      {/* Your highlighted challenge, after the goals and the summary of
-          all your challenges. */}
-      {/* Last time's featured challenge, by name only, while its
-          standings load: steps on Today are never old ones. */}
-      {loadingPrimary && !primary && cachedFeatured && (
-        <Card style={styles.featuredLoading} elevated={false}>
-          <Text style={text.h4} numberOfLines={1}>
-            {cachedFeatured.name}
-          </Text>
-          <LoadingView style={styles.challengesLoading} />
-        </Card>
-      )}
-
-      {primary && (
-        <View style={styles.cardsRow}>
-          {primary.challenge.kind === 'hunt' && primary.board.length === 2 ? (
-            <LiveHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
-          ) : primary.challenge.kind === 'hunt' ? (
-            <LiveMultiHuntCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} />
-          ) : primary.challenge.kind === 'bingo' ? (
-            <BingoCardPreview primary={primary} filled={primaryBingoFilled} onOpen={openPrimary} styles={styles} />
-          ) : primary.challenge.kind === 'tictacgo' ? (
-            <TicTacGoPreview primary={primary} game={primaryTttGame} onOpen={openPrimary} styles={styles} />
-          ) : (
-            <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={openPrimary} styles={styles} colors={colors} />
-          )}
-        </View>
-      )}
-
-      {visibleNudges.length > 0 && (
-        <NudgesCard nudges={visibleNudges} onOpenChallenge={onOpenChallenge} onDismiss={dismissNudges} />
-      )}
+        )}
+        {smallTiles.map((tile, i) => (
+          <React.Fragment key={tile.key}>{tile.render(smallTiles.length % 2 === 1 && i === smallTiles.length - 1)}</React.Fragment>
+        ))}
+      </View>
 
       {offerPush && user?.id && onboarding && (onboarding.hasFriend || onboarding.joinedChallenge) && (
         <PushAskCard userId={user.id} onDone={() => setOfferPush(false)} />
@@ -1926,6 +1780,255 @@ export function HomeScreen({
       )}
 
     </ScrollView>
+    {openTile === 'goals' && goalProgress && (
+      <TileSheet title="Today's goals" onClose={closeTile}>
+        <GoalsCard
+          progress={goalProgress}
+          streak={goalStreak}
+          currencyName={currencyName}
+          onBuyShield={isSupabaseConfigured ? buyShield : null}
+          avatar={{
+            initials: user?.initials ?? '',
+            frameId: myLook?.frameId,
+            backgroundId: myLook?.backgroundId,
+            iconId: myLook?.iconId,
+          }}
+          needsSetup={!goalsSet}
+          onOpenGoal={() => sheetGoTab('stats')}
+          onEdit={() => sheetGoTab('goals')}
+          onSetGoals={() => {
+            setOpenTile(null);
+            setSetupOpen(true);
+          }}
+          onShare={goalsSet ? () => setSharing({ kind: 'goals', progress: goalProgress, streak: goalStreak }) : null}
+        />
+      </TileSheet>
+    )}
+    {openTile === 'hound' && kennel && (
+      <TileSheet title={kennel.name} onClose={closeTile}>
+        <KennelCard kennel={kennel} currencyName={currencyName} onOpen={() => sheetGoTab('kennel')} onChanged={reloadKennel} />
+      </TileSheet>
+    )}
+    {openTile === 'needs' && (
+      <TileSheet title="Needs you" onClose={closeTile}>
+        {needsLines.length === 0 && <Text style={styles.caughtUp}>All caught up. Nothing is waiting on you.</Text>}
+        {needsYou.length > 0 && (
+          <Card style={styles.needsCard} elevated={false}>
+            <View style={styles.needsHeader}>
+              <Text style={styles.needsTitle}>Needs you</Text>
+              <Text style={styles.needsCount}>{needsYou.length}</Text>
+            </View>
+            {shownNeedsYou.map((item, i) => (
+              <View key={item.key} style={[styles.needsRow, i > 0 && styles.needsRowDivider]}>
+                {item.type === 'action' ? (
+                  <Pressable style={styles.needsRowMain} onPress={() => sheetOpenChallenge(item.action.challengeId)}>
+                    <BellRingingIcon size={16} color={color.accent300} weight="fill" />
+                    <Text style={[styles.inviteTitle, { flex: 1 }]}>{item.action.label}</Text>
+                    <CaretRightIcon size={16} color={withAlpha(colors.text, 0.5)} />
+                  </Pressable>
+                ) : item.type === 'invite' ? (
+                  <>
+                    <View style={styles.needsRowMain}>
+                      <EnvelopeOpenIcon size={16} color={color.accent300} weight="fill" />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.inviteTitle}>
+                          {item.invite.inviterName} invited you to &ldquo;{item.invite.challengeName}&rdquo;
+                        </Text>
+                        <Text style={styles.inviteSub}>
+                          {item.invite.challengeKind === 'hunt'
+                            ? huntKindName()
+                            : CHALLENGE_TYPES.find((t) => t.id === item.invite.challengeKind)?.name ??
+                              item.invite.challengeKind}{' '}
+                          · {item.invite.durationDays} days
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.needsButtons}>
+                      <Button
+                        label="Join"
+                        variant="primary"
+                        small
+                        disabled={respondingId === item.invite.id}
+                        onPress={() => respondToInvite(item.invite, true)}
+                      />
+                      <Button
+                        label="Decline"
+                        small
+                        disabled={respondingId === item.invite.id}
+                        onPress={() => respondToInvite(item.invite, false)}
+                      />
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.needsRowMain}>
+                      <UserPlusIcon size={16} color={color.accent300} weight="fill" />
+                      <Text style={[styles.inviteTitle, { flex: 1 }]}>{item.friend.name} wants to be friends</Text>
+                    </View>
+                    <View style={styles.needsButtons}>
+                      <Button
+                        label="Accept"
+                        variant="primary"
+                        small
+                        disabled={respondingFriendId === item.friend.friendshipId}
+                        onPress={() => respondToFriendRequest(item.friend.friendshipId, true)}
+                      />
+                      <Button
+                        label="Decline"
+                        small
+                        disabled={respondingFriendId === item.friend.friendshipId}
+                        onPress={() => respondToFriendRequest(item.friend.friendshipId, false)}
+                      />
+                    </View>
+                  </>
+                )}
+              </View>
+            ))}
+            {needsYou.length > NEEDS_YOU_LIMIT && (
+              <Pressable onPress={() => setNeedsYouExpanded((v) => !v)} hitSlop={6} style={styles.needsMore}>
+                <Text style={styles.needsMoreText}>{needsYouExpanded ? 'Show less' : `See all ${needsYou.length}`}</Text>
+              </Pressable>
+            )}
+          </Card>
+        )}
+        {boneDig && goalProgress?.some((p) => p.goal.period === 'day') && (
+          <BoneDigCard dig={boneDig} goalsDone={goalDayHit} currencyName={currencyName} onDig={dig} />
+        )}
+        {visibleNudges.length > 0 && (
+          <NudgesCard nudges={visibleNudges} onOpenChallenge={sheetOpenChallenge} onDismiss={dismissNudges} />
+        )}
+        {bounties && (bounties.length > 0 || onboarding?.hasFriend) && (
+          <BountiesCard
+            bounties={bounties}
+            stepsToday={snap?.stepsToday ?? null}
+            currencyName={currencyName}
+            onPost={
+              onboarding?.hasFriend && canPostToday() && !bounties.some((b) => b.mine && b.status === 'open')
+                ? () => setBountyModal('open')
+                : null
+            }
+            onCancel={takeBackBounty}
+          />
+        )}
+      </TileSheet>
+    )}
+    {openTile === 'challenges' && (
+      <TileSheet title="Your challenges" onClose={closeTile}>
+        {/* Nothing featured though challenges are running (Settings → don't
+            feature my newest challenge): they're all in the list below. */}
+        {!loadingPrimary && (primary || !challengeCounts || challengeCounts.active === 0) && (
+          <View style={styles.heroRow}>
+            <View style={styles.heroText}>
+              <Text style={text.eyebrow}>{hero?.eyebrow ?? 'GET STARTED'}</Text>
+              <Text style={[text.h2, styles.heroTitle]}>{heroHeadline}</Text>
+            </View>
+            <Button
+              label={primary ? 'View challenge' : 'New challenge'}
+              variant="primary"
+              icon={
+                primary ? (
+                  <CrosshairIcon size={15} color={color.accent} />
+                ) : (
+                  <PlusCircleIcon size={15} color={color.accent} />
+                )
+              }
+              onPress={sheetOpenPrimary}
+            />
+          </View>
+        )}
+
+        {/* Your pinned (highlighted) challenge, then the rest. */}
+        {/* Last time's featured challenge, by name only, while its
+            standings load: steps on Today are never old ones. */}
+        {loadingPrimary && !primary && cachedFeatured && (
+          <Card style={styles.featuredLoading} elevated={false}>
+            <Text style={text.h4} numberOfLines={1}>
+              {cachedFeatured.name}
+            </Text>
+            <LoadingView style={styles.challengesLoading} />
+          </Card>
+        )}
+
+        {primary && (
+          <View style={styles.cardsRow}>
+            {primary.challenge.kind === 'hunt' && primary.board.length === 2 ? (
+              <LiveHuntCard primary={primary} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : primary.challenge.kind === 'hunt' ? (
+              <LiveMultiHuntCard primary={primary} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : primary.challenge.kind === 'bingo' ? (
+              <BingoCardPreview primary={primary} filled={primaryBingoFilled} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : primary.challenge.kind === 'tictacgo' ? (
+              <TicTacGoPreview primary={primary} game={primaryTttGame} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : (
+              <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} colors={colors} />
+            )}
+          </View>
+        )}
+        {loadingPrimary && !challengeCounts && (
+          <Card style={styles.yoursCard} elevated={false}>
+            <LoadingView style={styles.challengesLoading} />
+          </Card>
+        )}
+        {(otherActive.length > 0 ||
+          (challengeCounts && challengeCounts.active + challengeCounts.finished + (liveInvites?.length ?? 0) > 0)) && (
+          <Card style={styles.yoursCard} elevated={false}>
+            <Pressable
+              style={({ pressed }) => [styles.yoursHeader, pressed && { opacity: 0.7 }]}
+              onPress={() => sheetGoTab('challenges')}
+              accessibilityRole="button"
+              accessibilityLabel="All challenges"
+            >
+              <FlagCheckeredIcon size={15} color={color.accent} />
+              <Text style={styles.yoursHeaderText}>
+                {challengeCounts
+                  ? `${challengeCounts.active} active ${challengeCounts.active === 1 ? 'challenge' : 'challenges'} · ${challengeCounts.finished} finished`
+                  : 'Your challenges'}
+                {(liveInvites?.length ?? 0) > 0 && (
+                  <Text style={styles.countsInvited}> · {liveInvites!.length} invited</Text>
+                )}
+              </Text>
+              <Text style={styles.yoursSeeAll}>See all</Text>
+              <CaretRightIcon size={13} color={withAlpha(colors.text, 0.4)} />
+            </Pressable>
+            {otherActive.map((c) => {
+              const isGlobal = globalIds.has(c.id);
+              const KindIcon = isGlobal ? GlobeHemisphereWestIcon : CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
+              const typeName =
+                c.kind === 'hunt' ? huntKindName() : CHALLENGE_TYPES.find((t) => t.id === c.kind)?.name ?? 'Challenge';
+              return (
+                <Pressable
+                  key={c.id}
+                  style={({ pressed }) => [styles.yoursRow, pressed && { opacity: 0.7 }]}
+                  onPress={() => sheetOpenChallenge(c.id)}
+                  accessibilityRole="button"
+                >
+                  <KindIcon size={16} color={colors.accentActive} />
+                  <Text style={styles.otherText} numberOfLines={1}>
+                    <Text style={styles.otherName}>{c.name}</Text>
+                    {' · '}
+                    {c.rank ? `${ordinal(c.rank)} of ${c.total}` : typeName} · {timeLeftLabel(c.endsAt)}
+                  </Text>
+                  <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+                </Pressable>
+              );
+            })}
+          </Card>
+        )}
+        <SheetLink label="All challenges" onPress={() => sheetGoTab('challenges')} />
+      </TileSheet>
+    )}
+    {openTile === 'week' && weeklyRecap && (
+      <TileSheet title="Your week" onClose={closeTile}>
+        {weeklyRecap && (
+          <WeeklyRecapCard
+            recap={weeklyRecap}
+            currencyName={currencyName}
+            onDismiss={dismissWeeklyRecap}
+            onShare={() => setSharing({ kind: 'week', recap: weeklyRecap })}
+          />
+        )}
+      </TileSheet>
+    )}
     {bountyModal !== 'closed' && (
       <PostBountyModal
         currencyName={currencyName}
@@ -2421,6 +2524,7 @@ function TicTacGoPreview({
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 20, paddingBottom: 48 },
+    caughtUp: { fontSize: 14, color: withAlpha(colors.text, 0.65), textAlign: 'center', paddingVertical: 8 },
     challengesLoading: { paddingVertical: 18 },
     featuredLoading: { gap: 4 },
     announcementBar: {

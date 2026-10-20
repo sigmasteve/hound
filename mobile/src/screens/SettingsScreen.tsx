@@ -12,6 +12,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ToggleRow } from '../components/Selectable';
 import { CelebrationSettings } from '../celebrate/CelebrationSettings';
+import { TodaySettings } from '../home/TodaySettings';
 import { AdPrivacyCard } from '../ads/AdPrivacyCard';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
@@ -627,6 +628,7 @@ export function SettingsScreen() {
         </Card>
       )}
 
+      <TodaySettings />
       <CelebrationSettings />
 
       <AdPrivacyCard />
