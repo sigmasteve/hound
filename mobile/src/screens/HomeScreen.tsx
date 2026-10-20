@@ -52,7 +52,7 @@ import { updateWidgets } from '../widgets/widgetData';
 import { houndFields, numbersFromProgress } from '../widgets/widgetModel';
 import type { ShareContent } from '../share/ShareCard';
 import { getAppBanner, isBannerActive, type AppBanner } from '../banner/supabaseBanner';
-import { recordDailyStepTotal } from '../leaderboard/supabaseStepsRank';
+import { getMyDailyStepRankChange, recordDailyStepTotal, type StepRankChange } from '../leaderboard/supabaseStepsRank';
 import { recordWorkoutHistory } from '../workouts/supabaseWorkoutHistory';
 import {
   buildBoard,
@@ -784,6 +784,9 @@ export function HomeScreen({
   // looks (Settings → Today).
   const [openTile, setOpenTile] = useState<'goals' | 'hound' | 'needs' | 'challenges' | 'week' | null>(null);
   const goalsTileStyle = useGoalsTileStyle();
+  // Your rank among everyone on Hound today (0027_daily_step_totals.sql),
+  // in Week in review's spot Thursday to Sunday.
+  const [stepRank, setStepRank] = useState<StepRankChange | null>(null);
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -993,10 +996,15 @@ export function HomeScreen({
       if (!isSupabaseConfigured || !user?.id) return;
       // Today's total feeds everyone's Hound-users rank, which the Data
       // tab shows (0027_daily_step_totals.sql).
-      recordDailyStepTotal(user.id, s.stepsToday).catch(() => {
-        // Same "never break the screen" convention as the rest of
-        // Home's own fetches.
-      });
+      // Then your rank among everyone today, for the step rank tile.
+      recordDailyStepTotal(user.id, s.stepsToday)
+        .catch(() => {
+          // Same "never break the screen" convention as the rest of
+          // Home's own fetches.
+        })
+        .then(() => getMyDailyStepRankChange())
+        .then(setStepRank)
+        .catch(() => {});
     });
     // Today's workout count, plus the history record. 50 most recent is
     // the same window the Data tab's readiness card uses.
@@ -1632,6 +1640,16 @@ export function HomeScreen({
     ...(bounties ?? []).filter((b) => !b.mine && b.status === 'open').map((b) => `${b.posterName}'s bounty`),
   ];
   const recapPct = weeklyRecap ? stepsChangePct(weeklyRecap) : null;
+  // Up or down from yesterday's rank: a smaller number is better.
+  const rankDelta = stepRank?.yesterdayRank != null ? stepRank.yesterdayRank - stepRank.rank : null;
+  const rankMove =
+    rankDelta === null
+      ? null
+      : rankDelta === 0
+        ? { text: 'Same as yesterday' }
+        : rankDelta > 0
+          ? { text: `▲ ${rankDelta} from yesterday`, color: colors.green }
+          : { text: `▼ ${-rankDelta} from yesterday`, color: colors.amber };
   const activeCount = challengeCounts?.active ?? (primary ? 1 : 0);
 
   // The small tiles, two to a row; an odd last one spans the row.
@@ -1683,6 +1701,38 @@ export function HomeScreen({
         </Tile>
       ),
     },
+    // Monday to Wednesday last week's recap, the rest of the week today's
+    // step rank, so the tiles stay two by two.
+    ...(!weeklyRecap
+      ? [
+          {
+            key: 'rank',
+            render: (wide: boolean) => (
+              <Tile
+                label="Step rank"
+                wide={wide}
+                onPress={() => onGoTab('stats')}
+                accessibilityLabel={
+                  stepRank ? `Step rank today, ${stepRank.rank} of ${stepRank.totalUsers}. Open stats` : 'Step rank. Open stats'
+                }
+              >
+                <TileValue
+                  value={stepRank ? `#${stepRank.rank.toLocaleString()}` : '—'}
+                  lines={
+                    stepRank
+                      ? [
+                          `of ${stepRank.totalUsers.toLocaleString()} on Hound today`,
+                          ...(rankMove ? [rankMove] : []),
+                          `${(snap?.stepsToday ?? 0).toLocaleString()} steps so far`,
+                        ]
+                      : ['Shows once your steps sync today']
+                  }
+                />
+              </Tile>
+            ),
+          },
+        ]
+      : []),
     ...(weeklyRecap
       ? [
           {
@@ -1769,7 +1819,9 @@ export function HomeScreen({
           .map((tile, row) => {
             const partner = smallTiles[row * 2 + 1];
             return (
-              <View key={tile.key} style={tileRow}>
+              // Keyed by both tiles, so a row that gains a partner is built
+              // fresh rather than resized.
+              <View key={`${tile.key}-${partner?.key ?? 'alone'}`} style={tileRow}>
                 {tile.render(!partner)}
                 {partner?.render(false)}
               </View>
