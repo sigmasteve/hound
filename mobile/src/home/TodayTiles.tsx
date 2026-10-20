@@ -71,8 +71,11 @@ export function Tile({
   );
 }
 
-// A tile's big number or word, and the lines under it.
-export function TileValue({ value, lines }: { value: string; lines: string[] }) {
+// A tile's big number or word, and the lines under it (a line can have
+// its own color, like the step rank's ▲ and ▼).
+export type TileLine = string | { text: string; color?: string };
+
+export function TileValue({ value, lines }: { value: string; lines: TileLine[] }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
@@ -80,11 +83,17 @@ export function TileValue({ value, lines }: { value: string; lines: string[] }) 
       <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {value}
       </Text>
-      {lines.map((line, i) => (
-        <Text key={i} style={styles.line} numberOfLines={2}>
-          {line}
-        </Text>
-      ))}
+      {lines.map((line, i) =>
+        typeof line === 'string' ? (
+          <Text key={i} style={styles.line} numberOfLines={2}>
+            {line}
+          </Text>
+        ) : (
+          <Text key={i} style={[styles.line, line.color ? { color: line.color, fontFamily: font.headingSemibold } : null]} numberOfLines={1}>
+            {line.text}
+          </Text>
+        ),
+      )}
     </>
   );
 }

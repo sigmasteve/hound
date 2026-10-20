@@ -45,6 +45,23 @@ export function getMyDailyStepRank(): Promise<StepRank | null> {
   return callRank('my_daily_step_rank');
 }
 
+// Today's rank and yesterday's (0116_step_rank_yesterday.sql), for the
+// Step rank tile on Today. Before 0116 has run, today's rank alone.
+export interface StepRankChange extends StepRank {
+  yesterdayRank: number | null;
+}
+
+export async function getMyDailyStepRankChange(): Promise<StepRankChange | null> {
+  const client = requireClient();
+  const { data, error } = await client.rpc('my_daily_step_rank_change');
+  if (error) {
+    const today = await getMyDailyStepRank();
+    return today ? { ...today, yesterdayRank: null } : null;
+  }
+  const row = (data as { rank: number; total_users: number; yesterday_rank: number | null }[] | null)?.[0];
+  return row ? { rank: row.rank, totalUsers: row.total_users, yesterdayRank: row.yesterday_rank } : null;
+}
+
 export function getMyWeeklyStepRank(): Promise<StepRank | null> {
   return callRank('my_weekly_step_rank');
 }
