@@ -6,8 +6,10 @@ import { supabase } from '../lib/supabase';
 // What a creator can set a pot's entry to.
 export const POT_CHOICES = [10, 25, 50, 100];
 
-// Kinds that can have a pot (and never a global challenge).
-export const POT_KINDS = ['steps', 'tictacgo'];
+// Kinds that can have a pot (and never a global challenge). A Bingo's
+// pot needs the 'hound' card (0117_hound_bingo.sql), which every new one
+// gets.
+export const POT_KINDS = ['steps', 'tictacgo', 'bingo'];
 
 // What the admin's prize fields start at for a new global challenge.
 export const DEFAULT_GLOBAL_PRIZES: [number, number, number] = [100, 50, 25];

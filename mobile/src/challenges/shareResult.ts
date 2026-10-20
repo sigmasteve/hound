@@ -9,7 +9,8 @@ export type ResultOutcome =
   | { type: 'hunter'; caught: number; of: number }
   | { type: 'hunted'; caught: boolean }
   | { type: 'streak'; survived: boolean; days: number }
-  | { type: 'bingo'; filled: number; total: number; blackout: boolean }
+  // place: a hound card's BINGO place (houndBingo.ts), null without one.
+  | { type: 'bingo'; filled: number; total: number; blackout: boolean; place?: number | null }
   | { type: 'pool'; total: string; goalMet: boolean }
   | { type: 'tag'; goalMet: boolean }
   | { type: 'seventyfive'; longestStreak: number; days: number }
@@ -51,9 +52,10 @@ export function resultLine(challengeName: string, outcome: ResultOutcome, labels
         ? `I hit my goal every single day of ${challengeName}! 🔥`
         : `My streak lasted ${plural(outcome.days, 'day')} in ${challengeName}.`;
     case 'bingo':
-      return outcome.blackout
-        ? `I filled my whole card in ${challengeName} — blackout! 🏆`
-        : `I filled ${outcome.filled} of ${outcome.total} squares in ${challengeName}.`;
+      if (outcome.blackout) return `I filled my whole card in ${challengeName} — blackout! 🏆`;
+      if (outcome.place === 1) return `I got the first BINGO in ${challengeName}! 🏆`;
+      if (outcome.place) return `I got a BINGO in ${challengeName}, ${ordinal(outcome.place)} in! 🎉`;
+      return `I filled ${outcome.filled} of ${outcome.total} squares in ${challengeName}.`;
     case 'pool':
       return outcome.goalMet
         ? `We hit our group target in ${challengeName} — ${outcome.total} together! 🎉`
@@ -94,7 +96,7 @@ export function isWin(outcome: ResultOutcome): boolean {
     case 'streak':
       return outcome.survived;
     case 'bingo':
-      return outcome.blackout;
+      return outcome.blackout || outcome.place === 1;
     case 'pool':
     case 'tag':
       return outcome.goalMet;

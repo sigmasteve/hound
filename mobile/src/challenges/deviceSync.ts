@@ -1,7 +1,11 @@
 import { supabaseChallengesProvider } from './supabaseChallenges';
 import { usesDeviceSteps, usesWorkoutDistance } from './scoring';
 import { classifyWorkout, DEFAULT_BINGO_CARD_TYPE, type BingoCategory } from './bingo';
-import { recordBingoProgress } from './bingoApi';
+import { getMyBingoCard, listBingoProgress, moveStepMark, recordBingoProgress } from './bingoApi';
+import { isHoundCard, planBingoMarks, type BingoDay } from './houndBingo';
+import { goalProgress } from '../goals/goals';
+import { listGoals } from '../goals/goalsApi';
+import { signedInUserId } from '../lib/supabase';
 import { recordSeventyFiveWorkouts } from './seventyFiveApi';
 import { getChallengeDays, localDayKey as dateKey, workoutCounts } from './challengeDays';
 import type { Challenge } from './types';
@@ -159,6 +163,7 @@ export async function syncChallengeProgressFromDevice(challenge: Challenge, heal
 // challenge sync loop).
 export async function syncBingoProgressFromDevice(challenge: Challenge, health: HealthProvider): Promise<void> {
   if (challenge.kind !== 'bingo') return;
+  if (isHoundCard(challenge)) return syncHoundBingo(challenge, health);
   try {
     const cardType = challenge.bingoCardType ?? DEFAULT_BINGO_CARD_TYPE;
     const days = await getChallengeDays(challenge);
@@ -196,6 +201,58 @@ export async function syncBingoProgressFromDevice(challenge: Challenge, health: 
   } catch {
     // Best-effort, same reasoning as syncChallengeProgressFromDevice's own
     // catch above.
+  }
+}
+
+// A hound Bingo card (houndBingo.ts): works out what the challenge's
+// days and workouts have earned (planBingoMarks) and writes the new
+// marks. Re-running it is harmless: what's already marked stays put.
+async function syncHoundBingo(challenge: Challenge, health: HealthProvider): Promise<void> {
+  try {
+    const days = await getChallengeDays(challenge);
+    const todayKey = dateKey(new Date());
+    if (todayKey < days.firstDay) return;
+    const userId = await signedInUserId();
+    const [y, m, d] = days.firstDay.split('-').map(Number);
+    const [card, rows, daily, workouts, goals] = await Promise.all([
+      getMyBingoCard(challenge.id),
+      listBingoProgress(challenge.id),
+      health.getDailyStepsSince(new Date(y, m - 1, d)),
+      health.getRecentWorkouts(200),
+      listGoals(userId).catch(() => []),
+    ]);
+    const inRange = workouts.filter((w) => workoutCounts(days, w.when));
+    const dailyGoals = goals.filter((g) => g.period === 'day');
+    const bingoDays: BingoDay[] = daily
+      .filter((s) => s.date >= days.firstDay && s.date <= days.lastDay && s.date <= todayKey)
+      .map((s) => {
+        const [sy, sm, sd] = s.date.split('-').map(Number);
+        // The end of that day, or now for today.
+        const now = s.date === todayKey ? new Date() : new Date(sy, sm - 1, sd, 23, 59, 59);
+        const inputs = { stepsToday: s.steps, distanceTodayMi: s.distanceMi, weekDays: [], workouts: inRange, now };
+        return {
+          day: s.date,
+          steps: s.steps,
+          distanceMi: s.distanceMi,
+          allGoalsDone: dailyGoals.length ? dailyGoals.every((g) => goalProgress(g, inputs).done) : null,
+        };
+      });
+    const existing = rows
+      .filter((r) => r.userId === userId)
+      .map((r) => ({ square: r.category, key: r.workoutKey, source: r.source }));
+    const { marks, moves } = planBingoMarks(card, existing, bingoDays, inRange);
+    // One at a time, in order: each mark can change what the next one
+    // should be, and the server notes the first BINGO as it sees it.
+    for (const mv of moves) {
+      await moveStepMark(challenge.id, mv.key, mv.to, mv.name).catch(() => {});
+    }
+    for (const mk of marks) {
+      await recordBingoProgress(challenge.id, mk.square, 'auto', { id: mk.key, name: mk.name, when: mk.when, day: mk.day }).catch(
+        () => {},
+      );
+    }
+  } catch {
+    // Best-effort, same as the syncs above.
   }
 }
 

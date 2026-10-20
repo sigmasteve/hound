@@ -89,7 +89,8 @@ import {
   DEFAULT_BINGO_CARD_TYPE,
   type BingoCategory,
 } from '../challenges/bingo';
-import { listBingoProgress } from '../challenges/bingoApi';
+import { listBingoCards, listBingoProgress } from '../challenges/bingoApi';
+import { isHoundCard, lineStatus, SQUARES, type BingoCardRow } from '../challenges/houndBingo';
 import { formatTimeLeft, turnDeadline } from '../challenges/tictacgo';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { settleChallengeScore } from '../challenges/scoreApi';
@@ -318,6 +319,7 @@ function heroCopy(
   streakStatuses: Map<string, StreakStatus> = new Map(),
   bingoFilled: Set<BingoCategory> = new Set(),
   tttGame: TicTacGoGame | null = null,
+  bingoCard: BingoCardRow | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -329,6 +331,20 @@ function heroCopy(
   // rather than falling through to the generic rank/"no one's logged
   // anything" framing below, which would otherwise never change no
   // matter how many squares get filled.
+  if (challenge.kind === 'bingo' && bingoCard) {
+    const marked = new Set([...bingoFilled].filter((s) => bingoCard.squares.includes(s as never)));
+    const { away } = lineStatus(bingoCard.squares, marked);
+    return {
+      eyebrow,
+      headline: bingoCard.blackoutAt
+        ? `Blackout! Every square on your card in ${challenge.name}.`
+        : bingoCard.bingoAt
+          ? `BINGO in ${challenge.name}! Keep going for the full card.`
+          : away === 1
+            ? `One square from BINGO in ${challenge.name}.`
+            : `You’re ${away} squares from BINGO in ${challenge.name}.`,
+    };
+  }
   if (challenge.kind === 'bingo') {
     return {
       eyebrow,
@@ -852,6 +868,8 @@ export function HomeScreen({
   // group's (that full leaderboard lives on the detail screen) — Home
   // only ever needs "your own card" for its hero copy and mini preview.
   const [primaryBingoFilled, setPrimaryBingoFilled] = useState<Set<BingoCategory>>(new Set());
+  // The viewer's dealt card, when `primary` is a hound Bingo.
+  const [primaryBingoCard, setPrimaryBingoCard] = useState<BingoCardRow | null>(null);
   // Only populated when `primary` is a Tic-Tac-Go game.
   const [primaryTttGame, setPrimaryTttGame] = useState<TicTacGoGame | null>(null);
 
@@ -1415,8 +1433,20 @@ export function HomeScreen({
           .catch(() => {
             if (!cancelled) setPrimaryBingoFilled(new Set());
           });
+        if (isHoundCard(primaryResult.challenge)) {
+          listBingoCards(primaryResult.challenge.id)
+            .then((cards) => {
+              if (!cancelled) setPrimaryBingoCard(cards.find((c) => c.userId === myId) ?? null);
+            })
+            .catch(() => {
+              if (!cancelled) setPrimaryBingoCard(null);
+            });
+        } else {
+          setPrimaryBingoCard(null);
+        }
       } else {
         setPrimaryBingoFilled(new Set());
+        setPrimaryBingoCard(null);
       }
       if (primaryResult?.challenge.kind === 'tictacgo') {
         const tttId = primaryResult.challenge.id;
@@ -1556,6 +1586,7 @@ export function HomeScreen({
         primaryStreakStatuses,
         primaryBingoFilled,
         primaryTttGame,
+        primaryBingoCard,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -2021,7 +2052,13 @@ export function HomeScreen({
             ) : primary.challenge.kind === 'hunt' ? (
               <LiveMultiHuntCard primary={primary} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'bingo' ? (
-              <BingoCardPreview primary={primary} filled={primaryBingoFilled} onOpen={sheetOpenPrimary} styles={styles} />
+              <BingoCardPreview
+                primary={primary}
+                filled={primaryBingoFilled}
+                card={primaryBingoCard}
+                onOpen={sheetOpenPrimary}
+                styles={styles}
+              />
             ) : primary.challenge.kind === 'tictacgo' ? (
               <TicTacGoPreview primary={primary} game={primaryTttGame} onOpen={sheetOpenPrimary} styles={styles} />
             ) : (
@@ -2501,16 +2538,59 @@ function LiveLeaderboardCard({
 function BingoCardPreview({
   primary,
   filled,
+  card,
   onOpen,
   styles,
 }: {
   primary: PrimaryChallenge;
   filled: Set<BingoCategory>;
+  // A hound card (houndBingo.ts): drawn as its own small grid instead.
+  card: BingoCardRow | null;
   onOpen: () => void;
   styles: HomeStyles;
 }) {
   const { challenge, board } = primary;
   const daysLeft = Math.max(0, Math.ceil((new Date(challenge.endsAt).getTime() - Date.now()) / 86_400_000));
+  if (card) {
+    const size = Math.round(Math.sqrt(card.squares.length));
+    const { done } = lineStatus(card.squares, filled);
+    const inLine = new Set(done.flat());
+    const count = card.squares.filter((s) => s !== 'free' && filled.has(s)).length;
+    return (
+      <Card style={styles.raceCard} elevated={false}>
+        <View style={styles.raceHeader}>
+          <TrophyIcon size={15} color={color.accent} />
+          <Text style={styles.raceTitle}>{challenge.name}</Text>
+          <Text style={styles.raceMeta}>
+            {board.length} {board.length === 1 ? 'person' : 'people'} · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+          </Text>
+        </View>
+        <View style={{ gap: 4 }}>
+          {Array.from({ length: size }, (_, r) => (
+            <View key={r} style={{ flexDirection: 'row', gap: 4 }}>
+              {card.squares.slice(r * size, r * size + size).map((cell, c) => {
+                const i = r * size + c;
+                const on = cell === 'free' || filled.has(cell);
+                return (
+                  <View
+                    key={i}
+                    style={[styles.houndMiniCell, on && styles.houndMiniOn, inLine.has(i) && styles.houndMiniLine]}
+                  >
+                    <Text style={styles.houndMiniEmoji}>{cell === 'free' ? '★' : SQUARES[cell].emoji}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+        <Text style={styles.tileSub}>
+          {card.bingoAt ? 'BINGO! ' : ''}
+          {count} of {card.squares.filter((s) => s !== 'free').length} squares.
+        </Text>
+        <Button label="Your card" variant="ghost" small onPress={onOpen} />
+      </Card>
+    );
+  }
   const bingoCategories = categoriesForCardType(challenge.bingoCardType ?? DEFAULT_BINGO_CARD_TYPE);
 
   return (
@@ -2722,6 +2802,19 @@ function makeStyles(colors: Palette) {
     bingoMiniSquareFilled: { backgroundColor: withAlpha(colors.green, 0.15), borderColor: colors.green },
     bingoMiniLabel: { fontSize: 9.5, color: withAlpha(colors.text, 0.7), textAlign: 'center' },
     bingoMiniLabelFilled: { color: colors.text, fontFamily: font.heading },
+    houndMiniCell: {
+      flex: 1,
+      aspectRatio: 1,
+      borderRadius: 7,
+      backgroundColor: withAlpha(colors.text, 0.06),
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: 'transparent',
+    },
+    houndMiniOn: { backgroundColor: withAlpha(colors.accent, 0.35) },
+    houndMiniLine: { backgroundColor: withAlpha(colors.gold, 0.35), borderColor: colors.gold },
+    houndMiniEmoji: { fontSize: 13 },
     raceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
     raceRank: { width: 14, fontSize: 12, color: withAlpha(colors.text, 0.55) },
     raceName: { fontSize: 13.5, color: colors.text, width: 62 },

@@ -61,7 +61,16 @@ import {
   type BingoCategory,
   type BingoProgressRow,
 } from '../challenges/bingo';
-import { listBingoProgress, recordBingoProgress, unlinkBingoProgress } from '../challenges/bingoApi';
+import { listBingoCards, listBingoProgress, recordBingoProgress, unlinkBingoProgress } from '../challenges/bingoApi';
+import {
+  houndStandings,
+  isHoundCard,
+  squareLabel,
+  type BingoCardRow,
+  type HoundCardState,
+  type HoundSquare,
+} from '../challenges/houndBingo';
+import { HoundBingoCard } from '../components/HoundBingoCard';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { getChallengeSponsor, isGlobalChallenge, type ChallengeSponsor } from '../challenges/globalChallenges';
@@ -96,7 +105,7 @@ import {
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { buildRematchDraft, type RematchDraft } from '../challenges/rematch';
-import { resultLine, type ResultOutcome } from '../challenges/shareResult';
+import { ordinal, resultLine, type ResultOutcome } from '../challenges/shareResult';
 import { ShareSheet } from '../share/ShareSheet';
 import { friendEligible } from '../friends/eligibility';
 import { useAuth } from '../auth/AuthContext';
@@ -275,6 +284,8 @@ export function ChallengeDetailScreen({
   // into per-participant BingoCards below (see computeBingoCards), same
   // "fetch flat rows, compute fresh on every load" shape as Daily Streak.
   const [bingoRows, setBingoRows] = useState<BingoProgressRow[]>([]);
+  // A hound Bingo's dealt cards (0117_hound_bingo.sql), everyone's.
+  const [bingoCardRows, setBingoCardRows] = useState<BingoCardRow[]>([]);
 
   // 75 Day Challenge's own checklist rows and derived streak state —
   // empty/blank for any other kind. Same "fetch flat rows, compute fresh
@@ -308,10 +319,14 @@ export function ChallengeDetailScreen({
     setLoadingTodaysWorkouts(true);
     setLinkError(null);
     const todayKey = dateKey(new Date());
-    Promise.all([getChallengeDays(challenge), health.getRecentWorkouts(50)])
+    // A hound card takes a workout from any day of the challenge.
+    const anyDay = isHoundCard(challenge);
+    Promise.all([getChallengeDays(challenge), health.getRecentWorkouts(anyDay ? 200 : 50)])
       .then(([days, workouts]) => {
         if (cancelled) return;
-        setTodaysWorkouts(workouts.filter((w) => dateKey(w.when) === todayKey && workoutCounts(days, w.when)));
+        setTodaysWorkouts(
+          workouts.filter((w) => (anyDay || dateKey(w.when) === todayKey) && workoutCounts(days, w.when)),
+        );
       })
       .catch(() => {
         if (!cancelled) setTodaysWorkouts([]);
@@ -591,6 +606,7 @@ export function ChallengeDetailScreen({
       const days = needsStreak || needsSeventyFive ? await getChallengeDays(c) : null;
       setStreakStatuses(needsStreak && days ? computeStreakStatus(c, joinDates, dailyRows, days) : new Map());
       setBingoRows(bingoRowsResult);
+      setBingoCardRows(isHoundCard(c) ? await listBingoCards(challengeId).catch(() => []) : []);
       setTttGame(tttGameResult);
       setSeventyFiveCheckins(seventyFiveCheckinsResult);
       setSeventyFiveStatuses(
@@ -968,6 +984,18 @@ export function ChallengeDetailScreen({
   const bingoCards: Map<string, BingoCard> = challenge.kind === 'bingo' ? computeBingoCards(participants, bingoRows) : new Map();
   const bingoBoardRows = Array.from(bingoCards.values()).sort((a, b) => b.squaresFilled - a.squaresFilled);
   const myBingoCard = user?.id ? bingoCards.get(user.id) : undefined;
+  // A hound card's standings instead: BINGOs first, in the order they
+  // came in, then fewest squares away.
+  const isHound = isHoundCard(challenge);
+  const houndBoard: HoundCardState[] = isHound ? houndStandings(bingoCardRows, bingoRows) : [];
+  const myHound = houndBoard.find((h) => h.userId === user?.id);
+  const personFor = (userId: string) => participants.find((p) => p.userId === userId);
+  const houndAwayLine = (h: HoundCardState) =>
+    h.blackout
+      ? `Blackout · ${h.squaresMarked} squares`
+      : h.place
+        ? `${h.squaresMarked} squares`
+        : `${h.lines.away} away · ${h.squaresMarked} squares`;
 
   // 75 Day Challenge isn't steps/distance-ranked either (and isn't
   // ranked at all — personal accountability, not head-to-head) — its own
@@ -1000,7 +1028,12 @@ export function ChallengeDetailScreen({
     challenge.kind === 'tictacgo'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
-        ? { standings: bingoBoardRows.map((r) => ({ userId: r.userId, name: r.name, value: r.squaresFilled })), unit: 'squares' }
+        ? isHound
+          ? {
+              standings: houndBoard.map((h) => ({ userId: h.userId, name: personFor(h.userId)?.name ?? 'Someone', value: h.squaresMarked })),
+              unit: 'squares',
+            }
+          : { standings: bingoBoardRows.map((r) => ({ userId: r.userId, name: r.name, value: r.squaresFilled })), unit: 'squares' }
         : challenge.kind === 'seventyfive'
           ? {
               standings: seventyFiveBoard.map((r) => ({ userId: r.userId, name: r.name, value: r.status?.currentStreak ?? 0 })),
@@ -1136,6 +1169,17 @@ export function ChallengeDetailScreen({
         return { type: 'streak', survived: st.eliminatedOnDay === null, days: st.streakDays };
       }
       case 'bingo': {
+        if (isHound) {
+          const h = houndBoard.find((x) => x.userId === me);
+          if (!h) return null;
+          return {
+            type: 'bingo',
+            filled: h.squaresMarked,
+            total: h.card.filter((c) => c !== 'free').length,
+            blackout: h.blackout,
+            place: h.place,
+          };
+        }
         const card = bingoCards.get(me);
         if (!card) return null;
         return { type: 'bingo', filled: card.squaresFilled, total: BINGO_SQUARE_COUNT, blackout: card.blackout };
@@ -1535,7 +1579,30 @@ export function ChallengeDetailScreen({
             />
           )}
 
-          {challenge.kind === 'bingo' && (
+          {isHound && myHound && (
+            <HoundBingoCard
+              me={myHound}
+              entries={new Map(bingoRows.filter((r) => r.userId === user?.id).map((r) => [r.category, r]))}
+              selected={linkingCategory as HoundSquare | null}
+              onSelect={setLinkingCategory}
+              workouts={loadingTodaysWorkouts ? null : todaysWorkouts}
+              usedBy={
+                new Map(
+                  bingoRows
+                    .filter((r) => r.userId === user?.id && r.workoutKey)
+                    .map((r) => [r.workoutKey as string, r.category]),
+                )
+              }
+              linkingId={linkingWorkoutId}
+              removing={removingLink}
+              error={linkError}
+              onLink={linkWorkout}
+              onUnlink={removeLink}
+              formatWhen={formatWorkoutDayTime}
+            />
+          )}
+
+          {challenge.kind === 'bingo' && !isHound && (
             <Card style={{ gap: 12 }} elevated={false}>
               <Text style={text.h4}>Your {BINGO_CARD_TYPE_NAME[bingoCardType]} card</Text>
               <Text style={styles.footNote}>
@@ -1568,7 +1635,7 @@ export function ChallengeDetailScreen({
               {linkingCategory && (
                 <View style={styles.bingoLinkPanel}>
                   <View style={styles.bingoLinkHeader}>
-                    <Text style={styles.bingoLinkTitle}>Link a workout to {BINGO_CATEGORY_LABEL[linkingCategory]}</Text>
+                    <Text style={styles.bingoLinkTitle}>Link a workout to {squareLabel(linkingCategory)}</Text>
                     <Pressable onPress={() => setLinkingCategory(null)} hitSlop={8}>
                       <XIcon size={16} color={withAlpha(colors.text, 0.5)} />
                     </Pressable>
@@ -1765,6 +1832,15 @@ export function ChallengeDetailScreen({
                             }
                             return `${survivors.length} people made it the whole way without missing a day.`;
                           })()
+                        : isHound
+                          ? (() => {
+                              const top = houndBoard[0];
+                              const label = top?.userId === user?.id ? 'You' : (personFor(top?.userId ?? '')?.name ?? 'Someone');
+                              if (!top || top.squaresMarked === 0) return 'Nobody marked a square before time ran out.';
+                              return top.place
+                                ? `${label} got the first BINGO!`
+                                : `No BINGO this time. ${label} got closest, ${top.lines.away} away.`;
+                            })()
                         : challenge.kind === 'bingo'
                           ? (() => {
                               const top = bingoBoardRows[0];
@@ -1786,7 +1862,41 @@ export function ChallengeDetailScreen({
                 </Text>
               )}
               {hunterEffectiveNote && <Text style={styles.footNote}>{hunterEffectiveNote}</Text>}
-              {challenge.kind === 'bingo'
+              {isHound
+                ? houndBoard.map((h, i) => {
+                    const person = personFor(h.userId);
+                    return (
+                      <Pressable
+                        key={h.userId}
+                        style={styles.boardItem}
+                        onPress={() => togglePerson(h.userId)}
+                        disabled={!canInteractWith(h.userId)}
+                      >
+                        <View style={styles.boardRowInner}>
+                          <Text style={styles.boardRank}>{h.place ?? i + 1}</Text>
+                          <Avatar
+                            initials={person?.initials ?? '?'}
+                            tint={h.userId === user?.id ? TINT_A : TINT_N}
+                            size={30}
+                            fontSize={11}
+                            frameId={person?.frameId ?? null}
+                            backgroundId={person?.backgroundId ?? null}
+                            iconId={person?.iconId ?? null}
+                          />
+                          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+                            <Text style={styles.boardName}>{h.userId === user?.id ? 'You' : (person?.name ?? 'Someone')}</Text>
+                            {h.place !== null && <Tag label={h.place <= 3 ? `${ordinal(h.place)} BINGO` : 'BINGO'} variant="accent" />}
+                            {renderFriendChip(h.userId)}
+                          </View>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={styles.footNote}>{houndAwayLine(h)}</Text>
+                          </View>
+                        </View>
+                        {renderPersonActions(h.userId, person?.name ?? 'Someone', false, 16 + 12 + 30 + 12)}
+                      </Pressable>
+                    );
+                  })
+                : challenge.kind === 'bingo'
                 ? bingoBoardRows.map((card, i) => (
                     <Pressable
                       key={card.userId}
@@ -2172,6 +2282,11 @@ function formatDayKey(day: string): string {
 
 function formatWorkoutTime(d: Date): string {
   return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+// "Mon 6:15 PM", for a workout from any day of the challenge.
+function formatWorkoutDayTime(d: Date): string {
+  return `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${formatWorkoutTime(d)}`;
 }
 
 // One row of the "Today's checklist" card — a plain checkbox for the 4
