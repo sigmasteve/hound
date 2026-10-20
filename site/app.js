@@ -106,7 +106,7 @@
       '<p class="section-sub" id="signed-in-note">' +
       escapeHtml(email) +
       ' is ready to go — open the Hound app once it’s installed and log in with the same email.</p>' +
-      '<a class="btn btn-secondary" href="#tester">See how to become a tester ↓</a>';
+      '<a class="btn btn-primary" href="/get">Get the beta</a>';
     redeemPendingFriendCode();
   }
 
