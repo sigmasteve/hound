@@ -146,7 +146,7 @@ import { PostBountyModal } from '../components/PostBountyModal';
 import { useBounties } from '../bounties/useBounties';
 import { cancelBounty, canPostToday, postBounty, type Bounty } from '../bounties/bountiesApi';
 import { GoalSetupCard } from '../components/GoalSetupCard';
-import { GoalsTile, HoundTile, SheetLink, Tile, TileSheet, TileValue, tileGrid } from '../home/TodayTiles';
+import { GoalsTile, HoundTile, SheetLink, Tile, TileSheet, TileValue, tileGrid, tileRow } from '../home/TodayTiles';
 import { useGoalsTileStyle } from '../home/todayPrefs';
 import { useGoals } from '../goals/GoalsContext';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
@@ -1649,7 +1649,7 @@ export function HomeScreen({
         >
           <TileValue
             value={needsLines.length > 0 ? `${needsLines.length} waiting` : 'All caught up'}
-            lines={needsLines.slice(0, 3)}
+            lines={needsLines.length > 0 ? needsLines.slice(0, 3) : ['Nothing waiting on you']}
           />
         </Tile>
       ),
@@ -1670,7 +1670,10 @@ export function HomeScreen({
               value={`${activeCount} running`}
               lines={
                 primary
-                  ? [`📌 ${primary.challenge.name}`, heroHeadline]
+                  ? // The standing usually names the challenge already.
+                    heroHeadline.includes(primary.challenge.name)
+                    ? [`📌 ${heroHeadline}`]
+                    : [`📌 ${primary.challenge.name}`, heroHeadline]
                   : otherActive.slice(0, 2).map((c) => c.name)
               }
             />
@@ -1759,9 +1762,19 @@ export function HomeScreen({
             onSetGoals={() => setSetupOpen(true)}
           />
         )}
-        {smallTiles.map((tile, i) => (
-          <React.Fragment key={tile.key}>{tile.render(smallTiles.length % 2 === 1 && i === smallTiles.length - 1)}</React.Fragment>
-        ))}
+        {/* Two to a row, in rows of their own: a wrapping row let a tile
+            with long text take the whole width on some phones. */}
+        {smallTiles
+          .filter((_, i) => i % 2 === 0)
+          .map((tile, row) => {
+            const partner = smallTiles[row * 2 + 1];
+            return (
+              <View key={tile.key} style={tileRow}>
+                {tile.render(!partner)}
+                {partner?.render(false)}
+              </View>
+            );
+          })}
       </View>
 
       {offerPush && user?.id && onboarding && (onboarding.hasFriend || onboarding.joinedChallenge) && (
