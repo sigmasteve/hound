@@ -372,8 +372,11 @@ function makeStyles(colors: Palette) {
       gap: 3,
       overflow: 'hidden',
     },
-    half: { flex: 1, minWidth: 0, minHeight: 150 },
-    wide: { flexGrow: 1 },
+    // Every flex value spelled out in both: a tile that switches from wide
+    // to half (when Week in review loads after the rest) otherwise kept
+    // the wide one's sizing and stayed too wide.
+    half: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, minHeight: 150 },
+    wide: { flexGrow: 1, flexShrink: 1, flexBasis: 'auto', minWidth: 0, minHeight: 0 },
     labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     label: {
       flexShrink: 1,

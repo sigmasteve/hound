@@ -1769,7 +1769,9 @@ export function HomeScreen({
           .map((tile, row) => {
             const partner = smallTiles[row * 2 + 1];
             return (
-              <View key={tile.key} style={tileRow}>
+              // Keyed by both tiles, so a row that gains a partner is built
+              // fresh rather than resized.
+              <View key={`${tile.key}-${partner?.key ?? 'alone'}`} style={tileRow}>
                 {tile.render(!partner)}
                 {partner?.render(false)}
               </View>
