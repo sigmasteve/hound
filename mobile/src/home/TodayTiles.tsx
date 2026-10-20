@@ -77,7 +77,7 @@ export function TileValue({ value, lines }: { value: string; lines: string[] }) 
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <>
-      <Text style={styles.value} numberOfLines={1}>
+      <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
         {value}
       </Text>
       {lines.map((line, i) => (
@@ -360,7 +360,8 @@ export function SheetLink({ label, onPress }: { label: string; onPress: () => vo
   );
 }
 
-export const tileGrid: ViewStyle = { flexDirection: 'row', flexWrap: 'wrap', gap: 10 };
+export const tileGrid: ViewStyle = { gap: 10 };
+export const tileRow: ViewStyle = { flexDirection: 'row', gap: 10 };
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
@@ -371,8 +372,8 @@ function makeStyles(colors: Palette) {
       gap: 3,
       overflow: 'hidden',
     },
-    half: { flexBasis: '47%', flexGrow: 1, minHeight: 150 },
-    wide: { flexBasis: '100%' },
+    half: { flex: 1, minWidth: 0, minHeight: 150 },
+    wide: { flexGrow: 1 },
     labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     label: {
       flexShrink: 1,
