@@ -29,7 +29,7 @@ export type DistanceGoalUnit = 'miles' | 'steps';
 // rather than in bingo.ts itself so that file can import it back from
 // types.ts (which every challenges/ file already does) without the two
 // importing each other.
-export type BingoCardType = 'variety' | 'strength' | 'sports';
+export type BingoCardType = 'variety' | 'strength' | 'sports' | 'hound';
 
 export interface Challenge {
   id: string;

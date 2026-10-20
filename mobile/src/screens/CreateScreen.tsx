@@ -34,7 +34,8 @@ import { friendEligible } from '../friends/eligibility';
 import { getOrganization } from '../organizations/supabaseOrganizations';
 import type { Organization } from '../organizations/types';
 import { BOT_FITNESS_LEVELS, BOT_PRESETS, botInitials } from '../challenges/botSimulation';
-import { BINGO_CARD_TYPE_DESC, BINGO_CARD_TYPE_NAME, DEFAULT_BINGO_CARD_TYPE, type BingoCardType } from '../challenges/bingo';
+import type { BingoCardType } from '../challenges/bingo';
+import { CARD_COLUMNS, cardSizeForDays } from '../challenges/houndBingo';
 import {
   DEFAULT_TICTACGO_WINDOW_HOURS,
   drawBoard,
@@ -101,7 +102,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   tag: 'Catch someone ahead of you, or stay It.',
   distance: 'The group chases one shared target.',
   streak: 'Hit your goal every day.',
-  bingo: 'Fill a card with different workouts.',
+  bingo: 'Real bingo with steps and workouts; first line wins.',
   seventyfive: 'A daily checklist for 75 days.',
 };
 
@@ -141,7 +142,8 @@ export function CreateScreen({
   const [draftName, setDraftName] = useState(rematch?.name ?? '');
   const [headStart, setHeadStart] = useState(rematch?.headStartDays ?? 2);
   const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>(rematch?.distanceGoalUnit ?? 'miles');
-  const [bingoCardType, setBingoCardType] = useState<BingoCardType>(rematch?.bingoCardType ?? DEFAULT_BINGO_CARD_TYPE);
+  // Every new Bingo plays like real bingo (0117_hound_bingo.sql).
+  const bingoCardType: BingoCardType = 'hound';
   const [tictacgoDifficulty, setTictacgoDifficulty] = useState<TicTacGoDifficulty>('easy');
   const [tictacgoBoard, setTictacgoBoard] = useState<string[]>(() => drawBoard('easy'));
   const [tictacgoWindow, setTictacgoWindow] = useState<number>(DEFAULT_TICTACGO_WINDOW_HOURS);
@@ -343,7 +345,6 @@ export function CreateScreen({
     if (t.distanceGoalUnit) setDistanceGoalUnit(t.distanceGoalUnit);
     if (t.distanceGoalMi) setDistanceGoalMi(t.distanceGoalMi);
     if (t.distanceGoalSteps) setDistanceGoalSteps(t.distanceGoalSteps);
-    if (t.bingoCardType) setBingoCardType(t.bingoCardType);
     setNameError(null);
     setStep(2);
   };
@@ -762,10 +763,18 @@ export function CreateScreen({
               <Text style={styles.footNote}>
                 {potChoice === 'none'
                   ? `Add a pot and players can each put in ${currencyName} they’ve earned. ${
-                      draftType === 'tictacgo' ? 'The winner takes it.' : 'Whoever in the pot has the most steps takes it.'
+                      draftType === 'tictacgo'
+                        ? 'The winner takes it.'
+                        : draftType === 'bingo'
+                          ? 'The first BINGO in the pot takes it.'
+                          : 'Whoever in the pot has the most steps takes it.'
                     }`
                   : `Joining the pot is optional: ${potChoice} ${currencyName} each, until a day after it starts. ${
-                      draftType === 'tictacgo' ? 'The winner takes it; a draw gives everyone theirs back.' : 'Most steps in the pot takes it; a tie splits it.'
+                      draftType === 'tictacgo'
+                        ? 'The winner takes it; a draw gives everyone theirs back.'
+                        : draftType === 'bingo'
+                          ? 'The first BINGO in the pot takes it. With no BINGO, the most squares does.'
+                          : 'Most steps in the pot takes it; a tie splits it.'
                     }`}
               </Text>
             </View>
@@ -823,19 +832,14 @@ export function CreateScreen({
           {draftType === 'bingo' && (
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
-                <Text style={styles.huntBlockLabel}>Card type</Text>
-                <Text style={styles.huntBlockValue}>{BINGO_CARD_TYPE_NAME[bingoCardType]}</Text>
+                <Text style={styles.huntBlockLabel}>Card</Text>
+                <Text style={styles.huntBlockValue}>{bingoCardLabel(Number(length))}</Text>
               </View>
-              <SegmentedControl
-                options={[
-                  { value: 'variety', label: 'Variety' },
-                  { value: 'strength', label: 'Strength' },
-                  { value: 'sports', label: 'Sports' },
-                ]}
-                value={bingoCardType}
-                onChange={setBingoCardType}
-              />
-              <Text style={styles.huntBlockNote}>{BINGO_CARD_TYPE_DESC[bingoCardType]}</Text>
+              <Text style={styles.huntBlockNote}>
+                Everyone gets the same squares, shuffled. Mark them by getting your steps in and working out. First to
+                finish a row, column or diagonal wins; 2nd and 3rd go to the next BINGOs. The card grows with the
+                challenge: 3×3 for a week, 4×4 up to 20 days, 5×5 after that.
+              </Text>
             </View>
           )}
 
@@ -982,7 +986,7 @@ export function CreateScreen({
                     ? `${distanceGoalMi.toLocaleString()} mi`
                     : `${distanceGoalSteps.toLocaleString()} steps`,
                 ]);
-              if (draftType === 'bingo') rows.push(['Card', BINGO_CARD_TYPE_NAME[bingoCardType]]);
+              if (draftType === 'bingo') rows.push(['Card', bingoCardLabel(Number(length))]);
               if (canHavePrizes)
                 rows.push([
                   'Prizes',
@@ -1017,7 +1021,7 @@ export function CreateScreen({
               </View>
               <Text style={styles.footNote}>
                 {draftType === 'bingo'
-                  ? 'Most squares wins'
+                  ? 'BINGOs place in the order they come in, then most squares'
                   : draftType === 'streak'
                     ? 'Finishing the streak comes first, then most steps'
                     : draftType === 'distance' && distanceGoalUnit === 'miles'
@@ -1436,4 +1440,10 @@ function makeStyles(colors: Palette) {
     saveError: { fontSize: 12.5, color: colors.amber, textAlign: 'center' },
     footer: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 6 },
   });
+}
+
+// "5×5 · H-O-U-N-D", for a Bingo that runs this many days.
+function bingoCardLabel(days: number): string {
+  const size = cardSizeForDays(days || 7);
+  return size === 3 ? '3×3' : `${size}×${size} · ${CARD_COLUMNS[size].map((c) => c.letter).join('-')}`;
 }

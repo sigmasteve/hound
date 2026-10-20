@@ -156,7 +156,7 @@ export const CHALLENGE_TYPES: {
   { id: 'steps', name: 'Step Race', desc: 'Most steps during the challenge. Everyone against everyone.', tint: TINT_N, iconColor: '#e9e9ed' },
   { id: 'distance', name: 'Group Distance Target', desc: 'Add every mile the group covers toward one shared target.', tint: TINT_N, iconColor: '#e9e9ed' },
   { id: 'streak', name: 'Daily Streak', desc: 'Hit a daily goal every day. One miss and you are out.', tint: TINT_N, iconColor: '#e9e9ed' },
-  { id: 'bingo', name: 'Variety Bingo', desc: 'Log 9 different kinds of workouts to fill your own card. No two cards race each other — just you against the board.', tint: '#1f6b4f', iconColor: '#c9fbe8' },
+  { id: 'bingo', name: 'Bingo', desc: 'Real bingo on a card of steps, workouts and goals. First to finish a row, column or diagonal wins, and play goes on for the full card.', tint: '#1f6b4f', iconColor: '#c9fbe8' },
   { id: 'tictacgo', name: 'Tic-Tac-Go', desc: 'Two players, one board. Hit a square’s goal to claim it, then it’s their move. Three in a row wins.', tint: '#6b1f4f', iconColor: '#fbc9e8' },
   { id: 'seventyfive', name: '75 Day Challenge', desc: 'A daily checklist — two workouts (one outdoors), a diet, water, reading, and a progress photo. Miss a day and your streak resets, but you keep going the whole way.', tint: '#1f4f6b', iconColor: '#c9e8fb' },
 ];

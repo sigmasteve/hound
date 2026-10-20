@@ -1,6 +1,7 @@
 import { botToLeaderboardEntry, botToParticipant, daysElapsedFraction } from './botSimulation';
 import { buildBoard, headStartDaysLeft, isChallengeFinished, withHuntCatches } from './board';
 import { BINGO_SQUARE_COUNT } from './bingo';
+import { cardSizeForDays, isHoundCard } from './houndBingo';
 import { boardSortFor } from './scoring';
 import { challengeDayNumber } from './challengeDays';
 import { CHALLENGE_TYPES, type ChallengeCard } from '../data/sampleData';
@@ -137,8 +138,14 @@ export function toChallengeCard(
     // would need this list's own caller to fetch bingo_progress per
     // bingo challenge shown, which isn't worth it just for this compact
     // card — the real per-square state lives on the detail screen.
-    stat = String(BINGO_SQUARE_COUNT);
-    statLabel = 'categories to fill';
+    if (isHoundCard(challenge)) {
+      const size = cardSizeForDays(challenge.durationDays);
+      stat = `${size}×${size}`;
+      statLabel = 'bingo card';
+    } else {
+      stat = String(BINGO_SQUARE_COUNT);
+      statLabel = 'categories to fill';
+    }
   } else if (challenge.kind === 'tictacgo') {
     // Board state lives in tictacgo_games, not progress_snapshots — the
     // live board is on the detail screen.

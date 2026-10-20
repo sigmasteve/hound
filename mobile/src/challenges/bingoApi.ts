@@ -1,5 +1,6 @@
 import { supabase, signedInUserId } from '../lib/supabase';
-import { BINGO_CATEGORY_LABEL, type BingoCategory, type BingoFillSource, type BingoProgressRow } from './bingo';
+import type { BingoCategory, BingoFillSource, BingoProgressRow } from './bingo';
+import { squareLabel, type BingoCardRow, type CardCell } from './houndBingo';
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -99,7 +100,7 @@ export async function recordBingoProgress(
       const existingCategory = existing?.category as BingoCategory | undefined;
       throw new Error(
         existingCategory
-          ? `That workout is already linked to ${BINGO_CATEGORY_LABEL[existingCategory]} — remove it there first, or pick a different workout.`
+          ? `That workout is already linked to ${squareLabel(existingCategory)} — remove it there first, or pick a different workout.`
           : 'That workout is already linked to a different square.',
       );
     }
@@ -124,5 +125,44 @@ export async function unlinkBingoProgress(challengeId: string, category: BingoCa
     .eq('challenge_id', challengeId)
     .eq('user_id', userId)
     .eq('category', category);
+  if (error) throw new Error(error.message);
+}
+
+// ── Hound cards (0117_hound_bingo.sql) ──────────────────────────────
+
+// Everyone's dealt card in a hound Bingo challenge.
+export async function listBingoCards(challengeId: string): Promise<BingoCardRow[]> {
+  const client = requireClient();
+  const { data, error } = await client
+    .from('bingo_cards')
+    .select('user_id, squares, bingo_at, blackout_at')
+    .eq('challenge_id', challengeId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    userId: row.user_id as string,
+    squares: row.squares as CardCell[],
+    bingoAt: row.bingo_at as string | null,
+    blackoutAt: row.blackout_at as string | null,
+  }));
+}
+
+// The caller's card, dealt now if they somehow don't have one yet.
+export async function getMyBingoCard(challengeId: string): Promise<CardCell[]> {
+  const { data, error } = await requireClient().rpc('my_bingo_card', { p_challenge_id: challengeId });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as CardCell[];
+}
+
+// Moves a day's step mark up to a bigger step square, once the day's
+// steps reach it.
+export async function moveStepMark(challengeId: string, key: string, to: BingoCategory, name: string): Promise<void> {
+  const client = requireClient();
+  const userId = await requireUserId();
+  const { error } = await client
+    .from('bingo_progress')
+    .update({ category: to, workout_name: name })
+    .eq('challenge_id', challengeId)
+    .eq('user_id', userId)
+    .eq('workout_key', key);
   if (error) throw new Error(error.message);
 }

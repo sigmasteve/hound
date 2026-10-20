@@ -1,4 +1,5 @@
 import type { BingoCardType, Participant } from './types';
+import type { HoundSquare } from './houndBingo';
 
 // Deliberately pure, dependency-free (no supabase/RN imports) — same
 // discipline streak.ts and board.ts's isHuntConcluded/tagGroupGoalMet
@@ -14,12 +15,14 @@ export type { BingoCardType } from './types';
 export const DEFAULT_BINGO_CARD_TYPE: BingoCardType = 'variety';
 
 export const BINGO_CARD_TYPE_NAME: Record<BingoCardType, string> = {
+  hound: 'Bingo',
   variety: 'Variety',
   strength: 'Strength',
   sports: 'Sports',
 };
 
 export const BINGO_CARD_TYPE_DESC: Record<BingoCardType, string> = {
+  hound: 'Real bingo: a card of steps, workouts and goals. First to finish a row, column or diagonal wins.',
   variety: 'Log 9 different kinds of workouts — a run, a swim, a lift, whatever you can find.',
   strength: 'A push/pull/legs-style split — mostly filled by linking your own lifts by hand, since a workout’s own activity type never says which muscles it worked.',
   sports: 'A card of individual sports — basketball, tennis, soccer, and more.',
@@ -30,7 +33,7 @@ export const BINGO_CARD_TYPE_DESC: Record<BingoCardType, string> = {
 // unambiguous without also carrying its card type alongside it. Kept in
 // sync by hand with 0055_bingo_card_types.sql's own check constraint;
 // nothing generates one from the other.
-export type BingoCategory =
+export type ClassicBingoCategory =
   // Variety
   | 'run'
   | 'walk_hike'
@@ -60,6 +63,10 @@ export type BingoCategory =
   | 'hockey'
   | 'combat_sports';
 
+// Any square on any card: the three classic cards' categories above, or
+// a hound card's squares (houndBingo.ts).
+export type BingoCategory = ClassicBingoCategory | HoundSquare;
+
 // Every card has exactly 9 squares regardless of type — used wherever
 // something needs "the" count without caring which categories they are
 // (computeBingoCards' own blackout check, "X of 9 squares" copy).
@@ -68,20 +75,21 @@ export const BINGO_SQUARE_COUNT = 9;
 // The 9 squares for each card type, in a fixed order shared by every
 // participant (this isn't a randomized-per-player bingo card — the game
 // is "log this variety," not luck of the draw).
-export const BINGO_CARD_CATEGORIES: Record<BingoCardType, BingoCategory[]> = {
+export const BINGO_CARD_CATEGORIES: Record<Exclude<BingoCardType, 'hound'>, ClassicBingoCategory[]> = {
   variety: ['run', 'walk_hike', 'cycling', 'swim', 'strength', 'yoga_pilates', 'hiit_cardio', 'sports', 'other'],
   strength: ['push', 'pull', 'legs', 'core', 'upper', 'lower', 'full_body', 'cardio_strength', 'other'],
   sports: ['basketball', 'soccer', 'tennis', 'golf', 'baseball_softball', 'volleyball', 'hockey', 'combat_sports', 'other'],
 };
 
-export function categoriesForCardType(cardType: BingoCardType): BingoCategory[] {
-  return BINGO_CARD_CATEGORIES[cardType];
+// A hound card has no fixed list (each player's is dealt by the server).
+export function categoriesForCardType(cardType: BingoCardType): ClassicBingoCategory[] {
+  return cardType === 'hound' ? [] : BINGO_CARD_CATEGORIES[cardType];
 }
 
 // One flat map covering every category across every type — safe because
 // no two types share a slug (see BingoCategory's own comment), so there's
 // no ambiguity in looking up a label without also knowing the card type.
-export const BINGO_CATEGORY_LABEL: Record<BingoCategory, string> = {
+export const BINGO_CATEGORY_LABEL: Record<ClassicBingoCategory, string> = {
   run: 'Run',
   walk_hike: 'Walk / Hike',
   cycling: 'Cycling',
@@ -123,7 +131,7 @@ export const BINGO_CATEGORY_LABEL: Record<BingoCategory, string> = {
 // Traditional Strength Training" name with no muscle-group hint at all)
 // is the expected common case, not a rare miss — that card leans on
 // manual linking far more than auto-classification.
-const VARIETY_PATTERNS: [BingoCategory, RegExp][] = [
+const VARIETY_PATTERNS: [ClassicBingoCategory, RegExp][] = [
   ['swim', /swim/i],
   ['cycling', /cycl|\bbik(e|ing)\b|\bspin(ning)?\b/i],
   ['yoga_pilates', /yoga|pilates|\bbarre\b/i],
@@ -138,7 +146,7 @@ const VARIETY_PATTERNS: [BingoCategory, RegExp][] = [
 // all (only an activity type like "Functional Strength Training") — this
 // only ever catches a workout someone named descriptively themselves
 // ("Leg day," "Push workout"), which is the exception, not the rule.
-const STRENGTH_PATTERNS: [BingoCategory, RegExp][] = [
+const STRENGTH_PATTERNS: [ClassicBingoCategory, RegExp][] = [
   ['full_body', /full.?body|total.?body/i],
   ['cardio_strength', /\bhiit\b|crossfit|\bcircuit\b|\binterval/i],
   ['push', /\bpush\b|\bchest\b|\bbench\b|\btricep/i],
@@ -153,7 +161,7 @@ const STRENGTH_PATTERNS: [BingoCategory, RegExp][] = [
 // sports directly (workoutActivityName title-cases the enum key — a
 // basketball session really does come through as "Basketball") — this
 // mostly just needs to recognize the name it's already given, not guess.
-const SPORTS_PATTERNS: [BingoCategory, RegExp][] = [
+const SPORTS_PATTERNS: [ClassicBingoCategory, RegExp][] = [
   ['basketball', /basketball/i],
   ['soccer', /soccer/i],
   ['tennis', /tennis/i],
@@ -164,13 +172,16 @@ const SPORTS_PATTERNS: [BingoCategory, RegExp][] = [
   ['combat_sports', /boxing|kickbox|martial|wrestl/i],
 ];
 
-const CATEGORY_PATTERNS_BY_TYPE: Record<BingoCardType, [BingoCategory, RegExp][]> = {
+const CATEGORY_PATTERNS_BY_TYPE: Record<BingoCardType, [ClassicBingoCategory, RegExp][]> = {
   variety: VARIETY_PATTERNS,
   strength: STRENGTH_PATTERNS,
   sports: SPORTS_PATTERNS,
+  // Only goals.ts asks this for a hound card's type; it reads workouts
+  // the way Variety does.
+  hound: VARIETY_PATTERNS,
 };
 
-export function classifyWorkout(name: string, cardType: BingoCardType): BingoCategory {
+export function classifyWorkout(name: string, cardType: BingoCardType): ClassicBingoCategory {
   for (const [category, pattern] of CATEGORY_PATTERNS_BY_TYPE[cardType]) {
     if (pattern.test(name)) return category;
   }

@@ -74,9 +74,9 @@ export const GLOBAL_TEMPLATES: GlobalTemplate[] = [
     name: 'Workout Bingo Month',
     kind: 'bingo',
     durationDays: 30,
-    blurb: 'Fill a Variety Bingo card over a month.',
+    blurb: 'A 5×5 HOUND card over a month. First BINGO wins.',
     joinWindow: '7',
-    bingoCardType: 'variety',
+    bingoCardType: 'hound',
   },
   {
     id: 'seventy-five',
