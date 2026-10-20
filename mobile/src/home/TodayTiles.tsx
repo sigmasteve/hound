@@ -141,17 +141,24 @@ export function GoalsTile({
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const done = progress.filter((p) => p.done).length;
-  const shown = progress.slice(0, TILE_GOALS);
+  // The count is today's: only daily goals earn the goal day (streak,
+  // Bones, Bone Dig). Weekly goals pay their own bonus once the week's
+  // are all done, so they're marked "This week" and listed after.
+  const daily = progress.filter((p) => p.goal.period === 'day');
+  const weekly = progress.filter((p) => p.goal.period === 'week');
+  const counted = daily.length > 0 ? daily : weekly;
+  const done = counted.filter((p) => p.done).length;
+  const heading = daily.length > 0 ? 'Today' : 'This week';
+  const shown = [...daily, ...weekly].slice(0, TILE_GOALS);
   const more = progress.length - shown.length;
   const ringColors = [colors.accent400, colors.green, colors.amber];
 
   return (
     <Tile
-      label={`Today's goals · ${done} of ${progress.length}`}
+      label={`${heading} · ${done} of ${counted.length}`}
       wide
       onPress={onOpen}
-      accessibilityLabel={`Today's goals, ${done} of ${progress.length} done. Open`}
+      accessibilityLabel={`Goals. ${heading}, ${done} of ${counted.length} done. Open`}
       accessory={
         streak && streak.streak > 0 ? (
           <View style={styles.streak}>
@@ -164,7 +171,7 @@ export function GoalsTile({
 
       {tileStyle === 'rings' ? (
         <View style={styles.ringsRow}>
-          <Rings progress={shown} colors={ringColors} done={done} total={progress.length} track={withAlpha(colors.text, 0.1)} textColor={colors.text} />
+          <Rings progress={shown} colors={ringColors} done={done} total={counted.length} track={withAlpha(colors.text, 0.1)} textColor={colors.text} />
           <View style={styles.legend}>
             {shown.map((p, i) => (
               <View key={p.goal.id} style={styles.legendRow}>
@@ -175,7 +182,13 @@ export function GoalsTile({
                     {p.goal.metric === 'steps' ? ' steps' : p.goal.metric === 'workouts' ? ' workouts' : ''}
                   </Text>
                   <Text style={[styles.legendSub, p.done && { color: colors.green }]} numberOfLines={1}>
-                    {p.done ? '✓ Done' : progressLine(p)}
+                    {p.goal.period === 'week'
+                      ? p.done
+                        ? '✓ Done this week'
+                        : `This week · ${weekLeft(p)}`
+                      : p.done
+                        ? '✓ Done'
+                        : progressLine(p)}
                   </Text>
                 </View>
               </View>
@@ -194,8 +207,14 @@ export function GoalsTile({
                   <Text style={styles.trailName} numberOfLines={1}>
                     {goalTitle(p.goal)}
                   </Text>
-                  {p.done ? (
-                    <CheckCircleIcon size={15} color={colors.green} weight="fill" />
+                  {p.goal.period === 'week' ? (
+                    <View style={[styles.weekTag, { marginLeft: 'auto' }]}>
+                      <Text style={styles.weekTagText}>{p.done ? 'Done this week' : `This week · ${weekLeft(p)}`}</Text>
+                    </View>
+                  ) : p.done ? (
+                    <View style={{ marginLeft: 'auto' }}>
+                      <CheckCircleIcon size={15} color={colors.green} weight="fill" />
+                    </View>
                   ) : (
                     <Text style={styles.trailLeft} numberOfLines={1}>
                       {progressLine(p)}
@@ -221,6 +240,12 @@ export function GoalsTile({
       )}
     </Tile>
   );
+}
+
+// "6 days left", or "last day": the rest of a weekly goal's line shows
+// in its numbers and its trail.
+function weekLeft(p: GoalProgress): string {
+  return p.daysLeft === 1 ? 'last day' : `${p.daysLeft} days left`;
 }
 
 // One ring per goal, outermost first, with how many are done in the middle.
@@ -371,8 +396,10 @@ function makeStyles(colors: Palette) {
     legendValue: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text },
     legendSub: { fontSize: 12, color: withAlpha(colors.text, 0.6), marginTop: 1 },
     trailTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    trailName: { flex: 1, fontSize: 13, color: colors.text },
-    trailLeft: { fontSize: 12, color: withAlpha(colors.text, 0.6), maxWidth: '45%' },
+    trailName: { flexShrink: 1, fontSize: 13, color: colors.text },
+    weekTag: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, backgroundColor: withAlpha(colors.amber, 0.16) },
+    weekTagText: { fontFamily: font.headingSemibold, fontSize: 10.5, color: colors.amber },
+    trailLeft: { marginLeft: 'auto', fontSize: 12, color: withAlpha(colors.text, 0.6), maxWidth: '45%' },
     goalsFoot: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
     setGoals: { fontFamily: font.headingSemibold, fontSize: 12.5, color: colors.accentActive },
     dim: { backgroundColor: 'rgba(0,0,0,0.5)' },
