@@ -41,6 +41,8 @@ begin
 end;
 $$;
 
+revoke execute on function public.progress_snapshots_keep_steps() from public, anon, authenticated;
+
 -- Named to run after progress_snapshots_guard and _in_range (triggers
 -- run in name order).
 drop trigger if exists progress_snapshots_keep_steps on public.progress_snapshots;
@@ -59,6 +61,8 @@ begin
   return new;
 end;
 $$;
+
+revoke execute on function public.daily_step_totals_keep_steps() from public, anon, authenticated;
 
 drop trigger if exists daily_step_totals_keep_steps on public.daily_step_totals;
 create trigger daily_step_totals_keep_steps
