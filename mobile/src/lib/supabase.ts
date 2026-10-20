@@ -29,6 +29,9 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
         persistSession: true,
         detectSessionInUrl: false,
       },
+      // What this app can handle, so the server can keep older apps out
+      // of things they'd crash on (0118_bingo_join_guard.sql).
+      global: { headers: { 'x-hound-features': 'hound-bingo' } },
     })
   : null;
 
