@@ -23,6 +23,7 @@ export function JourneyMap({
   people = [],
   labels = 'few',
   compact = false,
+  focus,
 }: {
   course: Course;
   width: number;
@@ -34,6 +35,9 @@ export function JourneyMap({
   // A thumbnail (the Today tile): thinner line, smaller paw, only the
   // start and finish marked.
   compact?: boolean;
+  // Show this many miles across, centred on a point, instead of the
+  // whole course (a stop's postcard).
+  focus?: { at: LatLng; miles: number };
 }) {
   const { colors } = useTheme();
   const w = width;
@@ -52,12 +56,21 @@ export function JourneyMap({
     maxLat += padLat;
     minLng -= padLng;
     maxLng += padLng;
+    if (focus) {
+      const half = focus.miles / 2;
+      const dLat = half / 69;
+      const dLng = half / (69 * Math.cos((focus.at[0] * Math.PI) / 180));
+      minLat = focus.at[0] - dLat;
+      maxLat = focus.at[0] + dLat;
+      minLng = focus.at[1] - dLng;
+      maxLng = focus.at[1] + dLng;
+    }
     const kx = Math.cos((((minLat + maxLat) / 2) * Math.PI) / 180);
     const s = Math.min(w / ((maxLng - minLng) * kx), h / (maxLat - minLat));
     const ox = (w - (maxLng - minLng) * kx * s) / 2;
     const oy = (h - (maxLat - minLat) * s) / 2;
     return ([la, ln]: LatLng): [number, number] => [ox + (ln - minLng) * kx * s, oy + (maxLat - la) * s];
-  }, [course, w, h]);
+  }, [course, w, h, focus]);
 
   const d = (pts: LatLng[]) =>
     pts.map((p, i) => `${i ? 'L' : 'M'}${project(p)[0].toFixed(1)},${project(p)[1].toFixed(1)}`).join(' ');

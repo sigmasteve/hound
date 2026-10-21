@@ -31,8 +31,11 @@ import { useTheme } from '../theme/ThemeContext';
 import { color, font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
 import { syncJourney } from '../journeys/journeySync';
-import { getMyJourney, type MyJourney } from '../journeys/journeyApi';
+import { friendsOnCourse, getMyJourney, type MyJourney } from '../journeys/journeyApi';
 import { JourneyTile } from '../journeys/JourneyTile';
+import { StopReachedModal } from '../journeys/StopReachedModal';
+import { courseById, type Course, type CourseStop } from '../journeys/courses';
+import { markStopMomentShown, pendingStopMoment } from '../journeys/stopCelebrations';
 import type { HealthSnapshot, WorkoutSample } from '../health/types';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
@@ -1043,7 +1046,21 @@ export function HomeScreen({
     if (isSupabaseConfigured && user?.id) {
       syncJourney(user.id, health)
         .then(getMyJourney)
-        .then(setJourney)
+        .then(async (j) => {
+          setJourney(j);
+          // A stop you've reached since last time gets its moment
+          // (StopReachedModal), one of Today's pop-ups. Not marked shown
+          // until it actually gets the pop-up, so it keeps until then.
+          const course = j ? courseById(j.courseId) : undefined;
+          if (!j || !course) return;
+          const stop = await pendingStopMoment(j, course);
+          if (!stop || !takePopup()) return;
+          await markStopMomentShown(j.id, stop);
+          const friendsHere = await friendsOnCourse(course.id)
+            .then((fs) => fs.filter((f) => f.finishedAt || f.miles >= stop.mi).map((f) => f.name))
+            .catch(() => [] as string[]);
+          setStopMoment({ course, stop, friendsHere });
+        })
         .catch(() => {});
     }
   }, [health, user?.id, loadGlobalChallenges, pushToast, refreshGoalStreak]);
@@ -1161,6 +1178,8 @@ export function HomeScreen({
   const [kennel, setKennel] = useState<Kennel | null>(null);
   // Your Journey, for its tile under the two-by-two; null for none.
   const [journey, setJourney] = useState<MyJourney | null>(null);
+  // A stop you've just reached on it, for its pop-up.
+  const [stopMoment, setStopMoment] = useState<{ course: Course; stop: CourseStop; friendsHere: string[] } | null>(null);
   const reloadKennel = useCallback(() => {
     getKennel()
       .then(setKennel)
@@ -2218,6 +2237,16 @@ export function HomeScreen({
           setLevelUp(null);
           notifyBonesChanged();
         }}
+      />
+    )}
+    {stopMoment && !dailyBonus && unlocked.length === 0 && !levelUp && (
+      <StopReachedModal
+        course={stopMoment.course}
+        stop={stopMoment.stop}
+        celebrate
+        friendsHere={stopMoment.friendsHere}
+        cheerFor={user?.initials}
+        onClose={() => setStopMoment(null)}
       />
     )}
     {askUsername && <UsernamePrompt onClose={() => setAskUsername(false)} />}

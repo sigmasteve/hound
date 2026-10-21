@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeftIcon, ArrowsLeftRightIcon, CheckCircleIcon, CircleIcon } from 'phosphor-react-native';
@@ -11,7 +11,8 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { JourneyMap, type MapPerson } from '../journeys/JourneyMap';
-import { courseById, formatMiles, nextStop } from '../journeys/courses';
+import { courseById, formatMiles, nextStop, type CourseStop } from '../journeys/courses';
+import { StopReachedModal } from '../journeys/StopReachedModal';
 import {
   endJourney,
   friendsOnCourse,
@@ -36,6 +37,8 @@ export function JourneyScreen({ onBack, onPick }: { onBack: () => void; onPick: 
   const [journey, setJourney] = useState<MyJourney | null | undefined>(undefined);
   const [friends, setFriends] = useState<FriendOnCourse[]>([]);
   const [busy, setBusy] = useState(false);
+  // A stop you tapped in the list, to see its postcard again.
+  const [replay, setReplay] = useState<CourseStop | null>(null);
 
   const load = useCallback(() => {
     getMyJourney()
@@ -173,7 +176,14 @@ export function JourneyScreen({ onBack, onPick }: { onBack: () => void; onPick: 
           {course.stops.map((s, i) => {
             const passed = s.mi <= miles && (s.mi > 0 || miles > 0);
             return (
-              <View key={s.mi} style={[styles.row, i > 0 && styles.rowDivider]}>
+              <Pressable
+                key={s.mi}
+                style={[styles.row, i > 0 && styles.rowDivider]}
+                disabled={!passed || s.mi === 0}
+                onPress={() => setReplay(s)}
+                accessibilityRole="button"
+                accessibilityLabel={passed ? `${s.name}, mile ${formatMiles(s.mi)}, reached. See its postcard` : `${s.name}, mile ${formatMiles(s.mi)}`}
+              >
                 {passed ? (
                   <CheckCircleIcon size={18} color={colors.gold} weight="fill" />
                 ) : (
@@ -183,10 +193,20 @@ export function JourneyScreen({ onBack, onPick }: { onBack: () => void; onPick: 
                   {s.name}
                 </Text>
                 <Text style={styles.rowDetail}>mi {formatMiles(s.mi)}</Text>
-              </View>
+              </Pressable>
             );
           })}
         </Card>
+        {replay && (
+          <StopReachedModal
+            course={course}
+            stop={replay}
+            celebrate={false}
+            friendsHere={friends.filter((f) => f.finishedAt || f.miles >= replay.mi).map((f) => f.name)}
+            cheerFor={user?.initials}
+            onClose={() => setReplay(null)}
+          />
+        )}
 
         {!finished && (
           <>
