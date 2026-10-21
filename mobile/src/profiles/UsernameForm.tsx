@@ -47,10 +47,12 @@ function usernameIdeas(name: string): string[] {
 }
 
 // The form's state. save() resolves true once the username is saved and
-// turned on for leaderboards and challenges (chooseUsername).
-export function useUsernameForm() {
+// turned on for leaderboards and challenges (chooseUsername). `ideasFrom`
+// suggests from a name typed on the same screen instead of the profile's.
+export function useUsernameForm(ideasFrom?: string) {
   const { user, updateUser } = useAuth();
-  const ideas = useMemo(() => usernameIdeas(user?.name ?? ''), [user?.name]);
+  const ideaName = ideasFrom ?? user?.name ?? '';
+  const ideas = useMemo(() => usernameIdeas(ideaName), [ideaName]);
   const [value, setValueState] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);

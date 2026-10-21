@@ -31,6 +31,10 @@ export interface AuthUser {
   // issue #158 for the design this is the first piece of.
   organizationId?: string | null;
   orgRole?: 'member' | 'admin' | null;
+  // Sign-up didn't bring a name (Sign in with Apple only shares one the
+  // first time), so the profile is named after the email. Setup asks
+  // for one (SetupWizardScreen's NameStep).
+  needsName?: boolean;
 }
 
 export type AuthStatus = 'signedOut' | 'signedIn';
