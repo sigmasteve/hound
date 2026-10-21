@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { Fragment, useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -29,11 +29,14 @@ import { listAchievements, listEarnedAchievements } from '../achievements/achiev
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { useGoals } from '../goals/GoalsContext';
 import { HOUND_LEVELS } from '../goals/hound';
+import { BonesSheet } from '../components/BonesSheet';
+import type { HealthAuthStatus } from '../health/types';
 
 // The You tab: who you are and how you're doing (level, Hound Score,
-// Bones), then one row for each place that's about you. Everything here
-// used to be spread across Settings, the Data and Connect tabs, and icons
-// in the top bar.
+// Bones), then the places that are about you, in three groups: your
+// progress, where Bones go, and the app itself. Everything here used to
+// be spread across Settings, the Data and Connect tabs, and icons in the
+// top bar. Tapping Bones explains how to earn and spend them.
 export function YouScreen({
   onOpenGoals,
   onOpenStats,
@@ -65,8 +68,14 @@ export function YouScreen({
   const [houndScore, setHoundScore] = useState<HoundScore | null>(null);
   const [equipped, setEquipped] = useState<EquippedCosmetics | null>(null);
   const [achievementCounts, setAchievementCounts] = useState<{ earned: number; total: number } | null>(null);
+  const [healthStatus, setHealthStatus] = useState<HealthAuthStatus | null>(null);
+  const [bonesOpen, setBonesOpen] = useState(false);
   useFocusEffect(
     useCallback(() => {
+      health
+        .getAuthorizationStatus()
+        .then(setHealthStatus)
+        .catch(() => setHealthStatus(null));
       if (!isSupabaseConfigured || !user?.id) return;
       const userId = user.id;
       getMyHoundScore(userId)
@@ -78,32 +87,67 @@ export function YouScreen({
       Promise.all([listAchievements(), listEarnedAchievements(userId)])
         .then(([all, mine]) => setAchievementCounts({ earned: all.filter((a) => mine.has(a.id)).length, total: all.length }))
         .catch(() => setAchievementCounts(null));
-    }, [user?.id]),
+    }, [user?.id, health]),
   );
 
   const level = houndScore ? levelProgressForXp(houndScore.xpTotal) : null;
   const healthSource =
     health.platform === 'ios' ? 'Apple Health' : health.platform === 'android' ? 'Health Connect' : 'Sample data';
 
-  const rows: { label: string; Icon: React.ComponentType<any>; detail?: string | null; onPress: () => void }[] = [
+  // Connected or not is what people need from this row; on iPhone,
+  // HealthKit only says whether it was ever asked (iosProvider.ts).
+  const healthDetail =
+    health.platform !== 'ios' && health.platform !== 'android'
+      ? { text: healthSource, tone: 'plain' as const }
+      : healthStatus === 'authorized'
+        ? { text: `${healthSource} · Connected`, tone: 'good' as const }
+        : healthStatus === 'unavailable'
+          ? { text: `${healthSource} · Not available`, tone: 'warn' as const }
+          : healthStatus
+            ? { text: 'Not connected', tone: 'warn' as const }
+            : { text: healthSource, tone: 'plain' as const };
+
+  type Row = {
+    label: string;
+    Icon: React.ComponentType<any>;
+    detail?: string | null;
+    tone?: 'plain' | 'good' | 'warn';
+    onPress: () => void;
+  };
+  const groups: { title: string; rows: Row[] }[] = [
     {
-      label: 'Goals',
-      Icon: TargetIcon,
-      detail: `${goals.length} ${goals.length === 1 ? 'goal' : 'goals'} · ${HOUND_LEVELS.find((l) => l.id === houndLevel)?.name ?? ''}`,
-      onPress: onOpenGoals,
+      title: 'Your progress',
+      rows: [
+        {
+          label: 'Goals',
+          Icon: TargetIcon,
+          detail: `${goals.length} ${goals.length === 1 ? 'goal' : 'goals'} · Nudges: ${HOUND_LEVELS.find((l) => l.id === houndLevel)?.name ?? ''}`,
+          onPress: onOpenGoals,
+        },
+        { label: 'Stats & records', Icon: ChartLineUpIcon, detail: 'Steps, miles, bests', onPress: onOpenStats },
+        {
+          label: 'Achievements',
+          Icon: TrophyIcon,
+          detail: achievementCounts ? `${achievementCounts.earned} of ${achievementCounts.total}` : null,
+          onPress: onOpenAchievements,
+        },
+      ],
     },
-    { label: 'Stats & records', Icon: ChartLineUpIcon, onPress: onOpenStats },
     {
-      label: 'Achievements',
-      Icon: TrophyIcon,
-      detail: achievementCounts ? `${achievementCounts.earned} of ${achievementCounts.total}` : null,
-      onPress: onOpenAchievements,
+      title: `Spend your ${currencyName}`,
+      rows: [
+        { label: 'Your look', Icon: CoatHangerIcon, detail: 'Avatar frames & icons', onPress: onOpenLocker },
+        { label: 'Kennel', Icon: DogIcon, detail: 'Your hound’s outfits & treats', onPress: onOpenKennel },
+      ],
     },
-    { label: 'Locker', Icon: CoatHangerIcon, detail: 'Frames, backgrounds, icons', onPress: onOpenLocker },
-    { label: 'Kennel', Icon: DogIcon, detail: 'Your hound', onPress: onOpenKennel },
-    { label: 'Health data', Icon: HeartbeatIcon, detail: healthSource, onPress: onOpenHealthData },
-    { label: 'Settings', Icon: GearSixIcon, detail: 'Notifications, goals, account', onPress: onOpenSettings },
-    { label: 'Help', Icon: QuestionIcon, onPress: onOpenHelp },
+    {
+      title: 'App',
+      rows: [
+        { label: 'Health data', Icon: HeartbeatIcon, detail: healthDetail.text, tone: healthDetail.tone, onPress: onOpenHealthData },
+        { label: 'Settings', Icon: GearSixIcon, detail: 'Profile, notifications, look', onPress: onOpenSettings },
+        { label: 'Help', Icon: QuestionIcon, detail: 'How Hound works', onPress: onOpenHelp },
+      ],
+    },
   ];
 
   return (
@@ -138,13 +182,21 @@ export function YouScreen({
               <Text style={styles.statLabel}>Hound Score</Text>
               <Text style={styles.statValue}>{houndScore.houndScore.toLocaleString()}</Text>
             </View>
-            <View style={styles.stat}>
-              <Text style={styles.statLabel}>{currencyName}</Text>
+            <Pressable
+              style={({ pressed }) => [styles.stat, styles.bonesStat, pressed && { opacity: 0.7 }]}
+              onPress={() => setBonesOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`${houndScore.bonesBalance} ${currencyName}. How to earn and spend them`}
+            >
+              <View style={styles.bonesLabel}>
+                <Text style={styles.statLabel}>{currencyName}</Text>
+                <CaretRightIcon size={11} color={withAlpha(colors.text, 0.55)} />
+              </View>
               <View style={styles.bonesValue}>
                 <BoneIcon size={16} color={color.accent} weight="fill" />
                 <Text style={styles.statValue}>{houndScore.bonesBalance.toLocaleString()}</Text>
               </View>
-            </View>
+            </Pressable>
           </View>
           <View style={{ gap: 4 }}>
             <ProgressBar pct={level.pctToNextLevel} fillColor={color.accent} height={5} />
@@ -156,29 +208,57 @@ export function YouScreen({
         </Card>
       )}
 
-      <Card style={{ paddingVertical: 4 }} elevated={false}>
-        {rows.map(({ label, Icon, detail, onPress }, i) => (
-          <Pressable
-            key={label}
-            style={({ pressed }) => [styles.row, i > 0 && styles.rowDivider, pressed && { opacity: 0.7 }]}
-            onPress={onPress}
-            accessibilityRole="button"
-          >
-            <View style={styles.rowIcon}>
-              <Icon size={18} color={colors.accentActive} />
-            </View>
-            <Text style={styles.rowLabel}>{label}</Text>
-            {detail ? (
-              <Text style={styles.rowDetail} numberOfLines={1}>
-                {detail}
-              </Text>
-            ) : (
-              <View style={{ flex: 1 }} />
-            )}
-            <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
-          </Pressable>
-        ))}
-      </Card>
+      {groups.map((group) => (
+        <Fragment key={group.title}>
+          <Text style={styles.groupTitle}>{group.title.toUpperCase()}</Text>
+          <Card style={{ paddingVertical: 4 }} elevated={false}>
+            {group.rows.map(({ label, Icon, detail, tone, onPress }, i) => (
+              <Pressable
+                key={label}
+                style={({ pressed }) => [styles.row, i > 0 && styles.rowDivider, pressed && { opacity: 0.7 }]}
+                onPress={onPress}
+                accessibilityRole="button"
+              >
+                <View style={styles.rowIcon}>
+                  <Icon size={18} color={colors.accentActive} />
+                </View>
+                <Text style={styles.rowLabel}>{label}</Text>
+                {detail ? (
+                  <Text
+                    style={[
+                      styles.rowDetail,
+                      tone === 'good' && { color: colors.green },
+                      tone === 'warn' && { color: colors.amber },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {detail}
+                  </Text>
+                ) : (
+                  <View style={{ flex: 1 }} />
+                )}
+                <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+              </Pressable>
+            ))}
+          </Card>
+        </Fragment>
+      ))}
+
+      {bonesOpen && houndScore && (
+        <BonesSheet
+          balance={houndScore.bonesBalance}
+          currencyName={currencyName}
+          onClose={() => setBonesOpen(false)}
+          onOpenKennel={() => {
+            setBonesOpen(false);
+            onOpenKennel();
+          }}
+          onOpenLook={() => {
+            setBonesOpen(false);
+            onOpenLocker();
+          }}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -193,6 +273,23 @@ function makeStyles(colors: Palette) {
     statLabel: { fontSize: 12, letterSpacing: 0.4, color: withAlpha(colors.text, 0.55) },
     statValue: { fontFamily: font.headingSemibold, fontSize: 24, color: colors.text },
     bonesValue: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    bonesStat: {
+      marginVertical: -6,
+      marginHorizontal: -8,
+      paddingVertical: 6,
+      paddingHorizontal: 8,
+      borderRadius: 12,
+      backgroundColor: withAlpha(colors.accent, 0.1),
+    },
+    bonesLabel: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    groupTitle: {
+      marginBottom: -8,
+      marginLeft: 4,
+      fontSize: 12,
+      letterSpacing: 1,
+      fontFamily: font.headingSemibold,
+      color: withAlpha(colors.text, 0.55),
+    },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13 },
     rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },

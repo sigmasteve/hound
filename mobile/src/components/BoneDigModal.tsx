@@ -100,7 +100,7 @@ export function BoneDigModal({
               </Text>
               <Text style={styles.sub}>
                 {unlocked
-                  ? 'It’s in your Locker now, ready to wear.'
+                  ? 'It’s in Your look now, ready to wear.'
                   : result!.prize === 'piece' && next
                     ? `${next.have} of ${next.need} pieces toward the ${next.item.name}.`
                     : 'Back tomorrow for another dig.'}

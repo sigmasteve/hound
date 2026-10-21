@@ -67,7 +67,7 @@ export function HelpScreen({ onBack }: { onBack: () => void }) {
           label="Search help"
           value={query}
           onChangeText={setQuery}
-          placeholder="e.g. streak, invite, Locker"
+          placeholder="e.g. streak, invite, avatar"
           autoCapitalize="none"
           autoCorrect={false}
           icon={<MagnifyingGlassIcon size={15} color={withAlpha(colors.text, 0.55)} />}
