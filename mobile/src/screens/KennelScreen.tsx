@@ -1,8 +1,8 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon, HeartIcon, PencilSimpleIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon, HeartIcon, PencilSimpleIcon, PlusIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -10,6 +10,11 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { useAuth } from '../auth/AuthContext';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { BonesPacksCard } from '../bones/BonesPacksCard';
+import { notifyBonesChanged } from '../bones/bonesChanged';
+import { WatchAdCard } from '../ads/WatchAdCard';
+import { useRewardedBones } from '../ads/rewardedBones';
 import { getMyEquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import { HOUND_AVATAR_PREFIX } from '../kennel/houndAvatar';
 import { levelProgressForXp } from '../challenges/leveling';
@@ -85,6 +90,19 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
 
   useFocusEffect(reload);
 
+  // Getting more Bones without leaving the Kennel: an ad, or a pack
+  // (BonesPacksCard), at the bottom. "Get more", and anything you can't
+  // afford yet, scroll down to them.
+  const scrollRef = useRef<ScrollView>(null);
+  const [packsY, setPacksY] = useState<number | null>(null);
+  const scrollToPacks = () => {
+    if (packsY !== null) scrollRef.current?.scrollTo({ y: Math.max(0, packsY - 12), animated: true });
+  };
+  const rewardedBones = useRewardedBones(isSupabaseConfigured ? user?.id : null, () => {
+    reload();
+    notifyBonesChanged();
+  });
+
   const run = async (id: string, action: () => Promise<void>, failTitle: string) => {
     setBusyId(id);
     try {
@@ -139,9 +157,24 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
+  // Short of Bones: say how short, and offer the way to get more,
+  // instead of a confirm that can only fail.
+  const shortOf = (cost: number) => cost > kennel.bonesBalance;
+  const offerMore = (cost: number) =>
+    Alert.alert(
+      `Not enough ${currencyName}`,
+      `That's ${cost}, and you have ${kennel.bonesBalance}. Watch an ad or get a pack to top up.`,
+      [
+        { text: 'Not now', style: 'cancel' },
+        { text: `Get ${currencyName}`, onPress: scrollToPacks },
+      ],
+    );
+
   const pressItem = (item: KennelItem) => {
     const owned = kennel.owned.includes(item.id);
-    if (owned) {
+    if (!owned && shortOf(item.costBones)) {
+      offerMore(item.costBones);
+    } else if (owned) {
       const wearing = equippedIn(item) === item.id;
       run(item.id, () => equipKennelItem(item.slot, wearing ? null : item.id), "Couldn't change that");
     } else {
@@ -221,7 +254,7 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
         <Card style={styles.hero} elevated={false}>
@@ -285,13 +318,26 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
                 variant="primary"
                 icon={<BoneIcon size={14} color={colors.accent} weight="fill" />}
                 disabled={busyId !== null}
-                onPress={() => run('treat', giveTreat, classic ? "Couldn't feed them" : "Couldn't give a treat")}
+                onPress={() =>
+                  shortOf(TREAT_BONES)
+                    ? offerMore(TREAT_BONES)
+                    : run('treat', giveTreat, classic ? "Couldn't feed them" : "Couldn't give a treat")
+                }
               />
             )}
           </View>
-          <Text style={styles.note}>
-            {kennel.bonesBalance.toLocaleString()} {currencyName} to spend
-          </Text>
+          <View style={styles.balanceRow}>
+            <Text style={styles.note}>
+              {kennel.bonesBalance.toLocaleString()} {currencyName} to spend
+            </Text>
+            <Button
+              label="Get more"
+              variant="ghost"
+              small
+              icon={<PlusIcon size={12} color={colors.accent} weight="bold" />}
+              onPress={scrollToPacks}
+            />
+          </View>
         </Card>
 
         {/* Your hound in your avatar's place on leaderboards, friends,
@@ -402,6 +448,14 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
           </Card>
         ))}
 
+        {/* Measured so "Get more" knows where to scroll. */}
+        <View style={{ gap: 16 }} onLayout={(e) => setPacksY(e.nativeEvent.layout.y)}>
+          <WatchAdCard ads={rewardedBones} currencyName={currencyName} />
+          {user?.id && isSupabaseConfigured && (
+            <BonesPacksCard userId={user.id} currencyName={currencyName} onCredited={() => reload()} />
+          )}
+        </View>
+
         <Card style={{ gap: 8 }} elevated={false}>
           <Text style={text.h4}>Care style</Text>
           {CARE_MODES.map((m) => {
@@ -454,6 +508,7 @@ function makeStyles(colors: Palette) {
     rankText: { fontFamily: font.headingSemibold, fontSize: 13.5 },
     mood: { fontSize: 14.5, color: colors.text, textAlign: 'center' },
     note: { fontSize: 12.5, color: withAlpha(colors.text, 0.6), textAlign: 'center' },
+    balanceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
     hearts: { flexDirection: 'row', gap: 6 },
     seasonCard: { borderWidth: 1.5, borderColor: withAlpha(colors.amber, 0.6), backgroundColor: withAlpha(colors.amber, 0.08) },
     seasonHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
