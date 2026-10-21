@@ -105,7 +105,15 @@ export async function syncChallengeProgressFromDevice(challenge: Challenge, heal
       const relevant =
         challenge.scoringMethod === 'gps_distance'
           ? inRange.filter((w) => w.isOutdoor ?? /run|walk|jog|hik/i.test(w.name))
-          : inRange;
+          : challenge.kind === 'journey'
+            // Miles along a course come from walks, runs and hikes —
+            // the same rule as a solo Journey (journeySync.ts). A bike
+            // ride would cover a marathon course in an afternoon.
+            ? inRange.filter((w) => {
+                const type = classifyWorkout(w.name, 'variety');
+                return type === 'run' || type === 'walk_hike';
+              })
+            : inRange;
 
       const byDay = new Map<string, number>();
       for (const w of relevant) {

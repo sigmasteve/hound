@@ -14,7 +14,10 @@ export type ResultOutcome =
   | { type: 'pool'; total: string; goalMet: boolean }
   | { type: 'tag'; goalMet: boolean }
   | { type: 'seventyfive'; longestStreak: number; days: number }
-  | { type: 'tictacgo'; result: 'won' | 'lost' | 'draw' };
+  | { type: 'tictacgo'; result: 'won' | 'lost' | 'draw' }
+  // A Journey: your place by miles, whether you reached the end of the
+  // course, and the course's name.
+  | { type: 'journey'; rank: number; of: number; miles: string; finished: boolean; courseName: string };
 
 export function ordinal(n: number): string {
   const mod100 = n % 100;
@@ -74,6 +77,11 @@ export function resultLine(challengeName: string, outcome: ResultOutcome, labels
         : outcome.result === 'draw'
           ? `${challengeName} ended in a draw on Tic-Tac-Go.`
           : `I lost ${challengeName} on Tic-Tac-Go — rematch time.`;
+    case 'journey':
+      if (outcome.rank === 1 && outcome.finished) return `I reached the end of the ${outcome.courseName} first in ${challengeName}! 🏆`;
+      if (outcome.rank === 1) return `I won ${challengeName}, furthest along the ${outcome.courseName} with ${outcome.miles}! 🏆`;
+      if (outcome.finished) return `I finished the ${outcome.courseName} in ${challengeName}, ${ordinal(outcome.rank)} of ${outcome.of}! 🏅`;
+      return `I made it ${outcome.miles} along the ${outcome.courseName} in ${challengeName}, ${ordinal(outcome.rank)} of ${outcome.of}.`;
   }
 }
 
@@ -104,5 +112,7 @@ export function isWin(outcome: ResultOutcome): boolean {
       return outcome.longestStreak >= outcome.days;
     case 'tictacgo':
       return outcome.result === 'won';
+    case 'journey':
+      return outcome.rank === 1;
   }
 }

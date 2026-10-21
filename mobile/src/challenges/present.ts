@@ -175,6 +175,19 @@ export function toChallengeCard(
       stat = `${Math.floor((groupTotalMi / distanceGoal) * 100)}%`;
       statLabel = `of ${compactNumber(distanceGoal)} mi · ${groupTotalMi.toFixed(1)} so far`;
     }
+  } else if (challenge.kind === 'journey') {
+    // Your place by miles, and how far along the course you are. The
+    // course's length is distanceGoalMi (0122_journey_challenges.sql).
+    const myRank = currentUserId ? board.findIndex((r) => r.userId === currentUserId) : -1;
+    const courseMi = challenge.distanceGoalMi ?? 0;
+    if (myRank >= 0) {
+      const mine = board[myRank];
+      stat = ordinal(myRank + 1);
+      statLabel = `of ${board.length} · ${mine.totalDistanceMi.toFixed(1)} of ${courseMi} mi`;
+    } else {
+      stat = `${courseMi} mi`;
+      statLabel = board.length === 1 ? '1 person on the course' : `${board.length} people on the course`;
+    }
   } else if (challenge.kind === 'streak') {
     // Ranking a Daily Streak by total steps says nothing about who's
     // still in. The caller fills in "Still in" / "Out" from the streak's

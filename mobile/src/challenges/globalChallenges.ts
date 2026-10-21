@@ -10,7 +10,7 @@ import type { BingoCardType, ChallengeKind, DistanceGoalUnit } from './types';
 // The kinds that work with an open-ended crowd — the same list
 // publish_global_challenge enforces server-side. Chase, Tag, and
 // Tic-Tac-Go all depend on a small, known group.
-export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive'];
+export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey'];
 
 // How long after the start people can still join. 'start' closes
 // joining the moment it begins (only offered for a future start); 'end'
@@ -37,6 +37,8 @@ export interface GlobalTemplate {
   distanceGoalMi?: number;
   distanceGoalSteps?: number;
   bingoCardType?: BingoCardType;
+  // A Journey's course (src/journeys/courses.ts).
+  courseId?: string;
   // Seasonal ones are listed under their own heading; the blurb says
   // when to start them (the publish screen picks the actual day).
   seasonal?: boolean;
@@ -88,6 +90,24 @@ export const GLOBAL_TEMPLATES: GlobalTemplate[] = [
     durationDays: 75,
     blurb: 'The daily 75 Day checklist, together.',
     joinWindow: '3',
+  },
+  {
+    id: 'windy-city-journey',
+    name: 'Windy City 26.2, Together',
+    kind: 'journey',
+    durationDays: 30,
+    blurb: 'Everyone walks the Chicago course from the same start. First to the finish wins.',
+    joinWindow: '3',
+    courseId: 'windy-city',
+  },
+  {
+    id: 'golden-gate-journey',
+    name: 'Golden Gate Weekend',
+    kind: 'journey',
+    durationDays: 3,
+    blurb: 'Across the Golden Gate Bridge, 1.7 miles. A quick one everyone can finish.',
+    joinWindow: '1',
+    courseId: 'golden-gate',
   },
   {
     id: 'appalachian-trail',
@@ -228,6 +248,8 @@ export interface GlobalChallenge {
   distanceGoalMi: number | null;
   distanceGoalSteps: number | null;
   bingoCardType: BingoCardType | null;
+  // A Journey's course; null for every other kind (and before 0122).
+  courseId: string | null;
   participantCount: number;
   // Bones for 1st, 2nd and 3rd (0107_challenge_pot.sql), or null for none.
   prizes: [number, number, number] | null;
@@ -289,6 +311,7 @@ function rowToGlobal(r: any): GlobalChallenge {
     distanceGoalMi: r.distance_goal_mi == null ? null : Number(r.distance_goal_mi),
     distanceGoalSteps: r.distance_goal_steps,
     bingoCardType: r.bingo_card_type,
+    courseId: r.course_id ?? null,
     participantCount: r.participant_count ?? 0,
     prizes: null,
     sponsor: null,
@@ -415,6 +438,7 @@ export interface PublishGlobalInput {
   distanceGoalMi?: number;
   distanceGoalSteps?: number;
   bingoCardType?: BingoCardType;
+  courseId?: string;
 }
 
 export async function publishGlobalChallenge(input: PublishGlobalInput): Promise<string> {
@@ -429,6 +453,7 @@ export async function publishGlobalChallenge(input: PublishGlobalInput): Promise
     p_distance_goal_mi: input.distanceGoalMi ?? null,
     p_distance_goal_steps: input.distanceGoalSteps ?? null,
     p_bingo_card_type: input.bingoCardType ?? null,
+    p_course_id: input.courseId ?? null,
   });
   if (error) throw new Error(error.message);
   return data as string;

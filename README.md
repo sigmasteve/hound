@@ -22,6 +22,7 @@ Current version: **0.10.0**. Testers install it through TestFlight on iOS and an
 | **Variety Bingo** | Log different kinds of workouts to fill your own card: variety, strength or sports cards. |
 | **Tic-Tac-Go** | Two players, one board. Hit a square's goal to claim it, then it's their move. Three in a row wins. |
 | **75 Day Challenge** | A daily checklist: two workouts (one outdoors), diet, water, reading and a progress photo. |
+| **Journey** | Everyone walks the same famous course (Windy City 26.2, Route 66, the Appalachian Trail…) from the same start. First to the end wins, or whoever is furthest along when time runs out. As a Global Hound Challenge it shows how many people are ahead of you and behind. |
 
 Challenges start Today, Now or Tomorrow in each person's local time. They can be friends-only, organization-wide, or global challenges published by Hound admins for everyone. Finished challenges can be rematched and shared as a result card.
 

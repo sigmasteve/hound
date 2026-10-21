@@ -39,7 +39,10 @@ export function usesDeviceSteps(challenge: Challenge): boolean {
 export function usesWorkoutDistance(challenge: Challenge): boolean {
   return (
     (challenge.kind === 'hunt' && (challenge.scoringMethod === 'gps_distance' || challenge.scoringMethod === 'any_workout')) ||
-    ((challenge.kind === 'distance' || challenge.kind === 'tag') && challenge.distanceGoalUnit === 'miles')
+    ((challenge.kind === 'distance' || challenge.kind === 'tag') && challenge.distanceGoalUnit === 'miles') ||
+    // A Journey is always miles along its course, from walks, runs and
+    // hikes (deviceSync.ts leaves bike rides and swims out).
+    challenge.kind === 'journey'
   );
 }
 

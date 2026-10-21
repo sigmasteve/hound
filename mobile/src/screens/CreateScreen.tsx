@@ -26,6 +26,8 @@ import { useLabels } from '../labels/LabelsContext';
 import { font, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_GROUPS, CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
+import { COURSES, courseById, formatMiles } from '../journeys/courses';
+import { JourneyMap } from '../journeys/JourneyMap';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
@@ -104,7 +106,14 @@ const TAGLINES: Record<ChallengeKind, string> = {
   streak: 'Hit your goal every day.',
   bingo: 'Real bingo with steps and workouts; first line wins.',
   seventyfive: 'A daily checklist for 75 days.',
+  journey: 'Same course, same start. First to the end wins.',
 };
+
+// A Journey's default run: about two miles a day, at least three days,
+// at most the server's year. The slider stays free to change it.
+function journeyDefaultDays(miles: number): number {
+  return Math.min(365, Math.max(3, Math.ceil(miles / 2)));
+}
 
 export function CreateScreen({
   onCancel,
@@ -150,6 +159,9 @@ export function CreateScreen({
   const [distanceGoalMi, setDistanceGoalMi] = useState(rematch?.distanceGoalMi ?? 100);
   const [distanceGoalSteps, setDistanceGoalSteps] = useState(rematch?.distanceGoalSteps ?? 500_000);
   const [dailyGoalSteps, setDailyGoalSteps] = useState(rematch?.dailyGoalSteps ?? 10_000);
+  // Journey only: the course everyone walks (src/journeys/courses.ts).
+  const [courseId, setCourseId] = useState<string>(rematch?.courseId ?? 'windy-city');
+  const course = courseById(courseId) ?? COURSES[0];
   const [length, setLength] = useState(rematch ? String(rematch.durationDays) : '7');
   // Now or Tomorrow, nothing else: the old third choice ("Today",
   // counting from midnight) was one more thing to read for a difference
@@ -316,8 +328,20 @@ export function CreateScreen({
       return;
     }
     if (draftType === 'seventyfive') setLength('75');
+    if (draftType === 'journey') setLength(String(journeyDefaultDays(course.miles)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftType]);
+
+  // Picking a course sets a fitting length, and names the challenge
+  // after it until you type your own.
+  const pickCourse = (id: string) => {
+    const c = courseById(id);
+    if (!c) return;
+    setCourseId(id);
+    setLength(String(journeyDefaultDays(c.miles)));
+    if (!draftName.trim() || draftName === course.name) setDraftName(c.name);
+    if (nameError) setNameError(null);
+  };
 
   // Whether a kind is still Bones-locked for this viewer — the picker
   // below disables locked rows, but a rematch skips the picker entirely,
@@ -345,6 +369,7 @@ export function CreateScreen({
     if (t.distanceGoalUnit) setDistanceGoalUnit(t.distanceGoalUnit);
     if (t.distanceGoalMi) setDistanceGoalMi(t.distanceGoalMi);
     if (t.distanceGoalSteps) setDistanceGoalSteps(t.distanceGoalSteps);
+    if (t.courseId) setCourseId(t.courseId);
     setNameError(null);
     setStep(2);
   };
@@ -422,6 +447,7 @@ export function CreateScreen({
       setSaving(true);
       try {
         const isDistance = draftType === 'distance';
+        const isJourney = draftType === 'journey';
         const globalId = await publishGlobalChallenge({
           name: draftName.trim(),
           kind: draftType,
@@ -430,9 +456,10 @@ export function CreateScreen({
           joinClosesAt: globalJoinClosesAt,
           dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
           distanceGoalUnit: isDistance ? distanceGoalUnit : undefined,
-          distanceGoalMi: isDistance && distanceGoalUnit === 'miles' ? distanceGoalMi : undefined,
+          distanceGoalMi: isDistance && distanceGoalUnit === 'miles' ? distanceGoalMi : isJourney ? course.miles : undefined,
           distanceGoalSteps: isDistance && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
           bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
+          courseId: isJourney ? course.id : undefined,
         });
         if (canHavePrizes && prizes.some((b) => b > 0)) {
           await setGlobalPrizes(globalId, prizes).catch((e: Error) =>
@@ -498,9 +525,16 @@ export function CreateScreen({
           role: roleFor(b.id),
         })),
         headStartDays: isHunt ? headStart : undefined,
-        distanceGoalUnit: draftType === 'distance' || draftType === 'tag' ? distanceGoalUnit : undefined,
+        // A Journey is scored in miles along its course, so it carries the
+        // course's length the way a miles Distance challenge carries its target.
+        distanceGoalUnit: draftType === 'distance' || draftType === 'tag' ? distanceGoalUnit : draftType === 'journey' ? 'miles' : undefined,
         distanceGoalMi:
-          (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'miles' ? distanceGoalMi : undefined,
+          (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'miles'
+            ? distanceGoalMi
+            : draftType === 'journey'
+              ? course.miles
+              : undefined,
+        courseId: draftType === 'journey' ? course.id : undefined,
         distanceGoalSteps:
           (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
         dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
@@ -747,7 +781,7 @@ export function CreateScreen({
               // Every other kind keeps its existing 45-day ceiling
               // unchanged — only 75 Day Challenge needs to reach past it,
               // since its own default (seeded below) is 75.
-              maximumValue={draftType === 'seventyfive' ? 100 : 45}
+              maximumValue={draftType === 'seventyfive' ? 100 : draftType === 'journey' ? 365 : 45}
               step={1}
               value={customLength}
               onValueChange={(v) => setLength(String(Math.round(v)))}
@@ -830,6 +864,49 @@ export function CreateScreen({
                 {draftType === 'tag'
                   ? `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — once the group reaches it, the game ends right there, whoever’s It at the time.`
                   : `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — it’s the whole group against the goal, not against each other.`}
+              </Text>
+            </View>
+          )}
+
+          {draftType === 'journey' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Course</Text>
+                <Text style={styles.huntBlockValue}>{formatMiles(course.miles)} mi</Text>
+              </View>
+              <View style={{ gap: 8 }}>
+                {COURSES.map((c) => {
+                  const picked = c.id === course.id;
+                  return (
+                    <Pressable
+                      key={c.id}
+                      onPress={() => pickCourse(c.id)}
+                      style={[styles.typeRow, picked && styles.typeRowOn]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${c.name}, ${formatMiles(c.miles)} miles`}
+                    >
+                      <View style={styles.courseThumb}>
+                        <JourneyMap course={c} width={56} height={56} miles={null} labels="none" compact />
+                      </View>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.typeName}>{c.name}</Text>
+                        <Text style={styles.typeDesc}>
+                          {c.place} · {formatMiles(c.miles)} mi
+                        </Text>
+                      </View>
+                      {picked ? (
+                        <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
+                      ) : (
+                        <CircleIcon size={18} color={colors.neutral700} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={styles.huntBlockNote}>
+                Everyone starts together and walks the same course on the map. Walks, runs and hikes logged on your phone
+                count; bike rides don&rsquo;t. The first to reach the end wins — or, when time runs out, whoever is
+                furthest along.
               </Text>
             </View>
           )}
@@ -992,6 +1069,7 @@ export function CreateScreen({
                     : `${distanceGoalSteps.toLocaleString()} steps`,
                 ]);
               if (draftType === 'bingo') rows.push(['Card', bingoCardLabel(Number(length))]);
+              if (draftType === 'journey') rows.push(['Course', `${course.name} · ${formatMiles(course.miles)} mi`]);
               if (canHavePrizes)
                 rows.push([
                   'Prizes',
@@ -1029,9 +1107,11 @@ export function CreateScreen({
                   ? 'BINGOs place in the order they come in, then most squares'
                   : draftType === 'streak'
                     ? 'Finishing the streak comes first, then most steps'
-                    : draftType === 'distance' && distanceGoalUnit === 'miles'
-                      ? 'Most miles wins'
-                      : 'Most steps wins'}
+                    : draftType === 'journey'
+                      ? 'Furthest along the course wins'
+                      : draftType === 'distance' && distanceGoalUnit === 'miles'
+                        ? 'Most miles wins'
+                        : 'Most steps wins'}
                 . Ties share a place. 0 means no prize for that place; up to 1,000 each.
               </Text>
             </View>
@@ -1332,6 +1412,7 @@ function makeStyles(colors: Palette) {
     typeRowOn: { borderWidth: 1, borderColor: colors.accent },
     typeRowLocked: { opacity: 0.5 },
     typeIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+    courseThumb: { borderRadius: 11, overflow: 'hidden' },
     typeIconLocked: { opacity: 0.6 },
     typeName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
     typeDesc: { fontSize: 13, color: withAlpha(colors.text, 0.7) },

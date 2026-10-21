@@ -323,10 +323,19 @@ export function tagGroupGoalMet(challenge: Challenge, board: BoardEntry[]): bool
 // section) and HomeScreen's hero card (for switching from "your
 // standing" to "who won") — a hunt ends the moment isHuntConcluded is
 // true, however many scheduled days are left, and a tag game ends the
-// moment its group hits its shared target (tagGroupGoalMet); anything
-// else just runs out its clock.
+// moment its group hits its shared target (tagGroupGoalMet), a Journey
+// the moment someone reaches the end of its course; anything else just
+// runs out its clock.
+// Whether anyone on a Journey has covered the whole course
+// (distanceGoalMi holds its length — see 0122_journey_challenges.sql).
+export function journeyCourseFinished(challenge: Challenge, board: BoardEntry[]): boolean {
+  if (challenge.kind !== 'journey' || !challenge.distanceGoalMi) return false;
+  return board.some((r) => r.totalDistanceMi >= challenge.distanceGoalMi!);
+}
+
 export function isChallengeFinished(challenge: Challenge, board: BoardEntry[]): boolean {
   if (challenge.kind === 'hunt' && isHuntConcluded(board)) return true;
   if (tagGroupGoalMet(challenge, board)) return true;
+  if (journeyCourseFinished(challenge, board)) return true;
   return new Date(challenge.endsAt).getTime() <= Date.now();
 }
