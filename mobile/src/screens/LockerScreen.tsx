@@ -32,7 +32,8 @@ import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
 import { getBoneDig } from '../goals/boneDigApi';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { levelProgressForXp } from '../challenges/leveling';
-import { listBonesPackOffers, purchaseBonesPack, type BonesPackOffer } from '../bones/purchasesApi';
+import type { BonesPackOffer } from '../bones/purchasesApi';
+import { BonesPacksCard } from '../bones/BonesPacksCard';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { useRewardedBones } from '../ads/rewardedBones';
 import { WatchAdCard } from '../ads/WatchAdCard';
@@ -68,7 +69,6 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   // instead of leaving this stuck on null forever.
   const [bonesOffers, setBonesOffers] = useState<BonesPackOffer[] | null>(null);
   const [bonesOffersError, setBonesOffersError] = useState<string | null>(null);
-  const [buyingProductId, setBuyingProductId] = useState<string | null>(null);
 
   const currencyName = useCurrencyName();
 
@@ -148,44 +148,12 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
-  // Loads once per time the Shop tab is opened, not on every focus like
-  // reload() above — this hits the RevenueCat SDK (a native/network call
-  // beyond Supabase), so it shouldn't re-run just because the user
-  // switched tabs and back.
-  useEffect(() => {
-    if (tab !== 'shop' || !user?.id || bonesOffers !== null || bonesOffersError) return;
-    listBonesPackOffers(user.id)
-      .then(setBonesOffers)
-      .catch((e) => setBonesOffersError(e instanceof Error ? e.message : 'Could not load Bones packs.'));
-  }, [tab, user?.id, bonesOffers, bonesOffersError]);
 
   // Watch an ad for Bones (0114_rewarded_ads.sql), when Admin has ads on.
   const rewardedBones = useRewardedBones(isSupabaseConfigured ? user?.id : null, (bones) => {
     setHoundScore((prev) => (prev ? { ...prev, bonesBalance: prev.bonesBalance + bones } : prev));
     notifyBonesChanged();
   });
-
-  const buyBonesPack = async (offer: BonesPackOffer) => {
-    if (!user?.id) return;
-    setBuyingProductId(offer.productId);
-    try {
-      const { credited } = await purchaseBonesPack(user.id, offer);
-      if (credited) {
-        setHoundScore((prev) => (prev ? { ...prev, bonesBalance: prev.bonesBalance + offer.bonesAmount } : prev));
-      } else {
-        // The purchase went through — only the immediate balance update
-        // failed, so this isn't the "could not buy that" error path
-        // below. revenuecat-webhook (0064_bones_purchases.sql) still
-        // credits it shortly; reopening the Shop tab will show the
-        // correct balance either way.
-        Alert.alert('Purchase complete', `Your ${currencyName} may take a minute to show up.`);
-      }
-    } catch (e) {
-      Alert.alert('Could not buy that', e instanceof Error ? e.message : 'Try again.');
-    } finally {
-      setBuyingProductId(null);
-    }
-  };
 
   const xpTotal = houndScore?.xpTotal ?? null;
   const bonesBalance = houndScore?.bonesBalance ?? null;
@@ -408,34 +376,19 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
 
             {/* Measured so the "Add" shortcuts know where to scroll. */}
             <View onLayout={(e) => setPacksY(e.nativeEvent.layout.y)}>
-              <Card style={{ gap: 4 }} elevated={false}>
-                <Text style={text.h4}>Buy {currencyName}</Text>
-                {bonesOffersError ? (
-                  <Text style={styles.errorNote}>{bonesOffersError}</Text>
-                ) : bonesOffers === null ? (
-                  <ActivityIndicator color={colors.accent} />
-                ) : bonesOffers.length === 0 ? (
-                  <Text style={styles.footNote}>No {currencyName} packs available right now.</Text>
-                ) : (
-                  bonesOffers.map((offer) => {
-                    const busy = buyingProductId === offer.productId;
-                    return (
-                      <Pressable
-                        key={offer.productId}
-                        style={styles.itemRow}
-                        disabled={buyingProductId !== null}
-                        onPress={() => buyBonesPack(offer)}
-                      >
-                        <BoneIcon size={22} color={color.accent} weight="fill" />
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.itemName}>{offer.bonesAmount.toLocaleString()} {currencyName}</Text>
-                        </View>
-                        {busy ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.itemNote}>{offer.priceString}</Text>}
-                      </Pressable>
-                    );
-                  })
-                )}
-              </Card>
+              {user?.id && (
+                <BonesPacksCard
+                  userId={user.id}
+                  currencyName={currencyName}
+                  onCredited={(bones) =>
+                    setHoundScore((prev) => (prev ? { ...prev, bonesBalance: prev.bonesBalance + bones } : prev))
+                  }
+                  onOffers={(offers, error) => {
+                    setBonesOffers(offers);
+                    setBonesOffersError(error);
+                  }}
+                />
+              )}
             </View>
 
             <Card style={{ gap: 4 }} elevated={false}>
