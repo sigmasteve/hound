@@ -28,7 +28,7 @@ export function BonesSheet({
     'Finish challenges. Top places pay more.',
     'Dig for bones on Today.',
     'Win a challenge pot or a bounty.',
-    'Watch a short ad, or add a pack, in Your look.',
+    'Watch a short ad, or add a pack, in Your look or the Kennel.',
   ];
   const spend = [
     'Kennel: outfits and treats for your hound.',
