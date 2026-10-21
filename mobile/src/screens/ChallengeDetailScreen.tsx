@@ -45,9 +45,16 @@ import {
   inviteWindowClosed,
   isChallengeFinished,
   isHuntConcluded,
+  journeyCourseFinished,
   withHuntCatches,
 } from '../challenges/board';
+import { JourneyMap, type MapPerson } from '../journeys/JourneyMap';
+import { courseById, formatMiles, nextStop } from '../journeys/courses';
+import { journeyStanding, type JourneyStanding } from '../journeys/journeyApi';
 import { daysElapsedFraction } from '../challenges/botSimulation';
+
+// The others on a Journey's map, in board order (you are the accent).
+const JOURNEY_COLORS = ['#f4a7b9', '#7fd39b', '#8fc1ff', '#e0a94f', '#c9a7f4', '#f49b7a'];
 import { syncChallengeProgressFromDevice, syncBingoProgressFromDevice, syncSeventyFiveFromDevice } from '../challenges/deviceSync';
 import { challengeDayNumber, getChallengeDays, workoutCounts, type ChallengeDays } from '../challenges/challengeDays';
 import {
@@ -168,6 +175,10 @@ export function ChallengeDetailScreen({
   const labels = labelsForOrg(challenge?.organizationId);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  // Journey only: your place, and how many are ahead and behind
+  // (journey_standing) — the one read that scales to a global one.
+  const [standing, setStanding] = useState<JourneyStanding | null>(null);
+  const [journeyMapWidth, setJourneyMapWidth] = useState(0);
   const [bots, setBots] = useState<ChallengeBot[]>([]);
   // Everyone's total as of the day the Hunted's head start ended — only
   // ever populated for a hunt with one (see load()); stays [] otherwise,
@@ -537,6 +548,7 @@ export function ChallengeDetailScreen({
       const needsBingo = c.kind === 'bingo';
       const needsTicTacGo = c.kind === 'tictacgo';
       const needsSeventyFive = c.kind === 'seventyfive';
+      const needsJourney = c.kind === 'journey';
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
       const needsMovement =
@@ -567,6 +579,7 @@ export function ChallengeDetailScreen({
         seventyFiveCheckinsResult,
         seventyFiveJoinDates,
         yesterdayBoard,
+        standingResult,
       ] = await Promise.all([
         supabaseChallengesProvider.listParticipants(challengeId),
         supabaseChallengesProvider.getLeaderboard(challengeId),
@@ -589,8 +602,11 @@ export function ChallengeDetailScreen({
         needsMovement
           ? supabaseChallengesProvider.getLeaderboard(challengeId, yesterdayKey).catch(() => null)
           : Promise.resolve(null),
+        // Best-effort too: the map still draws from the board without it.
+        needsJourney ? journeyStanding(challengeId).catch(() => null) : Promise.resolve<JourneyStanding | null>(null),
       ]);
       setChallenge(c);
+      setStanding(standingResult);
       setParticipants(p);
       setLeaderboard(l);
       setBots(b);
@@ -1168,6 +1184,19 @@ export function ChallengeDetailScreen({
         if (!st) return null;
         return { type: 'streak', survived: st.eliminatedOnDay === null, days: st.streakDays };
       }
+      case 'journey': {
+        const idx = board.findIndex((r) => r.userId === me);
+        if (idx < 0) return null;
+        const mine = board[idx];
+        return {
+          type: 'journey',
+          rank: idx + 1,
+          of: board.length,
+          miles: `${mine.totalDistanceMi.toFixed(1)} mi`,
+          finished: !!challenge.distanceGoalMi && mine.totalDistanceMi >= challenge.distanceGoalMi,
+          courseName: courseById(challenge.courseId ?? '')?.name ?? 'course',
+        };
+      }
       case 'bingo': {
         if (isHound) {
           const h = houndBoard.find((x) => x.userId === me);
@@ -1423,6 +1452,74 @@ export function ChallengeDetailScreen({
             myUserId={user?.id ?? null}
             currencyName={currencyName}
           />
+
+          {challenge.kind === 'journey' &&
+            (() => {
+              const course = courseById(challenge.courseId ?? '');
+              if (!course) return null;
+              const courseMi = challenge.distanceGoalMi ?? course.miles;
+              const mine = board.find((r) => r.userId === user?.id);
+              const myMiles = Math.min(mine?.totalDistanceMi ?? 0, courseMi);
+              // The leaders and you, so a crowded course stays readable.
+              const shown = board.slice(0, 5);
+              if (mine && !shown.includes(mine)) shown.push(mine);
+              const people: MapPerson[] = shown.map((r, i) => ({
+                id: r.userId,
+                miles: Math.min(r.totalDistanceMi, courseMi),
+                initials: r.userId === user?.id ? (user?.initials ?? 'Me') : r.initials,
+                color: r.userId === user?.id ? colors.accent : JOURNEY_COLORS[i % JOURNEY_COLORS.length],
+              }));
+              const next = nextStop(course, myMiles);
+              const leader = board[0];
+              const courseDone = journeyCourseFinished(challenge, board);
+              return (
+                <Card style={{ gap: 10 }} elevated={false}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={text.h4}>{course.name}</Text>
+                    <Text style={styles.footNote}>{course.place}</Text>
+                  </View>
+                  <View onLayout={(e) => setJourneyMapWidth(Math.round(e.nativeEvent.layout.width))}>
+                    {journeyMapWidth > 0 && (
+                      <JourneyMap
+                        course={course}
+                        width={journeyMapWidth}
+                        height={Math.round(journeyMapWidth * 0.7)}
+                        miles={mine ? myMiles : null}
+                        people={people}
+                        labels="few"
+                      />
+                    )}
+                  </View>
+                  {mine && (
+                    <>
+                      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                        <Text style={styles.groupTotal}>{formatMiles(myMiles)} mi</Text>
+                        <Text style={styles.footNote}>of {formatMiles(courseMi)} · you</Text>
+                      </View>
+                      <ProgressBar pct={Math.min(100, (myMiles / courseMi) * 100)} fillColor={colors.accent} height={6} />
+                    </>
+                  )}
+                  {standing && (
+                    <Text style={styles.footNote}>
+                      {ordinal(standing.rank)} of {standing.total.toLocaleString()} · {standing.ahead.toLocaleString()} ahead ·{' '}
+                      {standing.behind.toLocaleString()} behind
+                      {standing.finished > 0 ? ` · ${standing.finished.toLocaleString()} finished` : ''}
+                    </Text>
+                  )}
+                  <Text style={styles.footNote}>
+                    {courseDone
+                      ? `${leader?.name ?? 'Someone'} reached the end of the course.`
+                      : next && mine
+                        ? `Next stop: ${next.name}, ${formatMiles(next.mi - myMiles)} mi ahead.${
+                            leader && leader.userId !== user?.id ? ` ${leader.name} leads at ${formatMiles(leader.totalDistanceMi)} mi.` : ''
+                          }`
+                        : leader
+                          ? `${leader.name} leads at ${formatMiles(leader.totalDistanceMi)} mi.`
+                          : 'Nobody has logged a mile yet.'}
+                  </Text>
+                </Card>
+              );
+            })()}
 
           {distanceGoal && (
             <Card style={[{ gap: 10 }, goalMet ? styles.goalMetCard : {}]} elevated={false}>
@@ -1822,6 +1919,10 @@ export function ChallengeDetailScreen({
                       ? goalMet
                         ? 'The group hit its target — this pool is complete.'
                         : 'This pool has wrapped up without reaching its target.'
+                      : challenge.kind === 'journey'
+                        ? journeyCourseFinished(challenge, board)
+                          ? `${board[0]?.name ?? 'Someone'} reached the end of the course first!`
+                          : `Time ran out — ${board[0]?.name ?? 'Someone'} got furthest, ${formatMiles(board[0]?.totalDistanceMi ?? 0)} mi along.`
                       : challenge.kind === 'streak'
                         ? (() => {
                             const survivors = board.filter((r) => streakStatuses.get(r.userId)?.eliminatedOnDay == null);

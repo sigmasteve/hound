@@ -1,4 +1,4 @@
-export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance' | 'tag' | 'bingo' | 'tictacgo' | 'seventyfive';
+export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance' | 'tag' | 'bingo' | 'tictacgo' | 'seventyfive' | 'journey';
 
 // A hunt has exactly one Hunter and one or more Hunted — never set for
 // any other challenge kind. 'zombie' is a one-way transition a Hunted
@@ -71,6 +71,10 @@ export interface Challenge {
   // Null means 'variety', the only type that existed before the picker
   // did.
   bingoCardType: BingoCardType | null;
+  // Only meaningful for kind 'journey': the course everyone walks
+  // (src/journeys/courses.ts), with distanceGoalMi holding its length
+  // and distanceGoalUnit 'miles' — see 0122_journey_challenges.sql.
+  courseId: string | null;
   // Null (every challenge today) means a global/individual challenge,
   // open to any friend regardless of org — see
   // 0037_challenge_org_scope.sql / GitHub issue #158. No screen sets or
@@ -190,6 +194,10 @@ export interface CreateChallengeInput {
   distanceGoalUnit?: DistanceGoalUnit;
   // Only meaningful for kind 'bingo' — see Challenge.bingoCardType.
   bingoCardType?: BingoCardType;
+  // Only meaningful for kind 'journey' — see Challenge.courseId. Set
+  // distanceGoalMi to the course's length and distanceGoalUnit to
+  // 'miles' with it.
+  courseId?: string;
   // ISO timestamp for when this challenge actually starts counting real
   // device data from — see CreateScreen.tsx's "Starts" picker for the
   // three choices this ever gets set to (start of today / this exact

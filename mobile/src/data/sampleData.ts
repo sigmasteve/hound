@@ -60,7 +60,7 @@ export const TALLY: TallyRow[] = [
   { label: 'Marcus · dog walk', meta: 'Saturday 6:15pm · Health Connect', dist: '3.2 mi', tint: TINT_N, iconKind: 'dog' },
 ];
 
-export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance' | 'tag' | 'bingo' | 'tictacgo' | 'seventyfive';
+export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance' | 'tag' | 'bingo' | 'tictacgo' | 'seventyfive' | 'journey';
 
 export interface ChallengeCard {
   id: string;
@@ -159,6 +159,7 @@ export const CHALLENGE_TYPES: {
   { id: 'bingo', name: 'Bingo', desc: 'Real bingo on a card of steps, workouts and goals. First to finish a row, column or diagonal wins, and play goes on for the full card.', tint: '#1f6b4f', iconColor: '#c9fbe8' },
   { id: 'tictacgo', name: 'Tic-Tac-Go', desc: 'Two players, one board. Hit a square’s goal to claim it, then it’s their move. Three in a row wins.', tint: '#6b1f4f', iconColor: '#fbc9e8' },
   { id: 'seventyfive', name: '75 Day Challenge', desc: 'A daily checklist — two workouts (one outdoors), a diet, water, reading, and a progress photo. Miss a day and your streak resets, but you keep going the whole way.', tint: '#1f4f6b', iconColor: '#c9e8fb' },
+  { id: 'journey', name: 'Journey', desc: 'Everyone walks the same famous course from the same start — Windy City 26.2, Route 66, the Appalachian Trail. Your walks, runs and hikes move you along the map. First to the end wins; if nobody gets there, furthest along does.', tint: '#2f5a3f', iconColor: '#cdebd6' },
 ];
 
 // Walk order for "Pick the game" (step 1 of CreateScreen's wizard) —
@@ -173,7 +174,7 @@ export const CHALLENGE_TYPES: {
 // CHALLENGE_TYPES directly, so a kind left out here would silently never
 // appear in the picker at all.
 export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
-  { label: '', kinds: ['hunt', 'tictacgo', 'steps', 'tag', 'distance', 'streak', 'bingo', 'seventyfive'] },
+  { label: '', kinds: ['hunt', 'tictacgo', 'steps', 'tag', 'distance', 'streak', 'journey', 'bingo', 'seventyfive'] },
 ];
 
 export interface DataSource {

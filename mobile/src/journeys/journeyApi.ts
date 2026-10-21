@@ -127,3 +127,34 @@ export async function recordDailyMiles(userId: string, days: DailyMiles[]): Prom
     );
   if (error) throw new Error(error.message);
 }
+
+// ── Journey challenges ───────────────────────────────────────────────
+
+// Where you stand on a Journey challenge you're in (0122_journey_challenges.sql):
+// your place by miles, how many are ahead and behind, how many have
+// reached the end, and the leader's miles. Null if you're not in it.
+export interface JourneyStanding {
+  rank: number;
+  total: number;
+  ahead: number;
+  behind: number;
+  finished: number;
+  miles: number;
+  leaderMiles: number;
+}
+
+export async function journeyStanding(challengeId: string): Promise<JourneyStanding | null> {
+  const { data, error } = await client().rpc('journey_standing', { p_challenge_id: challengeId });
+  if (error) throw new Error(error.message);
+  const r = (data as any[] | null)?.[0];
+  if (!r) return null;
+  return {
+    rank: r.rank,
+    total: r.total,
+    ahead: r.ahead,
+    behind: r.behind,
+    finished: r.finished,
+    miles: Number(r.miles),
+    leaderMiles: Number(r.leader_miles),
+  };
+}

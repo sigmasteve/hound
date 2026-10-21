@@ -26,6 +26,7 @@ export interface RematchDraft {
   distanceGoalSteps: number | null;
   dailyGoalSteps: number | null;
   bingoCardType: BingoCardType | null;
+  courseId: string | null;
   organizationId: string | null;
   // Accepted friends only — anyone else from the old challenge can't be
   // invited from Create (it only lists friends), so they're left out
@@ -91,6 +92,7 @@ export function buildRematchDraft({
     distanceGoalSteps: challenge.distanceGoalSteps,
     dailyGoalSteps: challenge.dailyGoalSteps,
     bingoCardType: challenge.bingoCardType,
+    courseId: challenge.courseId,
     organizationId: challenge.organizationId,
     // Tic-Tac-Go is strictly 1v1.
     invitedUserIds: challenge.kind === 'tictacgo' ? invitedUserIds.slice(0, 1) : invitedUserIds,
