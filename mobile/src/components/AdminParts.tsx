@@ -33,7 +33,15 @@ export function AdminTabs<T extends string>({
             accessibilityState={{ selected: on }}
             accessibilityLabel={t.badge ? `${t.label}, ${t.badge} waiting` : t.label}
           >
-            <Text style={[styles.tabLabel, on && styles.tabLabelOn]}>{t.label}</Text>
+            <Text
+              style={[styles.tabLabel, on && styles.tabLabelOn]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+              maxFontSizeMultiplier={1.2}
+            >
+              {t.label}
+            </Text>
             {!!t.badge && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{t.badge}</Text>
@@ -123,24 +131,29 @@ export function AdminNote({ short, more }: { short: string; more?: React.ReactNo
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
-    tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    // One row: each tab as wide as its label, sharing what's left over,
+    // so all five fit on a phone.
+    tabs: { flexDirection: 'row', gap: 4 },
     tab: {
+      flexGrow: 1,
+      flexShrink: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 5,
-      paddingHorizontal: 11,
+      justifyContent: 'center',
+      gap: 4,
+      paddingHorizontal: 7,
       paddingVertical: 7,
       borderRadius: 999,
       borderWidth: 1,
       borderColor: withAlpha(colors.text, 0.15),
     },
     tabOn: { backgroundColor: colors.accent, borderColor: colors.accent },
-    tabLabel: { fontSize: 13, fontFamily: font.heading, color: withAlpha(colors.text, 0.8) },
+    tabLabel: { flexShrink: 1, fontSize: 12.5, fontFamily: font.heading, color: withAlpha(colors.text, 0.8) },
     tabLabelOn: { color: '#161826', fontFamily: font.headingSemibold },
     badge: {
-      minWidth: 17,
-      height: 17,
-      paddingHorizontal: 5,
+      minWidth: 16,
+      height: 16,
+      paddingHorizontal: 4,
       borderRadius: 9,
       backgroundColor: colors.amber,
       alignItems: 'center',
