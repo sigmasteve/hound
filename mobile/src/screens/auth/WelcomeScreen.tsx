@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { EnvelopeSimpleIcon, FacebookLogoIcon, GoogleLogoIcon, PawPrintIcon } from 'phosphor-react-native';
+import { AppleLogoIcon, EnvelopeSimpleIcon, FacebookLogoIcon, GoogleLogoIcon, PawPrintIcon } from 'phosphor-react-native';
 import { Button } from '../../components/Button';
 import { useTheme } from '../../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../../theme/tokens';
@@ -17,7 +17,7 @@ export function WelcomeScreen({
   onContinueWithEmail: () => void;
   onCreateAccount: () => void;
 }) {
-  const { signInWithGoogle, signInWithFacebook } = useAuth();
+  const { signInWithApple, signInWithGoogle, signInWithFacebook } = useAuth();
   const { colors, text } = useTheme();
   // Android draws under the system navigation bar (edge-to-edge), so the
   // bottom of the screen needs its height as padding.
@@ -51,6 +51,19 @@ export function WelcomeScreen({
       </View>
 
       <View style={styles.providers}>
+        {/* iPhone only: Apple requires it there whenever Google or
+            Facebook is offered (App Store guideline 4.8). Signs in through
+            Supabase's Apple provider (signInWithWebOAuth). */}
+        {Platform.OS === 'ios' && (
+          <ProviderButton
+            label="Continue with Apple"
+            icon={<AppleLogoIcon size={18} color={colors.text} weight="fill" />}
+            busy={busy === 'apple'}
+            disabled={busy !== null}
+            onPress={() => runProvider('apple', signInWithApple)}
+            textColor={colors.text}
+          />
+        )}
         <ProviderButton
           label="Continue with Google"
           icon={<GoogleLogoIcon size={18} color={colors.text} weight="bold" />}
