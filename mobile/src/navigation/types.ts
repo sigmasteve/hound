@@ -45,6 +45,9 @@ export type RootStackParamList = {
   OrgDetail: { organizationId: string };
   Locker: undefined;
   Kennel: undefined;
+  // Journeys: yours (from the You tab), and the course picker.
+  Journey: undefined;
+  JourneyPicker: undefined;
   Help: undefined;
   Achievements: undefined;
   // Opened from the You tab (they used to be tabs or the top bar).

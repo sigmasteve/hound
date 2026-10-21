@@ -31,18 +31,23 @@ import { useGoals } from '../goals/GoalsContext';
 import { HOUND_LEVELS } from '../goals/hound';
 import { BonesSheet } from '../components/BonesSheet';
 import type { HealthAuthStatus } from '../health/types';
+import { JourneyCard } from '../journeys/JourneyCard';
+import { getMyJourney, type MyJourney } from '../journeys/journeyApi';
 
 // The You tab: who you are and how you're doing (level, Hound Score,
 // Bones), then the places that are about you, in three groups: your
 // progress, where Bones go, and the app itself. Everything here used to
 // be spread across Settings, the Data and Connect tabs, and icons in the
-// top bar. Tapping Bones explains how to earn and spend them.
+// top bar. Tapping Bones explains how to earn and spend them. Your
+// Journey sits right under the numbers.
 export function YouScreen({
   onOpenGoals,
   onOpenStats,
   onOpenAchievements,
   onOpenLocker,
   onOpenKennel,
+  onOpenJourney,
+  onPickJourney,
   onOpenHealthData,
   onOpenSettings,
   onOpenHelp,
@@ -52,6 +57,8 @@ export function YouScreen({
   onOpenAchievements: () => void;
   onOpenLocker: () => void;
   onOpenKennel: () => void;
+  onOpenJourney: () => void;
+  onPickJourney: () => void;
   onOpenHealthData: () => void;
   onOpenSettings: () => void;
   onOpenHelp: () => void;
@@ -70,6 +77,8 @@ export function YouScreen({
   const [achievementCounts, setAchievementCounts] = useState<{ earned: number; total: number } | null>(null);
   const [healthStatus, setHealthStatus] = useState<HealthAuthStatus | null>(null);
   const [bonesOpen, setBonesOpen] = useState(false);
+  // undefined until loaded, so the card doesn't flash "Start a Journey".
+  const [journey, setJourney] = useState<MyJourney | null | undefined>(undefined);
   useFocusEffect(
     useCallback(() => {
       health
@@ -87,6 +96,9 @@ export function YouScreen({
       Promise.all([listAchievements(), listEarnedAchievements(userId)])
         .then(([all, mine]) => setAchievementCounts({ earned: all.filter((a) => mine.has(a.id)).length, total: all.length }))
         .catch(() => setAchievementCounts(null));
+      getMyJourney()
+        .then(setJourney)
+        .catch(() => setJourney(null));
     }, [user?.id, health]),
   );
 
@@ -207,6 +219,8 @@ export function YouScreen({
           </View>
         </Card>
       )}
+
+      {journey !== undefined && <JourneyCard journey={journey} onOpen={onOpenJourney} onPick={onPickJourney} />}
 
       {groups.map((group) => (
         <Fragment key={group.title}>

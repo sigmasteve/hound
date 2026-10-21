@@ -14,6 +14,8 @@ import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { FriendDetailScreen } from '../screens/FriendDetailScreen';
 import { LockerScreen } from '../screens/LockerScreen';
 import { KennelScreen } from '../screens/KennelScreen';
+import { JourneyScreen } from '../screens/JourneyScreen';
+import { JourneyPickerScreen } from '../screens/JourneyPickerScreen';
 import { AdminScreen } from '../screens/AdminScreen';
 import { AdminUserDetailScreen } from '../screens/AdminUserDetailScreen';
 import { OrgManagementScreen } from '../screens/OrgManagementScreen';
@@ -297,6 +299,19 @@ export function RootNavigator() {
             <Stack.Screen name="Kennel" options={{ animation: 'slide_from_right' }}>
               {/* Opened from Today or the You tab — goBack() returns there. */}
               {({ navigation }) => <KennelScreen onBack={() => navigation.goBack()} />}
+            </Stack.Screen>
+            <Stack.Screen name="Journey" options={{ animation: 'slide_from_right' }}>
+              {/* Opened from the You tab — goBack() returns there. */}
+              {({ navigation }) => (
+                <JourneyScreen onBack={() => navigation.goBack()} onPick={() => navigation.navigate('JourneyPicker')} />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="JourneyPicker" options={{ animation: 'slide_from_right' }}>
+              {/* From the You tab or a Journey; once started, the new
+                  Journey takes the picker's place. */}
+              {({ navigation }) => (
+                <JourneyPickerScreen onBack={() => navigation.goBack()} onStarted={() => navigation.replace('Journey')} />
+              )}
             </Stack.Screen>
             <Stack.Screen name="Admin" options={{ animation: 'slide_from_right' }}>
               {/* Reached from TopNav's own admin icon, visible on every
