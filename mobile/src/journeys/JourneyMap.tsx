@@ -22,6 +22,7 @@ export function JourneyMap({
   miles,
   people = [],
   labels = 'few',
+  compact = false,
 }: {
   course: Course;
   width: number;
@@ -30,6 +31,9 @@ export function JourneyMap({
   miles: number | null;
   people?: MapPerson[];
   labels?: 'none' | 'few' | 'all';
+  // A thumbnail (the Today tile): thinner line, smaller paw, only the
+  // start and finish marked.
+  compact?: boolean;
 }) {
   const { colors } = useTheme();
   const w = width;
@@ -58,13 +62,13 @@ export function JourneyMap({
   const d = (pts: LatLng[]) =>
     pts.map((p, i) => `${i ? 'L' : 'M'}${project(p)[0].toFixed(1)},${project(p)[1].toFixed(1)}`).join(' ');
 
-  const line = Math.max(3, w / 70);
-  const dot = Math.max(3, w / 95);
+  const line = compact ? Math.max(2, w / 90) : Math.max(3, w / 70);
+  const dot = compact ? Math.max(2.5, w / 110) : Math.max(3, w / 95);
   const font = Math.max(9, w / 38);
   const done = miles ?? 0;
   const last = course.stops.length - 1;
-  // A thumbnail (no labels, nobody on it) keeps just the start and finish.
-  const stopsToDraw = labels === 'none' && miles === null ? course.stops.filter((_, i) => i === 0 || i === last) : course.stops;
+  // A thumbnail (no labels, nobody on it, or compact) keeps just the start and finish.
+  const stopsToDraw = compact || (labels === 'none' && miles === null) ? course.stops.filter((_, i) => i === 0 || i === last) : course.stops;
   const candidates =
     labels === 'none'
       ? []
@@ -135,7 +139,7 @@ export function JourneyMap({
       })}
       {miles !== null && people.length === 0 && (() => {
         const [x, y] = project(pointAt(course, done));
-        const r = Math.max(10, w / 28);
+        const r = compact ? Math.max(7, w / 20) : Math.max(10, w / 28);
         return (
           <G>
             <Circle cx={x} cy={y} r={r} fill={colors.accent} stroke={colors.text} strokeWidth={2} />
