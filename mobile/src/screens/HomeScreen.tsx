@@ -31,6 +31,8 @@ import { useTheme } from '../theme/ThemeContext';
 import { color, font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
 import { syncJourney } from '../journeys/journeySync';
+import { getMyJourney, type MyJourney } from '../journeys/journeyApi';
+import { JourneyTile } from '../journeys/JourneyTile';
 import type { HealthSnapshot, WorkoutSample } from '../health/types';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
@@ -517,7 +519,7 @@ function takePopup(): boolean {
 
 // Where Today's links go: a tab, or a screen that used to be a tab and
 // now opens from You.
-export type HomeDestination = MainTab | 'stats' | 'healthData' | 'goals' | 'kennel' | 'setup';
+export type HomeDestination = MainTab | 'stats' | 'healthData' | 'goals' | 'kennel' | 'setup' | 'journey';
 
 export function HomeScreen({
   onOpenHunt,
@@ -1037,8 +1039,13 @@ export function HomeScreen({
       }
     });
     // Your Journey's miles, and a notification when you pass a stop
-    // (never throws).
-    if (isSupabaseConfigured && user?.id) syncJourney(user.id, health);
+    // (never throws); then the journey itself, for its tile.
+    if (isSupabaseConfigured && user?.id) {
+      syncJourney(user.id, health)
+        .then(getMyJourney)
+        .then(setJourney)
+        .catch(() => {});
+    }
   }, [health, user?.id, loadGlobalChallenges, pushToast, refreshGoalStreak]);
 
   useEffect(reload, [reload]);
@@ -1152,6 +1159,8 @@ export function HomeScreen({
   // Your hound (0104_kennel.sql), re-read when the goal day lands so its
   // mood updates straight away.
   const [kennel, setKennel] = useState<Kennel | null>(null);
+  // Your Journey, for its tile under the two-by-two; null for none.
+  const [journey, setJourney] = useState<MyJourney | null>(null);
   const reloadKennel = useCallback(() => {
     getKennel()
       .then(setKennel)
@@ -1862,6 +1871,7 @@ export function HomeScreen({
               </View>
             );
           })}
+        {journey && <JourneyTile journey={journey} onOpen={() => onGoTab('journey')} />}
       </View>
 
       {offerPush && user?.id && onboarding && (onboarding.hasFriend || onboarding.joinedChallenge) && (
