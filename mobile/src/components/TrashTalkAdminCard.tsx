@@ -22,7 +22,19 @@ const RETENTION_LABEL: Record<number, string> = { 0: 'At end', 3: '3 days', 7: '
 // Admin → Trash talk (0083_trash_talk.sql). Each switch saves the moment
 // it's flipped and takes effect everywhere at once: the server checks it
 // on every post, and open walls pick it up within 15 seconds.
-export function TrashTalkAdminCard() {
+//
+// `part` shows just the reported messages or just the switches, so the
+// Social tab can put reports first. onReportsChange hears how many are
+// waiting, for the tab's badge.
+export function TrashTalkAdminCard({
+  part = 'all',
+  onReportsChange,
+}: {
+  part?: 'all' | 'reports' | 'settings';
+  onReportsChange?: (count: number) => void;
+} = {}) {
+  const showSettings = part !== 'reports';
+  const showReports = part !== 'settings';
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [config, setConfig] = useState<TrashTalkConfig | null>(null);
@@ -34,18 +46,24 @@ export function TrashTalkAdminCard() {
 
   const loadReports = useCallback(() => {
     listTrashTalkReports()
-      .then(setReports)
+      .then((r) => {
+        setReports(r);
+        onReportsChange?.(r.length);
+      })
       .catch(() => setReports(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      getTrashTalkConfig().then((c) => {
-        setConfig(c);
-        setLoadFailed(!c);
-      });
-      loadReports();
-    }, [loadReports]),
+      if (showSettings) {
+        getTrashTalkConfig().then((c) => {
+          setConfig(c);
+          setLoadFailed(!c);
+        });
+      }
+      if (showReports) loadReports();
+    }, [loadReports, showSettings, showReports]),
   );
 
   const save = async (patch: Partial<TrashTalkConfig>) => {
@@ -68,7 +86,11 @@ export function TrashTalkAdminCard() {
     setBusyId(messageId);
     try {
       await resolveTrashTalkReport(messageId, remove);
-      setReports((cur) => (cur ? cur.filter((r) => r.messageId !== messageId) : cur));
+      setReports((cur) => {
+        const next = cur ? cur.filter((r) => r.messageId !== messageId) : cur;
+        if (next) onReportsChange?.(next.length);
+        return next;
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not do that — try again.');
     } finally {
@@ -78,12 +100,14 @@ export function TrashTalkAdminCard() {
 
   return (
     <Card style={{ gap: 12 }} elevated={false}>
-      <Text style={text.h4}>Trash talk</Text>
-      <Text style={styles.footNote}>
-        The message wall on each challenge. Taunts are one-tap lines Hound writes, so they&rsquo;re always safe;
-        typed messages are what these switches control.
-      </Text>
-      {loadFailed ? (
+      <Text style={text.h4}>{part === 'reports' ? 'Reported messages' : 'Trash talk'}</Text>
+      {showSettings && (
+        <Text style={styles.footNote}>
+          The message wall on each challenge. Taunts are one-tap lines Hound writes, so they&rsquo;re always safe;
+          typed messages are what these switches control.
+        </Text>
+      )}
+      {!showSettings ? null : loadFailed ? (
         <Text style={styles.error}>Couldn&rsquo;t load these settings. Has 0083_trash_talk.sql been run?</Text>
       ) : config ? (
         <>
@@ -115,15 +139,17 @@ export function TrashTalkAdminCard() {
             />
             <Text style={styles.footNote}>
               A daily cleanup deletes finished challenges&rsquo; messages after this, and keeps any one wall to its
-              newest 500. Reported messages wait for you here first.
+              newest 500. Reported messages are kept until you review them.
             </Text>
           </View>
         </>
       ) : null}
 
-      {reports && (
+      {showReports && reports && (
         <View style={{ gap: 10 }}>
-          <Text style={styles.label}>Reported messages{reports.length > 0 ? ` · ${reports.length}` : ''}</Text>
+          {part !== 'reports' && (
+            <Text style={styles.label}>Reported messages{reports.length > 0 ? ` · ${reports.length}` : ''}</Text>
+          )}
           {reports.length === 0 ? (
             <Text style={styles.footNote}>Nothing to review.</Text>
           ) : (

@@ -308,6 +308,7 @@ export function RootNavigator() {
                 <AdminScreen
                   onBack={() => navigation.goBack()}
                   onNewGlobalChallenge={() => navigation.navigate('Create', { global: true })}
+                  onOpenOrgs={() => navigation.navigate('OrgManagement')}
                   onOpenUser={(u) =>
                     navigation.navigate('AdminUserDetail', {
                       userId: u.id,

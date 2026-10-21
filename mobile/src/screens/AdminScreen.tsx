@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   ArrowLeftIcon,
@@ -34,6 +35,9 @@ import { PushReachCard } from '../components/PushReachCard';
 import { SignupAlertsCard } from '../components/SignupAlertsCard';
 import { FindPeopleAdminCard } from '../components/FindPeopleAdminCard';
 import { TrashTalkAdminCard } from '../components/TrashTalkAdminCard';
+import { AdminFold, AdminNote, AdminTabs } from '../components/AdminParts';
+import { listTrashTalkReports } from '../social/trashTalk';
+import { groupApps, listActiveApps } from '../admin/appVersions';
 import {
   listChallengeUnlockGates,
   removeChallengeUnlockGate,
@@ -60,18 +64,64 @@ import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIc
 // navigated to some other way. Every card this screen grows should be
 // backed by its own admin-gated RLS policy the same way Chase labels is
 // (0022_admin_gate_app_labels.sql) — this check is belt, that's braces.
+type AdminTab = 'overview' | 'people' | 'publish' | 'social' | 'bones';
+const ADMIN_TABS: AdminTab[] = ['overview', 'people', 'publish', 'social', 'bones'];
+// Admin opens on the tab you last used.
+const TAB_KEY = 'admin:tab';
+
+// Admin, in five tabs: Overview (what needs you, and the numbers),
+// People (the directory, organizations, signup alerts), Publish (global
+// challenges, the Home banner, Chase labels), Social (reported messages,
+// trash talk, Find people) and Bones (what play pays, ads, unlocks).
 export function AdminScreen({
   onBack,
   onOpenUser,
   onNewGlobalChallenge,
+  onOpenOrgs,
 }: {
   onBack: () => void;
   onOpenUser: (user: AdminUserSummary) => void;
   onNewGlobalChallenge: () => void;
+  onOpenOrgs: () => void;
 }) {
   const { user } = useAuth();
   const { text, colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  const [tab, setTab] = useState<AdminTab>('overview');
+  useEffect(() => {
+    AsyncStorage.getItem(TAB_KEY)
+      .then((t) => {
+        if (t && ADMIN_TABS.includes(t as AdminTab)) setTab(t as AdminTab);
+      })
+      .catch(() => {});
+  }, []);
+  const chooseTab = (t: AdminTab) => {
+    setTab(t);
+    AsyncStorage.setItem(TAB_KEY, t).catch(() => {});
+  };
+
+  // For "Needs you" and the Social tab's badge: reported messages waiting,
+  // and who isn't on the latest code.
+  const [reportCount, setReportCount] = useState(0);
+  const [behindCount, setBehindCount] = useState(0);
+  const [versionsSummary, setVersionsSummary] = useState<string | null>(null);
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.isAdmin) return;
+      listTrashTalkReports()
+        .then((r) => setReportCount(r.length))
+        .catch(() => {});
+      listActiveApps(14)
+        .then((apps) => {
+          const { latestCount, unreported } = groupApps(apps);
+          setBehindCount(apps.length - latestCount - unreported.length);
+          setVersionsSummary(`${latestCount} of ${apps.length} on the latest`);
+        })
+        .catch(() => {});
+    }, [user?.isAdmin]),
+  );
   // The raw app-wide default, fetched and saved directly rather than via
   // useLabels() — that context's own labelsForOrg() resolves a SPECIFIC
   // challenge's own words (org override if that challenge has one, see
@@ -462,6 +512,42 @@ export function AdminScreen({
     }
   };
 
+  const bannerLive =
+    currentBanner?.enabled && (!currentBanner.expiresAt || new Date(currentBanner.expiresAt).getTime() > Date.now());
+  const needs: { text: string; action: string; good?: boolean; onPress: () => void }[] = [];
+  if (reportCount > 0) {
+    needs.push({
+      text: `${reportCount} reported ${reportCount === 1 ? 'message' : 'messages'}`,
+      action: 'Review',
+      onPress: () => chooseTab('social'),
+    });
+  }
+  if (behindCount > 0) {
+    needs.push({
+      text: `${behindCount} ${behindCount === 1 ? 'person' : 'people'} not on the latest code`,
+      action: 'Versions',
+      onPress: () => setVersionsOpen(true),
+    });
+  }
+  if (bannerLive && currentBanner) {
+    needs.push({
+      text: currentBanner.expiresAt
+        ? `Home banner live until ${new Date(currentBanner.expiresAt).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`
+        : 'Home banner live, no end',
+      action: 'Edit',
+      good: true,
+      onPress: () => chooseTab('publish'),
+    });
+  }
+
+  const gatedList = CHALLENGE_TYPES.filter((t) => savedGates[t.id] !== undefined);
+  const unlocksSummary =
+    gatedList.length === 0
+      ? 'Nothing gated'
+      : gatedList
+          .map((t) => `${t.id === 'hunt' ? huntKindName() : t.name} at ${savedGates[t.id]}`)
+          .join(', ');
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -472,344 +558,416 @@ export function AdminScreen({
           <Text style={styles.footNote}>This page is for admins only.</Text>
         ) : (
           <>
-            <Card style={{ gap: 12 }} elevated={false}>
-              <View style={styles.directoryHeader}>
-                <Text style={text.h4}>Global challenges</Text>
-                <GlobeHemisphereWestIcon size={18} color={colors.accent} />
-              </View>
-              <Text style={styles.footNote}>
-                Challenges open to everyone, shown on Today under Global Hound Challenges. Anyone can join until
-                joining closes.
-              </Text>
-              {globalChallenges === null && !globalError ? (
-                <ActivityIndicator color={colors.accent} />
-              ) : (
-                (globalChallenges ?? []).map((c) => {
-                  const KindIcon = CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
-                  const ended = Date.now() >= new Date(c.endsAt).getTime();
-                  return (
-                    <View key={c.id} style={{ gap: 8 }}>
-                      <View style={styles.userRow}>
-                        <KindIcon size={18} color={withAlpha(colors.text, ended ? 0.4 : 0.8)} />
-                        <View style={{ flex: 1, gap: 1 }}>
-                          <Text style={[styles.userName, ended && { color: withAlpha(colors.text, 0.5) }]} numberOfLines={1}>
-                            {c.name}
-                          </Text>
-                          <Text style={styles.footNote}>
-                            {globalTimingLine(c)} · {c.durationDays} days · {c.participantCount} joined
-                          </Text>
-                          {c.sponsor && <Text style={styles.footNote}>Sponsored by {c.sponsor.name}</Text>}
-                          {c.sponsor?.url && <Text style={styles.footNote}>{sponsorClicksLine(sponsorClicks.get(c.id))}</Text>}
-                        </View>
-                        {!ended && (
-                          <Pressable
-                            onPress={() => (sponsorFor === c.id ? setSponsorFor(null) : editSponsor(c))}
-                            hitSlop={8}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Sponsor for ${c.name}`}
-                          >
-                            <HandshakeIcon size={17} color={c.sponsor ? colors.accent : withAlpha(colors.text, 0.5)} />
-                          </Pressable>
-                        )}
-                        <Pressable
-                          onPress={() => confirmTakeDown(c)}
-                          hitSlop={8}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Take down ${c.name}`}
-                        >
-                          <TrashIcon size={17} color={withAlpha(colors.text, 0.5)} />
-                        </Pressable>
-                      </View>
-                      {sponsorFor === c.id && (
-                        <View style={{ gap: 8 }}>
-                          <TextField
-                            label="Sponsor name"
-                            value={sponsorDraft.name}
-                            onChangeText={(name) => setSponsorDraft((d) => ({ ...d, name }))}
-                            placeholder="Blank takes the sponsor off"
-                            maxLength={40}
+            <AdminTabs
+              tabs={[
+                { id: 'overview', label: 'Overview' },
+                { id: 'people', label: 'People' },
+                { id: 'publish', label: 'Publish' },
+                { id: 'social', label: 'Social', badge: reportCount },
+                { id: 'bones', label: 'Bones' },
+              ]}
+              value={tab}
+              onChange={chooseTab}
+            />
+
+            {tab === 'overview' && (
+              <>
+                <Card style={{ gap: 6 }} elevated={false}>
+                  <Text style={text.h4}>Needs you</Text>
+                  {needs.length === 0 ? (
+                    <Text style={styles.footNote}>All clear.</Text>
+                  ) : (
+                    needs.map((n, i) => (
+                      <Pressable
+                        key={n.text}
+                        onPress={n.onPress}
+                        style={[styles.needRow, i > 0 && styles.needDivider]}
+                        accessibilityRole="button"
+                      >
+                        <View style={[styles.needDot, { backgroundColor: n.good ? colors.green : colors.amber }]} />
+                        <Text style={styles.needText}>{n.text}</Text>
+                        <Text style={styles.needGo}>{n.action} ›</Text>
+                      </Pressable>
+                    ))
+                  )}
+                </Card>
+                <EngagementAdminCard />
+                <AdminFold
+                  title="App versions"
+                  summary={versionsSummary}
+                  open={versionsOpen}
+                  onOpenChange={setVersionsOpen}
+                >
+                  <AppVersionsCard />
+                </AdminFold>
+                <AdminFold title="Goals" summary="Who sets goals and hits them">
+                  <GoalsAdminCard />
+                </AdminFold>
+                <AdminFold title="Push reach" summary="Who pushes can reach">
+                  <PushReachCard />
+                </AdminFold>
+              </>
+            )}
+
+            {tab === 'people' && (
+              <>
+                <Card style={{ gap: 12 }} elevated={false}>
+                  <View style={styles.directoryHeader}>
+                    <Text style={text.h4}>User directory</Text>
+                    {totalUsers !== null && <Text style={styles.footNote}>{totalUsers} registered</Text>}
+                  </View>
+                  <TextField
+                    label="Search"
+                    value={query}
+                    onChangeText={setQuery}
+                    placeholder="Name or email"
+                    icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
+                    autoCapitalize="none"
+                  />
+                  {searchError && <Text style={styles.loadError}>{searchError}</Text>}
+                  {searching && results.length === 0 ? (
+                    <ActivityIndicator color={colors.accent} />
+                  ) : results.length === 0 ? (
+                    <Text style={styles.footNote}>No users match that search.</Text>
+                  ) : (
+                    // Fixed to roughly 10 rows tall so a long directory (up
+                    // to searchUsers' own 25-row server cap) doesn't push
+                    // the rest of this screen's cards further and further
+                    // down — scroll within the box to see the rest instead.
+                    <ScrollView style={styles.directoryScroll} nestedScrollEnabled>
+                      {results.map((u) => (
+                        <Pressable key={u.id} onPress={() => onOpenUser(u)} style={styles.userRow}>
+                          <Avatar
+                            initials={u.displayInitials}
+                            tint={TINT_A}
+                            size={34}
+                            fontSize={12}
+                            frameId={u.frameId}
+                            backgroundId={u.backgroundId}
+                            iconId={u.iconId}
                           />
-                          <TextField
-                            label="Message"
-                            value={sponsorDraft.message}
-                            onChangeText={(message) => setSponsorDraft((d) => ({ ...d, message }))}
-                            placeholder="e.g. Winner gets a $50 gift card"
-                            maxLength={100}
-                          />
-                          <TextField
-                            label="Link"
-                            value={sponsorDraft.url}
-                            onChangeText={(url) => setSponsorDraft((d) => ({ ...d, url }))}
-                            placeholder="https://"
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            keyboardType="url"
-                            maxLength={200}
-                          />
-                          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
-                            <Button label="Cancel" variant="ghost" small onPress={() => setSponsorFor(null)} />
-                            <Button
-                              label={savingSponsor ? 'Saving…' : 'Save sponsor'}
-                              variant="primary"
-                              small
-                              disabled={savingSponsor}
-                              onPress={() => saveSponsor(c)}
-                            />
+                          <View style={{ flex: 1, gap: 1 }}>
+                            <Text style={styles.userName}>
+                              {u.displayName}
+                              {u.isAdmin ? ' · Admin' : ''}
+                            </Text>
+                            <Text style={styles.footNote}>{u.email}</Text>
                           </View>
+                          <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+                        </Pressable>
+                      ))}
+                    </ScrollView>
+                  )}
+                </Card>
+
+                <Pressable onPress={onOpenOrgs} accessibilityRole="button">
+                  <Card style={styles.linkRow} elevated={false}>
+                    <HandshakeIcon size={18} color={colors.accent} />
+                    <Text style={styles.linkTitle}>Organizations</Text>
+                    <Text style={styles.linkSummary} numberOfLines={1}>
+                      Members, roles and labels
+                    </Text>
+                    <CaretRightIcon size={14} color={withAlpha(colors.text, 0.45)} />
+                  </Card>
+                </Pressable>
+                <SignupAlertsCard />
+              </>
+            )}
+
+            {tab === 'publish' && (
+              <>
+                <Card style={{ gap: 12 }} elevated={false}>
+                  <View style={styles.directoryHeader}>
+                    <Text style={text.h4}>Global challenges</Text>
+                    <GlobeHemisphereWestIcon size={18} color={colors.accent} />
+                  </View>
+                  <Text style={styles.footNote}>
+                    Challenges open to everyone, shown on Today under Global Hound Challenges. Anyone can join until
+                    joining closes.
+                  </Text>
+                  {globalChallenges === null && !globalError ? (
+                    <ActivityIndicator color={colors.accent} />
+                  ) : (
+                    (globalChallenges ?? []).map((c) => {
+                      const KindIcon = CHALLENGE_KIND_ICON[c.kind] ?? DEFAULT_CHALLENGE_ICON;
+                      const ended = Date.now() >= new Date(c.endsAt).getTime();
+                      return (
+                        <View key={c.id} style={{ gap: 8 }}>
+                          <View style={styles.userRow}>
+                            <KindIcon size={18} color={withAlpha(colors.text, ended ? 0.4 : 0.8)} />
+                            <View style={{ flex: 1, gap: 1 }}>
+                              <Text style={[styles.userName, ended && { color: withAlpha(colors.text, 0.5) }]} numberOfLines={1}>
+                                {c.name}
+                              </Text>
+                              <Text style={styles.footNote}>
+                                {globalTimingLine(c)} · {c.durationDays} days · {c.participantCount} joined
+                              </Text>
+                              {c.sponsor && <Text style={styles.footNote}>Sponsored by {c.sponsor.name}</Text>}
+                              {c.sponsor?.url && <Text style={styles.footNote}>{sponsorClicksLine(sponsorClicks.get(c.id))}</Text>}
+                            </View>
+                            {!ended && (
+                              <Pressable
+                                onPress={() => (sponsorFor === c.id ? setSponsorFor(null) : editSponsor(c))}
+                                hitSlop={8}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Sponsor for ${c.name}`}
+                              >
+                                <HandshakeIcon size={17} color={c.sponsor ? colors.accent : withAlpha(colors.text, 0.5)} />
+                              </Pressable>
+                            )}
+                            <Pressable
+                              onPress={() => confirmTakeDown(c)}
+                              hitSlop={8}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Take down ${c.name}`}
+                            >
+                              <TrashIcon size={17} color={withAlpha(colors.text, 0.5)} />
+                            </Pressable>
+                          </View>
+                          {sponsorFor === c.id && (
+                            <View style={{ gap: 8 }}>
+                              <TextField
+                                label="Sponsor name"
+                                value={sponsorDraft.name}
+                                onChangeText={(name) => setSponsorDraft((d) => ({ ...d, name }))}
+                                placeholder="Blank takes the sponsor off"
+                                maxLength={40}
+                              />
+                              <TextField
+                                label="Message"
+                                value={sponsorDraft.message}
+                                onChangeText={(message) => setSponsorDraft((d) => ({ ...d, message }))}
+                                placeholder="e.g. Winner gets a $50 gift card"
+                                maxLength={100}
+                              />
+                              <TextField
+                                label="Link"
+                                value={sponsorDraft.url}
+                                onChangeText={(url) => setSponsorDraft((d) => ({ ...d, url }))}
+                                placeholder="https://"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                keyboardType="url"
+                                maxLength={200}
+                              />
+                              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+                                <Button label="Cancel" variant="ghost" small onPress={() => setSponsorFor(null)} />
+                                <Button
+                                  label={savingSponsor ? 'Saving…' : 'Save sponsor'}
+                                  variant="primary"
+                                  small
+                                  disabled={savingSponsor}
+                                  onPress={() => saveSponsor(c)}
+                                />
+                              </View>
+                            </View>
+                          )}
                         </View>
-                      )}
-                    </View>
-                  );
-                })
-              )}
-              {globalChallenges?.length === 0 && <Text style={styles.footNote}>None published yet.</Text>}
-              {globalError && <Text style={styles.loadError}>{globalError}</Text>}
-              <Button
-                label="New global challenge"
-                variant="primary"
-                icon={<PlusIcon size={13} color={colors.accent} />}
-                onPress={onNewGlobalChallenge}
-              />
-            </Card>
+                      );
+                    })
+                  )}
+                  {globalChallenges?.length === 0 && <Text style={styles.footNote}>None published yet.</Text>}
+                  {globalError && <Text style={styles.loadError}>{globalError}</Text>}
+                  <Button
+                    label="New global challenge"
+                    variant="primary"
+                    icon={<PlusIcon size={13} color={colors.accent} />}
+                    onPress={onNewGlobalChallenge}
+                  />
+                </Card>
 
-            <Card style={{ gap: 12 }} elevated={false}>
-              <Text style={text.h4}>Home banner</Text>
-              <Text style={styles.footNote}>
-                An announcement shown at the top of everyone&rsquo;s Home screen &mdash; dismissible with the small
-                &times; there, or it clears itself once its timeframe runs out. Use {'{version}'} anywhere to
-                interpolate the reader&rsquo;s own installed version, or wrap the whole message in{' '}
-                {'{if version=X}...{elseif version=Y}...{else}...{/if}'} to show a different message per version
-                (any number of {'{elseif}'} branches, {'{else}'} optional).
-              </Text>
-              <TextField
-                label="Message"
-                value={bannerMessage}
-                onChangeText={setBannerMessage}
-                placeholder="e.g. Scheduled maintenance Sunday 2-4pm"
-                multiline
-                numberOfLines={3}
-              />
-              <ToggleRow
-                label="Show this banner"
-                note="Visible to every signed-in user"
-                value={bannerEnabled}
-                onChange={setBannerEnabled}
-              />
-              <Text style={styles.footNote}>Visible for, starting now</Text>
-              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                {BANNER_DURATIONS.map((d, i) => (
-                  <RadioPill key={d.label} label={d.label} selected={bannerDurationIdx === i} onPress={() => setBannerDurationIdx(i)} />
-                ))}
-              </View>
-              {currentBanner?.enabled && (
-                <Text style={styles.footNote}>
-                  Currently live
-                  {currentBanner.expiresAt ? ` until ${new Date(currentBanner.expiresAt).toLocaleString()}` : ' (no expiry)'}.
-                </Text>
-              )}
-              {bannerError && <Text style={styles.loadError}>{bannerError}</Text>}
-              {bannerSaved && !bannerError && <Text style={styles.successNote}>Saved.</Text>}
-              <Button
-                label={savingBanner ? 'Saving…' : 'Save'}
-                variant="primary"
-                disabled={savingBanner || !bannerMessage.trim()}
-                onPress={saveBanner}
-              />
-            </Card>
+                <Card style={{ gap: 12 }} elevated={false}>
+                  <Text style={text.h4}>Home banner</Text>
+                  <AdminNote
+                    short="An announcement at the top of everyone’s Today, until it’s dismissed or runs out."
+                    more={
+                      <>
+                        Use {'{version}'} anywhere for the reader&rsquo;s installed version, or wrap the whole message in{' '}
+                        {'{if version=X}...{elseif version=Y}...{else}...{/if}'} to show a different message per version
+                        (any number of {'{elseif}'} branches, {'{else}'} optional).
+                      </>
+                    }
+                  />
+                  <TextField
+                    label="Message"
+                    value={bannerMessage}
+                    onChangeText={setBannerMessage}
+                    placeholder="e.g. Scheduled maintenance Sunday 2-4pm"
+                    multiline
+                    numberOfLines={3}
+                  />
+                  <ToggleRow
+                    label="Show this banner"
+                    note="Visible to every signed-in user"
+                    value={bannerEnabled}
+                    onChange={setBannerEnabled}
+                  />
+                  <Text style={styles.footNote}>Visible for, starting now</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    {BANNER_DURATIONS.map((d, i) => (
+                      <RadioPill key={d.label} label={d.label} selected={bannerDurationIdx === i} onPress={() => setBannerDurationIdx(i)} />
+                    ))}
+                  </View>
+                  {currentBanner?.enabled && (
+                    <Text style={styles.footNote}>
+                      Currently live
+                      {currentBanner.expiresAt ? ` until ${new Date(currentBanner.expiresAt).toLocaleString()}` : ' (no expiry)'}.
+                    </Text>
+                  )}
+                  {bannerError && <Text style={styles.loadError}>{bannerError}</Text>}
+                  {bannerSaved && !bannerError && <Text style={styles.successNote}>Saved.</Text>}
+                  <Button
+                    label={savingBanner ? 'Saving…' : 'Save'}
+                    variant="primary"
+                    disabled={savingBanner || !bannerMessage.trim()}
+                    onPress={saveBanner}
+                  />
+                </Card>
 
-            <Card style={{ gap: 12 }} elevated={false}>
-              <View style={styles.directoryHeader}>
-                <Text style={text.h4}>User directory</Text>
-                {totalUsers !== null && <Text style={styles.footNote}>{totalUsers} registered</Text>}
-              </View>
-              <TextField
-                label="Search"
-                value={query}
-                onChangeText={setQuery}
-                placeholder="Name or email"
-                icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
-                autoCapitalize="none"
-              />
-              {searchError && <Text style={styles.loadError}>{searchError}</Text>}
-              {searching && results.length === 0 ? (
-                <ActivityIndicator color={colors.accent} />
-              ) : results.length === 0 ? (
-                <Text style={styles.footNote}>No users match that search.</Text>
-              ) : (
-                // Fixed to roughly 10 rows tall so a long directory (up
-                // to searchUsers' own 25-row server cap) doesn't push
-                // the rest of this screen's cards further and further
-                // down — scroll within the box to see the rest instead.
-                <ScrollView style={styles.directoryScroll} nestedScrollEnabled>
-                  {results.map((u) => (
-                    <Pressable key={u.id} onPress={() => onOpenUser(u)} style={styles.userRow}>
-                      <Avatar
-                        initials={u.displayInitials}
-                        tint={TINT_A}
-                        size={34}
-                        fontSize={12}
-                        frameId={u.frameId}
-                        backgroundId={u.backgroundId}
-                        iconId={u.iconId}
-                      />
-                      <View style={{ flex: 1, gap: 1 }}>
-                        <Text style={styles.userName}>
-                          {u.displayName}
-                          {u.isAdmin ? ' · Admin' : ''}
-                        </Text>
-                        <Text style={styles.footNote}>{u.email}</Text>
-                      </View>
-                      <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
-                    </Pressable>
+                <Card style={{ gap: 12 }} elevated={false}>
+                  <Text style={text.h4}>Chase labels</Text>
+                  <AdminNote
+                    short="What a chase’s three roles are called, app-wide."
+                    more="This is the default for anyone not in an organization with its own labels; an organization’s own labels are set on its page under People → Organizations."
+                  />
+                  <TextField label="Hound" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
+                  <TextField label="Fox" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
+                  <TextField label="Out" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
+                  {labelsError && <Text style={styles.loadError}>{labelsError}</Text>}
+                  {labelsSaved && !labelsError && <Text style={styles.successNote}>Saved — updated everywhere.</Text>}
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Button
+                      label={savingLabels ? 'Saving…' : 'Save'}
+                      variant="primary"
+                      disabled={savingLabels}
+                      onPress={() => submitLabels({ hunter: hunterInput, hunted: huntedInput, zombie: zombieInput })}
+                    />
+                    <Button label="Reset to default" disabled={savingLabels} onPress={() => submitLabels(DEFAULT_HUNT_LABELS)} />
+                  </View>
+                </Card>
+
+              </>
+            )}
+
+            {tab === 'social' && (
+              <>
+                <TrashTalkAdminCard part="reports" onReportsChange={setReportCount} />
+                <TrashTalkAdminCard part="settings" />
+                <FindPeopleAdminCard />
+              </>
+            )}
+
+            {tab === 'bones' && (
+              <>
+                <Card style={{ gap: 12 }} elevated={false}>
+                  <Text style={text.h4}>Daily bonus</Text>
+                  <AdminNote
+                    short="What opening the app once a day pays."
+                    more="Every 7th day in a row pays the weekly amount instead; missing a day starts the streak over. Changes apply to everyone’s next claim. Daily bonus Bones never count toward challenge unlocks."
+                  />
+                  <TextField
+                    label="Each day"
+                    value={bonusDailyInput}
+                    onChangeText={(v) => {
+                      setBonusDailyInput(v);
+                      setBonusSaved(false);
+                    }}
+                    placeholder="e.g. 1"
+                    keyboardType="number-pad"
+                  />
+                  <TextField
+                    label="Every 7th day"
+                    value={bonusWeeklyInput}
+                    onChangeText={(v) => {
+                      setBonusWeeklyInput(v);
+                      setBonusSaved(false);
+                    }}
+                    placeholder="e.g. 25"
+                    keyboardType="number-pad"
+                  />
+                  {bonusError && <Text style={styles.loadError}>{bonusError}</Text>}
+                  {bonusSaved && !bonusError && <Text style={styles.successNote}>Saved.</Text>}
+                  <Button label={savingBonus ? 'Saving…' : 'Save'} variant="primary" disabled={savingBonus} onPress={saveBonus} />
+                </Card>
+
+                <Card style={{ gap: 12 }} elevated={false}>
+                  <Text style={text.h4}>Goal rewards</Text>
+                  <AdminNote
+                    short="What hitting goals pays, and what a Streak Shield costs."
+                    more="A goal day is every daily goal done; every 7th goal day in a row pays the streak amount instead. A goal week is every weekly goal done, paid once a week. A Streak Shield covers one missed day. Changes apply to everyone’s next claim. These Bones never count toward challenge unlocks."
+                  />
+                  {(
+                    [
+                      ['Each goal day', goalDayInput, setGoalDayInput, 'e.g. 5'],
+                      ['Every 7th goal day in a row', goalStreakInput, setGoalStreakInput, 'e.g. 25'],
+                      ['Each goal week', goalWeekInput, setGoalWeekInput, 'e.g. 15'],
+                      ['Streak Shield price', shieldInput, setShieldInput, 'e.g. 50'],
+                    ] as const
+                  ).map(([label, value, set, placeholder]) => (
+                    <TextField
+                      key={label}
+                      label={label}
+                      value={value}
+                      onChangeText={(v) => {
+                        set(v);
+                        setGoalRewardsSaved(false);
+                      }}
+                      placeholder={placeholder}
+                      keyboardType="number-pad"
+                    />
                   ))}
-                </ScrollView>
-              )}
-            </Card>
+                  {goalRewardsError && <Text style={styles.loadError}>{goalRewardsError}</Text>}
+                  {goalRewardsSaved && !goalRewardsError && <Text style={styles.successNote}>Saved.</Text>}
+                  <Button
+                    label={savingGoalRewards ? 'Saving…' : 'Save'}
+                    variant="primary"
+                    disabled={savingGoalRewards}
+                    onPress={saveGoalRewards}
+                  />
+                </Card>
 
-            <EngagementAdminCard />
-
-            <AppVersionsCard />
-
-            <GoalsAdminCard />
-
-            <PushReachCard />
-
-            <SignupAlertsCard />
-
-            <FindPeopleAdminCard />
-
-            <TrashTalkAdminCard />
-
-            <Card style={{ gap: 12 }} elevated={false}>
-              <Text style={text.h4}>Chase labels</Text>
-              <Text style={styles.footNote}>
-                What a chase&rsquo;s three roles are called, app-wide. This is the default for anyone not in an
-                organization with its own override &mdash; manage a specific organization&rsquo;s labels from its own page
-                instead (see the organization icon in the top bar).
-              </Text>
-              <TextField label="Hound" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
-              <TextField label="Fox" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
-              <TextField label="Out" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
-              {labelsError && <Text style={styles.loadError}>{labelsError}</Text>}
-              {labelsSaved && !labelsError && <Text style={styles.successNote}>Saved — updated everywhere.</Text>}
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Button
-                  label={savingLabels ? 'Saving…' : 'Save'}
-                  variant="primary"
-                  disabled={savingLabels}
-                  onPress={() => submitLabels({ hunter: hunterInput, hunted: huntedInput, zombie: zombieInput })}
-                />
-                <Button label="Reset to default" disabled={savingLabels} onPress={() => submitLabels(DEFAULT_HUNT_LABELS)} />
-              </View>
-            </Card>
-
-            <Card style={{ gap: 12 }} elevated={false}>
-              <Text style={text.h4}>Daily bonus</Text>
-              <Text style={styles.footNote}>
-                What opening the app once a day pays. Every 7th day in a row pays the weekly amount instead; missing a
-                day starts the streak over. Changes apply to everyone&rsquo;s next claim. Daily bonus Bones never count
-                toward challenge unlocks.
-              </Text>
-              <TextField
-                label="Each day"
-                value={bonusDailyInput}
-                onChangeText={(v) => {
-                  setBonusDailyInput(v);
-                  setBonusSaved(false);
-                }}
-                placeholder="e.g. 1"
-                keyboardType="number-pad"
-              />
-              <TextField
-                label="Every 7th day"
-                value={bonusWeeklyInput}
-                onChangeText={(v) => {
-                  setBonusWeeklyInput(v);
-                  setBonusSaved(false);
-                }}
-                placeholder="e.g. 25"
-                keyboardType="number-pad"
-              />
-              {bonusError && <Text style={styles.loadError}>{bonusError}</Text>}
-              {bonusSaved && !bonusError && <Text style={styles.successNote}>Saved.</Text>}
-              <Button label={savingBonus ? 'Saving…' : 'Save'} variant="primary" disabled={savingBonus} onPress={saveBonus} />
-            </Card>
-
-            <AdsAdminCard />
-
-            <Card style={{ gap: 12 }} elevated={false}>
-              <Text style={text.h4}>Goal rewards</Text>
-              <Text style={styles.footNote}>
-                What hitting your goals pays. A goal day is every daily goal done; every 7th goal day in a row pays the
-                streak amount instead. A goal week is every weekly goal done, paid once a week. A Streak Shield is
-                what players pay to cover one missed day. Changes apply to everyone&rsquo;s next claim. These Bones
-                never count toward challenge unlocks.
-              </Text>
-              {(
-                [
-                  ['Each goal day', goalDayInput, setGoalDayInput, 'e.g. 5'],
-                  ['Every 7th goal day in a row', goalStreakInput, setGoalStreakInput, 'e.g. 25'],
-                  ['Each goal week', goalWeekInput, setGoalWeekInput, 'e.g. 15'],
-                  ['Streak Shield price', shieldInput, setShieldInput, 'e.g. 50'],
-                ] as const
-              ).map(([label, value, set, placeholder]) => (
-                <TextField
-                  key={label}
-                  label={label}
-                  value={value}
-                  onChangeText={(v) => {
-                    set(v);
-                    setGoalRewardsSaved(false);
-                  }}
-                  placeholder={placeholder}
-                  keyboardType="number-pad"
-                />
-              ))}
-              {goalRewardsError && <Text style={styles.loadError}>{goalRewardsError}</Text>}
-              {goalRewardsSaved && !goalRewardsError && <Text style={styles.successNote}>Saved.</Text>}
-              <Button
-                label={savingGoalRewards ? 'Saving…' : 'Save'}
-                variant="primary"
-                disabled={savingGoalRewards}
-                onPress={saveGoalRewards}
-              />
-            </Card>
-
-            <Card style={{ gap: 12 }} elevated={false}>
-              <Text style={text.h4}>Challenge unlocks</Text>
-              <Text style={styles.footNote}>
-                Gate a challenge kind behind Bones earned through play, so new players meet the core loop first
-                and unlock the rest as a reward for sticking around &mdash; a real-money Bones purchase never
-                counts toward this. Leave a kind unchecked to keep it always available.
-              </Text>
-              <View style={{ gap: 12 }}>
-                {CHALLENGE_TYPES.map((t) => {
-                  const gated = gatedKinds.has(t.id);
-                  return (
-                    <View key={t.id} style={{ gap: 8 }}>
-                      <ToggleRow
-                        label={t.id === 'hunt' ? huntKindName() : t.name}
-                        note={gated ? 'Gated' : 'Always available'}
-                        value={gated}
-                        onChange={() => toggleGateKind(t.id)}
-                      />
-                      {gated && (
-                        <TextField
-                          label="Bones required"
-                          value={gateBonesInput[t.id]}
-                          onChangeText={(v) => setGateBonesInput((cur) => ({ ...cur, [t.id]: v }))}
-                          placeholder="e.g. 250"
-                          keyboardType="number-pad"
-                        />
-                      )}
+                <AdminFold title="Rewarded ads" summary="Ads for Bones, with a daily limit">
+                  <AdsAdminCard />
+                </AdminFold>
+                <AdminFold title="Challenge unlocks" summary={unlocksSummary}>
+                  <Card style={{ gap: 12 }} elevated={false}>
+                    <Text style={text.h4}>Challenge unlocks</Text>
+                    <AdminNote
+                      short="Gate a challenge kind behind Bones earned by playing."
+                      more="New players meet the core loop first and unlock the rest by sticking around. Bought Bones never count toward this. Leave a kind off to keep it always available."
+                    />
+                    <View style={{ gap: 12 }}>
+                      {CHALLENGE_TYPES.map((t) => {
+                        const gated = gatedKinds.has(t.id);
+                        return (
+                          <View key={t.id} style={{ gap: 8 }}>
+                            <ToggleRow
+                              label={t.id === 'hunt' ? huntKindName() : t.name}
+                              note={gated ? 'Gated' : 'Always available'}
+                              value={gated}
+                              onChange={() => toggleGateKind(t.id)}
+                            />
+                            {gated && (
+                              <TextField
+                                label="Bones required"
+                                value={gateBonesInput[t.id]}
+                                onChangeText={(v) => setGateBonesInput((cur) => ({ ...cur, [t.id]: v }))}
+                                placeholder="e.g. 250"
+                                keyboardType="number-pad"
+                              />
+                            )}
+                          </View>
+                        );
+                      })}
                     </View>
-                  );
-                })}
-              </View>
-              {gatesError && <Text style={styles.loadError}>{gatesError}</Text>}
-              {gatesSaved && !gatesError && <Text style={styles.successNote}>Saved.</Text>}
-              <Button label={savingGates ? 'Saving…' : 'Save'} variant="primary" disabled={savingGates} onPress={saveGates} />
-            </Card>
+                    {gatesError && <Text style={styles.loadError}>{gatesError}</Text>}
+                    {gatesSaved && !gatesError && <Text style={styles.successNote}>Saved.</Text>}
+                    <Button label={savingGates ? 'Saving…' : 'Save'} variant="primary" disabled={savingGates} onPress={saveGates} />
+                  </Card>
+
+                </AdminFold>
+              </>
+            )}
           </>
         )}
       </ScrollView>
@@ -834,6 +992,14 @@ function makeStyles(colors: Palette) {
       borderTopColor: withAlpha(colors.text, 0.07),
     },
     userName: { fontFamily: font.body, fontSize: 14.5, color: colors.text },
+    needRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+    needDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+    needDot: { width: 8, height: 8, borderRadius: 4 },
+    needText: { flex: 1, fontSize: 14, color: colors.text },
+    needGo: { fontSize: 13, fontFamily: font.heading, color: colors.accent400 },
+    linkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14 },
+    linkTitle: { fontSize: 15, fontFamily: font.heading, color: colors.text },
+    linkSummary: { flex: 1, textAlign: 'right', fontSize: 13, color: withAlpha(colors.text, 0.55) },
   });
 }
 
