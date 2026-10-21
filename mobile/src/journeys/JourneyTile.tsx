@@ -21,7 +21,7 @@ export function JourneyTile({ journey, onOpen }: { journey: MyJourney; onOpen: (
   const pct = Math.floor((miles / journey.courseMiles) * 100);
   const next = nextStop(course, miles);
   const finished = !!journey.finishedAt;
-  const mapWidth = Math.round(width * 0.4);
+  const mapWidth = Math.round(width * 0.44);
   const line = finished
     ? 'Tap to pick your next course'
     : next
@@ -38,7 +38,7 @@ export function JourneyTile({ journey, onOpen }: { journey: MyJourney; onOpen: (
       <View style={styles.row} onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}>
         {mapWidth > 0 && (
           <View style={styles.map}>
-            <JourneyMap course={course} width={mapWidth} height={84} miles={miles} labels="none" />
+            <JourneyMap course={course} width={mapWidth} height={104} miles={miles} labels="none" compact />
           </View>
         )}
         <View style={styles.text}>
