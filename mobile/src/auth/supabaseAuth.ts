@@ -50,7 +50,19 @@ export async function userFromSession(session: Session, provider: AuthProviderId
     useUsername: data.use_username ?? false,
     organizationId: data.organization_id,
     orgRole: data.org_role as AuthUser['orgRole'],
+    needsName: !hasSignUpName(session.user.user_metadata),
   };
+}
+
+// Whether sign-up gave the account a name: email sign-up sends `name`,
+// Google and Apple fill `name` or `full_name`. Supabase shows "-" for
+// none. setMyName fills `name` in, so this is true once someone has
+// told Hound what to call them.
+function hasSignUpName(meta: Record<string, unknown> | undefined): boolean {
+  return ['name', 'full_name', 'display_name'].some((k) => {
+    const v = meta?.[k];
+    return typeof v === 'string' && v.trim() !== '' && v.trim() !== '-';
+  });
 }
 
 // GoTrue's own message for a banned account ("User is banned") is easy to

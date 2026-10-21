@@ -34,6 +34,19 @@ export async function setUseUsername(userId: string, useUsername: boolean): Prom
   if (error) throw new Error(error.message);
 }
 
+// Sets your name and initials (0119_set_my_name.sql); the server tidies
+// the spaces and throws its own message for a name that's blank or too
+// long. Also saved on the sign-in account, so Supabase's user list shows
+// it and setup stops asking (supabaseAuth's hasSignUpName).
+export async function setMyName(name: string): Promise<{ name: string; initials: string }> {
+  const client = requireClient();
+  const { data, error } = await client.rpc('set_my_name', { p_name: name }).single();
+  if (error) throw new Error(error.message);
+  const row = data as { name: string; initials: string };
+  await client.auth.updateUser({ data: { name: row.name } }).catch(() => {});
+  return row;
+}
+
 // Picking a username (the setup wizard, or Settings the first time) also
 // turns it on for leaderboards and challenges: someone who chose one wants
 // to be seen by it. They can still turn it off in Settings.

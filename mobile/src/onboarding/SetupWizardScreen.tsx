@@ -17,6 +17,7 @@ import {
   PersonSimpleRunIcon,
   ShareNetworkIcon,
   TrophyIcon,
+  UserIcon,
   UserPlusIcon,
   UsersThreeIcon,
 } from 'phosphor-react-native';
@@ -45,6 +46,7 @@ import { notifyBonesChanged } from '../bones/bonesChanged';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from './onboardingApi';
 import { markAskedForUsername, useUsernameForm, usernameBody, UsernameFields } from '../profiles/UsernameForm';
+import { setMyName } from '../profiles/supabaseProfile';
 import {
   CONNECT_PROMPT_SEEN_KEY,
   extraGoalsFor,
@@ -105,8 +107,9 @@ export function SetupWizardScreen({
       setUses(saved);
       const steps: StepId[] = [];
       if (auth !== 'authorized') steps.push('health');
-      // Anyone without a username yet, new or finishing setup.
-      if (!user?.username) steps.push('name');
+      // Anyone without a username yet, new or finishing setup, and anyone
+      // sign-up didn't give a name (NameStep asks for one first).
+      if (!user?.username || user?.needsName) steps.push('name');
       if (!resume || saved.length === 0) steps.push('uses');
       if (!resume || !goalsSet) steps.push('goals');
       if (push === 'undetermined') steps.push('push');
@@ -133,8 +136,9 @@ export function SetupWizardScreen({
 
   const step = plan[index];
   const next = () => setIndex((i) => Math.min(i + 1, plan.length - 1));
-  // Health can't be skipped from the top, only after trying it.
-  const canSkip = step !== 'health' && step !== 'done';
+  // Health can't be skipped from the top, only after trying it, and a
+  // missing name can't be skipped at all.
+  const canSkip = step !== 'health' && step !== 'done' && !(step === 'name' && user?.needsName);
   const counted = plan.length - 1;
 
   const skip = () => {
@@ -247,34 +251,73 @@ function HealthStep({ styles, onNext }: { styles: Styles; onNext: () => void }) 
 // sign-up (0030_username.sql). Choosing one turns it on there right away;
 // friends still see the real name. "Keep my name" moves on without one.
 // The form is shared with Today's ask (profiles/UsernameForm.tsx).
+//
+// When sign-up didn't bring a name (user.needsName: Sign in with Apple
+// only shares one the first time), this asks "What should we call you?"
+// above the username, and either button saves the name first.
 function NameStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
   const { colors } = useTheme();
-  const form = useUsernameForm();
+  const { user, updateUser } = useAuth();
+  const askName = !!user?.needsName;
+  const [name, setName] = useState('');
+  const [nameProblem, setNameProblem] = useState<string | null>(null);
+  const [savingName, setSavingName] = useState(false);
+  const form = useUsernameForm(askName ? name : undefined);
+  const nameOk = !askName || name.trim().length > 0;
+  const busy = form.saving || savingName;
+
+  // True once there's a name to go on with (or none was needed).
+  const saveName = async (): Promise<boolean> => {
+    if (!askName) return true;
+    setSavingName(true);
+    setNameProblem(null);
+    try {
+      const saved = await setMyName(name);
+      updateUser({ name: saved.name, initials: saved.initials, needsName: false });
+      return true;
+    } catch (e) {
+      setNameProblem(e instanceof Error ? e.message : 'Could not save your name. Try again.');
+      return false;
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   return (
     <StepPage
       styles={styles}
-      icon={<AtIcon size={28} color={colors.accent} weight="bold" />}
-      title="Pick a username"
-      body={usernameBody(form.name)}
+      icon={
+        askName ? (
+          <UserIcon size={28} color={colors.accent} weight="bold" />
+        ) : (
+          <AtIcon size={28} color={colors.accent} weight="bold" />
+        )
+      }
+      title={askName ? 'What should we call you?' : 'Pick a username'}
+      body={
+        askName
+          ? 'Your name is what friends see. Then pick a username for leaderboards and challenges, if you like.'
+          : usernameBody(form.name)
+      }
       footer={
         <>
-          {form.problem && <Text style={styles.problem}>{form.problem}</Text>}
+          {(nameProblem ?? form.problem) && <Text style={styles.problem}>{nameProblem ?? form.problem}</Text>}
           <Button
-            label={form.saving ? 'Saving…' : 'Use this username'}
+            label={busy ? 'Saving…' : 'Use this username'}
             variant="primary"
             block
-            disabled={!form.valid || form.saving}
+            disabled={!nameOk || !form.valid || busy}
             onPress={async () => {
-              if (await form.save()) onNext();
+              if ((await saveName()) && (await form.save())) onNext();
             }}
           />
           <Button
-            label="Keep my name"
+            label={askName ? 'Just my name' : 'Keep my name'}
             variant="ghost"
             block
-            disabled={form.saving}
-            onPress={() => {
+            disabled={!nameOk || busy}
+            onPress={async () => {
+              if (!(await saveName())) return;
               form.keepName();
               onNext();
             }}
@@ -282,7 +325,25 @@ function NameStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
         </>
       }
     >
-      <UsernameFields form={form} />
+      <View style={{ gap: 18, alignSelf: 'stretch' }}>
+        {askName && (
+          <TextField
+            label="Your name"
+            value={name}
+            onChangeText={(v: string) => {
+              setName(v);
+              setNameProblem(null);
+            }}
+            placeholder="Jordan Lee"
+            maxLength={40}
+            autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
+            autoFocus
+          />
+        )}
+        <UsernameFields form={form} autoFocus={!askName} />
+      </View>
     </StepPage>
   );
 }

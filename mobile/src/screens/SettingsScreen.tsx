@@ -23,7 +23,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { APP_VERSION, runningOnLabel } from '../lib/appVersion';
 import { deleteMyAccount } from '../auth/deleteAccount';
 import * as notifications from '../notifications/supabaseNotifications';
-import { setUseUsername, setUsername, USERNAME_FORMAT, chooseUsername } from '../profiles/supabaseProfile';
+import { setMyName, setUseUsername, setUsername, USERNAME_FORMAT, chooseUsername } from '../profiles/supabaseProfile';
 import { getOrganization, leaveOrganization, redeemOrganizationInvite } from '../organizations/supabaseOrganizations';
 import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import type { Organization } from '../organizations/types';
@@ -84,6 +84,25 @@ export function SettingsScreen() {
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [savingUsername, setSavingUsername] = useState(false);
   const [savingUseUsername, setSavingUseUsername] = useState(false);
+
+  // Your name, as friends see it (0119_set_my_name.sql).
+  const [nameInput, setNameInput] = useState(user?.name ?? '');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [savingName, setSavingName] = useState(false);
+
+  const saveName = async () => {
+    setNameError(null);
+    setSavingName(true);
+    try {
+      const saved = await setMyName(nameInput);
+      setNameInput(saved.name);
+      updateUser({ name: saved.name, initials: saved.initials, needsName: false });
+    } catch (e) {
+      setNameError(e instanceof Error ? e.message : 'Could not save that — try again.');
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const saveUsername = async () => {
     if (!user?.id) return;
@@ -581,6 +600,34 @@ export function SettingsScreen() {
               />
             </>
           )}
+        </Card>
+      )}
+
+      {isSupabaseConfigured && user && (
+        <Card style={{ gap: 14 }} elevated={false}>
+          <Text style={text.h4}>Your name</Text>
+          <Text style={styles.footNote}>What friends see, and everyone else unless you use a username below.</Text>
+          <TextField
+            label="Name"
+            value={nameInput}
+            onChangeText={(v: string) => {
+              setNameInput(v);
+              setNameError(null);
+            }}
+            placeholder="Jordan Lee"
+            maxLength={40}
+            autoCapitalize="words"
+            autoComplete="name"
+            textContentType="name"
+            error={nameError ?? undefined}
+          />
+          <Button
+            label={savingName ? 'Saving…' : 'Save name'}
+            variant="secondary"
+            small
+            disabled={savingName || !nameInput.trim() || nameInput.trim() === user.name}
+            onPress={saveName}
+          />
         </Card>
       )}
 
