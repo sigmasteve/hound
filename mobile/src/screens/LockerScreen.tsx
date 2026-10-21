@@ -307,7 +307,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
             iconId={equipped?.iconId}
           />
           <View style={{ gap: 2 }}>
-            <Text style={text.h2}>Locker</Text>
+            <Text style={text.h2}>Your look</Text>
             <Text style={styles.footNote}>
               {xpTotal !== null ? `Level ${levelProgressForXp(xpTotal).level} · ${xpTotal.toLocaleString()} XP` : 'Loading…'}
             </Text>
@@ -318,7 +318,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
 
         <View style={styles.tabRow}>
           <Pressable style={[styles.tabButton, tab === 'locker' && styles.tabButtonActive]} onPress={() => setTab('locker')}>
-            <Text style={[styles.tabLabel, tab === 'locker' && styles.tabLabelActive]}>Locker</Text>
+            <Text style={[styles.tabLabel, tab === 'locker' && styles.tabLabelActive]}>Yours</Text>
           </Pressable>
           <Pressable style={[styles.tabButton, tab === 'shop' && styles.tabButtonActive]} onPress={() => setTab('shop')}>
             <Text style={[styles.tabLabel, tab === 'shop' && styles.tabLabelActive]}>Shop</Text>

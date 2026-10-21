@@ -72,7 +72,7 @@ export function AdsAdminCard() {
         <Text style={text.h4}>Rewarded ads</Text>
       </View>
       <Text style={styles.note}>
-        Members can choose to watch a short ad for Bones from the Locker, up to a daily limit. Needs Hound 0.11.0 or
+        Members can choose to watch a short ad for Bones from Your look, up to a daily limit. Needs Hound 0.11.0 or
         later. Leave the ad unit ids blank to show Google&rsquo;s test ads.
       </Text>
       {!settings ? (

@@ -135,7 +135,7 @@ export function TopNav({
               onPress={onOpenBones}
               hitSlop={6}
               accessibilityRole="button"
-              accessibilityLabel={`${bones} ${currencyName}. Open the Locker`}
+              accessibilityLabel={`${bones} ${currencyName}. Open Your look`}
             >
               <BoneIcon size={15} color={colors.amber} weight="fill" />
               <Text style={styles.bonesCount}>{shortCount(bones)}</Text>

@@ -83,7 +83,7 @@ export function LevelUpModal({
 
           {unlockedNames.length > 0 && (
             <View style={styles.unlocks}>
-              <Text style={styles.unlocksTitle}>Unlocked in your Locker</Text>
+              <Text style={styles.unlocksTitle}>Unlocked in Your look</Text>
               <Text style={styles.unlocksList}>{unlockedNames.join(' · ')}</Text>
             </View>
           )}

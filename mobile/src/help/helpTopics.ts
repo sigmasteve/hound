@@ -41,7 +41,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Today: your challenges and anything that needs you right now.',
         'Challenges: everything you’re in, invites waiting on you, and your medals.',
         'Friends: your friends, requests, and ways to add someone.',
-        `You (your picture): your level, Hound Score and ${currency}, plus Stats & records, Achievements, Locker, Health data, Settings and this Help guide.`,
+        `You (your picture): your level, Hound Score and ${currency}, then Your progress (Goals, Stats & records, Achievements), Spend your ${currency} (Your look, Kennel) and App (Health data, Settings and this Help guide). Tap ${currency} to see how to earn and spend them.`,
       ],
     },
     {
@@ -175,7 +175,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Hound Score grows from your results when a challenge wraps up. It never goes down.',
         'XP fills up your level. You earn it by taking part in challenges (win or lose), opening Hound each day, and hitting your goals.',
         'Your level gives you a rank: Pup, Tracker (level 5), Hunter (10), Alpha (15) and Legend (20). It shows on your avatar for everyone to see.',
-        'New levels unlock new frames and backgrounds in your Locker.',
+        'New levels unlock new frames and backgrounds in Your look.',
       ],
     },
     {
@@ -186,7 +186,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         `You earn ${currency} every time a challenge you’re in wraps up, plus a bonus each time you level up.`,
         `Opening the app each day adds a daily bonus, and hitting your goals pays too (see below).`,
-        `Spend ${currency} in the Shop tab of your Locker on looks no level unlocks.`,
+        `Spend ${currency} in the Shop tab of Your look on looks no level unlocks.`,
         'Limited-time drops (like Halloween) sit at the top of the Shop until they end — anything you buy from one is yours to keep afterward.',
         `Some challenge types unlock after you’ve earned enough ${currency} through play. Spending never re-locks them.`,
       ],
@@ -263,7 +263,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'Finish every daily goal and the Bone Dig card on Today lights up. Tap Dig.',
         `A dig turns up 5 ${currency} (35% of digs), 10 (25%), 20 (10%), 50 (3%), or a piece (27%).`,
-        'Pieces unlock Dig items in your Locker that can’t be bought: the Fossil Ring at 5 pieces, the Dig Site background at 10, and the Bone icon at 15.',
+        'Pieces unlock Dig items in Your look that can’t be bought: the Fossil Ring at 5 pieces, the Dig Site background at 10, and the Bone icon at 15.',
         `Once you have all three, a piece is worth 25 ${currency} instead.`,
         'One dig a day. It’s free, and you can’t buy more.',
       ],
@@ -281,7 +281,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         `Now and then, limited-time items show up at the top of the Kennel, like a Halloween set each October. Each one is only for sale until its date, and anything you buy, you keep.`,
         `Under Look, pick their coat, ears, tail and markings. Tan, Chocolate, Cream and Gray coats are free, special coats cost ${currency}, and the rest of the look is free to change any time.`,
         'Your friends see your hound on your friend page, and you see theirs.',
-        'Turn on “Use as my avatar” in the Kennel and your hound replaces your initials everywhere: leaderboards, friends and chats. It keeps your frame and background, and picking a Locker icon switches back.',
+        'Turn on “Use as my avatar” in the Kennel and your hound replaces your initials everywhere: leaderboards, friends and chats. It keeps your frame and background, and picking an icon in Your look switches back.',
         'Care style: Gentle is the default. Classic pet adds 3 meal hearts; one empties each day they aren’t fed, and with none left they’re hungry until you feed them. Going up a level fills every heart. You can switch back any time.',
       ],
     },
@@ -292,7 +292,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'Frames, backgrounds, and avatar icons.',
       numbered: true,
       steps: [
-        'Open your Locker from the You tab.',
+        'Open Your look from the You tab.',
         `Pick a frame, background, or icon you’ve unlocked — or buy one in the Shop with ${currency}.`,
         'Your look shows everywhere your avatar does: leaderboards, friends, and the top bar.',
       ],
