@@ -37,6 +37,9 @@ export interface GlobalTemplate {
   distanceGoalMi?: number;
   distanceGoalSteps?: number;
   bingoCardType?: BingoCardType;
+  // Seasonal ones are listed under their own heading; the blurb says
+  // when to start them (the publish screen picks the actual day).
+  seasonal?: boolean;
 }
 
 // Starting points on the admin's publish screen — every field stays
@@ -85,6 +88,102 @@ export const GLOBAL_TEMPLATES: GlobalTemplate[] = [
     durationDays: 75,
     blurb: 'The daily 75 Day checklist, together.',
     joinWindow: '3',
+  },
+  {
+    id: 'appalachian-trail',
+    name: 'Hike the Appalachian Trail',
+    kind: 'distance',
+    durationDays: 30,
+    blurb: 'Everyone’s miles add up to the 2,190-mile trail from Georgia to Maine.',
+    joinWindow: 'end',
+    distanceGoalUnit: 'miles',
+    distanceGoalMi: 2_190,
+  },
+  {
+    id: 'route-66',
+    name: 'Route 66',
+    kind: 'distance',
+    durationDays: 21,
+    blurb: 'Chicago to Santa Monica together: 2,448 miles.',
+    joinWindow: 'end',
+    distanceGoalUnit: 'miles',
+    distanceGoalMi: 2_448,
+  },
+  {
+    id: 'million-step-march',
+    name: 'Million Step March',
+    kind: 'distance',
+    durationDays: 14,
+    blurb: 'A million steps between everyone.',
+    joinWindow: 'end',
+    distanceGoalUnit: 'steps',
+    distanceGoalSteps: 1_000_000,
+  },
+  {
+    id: 'weekend-warrior',
+    name: 'Weekend Warrior',
+    kind: 'steps',
+    durationDays: 2,
+    blurb: 'A Saturday-and-Sunday Step Race. Start it on a Saturday.',
+    joinWindow: 'end',
+  },
+  {
+    id: 'monster-mash',
+    name: 'Monster Mash Week',
+    kind: 'steps',
+    durationDays: 7,
+    blurb: 'A Step Race that ends on Halloween. Start it Oct 25.',
+    joinWindow: '1',
+    seasonal: true,
+  },
+  {
+    id: 'turkey-trot',
+    name: 'Turkey Trot Week',
+    kind: 'steps',
+    durationDays: 7,
+    blurb: 'A Step Race around Thanksgiving. Start it the Saturday before.',
+    joinWindow: '1',
+    seasonal: true,
+  },
+  {
+    id: 'burn-the-pie',
+    name: 'Burn the Pie',
+    kind: 'streak',
+    durationDays: 7,
+    blurb: '8,000 steps every day from Thanksgiving on.',
+    joinWindow: '1',
+    dailyGoalSteps: 8_000,
+    seasonal: true,
+  },
+  {
+    id: 'twelve-days',
+    name: '12 Days of Steps',
+    kind: 'streak',
+    durationDays: 12,
+    blurb: '10,000 steps a day for the 12 days before Christmas. Start it Dec 13.',
+    joinWindow: '1',
+    dailyGoalSteps: 10_000,
+    seasonal: true,
+  },
+  {
+    id: 'holiday-bingo',
+    name: 'Holiday Bingo',
+    kind: 'bingo',
+    durationDays: 14,
+    blurb: 'A 4×4 HUNT card through the holidays. Start it mid-December.',
+    joinWindow: '3',
+    bingoCardType: 'hound',
+    seasonal: true,
+  },
+  {
+    id: 'new-year-new-hound',
+    name: 'New Year, New Hound',
+    kind: 'bingo',
+    durationDays: 21,
+    blurb: 'A 5×5 HOUND card to start the year. Start it Jan 1.',
+    joinWindow: '7',
+    bingoCardType: 'hound',
+    seasonal: true,
   },
 ];
 

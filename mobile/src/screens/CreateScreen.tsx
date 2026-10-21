@@ -564,22 +564,27 @@ export function CreateScreen({
                 </Text>
               </View>
               <Text style={text.h2}>Start from a template</Text>
-              {GLOBAL_TEMPLATES.map((t) => {
+              {GLOBAL_TEMPLATES.map((t, i) => {
                 const TypeIcon = CHALLENGE_KIND_ICON[t.kind];
                 const type = CHALLENGE_TYPES.find((ct) => ct.id === t.kind);
+                // Seasonal ones come last, under their own heading.
+                const firstSeasonal = !!t.seasonal && !GLOBAL_TEMPLATES[i - 1]?.seasonal;
                 return (
-                  <Pressable key={t.id} onPress={() => applyTemplate(t)} style={styles.typeRow}>
-                    <View style={[styles.typeIcon, { backgroundColor: type?.tint }]}>
-                      <TypeIcon size={19} color={type?.iconColor} />
-                    </View>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={styles.typeName}>{t.name}</Text>
-                      <Text style={styles.typeDesc}>
-                        {t.blurb} {t.durationDays} days.
-                      </Text>
-                    </View>
-                    <ArrowRightIcon size={15} color={withAlpha(colors.text, 0.5)} />
-                  </Pressable>
+                  <React.Fragment key={t.id}>
+                    {firstSeasonal && <Text style={styles.groupLabel}>Seasonal</Text>}
+                    <Pressable onPress={() => applyTemplate(t)} style={styles.typeRow}>
+                      <View style={[styles.typeIcon, { backgroundColor: type?.tint }]}>
+                        <TypeIcon size={19} color={type?.iconColor} />
+                      </View>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.typeName}>{t.name}</Text>
+                        <Text style={styles.typeDesc}>
+                          {t.blurb} {t.durationDays} days.
+                        </Text>
+                      </View>
+                      <ArrowRightIcon size={15} color={withAlpha(colors.text, 0.5)} />
+                    </Pressable>
+                  </React.Fragment>
                 );
               })}
             </View>
