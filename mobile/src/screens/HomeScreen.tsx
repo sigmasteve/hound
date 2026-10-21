@@ -30,6 +30,7 @@ import { Tag } from '../components/Tag';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
+import { syncJourney } from '../journeys/journeySync';
 import type { HealthSnapshot, WorkoutSample } from '../health/types';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
@@ -1035,6 +1036,9 @@ export function HomeScreen({
         });
       }
     });
+    // Your Journey's miles, and a notification when you pass a stop
+    // (never throws).
+    if (isSupabaseConfigured && user?.id) syncJourney(user.id, health);
   }, [health, user?.id, loadGlobalChallenges, pushToast, refreshGoalStreak]);
 
   useEffect(reload, [reload]);

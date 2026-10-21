@@ -97,6 +97,8 @@ export function MainScreen({ route, navigation }: Props) {
             onOpenAchievements={() => navigation.navigate('Achievements')}
             onOpenLocker={() => navigation.navigate('Locker')}
             onOpenKennel={() => navigation.navigate('Kennel')}
+            onOpenJourney={() => navigation.navigate('Journey')}
+            onPickJourney={() => navigation.navigate('JourneyPicker')}
             onOpenHealthData={() => navigation.navigate('HealthData')}
             onOpenSettings={() => navigation.navigate('Settings')}
             onOpenHelp={() => navigation.navigate('Help')}

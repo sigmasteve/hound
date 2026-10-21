@@ -17,6 +17,7 @@ import { claimGoalDay, claimGoalWeek, getGoalStreak, goalsEarned } from '../goal
 import { refreshHoundNow } from '../goals/hound';
 import { updateWidgets } from '../widgets/widgetData';
 import { numbersFromProgress } from '../widgets/widgetModel';
+import { syncJourney } from '../journeys/journeySync';
 
 // Background sync (from 0.10.2, the first build with the native module):
 // every so often, even with Hound closed, the phone wakes the app to
@@ -77,6 +78,9 @@ async function syncNow(): Promise<void> {
       syncSeventyFiveFromDevice(c, shared),
     ]);
   }
+
+  // Your Journey's miles, and a notification when you pass a stop.
+  await syncJourney(userId, health);
 
   const [goals, settings] = await Promise.all([listGoals(userId), getHoundSettings(userId)]);
   const needsWeek = goals.some((g) => g.period === 'week' && (g.metric === 'steps' || g.metric === 'distance_mi'));

@@ -1,0 +1,150 @@
+import React, { useMemo } from 'react';
+import Svg, { Circle, G, Path, Rect, Text as SvgText } from 'react-native-svg';
+import { useTheme } from '../theme/ThemeContext';
+import { font as fonts, withAlpha } from '../theme/tokens';
+import { pathTo, pointAt, type Course, type LatLng } from './courses';
+
+export interface MapPerson {
+  id: string;
+  miles: number;
+  initials: string;
+  color: string;
+}
+
+// A course drawn as one simplified line, the way it looks on Journeys:
+// water and rivers for context, gold dots for the stops (filled once
+// passed), the walked part in purple, and you (a paw) or your friends
+// (their initials) on it. Not a street map.
+export function JourneyMap({
+  course,
+  width,
+  height,
+  miles,
+  people = [],
+  labels = 'few',
+}: {
+  course: Course;
+  width: number;
+  height: number;
+  // How far you've gone; null draws the course alone.
+  miles: number | null;
+  people?: MapPerson[];
+  labels?: 'none' | 'few' | 'all';
+}) {
+  const { colors } = useTheme();
+  const w = width;
+  const h = height;
+
+  const project = useMemo(() => {
+    const lats = course.path.map((p) => p[0]);
+    const lngs = course.path.map((p) => p[1]);
+    let minLat = Math.min(...lats);
+    let maxLat = Math.max(...lats);
+    let minLng = Math.min(...lngs);
+    let maxLng = Math.max(...lngs);
+    const padLat = (maxLat - minLat) * 0.08 || 0.002;
+    const padLng = (maxLng - minLng) * 0.08 || 0.002;
+    minLat -= padLat;
+    maxLat += padLat;
+    minLng -= padLng;
+    maxLng += padLng;
+    const kx = Math.cos((((minLat + maxLat) / 2) * Math.PI) / 180);
+    const s = Math.min(w / ((maxLng - minLng) * kx), h / (maxLat - minLat));
+    const ox = (w - (maxLng - minLng) * kx * s) / 2;
+    const oy = (h - (maxLat - minLat) * s) / 2;
+    return ([la, ln]: LatLng): [number, number] => [ox + (ln - minLng) * kx * s, oy + (maxLat - la) * s];
+  }, [course, w, h]);
+
+  const d = (pts: LatLng[]) =>
+    pts.map((p, i) => `${i ? 'L' : 'M'}${project(p)[0].toFixed(1)},${project(p)[1].toFixed(1)}`).join(' ');
+
+  const line = Math.max(3, w / 70);
+  const dot = Math.max(3, w / 95);
+  const font = Math.max(9, w / 38);
+  const done = miles ?? 0;
+  const last = course.stops.length - 1;
+  // A thumbnail (no labels, nobody on it) keeps just the start and finish.
+  const stopsToDraw = labels === 'none' && miles === null ? course.stops.filter((_, i) => i === 0 || i === last) : course.stops;
+  const candidates =
+    labels === 'none'
+      ? []
+      : labels === 'all'
+        ? course.stops
+        : course.stops.filter((s, i) => i === 0 || i === last || s.name === 'Halfway');
+  // Skip a label that would land on one already placed; a finish next to
+  // the start (both in the same park) becomes "Start & finish".
+  const stopsToLabel: { mi: number; text: string; at: [number, number] }[] = [];
+  for (const s of candidates) {
+    const at = project(pointAt(course, s.mi));
+    const clash = stopsToLabel.find((l) => Math.abs(l.at[0] - at[0]) < font * 6 && Math.abs(l.at[1] - at[1]) < font * 1.6);
+    if (clash) {
+      if (s.mi === course.miles && clash.mi === 0) clash.text = 'Start & finish';
+      continue;
+    }
+    stopsToLabel.push({ mi: s.mi, text: s.mi === 0 ? 'Start' : s.mi === course.miles ? 'Finish' : s.name, at });
+  }
+
+  return (
+    <Svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+      <Rect width={w} height={h} rx={12} fill={withAlpha(colors.text, 0.04)} />
+      {(course.water ?? []).map((poly, i) => (
+        <Path key={`w${i}`} d={`${d(poly)} Z`} fill={withAlpha('#3b6fb5', 0.22)} />
+      ))}
+      {(course.rivers ?? []).map((r, i) => (
+        <Path key={`r${i}`} d={d(r)} stroke={withAlpha('#4a7bc4', 0.45)} strokeWidth={line * 0.7} fill="none" strokeLinecap="round" />
+      ))}
+      {labels !== 'none' && (course.labels ?? []).map((l) => {
+        const [x, y] = project(l.at);
+        return (
+          <SvgText key={l.text} x={x} y={y} fill={withAlpha('#8fb0e0', 0.55)} fontSize={font * 0.9} fontFamily={fonts.headingSemibold} textAnchor="middle" letterSpacing={1.5}>
+            {l.text}
+          </SvgText>
+        );
+      })}
+      <Path d={d(course.path)} stroke={withAlpha(colors.text, 0.22)} strokeWidth={line} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+      {done > 0 && (
+        <Path d={d(pathTo(course, done))} stroke={colors.accent} strokeWidth={line} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+      )}
+      {stopsToDraw.map((s) => {
+        const [x, y] = project(pointAt(course, s.mi));
+        const passed = s.mi <= done && done > 0;
+        return (
+          <Circle key={`s${s.mi}`} cx={x} cy={y} r={dot} fill={passed ? colors.gold : colors.bg} stroke={colors.gold} strokeWidth={Math.max(1, w / 320)} />
+        );
+      })}
+      {stopsToLabel.map((s) => {
+        const [x, y] = s.at;
+        const left = x > w * 0.6;
+        return (
+          <SvgText key={`l${s.mi}`} x={left ? x - dot * 2 : x + dot * 2} y={y + font * 0.35} fill={withAlpha(colors.text, 0.8)} fontSize={font} fontFamily={fonts.headingSemibold} textAnchor={left ? 'end' : 'start'}>
+            {s.text}
+          </SvgText>
+        );
+      })}
+      {people.map((p) => {
+        const [x, y] = project(pointAt(course, p.miles));
+        const r = Math.max(9, w / 34);
+        return (
+          <G key={p.id}>
+            <Circle cx={x} cy={y} r={r} fill={p.color} stroke={colors.bg} strokeWidth={2} />
+            <SvgText x={x} y={y + r * 0.33} fill="#161826" fontSize={r * 0.85} fontFamily={fonts.headingSemibold} textAnchor="middle">
+              {p.initials}
+            </SvgText>
+          </G>
+        );
+      })}
+      {miles !== null && people.length === 0 && (() => {
+        const [x, y] = project(pointAt(course, done));
+        const r = Math.max(10, w / 28);
+        return (
+          <G>
+            <Circle cx={x} cy={y} r={r} fill={colors.accent} stroke={colors.text} strokeWidth={2} />
+            <SvgText x={x} y={y + r * 0.38} fontSize={r * 1.05} textAnchor="middle">
+              🐾
+            </SvgText>
+          </G>
+        );
+      })()}
+    </Svg>
+  );
+}

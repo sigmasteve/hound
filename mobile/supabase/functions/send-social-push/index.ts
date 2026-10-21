@@ -11,6 +11,8 @@
 //                 (post_bounty, 0102_bounties.sql)
 //   'bounty_claimed' "Jordan hit 15,000 steps and claimed your 30-Bone
 //                 bounty" — to the poster (claim_bounty)
+//   'journey_finished' "Jordan finished the Windy City 26.2 🏅" — to
+//                 their friends (check_journey_finish, 0120_journeys.sql)
 // The RPC has already checked who can do what, and that each recipient
 // has these pushes on; a failure here never undoes the nudge, reaction
 // or message — the calling side swallows it.
@@ -23,7 +25,7 @@ import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EMOJI = ['🔥', '💪', '👏', '😮'];
 
-type Kind = 'nudge' | 'reaction' | 'trash_talk' | 'bounty_posted' | 'bounty_claimed';
+type Kind = 'nudge' | 'reaction' | 'trash_talk' | 'bounty_posted' | 'bounty_claimed' | 'journey_finished';
 
 interface RequestBody {
   kind: Kind;
@@ -38,6 +40,9 @@ interface RequestBody {
   // bounty_posted / bounty_claimed
   target_steps?: number;
   bones?: number;
+  // journey_finished
+  course_name?: string;
+  miles?: number;
 }
 
 interface ProfileRow {
@@ -72,6 +77,7 @@ Deno.serve(async (req) => {
   const body = (await req.json()) as RequestBody;
   if (body?.kind === 'trash_talk') return trashTalk(supabase, body);
   if (body?.kind === 'bounty_posted') return bountyPosted(supabase, body);
+  if (body?.kind === 'journey_finished') return journeyFinished(supabase, body);
   if (
     !body?.from_user ||
     !body?.to_user ||
@@ -197,8 +203,32 @@ function steps(n: number | undefined): string {
 
 // A new bounty, to the poster's friends post_bounty picked.
 async function bountyPosted(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
+  if (!body.target_steps || !body.bones) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
+  }
+  return toFriends(
+    supabase,
+    body,
+    (name) => `${name} posted a bounty: first to ${steps(body.target_steps)} steps today gets ${body.bones} Bones 🎯`,
+  );
+}
+
+async function journeyFinished(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
+  const course = (body.course_name ?? '').trim();
+  if (!course) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
+  }
+  return toFriends(supabase, body, (name) => `${name} finished the ${course} 🏅`);
+}
+
+// One message to everyone in to_users who still has these pushes on.
+async function toFriends(
+  supabase: SupabaseClient,
+  body: RequestBody,
+  text: (senderName: string) => string,
+): Promise<Response> {
   const toUsers = (body.to_users ?? []).filter((id) => typeof id === 'string');
-  if (!body.from_user || !body.target_steps || !body.bones || toUsers.length === 0) {
+  if (!body.from_user || toUsers.length === 0) {
     return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
   }
   const [{ data: sender }, { data: recipients }, { data: tokenRows }] = await Promise.all([
@@ -222,8 +252,8 @@ async function bountyPosted(supabase: SupabaseClient, body: RequestBody): Promis
   }
 
   const name = displayName(sender);
-  const message = `${name} posted a bounty: first to ${steps(body.target_steps)} steps today gets ${body.bones} Bones 🎯`;
-  const data = { type: 'bounty_posted', fromUserId: body.from_user, fromName: name };
+  const message = text(name);
+  const data = { type: body.kind, fromUserId: body.from_user, fromName: name };
   const messages = tokens.map((to) => ({ to, title: 'Hound', body: message, sound: 'default', data }));
   for (let i = 0; i < messages.length; i += 100) {
     await fetch(EXPO_PUSH_URL, {
