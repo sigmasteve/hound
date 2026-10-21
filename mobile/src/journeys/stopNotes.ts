@@ -1,5 +1,6 @@
 import type { ImageSourcePropType } from 'react-native';
 import type { Course, CourseStop } from './courses';
+import { STOP_PICTURES } from './stopPictures';
 
 // What's at each stop, in a line: the words on the postcard you get when
 // you reach it (StopReachedModal). Keyed by course id and stop name.
@@ -95,17 +96,16 @@ export function stopNote(course: Course, stop: CourseStop): string | null {
   return NOTES[course.id]?.[stop.name] ?? null;
 }
 
-// The picture on a stop's postcard. None yet: a stop without one shows a
-// map of where it is instead (StopReachedModal). Illustrated postcards
-// come first, then photos; a photo needs its credit line, shown under it.
-//   'windy-city': { 'Lincoln Park': { source: require('../../assets/stops/windy-city/lincoln-park.jpg'), credit: '…' } }
+// The picture on a stop's postcard: a photo from Wikipedia, fetched and
+// cropped by mobile/scripts/postcards/fetch.py into stopPictures.ts, with
+// its credit line (shown under it). A stop without one shows a map of
+// where it is instead (StopReachedModal). An illustrated postcard can
+// take a photo's place in the manifest the same way, without a credit.
 export interface StopPicture {
   source: ImageSourcePropType;
   credit?: string;
 }
 
-const PICTURES: Record<string, Record<string, StopPicture>> = {};
-
 export function stopPicture(course: Course, stop: CourseStop): StopPicture | null {
-  return PICTURES[course.id]?.[stop.name] ?? null;
+  return STOP_PICTURES[course.id]?.[stop.name] ?? null;
 }

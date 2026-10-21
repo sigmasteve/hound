@@ -2,10 +2,11 @@
 
 The picture on the card you get when you reach a stop on a Journey
 (`StopReachedModal.tsx`). Until a stop has one, the card shows a map of
-where the stop is. This is the brief for making them: the look, the
-specs, and a scene for all 70 stops on the seven courses. Illustrated
-postcards first; photos can replace them stop by stop later, through the
-same manifest.
+where the stop is. Photos come first: `scripts/postcards/fetch.py`
+takes each stop's picture from Wikipedia (free licences only, credit
+shown under it) and writes `stopPictures.ts`. This is the brief for the
+illustrated postcards that can replace any of them: the look, the specs,
+and a scene for all 70 stops on the seven courses.
 
 ## The look
 
@@ -51,18 +52,17 @@ demand, the manifest already takes a `{ uri }`.
 
 ## Putting them in
 
-Drop the files in the folders above and add one line per stop to
-`PICTURES` in `stopNotes.ts`:
+Photos: run `python3 mobile/scripts/postcards/fetch.py` (one course with
+`--only windy-city`). It picks each stop's article from its own list,
+keeps only CC0, public-domain, CC BY and CC BY-SA pictures, crops and
+converts them, records the sources in `assets/stops/credits.json` and
+regenerates `src/journeys/stopPictures.ts`. To swap a picture, change
+the article (or give a `File:…` name from Commons) in the script and
+run it again with `--force`.
 
-```ts
-'windy-city': {
-  'Lincoln Park': { source: require('../../assets/stops/windy-city/lincoln-park.webp') },
-},
-```
-
-A photo gets a `credit` line too, shown small under the picture:
-`{ source: …, credit: 'Photo: Jane Doe, CC BY-SA 4.0' }`. Or send the
-files to Claude and it wires them.
+Illustrations: drop the file in the folder above and point that stop's
+entry in `stopPictures.ts` at it, without a credit. Or send the files to
+Claude and it wires them.
 
 ## Generating them
 
