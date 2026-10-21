@@ -197,7 +197,10 @@ export function JourneyScreen({ onBack, onPick }: { onBack: () => void; onPick: 
                 <Switch
                   value={journey.countAllMiles}
                   onValueChange={toggleCountAll}
-                  trackColor={{ true: colors.accent }}
+                  // The off track too: iOS's default light grey vanishes
+                  // against a white card in light mode.
+                  trackColor={{ false: withAlpha(colors.text, 0.22), true: colors.accent }}
+                  ios_backgroundColor={withAlpha(colors.text, 0.22)}
                   accessibilityLabel="Count every walking and running mile"
                 />
               </View>
