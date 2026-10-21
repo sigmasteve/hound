@@ -21,7 +21,23 @@ export function JourneyTile({ journey, onOpen }: { journey: MyJourney; onOpen: (
   const pct = Math.floor((miles / journey.courseMiles) * 100);
   const next = nextStop(course, miles);
   const finished = !!journey.finishedAt;
-  const mapWidth = Math.round(width * 0.44);
+  // The thumbnail takes the course's own shape: a tall course (Chicago,
+  // the Golden Gate) gets a tall box and a long one (Route 66) a wide
+  // one, so the line fills it instead of sitting in a sliver of water.
+  const lats = course.path.map((p) => p[0]);
+  const lngs = course.path.map((p) => p[1]);
+  const latSpan = Math.max(...lats) - Math.min(...lats) || 0.001;
+  const lngSpan = (Math.max(...lngs) - Math.min(...lngs) || 0.001) * Math.cos((((Math.max(...lats) + Math.min(...lats)) / 2) * Math.PI) / 180);
+  const aspect = lngSpan / latSpan;
+  const maxWidth = Math.round(width * 0.44);
+  let mapHeight = 132;
+  let mapWidth = Math.round(mapHeight * aspect);
+  if (mapWidth > maxWidth) {
+    mapWidth = maxWidth;
+    mapHeight = Math.round(mapWidth / aspect);
+  }
+  mapWidth = Math.max(72, Math.min(mapWidth, maxWidth));
+  mapHeight = Math.max(72, Math.min(mapHeight, 132));
   const line = finished
     ? 'Tap to pick your next course'
     : next
@@ -38,7 +54,7 @@ export function JourneyTile({ journey, onOpen }: { journey: MyJourney; onOpen: (
       <View style={styles.row} onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}>
         {mapWidth > 0 && (
           <View style={styles.map}>
-            <JourneyMap course={course} width={mapWidth} height={104} miles={miles} labels="none" compact />
+            <JourneyMap course={course} width={mapWidth} height={mapHeight} miles={miles} labels="none" compact />
           </View>
         )}
         <View style={styles.text}>
