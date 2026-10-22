@@ -26,22 +26,46 @@ The rest of the release steps are in `mobile/supabase/STAGING.md` (build
 profiles: Android testers get `npm run build:android:apk`, not
 `--profile preview`) and issue #288.
 
-## Today screen order
+## Today screen layout
 
-Steve's agreed order for Today (`mobile/src/screens/HomeScreen.tsx`).
-Keep it when adding or moving cards, and ask before changing a fixed
-spot. Above all of it, outside the scrolling list, sit two bars: "A new
-version of Hound is ready" (UpdateReadyBanner) and then the announcement
-banner.
+Steve's agreed layout for Today (`mobile/src/screens/HomeScreen.tsx`,
+tiles in `mobile/src/home/TodayTiles.tsx`). Keep it when adding or
+moving anything, and ask before changing a fixed spot. Today is a grid
+of tiles, each opening a sheet with the full cards; testers found the
+old stack of cards too much at once.
 
-1. Goals card (or goal setup while it's open)
-2. Kennel card
-3. Global Hound Challenges, for ones not started yet. **Fixed: always
-   directly under the Kennel card.**
-4. Bone Dig, then Bounties
-5. Needs you
-6. Your challenges
-7. Your week in review (Monday to Wednesday). **Fixed: always right
-   above the pinned challenge and its heading.**
-8. The pinned (highlighted) challenge: its heading, then its card
-9. Nudges, the notifications ask, and Finish setting up
+Above the scrolling grid, outside it: "A new version of Hound is
+ready" (UpdateReadyBanner), then the announcement banner.
+
+Inside the scroll, in order:
+
+1. Global Hound Challenges you can still join (GlobalChallengesCard).
+   **Fixed: above the tiles, so it's seen without opening anything.**
+2. Goal setup, while it's open (GoalSetupCard); it takes the goals
+   tile's place.
+3. The tile grid:
+   - Goals, full width across the top (rings or hound trails).
+   - Then two to a row, an odd last one spanning the row: your hound
+     (when the Kennel has loaded), Needs you, Your challenges, and
+     either Week in review (Monday to Wednesday) or today's Step rank
+     (the rest of the week).
+   - Journey, full width, when you're on one.
+4. The notifications ask (PushAskCard), once you have a friend or a
+   challenge.
+5. Finish setting up (GetStartedCard), until the reward is claimed or
+   it's dismissed.
+
+What each sheet holds:
+
+- Goals: the goals card with the streak.
+- Your hound: the Kennel card.
+- Needs you: invites and friend requests, then Bone Dig, nudges and
+  bounties. The tile's "N waiting" counts all of them.
+- Your challenges: the pinned (highlighted) challenge's headline and
+  board, then one line per other active challenge, then "All
+  challenges".
+- Week in review: last week's recap.
+
+Pop-ups (a stop reached on a Journey, a level up, the daily bonus, an
+achievement, a new record, the username ask) are gated to one per
+open; the rest become toasts, at most four queued.
