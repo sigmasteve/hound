@@ -18,8 +18,10 @@ import { useRewardedBones } from '../ads/rewardedBones';
 import { getMyEquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import { HOUND_AVATAR_PREFIX } from '../kennel/houndAvatar';
 import { levelProgressForXp } from '../challenges/leveling';
-import { RANKS, rankForLevel } from '../challenges/ranks';
+import { rankForLevel } from '../challenges/ranks';
 import { HoundArt } from '../kennel/HoundArt';
+import { HoundLadderSheet } from '../kennel/HoundLadderSheet';
+import { stepLabel, stepsAfter } from '../challenges/ladder';
 import {
   EAR_OPTIONS,
   KENNEL_ITEMS,
@@ -69,6 +71,7 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
+  const [ladderOpen, setLadderOpen] = useState(false);
 
   // Whether your avatar is this hound (0106_hound_avatar.sql).
   const { user } = useAuth();
@@ -128,7 +131,7 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
 
   const level = levelProgressForXp(kennel.xpTotal).level;
   const rank = rankForLevel(level);
-  const nextRank = RANKS.find((r) => r.minLevel > level) ?? null;
+  const nextSteps = stepsAfter(level, 3);
   const classic = kennel.careMode === 'classic';
   const equippedIn = (item: KennelItem) => (item.slot === 'neck' ? kennel.neckId : item.slot === 'head' ? kennel.headId : kennel.faceId);
 
@@ -297,10 +300,17 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
             <Text style={[styles.rankText, { color: rank.color }]}>{rank.name}</Text>
           </View>
           <Text style={styles.mood}>{moodLine(kennel)}</Text>
-          {nextRank && (
-            <Text style={styles.note}>
-              Grows into a {nextRank.name} at level {nextRank.minLevel}. You’re level {level}.
-            </Text>
+          {nextSteps.length > 0 && (
+            <View style={styles.whatsNext}>
+              <Text style={styles.whatsNextTitle}>WHAT'S NEXT</Text>
+              {nextSteps.map((step, i) => (
+                <Text key={step.level} style={styles.note}>
+                  Level {step.level}: {stepLabel(step)}
+                  {i === 0 ? ` · ${(step.xp - kennel.xpTotal).toLocaleString('en-US')} XP to go` : ''}
+                </Text>
+              ))}
+              <Button label="See the whole ladder" variant="ghost" small onPress={() => setLadderOpen(true)} />
+            </View>
           )}
 
           {classic && kennel.hearts !== null && (
@@ -479,6 +489,7 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
           })}
         </Card>
       </ScrollView>
+      {ladderOpen && <HoundLadderSheet kennel={kennel} onClose={() => setLadderOpen(false)} />}
     </SafeAreaView>
   );
 }
@@ -510,6 +521,8 @@ function makeStyles(colors: Palette) {
     rankText: { fontFamily: font.headingSemibold, fontSize: 13.5 },
     mood: { fontSize: 14.5, color: colors.text, textAlign: 'center' },
     note: { fontSize: 12.5, color: withAlpha(colors.text, 0.6), textAlign: 'center' },
+    whatsNext: { alignItems: 'center', gap: 3, marginTop: 6 },
+    whatsNextTitle: { fontFamily: font.headingSemibold, fontSize: 11, letterSpacing: 1, color: withAlpha(colors.text, 0.5) },
     balanceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
     hearts: { flexDirection: 'row', gap: 6 },
     seasonCard: { borderWidth: 1.5, borderColor: withAlpha(colors.amber, 0.6), backgroundColor: withAlpha(colors.amber, 0.08) },

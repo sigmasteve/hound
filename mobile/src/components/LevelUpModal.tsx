@@ -6,6 +6,7 @@ import type { TrailAvatar } from './GoalTrail';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { RANKS, rankForLevel } from '../challenges/ranks';
+import { stepLabel, stepsAfter } from '../challenges/ladder';
 
 // Shown on Today the first time it opens after you've gone up a level:
 // your avatar pops in with its new level badge, and a new rank gets its
@@ -29,6 +30,7 @@ export function LevelUpModal({
   const rank = rankForLevel(toLevel);
   const newRank = rankForLevel(fromLevel).id !== rank.id;
   const next = RANKS.find((r) => r.minLevel > toLevel) ?? null;
+  const nextStep = stepsAfter(toLevel, 1)[0] ?? null;
   const pop = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -86,6 +88,11 @@ export function LevelUpModal({
               <Text style={styles.unlocksTitle}>Unlocked in Your look</Text>
               <Text style={styles.unlocksList}>{unlockedNames.join(' · ')}</Text>
             </View>
+          )}
+          {nextStep && (
+            <Text style={styles.sub}>
+              Next up, at level {nextStep.level}: {stepLabel(nextStep)}.
+            </Text>
           )}
 
           <View style={styles.buttons}>
