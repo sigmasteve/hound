@@ -28,6 +28,7 @@ export function FriendDetailScreen({
   friendBackgroundId,
   friendIconId,
   onBack,
+  onChallenge,
 }: {
   friendshipId: string;
   friendUserId: string;
@@ -37,6 +38,8 @@ export function FriendDetailScreen({
   friendBackgroundId?: string | null;
   friendIconId?: string | null;
   onBack: () => void;
+  // Create, with this friend already invited.
+  onChallenge: () => void;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -260,6 +263,9 @@ export function FriendDetailScreen({
             )}
           </Card>
         )}
+
+        {/* The obvious next step with a friend. */}
+        <Button label={`Start a challenge with ${friendName.split(' ')[0]}`} variant="primary" block onPress={onChallenge} />
 
         <Card style={{ gap: 14, padding: 18 }} elevated={false}>
           <Text style={text.h4}>Kudos</Text>

@@ -17,7 +17,11 @@ export type RootStackParamList = {
   // global: an admin publishing a Global Hound Challenge from Admin.
   // kind: picks that kind to start with; fromSetup: opened from the
   // setup wizard, so it returns there.
-  Create: { rematch?: RematchDraft; global?: boolean; kind?: ChallengeKind; fromSetup?: boolean } | undefined;
+  // inviteUserIds: friends already picked on step 3 (a friend's page's
+  // "Start a challenge").
+  Create:
+    | { rematch?: RematchDraft; global?: boolean; kind?: ChallengeKind; fromSetup?: boolean; inviteUserIds?: string[] }
+    | undefined;
   // tab: which part of the challenge to open on (Board by default).
   ChallengeDetail: { challengeId: string; tab?: ChallengeTab };
   FriendDetail: {
