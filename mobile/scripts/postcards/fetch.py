@@ -120,7 +120,7 @@ ARTICLES: dict[str, dict[str, list[str]]] = {
         'Mount Greylock': ['Mount Greylock'],
         'Hanover': ['Hanover, New Hampshire', 'Dartmouth College'],
         'Mount Washington': ['Mount Washington'],
-        'Monson': ['Hundred-Mile Wilderness', 'Lake Hebron', 'Monson, Maine'],
+        'Monson': ['Gulf Hagas', 'Borestone Mountain', 'Lake Onawa', 'Hundred-Mile Wilderness', 'Monson, Maine'],
         'Katahdin': ['Mount Katahdin'],
     },
     'route-66': {
