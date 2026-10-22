@@ -1,0 +1,199 @@
+{
+  "golden-gate": {
+    "San Francisco side": {
+      "file": "assets/stops/golden-gate/san-francisco-side.webp",
+      "credit": "Photo: Frank Schulenburg, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Golden_Gate_Bridge_as_seen_from_Battery_East.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Golden_Gate_Bridge_as_seen_from_Battery_East.jpg",
+      "article": "Golden Gate Bridge"
+    },
+    "South tower": {
+      "file": "assets/stops/golden-gate/south-tower.webp",
+      "credit": "Photo: Ɱ, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Golden_Gate_Bridge_tower_views_07.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Golden_Gate_Bridge_tower_views_07.jpg",
+      "article": "Fort Point, San Francisco"
+    },
+    "North tower": {
+      "file": "assets/stops/golden-gate/north-tower.webp",
+      "credit": "Photo: Public domain, via Wikimedia Commons",
+      "source": "File:Marin-headlands-3jul2005.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Marin-headlands-3jul2005.jpg",
+      "article": "Marin Headlands"
+    },
+    "Vista Point": {
+      "file": "assets/stops/golden-gate/vista-point.webp",
+      "credit": "Photo: Public domain, via Wikimedia Commons",
+      "source": "File:Sausalito.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Sausalito.jpg",
+      "article": "Sausalito, California"
+    }
+  },
+  "windy-city": {
+    "Grant Park": {
+      "file": "assets/stops/windy-city/grant-park.webp",
+      "credit": "Photo: H. Michael Miley from Schaumburg, USA, CC BY-SA 2.0, via Wikimedia Commons",
+      "source": "File:Buckingham_Fountain_Wikivoyage.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Buckingham_Fountain_Wikivoyage.jpg",
+      "article": "Buckingham Fountain"
+    },
+    "Lincoln Park": {
+      "file": "assets/stops/windy-city/lincoln-park.webp",
+      "credit": "Photo: Kenneth C. Zirkel, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Lincoln_Park_Zoo,_Chicago.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Lincoln_Park_Zoo,_Chicago.jpg",
+      "article": "Lincoln Park Zoo"
+    },
+    "Lakeview turnaround": {
+      "file": "assets/stops/windy-city/lakeview-turnaround.webp",
+      "credit": "Photo: Sea Cow, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Wrigley_Field_in_line_with_sign.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Wrigley_Field_in_line_with_sign.jpg",
+      "article": "Wrigley Field"
+    },
+    "Halfway": {
+      "file": "assets/stops/windy-city/halfway.webp",
+      "credit": "Photo: ajay_suresh, CC BY 2.0, via Wikimedia Commons",
+      "source": "File:Chicago_Riverwalk_(51556708640).jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Chicago_Riverwalk_(51556708640).jpg",
+      "article": "Chicago River"
+    },
+    "United Center": {
+      "file": "assets/stops/windy-city/united-center.webp",
+      "credit": "Photo: Alacoolwiki, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:United_Center_1.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:United_Center_1.jpg",
+      "article": "United Center"
+    },
+    "Pilsen": {
+      "file": "assets/stops/windy-city/pilsen.webp",
+      "credit": "Photo: Andrew Jameson, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:Pilsen_Historic_District_Chicago_IL.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Pilsen_Historic_District_Chicago_IL.jpg",
+      "article": "Pilsen, Chicago"
+    },
+    "Chinatown": {
+      "file": "assets/stops/windy-city/chinatown.webp",
+      "credit": "Photo: Han Zheng, CC BY-SA 2.0, via Wikimedia Commons",
+      "source": "File:Chinatown_Chicago_Gate.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Chinatown_Chicago_Gate.jpg",
+      "article": "Chinatown, Chicago"
+    },
+    "“Mount Roosevelt”": {
+      "file": "assets/stops/windy-city/mount-roosevelt.webp",
+      "credit": "Photo: Antony-22, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:South_Branch_Chicago_River_2023l.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:South_Branch_Chicago_River_2023l.jpg",
+      "article": "Roosevelt Road"
+    },
+    "Finish, Grant Park": {
+      "file": "assets/stops/windy-city/finish-grant-park.webp",
+      "credit": "Photo: Diego Delso, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:Grant_Park,_Chicago,_Illinois,_Estados_Unidos,_2012-10-20,_DD_03.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Grant_Park,_Chicago,_Illinois,_Estados_Unidos,_2012-10-20,_DD_03.jpg",
+      "article": "Grant Park (Chicago)"
+    },
+    "Little Italy": {
+      "file": "assets/stops/windy-city/little-italy.webp",
+      "credit": "Photo: Public domain, via Wikimedia Commons",
+      "source": "File:The_Hull_House,_Chicago_(front).tif",
+      "page": "https://commons.wikimedia.org/wiki/File:The_Hull_House,_Chicago_(front).tif",
+      "article": "Hull House"
+    },
+    "Bronzeville": {
+      "file": "assets/stops/windy-city/bronzeville.webp",
+      "credit": "Photo: Joe Ravi, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:Victory_Monument_Chicago_2.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Victory_Monument_Chicago_2.jpg",
+      "article": "Victory Monument (Chicago)"
+    }
+  },
+  "five-boroughs": {
+    "Staten Island": {
+      "file": "assets/stops/five-boroughs/staten-island.webp",
+      "credit": "Photo: whomever, CC BY-SA 2.0, via Wikimedia Commons",
+      "source": "File:Fort_Wadsworth_01.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Fort_Wadsworth_01.jpg",
+      "article": "Fort Wadsworth"
+    },
+    "Brooklyn": {
+      "file": "assets/stops/five-boroughs/brooklyn.webp",
+      "credit": "Photo: Prospect1997, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Bay_Ridge_Parkway_Row_Houses.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Bay_Ridge_Parkway_Row_Houses.jpg",
+      "article": "Bay Ridge, Brooklyn"
+    },
+    "Atlantic Avenue": {
+      "file": "assets/stops/five-boroughs/atlantic-avenue.webp",
+      "credit": "Photo: Ajay Suresh, CC BY 4.0, via Wikimedia Commons",
+      "source": "File:Barclays_Center_-_2026_(55268559424).jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Barclays_Center_-_2026_(55268559424).jpg",
+      "article": "Barclays Center"
+    },
+    "Williamsburg": {
+      "file": "assets/stops/five-boroughs/williamsburg.webp",
+      "credit": "Photo: Justicex07, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:WilliamsburgBK.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:WilliamsburgBK.jpg",
+      "article": "Williamsburg, Brooklyn"
+    },
+    "Halfway, into Queens": {
+      "file": "assets/stops/five-boroughs/halfway-into-queens.webp",
+      "credit": "Photo: Public domain, via Wikimedia Commons",
+      "source": "File:Pulaski_Bridge_from_west_jeh.JPG",
+      "page": "https://commons.wikimedia.org/wiki/File:Pulaski_Bridge_from_west_jeh.JPG",
+      "article": "Pulaski Bridge"
+    },
+    "Queensboro Bridge": {
+      "file": "assets/stops/five-boroughs/queensboro-bridge.webp",
+      "credit": "Photo: CC0, via Wikimedia Commons",
+      "source": "File:Queensboro_Bridge_from_Manhattan_side.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Queensboro_Bridge_from_Manhattan_side.jpg",
+      "article": "Queensboro Bridge"
+    },
+    "First Avenue": {
+      "file": "assets/stops/five-boroughs/first-avenue.webp",
+      "credit": "Photo: Chris6d, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:1st_Avenue,_Manhattan_(looking_south).jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:1st_Avenue,_Manhattan_(looking_south).jpg",
+      "article": "First Avenue (Manhattan)"
+    },
+    "The Bronx": {
+      "file": "assets/stops/five-boroughs/the-bronx.webp",
+      "credit": "Photo: CC0, via Wikimedia Commons",
+      "source": "File:Willis_Av_Bridge_from_HRLB_late_PM_jeh.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Willis_Av_Bridge_from_HRLB_late_PM_jeh.jpg",
+      "article": "Willis Avenue Bridge"
+    },
+    "Harlem": {
+      "file": "assets/stops/five-boroughs/harlem.webp",
+      "credit": "Photo: Public domain, via Wikimedia Commons",
+      "source": "File:Marcus_Garvey_Memorial_Park.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Marcus_Garvey_Memorial_Park.jpg",
+      "article": "Marcus Garvey Park"
+    },
+    "Central Park": {
+      "file": "assets/stops/five-boroughs/central-park.webp",
+      "credit": "Photo: Anthony Quintano from Hillsborough, NJ, United States, CC BY 2.0, via Wikimedia Commons",
+      "source": "File:Global_Citizen_Festival_Central_Park_New_York_City_from_NYonAir_(15351915006).jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Global_Citizen_Festival_Central_Park_New_York_City_from_NYonAir_(15351915006).jpg",
+      "article": "Central Park"
+    },
+    "Finish, Central Park": {
+      "file": "assets/stops/five-boroughs/finish-central-park.webp",
+      "credit": "Photo: Public domain, via Wikimedia Commons",
+      "source": "File:Tavern_on_the_Green_cloudy_jeh.JPG",
+      "page": "https://commons.wikimedia.org/wiki/File:Tavern_on_the_Green_cloudy_jeh.JPG",
+      "article": "Tavern on the Green"
+    }
+  },
+  "thames": {
+    "Greenwich Park": {
+      "file": "assets/stops/thames/greenwich-park.webp",
+      "credit": "Photo: CC0, via Wikimedia Commons",
+      "source": "File:Greenwich_Park,_London,_from_the_observatory.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Greenwich_Park,_London,_from_the_observatory.jpg",
+      "article": "Greenwich Park"
+    }
+  }
+}

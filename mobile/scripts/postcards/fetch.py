@@ -13,10 +13,15 @@ shows its map for them, and listed at the end.
 Usage:  python3 fetch.py [--only windy-city] [--force]
   --only   one course id
   --force  fetch again even if the file exists
-Needs: pip install pillow. Be gentle: a second between requests.
+Needs: pip install pillow. Be gentle: two seconds between requests,
+and Wikimedia throttles shared addresses with 429s, so every request is
+retried with a growing pause (and honours Retry-After) before giving up.
 
-Hosts: en.wikipedia.org (summaries), commons.wikimedia.org (licence
-and credit), upload.wikimedia.org (the pictures).
+Hosts: en.wikipedia.org (which picture stands for an article),
+commons.wikimedia.org (licence and credit), upload.wikimedia.org and
+thumb.wikimedia.org (the pictures). Wikimedia only serves thumbnails at
+its listed widths (960, 1280, 1920 among them), so pictures are asked
+for at 1280, just over the postcard's 1200.
 """
 from __future__ import annotations
 
@@ -27,6 +32,7 @@ import json
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -39,12 +45,16 @@ MOBILE = HERE.parent.parent
 ASSETS = MOBILE / 'assets' / 'stops'
 OUT_TS = MOBILE / 'src' / 'journeys' / 'stopPictures.ts'
 WIDTH, HEIGHT = 1200, 816
+THUMB = 1280  # a width Wikimedia serves, the first above WIDTH
+GAP = 2.0  # seconds between requests
+RETRIES = 6  # on 429 or a 5xx: pauses of 10, 20, 40, 80, 160, 320 s
 
 # Which article stands for each stop: the first with a free lead picture
-# wins. A Commons file name ("File:…") can be given instead of an article.
+# not already on another postcard of the course wins. A Commons file name
+# ("File:…") can be given instead of an article.
 ARTICLES: dict[str, dict[str, list[str]]] = {
     'golden-gate': {
-        'San Francisco side': ['Presidio of San Francisco', 'Golden Gate Bridge'],
+        'San Francisco side': ['Crissy Field', 'Presidio of San Francisco', 'Golden Gate Bridge'],
         'South tower': ['Fort Point, San Francisco', 'Golden Gate Bridge'],
         'Midspan': ['Golden Gate Bridge'],
         'North tower': ['Marin Headlands', 'Golden Gate Bridge'],
@@ -56,10 +66,10 @@ ARTICLES: dict[str, dict[str, list[str]]] = {
         'Lakeview turnaround': ['Wrigley Field', 'Lakeview, Chicago'],
         'Halfway': ['Chicago River', 'Chicago Loop'],
         'United Center': ['United Center'],
-        'Little Italy': ['Little Italy, Chicago', 'Taylor Street (Chicago)'],
+        'Little Italy': ['Hull House', 'University of Illinois Chicago', 'Little Italy, Chicago', 'Taylor Street (Chicago)'],
         'Pilsen': ['Pilsen, Chicago', 'Lower West Side, Chicago'],
         'Chinatown': ['Chinatown, Chicago'],
-        'Bronzeville': ['Monument to the Great Northern Migration', 'Bronzeville, Chicago'],
+        'Bronzeville': ['Victory Monument (Chicago)', 'Chicago Bee Building', 'Monument to the Great Northern Migration', 'Bronzeville, Chicago'],
         '“Mount Roosevelt”': ['Roosevelt Road', 'Museum Campus'],
         'Finish, Grant Park': ['Grant Park (Chicago)', 'Columbus Drive (Chicago)'],
     },
@@ -134,55 +144,89 @@ _last = 0.0
 
 
 def get(url: str) -> bytes:
+    """GET with the gap between requests, retrying when Wikimedia throttles."""
     global _last
-    wait = _last + 1.0 - time.time()
-    if wait > 0:
-        time.sleep(wait)
-    req = urllib.request.Request(url, headers={'User-Agent': UA})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        body = r.read()
-    _last = time.time()
-    return body
+    pause = 10.0
+    for attempt in range(RETRIES + 1):
+        wait = _last + GAP - time.time()
+        if wait > 0:
+            time.sleep(wait)
+        req = urllib.request.Request(url, headers={'User-Agent': UA})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                body = r.read()
+            _last = time.time()
+            return body
+        except urllib.error.HTTPError as e:
+            _last = time.time()
+            if e.code not in (429, 500, 502, 503, 504) or attempt == RETRIES:
+                raise
+            retry_after = e.headers.get('Retry-After')
+            delay = float(retry_after) if retry_after and retry_after.isdigit() else pause
+            print(f'    HTTP {e.code} from {urllib.parse.urlsplit(url).netloc}; waiting {delay:.0f}s', file=sys.stderr)
+            time.sleep(delay)
+            pause *= 2
+    raise RuntimeError('unreachable')
+
+
+def get_json(url: str) -> dict:
+    return json.loads(get(url))
 
 
 def lead_file(article: str) -> str | None:
-    """The Commons file name of an article's lead picture, if any."""
+    """The file name of an article's lead picture, if any."""
     if article.startswith('File:'):
         return article
     url = 'https://en.wikipedia.org/w/api.php?' + urllib.parse.urlencode({
         'action': 'query', 'format': 'json', 'prop': 'pageimages', 'piprop': 'name', 'redirects': 1, 'titles': article,
     })
-    pages = json.loads(get(url)).get('query', {}).get('pages', {})
-    for p in pages.values():
-        name = p.get('pageimage')
-        if name:
-            return 'File:' + name
-    return None
+    try:
+        pages = get_json(url).get('query', {}).get('pages', {})
+        for p in pages.values():
+            name = p.get('pageimage')
+            if name:
+                return 'File:' + name
+        return None
+    except urllib.error.HTTPError as e:
+        if e.code != 429:
+            raise
+    # The action API is the first thing Wikimedia throttles; the REST
+    # summary names the same picture (its original's URL ends in the file).
+    url = 'https://en.wikipedia.org/api/rest_v1/page/summary/' + urllib.parse.quote(article.replace(' ', '_'), safe='')
+    src = get_json(url).get('originalimage', {}).get('source')
+    if not src:
+        return None
+    return 'File:' + urllib.parse.unquote(src.split('/')[-1].split('?')[0]).replace('_', ' ')
 
 
 def file_info(file: str) -> dict | None:
-    """Licence, credit and a 1200px-wide URL for a Commons file."""
-    url = 'https://commons.wikimedia.org/w/api.php?' + urllib.parse.urlencode({
-        'action': 'query', 'format': 'json', 'prop': 'imageinfo', 'iiprop': 'url|extmetadata|size',
-        'iiurlwidth': 1600, 'titles': file,
-    })
-    pages = json.loads(get(url)).get('query', {}).get('pages', {})
-    for p in pages.values():
-        info = (p.get('imageinfo') or [None])[0]
-        if not info:
-            return None
-        meta = {k: v.get('value', '') for k, v in info.get('extmetadata', {}).items()}
-        licence = meta.get('LicenseShortName') or meta.get('License') or ''
-        artist = re.sub(r'<[^>]+>', '', html.unescape(meta.get('Artist') or meta.get('Credit') or '')).strip()
-        return {
-            'url': info.get('thumburl') or info.get('url'),
-            'width': info.get('width', 0),
-            'height': info.get('height', 0),
-            'licence': licence,
-            'artist': artist[:60],
-            'page': info.get('descriptionurl'),
-        }
-    return None
+    """Licence, credit and a THUMB-wide URL for a file, from Commons or,
+    for the few files kept on English Wikipedia itself, from there."""
+    info = None
+    for host in ('commons.wikimedia.org', 'en.wikipedia.org'):
+        url = f'https://{host}/w/api.php?' + urllib.parse.urlencode({
+            'action': 'query', 'format': 'json', 'prop': 'imageinfo', 'iiprop': 'url|extmetadata|size',
+            'iiurlwidth': THUMB, 'titles': file,
+        })
+        pages = get_json(url).get('query', {}).get('pages', {})
+        info = next(((p.get('imageinfo') or [None])[0] for p in pages.values()), None)
+        if info:
+            break
+    if not info:
+        return None
+    meta = {k: v.get('value', '') for k, v in info.get('extmetadata', {}).items()}
+    licence = meta.get('LicenseShortName') or meta.get('License') or ''
+    artist = re.sub(r'<[^>]+>', '', html.unescape(meta.get('Artist') or meta.get('Credit') or '')).strip()
+    return {
+        'url': info.get('thumburl') or info.get('url'),
+        'original': info.get('url'),
+        'size': info.get('size', 0),
+        'width': info.get('width', 0),
+        'height': info.get('height', 0),
+        'licence': licence,
+        'artist': artist[:60],
+        'page': info.get('descriptionurl'),
+    }
 
 
 def slug(name: str) -> str:
@@ -223,11 +267,15 @@ def main() -> None:
             out = ASSETS / course / f'{slug(stop)}.webp'
             if out.exists() and not args.force and credits.get(course, {}).get(stop):
                 continue
+            used = {c['source'] for s, c in credits.get(course, {}).items() if s != stop}
             picked = None
             for article in candidates:
                 try:
                     file = lead_file(article)
                     if not file:
+                        continue
+                    if file in used:
+                        print(f'  {course}/{stop}: {file} is already on another postcard; skipping', file=sys.stderr)
                         continue
                     info = file_info(file)
                     if not info or not info['url']:
@@ -246,7 +294,16 @@ def main() -> None:
                 missing.append(f'{course}: {stop}')
                 continue
             article, file, info = picked
-            data = get(info['url'])
+            try:
+                data = get(info['url'])
+            except urllib.error.HTTPError as e:
+                # A thumbnail Wikimedia won't make (HTTP 400): take the
+                # original when it isn't huge.
+                if e.code != 400 or not info['original'] or info['size'] > 20_000_000:
+                    print(f'  {course}/{stop}: {file}: {e}', file=sys.stderr)
+                    missing.append(f'{course}: {stop}')
+                    continue
+                data = get(info['original'])
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_bytes(postcard(data))
             licence = info['licence'].strip()
