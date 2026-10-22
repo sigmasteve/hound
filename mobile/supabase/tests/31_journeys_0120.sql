@@ -11,10 +11,11 @@ insert into public.friendships (requester_id, recipient_id, status) values (:'an
 
 select tests.sign_in(:'ann');
 set local role authenticated;
--- Miles from before the journey started don't count.
-insert into public.daily_miles (user_id, day, workout_mi, all_mi) values
-  (auth.uid(), :TODAY - 2, 5, 6), (auth.uid(), :TODAY, 3, 4.5);
+-- Miles from before the journey started don't count (0123: nor the
+-- start day's miles so far, so today's are walked after the start).
+insert into public.daily_miles (user_id, day, workout_mi, all_mi) values (auth.uid(), :TODAY - 2, 5, 6);
 select ok(public.start_journey('golden-gate', 'Golden Gate Bridge', 1.7, :TODAY) is not null, 'Ann starts a journey');
+insert into public.daily_miles (user_id, day, workout_mi, all_mi) values (auth.uid(), :TODAY, 3, 4.5);
 select is((select miles from public.my_journey()), 3.00, 'Only workout miles from its first day count');
 select public.set_journey_count_all(true);
 select is((select miles from public.my_journey()), 4.50, 'Or every walking and running mile');

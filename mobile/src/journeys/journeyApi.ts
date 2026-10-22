@@ -62,12 +62,19 @@ export async function getMyJourney(): Promise<MyJourney | null> {
   };
 }
 
-export async function startJourney(course: Course): Promise<void> {
+// Starts a course, ending the one you're on. `today` is the day's miles
+// so far as the phone measures them right now; the server takes them off
+// the journey's first day, so it counts from this moment and not from
+// midnight (0123_journey_start_offset.sql). Null when the phone can't say:
+// the server then uses the day as last synced.
+export async function startJourney(course: Course, today: DailyMiles | null = null): Promise<void> {
   const { error } = await client().rpc('start_journey', {
     p_course_id: course.id,
     p_course_name: course.name,
     p_course_miles: course.miles,
     p_local_date: localDayKey(new Date()),
+    p_workout_mi: today?.workoutMi ?? null,
+    p_all_mi: today?.allMi ?? null,
   });
   if (error) throw new Error(error.message);
 }

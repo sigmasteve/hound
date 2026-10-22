@@ -44,6 +44,25 @@ export function milesByDay(
   return Array.from(byDay.values());
 }
 
+// Today's miles so far, straight from the phone, for the moment a Journey
+// starts: start_journey takes them off its first day. Also uploads them,
+// so the server's row for today is current. Null when the phone can't
+// say (the server then uses the day as last synced).
+export async function todayMiles(userId: string, health: HealthProvider): Promise<DailyMiles | null> {
+  if (health.platform === 'mock') return null;
+  try {
+    const since = new Date();
+    since.setHours(0, 0, 0, 0);
+    const [workouts, allDay] = await Promise.all([health.getRecentWorkouts(50), health.getDailyStepsSince(since)]);
+    const rows = milesByDay(workouts, allDay);
+    await recordDailyMiles(userId, rows).catch(() => {});
+    const today = localDayKey(new Date());
+    return rows.find((r) => r.day === today) ?? { day: today, workoutMi: 0, allMi: 0 };
+  } catch {
+    return null;
+  }
+}
+
 export async function syncJourney(userId: string, health: HealthProvider): Promise<void> {
   // Made-up numbers (web, simulator) mustn't count toward a real course.
   if (health.platform === 'mock') return;
