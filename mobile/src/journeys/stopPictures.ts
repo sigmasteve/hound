@@ -7,10 +7,11 @@ import type { StopPicture } from './stopNotes';
 
 export const STOP_PICTURES: Record<string, Record<string, StopPicture>> = {
   'golden-gate': {
-    "San Francisco side": { source: require('../../assets/stops/golden-gate/san-francisco-side.webp'), credit: "Photo: Frank Schulenburg, CC BY-SA 4.0, via Wikimedia Commons" },
     "South tower": { source: require('../../assets/stops/golden-gate/south-tower.webp'), credit: "Photo: Ɱ, CC BY-SA 4.0, via Wikimedia Commons" },
     "North tower": { source: require('../../assets/stops/golden-gate/north-tower.webp'), credit: "Photo: Public domain, via Wikimedia Commons" },
     "Vista Point": { source: require('../../assets/stops/golden-gate/vista-point.webp'), credit: "Photo: Public domain, via Wikimedia Commons" },
+    "San Francisco side": { source: require('../../assets/stops/golden-gate/san-francisco-side.webp'), credit: "Photo: Rhododendrites, CC BY-SA 4.0, via Wikimedia Commons" },
+    "Midspan": { source: require('../../assets/stops/golden-gate/midspan.webp'), credit: "Photo: Frank Schulenburg, CC BY-SA 4.0, via Wikimedia Commons" },
   },
   'windy-city': {
     "Grant Park": { source: require('../../assets/stops/windy-city/grant-park.webp'), credit: "Photo: H. Michael Miley from Schaumburg, USA, CC BY-SA 2.0, via Wikimedia Commons" },

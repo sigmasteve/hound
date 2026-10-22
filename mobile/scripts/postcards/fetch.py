@@ -54,7 +54,7 @@ RETRIES = 6  # on 429 or a 5xx: pauses of 10, 20, 40, 80, 160, 320 s
 # ("File:…") can be given instead of an article.
 ARTICLES: dict[str, dict[str, list[str]]] = {
     'golden-gate': {
-        'San Francisco side': ['Crissy Field', 'Presidio of San Francisco', 'Golden Gate Bridge'],
+        'San Francisco side': ['Crissy Field', 'Palace of Fine Arts', 'Fort Mason', 'Presidio of San Francisco'],
         'South tower': ['Fort Point, San Francisco', 'Golden Gate Bridge'],
         'Midspan': ['Golden Gate Bridge'],
         'North tower': ['Marin Headlands', 'Golden Gate Bridge'],
