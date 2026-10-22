@@ -16,6 +16,8 @@ import { stopNote, stopPicture } from './stopNotes';
 // on Today the first time it opens after you've passed the stop
 // (celebrate: confetti, the party horn, a buzz), and again from the
 // Journey's list of stops without the fuss. The finish gets the big one.
+// The start (mile 0) is only ever opened from the list, as "THE START":
+// its postcard, with no word on who got there first.
 export function StopReachedModal({
   course,
   stop,
@@ -36,6 +38,7 @@ export function StopReachedModal({
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const isFinish = stop.mi >= course.miles;
+  const isStart = stop.mi === 0;
   const picture = stopPicture(course, stop);
   const note = stopNote(course, stop);
   const [pictureWidth, setPictureWidth] = useState(0);
@@ -69,7 +72,7 @@ export function StopReachedModal({
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Text style={text.eyebrow}>{isFinish ? 'YOU FINISHED 🏅' : 'YOU REACHED'}</Text>
+          <Text style={text.eyebrow}>{isFinish ? 'YOU FINISHED 🏅' : isStart ? 'THE START' : 'YOU REACHED'}</Text>
           <Animated.View
             style={[
               styles.postcard,
@@ -117,7 +120,7 @@ export function StopReachedModal({
           ) : (
             note && <Text style={styles.sub}>{note}</Text>
           )}
-          <Text style={styles.friends}>{friendsLine}</Text>
+          {!isStart && <Text style={styles.friends}>{friendsLine}</Text>}
 
           <CheeringCrowd sign={cheerFor ? `GO ${cheerFor}!` : 'GO!'} />
 

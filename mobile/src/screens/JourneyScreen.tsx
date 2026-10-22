@@ -179,10 +179,16 @@ export function JourneyScreen({ onBack, onPick }: { onBack: () => void; onPick: 
               <Pressable
                 key={s.mi}
                 style={[styles.row, i > 0 && styles.rowDivider]}
-                disabled={!passed || s.mi === 0}
+                disabled={!passed}
                 onPress={() => setReplay(s)}
                 accessibilityRole="button"
-                accessibilityLabel={passed ? `${s.name}, mile ${formatMiles(s.mi)}, reached. See its postcard` : `${s.name}, mile ${formatMiles(s.mi)}`}
+                accessibilityLabel={
+                  !passed
+                    ? `${s.name}, mile ${formatMiles(s.mi)}`
+                    : s.mi === 0
+                      ? `${s.name}, the start. See its postcard`
+                      : `${s.name}, mile ${formatMiles(s.mi)}, reached. See its postcard`
+                }
               >
                 {passed ? (
                   <CheckCircleIcon size={18} color={colors.gold} weight="fill" />
