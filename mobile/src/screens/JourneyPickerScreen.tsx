@@ -10,6 +10,9 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { JourneyMap } from '../journeys/JourneyMap';
 import { COURSES, COURSE_KIND_LABEL, formatMiles, type Course, type CourseKind } from '../journeys/courses';
 import { friendsCourseCounts, getMyJourney, startJourney, type MyJourney } from '../journeys/journeyApi';
+import { todayMiles } from '../journeys/journeySync';
+import { useHealthProvider } from '../health/HealthContext';
+import { useAuth } from '../auth/AuthContext';
 
 const KIND_ORDER: CourseKind[] = ['landmark', 'city', 'ultra', 'trail'];
 
@@ -17,6 +20,8 @@ const KIND_ORDER: CourseKind[] = ['landmark', 'city', 'ultra', 'trail'];
 export function JourneyPickerScreen({ onBack, onStarted }: { onBack: () => void; onStarted: () => void }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const health = useHealthProvider();
+  const { user } = useAuth();
   const [current, setCurrent] = useState<MyJourney | null>(null);
   const [busy, setBusy] = useState(false);
   const [friendCounts, setFriendCounts] = useState<Map<string, number>>(new Map());
@@ -36,7 +41,9 @@ export function JourneyPickerScreen({ onBack, onStarted }: { onBack: () => void;
   const start = (course: Course) => {
     const go = () => {
       setBusy(true);
-      startJourney(course)
+      // The day's miles so far stay with the course you're leaving.
+      (user?.id ? todayMiles(user.id, health) : Promise.resolve(null))
+        .then((today) => startJourney(course, today))
         .then(onStarted)
         .catch((e) => Alert.alert('Couldn’t start it', e instanceof Error ? e.message : String(e)))
         .finally(() => setBusy(false));
@@ -44,7 +51,7 @@ export function JourneyPickerScreen({ onBack, onStarted }: { onBack: () => void;
     if (active) {
       Alert.alert(
         `Switch to the ${course.name}?`,
-        `You'll leave the ${active.courseName} at mile ${formatMiles(active.miles)}. Your new course starts from today.`,
+        `You'll leave the ${active.courseName} at mile ${formatMiles(active.miles)}. Your new course starts from now.`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Switch', onPress: go },
