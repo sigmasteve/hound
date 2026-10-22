@@ -41,9 +41,18 @@ export const STOP_PICTURES: Record<string, Record<string, StopPicture>> = {
   },
   'thames': {
     "Greenwich Park": { source: require('../../assets/stops/thames/greenwich-park.webp'), credit: "Photo: CC0, via Wikimedia Commons" },
+    "Cutty Sark": { source: require('../../assets/stops/thames/cutty-sark.webp'), credit: "Photo: Ethan Doyle White, CC BY-SA 4.0, via Wikimedia Commons" },
+    "Tower Bridge": { source: require('../../assets/stops/thames/tower-bridge.webp'), credit: "Photo: Fuzzypiggy, CC BY-SA 3.0, via Wikimedia Commons" },
+    "Halfway": { source: require('../../assets/stops/thames/halfway.webp'), credit: "Photo: James Cracknell, CC BY-SA 4.0, via Wikimedia Commons" },
+    "Canary Wharf": { source: require('../../assets/stops/thames/canary-wharf.webp'), credit: "Photo: The wub, CC BY-SA 4.0, via Wikimedia Commons" },
+    "Tower of London": { source: require('../../assets/stops/thames/tower-of-london.webp'), credit: "Photo: [Duncan] from Nottingham, UK, CC BY 2.0, via Wikimedia Commons" },
+    "Big Ben": { source: require('../../assets/stops/thames/big-ben.webp'), credit: "Photo: Christian David, CC BY-SA 4.0, via Wikimedia Commons" },
+    "Finish, The Mall": { source: require('../../assets/stops/thames/finish-the-mall.webp'), credit: "Photo: Julian Herzog (Website), CC BY 4.0, via Wikimedia Commons" },
   },
   'death-valley': {
     "Badwater Basin": { source: require('../../assets/stops/death-valley/badwater-basin.webp'), credit: "Photo: HappyJake, CC BY 3.0, via Wikimedia Commons" },
+    "Furnace Creek": { source: require('../../assets/stops/death-valley/furnace-creek.webp'), credit: "Photo: Tobias1983, CC BY-SA 3.0, via Wikimedia Commons" },
+    "Stovepipe Wells": { source: require('../../assets/stops/death-valley/stovepipe-wells.webp'), credit: "Photo: Public domain, via Wikimedia Commons" },
   },
   'appalachian': {
     "Springer Mountain": { source: require('../../assets/stops/appalachian/springer-mountain.webp'), credit: "Photo: CC0, via Wikimedia Commons" },
