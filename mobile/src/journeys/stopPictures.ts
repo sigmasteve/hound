@@ -87,6 +87,5 @@ export const STOP_PICTURES: Record<string, Record<string, StopPicture>> = {
     "Flagstaff": { source: require('../../assets/stops/route-66/flagstaff.webp'), credit: "Photo: SearchNet Media from Tucson, Arizona, USA, CC BY 2.0, via Wikimedia Commons" },
     "Barstow": { source: require('../../assets/stops/route-66/barstow.webp'), credit: "Photo: Amin Eshaiker, CC BY-SA 3.0, via Wikimedia Commons" },
     "Santa Monica Pier": { source: require('../../assets/stops/route-66/santa-monica-pier.webp'), credit: "Photo: web4camguy, CC BY-SA 2.0, via Wikimedia Commons" },
-    "Kingman": { source: require('../../assets/stops/route-66/kingman.webp'), credit: "Photo: Starsky1414, CC BY-SA 3.0, via Wikimedia Commons" },
   },
 };

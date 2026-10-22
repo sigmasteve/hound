@@ -133,7 +133,7 @@ ARTICLES: dict[str, dict[str, list[str]]] = {
         'Amarillo': ['Cadillac Ranch'],
         'Albuquerque': ['Sandia Mountains', 'Albuquerque, New Mexico'],
         'Flagstaff': ['Flagstaff, Arizona'],
-        'Kingman': ['Hackberry General Store', 'Hualapai Mountains', 'Kingman, Arizona'],
+        'Kingman': ['Hualapai Mountains', 'Beale Hotel (Kingman, Arizona)', 'Kingman Railroad Depot', 'Kingman, Arizona'],
         'Barstow': ['Barstow, California', 'Mojave Desert'],
         'Santa Monica Pier': ['Santa Monica Pier'],
     },
