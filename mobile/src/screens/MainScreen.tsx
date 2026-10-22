@@ -66,7 +66,6 @@ export function MainScreen({ route, navigation }: Props) {
       <View style={styles.content}>
         {tab === 'home' && (
           <HomeScreen
-            onOpenHunt={() => navigation.navigate('Hunt')}
             onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
             onGoTab={goFromHome}
             onOpenAchievements={() => navigation.navigate('Achievements')}
@@ -74,7 +73,6 @@ export function MainScreen({ route, navigation }: Props) {
         )}
         {tab === 'challenges' && (
           <ChallengesScreen
-            onOpenHunt={() => navigation.navigate('Hunt')}
             onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
             onCreate={() => navigation.navigate('Create')}
           />

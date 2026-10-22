@@ -528,7 +528,12 @@ export function SettingsScreen() {
             label="Log out"
             small
             icon={<SignOutIcon size={14} color={colors.text} />}
-            onPress={signOut}
+            onPress={() =>
+              Alert.alert('Log out?', 'You can sign back in any time.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Log out', style: 'destructive', onPress: signOut },
+              ])
+            }
           />
         </Card>
       )}

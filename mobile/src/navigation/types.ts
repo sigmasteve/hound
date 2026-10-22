@@ -11,7 +11,6 @@ export type RootStackParamList = {
   Login: undefined;
   SignUp: undefined;
   Main: { tab?: MainTab } | undefined;
-  Hunt: undefined;
   // rematch: set by a finished challenge's Rematch button (see
   // src/challenges/rematch.ts) to prefill the wizard.
   // global: an admin publishing a Global Hound Challenge from Admin.

@@ -131,7 +131,7 @@ import { useHealthProvider } from '../health/HealthContext';
 import { useLabels } from '../labels/LabelsContext';
 
 // The generic detail view for a real, Supabase-backed challenge of any
-// kind — there's no per-kind template yet (HuntScreen is one specific
+// kind — there's no per-kind template yet (the old Hunt demo was one specific
 // hardcoded storyline, not reusable), so this renders the same for every
 // kind: who's in it, who's logged what, and a way to log your own
 // progress. A 'steps' challenge, a 'hunt' scored on device steps or

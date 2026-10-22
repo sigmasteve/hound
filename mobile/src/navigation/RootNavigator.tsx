@@ -8,7 +8,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '../theme/ThemeContext';
 import type { RootStackParamList } from './types';
 import { MainScreen } from '../screens/MainScreen';
-import { HuntScreen } from '../screens/HuntScreen';
 import { CreateScreen } from '../screens/CreateScreen';
 import { ChallengeDetailScreen } from '../screens/ChallengeDetailScreen';
 import { FriendDetailScreen } from '../screens/FriendDetailScreen';
@@ -222,14 +221,6 @@ export function RootNavigator() {
         ) : (
           <Stack.Group>
             <Stack.Screen name="Main" component={MainScreen} />
-            <Stack.Screen name="Hunt" options={{ animation: 'slide_from_right' }}>
-              {({ navigation }) => (
-                // "All challenges" always lands on the Challenges tab, regardless
-                // of whether Hunt was opened from Home, Challenges, or just-created
-                // via the wizard — matching the label, not just popping the stack.
-                <HuntScreen onBack={() => navigation.navigate('Main', { tab: 'challenges' })} />
-              )}
-            </Stack.Screen>
             <Stack.Screen name="Create" options={{ animation: 'slide_from_bottom' }}>
               {({ navigation, route }) => (
                 <CreateScreen

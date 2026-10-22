@@ -527,12 +527,10 @@ function takePopup(): boolean {
 export type HomeDestination = MainTab | 'stats' | 'healthData' | 'goals' | 'kennel' | 'setup' | 'journey';
 
 export function HomeScreen({
-  onOpenHunt,
   onOpenChallenge,
   onGoTab,
   onOpenAchievements,
 }: {
-  onOpenHunt: () => void;
   onOpenChallenge: (challengeId: string) => void;
   onGoTab: (dest: HomeDestination) => void;
   onOpenAchievements: () => void;
@@ -2753,7 +2751,7 @@ function TicTacGoPreview({
 // purple-navy tint in Dark mode, a pale lavender in Light mode) without
 // abandoning the theme, and its own text/divider styles below
 // (huntTitle through multiTrackDot) go back to the theme-following
-// `colors` param to match — HuntScreen's progressCard and
+// `colors` param to match — the old Hunt demo's progressCard and
 // ChallengesScreen's inviteCard get the same treatment, for the same
 // reason.
 function makeStyles(colors: Palette) {
@@ -2817,7 +2815,7 @@ function makeStyles(colors: Palette) {
     tileSub: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
     cardsRow: { gap: 12 },
     // Fixed, hand-tuned dark background regardless of theme — the same
-    // "always-dark spotlight card" reasoning as HuntScreen's progressCard
+    // "always-dark spotlight card" reasoning as the old Hunt demo's progressCard
     // (see that file's own comment). Everything drawn on top of it below
     // (huntTitle through multiTrackDot) uses the fixed dark `color` import
     // rather than this theme-following `colors` param, for the same

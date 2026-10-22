@@ -91,11 +91,9 @@ function placeholderFinishedCard(c: Challenge): ChallengeCard {
 }
 
 export function ChallengesScreen({
-  onOpenHunt,
   onOpenChallenge,
   onCreate,
 }: {
-  onOpenHunt: () => void;
   onOpenChallenge: (challengeId: string) => void;
   onCreate: () => void;
 }) {
@@ -487,7 +485,7 @@ export function ChallengesScreen({
                     styles={styles}
                     colors={colors}
                     onPress={
-                      c.target === 'hunt' ? onOpenHunt : c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined
+                      c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined
                     }
                   />
                 ))}
@@ -499,6 +497,8 @@ export function ChallengesScreen({
             <Text style={styles.emptyNote}>No challenges yet — start one above.</Text>
           )}
 
+          {/* Only once there's something in it: a new member's tab shouldn't open on an empty trophy case. */}
+          {finishedChallenges.length > 0 && (
           <Card style={{ padding: 0, overflow: 'hidden' }} elevated={false}>
             <Pressable
               style={[styles.medalsHeader, finishedExpanded && styles.medalsHeaderOpen]}
@@ -547,6 +547,7 @@ export function ChallengesScreen({
               </View>
             )}
           </Card>
+          )}
         </>
       )}
     </ScrollView>
