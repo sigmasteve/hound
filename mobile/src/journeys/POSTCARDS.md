@@ -46,7 +46,7 @@ as one set.
 | File | `mobile/assets/stops/<course-id>/<stop-slug>.webp`, names from the table below |
 | Safe area | keep the landmark inside the middle 80 %: the postcard has a thin white border and a slight tilt |
 
-Bundle cost: all 70 at about 60 KB is around 4 MB in the app. Fine for
+Bundle cost: the 70 photos come to about 12.7 MB in the app (180 KB each on average; illustrations at about 60 KB would be around 4 MB). Fine for
 a start; if it grows (photos), move them to Supabase storage and load on
 demand, the manifest already takes a `{ uri }`.
 
