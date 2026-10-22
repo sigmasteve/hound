@@ -174,7 +174,9 @@ export const CHALLENGE_TYPES: {
 // CHALLENGE_TYPES directly, so a kind left out here would silently never
 // appear in the picker at all.
 export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
-  { label: '', kinds: ['hunt', 'tictacgo', 'steps', 'tag', 'distance', 'streak', 'journey', 'bingo', 'seventyfive'] },
+  { label: 'Races', kinds: ['steps', 'distance', 'journey'] },
+  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'bingo'] },
+  { label: 'Habits', kinds: ['streak', 'seventyfive'] },
 ];
 
 export interface DataSource {

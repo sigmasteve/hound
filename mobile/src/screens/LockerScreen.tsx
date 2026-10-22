@@ -286,7 +286,7 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
 
         <View style={styles.tabRow}>
           <Pressable style={[styles.tabButton, tab === 'locker' && styles.tabButtonActive]} onPress={() => setTab('locker')}>
-            <Text style={[styles.tabLabel, tab === 'locker' && styles.tabLabelActive]}>Yours</Text>
+            <Text style={[styles.tabLabel, tab === 'locker' && styles.tabLabelActive]}>Unlocks</Text>
           </Pressable>
           <Pressable style={[styles.tabButton, tab === 'shop' && styles.tabButtonActive]} onPress={() => setTab('shop')}>
             <Text style={[styles.tabLabel, tab === 'shop' && styles.tabLabelActive]}>Shop</Text>

@@ -231,9 +231,8 @@ export function toChallengeCard(
     })),
     finished,
     headStartDaysLeft: headStartDaysLeft(challenge),
-    // Opens the generic ChallengeDetailScreen — HuntScreen is one
-    // specific hardcoded storyline, not a template real challenges of
-    // any kind can share, so this never points there.
+    // Opens the generic ChallengeDetailScreen. (The old static Hunt demo
+    // screen is gone; nothing ever pointed there.)
     target: 'detail',
   };
 }
