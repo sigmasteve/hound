@@ -260,63 +260,67 @@ def main() -> None:
     credits: dict[str, dict[str, dict]] = json.loads(credits_path.read_text()) if credits_path.exists() else {}
     missing: list[str] = []
 
-    for course, stops in ARTICLES.items():
+    # Every course's start first (the first stop listed), then the rest:
+    # the start row always opens its postcard, so those matter most.
+    order = [(c, s) for c, stops in ARTICLES.items() for s in list(stops)[:1]]
+    order += [(c, s) for c, stops in ARTICLES.items() for s in list(stops)[1:]]
+    for course, stop in order:
         if args.only and course != args.only:
             continue
-        for stop, candidates in stops.items():
-            out = ASSETS / course / f'{slug(stop)}.webp'
-            if out.exists() and not args.force and credits.get(course, {}).get(stop):
-                continue
-            used = {c['source'] for s, c in credits.get(course, {}).items() if s != stop}
-            picked = None
-            for article in candidates:
-                try:
-                    file = lead_file(article)
-                    if not file:
-                        continue
-                    if file in used:
-                        print(f'  {course}/{stop}: {file} is already on another postcard; skipping', file=sys.stderr)
-                        continue
-                    info = file_info(file)
-                    if not info or not info['url']:
-                        continue
-                    if not FREE.match(info['licence'].strip()):
-                        print(f'  {course}/{stop}: {file} is {info["licence"]!r}, not free; skipping', file=sys.stderr)
-                        continue
-                    if info['width'] < 800:
-                        print(f'  {course}/{stop}: {file} is only {info["width"]}px wide; skipping', file=sys.stderr)
-                        continue
-                    picked = (article, file, info)
-                    break
-                except Exception as e:  # noqa: BLE001
-                    print(f'  {course}/{stop}: {article}: {e}', file=sys.stderr)
-            if not picked:
+        candidates = ARTICLES[course][stop]
+        out = ASSETS / course / f'{slug(stop)}.webp'
+        if out.exists() and not args.force and credits.get(course, {}).get(stop):
+            continue
+        used = {c['source'] for s, c in credits.get(course, {}).items() if s != stop}
+        picked = None
+        for article in candidates:
+            try:
+                file = lead_file(article)
+                if not file:
+                    continue
+                if file in used:
+                    print(f'  {course}/{stop}: {file} is already on another postcard; skipping', file=sys.stderr)
+                    continue
+                info = file_info(file)
+                if not info or not info['url']:
+                    continue
+                if not FREE.match(info['licence'].strip()):
+                    print(f'  {course}/{stop}: {file} is {info["licence"]!r}, not free; skipping', file=sys.stderr)
+                    continue
+                if info['width'] < 800:
+                    print(f'  {course}/{stop}: {file} is only {info["width"]}px wide; skipping', file=sys.stderr)
+                    continue
+                picked = (article, file, info)
+                break
+            except Exception as e:  # noqa: BLE001
+                print(f'  {course}/{stop}: {article}: {e}', file=sys.stderr)
+        if not picked:
+            missing.append(f'{course}: {stop}')
+            continue
+        article, file, info = picked
+        try:
+            data = get(info['url'])
+        except urllib.error.HTTPError as e:
+            # A thumbnail Wikimedia won't make (HTTP 400): take the
+            # original when it isn't huge.
+            if e.code != 400 or not info['original'] or info['size'] > 20_000_000:
+                print(f'  {course}/{stop}: {file}: {e}', file=sys.stderr)
                 missing.append(f'{course}: {stop}')
                 continue
-            article, file, info = picked
-            try:
-                data = get(info['url'])
-            except urllib.error.HTTPError as e:
-                # A thumbnail Wikimedia won't make (HTTP 400): take the
-                # original when it isn't huge.
-                if e.code != 400 or not info['original'] or info['size'] > 20_000_000:
-                    print(f'  {course}/{stop}: {file}: {e}', file=sys.stderr)
-                    missing.append(f'{course}: {stop}')
-                    continue
-                data = get(info['original'])
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(postcard(data))
-            licence = info['licence'].strip()
-            by = f'{info["artist"]}, ' if info['artist'] and not licence.lower().startswith(('cc0', 'public')) else ''
-            credits.setdefault(course, {})[stop] = {
-                'file': out.relative_to(MOBILE).as_posix(),
-                'credit': f'Photo: {by}{licence}, via Wikimedia Commons',
-                'source': file,
-                'page': info['page'],
-                'article': article,
-            }
-            print(f'{course}/{stop}: {file} ({licence}, {out.stat().st_size // 1024} KB)')
-            credits_path.write_text(json.dumps(credits, indent=2, ensure_ascii=False) + '\n')
+            data = get(info['original'])
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(postcard(data))
+        licence = info['licence'].strip()
+        by = f'{info["artist"]}, ' if info['artist'] and not licence.lower().startswith(('cc0', 'public')) else ''
+        credits.setdefault(course, {})[stop] = {
+            'file': out.relative_to(MOBILE).as_posix(),
+            'credit': f'Photo: {by}{licence}, via Wikimedia Commons',
+            'source': file,
+            'page': info['page'],
+            'article': article,
+        }
+        print(f'{course}/{stop}: {file} ({licence}, {out.stat().st_size // 1024} KB)')
+        credits_path.write_text(json.dumps(credits, indent=2, ensure_ascii=False) + '\n')
 
     # The manifest the app reads (stopNotes.ts imports it).
     lines = [
