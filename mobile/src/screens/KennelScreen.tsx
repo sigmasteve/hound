@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -10,11 +10,6 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { useAuth } from '../auth/AuthContext';
-import { isSupabaseConfigured } from '../lib/supabase';
-import { BonesPacksCard } from '../bones/BonesPacksCard';
-import { notifyBonesChanged } from '../bones/bonesChanged';
-import { WatchAdCard } from '../ads/WatchAdCard';
-import { useRewardedBones } from '../ads/rewardedBones';
 import { getMyEquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import { HOUND_AVATAR_PREFIX } from '../kennel/houndAvatar';
 import { levelProgressForXp } from '../challenges/leveling';
@@ -63,7 +58,7 @@ const CARE_MODES: { id: CareMode; name: string; detail: string }[] = [
 
 // Your hound (0104_kennel.sql): how they're doing, a treat or meal, their
 // accessories and how you look after them. Grows with your rank.
-export function KennelScreen({ onBack }: { onBack: () => void }) {
+export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onOpenLocker: () => void }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const currencyName = useCurrencyName();
@@ -93,18 +88,9 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
 
   useFocusEffect(reload);
 
-  // Getting more Bones without leaving the Kennel: an ad, or a pack
-  // (BonesPacksCard), at the bottom. "Get more", and anything you can't
-  // afford yet, scroll down to them.
-  const scrollRef = useRef<ScrollView>(null);
-  const [packsY, setPacksY] = useState<number | null>(null);
-  const scrollToPacks = () => {
-    if (packsY !== null) scrollRef.current?.scrollTo({ y: Math.max(0, packsY - 12), animated: true });
-  };
-  const rewardedBones = useRewardedBones(isSupabaseConfigured ? user?.id : null, () => {
-    reload();
-    notifyBonesChanged();
-  });
+  // Getting more Bones: the Locker's shop has the ad and the packs.
+  // "Get more", and anything you can't afford yet, go there; the Kennel
+  // used to carry a second copy of both cards.
 
   const run = async (id: string, action: () => Promise<void>, failTitle: string) => {
     setBusyId(id);
@@ -172,7 +158,7 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
       `That's ${cost}, and you have ${kennel.bonesBalance}. Watch an ad or get a pack to top up.`,
       [
         { text: 'Not now', style: 'cancel' },
-        { text: `Get ${currencyName}`, onPress: scrollToPacks },
+        { text: `Get ${currencyName}`, onPress: onOpenLocker },
       ],
     );
 
@@ -260,7 +246,7 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
         <Card style={styles.hero} elevated={false}>
@@ -347,7 +333,7 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
               variant="ghost"
               small
               icon={<PlusIcon size={12} color={colors.accent} weight="bold" />}
-              onPress={scrollToPacks}
+              onPress={onOpenLocker}
             />
           </View>
         </Card>
@@ -459,14 +445,6 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
             {KENNEL_ITEMS.filter((i) => i.slot === slot && inShop(i)).map(itemRow)}
           </Card>
         ))}
-
-        {/* Measured so "Get more" knows where to scroll. */}
-        <View style={{ gap: 16 }} onLayout={(e) => setPacksY(e.nativeEvent.layout.y)}>
-          <WatchAdCard ads={rewardedBones} currencyName={currencyName} />
-          {user?.id && isSupabaseConfigured && (
-            <BonesPacksCard userId={user.id} currencyName={currencyName} onCredited={() => reload()} />
-          )}
-        </View>
 
         <Card style={{ gap: 8 }} elevated={false}>
           <Text style={text.h4}>Care style</Text>
