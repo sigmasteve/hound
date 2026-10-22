@@ -830,7 +830,7 @@ export function AdminScreen({
                     short="What a chase’s three roles are called, app-wide."
                     more="This is the default for anyone not in an organization with its own labels; an organization’s own labels are set on its page under People → Organizations."
                   />
-                  <TextField label="Hound" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
+                  <TextField label="Chaser" value={hunterInput} onChangeText={setHunterInput} placeholder={DEFAULT_HUNT_LABELS.hunter} />
                   <TextField label="Fox" value={huntedInput} onChangeText={setHuntedInput} placeholder={DEFAULT_HUNT_LABELS.hunted} />
                   <TextField label="Out" value={zombieInput} onChangeText={setZombieInput} placeholder={DEFAULT_HUNT_LABELS.zombie} />
                   {labelsError && <Text style={styles.loadError}>{labelsError}</Text>}

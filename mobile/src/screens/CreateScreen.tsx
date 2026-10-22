@@ -146,7 +146,9 @@ export function CreateScreen({
   const { labelsForOrg } = useLabels();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [step, setStep] = useState<1 | 2 | 3>(rematch ? 2 : 1);
-  const [draftType, setDraftType] = useState<ChallengeKind>(rematch?.kind ?? kind ?? (global ? 'steps' : 'hunt'));
+  // A Step Race to start with: four fields, the simplest kind, so a
+  // first challenge doesn't open on the chase's six controls.
+  const [draftType, setDraftType] = useState<ChallengeKind>(rematch?.kind ?? kind ?? 'steps');
   const [draftName, setDraftName] = useState(rematch?.name ?? '');
   const [headStart, setHeadStart] = useState(rematch?.headStartDays ?? 2);
   const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>(rematch?.distanceGoalUnit ?? 'miles');
@@ -1167,7 +1169,7 @@ export function CreateScreen({
           )}
           {!!myOrgId && (
             <View style={{ gap: 8 }}>
-              <Text style={text.h4}>Who&rsquo;s this chase for?</Text>
+              <Text style={text.h4}>Who&rsquo;s this challenge for?</Text>
               <SegmentedControl
                 options={[
                   { value: 'global' as const, label: 'Everyone' },
