@@ -120,9 +120,12 @@ export function CreateScreen({
   rematch,
   global = false,
   kind,
+  inviteUserIds,
 }: {
   onCancel: () => void;
   onFinish: () => void;
+  // Friends already picked on step 3, from a friend's page.
+  inviteUserIds?: string[];
   // An admin publishing a Global Hound Challenge (opened from the Admin
   // screen) — see src/challenges/globalChallenges.ts. Same wizard, with
   // templates on step 1, a start date and join window on step 2, and a
@@ -175,7 +178,7 @@ export function CreateScreen({
   // see start()'s inviteFriendToChallenge calls below. Never populated
   // (and this screen just shows an empty state) while Supabase isn't
   // configured, same reasoning as every other real-data screen.
-  const [invited, setInvited] = useState<string[]>(rematch?.invitedUserIds ?? []);
+  const [invited, setInvited] = useState<string[]>(rematch?.invitedUserIds ?? inviteUserIds ?? []);
   // null = the real fetch hasn't resolved yet, or never will (Supabase
   // unconfigured) — both render the same honest empty state below,
   // never fabricated friends (see ChallengesScreen's own fix for why).

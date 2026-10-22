@@ -235,6 +235,7 @@ export function RootNavigator() {
                 <CreateScreen
                   rematch={route.params?.rematch}
                   global={route.params?.global}
+                  inviteUserIds={route.params?.inviteUserIds}
                   // Always lands on the Challenges tab, regardless of
                   // whether Create was opened from Home or Challenges —
                   // same "land somewhere fixed and meaningful" reasoning
@@ -289,6 +290,7 @@ export function RootNavigator() {
                   friendBackgroundId={route.params.friendBackgroundId}
                   friendIconId={route.params.friendIconId}
                   onBack={() => navigation.navigate('Main', { tab: 'friends' })}
+                  onChallenge={() => navigation.navigate('Create', { inviteUserIds: [route.params.friendUserId] })}
                 />
               )}
             </Stack.Screen>
