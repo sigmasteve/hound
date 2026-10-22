@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -867,6 +867,7 @@ export function ChallengeDetailScreen({
   };
 
   const logProgress = async () => {
+    Keyboard.dismiss();
     const steps = Number(stepsInput);
     if (!Number.isFinite(steps) || steps < 0) {
       setLogError('Enter a whole number of steps.');
@@ -1360,6 +1361,7 @@ export function ChallengeDetailScreen({
       contentContainerStyle={styles.container}
       automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       <Button label="All challenges" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
@@ -1383,7 +1385,14 @@ export function ChallengeDetailScreen({
             </Text>
           </View>
         </View>
-        <Pressable onPress={() => setTab('details')} hitSlop={10} accessibilityLabel="Details">
+        <Pressable
+          onPress={() => {
+            Keyboard.dismiss();
+            setTab('details');
+          }}
+          hitSlop={10}
+          accessibilityLabel="Details"
+        >
           <InfoIcon size={22} color={colors.accent} />
         </Pressable>
       </View>
@@ -1410,6 +1419,7 @@ export function ChallengeDetailScreen({
               onPress={() => {
                 if (challenge.kind === 'tag') dismissTagExplainer();
                 else dismissChaseExplainer();
+                Keyboard.dismiss();
                 setTab('details');
               }}
             >

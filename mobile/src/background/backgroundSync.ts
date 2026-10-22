@@ -84,7 +84,15 @@ async function syncNow(): Promise<void> {
 
   const [goals, settings] = await Promise.all([listGoals(userId), getHoundSettings(userId)]);
   const needsWeek = goals.some((g) => g.period === 'week' && (g.metric === 'steps' || g.metric === 'distance_mi'));
-  const weekDays = needsWeek ? await health.getDailyStepsSince(weekStart()).catch(() => []) : [];
+  // A week the phone couldn't read would show weekly goals at zero on the
+  // widget; leave the widget as it was instead.
+  let weekRead = true;
+  const weekDays = needsWeek
+    ? await health.getDailyStepsSince(weekStart()).catch(() => {
+        weekRead = false;
+        return [];
+      })
+    : [];
   const inputs = { stepsToday: snap.stepsToday, distanceTodayMi: snap.distanceTodayMi, weekDays, workouts };
   const progress = goals.map((g) => goalProgress(g, inputs));
 
@@ -95,10 +103,12 @@ async function syncNow(): Promise<void> {
 
   // The home screen widgets, so they keep up while Hound is closed. Your
   // hound's picture and mood stay as Today last saved them.
-  await updateWidgets({
-    ...numbersFromProgress(progress, snap.stepsToday),
-    streak: await getGoalStreak().catch(() => null),
-  });
+  if (weekRead) {
+    await updateWidgets({
+      ...numbersFromProgress(progress, snap.stepsToday),
+      streak: await getGoalStreak().catch(() => null),
+    });
+  }
 
   await refreshHoundNow({
     userId,

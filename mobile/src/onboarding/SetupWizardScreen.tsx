@@ -200,7 +200,7 @@ function StepPage({
 }) {
   return (
     <>
-      <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {icon && <View style={styles.badge}>{icon}</View>}
         <Text style={styles.title}>{title}</Text>
         {body && <Text style={styles.body}>{body}</Text>}

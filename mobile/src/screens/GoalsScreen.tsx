@@ -53,7 +53,7 @@ export function GoalsScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets>
       <Text style={[text.h2, { fontSize: 24 }]}>Goals</Text>
 
       <Card style={{ gap: 12 }} elevated={false}>

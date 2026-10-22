@@ -72,7 +72,14 @@ const MOOD_WORD: Record<Kennel['mood'], string> = {
 // and background sync work out).
 export function numbersFromProgress(progress: GoalProgress[], stepsToday: number, now: Date = new Date()) {
   const stepsGoal = progress.find((p) => p.goal.metric === 'steps' && p.goal.period === 'day')?.goal.target ?? null;
-  const goals: WidgetGoal[] = progress.map((p) => ({
+  // Daily goals first, then weekly, as Today's tile lists them: the
+  // widget shows the first few, so they must be the same few. And the
+  // count is today's, as on the tile: daily goals when there are any,
+  // else the week's.
+  const daily = progress.filter((p) => p.goal.period === 'day');
+  const weekly = progress.filter((p) => p.goal.period === 'week');
+  const counted = daily.length > 0 ? daily : weekly;
+  const goals: WidgetGoal[] = [...daily, ...weekly].map((p) => ({
     title: goalTitle(p.goal),
     metric: p.goal.metric,
     value: formatAmount(p.goal.metric, p.value),
@@ -88,8 +95,8 @@ export function numbersFromProgress(progress: GoalProgress[], stepsToday: number
     stepsGoalText: stepsGoal === null ? null : stepsGoal.toLocaleString('en-US'),
     stepsPct: stepsGoal ? Math.min(100, Math.round((stepsToday / stepsGoal) * 100)) : 0,
     goals,
-    done: goals.filter((g) => g.done).length,
-    total: goals.length,
+    done: counted.filter((p) => p.done).length,
+    total: counted.length,
     dayKey: localDayKey(now),
     weekKey: localDayKey(weekStart(now)),
   };

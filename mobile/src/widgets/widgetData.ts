@@ -24,14 +24,16 @@ let queue: Promise<void> = Promise.resolve();
 // the numbers but not your hound's picture, Today knows both) and redraws
 // the widgets, only when something actually changed: iPhone allows a
 // widget a limited number of redraws a day.
+// Resolves true once the widgets have the change (or already had it).
 export function updateWidgets(
   changes: Omit<Partial<WidgetData>, 'streak'> & { streak?: GoalStreak | number | null },
-): Promise<void> {
-  queue = queue.then(() => save(changes));
-  return queue;
+): Promise<boolean> {
+  const next = queue.then(() => save(changes));
+  queue = next.then(() => undefined);
+  return next;
 }
 
-async function save(changes: Parameters<typeof updateWidgets>[0]): Promise<void> {
+async function save(changes: Parameters<typeof updateWidgets>[0]): Promise<boolean> {
   try {
     const { streak, ...rest } = changes;
     const before = await readWidgetData();
@@ -44,10 +46,12 @@ async function save(changes: Parameters<typeof updateWidgets>[0]): Promise<void>
       ready: true,
     };
     const json = JSON.stringify(next);
-    if (json === JSON.stringify(before)) return;
+    if (json === JSON.stringify(before)) return true;
     await AsyncStorage.setItem(STORAGE_KEY, json);
     await pushToWidgets(next);
+    return true;
   } catch {
     // A widget that's a little behind is fine; never let it break the app.
+    return false;
   }
 }

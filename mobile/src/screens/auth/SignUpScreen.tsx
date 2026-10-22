@@ -48,7 +48,7 @@ export function SignUpScreen({ onBack, onLogIn }: { onBack: () => void; onLogIn:
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 24 + insets.bottom }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 24 + insets.bottom }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <Button
           label="Back"
           variant="ghost"

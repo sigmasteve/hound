@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon, HeartIcon, PencilSimpleIcon, PlusIcon } from 'phosphor-react-native';
@@ -132,7 +132,10 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
   const classic = kennel.careMode === 'classic';
   const equippedIn = (item: KennelItem) => (item.slot === 'neck' ? kennel.neckId : item.slot === 'head' ? kennel.headId : kennel.faceId);
 
+  // On blur only: Done blurs the field too, so a second handler on submit
+  // saved the name twice.
   const saveName = () => {
+    Keyboard.dismiss();
     const name = editingName?.trim() ?? '';
     setEditingName(null);
     if (name && name !== kennel.name) run('name', () => setKennel(name, null), "Couldn't rename");
@@ -254,7 +257,7 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
         <Card style={styles.hero} elevated={false}>
@@ -278,7 +281,6 @@ export function KennelScreen({ onBack }: { onBack: () => void }) {
               value={editingName}
               onChangeText={setEditingName}
               onBlur={saveName}
-              onSubmitEditing={saveName}
               autoFocus
               maxLength={20}
               returnKeyType="done"

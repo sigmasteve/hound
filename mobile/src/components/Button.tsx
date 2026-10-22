@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { font, radius, space, withAlpha, type Palette } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -29,9 +29,20 @@ export function Button({
   const { colors } = useTheme();
   const { styles, variantStyles, variantText } = useMemo(() => makeStyles(colors), [colors]);
 
+  // A tap on a button is the end of typing: Save, Send, Add, Back, Cancel.
+  // Screens that keep taps "handled" (so a tap on a button lands while a
+  // field is focused) never blur the field on their own, and the keyboard
+  // stayed up, or on Android stayed up after the field was gone.
+  const press = disabled || !onPress
+    ? undefined
+    : () => {
+        Keyboard.dismiss();
+        onPress();
+      };
+
   return (
     <Pressable
-      onPress={disabled ? undefined : onPress}
+      onPress={press}
       style={({ pressed }) => [
         styles.base,
         variantStyles[variant],
