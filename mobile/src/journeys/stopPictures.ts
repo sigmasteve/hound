@@ -72,7 +72,7 @@ export const STOP_PICTURES: Record<string, Record<string, StopPicture>> = {
     "Hanover": { source: require('../../assets/stops/appalachian/hanover.webp'), credit: "Photo: Ascended Dreamer, CC BY-SA 4.0, via Wikimedia Commons" },
     "Mount Washington": { source: require('../../assets/stops/appalachian/mount-washington.webp'), credit: "Photo: Harvey Barrison, CC BY-SA 2.0, via Wikimedia Commons" },
     "Katahdin": { source: require('../../assets/stops/appalachian/katahdin.webp'), credit: "Photo: Public domain, via Wikimedia Commons" },
-    "Damascus": { source: require('../../assets/stops/appalachian/damascus.webp'), credit: "Photo: Public domain, via Wikimedia Commons" },
+    "Damascus": { source: require('../../assets/stops/appalachian/damascus.webp'), credit: "Photo: Virginia State Parks staff, CC BY 2.0, via Wikimedia Commons" },
     "Harpers Ferry": { source: require('../../assets/stops/appalachian/harpers-ferry.webp'), credit: "Photo: Mark Fickett, CC BY 3.0, via Wikimedia Commons" },
     "Monson": { source: require('../../assets/stops/appalachian/monson.webp'), credit: "Photo: Tcpx36, CC BY-SA 3.0, via Wikimedia Commons" },
   },
