@@ -250,6 +250,13 @@
       "source": "File:Buckingham_Palace_London_Morning_2020_01_(cropped).jpg",
       "page": "https://commons.wikimedia.org/wiki/File:Buckingham_Palace_London_Morning_2020_01_(cropped).jpg",
       "article": "Buckingham Palace"
+    },
+    "Woolwich": {
+      "file": "assets/stops/thames/woolwich.webp",
+      "credit": "Photo: \"Fin Fahey\", CC BY-SA 2.5, via Wikimedia Commons",
+      "source": "File:Woolwich_royal_arsenal_gatehouse_1.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Woolwich_royal_arsenal_gatehouse_1.jpg",
+      "article": "Royal Arsenal"
     }
   },
   "death-valley": {
@@ -273,6 +280,41 @@
       "source": "File:DV2_M.jpg",
       "page": "https://commons.wikimedia.org/wiki/File:DV2_M.jpg",
       "article": "Mesquite Flat Sand Dunes"
+    },
+    "Towne Pass": {
+      "file": "assets/stops/death-valley/towne-pass.webp",
+      "credit": "Photo: Daniel Mayer at en.wikipedia, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:Panamint_Range_looking_toward_Telescope_Peak.JPG",
+      "page": "https://commons.wikimedia.org/wiki/File:Panamint_Range_looking_toward_Telescope_Peak.JPG",
+      "article": "Panamint Range"
+    },
+    "Panamint Springs": {
+      "file": "assets/stops/death-valley/panamint-springs.webp",
+      "credit": "Photo: Bobak Ha'Eri, CC BY-SA 2.5, via Wikimedia Commons",
+      "source": "File:01-2007-PanamintSprings-01.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:01-2007-PanamintSprings-01.jpg",
+      "article": "Panamint Springs, California"
+    },
+    "Keeler": {
+      "file": "assets/stops/death-valley/keeler.webp",
+      "credit": "Photo: CC0, via Wikimedia Commons",
+      "source": "File:Owens_Lake_from_Whitney_Portal_Road.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Owens_Lake_from_Whitney_Portal_Road.jpg",
+      "article": "Owens Lake"
+    },
+    "Lone Pine": {
+      "file": "assets/stops/death-valley/lone-pine.webp",
+      "credit": "Photo: steveberardi, CC BY-SA 2.0, via Wikimedia Commons",
+      "source": "File:Alabamahills.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Alabamahills.jpg",
+      "article": "Alabama Hills"
+    },
+    "Whitney Portal": {
+      "file": "assets/stops/death-valley/whitney-portal.webp",
+      "credit": "Photo: MostlyDeserts, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:Whitney_Portal_Road.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Whitney_Portal_Road.jpg",
+      "article": "Whitney Portal"
     }
   },
   "appalachian": {
@@ -282,6 +324,76 @@
       "source": "File:Springer_Mountain_viewed_from_East_Ellijay.jpg",
       "page": "https://commons.wikimedia.org/wiki/File:Springer_Mountain_viewed_from_East_Ellijay.jpg",
       "article": "Springer Mountain"
+    },
+    "Fontana Dam": {
+      "file": "assets/stops/appalachian/fontana-dam.webp",
+      "credit": "Photo: Harrison Keely, CC BY 4.0, via Wikimedia Commons",
+      "source": "File:Fontana_Dam_in_North_Carolina_is_the_tallest_dam_in_the_Eastern_United_States_03.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Fontana_Dam_in_North_Carolina_is_the_tallest_dam_in_the_Eastern_United_States_03.jpg",
+      "article": "Fontana Dam"
+    },
+    "Clingmans Dome": {
+      "file": "assets/stops/appalachian/clingmans-dome.webp",
+      "credit": "Photo: Username11236, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Clingmans_Dome_Sevierville_TN.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Clingmans_Dome_Sevierville_TN.jpg",
+      "article": "Clingmans Dome"
+    },
+    "McAfee Knob": {
+      "file": "assets/stops/appalachian/mcafee-knob.webp",
+      "credit": "Photo: Idawriter, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:VT_Students_on_McAfee's_Knob_during_winter_-_panoramio.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:VT_Students_on_McAfee%27s_Knob_during_winter_-_panoramio.jpg",
+      "article": "McAfee Knob"
+    },
+    "Duncannon": {
+      "file": "assets/stops/appalachian/duncannon.webp",
+      "credit": "Photo: Dincher, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:Duncannon,_PA.JPG",
+      "page": "https://commons.wikimedia.org/wiki/File:Duncannon,_PA.JPG",
+      "article": "Duncannon, Pennsylvania"
+    },
+    "Delaware Water Gap": {
+      "file": "assets/stops/appalachian/delaware-water-gap.webp",
+      "credit": "Photo: Quintin Soloviev, CC BY 4.0, via Wikimedia Commons",
+      "source": "File:Delaware_Water_Gap_aerial_view.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Delaware_Water_Gap_aerial_view.jpg",
+      "article": "Delaware Water Gap"
+    },
+    "Bear Mountain": {
+      "file": "assets/stops/appalachian/bear-mountain.webp",
+      "credit": "Photo: CoffeeSoup, CC BY 4.0, via Wikimedia Commons",
+      "source": "File:Bear_Mountain_State_Park_as_seen_from_Anthony’s_Nose.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Bear_Mountain_State_Park_as_seen_from_Anthony%E2%80%99s_Nose.jpg",
+      "article": "Bear Mountain State Park"
+    },
+    "Mount Greylock": {
+      "file": "assets/stops/appalachian/mount-greylock.webp",
+      "credit": "Photo: Famartin, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:2025-09-09_16_23_18_View_southeast_towards_Mount_Greylock_from_the_summit_of_Berlin_Mountain_in_Berlin,_Rensselaer_County,_New_York.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:2025-09-09_16_23_18_View_southeast_towards_Mount_Greylock_from_the_summit_of_Berlin_Mountain_in_Berlin,_Rensselaer_County,_New_York.jpg",
+      "article": "Mount Greylock"
+    },
+    "Hanover": {
+      "file": "assets/stops/appalachian/hanover.webp",
+      "credit": "Photo: Ascended Dreamer, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Hanover_NH_10-3-26.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Hanover_NH_10-3-26.jpg",
+      "article": "Hanover, New Hampshire"
+    },
+    "Mount Washington": {
+      "file": "assets/stops/appalachian/mount-washington.webp",
+      "credit": "Photo: Harvey Barrison, CC BY-SA 2.0, via Wikimedia Commons",
+      "source": "File:White_Mountains_12_30_09_81.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:White_Mountains_12_30_09_81.jpg",
+      "article": "Mount Washington"
+    },
+    "Katahdin": {
+      "file": "assets/stops/appalachian/katahdin.webp",
+      "credit": "Photo: Public domain, via Wikimedia Commons",
+      "source": "File:Katahdin.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Katahdin.jpg",
+      "article": "Mount Katahdin"
     }
   },
   "route-66": {
@@ -291,6 +403,76 @@
       "source": "File:20070622_Art_Institute_of_Chicago_Front_View.JPG",
       "page": "https://commons.wikimedia.org/wiki/File:20070622_Art_Institute_of_Chicago_Front_View.JPG",
       "article": "Art Institute of Chicago Building"
+    },
+    "Springfield, IL": {
+      "file": "assets/stops/route-66/springfield-il.webp",
+      "credit": "Photo: Public domain, via Wikimedia Commons",
+      "source": "File:Historic_Route_66_-_Welcome_to_the_Cozy_Dog_Drive_In_-_NARA_-_7719434.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Historic_Route_66_-_Welcome_to_the_Cozy_Dog_Drive_In_-_NARA_-_7719434.jpg",
+      "article": "Cozy Dog Drive In"
+    },
+    "St. Louis": {
+      "file": "assets/stops/route-66/st-louis.webp",
+      "credit": "Photo: St_Louis_night_expblend.jpg: Daniel Schwen\nderivative work: , CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:St_Louis_night_expblend_cropped.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:St_Louis_night_expblend_cropped.jpg",
+      "article": "Gateway Arch"
+    },
+    "Joplin": {
+      "file": "assets/stops/route-66/joplin.webp",
+      "credit": "Photo: AbeEzekowitz, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:Joplin_Downtown_Historic_District.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Joplin_Downtown_Historic_District.jpg",
+      "article": "Joplin, Missouri"
+    },
+    "Tulsa": {
+      "file": "assets/stops/route-66/tulsa.webp",
+      "credit": "Photo: G. Edward Johnson, CC BY 4.0, via Wikimedia Commons",
+      "source": "File:Catoosa_OK_Blue_Whale_2026-05-25_08-17-59.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Catoosa_OK_Blue_Whale_2026-05-25_08-17-59.jpg",
+      "article": "Blue Whale of Catoosa"
+    },
+    "Oklahoma City": {
+      "file": "assets/stops/route-66/oklahoma-city.webp",
+      "credit": "Photo: Quintin Soloviev, CC BY 4.0, via Wikimedia Commons",
+      "source": "File:Oklahoma_City_skyline_from_drone.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Oklahoma_City_skyline_from_drone.jpg",
+      "article": "Oklahoma City"
+    },
+    "Amarillo": {
+      "file": "assets/stops/route-66/amarillo.webp",
+      "credit": "Photo: Richie Diesterheft from Chicago, IL, USA, CC BY 2.0, via Wikimedia Commons",
+      "source": "File:Cadillac_Ranch.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Cadillac_Ranch.jpg",
+      "article": "Cadillac Ranch"
+    },
+    "Albuquerque": {
+      "file": "assets/stops/route-66/albuquerque.webp",
+      "credit": "Photo: Public domain, via Wikimedia Commons",
+      "source": "File:SandiaMtnNM.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:SandiaMtnNM.jpg",
+      "article": "Sandia Mountains"
+    },
+    "Flagstaff": {
+      "file": "assets/stops/route-66/flagstaff.webp",
+      "credit": "Photo: SearchNet Media from Tucson, Arizona, USA, CC BY 2.0, via Wikimedia Commons",
+      "source": "File:Flagstaff_AZ_-_downtown_hotel.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Flagstaff_AZ_-_downtown_hotel.jpg",
+      "article": "Flagstaff, Arizona"
+    },
+    "Barstow": {
+      "file": "assets/stops/route-66/barstow.webp",
+      "credit": "Photo: Amin Eshaiker, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:City_View_of_Barstow,_California_from_Barstow_Road_(2013-12-08).jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:City_View_of_Barstow,_California_from_Barstow_Road_(2013-12-08).jpg",
+      "article": "Barstow, California"
+    },
+    "Santa Monica Pier": {
+      "file": "assets/stops/route-66/santa-monica-pier.webp",
+      "credit": "Photo: web4camguy, CC BY-SA 2.0, via Wikimedia Commons",
+      "source": "File:Santa_monica_pier_entrance_evening.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Santa_monica_pier_entrance_evening.jpg",
+      "article": "Santa Monica Pier"
     }
   }
 }
