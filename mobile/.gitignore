@@ -54,3 +54,6 @@ supabase/.branches/
 
 # Course build script HTTP cache (scripts/courses/build.py)
 scripts/courses/.cache/
+
+# Python
+__pycache__/
