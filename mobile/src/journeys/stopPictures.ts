@@ -42,4 +42,10 @@ export const STOP_PICTURES: Record<string, Record<string, StopPicture>> = {
   'thames': {
     "Greenwich Park": { source: require('../../assets/stops/thames/greenwich-park.webp'), credit: "Photo: CC0, via Wikimedia Commons" },
   },
+  'death-valley': {
+    "Badwater Basin": { source: require('../../assets/stops/death-valley/badwater-basin.webp'), credit: "Photo: HappyJake, CC BY 3.0, via Wikimedia Commons" },
+  },
+  'appalachian': {
+    "Springer Mountain": { source: require('../../assets/stops/appalachian/springer-mountain.webp'), credit: "Photo: CC0, via Wikimedia Commons" },
+  },
 };

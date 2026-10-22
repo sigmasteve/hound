@@ -202,5 +202,23 @@
       "page": "https://commons.wikimedia.org/wiki/File:Greenwich_Park,_London,_from_the_observatory.jpg",
       "article": "Greenwich Park"
     }
+  },
+  "death-valley": {
+    "Badwater Basin": {
+      "file": "assets/stops/death-valley/badwater-basin.webp",
+      "credit": "Photo: HappyJake, CC BY 3.0, via Wikimedia Commons",
+      "source": "File:Badwater_Basin_from_Dante's_View_Overlook.JPG",
+      "page": "https://commons.wikimedia.org/wiki/File:Badwater_Basin_from_Dante%27s_View_Overlook.JPG",
+      "article": "Badwater Basin"
+    }
+  },
+  "appalachian": {
+    "Springer Mountain": {
+      "file": "assets/stops/appalachian/springer-mountain.webp",
+      "credit": "Photo: CC0, via Wikimedia Commons",
+      "source": "File:Springer_Mountain_viewed_from_East_Ellijay.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Springer_Mountain_viewed_from_East_Ellijay.jpg",
+      "article": "Springer Mountain"
+    }
   }
 }
