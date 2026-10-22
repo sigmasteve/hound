@@ -671,8 +671,11 @@ export function HomeScreen({
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   // Toasts here are nearly all Bones news (an award, a purchase, a
   // bounty), so each one also has the top bar re-read the balance.
+  // At most four queued: a first day could line up the bonus, three
+  // achievements and a record, half a minute of toasts. What's dropped is
+  // still on its own screen (Achievements, Stats & records).
   const pushToast = useCallback((t: ToastMessage) => {
-    setToasts((cur) => [...cur, t]);
+    setToasts((cur) => (cur.length >= 4 ? cur : [...cur, t]));
     notifyBonesChanged();
   }, []);
 
@@ -1951,9 +1954,11 @@ export function HomeScreen({
         {needsLines.length === 0 && <Text style={styles.caughtUp}>All caught up. Nothing is waiting on you.</Text>}
         {needsYou.length > 0 && (
           <Card style={styles.needsCard} elevated={false}>
+            {/* No count here: the tile's "N waiting" counts Bone Dig, nudges
+                and bounties too, and a second, smaller number read as a
+                contradiction. */}
             <View style={styles.needsHeader}>
               <Text style={styles.needsTitle}>Needs you</Text>
-              <Text style={styles.needsCount}>{needsYou.length}</Text>
             </View>
             {shownNeedsYou.map((item, i) => (
               <View key={item.key} style={[styles.needsRow, i > 0 && styles.needsRowDivider]}>
@@ -2284,7 +2289,7 @@ export function HomeScreen({
       <Confetti key={celebrations.confetti.key} big={celebrations.confetti.big} onDone={celebrations.clearConfetti} />
     )}
     {toasts.length > 0 && (
-      <Toast key={toasts[0].id} message={toasts[0]} onDone={() => setToasts((cur) => cur.slice(1))} />
+      <Toast key={toasts[0].id} message={toasts[0]} brief={toasts.length > 1} onDone={() => setToasts((cur) => cur.slice(1))} />
     )}
     </View>
   );
@@ -2767,7 +2772,6 @@ function makeStyles(colors: Palette) {
     },
     needsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 8, paddingBottom: 4 },
     needsTitle: { fontFamily: font.headingSemibold, fontSize: 15, color: colors.text },
-    needsCount: { fontFamily: font.heading, fontSize: 12, color: colors.accentActive },
     needsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
     needsRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: withAlpha(colors.accent, 0.35) },
     needsRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
