@@ -111,7 +111,7 @@ ARTICLES: dict[str, dict[str, list[str]]] = {
         'Springer Mountain': ['Springer Mountain'],
         'Fontana Dam': ['Fontana Dam'],
         'Clingmans Dome': ['Clingmans Dome'],
-        'Damascus': ['Virginia Creeper Trail', 'Grayson Highlands State Park', 'Mount Rogers', 'Damascus, Virginia'],
+        'Damascus': ['Grayson Highlands State Park', 'Virginia Creeper Trail', 'Mount Rogers', 'Damascus, Virginia'],
         'McAfee Knob': ['McAfee Knob'],
         'Harpers Ferry': ['Harpers Ferry National Historical Park', 'Jefferson Rock', 'Harpers Ferry, West Virginia'],
         'Duncannon': ['Duncannon, Pennsylvania'],
