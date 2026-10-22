@@ -13,7 +13,7 @@ import { PersonalRecordsCard } from '../components/PersonalRecordsCard';
 import { getMyDailyStepRank, getMyWeeklyStepRank, type StepRank } from '../leaderboard/supabaseStepsRank';
 import { isSupabaseConfigured } from '../lib/supabase';
 import type { DailySteps, DailyStepsWithDate, WorkoutSample } from '../health/types';
-import { computeReadiness, READINESS_COPY, SAMPLE_READINESS, type ReadinessResult } from '../health/readiness';
+import { computeReadiness, READINESS_COPY, type ReadinessResult } from '../health/readiness';
 
 type MetricTab = 'steps' | 'distance' | 'workouts' | 'hr' | 'weight';
 
@@ -453,24 +453,15 @@ export function MetricsScreen() {
           push harder or ease off.
         </Text>
         <ReadinessSummary result={readiness} colors={colors} styles={styles} />
-        {readiness.label === 'insufficient_data' && (
-          <View style={styles.readinessPreview}>
-            <View style={styles.readinessPreviewTag}>
-              <Text style={styles.readinessPreviewTagText}>EXAMPLE</Text>
-            </View>
-            <Text style={styles.readinessPreviewLead}>What this card looks like once it has enough history:</Text>
-            <ReadinessSummary result={SAMPLE_READINESS} colors={colors} styles={styles} />
-          </View>
-        )}
       </Card>
     </ScrollView>
   );
 }
 
-// Badge + reason + this-week/4-week-avg tiles — shared by the real
-// result and, when there's not enough history yet, the hardcoded
-// SAMPLE_READINESS preview shown alongside it (see the Readiness card
-// above), so the two always render identically apart from their data.
+// Badge + reason + this-week/4-week-avg tiles. With too little history
+// the badge itself says so (readiness.ts's insufficient_data copy); the
+// sample preview that used to sit under it is gone, so a new member's
+// Data tab isn't a mock-up.
 function ReadinessSummary({ result, colors, styles }: { result: ReadinessResult; colors: Palette; styles: MetricsStyles }) {
   const tone = toneColor(READINESS_COPY[result.label].tone, colors);
   return (
@@ -753,24 +744,6 @@ function makeStyles(colors: Palette) {
     // Dashed border + a muted "EXAMPLE" tag — visually distinct from the
     // real card above it (solid border, no tag), so it never reads as
     // this account's own data.
-    readinessPreview: {
-      gap: 10,
-      marginTop: 4,
-      padding: 12,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderStyle: 'dashed',
-      borderColor: withAlpha(colors.text, 0.2),
-    },
-    readinessPreviewTag: {
-      alignSelf: 'flex-start',
-      paddingVertical: 2,
-      paddingHorizontal: 8,
-      borderRadius: 999,
-      backgroundColor: withAlpha(colors.text, 0.1),
-    },
-    readinessPreviewTagText: { fontSize: 10, letterSpacing: 0.8, color: withAlpha(colors.text, 0.6) },
-    readinessPreviewLead: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
     // ~4 rows before it starts scrolling — enough to show a typical
     // day's list without the card dominating the screen.
     workoutsScroll: { maxHeight: 220 },
