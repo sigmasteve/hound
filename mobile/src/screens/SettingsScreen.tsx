@@ -431,22 +431,6 @@ export function SettingsScreen() {
   // tested day to day. Lets the two new Alerts toggles (and Login
   // reminders) get tested in minutes instead of waiting for tomorrow's
   // schedule.
-  const [triggering, setTriggering] = useState<'login' | 'staleData' | 'dailyStandings' | null>(null);
-
-  const runTrigger = async (
-    which: 'login' | 'staleData' | 'dailyStandings',
-    fn: () => Promise<Record<string, unknown>>,
-  ) => {
-    setTriggering(which);
-    try {
-      const result = await fn();
-      Alert.alert('Sent', JSON.stringify(result));
-    } catch (err) {
-      Alert.alert('Could not trigger', err instanceof Error ? err.message : 'Something went wrong.');
-    } finally {
-      setTriggering(null);
-    }
-  };
 
   const togglePush = async (next: boolean) => {
     if (!user?.id) return;
@@ -520,14 +504,6 @@ export function SettingsScreen() {
           value={mode === 'light'}
           onChange={(v) => setMode(v ? 'light' : 'dark')}
         />
-        {featureNewest !== null && (
-          <ToggleRow
-            label="Newest challenge on Today"
-            note={featureNewest ? 'Featured when you haven’t pinned one' : 'Only a pinned challenge is featured'}
-            value={featureNewest}
-            onChange={toggleFeatureNewest}
-          />
-        )}
       </Card>
 
 
@@ -605,8 +581,8 @@ export function SettingsScreen() {
 
       {isSupabaseConfigured && user && (
         <Card style={{ gap: 14 }} elevated={false}>
-          <Text style={text.h4}>Your name</Text>
-          <Text style={styles.footNote}>What friends see, and everyone else unless you use a username below.</Text>
+          <Text style={text.h4}>Profile</Text>
+          <Text style={styles.footNote}>Your name is what friends see, and everyone else unless you use a username.</Text>
           <TextField
             label="Name"
             value={nameInput}
@@ -628,12 +604,7 @@ export function SettingsScreen() {
             disabled={savingName || !nameInput.trim() || nameInput.trim() === user.name}
             onPress={saveName}
           />
-        </Card>
-      )}
-
-      {isSupabaseConfigured && user && (
-        <Card style={{ gap: 14 }} elevated={false}>
-          <Text style={text.h4}>Username</Text>
+          <Text style={styles.subheading}>Username</Text>
           <Text style={styles.footNote}>
             Show a username instead of your real name in challenge leaderboards and invites.
           </Text>
@@ -675,7 +646,7 @@ export function SettingsScreen() {
         </Card>
       )}
 
-      <TodaySettings />
+      <TodaySettings featureNewest={featureNewest} onToggleFeatureNewest={toggleFeatureNewest} />
       <CelebrationSettings />
 
       <AdPrivacyCard />
@@ -826,33 +797,6 @@ export function SettingsScreen() {
           </Card>
         )}
 
-      {isSupabaseConfigured && user?.isAdmin && (
-        <Card style={{ gap: 10 }} elevated={false}>
-          <Text style={text.h4}>Developer tools</Text>
-          <Text style={styles.footNote}>
-            Fire a notification job right now instead of waiting for its daily schedule.
-          </Text>
-          <Button
-            label={triggering === 'login' ? 'Sending…' : 'Test: Login reminders'}
-            small
-            disabled={triggering !== null}
-            onPress={() => runTrigger('login', notifications.triggerLoginReminders)}
-          />
-          <Button
-            label={triggering === 'staleData' ? 'Sending…' : 'Test: Stale data alert'}
-            small
-            disabled={triggering !== null}
-            onPress={() => runTrigger('staleData', notifications.triggerStaleDataAlerts)}
-          />
-          <Button
-            label={triggering === 'dailyStandings' ? 'Sending…' : 'Test: Daily standings'}
-            small
-            disabled={triggering !== null}
-            onPress={() => runTrigger('dailyStandings', notifications.triggerDailyStandings)}
-          />
-        </Card>
-      )}
-
       {isSupabaseConfigured && user && (
         <Card style={{ gap: 10 }} elevated={false}>
           <Text style={text.h4}>Delete account</Text>
@@ -878,6 +822,7 @@ function makeStyles(colors: Palette) {
     container: { padding: 16, gap: 14, paddingBottom: 48 },
     accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     sourceName: { fontSize: 14.5, color: colors.text },
+    subheading: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text, marginTop: 6 },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     phonePushNote: {
       gap: 10,

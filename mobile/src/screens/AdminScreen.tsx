@@ -28,6 +28,7 @@ import { getAppBanner, setAppBanner, type AppBanner } from '../banner/supabaseBa
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { huntKindName } from '../challenges/present';
 import { AppVersionsCard } from '../components/AppVersionsCard';
+import { DeveloperToolsCard } from '../components/DeveloperToolsCard';
 import { GoalsAdminCard } from '../components/GoalsAdminCard';
 import { EngagementAdminCard } from '../components/EngagementAdminCard';
 import { AdsAdminCard } from '../components/AdsAdminCard';
@@ -859,6 +860,7 @@ export function AdminScreen({
 
             {tab === 'bones' && (
               <>
+                <DeveloperToolsCard />
                 <Card style={{ gap: 12 }} elevated={false}>
                   <Text style={text.h4}>Daily bonus</Text>
                   <AdminNote
