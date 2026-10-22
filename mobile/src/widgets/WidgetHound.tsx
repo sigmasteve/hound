@@ -34,8 +34,9 @@ export function WidgetHound({ kennel }: { kennel: Kennel }) {
         const base64 = await captureRef(ref, { format: 'png', result: 'base64', width: SIZE * 2, height: HEIGHT * 2 });
         const houndImage = await saveHoundImage(base64, key);
         if (cancelled || !houndImage) return;
-        await updateWidgets({ houndImage });
-        await AsyncStorage.setItem(SAVED_KEY, key);
+        // Remembered as saved only once the widget has it: a push that
+        // failed left the key written and the widget on the old picture.
+        if (await updateWidgets({ houndImage })) await AsyncStorage.setItem(SAVED_KEY, key);
       } catch {
         // The widget shows the paw instead.
       }

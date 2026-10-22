@@ -550,7 +550,7 @@ export function HomeScreen({
   }, [goalProgress]);
   // Goal setup on Today, opened from the goals card. New accounts set
   // theirs in the setup wizard (src/onboarding/SetupWizardScreen.tsx).
-  const { goalsSet } = useGoals();
+  const { goalsSet, onServer: goalsOnServer } = useGoals();
   const [setupOpen, setSetupOpen] = useState(false);
   // null = either no real active challenge to headline, or the fetch
   // below hasn't resolved yet — same "never break the screen, just fall
@@ -1029,6 +1029,8 @@ export function HomeScreen({
         .then(() => getMyDailyStepRankChange())
         .then(setStepRank)
         .catch(() => {});
+    }).catch(() => {
+      // Same convention: a health read that fails leaves the last numbers.
     });
     // Today's workout count, plus the history record. 50 most recent is
     // the same window the Data tab's readiness card uses.
@@ -1194,12 +1196,18 @@ export function HomeScreen({
   // change: steps, each goal, the streak and how your hound is doing.
   useEffect(() => {
     if (!goalProgress || !snap) return;
+    // Not sample numbers (the provider before the real one resolves, or
+    // the web preview), and not this phone's copy of the goals when a
+    // signed-in member's live on the server: background sync pushes the
+    // server's, and the two would take turns on the widget.
+    if (health.platform === 'mock') return;
+    if (isSupabaseConfigured && user?.id && !goalsOnServer) return;
     updateWidgets({
       ...numbersFromProgress(goalProgress, snap.stepsToday),
       streak: goalStreak,
       ...(kennel ? houndFields(kennel) : {}),
     });
-  }, [goalProgress, snap, goalStreak, kennel]);
+  }, [goalProgress, snap, goalStreak, kennel, health.platform, user?.id, goalsOnServer]);
 
   // Members who set up before the wizard asked for a username get asked
   // once here (profiles/UsernamePrompt.tsx), as this open's pop-up.

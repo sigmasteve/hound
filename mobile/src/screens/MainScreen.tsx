@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Keyboard, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TopNav } from '../components/TopNav';
 import { TabBar } from '../components/TabBar';
@@ -106,7 +106,14 @@ export function MainScreen({ route, navigation }: Props) {
           />
         )}
       </View>
-      <TabBar active={tab} onSelect={setTab} />
+      <TabBar
+        active={tab}
+        onSelect={(next) => {
+          // A field on the old tab is about to go; take its keyboard with it.
+          Keyboard.dismiss();
+          setTab(next);
+        }}
+      />
     </View>
   );
 }

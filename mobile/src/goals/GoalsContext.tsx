@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../auth/AuthContext';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -71,6 +72,10 @@ interface GoalsContextValue {
   goalsSet: boolean;
   // An account under a week old: Today opens goal setup for them.
   isNewAccount: boolean;
+  // True once these are the goals the server holds. False on the web
+  // preview, before the first load, and when a load failed and the goals
+  // are this phone's copy: the widget mustn't be told those are yours.
+  onServer: boolean;
   markGoalsSet: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -85,11 +90,13 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
   const [houndLevel, setLevel] = useState<HoundLevel>(DEFAULT_HOUND_LEVEL);
   const [goalsSet, setGoalsSet] = useState(true);
   const [isNewAccount, setIsNewAccount] = useState(false);
+  const [onServer, setOnServer] = useState(false);
   // Whether goals are on this phone rather than the server.
   const localRef = useRef(!isSupabaseConfigured);
 
   const loadLocal = useCallback(async () => {
     localRef.current = true;
+    setOnServer(false);
     try {
       const [savedGoals, savedLevel, savedSet] = await Promise.all([
         AsyncStorage.getItem(LOCAL_GOALS_KEY),
@@ -110,6 +117,11 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // The goals as of the last render, for refresh() to read without
+  // re-creating itself every time they change.
+  const goalsRef = useRef(goals);
+  goalsRef.current = goals;
+
   const refresh = useCallback(async () => {
     if (!isSupabaseConfigured || !userId) {
       await loadLocal();
@@ -121,6 +133,7 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       const isNew = await ensureStarterGoals(steps, distanceMi);
       const [list, settings] = await Promise.all([listGoals(userId), getHoundSettings(userId)]);
       localRef.current = false;
+      setOnServer(true);
       setGoals(list);
       setIsNewAccount(isNew);
       setGoalsSet(!!settings.goalsSetAt);
@@ -133,6 +146,13 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       }
       setLevel(level);
     } catch {
+      // The server's goals are already here from an earlier load: keep
+      // them. Falling back to this phone's copy (or the starter set) put a
+      // different list on Today and the widget until the next restart.
+      if (!localRef.current && goalsRef.current.length > 0) {
+        setLoaded(true);
+        return;
+      }
       await loadLocal();
     }
     setLoaded(true);
@@ -142,6 +162,16 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     setLoaded(false);
     refresh();
   }, [refresh]);
+
+  // A load that failed is tried again when the app comes back, so a bad
+  // moment of network doesn't leave the phone's copy in place all day.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !userId || onServer) return;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refresh();
+    });
+    return () => sub.remove();
+  }, [userId, onServer, refresh]);
 
   useEffect(() => {
     if (loaded) updateHound({ userId: localRef.current ? null : userId, level: houndLevel });
@@ -231,10 +261,11 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       setHoundLevel,
       goalsSet,
       isNewAccount,
+      onServer,
       markGoalsSet,
       refresh,
     };
-  }, [goals, loaded, houndLevel, addGoal, updateGoal, removeGoal, setHoundLevel, goalsSet, isNewAccount, markGoalsSet, refresh]);
+  }, [goals, loaded, houndLevel, addGoal, updateGoal, removeGoal, setHoundLevel, goalsSet, isNewAccount, onServer, markGoalsSet, refresh]);
 
   return <GoalsReactContext.Provider value={value}>{children}</GoalsReactContext.Provider>;
 }
