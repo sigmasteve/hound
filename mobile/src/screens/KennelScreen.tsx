@@ -117,7 +117,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
 
   const level = levelProgressForXp(kennel.xpTotal).level;
   const rank = rankForLevel(level);
-  const nextSteps = stepsAfter(level, 3);
+  // Just the one step ahead; the ladder sheet has the rest.
+  const nextStep = stepsAfter(level, 1)[0] ?? null;
   const classic = kennel.careMode === 'classic';
   const equippedIn = (item: KennelItem) => (item.slot === 'neck' ? kennel.neckId : item.slot === 'head' ? kennel.headId : kennel.faceId);
 
@@ -286,15 +287,11 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             <Text style={[styles.rankText, { color: rank.color }]}>{rank.name}</Text>
           </View>
           <Text style={styles.mood}>{moodLine(kennel)}</Text>
-          {nextSteps.length > 0 && (
+          {nextStep && (
             <View style={styles.whatsNext}>
-              <Text style={styles.whatsNextTitle}>WHAT'S NEXT</Text>
-              {nextSteps.map((step, i) => (
-                <Text key={step.level} style={styles.note}>
-                  Level {step.level}: {stepLabel(step)}
-                  {i === 0 ? ` · ${(step.xp - kennel.xpTotal).toLocaleString('en-US')} XP to go` : ''}
-                </Text>
-              ))}
+              <Text style={styles.note}>
+                Next: level {nextStep.level}, {stepLabel(nextStep)} · {(nextStep.xp - kennel.xpTotal).toLocaleString('en-US')} XP to go
+              </Text>
               <Button label="See the whole ladder" variant="ghost" small onPress={() => setLadderOpen(true)} />
             </View>
           )}
@@ -499,8 +496,7 @@ function makeStyles(colors: Palette) {
     rankText: { fontFamily: font.headingSemibold, fontSize: 13.5 },
     mood: { fontSize: 14.5, color: colors.text, textAlign: 'center' },
     note: { fontSize: 12.5, color: withAlpha(colors.text, 0.6), textAlign: 'center' },
-    whatsNext: { alignItems: 'center', gap: 3, marginTop: 6 },
-    whatsNextTitle: { fontFamily: font.headingSemibold, fontSize: 11, letterSpacing: 1, color: withAlpha(colors.text, 0.5) },
+    whatsNext: { alignItems: 'center', gap: 2, marginTop: 4 },
     balanceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
     hearts: { flexDirection: 'row', gap: 6 },
     seasonCard: { borderWidth: 1.5, borderColor: withAlpha(colors.amber, 0.6), backgroundColor: withAlpha(colors.amber, 0.08) },
