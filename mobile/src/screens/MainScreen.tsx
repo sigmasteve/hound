@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Keyboard, StyleSheet, View } from 'react-native';
+import { HoundLadderSheet } from '../kennel/HoundLadderSheet';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { TopNav } from '../components/TopNav';
 import { TabBar } from '../components/TabBar';
@@ -15,6 +16,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Main'>;
 
 export function MainScreen({ route, navigation }: Props) {
   const [tab, setTab] = useState<MainTab>(route.params?.tab ?? 'home');
+  // The hound's ladder, from the level chip (HoundLadderSheet).
+  const [ladderOpen, setLadderOpen] = useState(false);
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -51,7 +54,7 @@ export function MainScreen({ route, navigation }: Props) {
       <TopNav
         tab={tab}
         onHome={() => setTab('home')}
-        onOpenLevel={() => navigation.navigate('Kennel')}
+        onOpenLevel={() => setLadderOpen(true)}
         onOpenBones={() => navigation.navigate('Locker')}
         onAdmin={() => navigation.navigate('Admin')}
         onOrgManagement={(organizationId) =>
@@ -106,6 +109,15 @@ export function MainScreen({ route, navigation }: Props) {
           />
         )}
       </View>
+      {ladderOpen && (
+        <HoundLadderSheet
+          onClose={() => setLadderOpen(false)}
+          onOpenKennel={() => {
+            setLadderOpen(false);
+            navigation.navigate('Kennel');
+          }}
+        />
+      )}
       <TabBar
         active={tab}
         onSelect={(next) => {

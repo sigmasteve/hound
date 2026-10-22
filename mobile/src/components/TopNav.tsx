@@ -24,8 +24,9 @@ function shortCount(n: number): string {
 // manage. Everything else
 // that used to live up here (Help, Locker, your name for Settings) is on
 // the You tab, and the tabs themselves are at the bottom (TabBar). Your
-// level and rank sit up here too, on every tab (tap for the Kennel, whose
-// hound grows with your rank), and your Bones balance, which pops when it
+// level and rank sit up here too, on every tab (tap for your hound's
+// ladder: what each level brings, with the Kennel a button away), and
+// your Bones balance, which pops when it
 // goes up (tap for the Locker). With the
 // management icons there too, the "Hound" name gives them the room.
 export function TopNav({
@@ -122,7 +123,7 @@ export function TopNav({
             onPress={onOpenLevel}
             hitSlop={6}
             accessibilityRole="button"
-            accessibilityLabel={`Level ${level}, ${rank.name}. Open the Kennel`}
+            accessibilityLabel={`Level ${level}, ${rank.name}. See what's next`}
           >
             <Text style={[styles.levelNumber, { color: rank.color }]}>Lv {level}</Text>
             <Text style={styles.rankName}>{rank.name}</Text>
