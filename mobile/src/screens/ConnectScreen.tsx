@@ -8,6 +8,7 @@ import { DataSourcesCard } from '../components/DataSourcesCard';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
+import { openPhoneSettings } from '../notifications/pushPermission';
 import type { HealthAuthStatus } from '../health/types';
 
 // Where to manage/revoke access once it's already granted — the OS is
@@ -144,6 +145,9 @@ export function ConnectScreen({
       </View>
 
       {status && <Text style={styles.status}>{status}</Text>}
+      {authStatus === 'denied' && health.platform !== 'mock' && (
+        <Button label="Open Settings" small variant="secondary" onPress={openPhoneSettings} style={styles.settingsButton} />
+      )}
 
       {(alreadyAuthorized || health.platform === 'mock') && (
         <Card style={styles.syncCard} elevated={false}>
@@ -206,6 +210,7 @@ function makeStyles(colors: Palette) {
     platformName: { fontFamily: font.heading, fontSize: 16, color: colors.text },
     platformSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     status: { fontSize: 12.5, color: colors.amber, textAlign: 'center' },
+    settingsButton: { alignSelf: 'center', marginTop: 8 },
     notice: {
       width: '100%',
       padding: 14,
