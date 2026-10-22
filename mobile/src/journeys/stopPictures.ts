@@ -48,4 +48,7 @@ export const STOP_PICTURES: Record<string, Record<string, StopPicture>> = {
   'appalachian': {
     "Springer Mountain": { source: require('../../assets/stops/appalachian/springer-mountain.webp'), credit: "Photo: CC0, via Wikimedia Commons" },
   },
+  'route-66': {
+    "Chicago": { source: require('../../assets/stops/route-66/chicago.webp'), credit: "Photo: User:TonyTheTiger, CC BY-SA 3.0, via Wikimedia Commons" },
+  },
 };

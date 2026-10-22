@@ -220,5 +220,14 @@
       "page": "https://commons.wikimedia.org/wiki/File:Springer_Mountain_viewed_from_East_Ellijay.jpg",
       "article": "Springer Mountain"
     }
+  },
+  "route-66": {
+    "Chicago": {
+      "file": "assets/stops/route-66/chicago.webp",
+      "credit": "Photo: User:TonyTheTiger, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:20070622_Art_Institute_of_Chicago_Front_View.JPG",
+      "page": "https://commons.wikimedia.org/wiki/File:20070622_Art_Institute_of_Chicago_Front_View.JPG",
+      "article": "Art Institute of Chicago Building"
+    }
   }
 }
