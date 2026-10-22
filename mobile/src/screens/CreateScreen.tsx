@@ -10,7 +10,6 @@ import {
   CircleIcon,
   DevicesIcon,
   GlobeHemisphereWestIcon,
-  LinkIcon,
   LockSimpleIcon,
   RobotIcon,
   XIcon,
@@ -491,6 +490,10 @@ export function CreateScreen({
     }
     if (draftType === 'tictacgo' && invited.length !== 1) {
       setSaveError('Pick one friend to play against.');
+      return;
+    }
+    if (draftType === 'hunt' && !global && invited.length === 0 && selectedBots.length === 0) {
+      setSaveError('Invite a friend or add a bot: a chase needs someone to chase, or be chased by.');
       return;
     }
     setSaveError(null);
@@ -1226,14 +1229,8 @@ export function CreateScreen({
               )}
             </>
           )}
-          <View style={styles.linkRow}>
-            <LinkIcon size={16} color={colors.accent} />
-            <Text style={styles.linkText}>hound.app/j/chase-4kq9</Text>
-            <Button label="Copy invite link" small />
-          </View>
           <Text style={styles.footNote}>
-            Friends on iPhone connect Apple Health, friends on Android connect Health Connect. Same
-            link either way.
+            Friends on iPhone connect Apple Health, friends on Android connect Health Connect.
           </Text>
 
           {draftType !== 'tag' && draftType !== 'bingo' && draftType !== 'tictacgo' && draftType !== 'seventyfive' && (
@@ -1511,16 +1508,6 @@ function makeStyles(colors: Palette) {
       backgroundColor: colors.neutral800,
     },
     platformBadgeText: { fontSize: 10, color: colors.neutral200 },
-    linkRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      padding: 13,
-      borderRadius: 8,
-      backgroundColor: colors.surface,
-      flexWrap: 'wrap',
-    },
-    linkText: { flex: 1, fontFamily: font.body, fontSize: 12.5, color: withAlpha(colors.text, 0.75) },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     friendsLoadingRow: { paddingVertical: 20, alignItems: 'center' },
     saveError: { fontSize: 12.5, color: colors.amber, textAlign: 'center' },

@@ -133,7 +133,7 @@ export function YouScreen({
         {
           label: 'Goals',
           Icon: TargetIcon,
-          detail: `${goals.length} ${goals.length === 1 ? 'goal' : 'goals'} · Nudges: ${HOUND_LEVELS.find((l) => l.id === houndLevel)?.name ?? ''}`,
+          detail: `${goals.length} ${goals.length === 1 ? 'goal' : 'goals'} · Reminders: ${HOUND_LEVELS.find((l) => l.id === houndLevel)?.name ?? ''}`,
           onPress: onOpenGoals,
         },
         { label: 'Stats & records', Icon: ChartLineUpIcon, detail: 'Steps, miles, bests', onPress: onOpenStats },
