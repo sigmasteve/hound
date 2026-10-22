@@ -408,6 +408,13 @@
       "source": "File:2010-09-02-Harpers-Ferry-From-Maryland-Heights-Panorama-Crop.jpg",
       "page": "https://commons.wikimedia.org/wiki/File:2010-09-02-Harpers-Ferry-From-Maryland-Heights-Panorama-Crop.jpg",
       "article": "Harpers Ferry National Historical Park"
+    },
+    "Monson": {
+      "file": "assets/stops/appalachian/monson.webp",
+      "credit": "Photo: Tcpx36, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:RyanonBillingsFalls.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:RyanonBillingsFalls.jpg",
+      "article": "Gulf Hagas"
     }
   },
   "route-66": {
@@ -487,6 +494,13 @@
       "source": "File:Santa_monica_pier_entrance_evening.jpg",
       "page": "https://commons.wikimedia.org/wiki/File:Santa_monica_pier_entrance_evening.jpg",
       "article": "Santa Monica Pier"
+    },
+    "Kingman": {
+      "file": "assets/stops/route-66/kingman.webp",
+      "credit": "Photo: Spencer-Nägy, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Hualapai_Mountain_range.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Hualapai_Mountain_range.jpg",
+      "article": "Hualapai Mountains"
     }
   }
 }
