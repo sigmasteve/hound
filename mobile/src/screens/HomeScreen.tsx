@@ -92,6 +92,7 @@ import {
   BINGO_CATEGORY_LABEL,
   BINGO_SQUARE_COUNT,
   categoriesForCardType,
+  computeBingoCards,
   DEFAULT_BINGO_CARD_TYPE,
   type BingoCategory,
 } from '../challenges/bingo';
@@ -506,7 +507,8 @@ function heroCopy(
 let popupUsedThisOpen = false;
 // Kinds where "3rd of 12" means something, for Today's one-line rows.
 // A Daily Streak isn't ranked by total steps (who's still in is what
-// counts), so it shows its type instead.
+// counts), so it shows its type instead. Bingo is ranked, but by squares
+// filled from its own rows, not by the step board (see the load below).
 const RANKED_KINDS = new Set<Challenge['kind']>(['steps', 'distance', 'bingo', 'hunt']);
 // "6 days left", "Ends today".
 function timeLeftLabel(endsAt: string, now: number = Date.now()): string {
@@ -1387,13 +1389,31 @@ export function HomeScreen({
         challenges.map(async (c) => {
           const inputs = boardInputs.get(c.id);
           if (!inputs) {
-            return { challenge: c, board: [] as BoardEntry[], finished: true };
+            return { challenge: c, board: [] as BoardEntry[], bingoRank: null as number | null, bingoTotal: null as number | null, finished: true };
           }
           const { participants, leaderboard, bots, headStartLeaderboard } = inputs;
           const sortBy = boardSortFor(c);
           const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(c), sortBy, c, headStartLeaderboard);
           const board = c.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy, c) : rawBoard;
-          return { challenge: c, board, finished: isChallengeFinished(c, board) };
+          // Bingo isn't scored by steps (its board above is everyone on
+          // zero, in no order): its place is by squares filled, from the
+          // same rows and card function the Bingo screen ranks with.
+          // Tied leaders are all 1st. Null if the rows can't be read.
+          let bingoRank: number | null = null;
+          let bingoTotal: number | null = null;
+          if (c.kind === 'bingo' && user?.id) {
+            const myId = user.id;
+            const cards = await listBingoProgress(c.id)
+              .then((rows) => computeBingoCards(participants, rows))
+              .catch(() => null);
+            const mine = cards?.get(myId);
+            if (cards && mine) {
+              bingoRank = 1 + Array.from(cards.values()).filter((card) => card.squaresFilled > mine.squaresFilled).length;
+              // Cards leave bots out (they never log a classifiable workout).
+              bingoTotal = cards.size;
+            }
+          }
+          return { challenge: c, board, bingoRank, bingoTotal, finished: isChallengeFinished(c, board) };
         }),
       );
       if (cancelled) return;
@@ -1415,8 +1435,13 @@ export function HomeScreen({
               endsAt: r.challenge.endsAt,
               // Only where a place means something: Tag isn't ranked,
               // Tic-Tac-Go is one-on-one, 75 Day is everyone on their own.
-              rank: mine >= 0 && RANKED_KINDS.has(r.challenge.kind) ? mine + 1 : null,
-              total: r.board.length,
+              rank:
+                r.challenge.kind === 'bingo'
+                  ? r.bingoRank
+                  : mine >= 0 && RANKED_KINDS.has(r.challenge.kind)
+                    ? mine + 1
+                    : null,
+              total: r.bingoTotal ?? r.board.length,
             };
           }),
       );
