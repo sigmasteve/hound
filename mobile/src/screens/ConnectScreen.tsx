@@ -111,38 +111,46 @@ export function ConnectScreen({
         numbers up so a Pixel and an iPhone can race fairly.
       </Text>
 
+      {/* The card for this phone's platform; the other platform is a line
+          under it, since friends on the other kind of phone connect theirs. */}
       <View style={styles.cardsRow}>
-        <Card style={styles.platformCard} elevated={false}>
-          <AppleLogoIcon size={24} color={colors.text} weight="fill" />
-          <Text style={styles.platformName}>Apple Health</Text>
-          <Text style={styles.platformSub}>iPhone, Apple Watch</Text>
-          <Button
-            label={connecting === 'apple' ? 'Connecting…' : Platform.OS === 'ios' && alreadyAuthorized ? 'Connected ✓' : 'Connect'}
-            variant={Platform.OS === 'ios' && alreadyAuthorized ? 'secondary' : 'primary'}
-            block
-            small
-            disabled={connecting !== null || Platform.OS !== 'ios'}
-            onPress={connect}
-          />
-          {connecting === 'apple' && <ActivityIndicator color={colors.accent} />}
-        </Card>
-        <Card style={styles.platformCard} elevated={false}>
-          <AndroidLogoIcon size={24} color={colors.text} />
-          <Text style={styles.platformName}>Health Connect</Text>
-          <Text style={styles.platformSub}>Pixel, Samsung Health</Text>
-          <Button
-            label={
-              connecting === 'android' ? 'Connecting…' : Platform.OS === 'android' && alreadyAuthorized ? 'Connected ✓' : 'Connect'
-            }
-            variant={Platform.OS === 'android' && alreadyAuthorized ? 'secondary' : 'primary'}
-            block
-            small
-            disabled={connecting !== null || Platform.OS !== 'android'}
-            onPress={connect}
-          />
-          {connecting === 'android' && <ActivityIndicator color={colors.accent} />}
-        </Card>
+        {Platform.OS !== 'android' && (
+          <Card style={styles.platformCard} elevated={false}>
+            <AppleLogoIcon size={24} color={colors.text} weight="fill" />
+            <Text style={styles.platformName}>Apple Health</Text>
+            <Text style={styles.platformSub}>iPhone, Apple Watch</Text>
+            <Button
+              label={connecting === 'apple' ? 'Connecting…' : Platform.OS === 'ios' && alreadyAuthorized ? 'Connected ✓' : 'Connect'}
+              variant={Platform.OS === 'ios' && alreadyAuthorized ? 'secondary' : 'primary'}
+              block
+              small
+              disabled={connecting !== null || Platform.OS !== 'ios'}
+              onPress={connect}
+            />
+            {connecting === 'apple' && <ActivityIndicator color={colors.accent} />}
+          </Card>
+        )}
+        {Platform.OS !== 'ios' && (
+          <Card style={styles.platformCard} elevated={false}>
+            <AndroidLogoIcon size={24} color={colors.text} />
+            <Text style={styles.platformName}>Health Connect</Text>
+            <Text style={styles.platformSub}>Pixel, Samsung Health</Text>
+            <Button
+              label={
+                connecting === 'android' ? 'Connecting…' : Platform.OS === 'android' && alreadyAuthorized ? 'Connected ✓' : 'Connect'
+              }
+              variant={Platform.OS === 'android' && alreadyAuthorized ? 'secondary' : 'primary'}
+              block
+              small
+              disabled={connecting !== null || Platform.OS !== 'android'}
+              onPress={connect}
+            />
+            {connecting === 'android' && <ActivityIndicator color={colors.accent} />}
+          </Card>
+        )}
       </View>
+      {Platform.OS === 'ios' && <Text style={styles.otherPlatform}>Friends on Android connect Health Connect.</Text>}
+      {Platform.OS === 'android' && <Text style={styles.otherPlatform}>Friends on iPhone connect Apple Health.</Text>}
 
       {status && <Text style={styles.status}>{status}</Text>}
       {authStatus === 'denied' && health.platform !== 'mock' && (
@@ -211,6 +219,7 @@ function makeStyles(colors: Palette) {
     platformSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     status: { fontSize: 12.5, color: colors.amber, textAlign: 'center' },
     settingsButton: { alignSelf: 'center', marginTop: 8 },
+    otherPlatform: { fontSize: 12.5, color: withAlpha(colors.text, 0.55), textAlign: 'center' },
     notice: {
       width: '100%',
       padding: 14,
