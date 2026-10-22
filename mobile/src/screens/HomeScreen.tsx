@@ -97,7 +97,7 @@ import {
   type BingoCategory,
 } from '../challenges/bingo';
 import { listBingoCards, listBingoProgress } from '../challenges/bingoApi';
-import { isHoundCard, lineStatus, SQUARES, type BingoCardRow } from '../challenges/houndBingo';
+import { houndStandings, isHoundCard, lineStatus, SQUARES, type BingoCardRow } from '../challenges/houndBingo';
 import { formatTimeLeft, turnDeadline } from '../challenges/tictacgo';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { settleChallengeScore } from '../challenges/scoreApi';
@@ -1396,21 +1396,30 @@ export function HomeScreen({
           const rawBoard = buildBoard(participants, leaderboard, bots, daysElapsedFraction(c), sortBy, c, headStartLeaderboard);
           const board = c.kind === 'hunt' ? withHuntCatches(rawBoard, sortBy, c) : rawBoard;
           // Bingo isn't scored by steps (its board above is everyone on
-          // zero, in no order): its place is by squares filled, from the
-          // same rows and card function the Bingo screen ranks with.
-          // Tied leaders are all 1st. Null if the rows can't be read.
+          // zero, in no order): its place is your row on the Bingo
+          // screen's own leaderboard, built the same way from the same
+          // rows. A hound card ranks BINGOs first, then fewest squares
+          // away, then most squares (houndStandings); a Variety card
+          // ranks by squares filled. Bots aren't on either. Null if the
+          // rows can't be read, and the row shows the type instead.
           let bingoRank: number | null = null;
           let bingoTotal: number | null = null;
           if (c.kind === 'bingo' && user?.id) {
             const myId = user.id;
-            const cards = await listBingoProgress(c.id)
-              .then((rows) => computeBingoCards(participants, rows))
-              .catch(() => null);
-            const mine = cards?.get(myId);
-            if (cards && mine) {
-              bingoRank = 1 + Array.from(cards.values()).filter((card) => card.squaresFilled > mine.squaresFilled).length;
-              // Cards leave bots out (they never log a classifiable workout).
-              bingoTotal = cards.size;
+            try {
+              const rows = await listBingoProgress(c.id);
+              const order: string[] = isHoundCard(c)
+                ? houndStandings(await listBingoCards(c.id), rows).map((h) => h.userId)
+                : Array.from(computeBingoCards(participants, rows).values())
+                    .sort((a, b) => b.squaresFilled - a.squaresFilled)
+                    .map((card) => card.userId);
+              const i = order.indexOf(myId);
+              if (i >= 0) {
+                bingoRank = i + 1;
+                bingoTotal = order.length;
+              }
+            } catch {
+              // The row shows the type instead of a place.
             }
           }
           return { challenge: c, board, bingoRank, bingoTotal, finished: isChallengeFinished(c, board) };
