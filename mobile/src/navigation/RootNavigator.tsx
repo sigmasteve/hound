@@ -300,7 +300,9 @@ export function RootNavigator() {
             </Stack.Screen>
             <Stack.Screen name="Kennel" options={{ animation: 'slide_from_right' }}>
               {/* Opened from Today or the You tab — goBack() returns there. */}
-              {({ navigation }) => <KennelScreen onBack={() => navigation.goBack()} />}
+              {({ navigation }) => (
+                <KennelScreen onBack={() => navigation.goBack()} onOpenLocker={() => navigation.navigate('Locker')} />
+              )}
             </Stack.Screen>
             <Stack.Screen name="Journey" options={{ animation: 'slide_from_right' }}>
               {/* Opened from the You tab — goBack() returns there. */}
