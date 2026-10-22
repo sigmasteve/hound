@@ -201,6 +201,55 @@
       "source": "File:Greenwich_Park,_London,_from_the_observatory.jpg",
       "page": "https://commons.wikimedia.org/wiki/File:Greenwich_Park,_London,_from_the_observatory.jpg",
       "article": "Greenwich Park"
+    },
+    "Cutty Sark": {
+      "file": "assets/stops/thames/cutty-sark.webp",
+      "credit": "Photo: Ethan Doyle White, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Northeast_View_of_the_Cutty_Sark_in_Greenwich.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Northeast_View_of_the_Cutty_Sark_in_Greenwich.jpg",
+      "article": "Cutty Sark"
+    },
+    "Tower Bridge": {
+      "file": "assets/stops/thames/tower-bridge.webp",
+      "credit": "Photo: Fuzzypiggy, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:Tower_Bridge_at_Dawn.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Tower_Bridge_at_Dawn.jpg",
+      "article": "Tower Bridge"
+    },
+    "Halfway": {
+      "file": "assets/stops/thames/halfway.webp",
+      "credit": "Photo: James Cracknell, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Wapping_(16).jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Wapping_(16).jpg",
+      "article": "Wapping"
+    },
+    "Canary Wharf": {
+      "file": "assets/stops/thames/canary-wharf.webp",
+      "credit": "Photo: The wub, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Canary_Wharf_from_entrance_to_Limehouse_Basin_-_2022-04-03.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Canary_Wharf_from_entrance_to_Limehouse_Basin_-_2022-04-03.jpg",
+      "article": "Canary Wharf"
+    },
+    "Tower of London": {
+      "file": "assets/stops/thames/tower-of-london.webp",
+      "credit": "Photo: [Duncan] from Nottingham, UK, CC BY 2.0, via Wikimedia Commons",
+      "source": "File:Tower_of_London_from_the_Shard_(8515883950).jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Tower_of_London_from_the_Shard_(8515883950).jpg",
+      "article": "Tower of London"
+    },
+    "Big Ben": {
+      "file": "assets/stops/thames/big-ben.webp",
+      "credit": "Photo: Christian David, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Elizabeth_Tower_and_the_north_front_of_the_Palace_of_Westminster,_London.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Elizabeth_Tower_and_the_north_front_of_the_Palace_of_Westminster,_London.jpg",
+      "article": "Big Ben"
+    },
+    "Finish, The Mall": {
+      "file": "assets/stops/thames/finish-the-mall.webp",
+      "credit": "Photo: Julian Herzog (Website), CC BY 4.0, via Wikimedia Commons",
+      "source": "File:Buckingham_Palace_London_Morning_2020_01_(cropped).jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Buckingham_Palace_London_Morning_2020_01_(cropped).jpg",
+      "article": "Buckingham Palace"
     }
   },
   "death-valley": {
@@ -210,6 +259,20 @@
       "source": "File:Badwater_Basin_from_Dante's_View_Overlook.JPG",
       "page": "https://commons.wikimedia.org/wiki/File:Badwater_Basin_from_Dante%27s_View_Overlook.JPG",
       "article": "Badwater Basin"
+    },
+    "Furnace Creek": {
+      "file": "assets/stops/death-valley/furnace-creek.webp",
+      "credit": "Photo: Tobias1983, CC BY-SA 3.0, via Wikimedia Commons",
+      "source": "File:Furnace_Creek_Ranch_Entrance_2.JPG",
+      "page": "https://commons.wikimedia.org/wiki/File:Furnace_Creek_Ranch_Entrance_2.JPG",
+      "article": "Furnace Creek, California"
+    },
+    "Stovepipe Wells": {
+      "file": "assets/stops/death-valley/stovepipe-wells.webp",
+      "credit": "Photo: Public domain, via Wikimedia Commons",
+      "source": "File:DV2_M.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:DV2_M.jpg",
+      "article": "Mesquite Flat Sand Dunes"
     }
   },
   "appalachian": {
