@@ -124,7 +124,7 @@ ARTICLES: dict[str, dict[str, list[str]]] = {
         'Katahdin': ['Mount Katahdin'],
     },
     'route-66': {
-        'Chicago': ['Art Institute of Chicago', 'Adams Street (Chicago)'],
+        'Chicago': ['Art Institute of Chicago Building', 'Michigan Avenue (Chicago)', 'Adams Street (Chicago)'],
         'Springfield, IL': ['Cozy Dog Drive In', 'Springfield, Illinois'],
         'St. Louis': ['Gateway Arch'],
         'Joplin': ['Joplin, Missouri'],
