@@ -14,13 +14,15 @@ export interface ToastMessage {
 }
 
 const VISIBLE_MS = 4500;
+// With more waiting behind it, each one goes by quicker.
+const BRIEF_MS = 2500;
 
 // A small bar at the bottom of the screen for good news that doesn't need
 // to stop anyone: the daily bonus, and any achievement or personal record
 // that turns up after this app open has already had its one pop-up.
 // Shows one message at a time; the parent keeps the queue and drops the
 // first one when onDone fires.
-export function Toast({ message, onDone }: { message: ToastMessage; onDone: () => void }) {
+export function Toast({ message, brief = false, onDone }: { message: ToastMessage; brief?: boolean; onDone: () => void }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
@@ -34,12 +36,12 @@ export function Toast({ message, onDone }: { message: ToastMessage; onDone: () =
     show.start();
     const timer = setTimeout(() => {
       Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => done.current());
-    }, VISIBLE_MS);
+    }, brief ? BRIEF_MS : VISIBLE_MS);
     return () => {
       show.stop();
       clearTimeout(timer);
     };
-  }, [message.id, opacity]);
+  }, [message.id, opacity, brief]);
 
   const { Icon } = message;
   return (
