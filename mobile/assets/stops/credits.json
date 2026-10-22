@@ -1,12 +1,5 @@
 {
   "golden-gate": {
-    "San Francisco side": {
-      "file": "assets/stops/golden-gate/san-francisco-side.webp",
-      "credit": "Photo: Frank Schulenburg, CC BY-SA 4.0, via Wikimedia Commons",
-      "source": "File:Golden_Gate_Bridge_as_seen_from_Battery_East.jpg",
-      "page": "https://commons.wikimedia.org/wiki/File:Golden_Gate_Bridge_as_seen_from_Battery_East.jpg",
-      "article": "Golden Gate Bridge"
-    },
     "South tower": {
       "file": "assets/stops/golden-gate/south-tower.webp",
       "credit": "Photo: Ɱ, CC BY-SA 4.0, via Wikimedia Commons",
@@ -27,6 +20,20 @@
       "source": "File:Sausalito.jpg",
       "page": "https://commons.wikimedia.org/wiki/File:Sausalito.jpg",
       "article": "Sausalito, California"
+    },
+    "San Francisco side": {
+      "file": "assets/stops/golden-gate/san-francisco-side.webp",
+      "credit": "Photo: Rhododendrites, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Palace_of_Fine_Arts_(16794p).jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Palace_of_Fine_Arts_(16794p).jpg",
+      "article": "Palace of Fine Arts"
+    },
+    "Midspan": {
+      "file": "assets/stops/golden-gate/midspan.webp",
+      "credit": "Photo: Frank Schulenburg, CC BY-SA 4.0, via Wikimedia Commons",
+      "source": "File:Golden_Gate_Bridge_as_seen_from_Battery_East.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Golden_Gate_Bridge_as_seen_from_Battery_East.jpg",
+      "article": "Golden Gate Bridge"
     }
   },
   "windy-city": {
@@ -194,6 +201,24 @@
       "source": "File:Greenwich_Park,_London,_from_the_observatory.jpg",
       "page": "https://commons.wikimedia.org/wiki/File:Greenwich_Park,_London,_from_the_observatory.jpg",
       "article": "Greenwich Park"
+    }
+  },
+  "death-valley": {
+    "Badwater Basin": {
+      "file": "assets/stops/death-valley/badwater-basin.webp",
+      "credit": "Photo: HappyJake, CC BY 3.0, via Wikimedia Commons",
+      "source": "File:Badwater_Basin_from_Dante's_View_Overlook.JPG",
+      "page": "https://commons.wikimedia.org/wiki/File:Badwater_Basin_from_Dante%27s_View_Overlook.JPG",
+      "article": "Badwater Basin"
+    }
+  },
+  "appalachian": {
+    "Springer Mountain": {
+      "file": "assets/stops/appalachian/springer-mountain.webp",
+      "credit": "Photo: CC0, via Wikimedia Commons",
+      "source": "File:Springer_Mountain_viewed_from_East_Ellijay.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Springer_Mountain_viewed_from_East_Ellijay.jpg",
+      "article": "Springer Mountain"
     }
   }
 }
