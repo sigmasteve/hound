@@ -72,6 +72,8 @@ export const STOP_PICTURES: Record<string, Record<string, StopPicture>> = {
     "Hanover": { source: require('../../assets/stops/appalachian/hanover.webp'), credit: "Photo: Ascended Dreamer, CC BY-SA 4.0, via Wikimedia Commons" },
     "Mount Washington": { source: require('../../assets/stops/appalachian/mount-washington.webp'), credit: "Photo: Harvey Barrison, CC BY-SA 2.0, via Wikimedia Commons" },
     "Katahdin": { source: require('../../assets/stops/appalachian/katahdin.webp'), credit: "Photo: Public domain, via Wikimedia Commons" },
+    "Damascus": { source: require('../../assets/stops/appalachian/damascus.webp'), credit: "Photo: Public domain, via Wikimedia Commons" },
+    "Harpers Ferry": { source: require('../../assets/stops/appalachian/harpers-ferry.webp'), credit: "Photo: Mark Fickett, CC BY 3.0, via Wikimedia Commons" },
   },
   'route-66': {
     "Chicago": { source: require('../../assets/stops/route-66/chicago.webp'), credit: "Photo: User:TonyTheTiger, CC BY-SA 3.0, via Wikimedia Commons" },
@@ -85,5 +87,6 @@ export const STOP_PICTURES: Record<string, Record<string, StopPicture>> = {
     "Flagstaff": { source: require('../../assets/stops/route-66/flagstaff.webp'), credit: "Photo: SearchNet Media from Tucson, Arizona, USA, CC BY 2.0, via Wikimedia Commons" },
     "Barstow": { source: require('../../assets/stops/route-66/barstow.webp'), credit: "Photo: Amin Eshaiker, CC BY-SA 3.0, via Wikimedia Commons" },
     "Santa Monica Pier": { source: require('../../assets/stops/route-66/santa-monica-pier.webp'), credit: "Photo: web4camguy, CC BY-SA 2.0, via Wikimedia Commons" },
+    "Kingman": { source: require('../../assets/stops/route-66/kingman.webp'), credit: "Photo: Starsky1414, CC BY-SA 3.0, via Wikimedia Commons" },
   },
 };
