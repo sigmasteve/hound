@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -108,6 +108,10 @@ export function AdminScreen({
   const [behindCount, setBehindCount] = useState(0);
   const [versionsSummary, setVersionsSummary] = useState<string | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  // Where the App versions fold sits, so "Versions" in Needs you can
+  // scroll to it as it opens: it's below Engagement, off the screen.
+  const scrollRef = useRef<ScrollView>(null);
+  const [versionsY, setVersionsY] = useState<number | null>(null);
   useFocusEffect(
     useCallback(() => {
       if (!user?.isAdmin) return;
@@ -527,7 +531,10 @@ export function AdminScreen({
     needs.push({
       text: `${behindCount} ${behindCount === 1 ? 'person' : 'people'} not on the latest code`,
       action: 'Versions',
-      onPress: () => setVersionsOpen(true),
+      onPress: () => {
+        setVersionsOpen(true);
+        if (versionsY !== null) scrollRef.current?.scrollTo({ y: Math.max(0, versionsY - 12), animated: true });
+      },
     });
   }
   if (bannerLive && currentBanner) {
@@ -551,7 +558,7 @@ export function AdminScreen({
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
         <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
         <Text style={text.h2}>Admin</Text>
 
@@ -593,6 +600,7 @@ export function AdminScreen({
                   )}
                 </Card>
                 <EngagementAdminCard />
+                <View onLayout={(e) => setVersionsY(e.nativeEvent.layout.y)}>
                 <AdminFold
                   title="App versions"
                   summary={versionsSummary}
@@ -601,6 +609,7 @@ export function AdminScreen({
                 >
                   <AppVersionsCard />
                 </AdminFold>
+                </View>
                 <AdminFold title="Goals" summary="Who sets goals and hits them">
                   <GoalsAdminCard />
                 </AdminFold>
