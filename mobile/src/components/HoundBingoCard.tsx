@@ -134,8 +134,8 @@ export function HoundBingoCard({
       </View>
       <Text style={styles.note}>
         {me.squaresMarked} of {me.card.filter((c) => c !== 'free').length} squares. Any row, column or diagonal is a
-        BINGO. One workout marks one square, and a day&rsquo;s steps mark one step square. Tap a square for what it
-        takes.
+        BINGO. Each workout you log marks one square (steps alone don&rsquo;t), and a day&rsquo;s steps mark one step
+        square. Tap a square for what it takes, or to move a workout onto it.
       </Text>
 
       {selected && info && (
@@ -162,7 +162,7 @@ export function HoundBingoCard({
               )}
             </View>
           ) : info.source === 'workout' ? (
-            <Text style={styles.note}>Hound marks it from your workouts, or pick one below.</Text>
+            <Text style={styles.note}>Hound marks it from workouts you log, or pick one below to move it here.</Text>
           ) : (
             <Text style={styles.note}>Hound marks it on its own when a day does it.</Text>
           )}
