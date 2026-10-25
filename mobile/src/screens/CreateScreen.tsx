@@ -647,7 +647,14 @@ export function CreateScreen({
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      // The list's "Or your own" field and the sponsor fields sit low on
+      // the screen; without these the keyboard covers what's being typed.
+      automaticallyAdjustKeyboardInsets
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+    >
       <Button label="Cancel" variant="ghost" small icon={<XIcon size={13} color={colors.accent} />} onPress={onCancel} />
 
       <View style={styles.stepsBar}>
