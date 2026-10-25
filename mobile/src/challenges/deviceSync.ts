@@ -7,6 +7,8 @@ import { goalProgress } from '../goals/goals';
 import { listGoals } from '../goals/goalsApi';
 import { signedInUserId } from '../lib/supabase';
 import { recordSeventyFiveWorkouts } from './seventyFiveApi';
+import { isMindfulnessWorkout } from './checklist';
+import { listChecklistItems, recordDeviceTicks } from './checklistApi';
 import { getChallengeDays, localDayKey as dateKey, workoutCounts } from './challengeDays';
 import type { Challenge } from './types';
 import type { DailyStepsWithDate, HealthProvider, WorkoutSample } from '../health/types';
@@ -313,5 +315,51 @@ export async function syncSeventyFiveFromDevice(challenge: Challenge, health: He
   } catch {
     // Best-effort, same reasoning as syncChallengeProgressFromDevice's own
     // catch above.
+  }
+}
+
+// An Accountability challenge's items that tick themselves: steps (the
+// day's count reaches the item's target), workout (any workout logged
+// that day) and mindfulness (a yoga, pilates or meditation workout).
+// Per day, like 75 Day above. Insert-only on the server
+// (recordDeviceTicks): a tick someone undid by hand stays undone, and a
+// tap is never overwritten. Only the shared list has these kinds; a
+// personal line is always a plain tap.
+export async function syncChecklistFromDevice(challenge: Challenge, health: HealthProvider): Promise<void> {
+  if (challenge.kind !== 'checklist') return;
+  try {
+    const items = (await listChecklistItems(challenge.id)).filter((i) => i.ownerId === null && i.kind !== 'manual');
+    if (items.length === 0) return;
+    const days = await getChallengeDays(challenge);
+    const todayKey = dateKey(new Date());
+    if (todayKey < days.firstDay) return;
+    const [y, m, d] = days.firstDay.split('-').map(Number);
+    const needSteps = items.some((i) => i.kind === 'steps');
+    const needWorkouts = items.some((i) => i.kind !== 'steps');
+    const [daily, workouts] = await Promise.all([
+      needSteps ? health.getDailyStepsSince(new Date(y, m - 1, d)) : Promise.resolve([] as DailyStepsWithDate[]),
+      needWorkouts ? health.getRecentWorkouts(200) : Promise.resolve([] as WorkoutSample[]),
+    ]);
+    const earned = new Map<string, Set<string>>();
+    const add = (day: string, itemId: string) => {
+      if (day < days.firstDay || day > days.lastDay || day > todayKey) return;
+      const set = earned.get(day) ?? new Set<string>();
+      set.add(itemId);
+      earned.set(day, set);
+    };
+    for (const s of daily) {
+      for (const i of items) if (i.kind === 'steps' && i.stepsTarget !== null && s.steps >= i.stepsTarget) add(s.date, i.id);
+    }
+    for (const w of workouts) {
+      if (!workoutCounts(days, w.when)) continue;
+      const day = dateKey(w.when);
+      for (const i of items) {
+        if (i.kind === 'workout') add(day, i.id);
+        else if (i.kind === 'mindfulness' && isMindfulnessWorkout(w.name)) add(day, i.id);
+      }
+    }
+    await Promise.all(Array.from(earned.entries()).map(([day, ids]) => recordDeviceTicks(challenge.id, day, Array.from(ids))));
+  } catch {
+    // Best-effort, same as the syncs above.
   }
 }

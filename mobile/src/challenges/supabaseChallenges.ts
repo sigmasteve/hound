@@ -13,6 +13,7 @@ import type {
   LeaderboardEntry,
   Participant,
 } from './types';
+import { addChecklistItems } from './checklistApi';
 
 function localDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -273,6 +274,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     distanceGoalUnit,
     bingoCardType,
     courseId,
+    checklistItems,
     startsAt: startsAtInput,
     organizationId,
   }: CreateChallengeInput): Promise<Challenge> {
@@ -310,6 +312,16 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       .from('challenge_participants')
       .insert({ challenge_id: data.id, user_id: userId, role: creatorRole ?? null });
     if (joinError) throw new Error(joinError.message);
+
+    if (kind === 'checklist' && checklistItems && checklistItems.length > 0) {
+      try {
+        await addChecklistItems(data.id, checklistItems);
+      } catch (e) {
+        // A list with no items can't be played — don't leave it behind.
+        await client.from('challenges').delete().eq('id', data.id);
+        throw e;
+      }
+    }
 
     if (bots && bots.length > 0) {
       const { error: botsError } = await client.from('challenge_bots').insert(

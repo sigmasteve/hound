@@ -55,7 +55,12 @@ import { daysElapsedFraction } from '../challenges/botSimulation';
 
 // The others on a Journey's map, in board order (you are the accent).
 const JOURNEY_COLORS = ['#f4a7b9', '#7fd39b', '#8fc1ff', '#e0a94f', '#c9a7f4', '#f49b7a'];
-import { syncChallengeProgressFromDevice, syncBingoProgressFromDevice, syncSeventyFiveFromDevice } from '../challenges/deviceSync';
+import {
+  syncChallengeProgressFromDevice,
+  syncBingoProgressFromDevice,
+  syncSeventyFiveFromDevice,
+  syncChecklistFromDevice,
+} from '../challenges/deviceSync';
 import { challengeDayNumber, getChallengeDays, workoutCounts, type ChallengeDays } from '../challenges/challengeDays';
 import {
   BINGO_CARD_TYPE_NAME,
@@ -103,6 +108,23 @@ import {
 import { computeStreakStatus, streakConcluded, type StreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
 import { computeSeventyFiveStatus, isSeventyFiveDayComplete, type SeventyFiveCheckin, type SeventyFiveStatus } from '../challenges/seventyFive';
+import {
+  autoHint,
+  CHECKLIST_LABEL_MAX,
+  computeChecklistStatus,
+  doneItemIds,
+  itemsForUser,
+  type ChecklistCheckin,
+  type ChecklistItem,
+  type ChecklistStatus,
+} from '../challenges/checklist';
+import {
+  listChecklistCheckins,
+  listChecklistItems,
+  listChecklistJoinDates,
+  setChecklistTick,
+  setPersonalLine,
+} from '../challenges/checklistApi';
 import {
   listSeventyFiveCheckins,
   listSeventyFiveJoinDates,
@@ -306,6 +328,16 @@ export function ChallengeDetailScreen({
   const [seventyFiveCheckins, setSeventyFiveCheckins] = useState<SeventyFiveCheckin[]>([]);
   const [seventyFiveStatuses, setSeventyFiveStatuses] = useState<Map<string, SeventyFiveStatus>>(new Map());
   const [seventyFiveSaving, setSeventyFiveSaving] = useState<SelfReportItem | null>(null);
+
+  // An Accountability challenge's list, ticks and derived streaks —
+  // empty for any other kind. Same shape as 75 Day above.
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [checklistCheckins, setChecklistCheckins] = useState<ChecklistCheckin[]>([]);
+  const [checklistStatuses, setChecklistStatuses] = useState<Map<string, ChecklistStatus>>(new Map());
+  const [checklistSaving, setChecklistSaving] = useState<string | null>(null);
+  // Your own line, as being typed; null while not editing.
+  const [personalDraft, setPersonalDraft] = useState<string | null>(null);
+  const [savingPersonal, setSavingPersonal] = useState(false);
 
   // Tic-Tac-Go's board — null for any other kind, or a game whose board
   // was never set up.
@@ -548,6 +580,7 @@ export function ChallengeDetailScreen({
       const needsBingo = c.kind === 'bingo';
       const needsTicTacGo = c.kind === 'tictacgo';
       const needsSeventyFive = c.kind === 'seventyfive';
+      const needsChecklist = c.kind === 'checklist';
       const needsJourney = c.kind === 'journey';
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
@@ -578,6 +611,9 @@ export function ChallengeDetailScreen({
         tttGameResult,
         seventyFiveCheckinsResult,
         seventyFiveJoinDates,
+        checklistItemsResult,
+        checklistCheckinsResult,
+        checklistJoinDates,
         yesterdayBoard,
         standingResult,
       ] = await Promise.all([
@@ -598,6 +634,9 @@ export function ChallengeDetailScreen({
         needsTicTacGo ? getTicTacGoGame(challengeId) : Promise.resolve(null),
         needsSeventyFive ? listSeventyFiveCheckins(challengeId) : Promise.resolve<SeventyFiveCheckin[]>([]),
         needsSeventyFive ? listSeventyFiveJoinDates(challengeId) : Promise.resolve(new Map<string, Date>()),
+        needsChecklist ? listChecklistItems(challengeId) : Promise.resolve<ChecklistItem[]>([]),
+        needsChecklist ? listChecklistCheckins(challengeId) : Promise.resolve<ChecklistCheckin[]>([]),
+        needsChecklist ? listChecklistJoinDates(challengeId) : Promise.resolve(new Map<string, Date>()),
         // Best-effort: missing movement arrows never block the screen.
         needsMovement
           ? supabaseChallengesProvider.getLeaderboard(challengeId, yesterdayKey).catch(() => null)
@@ -619,7 +658,7 @@ export function ChallengeDetailScreen({
       setTagEvents(tagEventsResult);
       // The challenge's own calendar days (never throws; falls back to
       // the old per-phone rule).
-      const days = needsStreak || needsSeventyFive ? await getChallengeDays(c) : null;
+      const days = needsStreak || needsSeventyFive || needsChecklist ? await getChallengeDays(c) : null;
       setStreakStatuses(needsStreak && days ? computeStreakStatus(c, joinDates, dailyRows, days) : new Map());
       setBingoRows(bingoRowsResult);
       setBingoCardRows(isHoundCard(c) ? await listBingoCards(challengeId).catch(() => []) : []);
@@ -628,6 +667,13 @@ export function ChallengeDetailScreen({
       setSeventyFiveStatuses(
         needsSeventyFive && days
           ? computeSeventyFiveStatus(c, seventyFiveJoinDates, seventyFiveCheckinsResult, days)
+          : new Map(),
+      );
+      setChecklistItems(checklistItemsResult);
+      setChecklistCheckins(checklistCheckinsResult);
+      setChecklistStatuses(
+        needsChecklist && days
+          ? computeChecklistStatus(c, checklistJoinDates, checklistItemsResult, checklistCheckinsResult, days)
           : new Map(),
       );
     } catch (e) {
@@ -836,8 +882,23 @@ export function ChallengeDetailScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challenge?.id, challenge?.kind]);
 
+  // Same again for an Accountability list: steps, workouts and
+  // mindfulness tick themselves (syncChecklistFromDevice).
+  const syncChecklistDevice = useCallback(async () => {
+    if (!challenge) return;
+    await syncChecklistFromDevice(challenge, health);
+    await load();
+  }, [challenge, health, load]);
+
   useEffect(() => {
-    if (!challenge || challenge.kind !== 'seventyfive') return;
+    if (challenge && challenge.kind === 'checklist') {
+      syncChecklistDevice();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challenge?.id, challenge?.kind]);
+
+  useEffect(() => {
+    if (!challenge || (challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist')) return;
     let cancelled = false;
     getChallengeDays(challenge).then((d) => {
       if (!cancelled) setChallengeDays(d);
@@ -863,6 +924,36 @@ export function ChallengeDetailScreen({
       Alert.alert('Could not save that', e instanceof Error ? e.message : 'Try again.');
     } finally {
       setSeventyFiveSaving(null);
+    }
+  };
+
+  // A tap on any item of today's list — the phone's own ticks included,
+  // since a tap always wins (setChecklistTick's own comment).
+  const toggleChecklistItem = async (itemId: string, next: boolean) => {
+    if (!challenge) return;
+    setChecklistSaving(itemId);
+    try {
+      await setChecklistTick(challenge.id, itemId, next);
+      await load();
+    } catch (e) {
+      Alert.alert('Could not save that', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setChecklistSaving(null);
+    }
+  };
+
+  const savePersonalLine = async (label: string | null) => {
+    if (!challenge) return;
+    Keyboard.dismiss();
+    setSavingPersonal(true);
+    try {
+      await setPersonalLine(challenge.id, label);
+      setPersonalDraft(null);
+      await load();
+    } catch (e) {
+      Alert.alert('Could not save that', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setSavingPersonal(false);
     }
   };
 
@@ -1039,6 +1130,30 @@ export function ChallengeDetailScreen({
       return streakDiff !== 0 ? streakDiff : (b.status?.longestStreak ?? 0) - (a.status?.longestStreak ?? 0);
     });
 
+  // An Accountability list: your items for today, what's ticked, and
+  // everyone's streaks (sorted like 75 Day's).
+  const myChecklistItems = user?.id ? itemsForUser(checklistItems, user.id, seventyFiveTodayKey) : [];
+  const myChecklistDone = user?.id ? doneItemIds(checklistCheckins, user.id, seventyFiveTodayKey) : new Set<string>();
+  const myPersonalLine = user?.id ? checklistItems.find((i) => i.ownerId === user.id) ?? null : null;
+  const myChecklistStatus = user?.id ? checklistStatuses.get(user.id) : undefined;
+  const checklistBoard = participants
+    .map((p) => {
+      const items = itemsForUser(checklistItems, p.userId, seventyFiveTodayKey);
+      const done = doneItemIds(checklistCheckins, p.userId, seventyFiveTodayKey);
+      return {
+        ...p,
+        status: checklistStatuses.get(p.userId),
+        todayDone: items.filter((i) => done.has(i.id)).length,
+        todayTotal: items.length,
+      };
+    })
+    .sort((a, b) => {
+      const streakDiff = (b.status?.currentStreak ?? 0) - (a.status?.currentStreak ?? 0);
+      if (streakDiff !== 0) return streakDiff;
+      const completeDiff = (b.status?.completeDays ?? 0) - (a.status?.completeDays ?? 0);
+      return completeDiff !== 0 ? completeDiff : b.todayDone - a.todayDone;
+    });
+
   // Where everyone stands, for the trash-talk taunts with numbers in them
   // ("I'm 4,200 steps ahead of Casey"). Tic-Tac-Go has no single number.
   const trashTalkBoard: { standings: Standing[] | null; unit: TauntUnit | null } =
@@ -1054,6 +1169,11 @@ export function ChallengeDetailScreen({
         : challenge.kind === 'seventyfive'
           ? {
               standings: seventyFiveBoard.map((r) => ({ userId: r.userId, name: r.name, value: r.status?.currentStreak ?? 0 })),
+              unit: 'days',
+            }
+          : challenge.kind === 'checklist'
+          ? {
+              standings: checklistBoard.map((r) => ({ userId: r.userId, name: r.name, value: r.status?.currentStreak ?? 0 })),
               unit: 'days',
             }
           : {
@@ -1226,6 +1346,13 @@ export function ChallengeDetailScreen({
         return {
           type: 'seventyfive',
           longestStreak: seventyFiveStatuses.get(me)?.longestStreak ?? 0,
+          days: challenge.durationDays,
+        };
+      case 'checklist':
+        return {
+          type: 'checklist',
+          completeDays: checklistStatuses.get(me)?.completeDays ?? 0,
+          longestStreak: checklistStatuses.get(me)?.longestStreak ?? 0,
           days: challenge.durationDays,
         };
       case 'tictacgo':
@@ -1906,7 +2033,128 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
-          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && (
+          {challenge.kind === 'checklist' && (
+            <Card style={{ gap: 12 }} elevated={false}>
+              <Text style={text.h4}>Today&rsquo;s list</Text>
+              <View style={{ gap: 2 }}>
+                {myChecklistItems.map((item) => (
+                  <SeventyFiveRow
+                    key={item.id}
+                    label={item.label}
+                    hint={item.ownerId ? 'Yours' : autoHint(item.kind) ?? undefined}
+                    done={myChecklistDone.has(item.id)}
+                    busy={checklistSaving === item.id}
+                    onToggle={seventyFiveTogglesOpen ? (next) => toggleChecklistItem(item.id, next) : undefined}
+                    styles={styles}
+                    colors={colors}
+                  />
+                ))}
+                {myChecklistItems.length === 0 && <Text style={styles.footNote}>The list hasn&rsquo;t been written yet.</Text>}
+              </View>
+              {personalDraft === null ? (
+                <Button
+                  label={myPersonalLine ? 'Change your own line' : 'Add a line of your own'}
+                  variant="ghost"
+                  small
+                  onPress={() => setPersonalDraft(myPersonalLine?.label ?? '')}
+                />
+              ) : (
+                <View style={{ gap: 8 }}>
+                  <TextField
+                    label="Your own line"
+                    value={personalDraft}
+                    onChangeText={setPersonalDraft}
+                    placeholder="e.g. Call Mum"
+                    maxLength={CHECKLIST_LABEL_MAX}
+                    returnKeyType="done"
+                    onSubmitEditing={() => personalDraft.trim() && savePersonalLine(personalDraft)}
+                    autoFocus
+                  />
+                  <Text style={styles.footNote}>
+                    Only you see it, and it counts from today. Days before today aren&rsquo;t affected.
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Button
+                      label={savingPersonal ? 'Saving…' : 'Save'}
+                      variant="primary"
+                      small
+                      disabled={savingPersonal || !personalDraft.trim()}
+                      onPress={() => savePersonalLine(personalDraft)}
+                    />
+                    {myPersonalLine && (
+                      <Button label="Remove" variant="ghost" small disabled={savingPersonal} onPress={() => savePersonalLine(null)} />
+                    )}
+                    <Button label="Cancel" variant="ghost" small disabled={savingPersonal} onPress={() => setPersonalDraft(null)} />
+                  </View>
+                </View>
+              )}
+              <Text style={styles.footNote}>
+                {seventyFiveBeforeFirstDay && challengeDays
+                  ? `Your day 1 is ${formatDayKey(challengeDays.firstDay)} — the list opens at midnight your time.`
+                  : seventyFiveAfterLastDay
+                    ? 'The last day has ended.'
+                    : myChecklistItems.length > 0 && myChecklistItems.every((i) => myChecklistDone.has(i.id))
+                      ? 'All done for today!'
+                      : `${myChecklistItems.filter((i) => myChecklistDone.has(i.id)).length} of ${myChecklistItems.length} ticked. Steps, workouts and mindfulness tick themselves from your phone; tap anything to tick it yourself. The day counts only when everything is ticked.`}
+              </Text>
+              <View style={styles.leaderboardHeader}>
+                <Text style={styles.footNote}>
+                  Current streak: {myChecklistStatus?.currentStreak ?? 0} day
+                  {myChecklistStatus?.currentStreak === 1 ? '' : 's'} · Longest: {myChecklistStatus?.longestStreak ?? 0} day
+                  {myChecklistStatus?.longestStreak === 1 ? '' : 's'} · Complete days: {myChecklistStatus?.completeDays ?? 0} of{' '}
+                  {challenge.durationDays}
+                </Text>
+              </View>
+            </Card>
+          )}
+
+          {challenge.kind === 'checklist' && (
+            <Card style={{ gap: 10 }} elevated={false}>
+              <View style={styles.leaderboardHeader}>
+                <TrophyIcon size={16} color={colors.accent} />
+                <Text style={text.h4}>Everyone today</Text>
+              </View>
+              {checklistBoard.some((r) => canInteractWith(r.userId)) && (
+                <Text style={styles.footNote}>Tap someone to cheer them on or nudge them.</Text>
+              )}
+              {checklistBoard.map((row) => (
+                <Pressable
+                  key={row.userId}
+                  style={styles.boardItem}
+                  onPress={() => togglePerson(row.userId)}
+                  disabled={!canInteractWith(row.userId)}
+                >
+                  <View style={styles.boardRowInner}>
+                    <Avatar
+                      initials={row.initials}
+                      tint={row.userId === user?.id ? TINT_A : TINT_N}
+                      size={30}
+                      fontSize={11}
+                      frameId={row.frameId}
+                      backgroundId={row.backgroundId}
+                      iconId={row.iconId}
+                      level={row.level}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.boardName}>{row.userId === user?.id ? 'You' : row.name}</Text>
+                      <Text style={styles.boardDistance}>
+                        {row.status?.completeDays ?? 0} complete day{row.status?.completeDays === 1 ? '' : 's'}
+                      </Text>
+                    </View>
+                    {renderFriendChip(row.userId)}
+                    <Tag
+                      label={row.todayTotal > 0 && row.todayDone >= row.todayTotal ? 'Done today' : `${row.todayDone}/${row.todayTotal} today`}
+                      variant={row.todayTotal > 0 && row.todayDone >= row.todayTotal ? 'accent' : 'outline'}
+                    />
+                    <Tag label={`${row.status?.currentStreak ?? 0}-day streak`} variant={(row.status?.currentStreak ?? 0) > 0 ? 'accent' : 'outline'} />
+                  </View>
+                  {renderPersonActions(row.userId, row.name, false, 30 + 12)}
+                </Pressable>
+              ))}
+            </Card>
+          )}
+
+          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && (
             <Card style={{ gap: 12 }} elevated={false}>
               <View style={styles.leaderboardHeader}>
                 <TrophyIcon size={16} color={colors.accent} />
@@ -2151,7 +2399,8 @@ export function ChallengeDetailScreen({
             !usesWorkoutDistance(challenge) &&
             challenge.kind !== 'tictacgo' &&
             challenge.kind !== 'bingo' &&
-            challenge.kind !== 'seventyfive' && (
+            challenge.kind !== 'seventyfive' &&
+            challenge.kind !== 'checklist' && (
             <Card style={{ gap: 14 }} elevated={false}>
               <Text style={text.h4}>Log your progress</Text>
               <Text style={styles.footNote}>
@@ -2406,6 +2655,7 @@ function formatWorkoutDayTime(d: Date): string {
 // syncSeventyFiveFromDevice, never a tap.
 function SeventyFiveRow({
   label,
+  hint,
   done,
   readOnly,
   busy,
@@ -2414,6 +2664,8 @@ function SeventyFiveRow({
   colors,
 }: {
   label: string;
+  // A word or two on the right ("Auto", "From your steps", "Yours").
+  hint?: string;
   done: boolean;
   readOnly?: boolean;
   busy?: boolean;
@@ -2431,7 +2683,7 @@ function SeventyFiveRow({
         </View>
       )}
       <Text style={styles.seventyFiveLabel}>{label}</Text>
-      {readOnly && <Text style={styles.footNote}>Auto</Text>}
+      {(hint || readOnly) && <Text style={styles.footNote}>{hint ?? 'Auto'}</Text>}
     </View>
   );
   if (readOnly || !onToggle) return content;

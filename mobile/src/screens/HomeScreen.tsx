@@ -77,6 +77,7 @@ import {
   syncChallengeProgressFromDevice,
   syncBingoProgressFromDevice,
   syncSeventyFiveFromDevice,
+  syncChecklistFromDevice,
   isWorthSyncing,
   sharedHealthReads,
 } from '../challenges/deviceSync';
@@ -85,6 +86,7 @@ import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
 import { computePendingActions, needsManualEntry, type PendingAction } from '../challenges/pendingActions';
 import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
+import { isMyChecklistTodayComplete } from '../challenges/checklistApi';
 import { challengeDayNumber, getChallengeDays, localDayKey } from '../challenges/challengeDays';
 import { computeStreakStatus, type StreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
@@ -1359,6 +1361,7 @@ export function HomeScreen({
         syncChallengeProgressFromDevice(c, sharedHealth);
         syncBingoProgressFromDevice(c, sharedHealth);
         syncSeventyFiveFromDevice(c, sharedHealth);
+        syncChecklistFromDevice(c, sharedHealth);
       });
 
       // One board per challenge, not just the primary one — needed for
@@ -1551,7 +1554,7 @@ export function HomeScreen({
       const activeResults = results.filter((r) => !r.finished);
       if (user?.id) {
         const myId = user.id;
-        const [tagEntries, tictacgoEntries, seventyfiveEntries, manualEntries] = await Promise.all([
+        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries] = await Promise.all([
           Promise.all(
             activeResults
               .filter((r) => r.challenge.kind === 'tag')
@@ -1587,6 +1590,17 @@ export function HomeScreen({
           ),
           Promise.all(
             activeResults
+              .filter((r) => r.challenge.kind === 'checklist')
+              .map(async (r): Promise<readonly [string, boolean]> => [
+                r.challenge.id,
+                // Same fail-toward-complete and before-day-1 rules as 75 Day.
+                (await getChallengeDays(r.challenge)
+                  .then((d) => localDayKey(new Date()) < d.firstDay)
+                  .catch(() => false)) || (await isMyChecklistTodayComplete(r.challenge.id, myId).catch(() => true)),
+              ]),
+          ),
+          Promise.all(
+            activeResults
               .filter((r) => needsManualEntry(r.challenge))
               .map(async (r): Promise<readonly [string, boolean]> => [
                 r.challenge.id,
@@ -1602,6 +1616,7 @@ export function HomeScreen({
             tagRounds: new Map(tagEntries.filter((e): e is readonly [string, TagRound] => e[1] !== null)),
             tictacgoGames: new Map(tictacgoEntries.filter((e): e is readonly [string, TicTacGoGame] => e[1] !== null)),
             seventyfiveTodayComplete: new Map(seventyfiveEntries),
+            checklistTodayComplete: new Map(checklistEntries),
             loggedProgressToday: new Map(manualEntries),
           });
           setPendingActions(actions);

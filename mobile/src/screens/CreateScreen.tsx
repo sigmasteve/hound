@@ -48,6 +48,20 @@ import {
   type TicTacGoDifficulty,
 } from '../challenges/tictacgo';
 import { setupTicTacGoBoard } from '../challenges/tictacgoApi';
+import {
+  autoHint,
+  CHECKLIST_LABEL_MAX,
+  CHECKLIST_PRESETS,
+  DEFAULT_CHECKLIST_DAYS,
+  DEFAULT_CHECKLIST_KINDS,
+  DEFAULT_MAX_CHECKLIST_ITEMS,
+  DEFAULT_STEPS_TARGET,
+  MAX_STEPS_TARGET,
+  MIN_STEPS_TARGET,
+  stepsItemLabel,
+  type ChecklistItemKind,
+} from '../challenges/checklist';
+import { addChecklistItems, getChecklistMaxItems, type NewChecklistItem } from '../challenges/checklistApi';
 import { DEFAULT_GLOBAL_PRIZES, POT_CHOICES, POT_KINDS, setChallengePot, setGlobalPrizes } from '../challenges/potApi';
 import type { DistanceGoalUnit, HuntRole, ScoringMethod } from '../challenges/types';
 import type { RematchDraft } from '../challenges/rematch';
@@ -105,6 +119,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   streak: 'Hit your goal every day.',
   bingo: 'Real bingo with steps and workouts; first line wins.',
   seventyfive: 'A daily checklist for 75 days.',
+  checklist: 'Your own daily list. Tick it all, every day.',
   journey: 'Same course, same start. First to the end wins.',
 };
 
@@ -167,6 +182,33 @@ export function CreateScreen({
   const [courseId, setCourseId] = useState<string>(rematch?.courseId ?? 'windy-city');
   const course = courseById(courseId) ?? COURSES[0];
   const [length, setLength] = useState(rematch ? String(rematch.durationDays) : '7');
+  // Accountability only: the shared list as drafted (src/challenges/
+  // checklist.ts), the steps item's daily count, and the admin cap.
+  const [checklistItems, setChecklistItems] = useState<{ key: string; label: string; kind: ChecklistItemKind }[]>(() =>
+    CHECKLIST_PRESETS.filter((pr) => DEFAULT_CHECKLIST_KINDS.includes(pr.kind)).map((pr) => ({ key: pr.label, label: pr.label, kind: pr.kind })),
+  );
+  const [stepsTarget, setStepsTarget] = useState(DEFAULT_STEPS_TARGET);
+  const [customItem, setCustomItem] = useState('');
+  const [checklistMax, setChecklistMax] = useState(DEFAULT_MAX_CHECKLIST_ITEMS);
+  const checklistHasSteps = checklistItems.some((it) => it.kind === 'steps');
+  const addChecklistItem = (label: string, kind: ChecklistItemKind) => {
+    const clean = label.trim().slice(0, CHECKLIST_LABEL_MAX);
+    if (!clean) return;
+    setChecklistItems((cur) => {
+      if (cur.length >= checklistMax) return cur;
+      if (cur.some((it) => it.label.toLowerCase() === clean.toLowerCase())) return cur;
+      return [...cur, { key: `${clean}-${Date.now()}`, label: clean, kind }];
+    });
+  };
+  const addCustomItem = () => {
+    addChecklistItem(customItem, 'manual');
+    setCustomItem('');
+  };
+  const removeChecklistItem = (key: string) => setChecklistItems((cur) => cur.filter((it) => it.key !== key));
+  // What gets written: the steps item carries its count in its words.
+  const checklistToSave: NewChecklistItem[] = checklistItems.map((it) =>
+    it.kind === 'steps' ? { label: stepsItemLabel(stepsTarget), kind: 'steps', stepsTarget } : { label: it.label, kind: it.kind },
+  );
   // Now or Tomorrow, nothing else: the old third choice ("Today",
   // counting from midnight) was one more thing to read for a difference
   // most people never needed.
@@ -237,7 +279,7 @@ export function CreateScreen({
   const [sponsorMessage, setSponsorMessage] = useState('');
   const [sponsorUrl, setSponsorUrl] = useState('');
   const canHavePot = !global && POT_KINDS.includes(draftType);
-  const canHavePrizes = global && draftType !== 'seventyfive';
+  const canHavePrizes = global && draftType !== 'seventyfive' && draftType !== 'checklist';
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -290,6 +332,15 @@ export function CreateScreen({
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
+    getChecklistMaxItems()
+      .then(setChecklistMax)
+      .catch(() => {
+        // Keep the default; the server enforces the real cap anyway.
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
     listChallengeUnlockGates()
       .then(setUnlockGates)
       .catch(() => {
@@ -332,6 +383,7 @@ export function CreateScreen({
       return;
     }
     if (draftType === 'seventyfive') setLength('75');
+    if (draftType === 'checklist') setLength(String(DEFAULT_CHECKLIST_DAYS));
     if (draftType === 'journey') setLength(String(journeyDefaultDays(course.miles)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftType]);
@@ -438,6 +490,11 @@ export function CreateScreen({
       onFinish();
       return;
     }
+    if (draftType === 'checklist' && checklistItems.length === 0) {
+      setSaveError('Add at least one item to the list.');
+      setStep(2);
+      return;
+    }
     if (global) {
       if (sponsorUrl.trim() && !/^https:\/\/\S+$/.test(sponsorUrl.trim())) {
         setSaveError('The sponsor’s link must start with https://');
@@ -465,6 +522,11 @@ export function CreateScreen({
           bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
           courseId: isJourney ? course.id : undefined,
         });
+        if (draftType === 'checklist') {
+          await addChecklistItems(globalId, checklistToSave).catch((e: Error) =>
+            Alert.alert('Published, but the list didn’t save', `${e.message} Take it down from the Admin screen and publish again.`),
+          );
+        }
         if (canHavePrizes && prizes.some((b) => b > 0)) {
           await setGlobalPrizes(globalId, prizes).catch((e: Error) =>
             Alert.alert('Published, but the prizes didn’t save', `${e.message} Set them from the Admin screen.`),
@@ -517,7 +579,7 @@ export function CreateScreen({
       // just because the "Bot opponents" step above is hidden for all of
       // these.
       const chosenBots =
-        draftType === 'tag' || draftType === 'bingo' || draftType === 'tictacgo' || draftType === 'seventyfive'
+        draftType === 'tag' || draftType === 'bingo' || draftType === 'tictacgo' || draftType === 'seventyfive' || draftType === 'checklist'
           ? []
           : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
       const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
@@ -547,6 +609,7 @@ export function CreateScreen({
           (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
         dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
         bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
+        checklistItems: draftType === 'checklist' ? checklistToSave : undefined,
         startsAt: startsAtFor(startOption).toISOString(),
         organizationId: challengeScope === 'org' && myOrgId ? myOrgId : undefined,
       });
@@ -789,7 +852,7 @@ export function CreateScreen({
               // Every other kind keeps its existing 45-day ceiling
               // unchanged — only 75 Day Challenge needs to reach past it,
               // since its own default (seeded below) is 75.
-              maximumValue={draftType === 'seventyfive' ? 100 : draftType === 'journey' ? 365 : 45}
+              maximumValue={draftType === 'seventyfive' || draftType === 'checklist' ? 100 : draftType === 'journey' ? 365 : 45}
               step={1}
               value={customLength}
               onValueChange={(v) => setLength(String(Math.round(v)))}
@@ -975,6 +1038,80 @@ export function CreateScreen({
             </View>
           )}
 
+          {draftType === 'checklist' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>The list</Text>
+                <Text style={styles.huntBlockValue}>
+                  {checklistItems.length} of {checklistMax}
+                </Text>
+              </View>
+              <View style={{ gap: 6 }}>
+                {checklistItems.map((it) => (
+                  <View key={it.key} style={styles.friendRow}>
+                    <Text style={styles.friendName}>{it.kind === 'steps' ? stepsItemLabel(stepsTarget) : it.label}</Text>
+                    {autoHint(it.kind) && <Text style={styles.footNote}>Auto</Text>}
+                    <Pressable onPress={() => removeChecklistItem(it.key)} hitSlop={10} accessibilityLabel={`Remove ${it.label}`}>
+                      <XIcon size={14} color={withAlpha(colors.text, 0.55)} />
+                    </Pressable>
+                  </View>
+                ))}
+                {checklistItems.length === 0 && <Text style={styles.footNote}>Add at least one item below.</Text>}
+              </View>
+              {checklistHasSteps && (
+                <View style={{ gap: 5 }}>
+                  <View style={styles.huntBlockHeader}>
+                    <Text style={styles.fieldLabel}>Steps a day</Text>
+                    <Text style={styles.huntBlockValue}>{stepsTarget.toLocaleString()}</Text>
+                  </View>
+                  <Slider
+                    minimumValue={MIN_STEPS_TARGET}
+                    maximumValue={MAX_STEPS_TARGET}
+                    step={500}
+                    value={stepsTarget}
+                    onValueChange={(v) => setStepsTarget(Math.round(v))}
+                    minimumTrackTintColor={colors.accent}
+                    maximumTrackTintColor={colors.neutral700}
+                    thumbTintColor={colors.accent}
+                  />
+                </View>
+              )}
+              {checklistItems.length < checklistMax && (
+                <View style={{ gap: 8 }}>
+                  <Text style={styles.fieldLabel}>Add</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {CHECKLIST_PRESETS.filter(
+                      (pr) =>
+                        !checklistItems.some((it) =>
+                          pr.kind === 'manual' ? it.label.toLowerCase() === pr.label.toLowerCase() : it.kind === pr.kind,
+                        ),
+                    ).map((pr) => (
+                      <RadioPill key={pr.label} label={pr.label} selected={false} onPress={() => addChecklistItem(pr.label, pr.kind)} />
+                    ))}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
+                    <TextField
+                      style={{ flex: 1 }}
+                      label="Or your own"
+                      value={customItem}
+                      onChangeText={setCustomItem}
+                      placeholder="e.g. Call a friend"
+                      maxLength={CHECKLIST_LABEL_MAX}
+                      returnKeyType="done"
+                      onSubmitEditing={addCustomItem}
+                    />
+                    <Button label="Add" small onPress={addCustomItem} disabled={!customItem.trim()} />
+                  </View>
+                </View>
+              )}
+              <Text style={styles.huntBlockNote}>
+                Everyone gets this list, and each person can add one line of their own. Steps, workouts and mindfulness
+                tick themselves from the phone; anything can be ticked by hand. A day counts only when everything is
+                ticked, and a miss resets the streak without ending the challenge.
+              </Text>
+            </View>
+          )}
+
           {draftType === 'streak' && (
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
@@ -1078,6 +1215,7 @@ export function CreateScreen({
                 ]);
               if (draftType === 'bingo') rows.push(['Card', bingoCardLabel(Number(length))]);
               if (draftType === 'journey') rows.push(['Course', `${course.name} · ${formatMiles(course.miles)} mi`]);
+              if (draftType === 'checklist') rows.push(['List', `${checklistItems.length} item${checklistItems.length === 1 ? '' : 's'} a day`]);
               if (canHavePrizes)
                 rows.push([
                   'Prizes',
@@ -1165,7 +1303,7 @@ export function CreateScreen({
               goes first.
             </Text>
           )}
-          {draftType !== 'tictacgo' && draftType !== 'bingo' && draftType !== 'seventyfive' && (
+          {draftType !== 'tictacgo' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (
             <Text style={styles.footNote}>
               Rewards need at least one friend to join. Bots and pending invites don&rsquo;t count.
             </Text>
@@ -1238,7 +1376,7 @@ export function CreateScreen({
             Friends on iPhone connect Apple Health, friends on Android connect Health Connect.
           </Text>
 
-          {draftType !== 'tag' && draftType !== 'bingo' && draftType !== 'tictacgo' && draftType !== 'seventyfive' && (
+          {draftType !== 'tag' && draftType !== 'bingo' && draftType !== 'tictacgo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (
             <>
               <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>
               <Text style={styles.footNote}>

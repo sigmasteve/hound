@@ -1,5 +1,6 @@
 import type React from 'react';
 import {
+  ClipboardTextIcon,
   FlagIcon,
   FlagCheckeredIcon,
   FlameIcon,
@@ -22,6 +23,7 @@ export const CHALLENGE_KIND_ICON: Record<ChallengeKind, React.ComponentType<any>
   bingo: GridNineIcon,
   tictacgo: HashIcon,
   seventyfive: ListChecksIcon,
+  checklist: ClipboardTextIcon,
   journey: MapTrifoldIcon,
 };
 

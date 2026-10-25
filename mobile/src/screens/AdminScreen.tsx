@@ -32,6 +32,7 @@ import { DeveloperToolsCard } from '../components/DeveloperToolsCard';
 import { GoalsAdminCard } from '../components/GoalsAdminCard';
 import { EngagementAdminCard } from '../components/EngagementAdminCard';
 import { AdsAdminCard } from '../components/AdsAdminCard';
+import { ChecklistAdminCard } from '../components/ChecklistAdminCard';
 import { PushReachCard } from '../components/PushReachCard';
 import { SignupAlertsCard } from '../components/SignupAlertsCard';
 import { FindPeopleAdminCard } from '../components/FindPeopleAdminCard';
@@ -939,6 +940,9 @@ export function AdminScreen({
 
                 <AdminFold title="Rewarded ads" summary="Ads for Bones, with a daily limit">
                   <AdsAdminCard />
+                </AdminFold>
+                <AdminFold title="Accountability lists" summary="How many items a list can hold">
+                  <ChecklistAdminCard />
                 </AdminFold>
                 <AdminFold title="Challenge unlocks" summary={unlocksSummary}>
                   <Card style={{ gap: 12 }} elevated={false}>

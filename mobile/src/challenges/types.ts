@@ -1,4 +1,6 @@
-export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance' | 'tag' | 'bingo' | 'tictacgo' | 'seventyfive' | 'journey';
+import type { ChecklistItemKind } from './checklist';
+
+export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance' | 'tag' | 'bingo' | 'tictacgo' | 'seventyfive' | 'journey' | 'checklist';
 
 // A hunt has exactly one Hunter and one or more Hunted — never set for
 // any other challenge kind. 'zombie' is a one-way transition a Hunted
@@ -198,6 +200,10 @@ export interface CreateChallengeInput {
   // distanceGoalMi to the course's length and distanceGoalUnit to
   // 'miles' with it.
   courseId?: string;
+  // Only meaningful for kind 'checklist': the shared list, in order
+  // (checklist_items, 0126_checklist.sql), written right after the
+  // challenge row.
+  checklistItems?: { label: string; kind: ChecklistItemKind; stepsTarget?: number }[];
   // ISO timestamp for when this challenge actually starts counting real
   // device data from — see CreateScreen.tsx's "Starts" picker for the
   // three choices this ever gets set to (start of today / this exact
