@@ -78,7 +78,7 @@ export const SQUARES: Record<HoundSquare, SquareInfo> = {
   before_9: { label: 'Workout before 9am', emoji: '☀️', source: 'workout', hint: 'A workout that starts before 9am.', hardness: 3 },
   lunch: { label: 'Lunch workout', emoji: '🥪', source: 'workout', hint: 'A workout that starts between 11am and 2pm.', hardness: 3 },
   after_7pm: { label: 'Workout after 7pm', emoji: '🌙', source: 'workout', hint: 'A workout that starts at 7pm or later.', hardness: 2 },
-  weekend: { label: 'Weekend workout', emoji: '📅', source: 'workout', hint: 'A workout on a Saturday or Sunday.', hardness: 1 },
+  weekend: { label: 'Weekend workout', emoji: '📅', source: 'workout', hint: 'A logged workout on a Saturday or Sunday, your phone\'s time.', hardness: 1 },
   long_30: { label: '30+ min workout', emoji: '⏱️', source: 'workout', hint: 'One workout of 30 minutes or more.', hardness: 1 },
   long_45: { label: '45+ min workout', emoji: '⏱️', source: 'workout', hint: 'One workout of 45 minutes or more.', hardness: 3 },
   two_a_day: { label: '2 workouts in a day', emoji: '✌️', source: 'day', hint: 'Two workouts on the same day.', hardness: 4 },
