@@ -1,0 +1,5 @@
+# Raw phone screenshots and the framed output are made locally.
+raw/*
+out/*
+!raw/.gitkeep
+!out/.gitkeep
