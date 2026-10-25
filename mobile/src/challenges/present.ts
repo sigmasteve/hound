@@ -158,6 +158,10 @@ export function toChallengeCard(
     // card shown.
     stat = '6';
     statLabel = 'checklist items a day';
+  } else if (challenge.kind === 'checklist') {
+    // Same again: the list and today's ticks live on the detail screen.
+    stat = 'Daily';
+    statLabel = 'list · tick it all';
   } else if (distanceGoal) {
     // A distance pool isn't a ranked leaderboard at all — everyone's
     // steps or miles (whichever unit its creator picked — see

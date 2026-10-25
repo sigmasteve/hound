@@ -14,6 +14,8 @@ export type ResultOutcome =
   | { type: 'pool'; total: string; goalMet: boolean }
   | { type: 'tag'; goalMet: boolean }
   | { type: 'seventyfive'; longestStreak: number; days: number }
+  // An Accountability challenge: complete days out of the run, and the best streak.
+  | { type: 'checklist'; completeDays: number; longestStreak: number; days: number }
   | { type: 'tictacgo'; result: 'won' | 'lost' | 'draw' }
   // A Journey: your place by miles, whether you reached the end of the
   // course, and the course's name.
@@ -71,6 +73,10 @@ export function resultLine(challengeName: string, outcome: ResultOutcome, labels
       return outcome.longestStreak >= outcome.days
         ? `I completed all ${outcome.days} days of ${challengeName}! 🔥`
         : `My longest streak in ${challengeName} was ${plural(outcome.longestStreak, 'day')}.`;
+    case 'checklist':
+      return outcome.completeDays >= outcome.days
+        ? `I ticked off every item, all ${outcome.days} days of ${challengeName}! 🔥`
+        : `I had ${plural(outcome.completeDays, 'complete day')} of ${outcome.days} in ${challengeName}, best run ${plural(outcome.longestStreak, 'day')}.`;
     case 'tictacgo':
       return outcome.result === 'won'
         ? `I won ${challengeName} on Tic-Tac-Go! 🏆`
@@ -110,6 +116,8 @@ export function isWin(outcome: ResultOutcome): boolean {
       return outcome.goalMet;
     case 'seventyfive':
       return outcome.longestStreak >= outcome.days;
+    case 'checklist':
+      return outcome.completeDays >= outcome.days;
     case 'tictacgo':
       return outcome.result === 'won';
     case 'journey':

@@ -9,6 +9,7 @@ import {
   syncBingoProgressFromDevice,
   syncChallengeProgressFromDevice,
   syncSeventyFiveFromDevice,
+  syncChecklistFromDevice,
 } from '../challenges/deviceSync';
 import { recordDailyStepTotal } from '../leaderboard/supabaseStepsRank';
 import { getHoundSettings, listGoals } from '../goals/goalsApi';
@@ -76,6 +77,7 @@ async function syncNow(): Promise<void> {
       syncChallengeProgressFromDevice(c, shared),
       syncBingoProgressFromDevice(c, shared),
       syncSeventyFiveFromDevice(c, shared),
+      syncChecklistFromDevice(c, shared),
     ]);
   }
 
