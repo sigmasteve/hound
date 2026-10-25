@@ -86,15 +86,16 @@ export function stepsItemLabel(target: number): string {
   return `${target.toLocaleString()} steps`;
 }
 
-// What ticks an item on its own, for the row's hint.
+// What ticks an item on its own, for the row's hint. Short: it shares
+// the row with the label, and the footnote under the list says more.
 export function autoHint(kind: ChecklistItemKind): string | null {
   switch (kind) {
     case 'steps':
-      return 'From your steps';
+      return 'Auto · steps';
     case 'workout':
-      return 'From any workout';
+      return 'Auto · workouts';
     case 'mindfulness':
-      return 'From yoga, pilates or meditation';
+      return 'Auto · yoga, meditation';
     default:
       return null;
   }

@@ -2136,9 +2136,12 @@ export function ChallengeDetailScreen({
                       level={row.level}
                     />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.boardName}>{row.userId === user?.id ? 'You' : row.name}</Text>
-                      <Text style={styles.boardDistance}>
-                        {row.status?.completeDays ?? 0} complete day{row.status?.completeDays === 1 ? '' : 's'}
+                      <Text style={styles.boardName} numberOfLines={1}>
+                        {row.userId === user?.id ? 'You' : row.name}
+                      </Text>
+                      <Text style={styles.boardDistance} numberOfLines={1}>
+                        {row.status?.currentStreak ?? 0}-day streak · {row.status?.completeDays ?? 0} complete day
+                        {row.status?.completeDays === 1 ? '' : 's'}
                       </Text>
                     </View>
                     {renderFriendChip(row.userId)}
@@ -2146,7 +2149,6 @@ export function ChallengeDetailScreen({
                       label={row.todayTotal > 0 && row.todayDone >= row.todayTotal ? 'Done today' : `${row.todayDone}/${row.todayTotal} today`}
                       variant={row.todayTotal > 0 && row.todayDone >= row.todayTotal ? 'accent' : 'outline'}
                     />
-                    <Tag label={`${row.status?.currentStreak ?? 0}-day streak`} variant={(row.status?.currentStreak ?? 0) > 0 ? 'accent' : 'outline'} />
                   </View>
                   {renderPersonActions(row.userId, row.name, false, 30 + 12)}
                 </Pressable>
@@ -2683,7 +2685,11 @@ function SeventyFiveRow({
         </View>
       )}
       <Text style={styles.seventyFiveLabel}>{label}</Text>
-      {(hint || readOnly) && <Text style={styles.footNote}>{hint ?? 'Auto'}</Text>}
+      {(hint || readOnly) && (
+        <Text style={styles.footNote} numberOfLines={1}>
+          {hint ?? 'Auto'}
+        </Text>
+      )}
     </View>
   );
   if (readOnly || !onToggle) return content;
