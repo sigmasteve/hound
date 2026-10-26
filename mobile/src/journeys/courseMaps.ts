@@ -13,4 +13,5 @@ export interface CourseMap {
 
 export const COURSE_MAPS: Record<string, CourseMap> = {
   'appalachian': { source: require('../../assets/maps/appalachian.webp'), bounds: { minLat: 33.724340, maxLat: 46.807580, minLng: -85.418701, maxLng: -67.697754 }, width: 1400, height: 1362, attribution: '© OpenStreetMap contributors' },
+  'windy-city': { source: require('../../assets/maps/windy-city.webp'), bounds: { minLat: 41.821606, maxLat: 41.957320, minLng: -87.681370, maxLng: -87.615623 }, width: 361, height: 1000, attribution: '© OpenStreetMap contributors' },
 };
