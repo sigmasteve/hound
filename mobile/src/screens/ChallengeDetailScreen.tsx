@@ -49,7 +49,8 @@ import {
   journeyCourseFinished,
   withHuntCatches,
 } from '../challenges/board';
-import { JourneyMap, type MapPerson } from '../journeys/JourneyMap';
+import type { MapPerson } from '../journeys/JourneyMap';
+import { ZoomableJourneyMap } from '../journeys/ZoomableJourneyMap';
 import { courseById, formatMiles, nextStop, type CourseStop } from '../journeys/courses';
 import { StopReachedModal } from '../journeys/StopReachedModal';
 import { markChallengeStopShown, pendingChallengeStop } from '../journeys/stopCelebrations';
@@ -1676,7 +1677,7 @@ export function ChallengeDetailScreen({
                   </View>
                   <View onLayout={(e) => setJourneyMapWidth(Math.round(e.nativeEvent.layout.width))}>
                     {journeyMapWidth > 0 && (
-                      <JourneyMap
+                      <ZoomableJourneyMap
                         course={course}
                         width={journeyMapWidth}
                         height={Math.round(journeyMapWidth * 0.7)}
@@ -1745,7 +1746,7 @@ export function ChallengeDetailScreen({
                     <>
                       <View onLayout={(e) => setJourneyMapWidth(Math.round(e.nativeEvent.layout.width))}>
                         {journeyMapWidth > 0 && (
-                          <JourneyMap
+                          <ZoomableJourneyMap
                             course={course}
                             width={journeyMapWidth}
                             height={Math.round(journeyMapWidth * 0.9)}
