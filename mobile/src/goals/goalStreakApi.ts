@@ -58,8 +58,10 @@ export async function getGoalStreak(): Promise<GoalStreak> {
   };
 }
 
-export async function claimGoalDay(): Promise<GoalDayClaim> {
-  const { data, error } = await client().rpc('claim_goal_day', { p_local_date: localDayKey(new Date()) }).single();
+// Today's, or a given day's ('YYYY-MM-DD') — yesterday, for the catch-up
+// claim. The server accepts a day up to two days back.
+export async function claimGoalDay(day: string = localDayKey(new Date())): Promise<GoalDayClaim> {
+  const { data, error } = await client().rpc('claim_goal_day', { p_local_date: day }).single();
   if (error) throw new Error(error.message);
   const r = data as any;
   return { awarded: r.awarded, bonesAwarded: r.bones_awarded, streak: r.streak, best: r.best_streak };

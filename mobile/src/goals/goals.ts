@@ -289,3 +289,19 @@ export function defaultTarget(metric: GoalMetric, period: GoalPeriod): number {
   if (period === 'day') return perDay[metric];
   return { steps: 50000, distance_mi: 15, workouts: 3, workout_minutes: 150 }[metric];
 }
+
+// Whether every daily goal was met on `day` ('YYYY-MM-DD'), from the
+// phone's own per-day steps and distance (getDailyStepsSince) and its
+// recent workouts. Null when there's no daily goal or no data for that
+// day. Built for the catch-up claim (useGoalStreak): a day finished late
+// with Hound closed is otherwise never claimed.
+export function goalsEarnedOn(goals: Goal[], day: string, days: DailyStepsWithDate[], workouts: WorkoutSample[]): boolean | null {
+  const daily = goals.filter((g) => g.period === 'day');
+  if (daily.length === 0) return null;
+  const row = days.find((d) => d.date === day);
+  if (!row) return null;
+  const [y, m, d] = day.split('-').map(Number);
+  const endOfDay = new Date(y, m - 1, d, 23, 59, 59, 999);
+  const inputs: GoalInputs = { stepsToday: row.steps, distanceTodayMi: row.distanceMi, weekDays: [], workouts, now: endOfDay };
+  return daily.every((g) => goalProgress(g, inputs).done);
+}
