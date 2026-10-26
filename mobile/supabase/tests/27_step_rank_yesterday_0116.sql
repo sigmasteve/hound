@@ -26,7 +26,7 @@ set local role authenticated;
 select is((select yesterday_rank from public.my_daily_step_rank_change()), null::bigint, 'No total yesterday, no yesterday rank');
 reset role;
 
-select ok(not has_function_privilege('anon', 'public.my_daily_step_rank_change()', 'EXECUTE'),
+select ok(not has_function_privilege('anon', 'public.my_daily_step_rank_change(date)', 'EXECUTE'),
   'Signed-out visitors can''t call it');
 
 select * from finish();
