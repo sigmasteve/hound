@@ -14,7 +14,8 @@ tiles, fetched once and cached; be gentle and keep the User-Agent.
 Usage:  python3 basemap.py appalachian [route-66 ...]
         python3 basemap.py --all
   --cache DIR   where tiles are kept (default: .cache/tiles here)
-  --size N      longest side of the picture in pixels (default 1400)
+  --size N      longest side of the picture in pixels (default 1400,
+                or the course's own entry in TARGET_SIZE)
 """
 from __future__ import annotations
 
@@ -39,6 +40,13 @@ UA = 'Hound journeys basemap build/1.0 (https://github.com/sigmasteve/hound)'
 ATTRIBUTION = '© OpenStreetMap contributors'
 # The same padding JourneyMap gives a course without a picture.
 PAD = 0.08
+# Longest side of a picture, in pixels. A city course is shown shrunk a
+# lot on a phone, so one zoom lower (fewer, bolder streets and labels)
+# reads better than the default.
+DEFAULT_SIZE = 1400
+TARGET_SIZE = {
+    'windy-city': 1000,
+}
 
 
 def merc(lat: float, lng: float) -> tuple[float, float]:
@@ -146,7 +154,7 @@ def main() -> int:
     ap.add_argument('courses', nargs='*')
     ap.add_argument('--all', action='store_true')
     ap.add_argument('--cache', default=str(HERE / '.cache' / 'tiles'))
-    ap.add_argument('--size', type=int, default=1400)
+    ap.add_argument('--size', type=int, default=None)
     args = ap.parse_args()
     paths = course_paths()
     wanted = list(paths) if args.all else args.courses
@@ -163,7 +171,7 @@ def main() -> int:
         if cid not in paths:
             print(f'no such course: {cid}', file=sys.stderr)
             return 1
-        entries[cid] = build(cid, paths[cid], cache, args.size)
+        entries[cid] = build(cid, paths[cid], cache, args.size or TARGET_SIZE.get(cid, DEFAULT_SIZE))
     write_manifest(entries)
     return 0
 
