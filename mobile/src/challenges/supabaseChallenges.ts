@@ -78,7 +78,7 @@ function challengeRowToInviteWindowInput(row: {
 }
 
 const CHALLENGE_COLUMNS =
-  'id, name, kind, created_by, duration_days, starts_at, start_day, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit, bingo_card_type, course_id, organization_id';
+  'id, name, kind, created_by, duration_days, starts_at, start_day, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit, distance_source, bingo_card_type, course_id, organization_id';
 
 interface ChallengeRow {
   id: string;
@@ -97,6 +97,7 @@ interface ChallengeRow {
   distance_goal_steps: number | null;
   distance_goal_unit: Challenge['distanceGoalUnit'];
   bingo_card_type: Challenge['bingoCardType'];
+  distance_source?: string | null;
   course_id: string | null;
   organization_id: string | null;
 }
@@ -137,6 +138,7 @@ function rowToChallenge(row: ChallengeRow): Challenge {
     // exactly as it already meant, rather than as "no goal."
     distanceGoalUnit: row.distance_goal_unit ?? (row.distance_goal_mi != null ? 'miles' : null),
     bingoCardType: row.bingo_card_type,
+    distanceSource: (row.distance_source as Challenge['distanceSource'] | undefined) ?? null,
     courseId: row.course_id ?? null,
     organizationId: row.organization_id,
   };
@@ -272,6 +274,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     distanceGoalMi,
     distanceGoalSteps,
     distanceGoalUnit,
+    distanceSource,
     bingoCardType,
     courseId,
     checklistItems,
@@ -298,6 +301,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         distance_goal_mi: distanceGoalMi ?? null,
         distance_goal_steps: distanceGoalSteps ?? null,
         distance_goal_unit: distanceGoalUnit ?? null,
+        distance_source: distanceSource ?? null,
         bingo_card_type: bingoCardType ?? null,
         course_id: courseId ?? null,
         organization_id: organizationId ?? null,

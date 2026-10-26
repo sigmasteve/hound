@@ -33,6 +33,12 @@ export type DistanceGoalUnit = 'miles' | 'steps';
 // importing each other.
 export type BingoCardType = 'variety' | 'strength' | 'sports' | 'hound';
 
+// Only meaningful for a miles Distance pool: what adds up toward the
+// target. 'workouts' (and null, every pool before 0130): the distance of
+// logged workouts. 'all': the phone's miles for the day, the number on
+// Today — see deviceSync.ts.
+export type DistanceSource = 'workouts' | 'all';
+
 export interface Challenge {
   id: string;
   name: string;
@@ -69,6 +75,8 @@ export interface Challenge {
   distanceGoalMi: number | null;
   distanceGoalSteps: number | null;
   distanceGoalUnit: DistanceGoalUnit | null;
+  // Only meaningful for a miles Distance pool — see DistanceSource.
+  distanceSource: DistanceSource | null;
   // Only meaningful for kind 'bingo' — see BingoCardType's own comment.
   // Null means 'variety', the only type that existed before the picker
   // did.
@@ -194,6 +202,8 @@ export interface CreateChallengeInput {
   distanceGoalMi?: number;
   distanceGoalSteps?: number;
   distanceGoalUnit?: DistanceGoalUnit;
+  // Only meaningful for a miles Distance pool — see Challenge.distanceSource.
+  distanceSource?: DistanceSource;
   // Only meaningful for kind 'bingo' — see Challenge.bingoCardType.
   bingoCardType?: BingoCardType;
   // Only meaningful for kind 'journey' — see Challenge.courseId. Set

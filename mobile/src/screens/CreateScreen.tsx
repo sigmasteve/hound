@@ -63,7 +63,7 @@ import {
 } from '../challenges/checklist';
 import { addChecklistItems, getChecklistMaxItems, type NewChecklistItem } from '../challenges/checklistApi';
 import { DEFAULT_GLOBAL_PRIZES, POT_CHOICES, POT_KINDS, setChallengePot, setGlobalPrizes } from '../challenges/potApi';
-import type { DistanceGoalUnit, HuntRole, ScoringMethod } from '../challenges/types';
+import type { DistanceGoalUnit, DistanceSource, HuntRole, ScoringMethod } from '../challenges/types';
 import type { RematchDraft } from '../challenges/rematch';
 import { useAuth } from '../auth/AuthContext';
 import { getMyHoundScore } from '../challenges/scoreApi';
@@ -170,6 +170,9 @@ export function CreateScreen({
   const [draftName, setDraftName] = useState(rematch?.name ?? '');
   const [headStart, setHeadStart] = useState(rematch?.headStartDays ?? 2);
   const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>(rematch?.distanceGoalUnit ?? 'miles');
+  // A miles pool: logged workouts' distance, or every mile the phone
+  // counts (Challenge.distanceSource).
+  const [distanceSource, setDistanceSource] = useState<DistanceSource>(rematch?.distanceSource ?? 'workouts');
   // Every new Bingo plays like real bingo (0117_hound_bingo.sql).
   const bingoCardType: BingoCardType = 'hound';
   const [tictacgoDifficulty, setTictacgoDifficulty] = useState<TicTacGoDifficulty>('easy');
@@ -425,6 +428,7 @@ export function CreateScreen({
     if (t.distanceGoalUnit) setDistanceGoalUnit(t.distanceGoalUnit);
     if (t.distanceGoalMi) setDistanceGoalMi(t.distanceGoalMi);
     if (t.distanceGoalSteps) setDistanceGoalSteps(t.distanceGoalSteps);
+    setDistanceSource(t.distanceSource ?? 'workouts');
     if (t.courseId) setCourseId(t.courseId);
     setNameError(null);
     setStep(2);
@@ -521,6 +525,7 @@ export function CreateScreen({
           distanceGoalSteps: isDistance && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
           bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
           courseId: isJourney ? course.id : undefined,
+          distanceSource: isDistance && distanceGoalUnit === 'miles' ? distanceSource : undefined,
         });
         if (draftType === 'checklist') {
           await addChecklistItems(globalId, checklistToSave).catch((e: Error) =>
@@ -608,6 +613,7 @@ export function CreateScreen({
         distanceGoalSteps:
           (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
         dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
+        distanceSource: draftType === 'distance' && distanceGoalUnit === 'miles' ? distanceSource : undefined,
         bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
         checklistItems: draftType === 'checklist' ? checklistToSave : undefined,
         startsAt: startsAtFor(startOption).toISOString(),
@@ -938,10 +944,25 @@ export function CreateScreen({
                   thumbTintColor={colors.accent}
                 />
               )}
+              {draftType === 'distance' && distanceGoalUnit === 'miles' && (
+                <View style={{ gap: 5 }}>
+                  <Text style={styles.fieldLabel}>What counts</Text>
+                  <SegmentedControl
+                    options={[
+                      { value: 'workouts' as const, label: 'Logged workouts' },
+                      { value: 'all' as const, label: 'Every mile' },
+                    ]}
+                    value={distanceSource}
+                    onChange={setDistanceSource}
+                  />
+                </View>
+              )}
               <Text style={styles.huntBlockNote}>
                 {draftType === 'tag'
                   ? `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — once the group reaches it, the game ends right there, whoever’s It at the time.`
-                  : `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — it’s the whole group against the goal, not against each other.`}
+                  : distanceGoalUnit === 'miles' && distanceSource === 'all'
+                    ? 'Every mile anyone’s phone counts adds up toward this one shared target, the same miles as on Today — it’s the whole group against the goal, not against each other.'
+                    : `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — it’s the whole group against the goal, not against each other.`}
               </Text>
             </View>
           )}
@@ -1220,6 +1241,8 @@ export function CreateScreen({
                     ? `${distanceGoalMi.toLocaleString()} mi`
                     : `${distanceGoalSteps.toLocaleString()} steps`,
                 ]);
+              if (draftType === 'distance' && distanceGoalUnit === 'miles')
+                rows.push(['Counts', distanceSource === 'all' ? 'Every mile' : 'Logged workouts']);
               if (draftType === 'bingo') rows.push(['Card', bingoCardLabel(Number(length))]);
               if (draftType === 'journey') rows.push(['Course', `${course.name} · ${formatMiles(course.miles)} mi`]);
               if (draftType === 'checklist') rows.push(['List', `${checklistItems.length} item${checklistItems.length === 1 ? '' : 's'} a day`]);

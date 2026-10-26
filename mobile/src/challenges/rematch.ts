@@ -4,7 +4,7 @@ import type {
   Challenge,
   ChallengeBot,
   ChallengeKind,
-  DistanceGoalUnit,
+  DistanceGoalUnit, DistanceSource,
   Participant,
   ScoringMethod,
 } from './types';
@@ -22,6 +22,7 @@ export interface RematchDraft {
   scoringMethod: ScoringMethod | null;
   headStartDays: number | null;
   distanceGoalUnit: DistanceGoalUnit | null;
+  distanceSource: DistanceSource | null;
   distanceGoalMi: number | null;
   distanceGoalSteps: number | null;
   dailyGoalSteps: number | null;
@@ -88,6 +89,7 @@ export function buildRematchDraft({
     scoringMethod: challenge.scoringMethod,
     headStartDays: challenge.headStartDays,
     distanceGoalUnit: challenge.distanceGoalUnit,
+    distanceSource: challenge.distanceSource,
     distanceGoalMi: challenge.distanceGoalMi,
     distanceGoalSteps: challenge.distanceGoalSteps,
     dailyGoalSteps: challenge.dailyGoalSteps,
