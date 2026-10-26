@@ -17,13 +17,18 @@ import { stopNote, stopPicture } from './stopNotes';
 // (celebrate: confetti, the party horn, a buzz), and again from the
 // Journey's list of stops without the fuss. The finish gets the big one.
 // The start (mile 0) is only ever opened from the list, as "THE START":
-// its postcard, with no word on who got there first.
+// its postcard, with no word on who got there first. A challenge on a
+// course uses the same card for the group reaching a stop, and for a
+// look at a stop ahead (eyebrow, line and button set by the caller).
 export function StopReachedModal({
   course,
   stop,
   celebrate,
   friendsHere,
   cheerFor,
+  eyebrow,
+  line,
+  buttonLabel,
   onClose,
 }: {
   course: Course;
@@ -33,6 +38,11 @@ export function StopReachedModal({
   friendsHere: string[];
   // Your initials, for the sign in the crowd.
   cheerFor?: string | null;
+  // Instead of "YOU REACHED": "WE REACHED", "UP AHEAD".
+  eyebrow?: string;
+  // Instead of the friends line; null for none.
+  line?: string | null;
+  buttonLabel?: string;
   onClose: () => void;
 }) {
   const { colors, text } = useTheme();
@@ -72,7 +82,7 @@ export function StopReachedModal({
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Text style={text.eyebrow}>{isFinish ? 'YOU FINISHED 🏅' : isStart ? 'THE START' : 'YOU REACHED'}</Text>
+          <Text style={text.eyebrow}>{eyebrow ?? (isFinish ? 'YOU FINISHED 🏅' : isStart ? 'THE START' : 'YOU REACHED')}</Text>
           <Animated.View
             style={[
               styles.postcard,
@@ -120,11 +130,11 @@ export function StopReachedModal({
           ) : (
             note && <Text style={styles.sub}>{note}</Text>
           )}
-          {!isStart && <Text style={styles.friends}>{friendsLine}</Text>}
+          {line !== null && (line !== undefined ? <Text style={styles.friends}>{line}</Text> : !isStart && <Text style={styles.friends}>{friendsLine}</Text>)}
 
           <CheeringCrowd sign={cheerFor ? `GO ${cheerFor}!` : 'GO!'} />
 
-          <Button label={isFinish ? 'Take a bow' : 'Keep going'} variant="primary" onPress={onClose} />
+          <Button label={buttonLabel ?? (isFinish ? 'Take a bow' : 'Keep going')} variant="primary" onPress={onClose} />
         </View>
         {confetti && <Confetti big={isFinish} onDone={() => setConfetti(false)} />}
       </View>

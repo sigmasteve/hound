@@ -3,7 +3,7 @@ import { Image, View } from 'react-native';
 import Svg, { Circle, G, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '../theme/ThemeContext';
 import { font as fonts, withAlpha } from '../theme/tokens';
-import { pathTo, pointAt, type Course, type LatLng } from './courses';
+import { pathTo, pointAt, type Course, type CourseStop, type LatLng } from './courses';
 import { COURSE_MAPS } from './courseMaps';
 
 export interface MapPerson {
@@ -34,6 +34,7 @@ export function JourneyMap({
   labels = 'few',
   compact = false,
   focus,
+  onStopPress,
 }: {
   course: Course;
   width: number;
@@ -48,6 +49,8 @@ export function JourneyMap({
   // Show this many miles across, centred on a point, instead of the
   // whole course (a stop's postcard).
   focus?: { at: LatLng; miles: number };
+  // A tap on a stop's dot (its postcard). Not on a thumbnail.
+  onStopPress?: (stop: CourseStop) => void;
 }) {
   const { colors } = useTheme();
   const w = width;
@@ -164,8 +167,15 @@ export function JourneyMap({
       {stopsToDraw.map((s) => {
         const [x, y] = project(pointAt(course, s.mi));
         const passed = s.mi <= done && done > 0;
+        const tappable = !!onStopPress && !compact;
         return (
-          <Circle key={`s${s.mi}`} cx={x} cy={y} r={dot} fill={passed ? colors.gold : colors.bg} stroke={colors.gold} strokeWidth={Math.max(1, w / 320)} />
+          <G key={`s${s.mi}`}>
+            <Circle cx={x} cy={y} r={dot} fill={passed ? colors.gold : colors.bg} stroke={colors.gold} strokeWidth={Math.max(1, w / 320)} />
+            {tappable && (
+              // A finger-sized target around the dot.
+              <Circle cx={x} cy={y} r={Math.max(dot * 2.5, 16)} fill="transparent" onPress={() => onStopPress(s)} />
+            )}
+          </G>
         );
       })}
       {stopsToLabel.map((s) => {

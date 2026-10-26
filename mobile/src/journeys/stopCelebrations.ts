@@ -24,3 +24,20 @@ export async function pendingStopMoment(journey: MyJourney, course: Course): Pro
 export async function markStopMomentShown(journeyId: string, stop: CourseStop): Promise<void> {
   await AsyncStorage.setItem(KEY(journeyId), String(stop.mi)).catch(() => {});
 }
+
+// The same for a challenge on a course (a miles pool or a Journey
+// challenge): the latest stop its miles have reached that hasn't had
+// its card on this phone. `finished` lets the finish count.
+const CHALLENGE_KEY = (challengeId: string) => `challenge:celebrated:${challengeId}`;
+
+export async function pendingChallengeStop(challengeId: string, course: Course, miles: number, finished: boolean): Promise<CourseStop | null> {
+  const shown = Number((await AsyncStorage.getItem(CHALLENGE_KEY(challengeId)).catch(() => null)) ?? '0');
+  const along = finished ? course.miles : Math.min(miles, course.miles);
+  const reached = course.stops.filter((s) => s.mi > 0 && s.mi <= along && s.mi > shown);
+  const eligible = reached.filter((s) => s.mi < course.miles || finished);
+  return eligible[eligible.length - 1] ?? null;
+}
+
+export async function markChallengeStopShown(challengeId: string, stop: CourseStop): Promise<void> {
+  await AsyncStorage.setItem(CHALLENGE_KEY(challengeId), String(stop.mi)).catch(() => {});
+}
