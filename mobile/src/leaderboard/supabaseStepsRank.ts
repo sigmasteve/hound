@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { localDayKey } from '../goals/goals';
 
 // Global (not challenge-scoped) steps leaderboard — see
 // 0027_daily_step_totals.sql for the table/RLS/rank functions this wraps.
@@ -17,24 +18,32 @@ export interface StepRank {
 }
 
 // Upserts today's total from the same HealthSnapshot.stepsToday every
-// other screen already shows — keyed by the UTC calendar day (see the
-// migration's own comment on why that, not each user's local day like
-// progress_snapshots uses). Safe to call on every Home load: it's an
-// upsert, same "re-running this is deliberate and harmless" reasoning
-// ChallengeDetailScreen's syncFromDevice already relies on.
+// other screen already shows — keyed by the phone's own calendar day,
+// like progress_snapshots (0129_step_rank_local_day.sql; it was the UTC
+// day before, which turned over at 7 or 8pm in the US and sent evening
+// steps to tomorrow). Safe to call on every Home load: it's an upsert.
 export async function recordDailyStepTotal(userId: string, steps: number): Promise<void> {
   const client = requireClient();
-  const day = new Date().toISOString().slice(0, 10);
+  const day = localDayKey(new Date());
   const { error } = await client
     .from('daily_step_totals')
     .upsert({ user_id: userId, day, steps }, { onConflict: 'user_id,day' });
   if (error) throw new Error(error.message);
 }
 
-async function callRank(fn: 'my_daily_step_rank' | 'my_weekly_step_rank'): Promise<StepRank | null> {
+// The rank functions take the phone's date (0129); before that has run
+// they take no arguments, so a failure is retried without one.
+async function rpcForDay(fn: string): Promise<unknown> {
   const client = requireClient();
+  const withDay = await client.rpc(fn, { p_day: localDayKey(new Date()) });
+  if (!withDay.error) return withDay.data;
   const { data, error } = await client.rpc(fn);
   if (error) throw new Error(error.message);
+  return data;
+}
+
+async function callRank(fn: 'my_daily_step_rank' | 'my_weekly_step_rank'): Promise<StepRank | null> {
+  const data = await rpcForDay(fn);
   // No row back means the caller has no daily_step_totals entry in that
   // window yet — nothing to show, not a failure.
   const row = (data as { rank: number; total_users: number }[] | null)?.[0];
@@ -52,9 +61,10 @@ export interface StepRankChange extends StepRank {
 }
 
 export async function getMyDailyStepRankChange(): Promise<StepRankChange | null> {
-  const client = requireClient();
-  const { data, error } = await client.rpc('my_daily_step_rank_change');
-  if (error) {
+  let data: unknown;
+  try {
+    data = await rpcForDay('my_daily_step_rank_change');
+  } catch {
     const today = await getMyDailyStepRank();
     return today ? { ...today, yesterdayRank: null } : null;
   }
