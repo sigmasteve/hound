@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { BingoCardType, ChallengeKind, DistanceGoalUnit } from './types';
+import type { BingoCardType, ChallengeKind, DistanceGoalUnit, DistanceSource } from './types';
 
 // Global Hound Challenges — see 0075_global_challenges.sql. An admin
 // publishes one to everyone; anyone signed in joins it from Today until
@@ -36,6 +36,8 @@ export interface GlobalTemplate {
   distanceGoalUnit?: DistanceGoalUnit;
   distanceGoalMi?: number;
   distanceGoalSteps?: number;
+  // A miles pool: what counts (Challenge.distanceSource).
+  distanceSource?: DistanceSource;
   bingoCardType?: BingoCardType;
   // A Journey's course (src/journeys/courses.ts).
   courseId?: string;
@@ -122,10 +124,11 @@ export const GLOBAL_TEMPLATES: GlobalTemplate[] = [
     name: 'Hike the Appalachian Trail',
     kind: 'distance',
     durationDays: 30,
-    blurb: 'Everyone’s miles add up to the 2,190-mile trail from Georgia to Maine.',
+    blurb: 'Every mile anyone walks adds up to the 2,190-mile trail from Georgia to Maine.',
     joinWindow: 'end',
     distanceGoalUnit: 'miles',
     distanceGoalMi: 2_190,
+    distanceSource: 'all',
   },
   {
     id: 'route-66',
@@ -258,6 +261,8 @@ export interface GlobalChallenge {
   bingoCardType: BingoCardType | null;
   // A Journey's course; null for every other kind (and before 0122).
   courseId: string | null;
+  // A miles pool: what counts; null for workouts (and before 0130).
+  distanceSource: DistanceSource | null;
   participantCount: number;
   // Bones for 1st, 2nd and 3rd (0107_challenge_pot.sql), or null for none.
   prizes: [number, number, number] | null;
@@ -320,6 +325,7 @@ function rowToGlobal(r: any): GlobalChallenge {
     distanceGoalSteps: r.distance_goal_steps,
     bingoCardType: r.bingo_card_type,
     courseId: r.course_id ?? null,
+    distanceSource: r.distance_source ?? null,
     participantCount: r.participant_count ?? 0,
     prizes: null,
     sponsor: null,
@@ -447,6 +453,7 @@ export interface PublishGlobalInput {
   distanceGoalSteps?: number;
   bingoCardType?: BingoCardType;
   courseId?: string;
+  distanceSource?: DistanceSource;
 }
 
 export async function publishGlobalChallenge(input: PublishGlobalInput): Promise<string> {
@@ -462,6 +469,7 @@ export async function publishGlobalChallenge(input: PublishGlobalInput): Promise
     p_distance_goal_steps: input.distanceGoalSteps ?? null,
     p_bingo_card_type: input.bingoCardType ?? null,
     p_course_id: input.courseId ?? null,
+    p_distance_source: input.distanceSource ?? null,
   });
   if (error) throw new Error(error.message);
   return data as string;

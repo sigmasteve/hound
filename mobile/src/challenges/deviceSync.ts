@@ -88,7 +88,9 @@ export async function syncChallengeProgressFromDevice(challenge: Challenge, heal
     const todayKey = dateKey(new Date());
     if (todayKey < startDayKey) return;
 
-    if (usesWorkoutDistance(challenge)) {
+    // A miles pool that counts every mile (distanceSource 'all') takes
+    // the phone's daily distance below, with the steps kinds.
+    if (usesWorkoutDistance(challenge) && challenge.distanceSource !== 'all') {
       // Enough of a lookback to plausibly cover the whole challenge —
       // getRecentWorkouts() takes a count, not a date range, so this
       // over-fetches slightly and filters client-side instead.
