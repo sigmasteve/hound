@@ -50,7 +50,9 @@ import {
   withHuntCatches,
 } from '../challenges/board';
 import { JourneyMap, type MapPerson } from '../journeys/JourneyMap';
-import { courseById, formatMiles, nextStop } from '../journeys/courses';
+import { courseById, formatMiles, nextStop, type CourseStop } from '../journeys/courses';
+import { StopReachedModal } from '../journeys/StopReachedModal';
+import { markChallengeStopShown, pendingChallengeStop } from '../journeys/stopCelebrations';
 import { journeyStanding, type JourneyStanding } from '../journeys/journeyApi';
 import { daysElapsedFraction } from '../challenges/botSimulation';
 
@@ -343,6 +345,13 @@ export function ChallengeDetailScreen({
   // Tic-Tac-Go's board — null for any other kind, or a game whose board
   // was never set up.
   const [tttGame, setTttGame] = useState<TicTacGoGame | null>(null);
+
+  // A stop's postcard on a course challenge: the group (or you, on a
+  // Journey challenge) just reached it, or a look at one by tapping its
+  // dot. `along` is the miles that count against it.
+  const [stopCard, setStopCard] = useState<{ stop: CourseStop; along: number; reached: boolean; celebrate: boolean; group: boolean } | null>(
+    null,
+  );
 
   // Which square (if any) is currently showing its "pick a workout to
   // link" panel — see the effect below and the "Your bingo card" render.
@@ -687,6 +696,26 @@ export function ChallengeDetailScreen({
   useEffect(() => {
     load();
   }, [load]);
+
+  // A miles pool on a course: the first open after the group's miles
+  // pass a stop gets its postcard, once per stop on this phone.
+  useEffect(() => {
+    if (!challenge || challenge.kind !== 'distance' || challenge.distanceGoalUnit === 'steps' || !challenge.courseId) return;
+    const course = courseById(challenge.courseId);
+    if (!course || stopCard) return;
+    const total = leaderboard.reduce((sum, e) => sum + e.totalDistanceMi, 0);
+    const along = Math.min(total, course.miles);
+    let cancelled = false;
+    pendingChallengeStop(challenge.id, course, along, total >= course.miles).then(async (stop) => {
+      if (!stop || cancelled) return;
+      await markChallengeStopShown(challenge.id, stop);
+      if (!cancelled) setStopCard({ stop, along, reached: true, celebrate: true, group: true });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challenge?.id, challenge?.courseId, leaderboard]);
 
   // Notices "I've just been caught" and persists it — see
   // ChallengesProvider.markCaught and withHuntCatches for why this is the
@@ -1654,6 +1683,9 @@ export function ChallengeDetailScreen({
                         miles={mine ? myMiles : null}
                         people={people}
                         labels="few"
+                        onStopPress={(stop) =>
+                          setStopCard({ stop, along: myMiles, reached: stop.mi > 0 && stop.mi <= myMiles, celebrate: false, group: false })
+                        }
                       />
                     )}
                   </View>
@@ -1713,9 +1745,19 @@ export function ChallengeDetailScreen({
                     <>
                       <View onLayout={(e) => setJourneyMapWidth(Math.round(e.nativeEvent.layout.width))}>
                         {journeyMapWidth > 0 && (
-                          <JourneyMap course={course} width={journeyMapWidth} height={Math.round(journeyMapWidth * 0.9)} miles={along} labels="few" />
+                          <JourneyMap
+                            course={course}
+                            width={journeyMapWidth}
+                            height={Math.round(journeyMapWidth * 0.9)}
+                            miles={along}
+                            labels="few"
+                            onStopPress={(stop) =>
+                              setStopCard({ stop, along, reached: stop.mi > 0 && stop.mi <= along, celebrate: false, group: true })
+                            }
+                          />
                         )}
                       </View>
+                      <Text style={styles.footNote}>Tap a stop for its postcard.</Text>
                       <Text style={styles.footNote}>
                         {along >= course.miles
                           ? `The group has walked the whole ${course.name}.`
@@ -2649,6 +2691,38 @@ export function ChallengeDetailScreen({
               )}
             </Card>
           )}
+
+          {stopCard &&
+            (() => {
+              const course = courseById(challenge.courseId ?? '');
+              if (!course) return null;
+              const { stop, along, reached, celebrate, group } = stopCard;
+              const isFinish = stop.mi >= course.miles;
+              const ahead = formatMiles(Math.max(0, stop.mi - along));
+              return (
+                <StopReachedModal
+                  course={course}
+                  stop={stop}
+                  celebrate={celebrate}
+                  friendsHere={reached && !group ? board.filter((r) => r.userId !== user?.id && r.totalDistanceMi >= stop.mi).map((r) => r.name) : []}
+                  cheerFor={group ? 'TEAM' : user?.initials}
+                  eyebrow={stop.mi === 0 ? undefined : reached ? (group ? (isFinish ? 'WE FINISHED 🏅' : 'WE REACHED') : undefined) : 'UP AHEAD'}
+                  line={
+                    stop.mi === 0
+                      ? null
+                      : reached
+                        ? group
+                          ? `The group's ${formatMiles(along)} miles got here together.`
+                          : undefined
+                        : group
+                          ? `${ahead} mi ahead of the group.`
+                          : `${ahead} mi ahead of you.`
+                  }
+                  buttonLabel={reached ? undefined : 'Back to the map'}
+                  onClose={() => setStopCard(null)}
+                />
+              );
+            })()}
 
           {challenge.createdBy === user?.id && !finished && started && challengeDayNumber(challenge) < challenge.durationDays && (
             <Pressable onPress={confirmEndEarly} disabled={ending} style={styles.deleteRow}>
