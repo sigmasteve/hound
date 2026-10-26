@@ -10,7 +10,8 @@ import { ProgressBar } from '../components/ProgressBar';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
-import { JourneyMap, type MapPerson } from '../journeys/JourneyMap';
+import type { MapPerson } from '../journeys/JourneyMap';
+import { ZoomableJourneyMap } from '../journeys/ZoomableJourneyMap';
 import { courseById, formatMiles, nextStop, type CourseStop } from '../journeys/courses';
 import { StopReachedModal } from '../journeys/StopReachedModal';
 import {
@@ -125,7 +126,15 @@ export function JourneyScreen({ onBack, onPick }: { onBack: () => void; onPick: 
           <Text style={styles.title}>{course.name}</Text>
         </View>
 
-        <JourneyMap course={course} width={mapWidth} height={Math.round(mapWidth * 0.75)} miles={miles} people={people} labels="few" />
+        <ZoomableJourneyMap
+          course={course}
+          width={mapWidth}
+          height={Math.round(mapWidth * 0.75)}
+          miles={miles}
+          people={people}
+          labels="few"
+          onStopPress={(s) => setReplay(s)}
+        />
 
         <Card style={{ gap: 8 }} elevated={false}>
           <View style={styles.milesRow}>

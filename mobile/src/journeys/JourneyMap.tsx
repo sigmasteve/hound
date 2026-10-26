@@ -170,7 +170,7 @@ export function JourneyMap({
         const tappable = !!onStopPress && !compact;
         return (
           <G key={`s${s.mi}`}>
-            <Circle cx={x} cy={y} r={dot} fill={passed ? colors.gold : colors.bg} stroke={colors.gold} strokeWidth={Math.max(1, w / 320)} />
+            <Circle cx={x} cy={y} r={dot} fill={passed ? colors.gold : basemap ? '#ffffff' : colors.bg} stroke={colors.gold} strokeWidth={Math.max(1, w / 320)} />
             {tappable && (
               // A finger-sized target around the dot.
               <Circle cx={x} cy={y} r={Math.max(dot * 2.5, 16)} fill="transparent" onPress={() => onStopPress(s)} />
