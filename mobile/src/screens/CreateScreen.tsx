@@ -184,6 +184,8 @@ export function CreateScreen({
   // Journey only: the course everyone walks (src/journeys/courses.ts).
   const [courseId, setCourseId] = useState<string>(rematch?.courseId ?? 'windy-city');
   const course = courseById(courseId) ?? COURSES[0];
+  // A miles pool: the course map to show the group's miles along, if any.
+  const [poolCourseId, setPoolCourseId] = useState<string | null>(rematch?.kind === 'distance' ? (rematch.courseId ?? null) : null);
   const [length, setLength] = useState(rematch ? String(rematch.durationDays) : '7');
   // Accountability only: the shared list as drafted (src/challenges/
   // checklist.ts), the steps item's daily count, and the admin cap.
@@ -429,7 +431,8 @@ export function CreateScreen({
     if (t.distanceGoalMi) setDistanceGoalMi(t.distanceGoalMi);
     if (t.distanceGoalSteps) setDistanceGoalSteps(t.distanceGoalSteps);
     setDistanceSource(t.distanceSource ?? 'workouts');
-    if (t.courseId) setCourseId(t.courseId);
+    if (t.courseId && t.kind === 'journey') setCourseId(t.courseId);
+    setPoolCourseId(t.kind === 'distance' ? (t.courseId ?? null) : null);
     setNameError(null);
     setStep(2);
   };
@@ -524,7 +527,7 @@ export function CreateScreen({
           distanceGoalMi: isDistance && distanceGoalUnit === 'miles' ? distanceGoalMi : isJourney ? course.miles : undefined,
           distanceGoalSteps: isDistance && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
           bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
-          courseId: isJourney ? course.id : undefined,
+          courseId: isJourney ? course.id : isDistance && distanceGoalUnit === 'miles' ? (poolCourseId ?? undefined) : undefined,
           distanceSource: isDistance && distanceGoalUnit === 'miles' ? distanceSource : undefined,
         });
         if (draftType === 'checklist') {
@@ -609,7 +612,8 @@ export function CreateScreen({
             : draftType === 'journey'
               ? course.miles
               : undefined,
-        courseId: draftType === 'journey' ? course.id : undefined,
+        courseId:
+          draftType === 'journey' ? course.id : draftType === 'distance' && distanceGoalUnit === 'miles' ? (poolCourseId ?? undefined) : undefined,
         distanceGoalSteps:
           (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
         dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
@@ -945,6 +949,31 @@ export function CreateScreen({
                 />
               )}
               {draftType === 'distance' && distanceGoalUnit === 'miles' && (
+                <View style={{ gap: 8 }}>
+                  <Text style={styles.fieldLabel}>Show the miles on a map</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    <RadioPill label="No map" selected={poolCourseId === null} onPress={() => setPoolCourseId(null)} />
+                    {COURSES.map((c) => (
+                      <RadioPill
+                        key={c.id}
+                        label={c.name}
+                        selected={poolCourseId === c.id}
+                        onPress={() => {
+                          setPoolCourseId(c.id);
+                          // The course's length is the natural target.
+                          setDistanceGoalMi(Math.max(1, Math.round(c.miles)));
+                        }}
+                      />
+                    ))}
+                  </View>
+                  {poolCourseId && (
+                    <Text style={styles.footNote}>
+                      The group&rsquo;s miles move along the {courseById(poolCourseId)?.name ?? 'course'} together, from the first mile.
+                    </Text>
+                  )}
+                </View>
+              )}
+              {draftType === 'distance' && distanceGoalUnit === 'miles' && (
                 <View style={{ gap: 5 }}>
                   <Text style={styles.fieldLabel}>What counts</Text>
                   <SegmentedControl
@@ -1243,6 +1272,8 @@ export function CreateScreen({
                 ]);
               if (draftType === 'distance' && distanceGoalUnit === 'miles')
                 rows.push(['Counts', distanceSource === 'all' ? 'Every mile' : 'Logged workouts']);
+              if (draftType === 'distance' && distanceGoalUnit === 'miles' && poolCourseId)
+                rows.push(['Map', courseById(poolCourseId)?.name ?? poolCourseId]);
               if (draftType === 'bingo') rows.push(['Card', bingoCardLabel(Number(length))]);
               if (draftType === 'journey') rows.push(['Course', `${course.name} · ${formatMiles(course.miles)} mi`]);
               if (draftType === 'checklist') rows.push(['List', `${checklistItems.length} item${checklistItems.length === 1 ? '' : 's'} a day`]);

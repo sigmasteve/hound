@@ -81,9 +81,10 @@ export interface Challenge {
   // Null means 'variety', the only type that existed before the picker
   // did.
   bingoCardType: BingoCardType | null;
-  // Only meaningful for kind 'journey': the course everyone walks
-  // (src/journeys/courses.ts), with distanceGoalMi holding its length
-  // and distanceGoalUnit 'miles' — see 0122_journey_challenges.sql.
+  // Kind 'journey': the course everyone walks (src/journeys/courses.ts),
+  // with distanceGoalMi holding its length and distanceGoalUnit 'miles'
+  // — see 0122_journey_challenges.sql. A miles Distance pool: the course
+  // map the group's combined miles are shown along (0131).
   courseId: string | null;
   // Null (every challenge today) means a global/individual challenge,
   // open to any friend regardless of org — see
