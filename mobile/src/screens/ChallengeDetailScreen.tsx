@@ -7,6 +7,7 @@ import {
   ArrowsClockwiseIcon,
   CaretRightIcon,
   CheckCircleIcon,
+  FlagCheckeredIcon,
   GlobeHemisphereWestIcon,
   InfoIcon,
   MagnifyingGlassIcon,
@@ -36,7 +37,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIcons';
-import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
+import { endChallengeEarly, supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import {
   buildBoard,
   headStartDaysLeft as computeHeadStartDaysLeft,
@@ -798,6 +799,35 @@ export function ChallengeDetailScreen({
       await load();
       setSelectingTargetId(null);
     }
+  };
+
+  // Make today the last day (end_challenge_early, 0127) — the creator's
+  // way to wrap up a challenge that's run its course early.
+  const [ending, setEnding] = useState(false);
+  const confirmEndEarly = () => {
+    if (!challenge) return;
+    Alert.alert(
+      'End this challenge today?',
+      `Today becomes the last day of "${challenge.name}" for everyone. Results are final after tomorrow's grace period. This can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End today',
+          style: 'destructive',
+          onPress: async () => {
+            setEnding(true);
+            try {
+              await endChallengeEarly(challengeId);
+              await load();
+            } catch (e) {
+              Alert.alert('Could not end it', e instanceof Error ? e.message : 'Try again.');
+            } finally {
+              setEnding(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const confirmDelete = () => {
@@ -2593,6 +2623,12 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
+          {challenge.createdBy === user?.id && !finished && started && challengeDayNumber(challenge) < challenge.durationDays && (
+            <Pressable onPress={confirmEndEarly} disabled={ending} style={styles.deleteRow}>
+              <FlagCheckeredIcon size={14} color={colors.amber} />
+              <Text style={styles.deleteLabel}>{ending ? 'Ending…' : 'End early — today is the last day'}</Text>
+            </Pressable>
+          )}
           {challenge.createdBy === user?.id && (
             <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteRow}>
               <TrashIcon size={14} color={colors.amber} />

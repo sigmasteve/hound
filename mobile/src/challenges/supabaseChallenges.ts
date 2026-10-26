@@ -636,6 +636,16 @@ export async function hasLoggedProgressToday(challengeId: string, userId: string
   return !!data;
 }
 
+// Make today a running challenge's last day (end_challenge_early,
+// 0127). The creator, or an admin for a global challenge. Today still
+// counts; results settle after the usual grace period. The server
+// checks the phone's date against its own.
+export async function endChallengeEarly(challengeId: string): Promise<void> {
+  const client = requireClient();
+  const { error } = await client.rpc('end_challenge_early', { p_challenge_id: challengeId, p_today: localDateKey(new Date()) });
+  if (error) throw new Error(error.message);
+}
+
 // What buildBoard (board.ts) needs for one challenge.
 export interface BoardInputs {
   participants: Participant[];

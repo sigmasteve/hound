@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   ArrowLeftIcon,
   CaretRightIcon,
+  FlagCheckeredIcon,
   GlobeHemisphereWestIcon,
   HandshakeIcon,
   MagnifyingGlassIcon,
@@ -33,6 +34,7 @@ import { GoalsAdminCard } from '../components/GoalsAdminCard';
 import { EngagementAdminCard } from '../components/EngagementAdminCard';
 import { AdsAdminCard } from '../components/AdsAdminCard';
 import { ChecklistAdminCard } from '../components/ChecklistAdminCard';
+import { endChallengeEarly } from '../challenges/supabaseChallenges';
 import { PushReachCard } from '../components/PushReachCard';
 import { SignupAlertsCard } from '../components/SignupAlertsCard';
 import { FindPeopleAdminCard } from '../components/FindPeopleAdminCard';
@@ -216,6 +218,26 @@ export function AdminScreen({
       })
       .catch((e) => Alert.alert('Couldn’t save the sponsor', e instanceof Error ? e.message : 'Try again.'))
       .finally(() => setSavingSponsor(false));
+  };
+  // Make today its last day (end_challenge_early, 0127): for a Bingo
+  // that's been won many times over, or a race nobody's running.
+  const confirmEndEarly = (c: GlobalChallenge) => {
+    Alert.alert(
+      `End “${c.name}” today?`,
+      `Today becomes its last day for everyone. Results${c.prizes ? ' and prizes' : ''} are final after tomorrow’s grace period, and nobody can join after today. This can’t be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End today',
+          style: 'destructive',
+          onPress: () => {
+            endChallengeEarly(c.id)
+              .then(loadGlobal)
+              .catch((e) => setGlobalError(e instanceof Error ? e.message : 'Could not end that challenge.'));
+          },
+        },
+      ],
+    );
   };
   const confirmTakeDown = (c: GlobalChallenge) => {
     Alert.alert(
@@ -724,6 +746,16 @@ export function AdminScreen({
                                 accessibilityLabel={`Sponsor for ${c.name}`}
                               >
                                 <HandshakeIcon size={17} color={c.sponsor ? colors.accent : withAlpha(colors.text, 0.5)} />
+                              </Pressable>
+                            )}
+                            {!ended && Date.now() >= new Date(c.startsAt).getTime() && (
+                              <Pressable
+                                onPress={() => confirmEndEarly(c)}
+                                hitSlop={8}
+                                accessibilityRole="button"
+                                accessibilityLabel={`End ${c.name} today`}
+                              >
+                                <FlagCheckeredIcon size={17} color={withAlpha(colors.text, 0.5)} />
                               </Pressable>
                             )}
                             <Pressable
