@@ -141,7 +141,7 @@ import { Toast, type ToastMessage } from '../components/Toast';
 import { TicTacGoBoard } from '../components/TicTacGoCard';
 import type { Challenge, ChallengeInvite, TagRound } from '../challenges/types';
 import { useLabels } from '../labels/LabelsContext';
-import { useGoalProgress } from '../goals/useGoalProgress';
+import { useGoalProgress, useYesterdayGoalsEarned } from '../goals/useGoalProgress';
 import { useGoalStreak } from '../goals/useGoalStreak';
 import { buyStreakShield } from '../goals/goalStreakApi';
 import { updateHound } from '../goals/hound';
@@ -547,6 +547,8 @@ export function HomeScreen({
   // Progress on every goal, for the card at the top and for the Hound's
   // reminders, which are rescheduled whenever it changes.
   const goalProgress = useGoalProgress(snap, workouts);
+  // Whether yesterday's goals were met, for the catch-up claim below.
+  const yesterdayGoalsEarned = useYesterdayGoalsEarned(snap, workouts);
   useEffect(() => {
     if (goalProgress) updateHound({ progress: goalProgress });
   }, [goalProgress]);
@@ -723,7 +725,7 @@ export function HomeScreen({
           : `${bones}: every daily goal done${award.streak > 1 ? ` · ${award.streak} days in a row` : ''}`,
       Icon: FireIcon,
     });
-  });
+  }, yesterdayGoalsEarned);
 
   // "Needs you" shows three things until expanded.
   const [needsYouExpanded, setNeedsYouExpanded] = useState(false);
@@ -1238,6 +1240,7 @@ export function HomeScreen({
     houndName: kennel?.name ?? 'Your hound',
     takePopup,
     pushToast,
+    yesterdayEarned: yesterdayGoalsEarned,
   });
 
   const dig = () => {

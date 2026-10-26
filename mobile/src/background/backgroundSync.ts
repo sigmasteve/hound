@@ -13,7 +13,7 @@ import {
 } from '../challenges/deviceSync';
 import { recordDailyStepTotal } from '../leaderboard/supabaseStepsRank';
 import { getHoundSettings, listGoals } from '../goals/goalsApi';
-import { goalProgress, weekStart } from '../goals/goals';
+import { goalProgress, goalsEarnedOn, localDayKey, weekStart } from '../goals/goals';
 import { claimGoalDay, claimGoalWeek, getGoalStreak, goalsEarned } from '../goals/goalStreakApi';
 import { refreshHoundNow } from '../goals/hound';
 import { updateWidgets } from '../widgets/widgetData';
@@ -97,6 +97,18 @@ async function syncNow(): Promise<void> {
     : [];
   const inputs = { stepsToday: snap.stepsToday, distanceTodayMi: snap.distanceTodayMi, weekDays, workouts };
   const progress = goals.map((g) => goalProgress(g, inputs));
+
+  // Yesterday, finished after the last run: claim it before today, as
+  // useGoalStreak does, so the streak carries on.
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setHours(0, 0, 0, 0);
+  const yesterdayKey = localDayKey(yesterday);
+  const recentDays = await health.getDailyStepsSince(yesterday).catch(() => []);
+  if (goalsEarnedOn(goals, yesterdayKey, recentDays, workouts)) {
+    const s = await getGoalStreak().catch(() => null);
+    if (s && !s.hitToday && (s.streak === 0 || s.shieldCovering)) await claimGoalDay(yesterdayKey).catch(() => {});
+  }
 
   // The server pays each day and week once, so asking again is harmless.
   const earned = goalsEarned(progress);

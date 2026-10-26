@@ -49,11 +49,16 @@ export function useCelebrations({
   houndName,
   takePopup,
   pushToast,
+  yesterdayEarned = false,
 }: {
   userId: string | null | undefined;
   progress: GoalProgress[] | null;
   streak: GoalStreak | null;
   houndName: string;
+  // Whether the phone says yesterday's goals were met (null: not known
+  // yet). A streak at 0 then isn't a miss, it's a claim the server
+  // hasn't had yet (useGoalStreak's catch-up) — no "Oh snap" for that.
+  yesterdayEarned?: boolean | null;
   takePopup: () => boolean;
   pushToast: (t: ToastMessage) => void;
 }) {
@@ -61,8 +66,8 @@ export function useCelebrations({
   const [card, setCard] = useState<CelebrationCard | null>(null);
   // One check at a time; a check that arrives meanwhile runs after it.
   const running = useRef<Promise<void>>(Promise.resolve());
-  const latest = useRef({ progress, streak, houndName, takePopup, pushToast });
-  latest.current = { progress, streak, houndName, takePopup, pushToast };
+  const latest = useRef({ progress, streak, houndName, takePopup, pushToast, yesterdayEarned });
+  latest.current = { progress, streak, houndName, takePopup, pushToast, yesterdayEarned };
 
   const celebrateGoals = useCallback(async (uid: string) => {
     const { progress: p, streak: s, houndName: name } = latest.current;
@@ -97,8 +102,13 @@ export function useCelebrations({
   }, []);
 
   const checkMissed = useCallback(async (uid: string) => {
-    const { progress: p, streak: s, houndName: name } = latest.current;
+    const { progress: p, streak: s, houndName: name, yesterdayEarned: earnedYesterday } = latest.current;
     if (!p || !s || !p.some((g) => g.goal.period === 'day')) return;
+    // Not yet known whether yesterday was earned, or it was and the
+    // server hasn't recorded it yet: wait, without noting today's streak,
+    // so the check runs properly once the claim has landed.
+    if (earnedYesterday === null) return;
+    if (earnedYesterday && s.streak === 0 && !s.hitToday) return;
     const today = localDayKey(new Date());
     const before = await readJson<{ day: string; streak: number }>(streakKey(uid));
     writeJson(streakKey(uid), { day: today, streak: s.streak });
@@ -123,7 +133,7 @@ export function useCelebrations({
       .then(() => checkMissed(userId))
       .then(() => celebrateGoals(userId))
       .catch(() => {});
-  }, [userId, progress, streak, checkMissed, celebrateGoals]);
+  }, [userId, progress, streak, yesterdayEarned, checkMissed, celebrateGoals]);
 
   return {
     confetti,
