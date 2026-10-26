@@ -39,7 +39,8 @@ export interface GlobalTemplate {
   // A miles pool: what counts (Challenge.distanceSource).
   distanceSource?: DistanceSource;
   bingoCardType?: BingoCardType;
-  // A Journey's course (src/journeys/courses.ts).
+  // A Journey's course (src/journeys/courses.ts); on a miles pool, the
+  // course map the group's miles are shown along.
   courseId?: string;
   // Seasonal ones are listed under their own heading; the blurb says
   // when to start them (the publish screen picks the actual day).
@@ -129,6 +130,7 @@ export const GLOBAL_TEMPLATES: GlobalTemplate[] = [
     distanceGoalUnit: 'miles',
     distanceGoalMi: 2_190,
     distanceSource: 'all',
+    courseId: 'appalachian',
   },
   {
     id: 'route-66',

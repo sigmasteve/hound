@@ -1699,6 +1699,33 @@ export function ChallengeDetailScreen({
                   </View>
                 )}
               </View>
+              {challenge.kind === 'distance' &&
+                challenge.distanceGoalUnit !== 'steps' &&
+                (() => {
+                  // A pool on a course map: the group's combined miles
+                  // along it, from before the start so people can see
+                  // where they're headed.
+                  const course = courseById(challenge.courseId ?? '');
+                  if (!course) return null;
+                  const along = Math.min(groupTotal, course.miles);
+                  const next = nextStop(course, along);
+                  return (
+                    <>
+                      <View onLayout={(e) => setJourneyMapWidth(Math.round(e.nativeEvent.layout.width))}>
+                        {journeyMapWidth > 0 && (
+                          <JourneyMap course={course} width={journeyMapWidth} height={Math.round(journeyMapWidth * 0.9)} miles={along} labels="few" />
+                        )}
+                      </View>
+                      <Text style={styles.footNote}>
+                        {along >= course.miles
+                          ? `The group has walked the whole ${course.name}.`
+                          : next
+                            ? `${course.name}, ${course.place}. Next stop: ${next.name}, ${formatMiles(next.mi - along)} mi ahead.`
+                            : `${course.name}, ${course.place}.`}
+                      </Text>
+                    </>
+                  );
+                })()}
               <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
                 <Text style={styles.groupTotal}>
                   {challenge.distanceGoalUnit === 'steps' ? groupTotal.toLocaleString() : groupTotal.toFixed(1) + ' mi'}
