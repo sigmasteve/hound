@@ -1,14 +1,28 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ArrowsOutSimpleIcon, XIcon } from 'phosphor-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { JourneyMap, type MapPerson } from './JourneyMap';
+import { COURSE_MAPS } from './courseMaps';
 import type { Course, CourseStop } from './courses';
 
 const MAX_ZOOM = 4;
+
+// Height over width of the map as drawn: the picture's, or the course's
+// own spread for a drawn map (JourneyMap's projection, with its padding).
+function mapAspect(course: Course): number {
+  const picture = COURSE_MAPS[course.id];
+  if (picture) return picture.height / picture.width;
+  const lats = course.path.map((p) => p[0]);
+  const lngs = course.path.map((p) => p[1]);
+  const dLat = (Math.max(...lats) - Math.min(...lats)) * 1.16 || 0.004;
+  const dLng = (Math.max(...lngs) - Math.min(...lngs)) * 1.16 || 0.004;
+  const kx = Math.cos((((Math.max(...lats) + Math.min(...lats)) / 2) * Math.PI) / 180);
+  return dLat / (dLng * kx);
+}
 
 // A Journey map with a button to open it full screen, where it can be
 // pinched to zoom (up to 4×), dragged, and double-tapped to zoom in and
@@ -64,8 +78,17 @@ function MapZoomModal({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width: screenW, height: screenH } = useWindowDimensions();
-  const w = screenW;
-  const h = Math.round(screenH * 0.82);
+  // The modal's own safe area can read as zero on its first frame on
+  // iOS, which put the header under the status bar; the app's provider
+  // has the real insets.
+  const insets = useSafeAreaInsets();
+  const headerH = 64;
+  const availW = screenW;
+  const availH = screenH - insets.top - insets.bottom - headerH;
+  // The box is the map's own shape, as big as fits.
+  const aspect = mapAspect(course);
+  const w = Math.min(availW, Math.floor(availH / aspect));
+  const h = Math.min(availH, Math.floor(w * aspect));
 
   // Where the map is: the animated values drive the transform, the ref
   // is what the gestures build on (no Reanimated here, so the callbacks
@@ -138,8 +161,8 @@ function MapZoomModal({
   return (
     <Modal visible animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <SafeAreaView style={[styles.full, { backgroundColor: colors.bg }]} edges={['top', 'bottom']}>
-          <View style={styles.header}>
+        <View style={[styles.full, { backgroundColor: colors.bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+          <View style={[styles.header, { height: headerH }]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.headerTitle} numberOfLines={1}>
                 {course.name}
@@ -150,14 +173,16 @@ function MapZoomModal({
               <XIcon size={22} color={colors.text} />
             </Pressable>
           </View>
-          <GestureDetector gesture={gesture}>
-            <View style={{ width: w, height: h, overflow: 'hidden' }}>
-              <Animated.View style={{ width: w, height: h, transform: [{ translateX: tx }, { translateY: ty }, { scale }] }}>
-                <JourneyMap course={course} width={w} height={h} miles={miles} people={people} labels="all" onStopPress={onStopPress} />
-              </Animated.View>
-            </View>
-          </GestureDetector>
-        </SafeAreaView>
+          <View style={styles.stage}>
+            <GestureDetector gesture={gesture}>
+              <View style={{ width: w, height: h, overflow: 'hidden', borderRadius: 12 }}>
+                <Animated.View style={{ width: w, height: h, transform: [{ translateX: tx }, { translateY: ty }, { scale }] }}>
+                  <JourneyMap course={course} width={w} height={h} miles={miles} people={people} labels="all" onStopPress={onStopPress} />
+                </Animated.View>
+              </View>
+            </GestureDetector>
+          </View>
+        </View>
       </GestureHandlerRootView>
     </Modal>
   );
@@ -177,7 +202,8 @@ function makeStyles(colors: Palette) {
       justifyContent: 'center',
     },
     full: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
+    stage: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 },
     headerTitle: { fontFamily: font.headingSemibold, fontSize: 18, color: colors.text },
     headerSub: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
   });
