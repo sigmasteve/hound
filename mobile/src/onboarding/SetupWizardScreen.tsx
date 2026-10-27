@@ -186,6 +186,7 @@ type Styles = ReturnType<typeof makeStyles>;
 function StepPage({
   styles,
   icon,
+  eyebrow,
   title,
   body,
   children,
@@ -193,6 +194,8 @@ function StepPage({
 }: {
   styles: Styles;
   icon?: React.ReactNode;
+  // A small line over the title (the first step's welcome).
+  eyebrow?: string;
   title: string;
   body?: string;
   children?: React.ReactNode;
@@ -202,6 +205,7 @@ function StepPage({
     <>
       <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {icon && <View style={styles.badge}>{icon}</View>}
+        {eyebrow && <Text style={styles.eyebrow}>{eyebrow}</Text>}
         <Text style={styles.title}>{title}</Text>
         {body && <Text style={styles.body}>{body}</Text>}
         {children}
@@ -231,6 +235,7 @@ function HealthStep({ styles, onNext }: { styles: Styles; onNext: () => void }) 
     <StepPage
       styles={styles}
       icon={<HeartbeatIcon size={28} color={colors.accent} weight="fill" />}
+      eyebrow="WELCOME TO HOUND · FITNESS WITH FRIENDS"
       title={`Connect ${health.platformLabel}`}
       body="Hound counts your steps, miles and workouts from your phone, so challenges and goals update on their own. It only reads, and you can turn it off anytime."
       footer={
@@ -822,6 +827,7 @@ function makeStyles(colors: Palette) {
       justifyContent: 'center',
       backgroundColor: withAlpha(colors.accent, 0.12),
     },
+    eyebrow: { fontFamily: font.headingSemibold, fontSize: 11, letterSpacing: 1.5, color: colors.accentActive, textAlign: 'center' },
     title: { fontFamily: font.headingSemibold, fontSize: 26, letterSpacing: -0.4, color: colors.text, textAlign: 'center' },
     body: { fontSize: 15, lineHeight: 21, color: withAlpha(colors.text, 0.7), textAlign: 'center', maxWidth: 420 },
     footer: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, gap: 10 },
