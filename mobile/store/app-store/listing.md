@@ -81,7 +81,7 @@ Terms: https://houndchallenge.net/terms
 
 ### Keywords (100, comma-separated, no spaces, no repeats of the name)
 
-steps,pedometer,walking,running,fitness,friends,challenge,leaderboard,bingo,streak,goals,dog,social
+steps,pedometer,walking,running,pup,walk,challenge,leaderboard,bingo,streak,goals,dog,social
 
 ### What's New (4,000)
 
