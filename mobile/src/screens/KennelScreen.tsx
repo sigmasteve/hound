@@ -1,5 +1,16 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  TextInput,
+  View,
+} from 'react-native';
+import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon, HeartIcon, PencilSimpleIcon, PlusIcon } from 'phosphor-react-native';
@@ -268,6 +279,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
 
           {editingName !== null ? (
             <TextInput
+              maxFontSizeMultiplier={1.3}
               value={editingName}
               onChangeText={setEditingName}
               onBlur={saveName}

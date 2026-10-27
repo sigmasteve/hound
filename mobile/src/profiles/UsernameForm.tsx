@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AtIcon } from 'phosphor-react-native';
 import { TextField } from '../components/TextField';

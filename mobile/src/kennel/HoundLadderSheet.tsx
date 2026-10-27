@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import { CheckCircleIcon } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { ProgressBar } from '../components/ProgressBar';

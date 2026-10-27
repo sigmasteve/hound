@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { CaretRightIcon, CheckCircleIcon, GlobeHemisphereWestIcon, TrophyIcon, UsersThreeIcon } from 'phosphor-react-native';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { useTheme } from '../theme/ThemeContext';

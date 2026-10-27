@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Text } from './Text';
 import { useTheme } from '../theme/ThemeContext';
 import { withAlpha, type Palette } from '../theme/tokens';
 

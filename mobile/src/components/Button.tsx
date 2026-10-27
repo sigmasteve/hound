@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Keyboard, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
+import { Text } from './Text';
 import { font, radius, space, withAlpha, type Palette } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
 

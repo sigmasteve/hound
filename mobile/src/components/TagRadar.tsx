@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { Avatar } from './Avatar';
 import { font, withAlpha, type Palette } from '../theme/tokens';

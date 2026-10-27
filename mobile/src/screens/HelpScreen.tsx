@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { LONG_FORM_SCALE_CAP, Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeftIcon,
@@ -126,7 +127,7 @@ export function HelpScreen({ onBack }: { onBack: () => void }) {
                           {topic.steps.map((step, n) => (
                             <View key={n} style={styles.stepRow}>
                               <Text style={styles.stepMarker}>{topic.numbered ? `${n + 1}.` : '•'}</Text>
-                              <Text style={styles.stepText}>{step}</Text>
+                              <Text style={styles.stepText} maxFontSizeMultiplier={LONG_FORM_SCALE_CAP}>{step}</Text>
                             </View>
                           ))}
                           {topic.tip && (

@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { font } from '../theme/tokens';
 import { backgroundById, frameById, iconStyleById } from '../cosmetics/catalog';

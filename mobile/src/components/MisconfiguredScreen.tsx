@@ -1,5 +1,6 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { color, font } from '../theme/tokens';
 
 // Guards the one failure mode mockAuth.ts's own fallback doesn't cover:

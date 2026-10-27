@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { CaretDownIcon, CaretRightIcon } from 'phosphor-react-native';
 import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import { BoneIcon } from 'phosphor-react-native';
 import { Card } from '../components/Card';
 import { useTheme } from '../theme/ThemeContext';

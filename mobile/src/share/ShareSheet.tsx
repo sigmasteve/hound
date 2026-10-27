@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Text } from '../components/Text';
 import { ShareNetworkIcon } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { useTheme } from '../theme/ThemeContext';

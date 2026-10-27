@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, Share, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, Share, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
 import {

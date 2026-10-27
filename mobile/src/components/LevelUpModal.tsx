@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, Modal, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Modal, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { Avatar } from './Avatar';
 import { Button } from './Button';
 import type { TrailAvatar } from './GoalTrail';

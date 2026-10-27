@@ -1,5 +1,6 @@
 import React, { useMemo, useRef } from 'react';
-import { Linking, Modal, StyleSheet, Text, View } from 'react-native';
+import { Linking, Modal, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { XIcon } from 'phosphor-react-native';
