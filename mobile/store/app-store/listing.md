@@ -1,4 +1,4 @@
-# App Store listing: Hound: Fitness, Friends & Pup
+# App Store listing: Hound: Fitness with Friends
 
 The text for App Store Connect, kept here so it is versioned and can be
 pushed with `asc.py` (needs the App Store Connect API key in the
@@ -7,7 +7,7 @@ are Apple's limits; `asc.py --check` verifies them.
 
 ## App information (whole app)
 
-- **Name** (30): `Hound: Fitness, Friends & Pup`
+- **Name** (30): `Hound: Fitness with Friends`
 - **Subtitle** (30): `Step races, games & trash talk`
 - **Primary category:** Health & Fitness · **Secondary:** Social Networking
 - **Privacy policy URL:** https://houndchallenge.net/privacy
