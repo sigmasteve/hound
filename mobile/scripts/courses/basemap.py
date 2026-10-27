@@ -40,12 +40,16 @@ UA = 'Hound journeys basemap build/1.0 (https://github.com/sigmasteve/hound)'
 ATTRIBUTION = '© OpenStreetMap contributors'
 # The same padding JourneyMap gives a course without a picture.
 PAD = 0.08
+# Longest side over shortest, at most.
+MAX_RATIO = 2.5
 # Longest side of a picture, in pixels. A city course is shown shrunk a
 # lot on a phone, so one zoom lower (fewer, bolder streets and labels)
 # reads better than the default.
 DEFAULT_SIZE = 1400
 TARGET_SIZE = {
     'windy-city': 1000,
+    'five-boroughs': 1000,
+    'thames': 1000,
 }
 
 
@@ -91,6 +95,18 @@ def build(course: str, path: list[list[float]], cache: Path, size: int) -> dict:
     max_lng += pad_lng
     x0, y1 = merc(min_lat, min_lng)
     x1, y0 = merc(max_lat, max_lng)
+    # A course that's a long thin line (a bridge, a river, a road across
+    # the country) gets more of its surroundings on the short side, so
+    # the picture isn't a sliver in the app's box.
+    w_span, h_span = x1 - x0, y1 - y0
+    if h_span > w_span * MAX_RATIO:
+        extra = (h_span / MAX_RATIO - w_span) / 2
+        x0 -= extra
+        x1 += extra
+    elif w_span > h_span * MAX_RATIO:
+        extra = (w_span / MAX_RATIO - h_span) / 2
+        y0 -= extra
+        y1 += extra
     # The zoom whose tiles give at least `size` pixels on the longer side.
     span = max(x1 - x0, y1 - y0)
     z = min(18, max(1, math.ceil(math.log2(size / (span * 256)))))
