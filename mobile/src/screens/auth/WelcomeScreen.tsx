@@ -47,6 +47,7 @@ export function WelcomeScreen({
           <PawPrintIcon size={30} color={colors.accent} weight="fill" />
         </View>
         <Text style={[text.h2, styles.title]}>Hound</Text>
+        <Text style={styles.subtitle}>Fitness with Friends</Text>
         <Text style={styles.tagline}>Turn your step count into a friendly chase.</Text>
       </View>
 
@@ -149,6 +150,8 @@ function makeStyles(colors: Palette) {
       marginBottom: 4,
     },
     title: { fontSize: 30 },
+    // The App Store name's second half, under the wordmark.
+    subtitle: { fontFamily: font.headingSemibold, fontSize: 16, color: colors.accentActive, textAlign: 'center', marginTop: -4 },
     tagline: { fontSize: 14.5, color: withAlpha(colors.text, 0.6), textAlign: 'center' },
     providers: { gap: 10 },
     dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
