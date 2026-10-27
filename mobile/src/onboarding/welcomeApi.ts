@@ -60,9 +60,11 @@ export function extraGoalsFor(uses: HoundUse[]): GoalDraft[] {
 
 // The kind of challenge to suggest starting, from what they picked first
 // in this order.
+// Never a Chase: it needs someone to chase or be chased by, and a new
+// account has no friends yet. A Step Race runs with bots until friends
+// arrive, so "with friends" points there.
 export function suggestedKind(uses: HoundUse[]): ChallengeKind {
-  if (uses.includes('friends')) return 'hunt';
-  if (uses.includes('steps')) return 'steps';
+  if (uses.includes('friends') || uses.includes('steps')) return 'steps';
   if (uses.includes('strength') || uses.includes('workouts')) return 'bingo';
   if (uses.includes('cardio')) return 'distance';
   if (uses.includes('habits')) return 'streak';
