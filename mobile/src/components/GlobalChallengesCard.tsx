@@ -88,7 +88,12 @@ export function GlobalChallengesCard({
   );
 
   return (
-    <View style={{ gap: 8 }}>
+    <View style={styles.card}>
+      <View style={styles.header}>
+        <GlobeHemisphereWestIcon size={14} color={colors.accentActive} />
+        <Text style={styles.title}>{challenges.length === 1 ? 'GLOBAL HOUND CHALLENGE' : 'GLOBAL HOUND CHALLENGES'}</Text>
+        <Text style={styles.titleNote}>Everyone on Hound can join</Text>
+      </View>
       {started.map((c) => (
         <Pressable
           key={c.id}
@@ -97,7 +102,6 @@ export function GlobalChallengesCard({
           accessibilityRole="button"
           accessibilityLabel={`Open ${c.name}${c.joined ? ', joined' : ''}`}
         >
-          <GlobeHemisphereWestIcon size={16} color={colors.accentActive} />
           <Text style={styles.lineText} numberOfLines={1}>
             <Text style={styles.lineName}>{c.name}</Text> · {globalTimingLine(c, now)}
           </Text>
@@ -114,7 +118,7 @@ export function GlobalChallengesCard({
           )}
         </Pressable>
       ))}
-      {upcoming.length > 0 && renderCard(upcoming)}
+      {upcoming.length > 0 && renderRows(upcoming)}
       {(folded > 0 || hiddenCount > 0) && (
         <View style={styles.moreRow}>
           {folded > 0 && (
@@ -137,14 +141,9 @@ export function GlobalChallengesCard({
     </View>
   );
 
-  function renderCard(list: GlobalChallenge[]) {
+  function renderRows(list: GlobalChallenge[]) {
     return (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <GlobeHemisphereWestIcon size={14} color={colors.accentActive} />
-        <Text style={styles.title}>{list.length === 1 ? 'GLOBAL HOUND CHALLENGE' : 'GLOBAL HOUND CHALLENGES'}</Text>
-      </View>
-
+    <View style={{ gap: 8 }}>
       {list.map((c, i) => {
         const typeName = CHALLENGE_TYPES.find((t) => t.id === c.kind)?.name ?? 'Challenge';
         const joinable = canJoin(c);
@@ -217,6 +216,7 @@ function makeStyles(colors: Palette) {
     },
     header: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     title: { fontSize: 11, letterSpacing: 0.8, fontFamily: font.heading, color: colors.accentActive },
+    titleNote: { flex: 1, textAlign: 'right', fontSize: 11, color: withAlpha(colors.text, 0.5) },
     row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     rowDivider: {
       paddingTop: 8,
@@ -243,9 +243,9 @@ function makeStyles(colors: Palette) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 8,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-      borderRadius: 12,
+      paddingVertical: 9,
+      paddingHorizontal: 12,
+      borderRadius: 10,
       backgroundColor: colors.surface,
     },
     lineText: { flex: 1, fontSize: 13.5, color: withAlpha(colors.text, 0.7) },
