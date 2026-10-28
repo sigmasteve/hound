@@ -152,8 +152,9 @@ export function GoalsCard({
       </View>
 
       {/* One row: the streak, and your shields on the right (tap to get
-          one while you hold fewer than SHIELD_MAX). */}
-      {streakLine && streak && (
+          one while you hold fewer than SHIELD_MAX). It's about today, so
+          it goes while a past day is up. */}
+      {!past && streakLine && streak && (
         <View style={styles.streak}>
           <FireIcon size={18} color={streak.streak > 0 ? colors.amber : withAlpha(colors.text, 0.4)} weight="fill" />
           <Text style={styles.streakLine} numberOfLines={1}>
