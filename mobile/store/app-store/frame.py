@@ -7,6 +7,11 @@
 Each output is Apple's exact size (iPhone 6.9": 1320x2868, iPad 13":
 2064x2752): the caption in Hound's purple on a soft background at the top,
 the screenshot below it with rounded corners, scaled to fit. Needs Pillow.
+
+The same iPhone raws also come out as Google Play phone screenshots
+(play-N.png, 1080x2160: Play wants the long side at most twice the
+short one, which Apple's 6.9" size isn't). The Play kit is in
+../google-play/listing.md.
 """
 from __future__ import annotations
 
@@ -19,7 +24,7 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = Path(__file__).resolve().parent
 RAW = HERE / 'screenshots' / 'raw'
 OUT = HERE / 'screenshots' / 'out'
-SIZES = {'iphone': (1320, 2868), 'ipad': (2064, 2752)}
+SIZES = {'iphone': (1320, 2868), 'ipad': (2064, 2752), 'play': (1080, 2160)}
 BG = (245, 243, 255)
 ACCENT = (145, 132, 217)
 TEXT = (28, 27, 46)
@@ -93,7 +98,7 @@ def main() -> None:
     for i, cap in enumerate(caps, 1):
         if args.only and args.only != i:
             continue
-        for device, name in (('iphone', f'{i}.png'), ('ipad', f'ipad-{i}.png')):
+        for device, name in (('iphone', f'{i}.png'), ('ipad', f'ipad-{i}.png'), ('play', f'{i}.png')):
             raw = RAW / name
             if raw.exists():
                 frame(raw, cap, device, OUT / f'{device}-{i}.png')
