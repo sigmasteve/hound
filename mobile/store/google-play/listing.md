@@ -155,7 +155,7 @@ Settings → Delete account) and at https://houndchallenge.net/delete-account.
 | Personal info: Name | yes | no | yes | App functionality, account management | no |
 | Personal info: Email address | yes | no | yes | App functionality, account management | no |
 | Personal info: User IDs | yes | no | yes | App functionality, account management | no |
-| Health and fitness: Fitness info (steps, distance, workouts, heart rate, weight, via Health Connect) | yes | no | no (optional) | App functionality | no |
+| Health and fitness: Fitness info (steps, distance, workouts, via Health Connect) | yes | no | no (optional) | App functionality | no |
 | Messages: Other in-app messages (trash-talk wall) | yes | no | no | App functionality | no |
 | Photos: none | | | | | |
 | Financial info: Purchase history (Bones packs) | yes | no | no | App functionality | no |
@@ -174,7 +174,10 @@ No, and none.
 
 ### Health apps (Health Connect declaration)
 
-Hound requests Health Connect read permissions. Declare each with its
+Hound requests three Health Connect read permissions (the build on the
+internal track still has heart rate and weight too; declare those for it
+as "shown on the Data tab, not used for scoring" until the next build).
+Declare each with its
 use, under *Fitness and wellness* → *Fitness coaching / social fitness*:
 
 | Permission | Why |
@@ -182,8 +185,6 @@ use, under *Fitness and wellness* → *Fitness coaching / social fitness*:
 | READ_STEPS | Daily step goals, Step Race and Daily Streak challenges, the step rank. |
 | READ_DISTANCE | Distance goals, Distance pools, Journeys along courses. |
 | READ_EXERCISE | Workout goals, Bingo squares, Chase and Tag scoring, the 75 Day and Accountability checklists. |
-| READ_HEART_RATE | Shown with a workout's details; not used for scoring. |
-| READ_WEIGHT | Shown on the Data tab; not used for scoring. |
 
 Confirm: the data is used only for the features above, never for
 advertising, never sold, never shared with third parties; the privacy

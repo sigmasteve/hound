@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
-import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { CaretRightIcon, SunIcon, TrophyIcon } from 'phosphor-react-native';
 import { Card } from '../components/Card';
 import { SegmentedControl } from '../components/SegmentedControl';
@@ -16,7 +16,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import type { DailySteps, DailyStepsWithDate, WorkoutSample } from '../health/types';
 import { computeReadiness, READINESS_COPY, type ReadinessResult } from '../health/readiness';
 
-type MetricTab = 'steps' | 'distance' | 'workouts' | 'hr' | 'weight';
+type MetricTab = 'steps' | 'distance' | 'workouts';
 
 const CHART_W = 320;
 const CHART_H = 150;
@@ -25,25 +25,6 @@ const CHART_H = 150;
 // top so the tallest bar doesn't touch the chart's edge.
 const CHART_BOTTOM_PAD = 20;
 const CHART_TOP_PAD = 10;
-
-function linePath(vals: number[], close: boolean): string {
-  if (vals.length < 2) return '';
-  const min = Math.min(...vals);
-  const max = Math.max(...vals);
-  const span = max - min || 1;
-  const pts = vals.map((v, i) => [
-    (i / (vals.length - 1)) * CHART_W,
-    CHART_H - 10 - ((v - min) / span) * (CHART_H - 20),
-  ]);
-  let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
-  for (let i = 1; i < pts.length; i++) {
-    const [px, py] = pts[i - 1];
-    const [x, y] = pts[i];
-    const cx = (px + x) / 2;
-    d += ` C ${cx.toFixed(1)} ${py.toFixed(1)}, ${cx.toFixed(1)} ${y.toFixed(1)}, ${x.toFixed(1)} ${y.toFixed(1)}`;
-  }
-  return close ? `${d} L ${CHART_W} ${CHART_H} L 0 ${CHART_H} Z` : d;
-}
 
 // Least-squares line through (0, vals[0]), (1, vals[1])... — just the
 // fitted value at the first and last day, which is all a straight trend
@@ -211,7 +192,6 @@ export function MetricsScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [tab, setTab] = useState<MetricTab>('steps');
   const [weekly, setWeekly] = useState<DailySteps[]>([]);
-  const [series, setSeries] = useState<number[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutSample[]>([]);
   const [allDayDistance, setAllDayDistance] = useState<DailyStepsWithDate[]>([]);
   const [workoutsOpen, setWorkoutsOpen] = useState(false);
@@ -232,11 +212,6 @@ export function MetricsScreen() {
       .then(setAllDayDistance)
       .catch(() => setAllDayDistance([]));
   }, [health]);
-
-  useEffect(() => {
-    if (tab === 'hr') health.getHeartRateSeries(7).then(setSeries);
-    else if (tab === 'weight') health.getWeightSeries(7).then(setSeries);
-  }, [tab, health]);
 
   const days = weekly.length || 7;
   const distanceByDay = useMemo(
@@ -272,11 +247,7 @@ export function MetricsScreen() {
       ? { value: `${(weekly.at(-1)?.steps ?? 0).toLocaleString()} steps`, sub: 'today' }
       : tab === 'distance'
         ? { value: `${(distanceByDay.at(-1) ?? 0).toFixed(1)} mi`, sub: 'today' }
-        : tab === 'workouts'
-          ? { value: formatDuration(totalWorkoutMinutes), sub: `${workoutCount} workouts · last 7 days` }
-          : tab === 'hr'
-            ? { value: series.length ? `${series.at(-1)} bpm` : '—', sub: 'resting, 7-day average' }
-            : { value: series.length ? `${series.at(-1)} lb` : '—', sub: 'latest entry' };
+        : { value: formatDuration(totalWorkoutMinutes), sub: `${workoutCount} workouts · last 7 days` };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -326,11 +297,6 @@ export function MetricsScreen() {
           { value: 'steps', label: 'Steps' },
           { value: 'distance', label: 'Distance' },
           { value: 'workouts', label: 'Workouts' },
-          // Heart rate (and Weight, hidden earlier) removed from the
-          // options a viewer can actually pick — everything that reads/
-          // renders it below (the fetch effect, headline, chart) is
-          // untouched, so either comes back by just re-adding its option
-          // here.
         ]}
       />
 
@@ -372,24 +338,13 @@ export function MetricsScreen() {
             showTrend
             formatValue={(v) => `${v.toFixed(1)} mi`}
           />
-        ) : tab === 'workouts' ? (
+        ) : (
           // A ranked list by activity, not a day-by-day chart — a second
           // 7-bars-per-week chart here would just read as another
           // Distance tab. This answers a different question (what did
           // you actually do this week, and how much of it), same shape
           // as the plain-language summary asked for: "Running — 4 hrs".
           <ActivitySummaryList activities={activitySummary} colors={colors} styles={styles} />
-        ) : (
-          <Svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
-            <Defs>
-              <LinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#968ae0" stopOpacity={0.35} />
-                <Stop offset="1" stopColor="#968ae0" stopOpacity={0} />
-              </LinearGradient>
-            </Defs>
-            <Path d={linePath(series, true)} fill="url(#fade)" />
-            <Path d={linePath(series, false)} fill="none" stroke="#b5abfc" strokeWidth={2.5} strokeLinecap="round" />
-          </Svg>
         )}
 
         {tab === 'steps' && (
