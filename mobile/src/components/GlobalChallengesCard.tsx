@@ -23,8 +23,10 @@ import { SponsorLine } from './SponsorLine';
 //
 // Four or five at once took the top of Today, so at most two show and
 // the rest fold behind "+N more". Each row has an × that hides that
-// challenge on this phone (Today is the only place to join one, so
-// "N hidden · Show" brings them back).
+// challenge on this phone; with every one hidden the box leaves Today.
+// The Challenges tab shows the same box in full (where = 'challenges'):
+// every one, nothing hidden or folded, with a line to put them back on
+// Today.
 const MAX_SHOWN = 2;
 const HIDDEN_KEY = 'globals:hidden';
 
@@ -33,11 +35,13 @@ export function GlobalChallengesCard({
   joiningId,
   onJoin,
   onOpen,
+  where = 'today',
 }: {
   challenges: GlobalChallenge[];
   joiningId: string | null;
   onJoin: (c: GlobalChallenge) => void;
   onOpen: (c: GlobalChallenge) => void;
+  where?: 'today' | 'challenges';
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -61,19 +65,22 @@ export function GlobalChallengesCard({
   const showHidden = () => saveHidden(new Set());
 
   if (hidden === null) return null;
-  const visible = challenges.filter((c) => !hidden.has(c.id));
-  const hiddenCount = challenges.length - visible.length;
-  const shown = expanded ? visible : visible.slice(0, MAX_SHOWN);
+  const onToday = where === 'today';
+  const hiddenCount = challenges.filter((c) => hidden.has(c.id)).length;
+  const visible = onToday ? challenges.filter((c) => !hidden.has(c.id)) : challenges;
+  const shown = expanded || !onToday ? visible : visible.slice(0, MAX_SHOWN);
   const folded = visible.length - shown.length;
   const started = shown.filter((c) => now >= new Date(c.startsAt).getTime());
   const upcoming = shown.filter((c) => now < new Date(c.startsAt).getTime());
-  if (visible.length === 0 && hiddenCount === 0) return null;
+  // Everything hidden: the box leaves Today (the Challenges tab has it).
+  if (visible.length === 0) return null;
 
-  const hideButton = (c: GlobalChallenge) => (
-    <Pressable onPress={() => hide(c)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Hide ${c.name} from Today`}>
-      <XIcon size={14} color={withAlpha(colors.text, 0.4)} />
-    </Pressable>
-  );
+  const hideButton = (c: GlobalChallenge) =>
+    onToday ? (
+      <Pressable onPress={() => hide(c)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Hide ${c.name} from Today`}>
+        <XIcon size={14} color={withAlpha(colors.text, 0.4)} />
+      </Pressable>
+    ) : null;
 
   const joinButton = (c: GlobalChallenge, small = false) => (
     <Pressable
@@ -132,7 +139,7 @@ export function GlobalChallengesCard({
           {hiddenCount > 0 && (
             <Pressable onPress={showHidden} hitSlop={8} accessibilityRole="button">
               <Text style={styles.moreText}>
-                {hiddenCount} hidden · Show
+                {onToday ? `${hiddenCount} hidden · Show` : `${hiddenCount} hidden on Today · Show there again`}
               </Text>
             </Pressable>
           )}
