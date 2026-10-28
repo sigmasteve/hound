@@ -12,7 +12,7 @@
       "bundleIdentifier": "app.hound.mobile",
       "supportsTablet": true,
       "infoPlist": {
-        "NSHealthShareUsageDescription": "Hound reads your steps, distance and workouts to score challenges and goals with friends.",
+        "NSHealthShareUsageDescription": "Hound reads your steps, distance, workouts, heart rate and weight to score challenges and goals with friends.",
         "NSHealthUpdateUsageDescription": "Hound does not write to Health, but iOS requires this description to be present.",
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -33,7 +33,9 @@
       "permissions": [
         "android.permission.health.READ_STEPS",
         "android.permission.health.READ_DISTANCE",
-        "android.permission.health.READ_EXERCISE"
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_WEIGHT"
       ]
     },
     "web": {

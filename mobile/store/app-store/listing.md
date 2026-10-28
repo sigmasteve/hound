@@ -95,8 +95,9 @@ challenge.
 Hound is a social fitness app. Notes for review:
 
 - **Apple Health** is read-only. The app reads steps, distance and
-  workouts to score challenges and goals. It never writes to
-  Health. Background delivery keeps challenges current while closed.
+  workouts to score challenges and goals, and heart rate and weight for
+  challenge kinds still in development (not shown in this version). It
+  never writes to Health. Background delivery keeps challenges current while closed.
 - **Bones** are the in-app currency. They are earned by playing (goal
   days, finished challenges, a daily bonus) and also sold as consumable
   packs under You → Your look → Shop. Bones only buy cosmetic items,

@@ -185,9 +185,9 @@ export function ConnectScreen({
       )}
 
       <View style={styles.notice}>
-        <Text style={styles.noticeTitle}>Read-only, three metrics</Text>
+        <Text style={styles.noticeTitle}>Read-only, five metrics</Text>
         <Text style={styles.noticeBody}>
-          Steps · Distance · Workouts. Nothing else is requested, nothing is
+          Steps · Distance · Workouts · Heart rate · Weight. Nothing else is requested, nothing is
           written back, and you can revoke it from your phone&rsquo;s settings at any time.
         </Text>
       </View>
