@@ -1,9 +1,7 @@
 import {
   authorizationStatusFor,
   AuthorizationStatus,
-  getMostRecentQuantitySample,
   isHealthDataAvailableAsync,
-  queryQuantitySamples,
   queryStatisticsCollectionForQuantity,
   queryWorkoutSamples,
   requestAuthorization,
@@ -40,9 +38,6 @@ import { pickNonOverlapping } from './dedupeWorkouts';
 const READ_TYPES = [
   'HKQuantityTypeIdentifierStepCount',
   'HKQuantityTypeIdentifierDistanceWalkingRunning',
-  'HKQuantityTypeIdentifierHeartRate',
-  'HKQuantityTypeIdentifierRestingHeartRate',
-  'HKQuantityTypeIdentifierBodyMass',
   'HKWorkoutTypeIdentifier',
 ] as const;
 
@@ -150,19 +145,12 @@ export const iosHealthProvider: HealthProvider = {
     const todayStart = startOfDay(new Date());
     const now = new Date();
 
-    const [steps, distance, restingHr, weight] = await Promise.all([
-      dailyStepTotals(todayStart, now),
-      dailyDistanceTotalsMi(todayStart, now),
-      orDefault(getMostRecentQuantitySample('HKQuantityTypeIdentifierRestingHeartRate', 'count/min'), undefined),
-      orDefault(getMostRecentQuantitySample('HKQuantityTypeIdentifierBodyMass', 'lb'), undefined),
-    ]);
+    const [steps, distance] = await Promise.all([dailyStepTotals(todayStart, now), dailyDistanceTotalsMi(todayStart, now)]);
     const todayKey = dateKey(todayStart);
 
     return {
       stepsToday: Math.round(steps.get(todayKey) ?? 0),
       distanceTodayMi: Math.round((distance.get(todayKey) ?? 0) * 10) / 10,
-      restingHeartRateBpm: restingHr ? Math.round(restingHr.quantity) : null,
-      latestWeightLb: weight ? Math.round(weight.quantity * 10) / 10 : null,
       source: 'Apple Health',
       lastSyncedAt: new Date(),
     };
@@ -183,40 +171,6 @@ export const iosHealthProvider: HealthProvider = {
       });
     }
     return out;
-  },
-
-  async getHeartRateSeries(days: number): Promise<number[]> {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - (days - 1));
-
-    const samples = await orDefault(
-      queryQuantitySamples('HKQuantityTypeIdentifierRestingHeartRate', {
-        limit: 0,
-        ascending: true,
-        unit: 'count/min',
-        filter: { date: { startDate, endDate } },
-      }),
-      [],
-    );
-    return samples.map((s) => s.quantity);
-  },
-
-  async getWeightSeries(days: number): Promise<number[]> {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - (days - 1));
-
-    const samples = await orDefault(
-      queryQuantitySamples('HKQuantityTypeIdentifierBodyMass', {
-        limit: 0,
-        ascending: true,
-        unit: 'lb',
-        filter: { date: { startDate, endDate } },
-      }),
-      [],
-    );
-    return samples.map((s) => s.quantity);
   },
 
   async getRecentWorkouts(limit: number): Promise<WorkoutSample[]> {
