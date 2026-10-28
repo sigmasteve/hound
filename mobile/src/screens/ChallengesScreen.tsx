@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -24,7 +24,8 @@ import { huntKindName, toChallengeCard } from '../challenges/present';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { useLabels } from '../labels/LabelsContext';
 import type { Challenge, ChallengeInvite } from '../challenges/types';
-import { listGlobalChallenges } from '../challenges/globalChallenges';
+import { canJoin, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
+import { GlobalChallengesCard } from '../components/GlobalChallengesCard';
 import { computeStreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
 import { getChallengeDays } from '../challenges/challengeDays';
@@ -142,6 +143,17 @@ export function ChallengesScreen({
   // challenges themselves are detail you dig into, same "summary first,
   // list on demand" shape as MetricsScreen's Today's Workouts card.
   const [finishedExpanded, setFinishedExpanded] = useState(false);
+  // Global Hound Challenges you could join (0075): the same box as
+  // Today's, in full, so one hidden there is still here.
+  const [globalChallenges, setGlobalChallenges] = useState<GlobalChallenge[]>([]);
+  const [joiningGlobalId, setJoiningGlobalId] = useState<string | null>(null);
+  const joinGlobal = (c: GlobalChallenge) => {
+    setJoiningGlobalId(c.id);
+    joinGlobalChallenge(c.id)
+      .then(() => onOpenChallenge(c.id))
+      .catch((e) => Alert.alert('Couldn’t join', e instanceof Error ? e.message : 'Try again in a moment.'))
+      .finally(() => setJoiningGlobalId(null));
+  };
   const [groupById, setGroupById] = useState<Map<string, ChallengeGroup>>(
     cachedChallengesState?.groupById ?? new Map(),
   );
@@ -157,6 +169,7 @@ export function ChallengesScreen({
       getFeatureNewest(),
     ]);
     const globalIds = new Set(globals.map((g) => g.id));
+    setGlobalChallenges(globals.filter((g) => !g.joined && canJoin(g)));
     const groups = new Map<string, ChallengeGroup>(
       challenges.map((c) => [c.id, globalIds.has(c.id) ? 'global' : c.organizationId ? 'org' : 'personal']),
     );
@@ -459,6 +472,16 @@ export function ChallengesScreen({
             </View>
           </Card>
         ))}
+
+      {globalChallenges.length > 0 && (
+        <GlobalChallengesCard
+          challenges={globalChallenges}
+          joiningId={joiningGlobalId}
+          onJoin={joinGlobal}
+          onOpen={(c) => onOpenChallenge(c.id)}
+          where="challenges"
+        />
+      )}
 
       {challengesLoading ? (
         <View style={styles.loadingRow}>
