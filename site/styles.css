@@ -302,6 +302,8 @@ code.cmd {
 }
 
 .notes { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--divider); }
+.notes .ctas { display: grid; gap: 10px; }
+.notes p.sub { color: rgba(233, 233, 237, 0.6); font-size: 12.5px; }
 .notes h4 {
   font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   color: rgba(233, 233, 237, 0.55); margin: 0 0 10px;
