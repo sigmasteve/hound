@@ -36,8 +36,11 @@ export function useGoalDayHistory(snap: HealthSnapshot | null, enabled: boolean)
     if (!enabled || !snap) return;
     let cancelled = false;
     const since = historyStart();
+    // A week more than the grid shows: the week strip can sit up to three
+    // days before the grid's first Monday when centred on a day near it.
+    const fetchSince = new Date(since.getFullYear(), since.getMonth(), since.getDate() - 7);
     const shield: Promise<string | null> = isSupabaseConfigured ? getShieldUsedOn().catch(() => null) : Promise.resolve(null);
-    Promise.all([health.getDailyStepsSince(since), health.getRecentWorkouts(300), shield])
+    Promise.all([health.getDailyStepsSince(fetchSince), health.getRecentWorkouts(300), shield])
       .then(([days, workouts, shieldDay]) => {
         if (!cancelled) setHistory({ since, days, workouts, shieldDay });
       })

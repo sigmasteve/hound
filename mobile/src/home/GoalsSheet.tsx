@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import type { HealthSnapshot } from '../health/types';
 import { GoalsCard, type GoalHistoryView } from '../components/GoalsCard';
 import { GoalHistoryCard } from '../components/GoalHistoryCard';
-import { dayKeyOffset, goalDaySummary, goalWeekProgress, localDayKey, weekStart, type GoalDaySummary } from '../goals/goals';
+import { dayKeyOffset, endOfDay, goalDaySummary, goalWeekProgress, localDayKey, weekStart, type GoalDaySummary } from '../goals/goals';
 import { HISTORY_WEEKS, useGoalDayHistory } from '../goals/useGoalDayHistory';
 
 type CardProps = Omit<React.ComponentProps<typeof GoalsCard>, 'history'>;
@@ -12,13 +12,36 @@ type CardProps = Omit<React.ComponentProps<typeof GoalsCard>, 'history'>;
 // the four-week grid (GoalHistoryCard). Keeps the history and which view
 // is up; both reset when the sheet closes, since it unmounts.
 export function GoalsSheet({ snap, ...card }: CardProps & { snap: HealthSnapshot | null }) {
+  const todayKey = localDayKey(new Date());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // The last day the week strip shows: today, until a day outside the
+  // strip is picked from the grid; then the strip moves so that day sits
+  // in the middle (or as near as today allows), and stays put while
+  // neighbouring days are tapped.
+  const [windowEnd, setWindowEnd] = useState(todayKey);
   const [earlier, setEarlier] = useState(false);
   const goals = useMemo(() => card.progress.map((p) => p.goal), [card.progress]);
   const hasDaily = goals.some((g) => g.period === 'day');
   const hasWeekly = goals.some((g) => g.period === 'week');
   const history = useGoalDayHistory(snap, hasDaily || hasWeekly);
-  const todayKey = localDayKey(new Date());
+
+  const select = useCallback(
+    (day: string | null) => {
+      if (day === todayKey) day = null;
+      setSelectedDay(day);
+      if (day === null) {
+        setWindowEnd(todayKey);
+        return;
+      }
+      const end = endOfDay(day);
+      const windowStart = dayKeyOffset(endOfDay(windowEnd), -6);
+      if (day < windowStart || day > windowEnd) {
+        const centred = dayKeyOffset(end, 3);
+        setWindowEnd(centred < todayKey ? centred : todayKey);
+      }
+    },
+    [todayKey, windowEnd],
+  );
 
   // One summary per day from the start of the history through today;
   // today's comes from the live progress, which is fresher than the
@@ -41,12 +64,13 @@ export function GoalsSheet({ snap, ...card }: CardProps & { snap: HealthSnapshot
 
   const week = useMemo(() => {
     const out: GoalDaySummary[] = [];
+    const end = endOfDay(windowEnd);
     for (let i = 6; i >= 0; i--) {
-      const day = dayKeyOffset(new Date(), -i);
-      out.push(summaries.get(day) ?? { day, progress: [], done: 0, total: 0, hasData: false });
+      const day = dayKeyOffset(end, -i);
+      out.push(summaries.get(day) ?? (history ? goalDaySummary(goals, day, history.days, history.workouts) : { day, progress: [], done: 0, total: 0, hasData: false }));
     }
     return out;
-  }, [summaries]);
+  }, [summaries, windowEnd, history, goals]);
 
   const weekly = useMemo(() => {
     if (!history) return [];
@@ -73,7 +97,7 @@ export function GoalsSheet({ snap, ...card }: CardProps & { snap: HealthSnapshot
         bestStreak={card.streak?.best ?? null}
         weekly={weekly}
         onSelectDay={(day) => {
-          setSelectedDay(day === todayKey ? null : day);
+          select(day);
           setEarlier(false);
         }}
         onBack={() => setEarlier(false)}
@@ -88,7 +112,7 @@ export function GoalsSheet({ snap, ...card }: CardProps & { snap: HealthSnapshot
           todayKey,
           shieldDay: history.shieldDay,
           selected: selectedDay ? (summaries.get(selectedDay) ?? { day: selectedDay, progress: [], done: 0, total: 0, hasData: false }) : null,
-          onSelect: setSelectedDay,
+          onSelect: select,
           onEarlier: () => setEarlier(true),
         }
       : null;
