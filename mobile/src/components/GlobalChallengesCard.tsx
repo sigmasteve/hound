@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from './Text';
-import { CaretRightIcon, CheckCircleIcon, GlobeHemisphereWestIcon, TrophyIcon, UsersThreeIcon } from 'phosphor-react-native';
+import { CaretRightIcon, CheckCircleIcon, GlobeHemisphereWestIcon, TrophyIcon, UsersThreeIcon, XIcon } from 'phosphor-react-native';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
@@ -19,6 +20,14 @@ import { SponsorLine } from './SponsorLine';
 // something they'd already seen. One that hasn't started yet gets a
 // compact card: its name, what and when, prizes, sponsor and when
 // joining closes.
+//
+// Four or five at once took the top of Today, so at most two show and
+// the rest fold behind "+N more". Each row has an × that hides that
+// challenge on this phone (Today is the only place to join one, so
+// "N hidden · Show" brings them back).
+const MAX_SHOWN = 2;
+const HIDDEN_KEY = 'globals:hidden';
+
 export function GlobalChallengesCard({
   challenges,
   joiningId,
@@ -34,8 +43,37 @@ export function GlobalChallengesCard({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const currencyName = useCurrencyName();
   const now = Date.now();
-  const started = challenges.filter((c) => now >= new Date(c.startsAt).getTime());
-  const upcoming = challenges.filter((c) => now < new Date(c.startsAt).getTime());
+  const [hidden, setHidden] = useState<Set<string> | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(HIDDEN_KEY)
+      .then((raw) => setHidden(new Set(raw ? (JSON.parse(raw) as string[]) : [])))
+      .catch(() => setHidden(new Set()));
+  }, []);
+  const saveHidden = (next: Set<string>) => {
+    setHidden(next);
+    // Only ids still on offer are kept, so the list never grows stale.
+    const keep = Array.from(next).filter((id) => challenges.some((c) => c.id === id));
+    AsyncStorage.setItem(HIDDEN_KEY, JSON.stringify(keep)).catch(() => {});
+  };
+  const hide = (c: GlobalChallenge) => saveHidden(new Set([...(hidden ?? []), c.id]));
+  const showHidden = () => saveHidden(new Set());
+
+  if (hidden === null) return null;
+  const visible = challenges.filter((c) => !hidden.has(c.id));
+  const hiddenCount = challenges.length - visible.length;
+  const shown = expanded ? visible : visible.slice(0, MAX_SHOWN);
+  const folded = visible.length - shown.length;
+  const started = shown.filter((c) => now >= new Date(c.startsAt).getTime());
+  const upcoming = shown.filter((c) => now < new Date(c.startsAt).getTime());
+  if (visible.length === 0 && hiddenCount === 0) return null;
+
+  const hideButton = (c: GlobalChallenge) => (
+    <Pressable onPress={() => hide(c)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Hide ${c.name} from Today`}>
+      <XIcon size={14} color={withAlpha(colors.text, 0.4)} />
+    </Pressable>
+  );
 
   const joinButton = (c: GlobalChallenge, small = false) => (
     <Pressable
@@ -69,11 +107,33 @@ export function GlobalChallengesCard({
               <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
             </>
           ) : (
-            joinButton(c, true)
+            <>
+              {hideButton(c)}
+              {joinButton(c, true)}
+            </>
           )}
         </Pressable>
       ))}
       {upcoming.length > 0 && renderCard(upcoming)}
+      {(folded > 0 || hiddenCount > 0) && (
+        <View style={styles.moreRow}>
+          {folded > 0 && (
+            <Pressable onPress={() => setExpanded(true)} hitSlop={8} accessibilityRole="button">
+              <Text style={styles.moreText}>
+                +{folded} more Global Hound {folded === 1 ? 'Challenge' : 'Challenges'}
+              </Text>
+            </Pressable>
+          )}
+          {folded > 0 && hiddenCount > 0 && <Text style={styles.moreText}> · </Text>}
+          {hiddenCount > 0 && (
+            <Pressable onPress={showHidden} hitSlop={8} accessibilityRole="button">
+              <Text style={styles.moreText}>
+                {hiddenCount} hidden · Show
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      )}
     </View>
   );
 
@@ -135,6 +195,7 @@ export function GlobalChallengesCard({
         return (
           <View key={c.id} style={[styles.row, i > 0 && styles.rowDivider]}>
             {body}
+            {hideButton(c)}
             {joinButton(c)}
           </View>
         );
@@ -189,6 +250,8 @@ function makeStyles(colors: Palette) {
     },
     lineText: { flex: 1, fontSize: 13.5, color: withAlpha(colors.text, 0.7) },
     lineName: { fontFamily: font.heading, color: colors.text },
+    moreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 2 },
+    moreText: { fontSize: 12.5, color: colors.accentActive, fontFamily: font.heading },
     joinedPill: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     joinedText: { fontSize: 12.5, color: colors.green, fontFamily: font.heading },
   });
