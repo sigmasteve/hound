@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, TextInputProps, View } from 'react-native';
+import { Text } from './Text';
 import { EyeIcon, EyeSlashIcon } from 'phosphor-react-native';
 import { font, radius, space, withAlpha, type Palette } from '../theme/tokens';
 import { useTheme } from '../theme/ThemeContext';
@@ -28,6 +29,7 @@ export function TextField({
       <View style={[styles.row, multiline && styles.rowMultiline, error && styles.rowError]}>
         {icon}
         <TextInput
+          maxFontSizeMultiplier={1.3}
           placeholderTextColor={withAlpha(colors.text, 0.4)}
           style={[styles.input, multiline && styles.inputMultiline]}
           secureTextEntry={secureToggle ? hidden : inputProps.secureTextEntry}

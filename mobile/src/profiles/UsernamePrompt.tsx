@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import { AtIcon } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { useTheme } from '../theme/ThemeContext';

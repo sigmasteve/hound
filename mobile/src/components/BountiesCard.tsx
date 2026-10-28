@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { TargetIcon } from 'phosphor-react-native';
 import { Avatar } from './Avatar';
 import { Card } from './Card';

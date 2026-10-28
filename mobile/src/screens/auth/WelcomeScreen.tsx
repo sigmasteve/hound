@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppleLogoIcon, EnvelopeSimpleIcon, FacebookLogoIcon, GoogleLogoIcon, PawPrintIcon } from 'phosphor-react-native';
 import { Button } from '../../components/Button';

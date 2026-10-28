@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, Modal, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, Modal, StyleSheet, View } from 'react-native';
+import { LONG_FORM_SCALE_CAP, Text } from '../components/Text';
 import { Button } from '../components/Button';
 import { Confetti } from '../celebrate/Confetti';
 import { buzz, playSound } from '../celebrate/feedback';
@@ -124,11 +125,11 @@ export function StopReachedModal({
 
           <Text style={styles.title}>{stop.name}</Text>
           {isFinish ? (
-            <Text style={styles.sub}>
+            <Text style={styles.sub} maxFontSizeMultiplier={LONG_FORM_SCALE_CAP}>
               The whole {course.name}, {formatMiles(course.miles)} miles. {note ?? ''}
             </Text>
           ) : (
-            note && <Text style={styles.sub}>{note}</Text>
+            note && <Text style={styles.sub} maxFontSizeMultiplier={LONG_FORM_SCALE_CAP}>{note}</Text>
           )}
           {line !== null && (line !== undefined ? <Text style={styles.friends}>{line}</Text> : !isStart && <Text style={styles.friends}>{friendsLine}</Text>)}
 

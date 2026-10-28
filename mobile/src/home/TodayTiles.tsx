@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, BackHandler, Easing, Pressable, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Animated, BackHandler, Easing, Pressable, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Text } from '../components/Text';
 import Svg, { Circle } from 'react-native-svg';
 import { BarbellIcon, CaretRightIcon, CheckCircleIcon, FireIcon, FootprintsIcon, PathIcon, TimerIcon, XIcon } from 'phosphor-react-native';
 import { GoalTrail, type TrailAvatar } from '../components/GoalTrail';

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Text } from 'react-native';
+import { Alert } from 'react-native';
+import { Text } from './Text';
 import { Button } from './Button';
 import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';

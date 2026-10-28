@@ -1,5 +1,6 @@
 import React, { type Ref } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import QRCode from 'react-native-qrcode-svg';
 import {

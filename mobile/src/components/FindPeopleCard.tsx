@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { MagnifyingGlassIcon } from 'phosphor-react-native';
 import { Avatar } from './Avatar';
 import { Button } from './Button';

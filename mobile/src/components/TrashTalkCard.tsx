@@ -1,5 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  AppState,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
+import { Text } from './Text';
 import { BellSimpleIcon, BellSimpleSlashIcon, ChatCircleDotsIcon, PaperPlaneRightIcon } from 'phosphor-react-native';
 import { Avatar } from './Avatar';
 import { Card } from './Card';
@@ -293,6 +304,7 @@ export function TrashTalkCard({
           {status.freeTextAllowed ? (
             <View style={styles.composer}>
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 value={draft}
                 onChangeText={(v) => {
                   setDraft(v);

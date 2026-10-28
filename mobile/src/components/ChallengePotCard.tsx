@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { CoinsIcon, TrophyIcon } from 'phosphor-react-native';
 import { Button } from './Button';
 import { Card } from './Card';

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { BoneIcon, XIcon } from 'phosphor-react-native';
 import { Button } from './Button';
 import { useTheme } from '../theme/ThemeContext';

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { color, font, withAlpha } from '../theme/tokens';
 
 // The single biggest gap a real support report ("blank screen after

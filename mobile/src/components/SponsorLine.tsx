@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { ArrowSquareOutIcon, HandshakeIcon } from 'phosphor-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';

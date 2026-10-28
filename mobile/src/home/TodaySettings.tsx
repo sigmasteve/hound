@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import { Card } from '../components/Card';
 import { ToggleRow } from '../components/Selectable';
 import { SegmentedControl } from '../components/SegmentedControl';

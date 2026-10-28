@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { CheckCircleIcon } from 'phosphor-react-native';
 import { Button } from './Button';
 import { Card } from './Card';

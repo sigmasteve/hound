@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { useFocusEffect } from '@react-navigation/native';
 import { CaretRightIcon, CheckCircleIcon, InfoIcon, WarningIcon } from 'phosphor-react-native';
 import { Button } from './Button';
