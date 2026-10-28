@@ -23,6 +23,8 @@ export const mockProvider: HealthProvider = {
     return {
       stepsToday: 8432,
       distanceTodayMi: 3.8,
+      restingHeartRateBpm: 58,
+      latestWeightLb: 178.4,
       source: 'Apple Health',
       lastSyncedAt: new Date(Date.now() - 4 * 60 * 1000),
     };
@@ -32,6 +34,14 @@ export const mockProvider: HealthProvider = {
     const counts = [5680, 8090, 3760, 6790, 8810, 3210, 8432];
     const labels = ['Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Today'];
     return labels.map((label, i) => ({ date: label, steps: counts[i] }));
+  },
+
+  async getHeartRateSeries(): Promise<number[]> {
+    return [62, 61, 59, 60, 58, 57, 58];
+  },
+
+  async getWeightSeries(): Promise<number[]> {
+    return [181, 180.6, 180.1, 179.4, 179.2, 178.6, 178.4];
   },
 
   async getRecentWorkouts(limit: number): Promise<WorkoutSample[]> {

@@ -30,6 +30,8 @@ import { appName, SAMSUNG_HEALTH_PACKAGES, type DataSourcesReport, type DataSour
 const PERMISSIONS = [
   { accessType: 'read' as const, recordType: 'Steps' as const },
   { accessType: 'read' as const, recordType: 'Distance' as const },
+  { accessType: 'read' as const, recordType: 'HeartRate' as const },
+  { accessType: 'read' as const, recordType: 'Weight' as const },
   { accessType: 'read' as const, recordType: 'ExerciseSession' as const },
 ];
 
@@ -42,6 +44,9 @@ async function ensureInitialized(): Promise<boolean> {
 
 function metersToMiles(m: number): number {
   return m / 1609.344;
+}
+function kgToLb(kg: number): number {
+  return kg * 2.20462;
 }
 function startOfDayIso(): string {
   const d = new Date();
@@ -167,11 +172,23 @@ export const androidHealthProvider: HealthProvider = {
     await ensureInitialized();
     const todayFilter = { operator: 'between' as const, startTime: startOfDayIso(), endTime: new Date().toISOString() };
 
-    const [totalSteps, totalDistanceMi] = await Promise.all([aggregateStepsTotal(todayFilter), aggregateDistanceMi(todayFilter)]);
+    const [totalSteps, totalDistanceMi, heartRate, weight] = await Promise.all([
+      aggregateStepsTotal(todayFilter),
+      aggregateDistanceMi(todayFilter),
+      orEmpty(readRecords('HeartRate', { timeRangeFilter: todayFilter })),
+      orEmpty(readRecords('Weight', { timeRangeFilter: { operator: 'before', endTime: new Date().toISOString() } })),
+    ]);
+
+    const restingSamples = heartRate.records.flatMap((r) => r.samples.map((s) => s.beatsPerMinute));
+    const latestWeightKg = weight.records.at(-1)?.weight.inKilograms;
 
     return {
       stepsToday: Math.round(totalSteps),
       distanceTodayMi: Math.round(totalDistanceMi * 10) / 10,
+      restingHeartRateBpm: restingSamples.length
+        ? Math.round(restingSamples.reduce((a, b) => a + b, 0) / restingSamples.length)
+        : null,
+      latestWeightLb: latestWeightKg != null ? Math.round(kgToLb(latestWeightKg) * 10) / 10 : null,
       source: 'Health Connect',
       lastSyncedAt: new Date(),
     };
@@ -191,6 +208,22 @@ export const androidHealthProvider: HealthProvider = {
       });
     }
     return out;
+  },
+
+  async getHeartRateSeries(days: number): Promise<number[]> {
+    await ensureInitialized();
+    const { records } = await orEmpty(readRecords('HeartRate', {
+      timeRangeFilter: { operator: 'between', startTime: daysAgoIso(days - 1), endTime: new Date().toISOString() },
+    }));
+    return records.flatMap((r) => r.samples.map((s) => s.beatsPerMinute));
+  },
+
+  async getWeightSeries(days: number): Promise<number[]> {
+    await ensureInitialized();
+    const { records } = await orEmpty(readRecords('Weight', {
+      timeRangeFilter: { operator: 'between', startTime: daysAgoIso(days - 1), endTime: new Date().toISOString() },
+    }));
+    return records.map((r) => Math.round(kgToLb(r.weight.inKilograms) * 10) / 10);
   },
 
   async getRecentWorkouts(limit: number): Promise<WorkoutSample[]> {

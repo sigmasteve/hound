@@ -55,6 +55,11 @@ export interface WorkoutSample {
 export interface HealthSnapshot {
   stepsToday: number;
   distanceTodayMi: number;
+  // Read and kept for challenge kinds still to come; nothing in the app
+  // shows them yet (the Data tab's heart rate and weight tabs were taken
+  // off in 0.12). The permissions stay so members don't get asked twice.
+  restingHeartRateBpm: number | null;
+  latestWeightLb: number | null;
   source: SourceLabel;
   lastSyncedAt: Date | null;
 }
@@ -71,6 +76,8 @@ export interface HealthProvider {
 
   getSnapshot(): Promise<HealthSnapshot>;
   getWeeklySteps(): Promise<DailySteps[]>;
+  getHeartRateSeries(days: number): Promise<number[]>;
+  getWeightSeries(days: number): Promise<number[]>;
   getRecentWorkouts(limit: number): Promise<WorkoutSample[]>;
   // One entry per calendar day from `since` through today (inclusive) —
   // see DailyStepsWithDate. Only ever asked for a fairly small range in
