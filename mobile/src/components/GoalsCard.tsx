@@ -21,6 +21,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import {
   describeDay,
+  endOfDay,
   formatAmount,
   goalTitle,
   pacePct,
@@ -63,6 +64,15 @@ export interface GoalHistoryView {
   selected: GoalDaySummary | null;
   onSelect: (day: string | null) => void;
   onEarlier: () => void;
+}
+
+// "Oct 2 – 8", "Sep 29 – Oct 5": the week the strip is showing.
+function describeRange(first: string, last: string): string {
+  const a = endOfDay(first);
+  const b = endOfDay(last);
+  const start = a.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const end = a.getMonth() === b.getMonth() ? String(b.getDate()) : b.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${start} – ${end}`;
 }
 
 // Today's first card: every goal, where you are on it, and what's left.
@@ -142,8 +152,9 @@ export function GoalsCard({
       </View>
 
       {/* One row: the streak, and your shields on the right (tap to get
-          one while you hold fewer than SHIELD_MAX). */}
-      {streakLine && streak && (
+          one while you hold fewer than SHIELD_MAX). It's about today, so
+          it goes while a past day is up. */}
+      {!past && streakLine && streak && (
         <View style={styles.streak}>
           <FireIcon size={18} color={streak.streak > 0 ? colors.amber : withAlpha(colors.text, 0.4)} weight="fill" />
           <Text style={styles.streakLine} numberOfLines={1}>
@@ -185,10 +196,14 @@ export function GoalsCard({
             <View style={styles.pastBar}>
               <CalendarBlankIcon size={15} color={colors.accentActive} />
               <Text style={styles.pastBarTitle} numberOfLines={1}>
-                {describeDay(past.day).split(',')[0]}
+                {describeRange(history.week[0].day, history.week[history.week.length - 1].day)}
               </Text>
+              <Pressable onPress={history.onEarlier} hitSlop={8} accessibilityRole="button" style={styles.pastBack}>
+                <Text style={styles.linkText}>Earlier</Text>
+              </Pressable>
+              <Text style={styles.hint}>·</Text>
               <Pressable onPress={() => history.onSelect(null)} hitSlop={8} accessibilityRole="button" style={styles.pastBack}>
-                <Text style={styles.linkText}>Back to today</Text>
+                <Text style={styles.linkText}>Today</Text>
                 <CaretRightIcon size={12} color={colors.accentActive} weight="bold" />
               </Pressable>
             </View>
