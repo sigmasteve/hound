@@ -26,6 +26,22 @@ The rest of the release steps are in `mobile/supabase/STAGING.md` (build
 profiles: Android testers get `npm run build:android:apk`, not
 `--profile preview`) and issue #288.
 
+## Pull requests
+
+Steve merges fast, often before the next message. So, every time:
+
+- **Before pushing anything to an existing branch, check its PR.** If
+  the PR is merged or closed, do not push there: branch fresh from
+  `origin/master`, cherry-pick the new commits onto it, and open a new
+  PR. (`gh api "repos/sigmasteve/hound/pulls?head=sigmasteve:<branch>&state=all"`.)
+- **Before opening a PR, check the branch merges cleanly** into
+  `origin/master` (`git merge-tree --write-tree origin/master <branch>`).
+- One PR per batch of work; a new batch starts from a fresh branch off
+  `origin/master`, never on top of merged history.
+- Keys and credentials never go in the repo or in chat. App Store
+  Connect keys live in `ASC_ISSUER_ID`, `ASC_KEY_ID`, `ASC_PRIVATE_KEY`;
+  the Play service account in `GPLAY_SERVICE_ACCOUNT_JSON`.
+
 ## Today screen layout
 
 Steve's agreed layout for Today (`mobile/src/screens/HomeScreen.tsx`,
