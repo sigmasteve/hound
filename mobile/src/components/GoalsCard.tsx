@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import {
   BarbellIcon,
+  CalendarBlankIcon,
+  CaretRightIcon,
   CheckCircleIcon,
   FireIcon,
   FootprintsIcon,
@@ -14,9 +16,20 @@ import {
 import { Button } from './Button';
 import { Card } from './Card';
 import { GoalTrail, type TrailAvatar } from './GoalTrail';
+import { GoalWeekStrip } from './GoalWeekStrip';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { formatAmount, goalTitle, pacePct, progressLine, type GoalMetric, type GoalProgress } from '../goals/goals';
+import {
+  describeDay,
+  formatAmount,
+  goalTitle,
+  pacePct,
+  pastLine,
+  progressLine,
+  type GoalDaySummary,
+  type GoalMetric,
+  type GoalProgress,
+} from '../goals/goals';
 import { SHIELD_MAX, type GoalStreak } from '../goals/goalStreakApi';
 
 const ICONS: Record<GoalMetric, React.ComponentType<any>> = {
@@ -39,8 +52,23 @@ function streakText(s: GoalStreak, currencyName: string): { title: string; detai
   return { title, detail: pays };
 }
 
+// The last week of goal days under the streak line (GoalWeekStrip), and
+// the past day being shown in place of today, if one was tapped. Put
+// together by GoalsSheet (src/home); null leaves the card as today only.
+export interface GoalHistoryView {
+  // Oldest first, today last.
+  week: GoalDaySummary[];
+  todayKey: string;
+  shieldDay: string | null;
+  selected: GoalDaySummary | null;
+  onSelect: (day: string | null) => void;
+  onEarlier: () => void;
+}
+
 // Today's first card: every goal, where you are on it, and what's left.
-// The heading says whether the Hound is still on you.
+// The heading says whether the Hound is still on you. With a past day
+// selected (history.selected) it shows that day's numbers instead, the
+// trails frozen where they ended.
 export function GoalsCard({
   progress,
   streak,
@@ -52,6 +80,7 @@ export function GoalsCard({
   onEdit,
   onSetGoals,
   onShare,
+  history = null,
 }: {
   progress: GoalProgress[];
   // Goal days in a row (0099_goal_streaks.sql); null until it loads.
@@ -68,11 +97,14 @@ export function GoalsCard({
   onSetGoals: () => void;
   // Shares today's goals as a picture (ShareSheet); null hides it.
   onShare: (() => void) | null;
+  history?: GoalHistoryView | null;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const done = progress.filter((p) => p.done).length;
-  const allDone = progress.length > 0 && done === progress.length;
+  const past = history?.selected ?? null;
+  const rows = past ? past.progress : progress;
+  const done = rows.filter((p) => p.done).length;
+  const allDone = rows.length > 0 && done === rows.length;
   const streakLine =
     streak && progress.some((p) => p.goal.period === 'day') ? streakText(streak, currencyName) : null;
 
@@ -80,21 +112,29 @@ export function GoalsCard({
     <Card style={{ gap: 14 }} elevated={false}>
       <View style={styles.header}>
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={styles.title}>{allDone ? "The Hound's off your back" : "The Hound's on you"}</Text>
+          <Text style={styles.title}>
+            {past ? describeDay(past.day) : allDone ? "The Hound's off your back" : "The Hound's on you"}
+          </Text>
           <Text style={styles.subtitle}>
-            {progress.length === 0
-              ? 'Set a goal and Hound will keep you on it.'
-              : allDone
-                ? 'Every goal is done. Nice work.'
-                : `${done} of ${progress.length} goals done`}
+            {past
+              ? !past.hasData
+                ? 'Nothing on this phone for that day.'
+                : past.total === 0
+                  ? 'No daily goals.'
+                  : `${done} of ${past.total} goals done`
+              : progress.length === 0
+                ? 'Set a goal and Hound will keep you on it.'
+                : allDone
+                  ? 'Every goal is done. Nice work.'
+                  : `${done} of ${progress.length} goals done`}
           </Text>
         </View>
-        {onShare && progress.length > 0 && (
+        {!past && onShare && progress.length > 0 && (
           <Pressable onPress={onShare} hitSlop={8} accessibilityRole="button" accessibilityLabel="Share today's goals">
             <ShareNetworkIcon size={18} color={colors.accentActive} style={{ marginTop: 2 }} />
           </Pressable>
         )}
-        {!needsSetup && (
+        {!past && !needsSetup && (
           <Pressable onPress={onEdit} hitSlop={8} accessibilityRole="button">
             <Text style={styles.edit}>{progress.length === 0 ? 'Add a goal' : 'Edit'}</Text>
           </Pressable>
@@ -131,17 +171,50 @@ export function GoalsCard({
         </View>
       )}
 
-      {needsSetup && (
+      {/* The last seven days; tap one to see it, "Earlier" for the rest. */}
+      {history && (
+        <View style={{ gap: 8 }}>
+          <GoalWeekStrip
+            days={history.week}
+            todayKey={history.todayKey}
+            shieldDay={history.shieldDay}
+            selected={past?.day ?? null}
+            onSelect={history.onSelect}
+          />
+          {past ? (
+            <View style={styles.pastBar}>
+              <CalendarBlankIcon size={15} color={colors.accentActive} />
+              <Text style={styles.pastBarTitle} numberOfLines={1}>
+                {describeDay(past.day).split(',')[0]}
+              </Text>
+              <Pressable onPress={() => history.onSelect(null)} hitSlop={8} accessibilityRole="button" style={styles.pastBack}>
+                <Text style={styles.linkText}>Back to today</Text>
+                <CaretRightIcon size={12} color={colors.accentActive} weight="bold" />
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.stripFooter}>
+              <Text style={styles.hint}>Tap a day to see it · </Text>
+              <Pressable onPress={history.onEarlier} hitSlop={8} accessibilityRole="button" style={styles.pastBack}>
+                <Text style={styles.linkText}>Earlier</Text>
+                <CaretRightIcon size={12} color={colors.accentActive} weight="bold" />
+              </Pressable>
+            </View>
+          )}
+        </View>
+      )}
+
+      {needsSetup && !past && (
         <View style={styles.setup}>
           <Text style={styles.setupText}>These are starter goals. Make them yours.</Text>
           <Button label="Set your goals" variant="primary" small onPress={onSetGoals} />
         </View>
       )}
 
-      {progress.map((p) => {
+      {rows.map((p) => {
         const Icon = ICONS[p.goal.metric];
-        const pace = pacePct(p.goal);
-        const houndOnYou = !p.done && pace > p.pct;
+        const pace = past ? null : pacePct(p.goal);
+        const houndOnYou = pace !== null && !p.done && pace > p.pct;
         return (
           <Pressable
             key={p.goal.id}
@@ -163,13 +236,14 @@ export function GoalsCard({
                 style={[styles.status, p.done && { color: colors.green }, houndOnYou && { color: colors.amber }]}
                 numberOfLines={1}
               >
-                {progressLine(p)}
+                {past ? pastLine(p) : progressLine(p)}
               </Text>
             </View>
             <GoalTrail pct={p.pct} done={p.done} pace={p.done ? null : pace} avatar={avatar} />
           </Pressable>
         );
       })}
+      {past && past.hasData && <Text style={styles.hint}>Measured against your goals as they are today.</Text>}
     </Card>
   );
 }
@@ -219,5 +293,19 @@ function makeStyles(colors: Palette) {
     value: { fontFamily: font.heading, fontSize: 24, color: colors.text },
     target: { fontSize: 14, color: withAlpha(colors.text, 0.55) },
     status: { flex: 1, textAlign: 'right', fontSize: 12.5, color: withAlpha(colors.text, 0.6), marginLeft: 8 },
+    stripFooter: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+    hint: { fontSize: 12, color: withAlpha(colors.text, 0.5), textAlign: 'center' },
+    linkText: { fontFamily: font.heading, fontSize: 12.5, color: colors.accentActive },
+    pastBack: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    pastBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      backgroundColor: withAlpha(colors.accent, 0.1),
+    },
+    pastBarTitle: { flex: 1, fontFamily: font.heading, fontSize: 13.5, color: colors.text },
   });
 }
