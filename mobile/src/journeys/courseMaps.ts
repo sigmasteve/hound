@@ -13,5 +13,10 @@ export interface CourseMap {
 
 export const COURSE_MAPS: Record<string, CourseMap> = {
   'appalachian': { source: require('../../assets/maps/appalachian.webp'), bounds: { minLat: 33.724340, maxLat: 46.807580, minLng: -85.418701, maxLng: -67.697754 }, width: 1400, height: 1362, attribution: '© OpenStreetMap contributors' },
-  'windy-city': { source: require('../../assets/maps/windy-city.webp'), bounds: { minLat: 41.821606, maxLat: 41.957320, minLng: -87.681370, maxLng: -87.615623 }, width: 361, height: 1000, attribution: '© OpenStreetMap contributors' },
+  'death-valley': { source: require('../../assets/maps/death-valley.webp'), bounds: { minLat: 36.158944, maxLat: 36.709715, minLng: -118.358459, maxLng: -116.648026 }, width: 1400, height: 560, attribution: '© OpenStreetMap contributors' },
+  'five-boroughs': { source: require('../../assets/maps/five-boroughs.webp'), bounds: { minLat: 40.584757, maxLat: 40.831866, minLng: -74.070168, maxLng: -73.913269 }, width: 481, height: 1000, attribution: '© OpenStreetMap contributors' },
+  'golden-gate': { source: require('../../assets/maps/golden-gate.webp'), bounds: { minLat: 37.806258, maxLat: 37.834243, minLng: -122.485585, maxLng: -122.471402 }, width: 561, height: 1400, attribution: '© OpenStreetMap contributors' },
+  'route-66': { source: require('../../assets/maps/route-66.webp'), bounds: { minLat: 32.231390, maxLat: 43.516689, minLng: -120.981445, maxLng: -85.144043 }, width: 1400, height: 561, attribution: '© OpenStreetMap contributors' },
+  'thames': { source: require('../../assets/maps/thames.webp'), bounds: { minLat: 51.464061, maxLat: 51.523484, minLng: -0.157070, maxLng: 0.081024 }, width: 1000, height: 401, attribution: '© OpenStreetMap contributors' },
+  'windy-city': { source: require('../../assets/maps/windy-city.webp'), bounds: { minLat: 41.821606, maxLat: 41.957320, minLng: -87.684975, maxLng: -87.611847 }, width: 401, height: 1000, attribution: '© OpenStreetMap contributors' },
 };
