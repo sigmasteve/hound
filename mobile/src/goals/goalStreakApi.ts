@@ -74,6 +74,15 @@ export async function claimGoalWeek(): Promise<{ awarded: boolean; bonesAwarded:
   return { awarded: r.awarded, bonesAwarded: r.bones_awarded };
 }
 
+// The day the last Streak Shield covered (goal_streaks.shield_used_on,
+// 0101), for the shield marker in the goal history; null when none has
+// been used. RLS limits the table to the caller's own row.
+export async function getShieldUsedOn(): Promise<string | null> {
+  const { data, error } = await client().from('goal_streaks').select('shield_used_on').maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as { shield_used_on: string | null } | null)?.shield_used_on ?? null;
+}
+
 // Spends Bones on one Streak Shield. Throws the server's own message
 // ("Not enough Bones…", "You already have 2 shields…").
 export async function buyStreakShield(): Promise<{ shields: number; bonesBalance: number }> {

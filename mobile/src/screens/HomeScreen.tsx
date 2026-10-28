@@ -146,7 +146,7 @@ import { useGoalProgress, useYesterdayGoalsEarned } from '../goals/useGoalProgre
 import { useGoalStreak } from '../goals/useGoalStreak';
 import { buyStreakShield } from '../goals/goalStreakApi';
 import { updateHound } from '../goals/hound';
-import { GoalsCard } from '../components/GoalsCard';
+import { GoalsSheet } from '../home/GoalsSheet';
 import { KennelCard } from '../components/KennelCard';
 import { getKennel, type Kennel } from '../kennel/kennelApi';
 import { BoneDigCard } from '../components/BoneDigCard';
@@ -1972,8 +1972,9 @@ export function HomeScreen({
 
     </ScrollView>
     {openTile === 'goals' && goalProgress && (
-      <TileSheet title="Today's goals" onClose={closeTile}>
-        <GoalsCard
+      <TileSheet title="Goals" onClose={closeTile}>
+        <GoalsSheet
+          snap={snap}
           progress={goalProgress}
           streak={goalStreak}
           currencyName={currencyName}

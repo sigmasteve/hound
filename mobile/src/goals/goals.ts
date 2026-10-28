@@ -305,3 +305,73 @@ export function goalsEarnedOn(goals: Goal[], day: string, days: DailyStepsWithDa
   const inputs: GoalInputs = { stepsToday: row.steps, distanceTodayMi: row.distanceMi, weekDays: [], workouts, now: endOfDay };
   return daily.every((g) => goalProgress(g, inputs).done);
 }
+
+// ── History ──────────────────────────────────────────────────────────
+// Past days and weeks, scored from the phone's own per-day steps and
+// distance (getDailyStepsSince) and its recent workouts, the way
+// goalsEarnedOn does. Always against the goals as they are now: the
+// server keeps no record of what a target was on a given day.
+
+export interface GoalDaySummary {
+  day: string; // YYYY-MM-DD
+  // Every daily goal as it stood at the end of that day.
+  progress: GoalProgress[];
+  done: number;
+  total: number;
+  // False when the phone has no row for that day: before Hound was
+  // connected, or further back than Health Connect keeps (about 30 days).
+  hasData: boolean;
+}
+
+export function dayKeyOffset(base: Date, offsetDays: number): string {
+  return localDayKey(new Date(base.getFullYear(), base.getMonth(), base.getDate() + offsetDays));
+}
+
+export function endOfDay(day: string): Date {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59, 999);
+}
+
+export function goalDaySummary(goals: Goal[], day: string, days: DailyStepsWithDate[], workouts: WorkoutSample[]): GoalDaySummary {
+  const daily = goals.filter((g) => g.period === 'day');
+  const row = days.find((d) => d.date === day);
+  if (!row) return { day, progress: [], done: 0, total: daily.length, hasData: false };
+  const inputs: GoalInputs = { stepsToday: row.steps, distanceTodayMi: row.distanceMi, weekDays: [], workouts, now: endOfDay(day) };
+  const progress = daily.map((g) => goalProgress(g, inputs));
+  return { day, progress, done: progress.filter((p) => p.done).length, total: daily.length, hasData: true };
+}
+
+// A weekly goal as it stood at the end of the week starting `monday`, or
+// as it stands now for the current week (with today's fresher snapshot
+// numbers when given).
+export function goalWeekProgress(
+  goal: Goal,
+  monday: Date,
+  days: DailyStepsWithDate[],
+  workouts: WorkoutSample[],
+  live: { stepsToday: number; distanceTodayMi: number } | null,
+  now: Date = new Date(),
+): GoalProgress {
+  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6, 23, 59, 59, 999);
+  const current = sunday >= now;
+  const asOf = current ? now : sunday;
+  const lastRow = days.find((d) => d.date === localDayKey(asOf));
+  const today = current && live ? live : { stepsToday: lastRow?.steps ?? 0, distanceTodayMi: lastRow?.distanceMi ?? 0 };
+  return goalProgress(goal, { ...today, weekDays: days, workouts, now: asOf });
+}
+
+// "Done", "1,200 over", "800 short": how a finished day's goal ended.
+export function pastLine(p: GoalProgress): string {
+  const g = p.goal;
+  const amount = (n: number) => (g.metric === 'workouts' ? `${Math.round(n)} ${workoutWord(g.activity, Math.round(n))}` : formatAmount(g.metric, n));
+  if (p.done) {
+    const over = p.value - g.target;
+    return over > 0 ? `${amount(over)} over` : 'Done';
+  }
+  return `${amount(p.remaining)} short`;
+}
+
+// "Saturday, Oct 25".
+export function describeDay(day: string): string {
+  return endOfDay(day).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+}
