@@ -117,6 +117,21 @@ async function aggregateDistanceMi(timeRangeFilter: BetweenFilter): Promise<numb
   }
 }
 
+// A phone's own step counter (com.android.healthconnect.phone) writes
+// Steps to Health Connect but no Distance records, so with no Samsung
+// Health, Fitbit or similar app sharing, Distance reads 0 all day while
+// Steps climb. iPhone never has this problem: Apple Health works walking
+// distance out from the pedometer itself. So a range's distance is
+// whichever is larger: what Health Connect has recorded, or the steps at
+// an average stride (2.5 ft, the usual rule of thumb). Larger, not the
+// sum: a watch that records a run's distance also counts its steps.
+const STEPS_PER_MILE = 2112;
+
+async function distanceMiForRange(timeRangeFilter: BetweenFilter, steps: number): Promise<number> {
+  const recorded = await aggregateDistanceMi(timeRangeFilter);
+  return Math.max(recorded, steps / STEPS_PER_MILE);
+}
+
 export const androidHealthProvider: HealthProvider = {
   platform: 'android',
   platformLabel: 'Health Connect',
@@ -172,12 +187,12 @@ export const androidHealthProvider: HealthProvider = {
     await ensureInitialized();
     const todayFilter = { operator: 'between' as const, startTime: startOfDayIso(), endTime: new Date().toISOString() };
 
-    const [totalSteps, totalDistanceMi, heartRate, weight] = await Promise.all([
+    const [totalSteps, heartRate, weight] = await Promise.all([
       aggregateStepsTotal(todayFilter),
-      aggregateDistanceMi(todayFilter),
       orEmpty(readRecords('HeartRate', { timeRangeFilter: todayFilter })),
       orEmpty(readRecords('Weight', { timeRangeFilter: { operator: 'before', endTime: new Date().toISOString() } })),
     ]);
+    const totalDistanceMi = await distanceMiForRange(todayFilter, totalSteps);
 
     const restingSamples = heartRate.records.flatMap((r) => r.samples.map((s) => s.beatsPerMinute));
     const latestWeightKg = weight.records.at(-1)?.weight.inKilograms;
@@ -293,10 +308,8 @@ export const androidHealthProvider: HealthProvider = {
       dayEnd.setDate(dayEnd.getDate() + 1);
       const filter = { operator: 'between' as const, startTime: dayStart, endTime: dayEnd.toISOString() };
 
-      const [totalSteps, totalDistanceMi] = await Promise.all([
-        aggregateStepsTotal(filter),
-        aggregateDistanceMi(filter),
-      ]);
+      const totalSteps = await aggregateStepsTotal(filter);
+      const totalDistanceMi = await distanceMiForRange(filter, totalSteps);
 
       out.push({
         date: dateKey(cursor),
