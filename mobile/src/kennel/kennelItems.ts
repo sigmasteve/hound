@@ -2,7 +2,7 @@
 // hand (ids, slot, name, price); buy_kennel_item is the real price check.
 // How each one looks lives only here (HoundArt draws them).
 
-export type KennelSlot = 'neck' | 'head' | 'face' | 'coat';
+export type KennelSlot = 'neck' | 'head' | 'face' | 'coat' | 'breed';
 
 export type KennelItemKind =
   | 'collar'
@@ -15,7 +15,8 @@ export type KennelItemKind =
   | 'round'
   | 'sun'
   | 'mask'
-  | 'coat';
+  | 'coat'
+  | 'breed';
 
 export interface KennelItem {
   id: string;
@@ -52,6 +53,11 @@ export const KENNEL_ITEMS: KennelItem[] = [
   { id: 'coat_golden', slot: 'coat', name: 'Golden', costBones: 100, kind: 'coat', color: '#e3a83b' },
   { id: 'coat_midnight', slot: 'coat', name: 'Midnight Blue', costBones: 150, kind: 'coat', color: '#3b3f8f' },
   { id: 'coat_candy', slot: 'coat', name: 'Cotton Candy', costBones: 150, kind: 'coat', color: '#f2a7c3' },
+  // Breeds (0132_kennel_breeds.sql): a different dog altogether, drawn by
+  // HoundArt. color is the natural coat, used when no coat item is on.
+  { id: 'breed_corgi', slot: 'breed', name: 'Corgi', costBones: 600, kind: 'breed', color: '#d9823a' },
+  { id: 'breed_poodle', slot: 'breed', name: 'Poodle', costBones: 600, kind: 'breed', color: '#e9c9a4' },
+  { id: 'breed_frenchie', slot: 'breed', name: 'French Bulldog', costBones: 600, kind: 'breed', color: '#c4a07a' },
   // Halloween 2026, through October 31.
   ...(
     [
@@ -105,6 +111,33 @@ export function coatColors(coatId: string | null | undefined): CoatColors {
 }
 
 export const TAN_SWATCH = TAN.coat;
+
+// ── Breeds ───────────────────────────────────────────────────────────
+
+export type HoundBreed = 'corgi' | 'poodle' | 'frenchie';
+
+const BREED_BY_ITEM: Record<string, HoundBreed> = {
+  breed_corgi: 'corgi',
+  breed_poodle: 'poodle',
+  breed_frenchie: 'frenchie',
+};
+
+export function breedForItem(breedId: string | null | undefined): HoundBreed | null {
+  return (breedId && BREED_BY_ITEM[breedId]) || null;
+}
+
+// Each breed's own coat, when no coat item is on. A coat item recolours
+// a breed the same way it does the hound.
+const BREED_COATS: Record<HoundBreed, CoatColors> = {
+  corgi: { coat: '#d9823a', dark: '#a0521c', light: '#fbf1df' },
+  poodle: { coat: '#e9c9a4', dark: '#c79a62', light: '#fbf1df' },
+  frenchie: { coat: '#c4a07a', dark: '#4a3a30', light: '#efe0cc' },
+};
+
+export function breedCoatColors(breed: HoundBreed | null, coatId: string | null | undefined): CoatColors {
+  if (coatId && COATS[coatId]) return COATS[coatId];
+  return breed ? BREED_COATS[breed] : TAN;
+}
 
 // Free looks (set_kennel_look), mirrored by kennels' own checks.
 export type HoundEars = 'floppy' | 'perky' | 'short';

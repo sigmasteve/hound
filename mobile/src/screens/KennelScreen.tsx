@@ -131,7 +131,16 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   // Just the one step ahead; the ladder sheet has the rest.
   const nextStep = stepsAfter(level, 1)[0] ?? null;
   const classic = kennel.careMode === 'classic';
-  const equippedIn = (item: KennelItem) => (item.slot === 'neck' ? kennel.neckId : item.slot === 'head' ? kennel.headId : kennel.faceId);
+  const equippedIn = (item: KennelItem) =>
+    item.slot === 'neck'
+      ? kennel.neckId
+      : item.slot === 'head'
+        ? kennel.headId
+        : item.slot === 'face'
+          ? kennel.faceId
+          : item.slot === 'coat'
+            ? kennel.coatId
+            : kennel.breedId;
 
   // On blur only: Done blurs the field too, so a second handler on submit
   // saved the name twice.
@@ -231,6 +240,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             ears={kennel.ears}
             tail={kennel.tail}
             markings={kennel.markings}
+            breedId={item.slot === 'breed' ? item.id : kennel.breedId}
             size={44}
             animate={false}
           />
@@ -273,6 +283,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
               ears={kennel.ears}
               tail={kennel.tail}
               markings={kennel.markings}
+              breedId={kennel.breedId}
               size={190}
             />
           </View>
@@ -355,7 +366,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             tint={colors.accent800}
             size={44}
             fontSize={15}
-            iconId={`${HOUND_AVATAR_PREFIX}${kennel.coatId ?? ''}.${kennel.ears}.${kennel.tail}.${kennel.markings}.${kennel.neckId ?? ''}.${kennel.headId ?? ''}.${kennel.faceId ?? ''}`}
+            iconId={`${HOUND_AVATAR_PREFIX}${kennel.coatId ?? ''}.${kennel.ears}.${kennel.tail}.${kennel.markings}.${kennel.neckId ?? ''}.${kennel.headId ?? ''}.${kennel.faceId ?? ''}${kennel.breedId ? `.${kennel.breedId}` : ''}`}
           />
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={styles.itemName}>Use {kennel.name} as my avatar</Text>
@@ -386,6 +397,44 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
 
         <Card style={{ gap: 10 }} elevated={false}>
           <Text style={text.h4}>Look</Text>
+          {/* Breeds (0132): the hound, or a different dog for Bones. Coats
+              below still apply; ears, tail and markings come with it. */}
+          <Text style={styles.label}>Breed</Text>
+          <View style={styles.swatches}>
+            {[null, ...KENNEL_ITEMS.filter((i) => i.slot === 'breed')].map((item) => {
+              const on = kennel.breedId === (item?.id ?? null);
+              const owned = !item || kennel.owned.includes(item.id);
+              return (
+                <Pressable
+                  key={item?.id ?? 'hound'}
+                  style={styles.swatchCell}
+                  disabled={on || busyId !== null}
+                  onPress={() => (item ? pressItem(item) : run('breed', () => equipKennelItem('breed', null), "Couldn't change the breed"))}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item?.name ?? 'Hound'}${owned ? '' : `, ${item!.costBones} ${currencyName}`}`}
+                >
+                  <View style={[styles.breedSwatch, on && styles.swatchOn]}>
+                    <HoundArt
+                      rank={rank.id}
+                      mood="okay"
+                      coatId={kennel.coatId}
+                      breedId={item?.id ?? null}
+                      ears={kennel.ears}
+                      tail={kennel.tail}
+                      markings={kennel.markings}
+                      size={34}
+                      animate={false}
+                      variant="avatar"
+                    />
+                  </View>
+                  <Text style={styles.swatchName} numberOfLines={2}>
+                    {item?.name ?? 'Hound'}
+                  </Text>
+                  {!owned && <Text style={styles.swatchPrice}>{item!.costBones}</Text>}
+                </Pressable>
+              );
+            })}
+          </View>
           <Text style={styles.label}>Coat</Text>
           <View style={styles.swatches}>
             {[null, ...KENNEL_ITEMS.filter((i) => i.slot === 'coat' && inShop(i))].map((item) => {
@@ -409,7 +458,10 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
               );
             })}
           </View>
-          {(
+          {kennel.breedId ? (
+            <Text style={styles.itemNote}>Ears, tail and markings come with the breed.</Text>
+          ) : (
+            (
             [
               ['Ears', EAR_OPTIONS, kennel.ears, (v: string) => ({ ears: v as Kennel['ears'] })],
               ['Tail', TAIL_OPTIONS, kennel.tail, (v: string) => ({ tail: v as Kennel['tail'] })],
@@ -433,7 +485,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                 ))}
               </View>
             </View>
-          ))}
+          ))
+          )}
         </Card>
 
         {season && seasonItems.length > 0 && (
@@ -550,6 +603,17 @@ function makeStyles(colors: Palette) {
     swatchCell: { width: 74, alignItems: 'center', gap: 4 },
     swatch: { width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: withAlpha(colors.text, 0.12) },
     swatchOn: { borderColor: colors.accent, borderWidth: 3 },
+    breedSwatch: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      borderWidth: 2,
+      borderColor: withAlpha(colors.text, 0.12),
+      backgroundColor: withAlpha(colors.text, 0.06),
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
     swatchName: { fontSize: 11.5, color: colors.text, textAlign: 'center' },
     swatchPrice: { fontSize: 11, color: withAlpha(colors.text, 0.55), marginTop: -3 },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

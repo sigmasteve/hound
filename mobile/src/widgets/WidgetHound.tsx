@@ -60,6 +60,7 @@ export function WidgetHound({ kennel }: { kennel: Kennel }) {
         ears={kennel.ears}
         tail={kennel.tail}
         markings={kennel.markings}
+        breedId={kennel.breedId}
         size={SIZE}
         animate={false}
       />

@@ -89,6 +89,7 @@ export function Avatar({
             ears={hound.ears}
             tail={hound.tail}
             markings={hound.markings}
+            breedId={hound.breedId}
             neckId={hound.neckId}
             headId={hound.headId}
             faceId={hound.faceId}

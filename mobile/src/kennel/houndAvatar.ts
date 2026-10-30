@@ -4,7 +4,10 @@ import type { HoundEars, HoundMarkings, HoundTail } from './kennelItems';
 // look is written into equipped_icon_id as a short code, so every avatar
 // already carries it.
 //
-//   hound:<coat>.<ears>.<tail>.<markings>.<neck>.<head>.<face>
+//   hound:<coat>.<ears>.<tail>.<markings>.<neck>.<head>.<face>[.<breed>]
+//
+// The breed (0132) is only there while one is on, so older codes and
+// older builds read the same.
 
 export const HOUND_AVATAR_PREFIX = 'hound:';
 
@@ -16,6 +19,7 @@ export interface HoundAvatarLook {
   neckId: string | null;
   headId: string | null;
   faceId: string | null;
+  breedId: string | null;
 }
 
 const EARS: HoundEars[] = ['floppy', 'perky', 'short'];
@@ -26,7 +30,7 @@ const MARKINGS: HoundMarkings[] = ['none', 'eye_patch', 'spots'];
 // the default look rather than failing, so a newer code still draws.
 export function parseHoundAvatar(iconId: string | null | undefined): HoundAvatarLook | null {
   if (!iconId || !iconId.startsWith(HOUND_AVATAR_PREFIX)) return null;
-  const [coat, ears, tail, markings, neck, head, face] = iconId.slice(HOUND_AVATAR_PREFIX.length).split('.');
+  const [coat, ears, tail, markings, neck, head, face, breed] = iconId.slice(HOUND_AVATAR_PREFIX.length).split('.');
   return {
     coatId: coat || null,
     ears: EARS.includes(ears as HoundEars) ? (ears as HoundEars) : 'floppy',
@@ -35,5 +39,6 @@ export function parseHoundAvatar(iconId: string | null | undefined): HoundAvatar
     neckId: neck || null,
     headId: head || null,
     faceId: face || null,
+    breedId: breed || null,
   };
 }

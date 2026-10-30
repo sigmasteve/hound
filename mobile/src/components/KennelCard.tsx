@@ -93,6 +93,7 @@ export function KennelCard({
             ears={kennel.ears}
             tail={kennel.tail}
             markings={kennel.markings}
+            breedId={kennel.breedId}
             size={46}
           />
         </View>
