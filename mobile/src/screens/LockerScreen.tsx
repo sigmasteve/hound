@@ -63,11 +63,11 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   const [equippingId, setEquippingId] = useState<string | null>(null);
   const [buyingId, setBuyingId] = useState<string | null>(null);
 
-  // Real-money packs — separate from the cosmetics catalog above, and
-  // loaded lazily (only once the Shop tab is actually open) since
-  // fetching it touches the RevenueCat SDK, not just Supabase. null
-  // means "hasn't loaded yet"; a load failure sets bonesOffersError
-  // instead of leaving this stuck on null forever.
+  // Real-money packs — separate from the cosmetics catalog, shown above
+  // the tabs with the balance and the ad, so getting Bones is one tap
+  // from Home. Fetching them touches the RevenueCat SDK, not just
+  // Supabase. null means "hasn't loaded yet"; a load failure sets
+  // bonesOffersError instead of leaving this stuck on null forever.
   const [bonesOffers, setBonesOffers] = useState<BonesPackOffer[] | null>(null);
   const [bonesOffersError, setBonesOffersError] = useState<string | null>(null);
 
@@ -285,6 +285,48 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
 
         {loadError && <Text style={styles.errorNote}>{loadError}</Text>}
 
+        {/* Bones first, above the tabs, so topping up is one tap from
+            Home's Bones chip whichever tab is up: the balance, watch an
+            ad, and the packs. */}
+        <Card style={{ gap: 8 }} elevated={false}>
+          <View style={styles.balanceRow}>
+            <BoneIcon size={22} color={color.accent} weight="fill" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.balanceLabel}>{currencyName}</Text>
+              <Text style={styles.balanceValue}>{bonesBalance !== null ? bonesBalance.toLocaleString() : '—'}</Text>
+            </View>
+            {canAddBones && (
+              <Button
+                label={`Add ${currencyName}`}
+                variant="primary"
+                small
+                icon={<PlusIcon size={13} color={colors.accent} weight="bold" />}
+                onPress={scrollToPacks}
+              />
+            )}
+          </View>
+          <Text style={styles.footNote}>Earned from finishing challenges and leveling up.</Text>
+        </Card>
+
+        <WatchAdCard ads={rewardedBones} currencyName={currencyName} />
+
+        {/* Measured so the "Add" shortcuts know where to scroll. */}
+        <View onLayout={(e) => setPacksY(e.nativeEvent.layout.y)}>
+          {user?.id && (
+            <BonesPacksCard
+              userId={user.id}
+              currencyName={currencyName}
+              onCredited={(bones) =>
+                setHoundScore((prev) => (prev ? { ...prev, bonesBalance: prev.bonesBalance + bones } : prev))
+              }
+              onOffers={(offers, error) => {
+                setBonesOffers(offers);
+                setBonesOffersError(error);
+              }}
+            />
+          )}
+        </View>
+
         <View style={styles.tabRow}>
           <Pressable style={[styles.tabButton, tab === 'locker' && styles.tabButtonActive]} onPress={() => setTab('locker')}>
             <Text style={[styles.tabLabel, tab === 'locker' && styles.tabLabelActive]}>Unlocks</Text>
@@ -324,28 +366,6 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
           </>
         ) : (
           <>
-            <Card style={{ gap: 8 }} elevated={false}>
-              <View style={styles.balanceRow}>
-                <BoneIcon size={22} color={color.accent} weight="fill" />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.balanceLabel}>{currencyName}</Text>
-                  <Text style={styles.balanceValue}>{bonesBalance !== null ? bonesBalance.toLocaleString() : '—'}</Text>
-                </View>
-                {canAddBones && (
-                  <Button
-                    label={`Add ${currencyName}`}
-                    variant="primary"
-                    small
-                    icon={<PlusIcon size={13} color={colors.accent} weight="bold" />}
-                    onPress={scrollToPacks}
-                  />
-                )}
-              </View>
-              <Text style={styles.footNote}>Earned from finishing challenges and leveling up.</Text>
-            </Card>
-
-            <WatchAdCard ads={rewardedBones} currencyName={currencyName} />
-
             {halloweenItems.length > 0 && (
               <Card style={styles.seasonCard} elevated={false}>
                 <View style={styles.seasonHeader}>
@@ -374,23 +394,6 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
                 })}
               </Card>
             )}
-
-            {/* Measured so the "Add" shortcuts know where to scroll. */}
-            <View onLayout={(e) => setPacksY(e.nativeEvent.layout.y)}>
-              {user?.id && (
-                <BonesPacksCard
-                  userId={user.id}
-                  currencyName={currencyName}
-                  onCredited={(bones) =>
-                    setHoundScore((prev) => (prev ? { ...prev, bonesBalance: prev.bonesBalance + bones } : prev))
-                  }
-                  onOffers={(offers, error) => {
-                    setBonesOffers(offers);
-                    setBonesOffersError(error);
-                  }}
-                />
-              )}
-            </View>
 
             <Card style={{ gap: 4 }} elevated={false}>
               <Text style={text.h4}>Frames</Text>
