@@ -127,6 +127,27 @@ export function EngagementAdminCard() {
             </View>
           </View>
 
+          {/* Which dog people picked (0133): the plain hound, and each
+              breed as wearing now / ever bought. */}
+          <View style={{ gap: 6 }}>
+            <Text style={styles.section}>HOUNDS · {data.kennel.kennels.toLocaleString()} KENNELS</Text>
+            <View style={styles.grid}>
+              <View style={styles.gridCell}>
+                <Text style={styles.cellValue}>{data.kennel.hound.toLocaleString()}</Text>
+                <Text style={styles.cellLabel}>Hound</Text>
+              </View>
+              {data.kennel.breeds.map((b) => (
+                <View key={b.id} style={styles.gridCell}>
+                  <Text style={styles.cellValue}>
+                    {b.wearing.toLocaleString()}
+                    <Text style={styles.cellLabel}> · {b.bought.toLocaleString()} bought</Text>
+                  </Text>
+                  <Text style={styles.cellLabel}>{b.name}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
           <Text style={styles.footNote}>
             “Opened the app” counts the daily bonus, which is claimed on the first open each day (UTC days). Coming back
             counts people who joined 2–31 days ago (day after) and 2–8 weeks ago (second week).

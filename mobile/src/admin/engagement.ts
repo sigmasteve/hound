@@ -30,6 +30,12 @@ export interface Engagement {
     globalJoins: number;
     sponsorTaps: number;
   };
+  // 0133: how many hounds, and which breeds (0132) they are.
+  kennel: {
+    kennels: number;
+    hound: number;
+    breeds: { id: string; name: string; wearing: number; bought: number }[];
+  };
 }
 
 export async function getEngagement(): Promise<Engagement> {
@@ -41,6 +47,7 @@ export async function getEngagement(): Promise<Engagement> {
   const nm = d.new_members ?? {};
   const cb = d.came_back ?? {};
   const w = d.week ?? {};
+  const k = d.kennel ?? {};
   return {
     members: n(d.members),
     active: { day: n(d.active?.day), week: n(d.active?.week), month: n(d.active?.month) },
@@ -71,6 +78,11 @@ export async function getEngagement(): Promise<Engagement> {
       challenges: n(w.challenges),
       globalJoins: n(w.global_joins),
       sponsorTaps: n(w.sponsor_taps),
+    },
+    kennel: {
+      kennels: n(k.kennels),
+      hound: n(k.hound),
+      breeds: ((k.breeds ?? []) as any[]).map((b) => ({ id: String(b.id), name: String(b.name), wearing: n(b.wearing), bought: n(b.bought) })),
     },
   };
 }
