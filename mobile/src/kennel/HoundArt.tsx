@@ -346,22 +346,23 @@ function BreedBody({ breed, g, palette }: { breed: HoundBreed; g: Geometry; pale
         {/* Tail: a stick with a pom. */}
         <Path d={`M ${100 + bodyRx - 10} ${bodyCy + 10} L ${100 + bodyRx + 16} ${bodyCy - 34}`} stroke={COAT} strokeWidth={7} strokeLinecap="round" />
         <Puff cx={100 + bodyRx + 18} cy={bodyCy - 42} r={13} base={COAT} top={curl} />
-        <Puff cx={100 - bodyRx * 0.72} cy={bodyCy + bodyRy * 0.45} r={bodyRx * 0.4} base={DARK} top={COAT} opacity={0.6} />
-        <Puff cx={100 + bodyRx * 0.72} cy={bodyCy + bodyRy * 0.45} r={bodyRx * 0.4} base={DARK} top={COAT} opacity={0.6} />
+        <Puff cx={100 - bodyRx * 0.72} cy={bodyCy + bodyRy * 0.45} r={bodyRx * 0.4} base={DARK} top={COAT} />
+        <Puff cx={100 + bodyRx * 0.72} cy={bodyCy + bodyRy * 0.45} r={bodyRx * 0.4} base={DARK} top={COAT} />
         <Puff cx={100} cy={bodyCy} r={bodyRx} base={COAT} top={curl} sy={bodyRy / bodyRx} />
         <Ellipse cx={100} cy={bodyCy + 8} rx={bodyRx * 0.42} ry={bodyRy * 0.6} fill={LIGHT} opacity={0.8} />
         {/* Slim legs with pom cuffs. */}
         <Rect x={73} y={bodyCy + bodyRy * 0.4} width={14} height={bodyRy * 0.55} rx={7} fill={COAT} />
         <Rect x={113} y={bodyCy + bodyRy * 0.4} width={14} height={bodyRy * 0.55} rx={7} fill={COAT} />
-        <Puff cx={80} cy={193} r={12} base={COAT} top={curl} opacity={0.9} />
-        <Puff cx={120} cy={193} r={12} base={COAT} top={curl} opacity={0.9} />
-        {/* Long curly ears, behind the head. */}
+        <Puff cx={80} cy={193} r={12} base={COAT} top={curl} />
+        <Puff cx={120} cy={193} r={12} base={COAT} top={curl} />
+        {/* Long curly ears, behind the head: solid, so they read as ears
+            and not a shadow on the body. */}
         {[-1, 1].map((side) => (
-          <Puff key={side} cx={100 + side * headR} cy={headCy + 22} r={15} base={DARK} top={COAT} opacity={0.7} sy={1.7} />
+          <Puff key={side} cx={100 + side * headR * 0.98} cy={headCy + 18} r={13} base={DARK} top={COAT} sy={1.9} />
         ))}
         <Circle cx={100} cy={headCy} r={headR} fill={COAT} />
         {/* Topknot. */}
-        <Puff cx={100} cy={headCy - headR * 0.95} r={24} base={COAT} top={curl} sx={1.35} sy={0.85} />
+        <Puff cx={100} cy={headCy - headR * 0.92} r={20} base={COAT} top={curl} sx={1.4} sy={0.85} />
         {/* Long muzzle. */}
         <Ellipse cx={100} cy={headCy + 22} rx={19} ry={22} fill={LIGHT} />
         <Ellipse cx={100} cy={headCy + 12} rx={8.5} ry={6.5} fill={NOSE} />
