@@ -65,6 +65,7 @@ export function CelebrationModal({
                 ears={kennel.ears}
                 tail={kennel.tail}
                 markings={kennel.markings}
+                breedId={kennel.breedId}
                 size={130}
               />
             ) : (

@@ -194,6 +194,7 @@ export function FriendDetailScreen({
                 ears={hound.ears}
                 tail={hound.tail}
                 markings={hound.markings}
+                breedId={hound.breedId}
                 size={84}
               />
             </View>

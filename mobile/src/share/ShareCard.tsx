@@ -133,6 +133,7 @@ export function ShareCard({
             ears={kennel.ears}
             tail={kennel.tail}
             markings={kennel.markings}
+            breedId={kennel.breedId}
             size={200}
             animate={false}
           />

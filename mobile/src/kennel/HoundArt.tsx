@@ -2,13 +2,24 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, Path, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type { Rank } from '../challenges/ranks';
-import { coatColors, kennelItemById, type HoundEars, type HoundMarkings, type HoundTail, type KennelItem } from './kennelItems';
+import {
+  breedCoatColors,
+  breedForItem,
+  kennelItemById,
+  type CoatColors,
+  type HoundBreed,
+  type HoundEars,
+  type HoundMarkings,
+  type HoundTail,
+  type KennelItem,
+} from './kennelItems';
 
 // The Kennel's hound, drawn in code (issue #344 tracks better art). A
 // sitting hound facing you: how big it is comes from your rank, its face
 // from its mood, its coat, ears, tail and markings from its look, and
 // accessories layer on top. Happy hounds bounce; sleepy ones breathe
-// slowly.
+// slowly. With a breed on (0132_kennel_breeds.sql) it's a different dog,
+// BreedBody below, with its own ears and tail; coats still apply.
 
 export type HoundMood = 'happy' | 'okay' | 'sleepy' | 'hungry';
 
@@ -32,6 +43,7 @@ export function HoundArt({
   headId,
   faceId,
   coatId,
+  breedId,
   ears = 'floppy',
   tail = 'wavy',
   markings = 'none',
@@ -45,6 +57,8 @@ export function HoundArt({
   headId?: string | null;
   faceId?: string | null;
   coatId?: string | null;
+  // A breed item; its own ears and tail replace the look's.
+  breedId?: string | null;
   ears?: HoundEars;
   tail?: HoundTail;
   markings?: HoundMarkings;
@@ -87,14 +101,14 @@ export function HoundArt({
       : [{ scale: motion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] }) }];
 
   const s = STAGES[asAvatar ? 'alpha' : rank];
-  const bodyCy = 200 - s.bodyRy;
-  const headCy = bodyCy - s.bodyRy * 0.85 - s.headR * 0.5;
-  const neckY = headCy + s.headR - 7;
+  const breed = breedForItem(breedId);
+  const g = breed ? breedGeometry(breed, s) : houndGeometry(s);
+  const { bodyCy, headCy, eyeY, neckY, headR } = g;
   const neck = kennelItemById(neckId);
   const head = kennelItemById(headId);
   const face = kennelItemById(faceId);
-  const eyeY = headCy - 4;
-  const { coat: COAT, dark: COAT_DARK, light: LIGHT, eyeSpots } = coatColors(coatId);
+  const palette = breedCoatColors(breed, coatId);
+  const { coat: COAT, dark: COAT_DARK, light: LIGHT, eyeSpots } = palette;
   const tailX = 100 + s.bodyRx - 10;
   const tailY = bodyCy + 14;
 
@@ -109,37 +123,41 @@ export function HoundArt({
         </Defs>
 
         {!asAvatar && rank === 'legend' && <Circle cx={100} cy={115} r={100} fill="url(#aura)" />}
-        {!asAvatar && <Ellipse cx={100} cy={204} rx={(s.bodyRx + 12) * s.scale} ry={6} fill="#000" opacity={0.15} />}
+        {!asAvatar && <Ellipse cx={100} cy={204} rx={(g.bodyRx + 12) * s.scale} ry={6} fill="#000" opacity={0.15} />}
         <G transform={`translate(${100 * (1 - s.scale)} ${200 * (1 - s.scale)}) scale(${s.scale})`}>
-          {/* Tail, behind the body. */}
-          <Path
-            d={
-              tail === 'curly'
-                ? `M ${tailX} ${tailY} Q ${tailX + 34} ${tailY - 4} ${tailX + 30} ${tailY - 30} Q ${tailX + 26} ${tailY - 48} ${tailX + 12} ${tailY - 38} Q ${tailX + 4} ${tailY - 28} ${tailX + 18} ${tailY - 24}`
-                : tail === 'stubby'
-                  ? `M ${tailX} ${tailY} L ${tailX + 18} ${tailY - 8}`
-                  : `M ${tailX} ${tailY} Q ${tailX + 40} ${tailY - 8} ${tailX + 36} ${tailY - 44}`
-            }
-            stroke={COAT}
-            strokeWidth={tail === 'stubby' ? 13 : 11}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-
-          {/* Body, haunches, chest, front legs. */}
-          <Ellipse cx={100 - s.bodyRx * 0.62} cy={bodyCy + s.bodyRy * 0.5} rx={s.bodyRx * 0.45} ry={s.bodyRy * 0.4} fill={COAT_DARK} />
-          <Ellipse cx={100 + s.bodyRx * 0.62} cy={bodyCy + s.bodyRy * 0.5} rx={s.bodyRx * 0.45} ry={s.bodyRy * 0.4} fill={COAT_DARK} />
-          <Ellipse cx={100} cy={bodyCy} rx={s.bodyRx} ry={s.bodyRy} fill={COAT} />
-          {(rank === 'alpha' || rank === 'legend') && (
-            <Ellipse cx={100} cy={bodyCy - s.bodyRy * 0.55} rx={s.bodyRx * 0.85} ry={s.bodyRy * 0.35} fill={COAT_DARK} opacity={0.55} />
-          )}
-          {markings === 'spots' && (
+          {breed ? (
+            <BreedBody breed={breed} g={g} palette={palette} />
+          ) : (
             <>
-              <Circle cx={100 - s.bodyRx * 0.68} cy={bodyCy - s.bodyRy * 0.15} r={7} fill={COAT_DARK} />
-              <Circle cx={100 - s.bodyRx * 0.6} cy={bodyCy + s.bodyRy * 0.22} r={5} fill={COAT_DARK} />
-              <Circle cx={100 + s.bodyRx * 0.7} cy={bodyCy + s.bodyRy * 0.05} r={8} fill={COAT_DARK} />
-              <Circle cx={100 + s.bodyRx * 0.55} cy={bodyCy - s.bodyRy * 0.4} r={4.5} fill={COAT_DARK} />
+              {/* Tail, behind the body. */}
+              <Path
+                d={
+                  tail === 'curly'
+                    ? `M ${tailX} ${tailY} Q ${tailX + 34} ${tailY - 4} ${tailX + 30} ${tailY - 30} Q ${tailX + 26} ${tailY - 48} ${tailX + 12} ${tailY - 38} Q ${tailX + 4} ${tailY - 28} ${tailX + 18} ${tailY - 24}`
+                    : tail === 'stubby'
+                      ? `M ${tailX} ${tailY} L ${tailX + 18} ${tailY - 8}`
+                      : `M ${tailX} ${tailY} Q ${tailX + 40} ${tailY - 8} ${tailX + 36} ${tailY - 44}`
+                }
+                stroke={COAT}
+                strokeWidth={tail === 'stubby' ? 13 : 11}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+
+              {/* Body, haunches, chest, front legs. */}
+              <Ellipse cx={100 - s.bodyRx * 0.62} cy={bodyCy + s.bodyRy * 0.5} rx={s.bodyRx * 0.45} ry={s.bodyRy * 0.4} fill={COAT_DARK} />
+              <Ellipse cx={100 + s.bodyRx * 0.62} cy={bodyCy + s.bodyRy * 0.5} rx={s.bodyRx * 0.45} ry={s.bodyRy * 0.4} fill={COAT_DARK} />
+              <Ellipse cx={100} cy={bodyCy} rx={s.bodyRx} ry={s.bodyRy} fill={COAT} />
+              {(rank === 'alpha' || rank === 'legend') && (
+                <Ellipse cx={100} cy={bodyCy - s.bodyRy * 0.55} rx={s.bodyRx * 0.85} ry={s.bodyRy * 0.35} fill={COAT_DARK} opacity={0.55} />
+              )}
+              {markings === 'spots' && (
+                <>
+                  <Circle cx={100 - s.bodyRx * 0.68} cy={bodyCy - s.bodyRy * 0.15} r={7} fill={COAT_DARK} />
+                  <Circle cx={100 - s.bodyRx * 0.6} cy={bodyCy + s.bodyRy * 0.22} r={5} fill={COAT_DARK} />
+                  <Circle cx={100 + s.bodyRx * 0.7} cy={bodyCy + s.bodyRy * 0.05} r={8} fill={COAT_DARK} />
+                  <Circle cx={100 + s.bodyRx * 0.55} cy={bodyCy - s.bodyRy * 0.4} r={4.5} fill={COAT_DARK} />
             </>
           )}
           <Ellipse cx={100} cy={bodyCy + 6} rx={s.bodyRx * 0.5} ry={s.bodyRy * 0.68} fill={LIGHT} />
@@ -193,20 +211,215 @@ export function HoundArt({
           <Ellipse cx={100} cy={headCy + 18} rx={27} ry={20} fill={LIGHT} />
           <Ellipse cx={100} cy={headCy + 9} rx={9.5} ry={7} fill={NOSE} />
           <Path d={`M 100 ${headCy + 15} L 100 ${headCy + 21}`} stroke={INK} strokeWidth={2.5} strokeLinecap="round" />
-          {neck && <NeckItem item={neck} y={neckY} width={s.headR * 1.25} />}
+            </>
+          )}
+          {neck && <NeckItem item={neck} y={neckY} width={headR * 1.25} />}
 
-          <Face mood={mood} headCy={headCy} eyeY={eyeY} />
+          <Face mood={mood} headCy={headCy + g.faceDy} eyeY={eyeY} />
           {face && <FaceItem item={face} eyeY={eyeY} />}
-          {head && <HeadItem item={head} headCy={headCy} headR={s.headR} />}
+          {head && <HeadItem item={head} headCy={headCy} headR={headR} />}
 
           {!asAvatar && mood === 'sleepy' && (
-            <SvgText x={150} y={headCy - s.headR + 4} fontSize={22} fontWeight="bold" fill="#8a8fa3">
+            <SvgText x={150} y={headCy - headR + 4} fontSize={22} fontWeight="bold" fill="#8a8fa3">
               z
             </SvgText>
           )}
         </G>
       </Svg>
     </Animated.View>
+  );
+}
+
+// Where everything sits for this stage: the body's centre, the head's,
+// the eyes, the collar line, and how far down the mouth is from the
+// head's centre (faceDy; the poodle's long muzzle puts it lower).
+interface Geometry {
+  bodyRx: number;
+  bodyRy: number;
+  bodyCy: number;
+  headR: number;
+  headCy: number;
+  eyeY: number;
+  neckY: number;
+  faceDy: number;
+}
+
+type Stage = (typeof STAGES)[Rank['id']];
+
+function houndGeometry(s: Stage): Geometry {
+  const bodyCy = 200 - s.bodyRy;
+  const headCy = bodyCy - s.bodyRy * 0.85 - s.headR * 0.5;
+  return { bodyRx: s.bodyRx, bodyRy: s.bodyRy, bodyCy, headR: s.headR, headCy, eyeY: headCy - 4, neckY: headCy + s.headR - 7, faceDy: 0 };
+}
+
+function breedGeometry(breed: HoundBreed, s: Stage): Geometry {
+  switch (breed) {
+    case 'corgi': {
+      // Long and low, so a wider, flatter body and a slightly smaller head.
+      const bodyRx = s.bodyRx * 1.18;
+      const bodyRy = s.bodyRy * 0.76;
+      const headR = s.headR * 0.95;
+      const bodyCy = 200 - bodyRy - 4;
+      const headCy = bodyCy - bodyRy * 0.8 - headR * 0.55;
+      return { bodyRx, bodyRy, bodyCy, headR, headCy, eyeY: headCy - 2, neckY: headCy + headR - 6, faceDy: 0 };
+    }
+    case 'poodle': {
+      const bodyRx = s.bodyRx * 0.96;
+      const bodyRy = s.bodyRy * 0.93;
+      const headR = s.headR * 0.91;
+      const bodyCy = 200 - bodyRy - 2;
+      const headCy = bodyCy - bodyRy * 0.85 - headR * 0.6;
+      return { bodyRx, bodyRy, bodyCy, headR, headCy, eyeY: headCy - 4, neckY: headCy + headR - 4, faceDy: 6 };
+    }
+    case 'frenchie': {
+      // Stocky, with a wide flat head.
+      const bodyRx = s.bodyRx * 1.07;
+      const bodyRy = s.bodyRy * 0.86;
+      const headR = s.headR * 1.05;
+      const bodyCy = 200 - bodyRy - 2;
+      const headCy = bodyCy - bodyRy * 0.8 - headR * 0.45;
+      return { bodyRx, bodyRy, bodyCy, headR, headCy, eyeY: headCy - 2, neckY: headCy + headR - 10, faceDy: 4 };
+    }
+  }
+}
+
+const EAR_PINK = '#f0a8a8';
+
+// Everything but the face and accessories for a breed: tail, body, legs,
+// ears, head and muzzle. Same flat shapes as the hound, same coat
+// palette (a coat item recolours it), so it reads as the same family.
+function BreedBody({ breed, g, palette }: { breed: HoundBreed; g: Geometry; palette: CoatColors }) {
+  const { coat: COAT, dark: DARK, light: LIGHT } = palette;
+  const { bodyRx, bodyRy, bodyCy, headR, headCy, eyeY } = g;
+
+  if (breed === 'corgi') {
+    return (
+      <G>
+        <Circle cx={100 + bodyRx - 6} cy={bodyCy + 8} r={9} fill={LIGHT} />
+        <Ellipse cx={100 - bodyRx * 0.66} cy={bodyCy + bodyRy * 0.45} rx={bodyRx * 0.4} ry={bodyRy * 0.42} fill={DARK} />
+        <Ellipse cx={100 + bodyRx * 0.66} cy={bodyCy + bodyRy * 0.45} rx={bodyRx * 0.4} ry={bodyRy * 0.42} fill={DARK} />
+        <Ellipse cx={100} cy={bodyCy} rx={bodyRx} ry={bodyRy} fill={COAT} />
+        <Ellipse cx={100} cy={bodyCy - bodyRy * 0.5} rx={bodyRx * 0.9} ry={bodyRy * 0.32} fill={DARK} opacity={0.4} />
+        <Ellipse cx={100} cy={bodyCy + 10} rx={bodyRx * 0.46} ry={bodyRy * 0.7} fill={LIGHT} />
+        {/* Short legs in white socks. */}
+        <Rect x={70} y={bodyCy + bodyRy * 0.5} width={20} height={bodyRy * 0.5} rx={10} fill={COAT} />
+        <Rect x={110} y={bodyCy + bodyRy * 0.5} width={20} height={bodyRy * 0.5} rx={10} fill={COAT} />
+        <Rect x={70} y={bodyCy + bodyRy * 0.78} width={20} height={bodyRy * 0.3} rx={10} fill={LIGHT} />
+        <Rect x={110} y={bodyCy + bodyRy * 0.78} width={20} height={bodyRy * 0.3} rx={10} fill={LIGHT} />
+        <Ellipse cx={80} cy={198} rx={13} ry={7} fill={LIGHT} />
+        <Ellipse cx={120} cy={198} rx={13} ry={7} fill={LIGHT} />
+        {/* Big upright ears, pink inside. */}
+        {[-1, 1].map((side) => {
+          const bx = 100 + side * headR * 0.45;
+          const tipx = 100 + side * headR * 1.05;
+          const tipy = headCy - headR * 1.55;
+          return (
+            <G key={side}>
+              <Path
+                d={`M ${bx} ${headCy - headR * 0.7} Q ${tipx - side * 4} ${tipy + 6} ${tipx} ${tipy} Q ${100 + side * headR * 1.08} ${headCy - headR * 0.8} ${100 + side * headR * 0.98} ${headCy - headR * 0.2} Z`}
+                fill={COAT}
+              />
+              <Path
+                d={`M ${100 + side * headR * 0.6} ${headCy - headR * 0.68} Q ${tipx - side * 6} ${tipy + 16} ${tipx - side * 3} ${tipy + 10} Q ${100 + side * headR * 0.98} ${headCy - headR * 0.78} ${100 + side * headR * 0.9} ${headCy - headR * 0.32} Z`}
+                fill={EAR_PINK}
+                opacity={0.85}
+              />
+            </G>
+          );
+        })}
+        <Ellipse cx={100} cy={headCy} rx={headR * 1.02} ry={headR * 0.94} fill={COAT} />
+        {/* White blaze down the forehead into the muzzle. */}
+        <Path d={`M 93 ${headCy - headR * 0.9} Q 100 ${headCy - headR} 107 ${headCy - headR * 0.9} L 112 ${headCy + 6} L 88 ${headCy + 6} Z`} fill={LIGHT} />
+        <Ellipse cx={100} cy={headCy + 18} rx={30} ry={19} fill={LIGHT} />
+        <Ellipse cx={100} cy={headCy + 9} rx={9} ry={6.5} fill={NOSE} />
+        <Path d={`M 100 ${headCy + 15} L 100 ${headCy + 21}`} stroke={INK} strokeWidth={2.5} strokeLinecap="round" />
+        <Ellipse cx={80} cy={eyeY - 12} rx={6} ry={3.5} fill={DARK} opacity={0.35} />
+        <Ellipse cx={120} cy={eyeY - 12} rx={6} ry={3.5} fill={DARK} opacity={0.35} />
+      </G>
+    );
+  }
+
+  if (breed === 'poodle') {
+    const curl = LIGHT;
+    return (
+      <G>
+        {/* Tail: a stick with a pom. */}
+        <Path d={`M ${100 + bodyRx - 10} ${bodyCy + 10} L ${100 + bodyRx + 16} ${bodyCy - 34}`} stroke={COAT} strokeWidth={7} strokeLinecap="round" />
+        <Puff cx={100 + bodyRx + 18} cy={bodyCy - 42} r={13} base={COAT} top={curl} />
+        <Puff cx={100 - bodyRx * 0.72} cy={bodyCy + bodyRy * 0.45} r={bodyRx * 0.4} base={DARK} top={COAT} opacity={0.6} />
+        <Puff cx={100 + bodyRx * 0.72} cy={bodyCy + bodyRy * 0.45} r={bodyRx * 0.4} base={DARK} top={COAT} opacity={0.6} />
+        <Puff cx={100} cy={bodyCy} r={bodyRx} base={COAT} top={curl} sy={bodyRy / bodyRx} />
+        <Ellipse cx={100} cy={bodyCy + 8} rx={bodyRx * 0.42} ry={bodyRy * 0.6} fill={LIGHT} opacity={0.8} />
+        {/* Slim legs with pom cuffs. */}
+        <Rect x={73} y={bodyCy + bodyRy * 0.4} width={14} height={bodyRy * 0.55} rx={7} fill={COAT} />
+        <Rect x={113} y={bodyCy + bodyRy * 0.4} width={14} height={bodyRy * 0.55} rx={7} fill={COAT} />
+        <Puff cx={80} cy={193} r={12} base={COAT} top={curl} opacity={0.9} />
+        <Puff cx={120} cy={193} r={12} base={COAT} top={curl} opacity={0.9} />
+        {/* Long curly ears, behind the head. */}
+        {[-1, 1].map((side) => (
+          <Puff key={side} cx={100 + side * headR} cy={headCy + 22} r={15} base={DARK} top={COAT} opacity={0.7} sy={1.7} />
+        ))}
+        <Circle cx={100} cy={headCy} r={headR} fill={COAT} />
+        {/* Topknot. */}
+        <Puff cx={100} cy={headCy - headR * 0.95} r={24} base={COAT} top={curl} sx={1.35} sy={0.85} />
+        {/* Long muzzle. */}
+        <Ellipse cx={100} cy={headCy + 22} rx={19} ry={22} fill={LIGHT} />
+        <Ellipse cx={100} cy={headCy + 12} rx={8.5} ry={6.5} fill={NOSE} />
+        <Path d={`M 100 ${headCy + 18} L 100 ${headCy + 26}`} stroke={INK} strokeWidth={2.5} strokeLinecap="round" />
+      </G>
+    );
+  }
+
+  // French bulldog.
+  return (
+    <G>
+      <Circle cx={100 + bodyRx - 8} cy={bodyCy + 12} r={7} fill={DARK} />
+      <Ellipse cx={100 - bodyRx * 0.64} cy={bodyCy + bodyRy * 0.48} rx={bodyRx * 0.44} ry={bodyRy * 0.42} fill={DARK} />
+      <Ellipse cx={100 + bodyRx * 0.64} cy={bodyCy + bodyRy * 0.48} rx={bodyRx * 0.44} ry={bodyRy * 0.42} fill={DARK} />
+      <Ellipse cx={100} cy={bodyCy} rx={bodyRx} ry={bodyRy} fill={COAT} />
+      <Ellipse cx={100} cy={bodyCy - bodyRy * 0.5} rx={bodyRx * 0.9} ry={bodyRy * 0.35} fill={DARK} opacity={0.35} />
+      <Ellipse cx={100} cy={bodyCy + 6} rx={bodyRx * 0.42} ry={bodyRy * 0.62} fill={LIGHT} />
+      {/* Stout legs. */}
+      <Rect x={68} y={bodyCy + bodyRy * 0.4} width={24} height={bodyRy * 0.58} rx={12} fill={COAT} />
+      <Rect x={108} y={bodyCy + bodyRy * 0.4} width={24} height={bodyRy * 0.58} rx={12} fill={COAT} />
+      <Ellipse cx={80} cy={198} rx={14} ry={7} fill={LIGHT} />
+      <Ellipse cx={120} cy={198} rx={14} ry={7} fill={LIGHT} />
+      {/* Bat ears, pink inside. */}
+      {[-1, 1].map((side) => {
+        const cx = 100 + side * headR * 0.78;
+        const cy = headCy - headR * 0.95;
+        return (
+          <G key={side}>
+            <Ellipse cx={cx} cy={cy} rx={15} ry={30} fill={COAT} transform={`rotate(${side * 12} ${cx} ${cy})`} />
+            <Ellipse cx={cx} cy={cy + 2} rx={8.5} ry={21} fill={EAR_PINK} opacity={0.9} transform={`rotate(${side * 12} ${cx} ${cy})`} />
+          </G>
+        );
+      })}
+      <Ellipse cx={100} cy={headCy} rx={headR * 1.08} ry={headR * 0.9} fill={COAT} />
+      {/* The dark mask round the muzzle, forehead wrinkles, jowls, a big short nose. */}
+      <Ellipse cx={100} cy={headCy + 17} rx={31} ry={20} fill={DARK} opacity={0.85} />
+      <Path d={`M 86 ${headCy - 22} Q 100 ${headCy - 27} 114 ${headCy - 22}`} stroke={DARK} strokeWidth={2.5} strokeLinecap="round" fill="none" opacity={0.7} />
+      <Path d={`M 90 ${headCy - 15} Q 100 ${headCy - 19} 110 ${headCy - 15}`} stroke={DARK} strokeWidth={2} strokeLinecap="round" fill="none" opacity={0.5} />
+      <Ellipse cx={88} cy={headCy + 24} rx={13} ry={10} fill={LIGHT} opacity={0.35} />
+      <Ellipse cx={112} cy={headCy + 24} rx={13} ry={10} fill={LIGHT} opacity={0.35} />
+      <Ellipse cx={100} cy={headCy + 10} rx={12} ry={8} fill={NOSE} />
+      <Path d={`M 100 ${headCy + 17} L 100 ${headCy + 23}`} stroke={INK} strokeWidth={2.5} strokeLinecap="round" />
+    </G>
+  );
+}
+
+// A puff of curly coat: a base ellipse ringed with small circles.
+function Puff({ cx, cy, r, base, top, opacity = 1, sx = 1, sy = 1 }: { cx: number; cy: number; r: number; base: string; top: string; opacity?: number; sx?: number; sy?: number }) {
+  const n = Math.max(6, Math.round(r / 4));
+  return (
+    <G opacity={opacity}>
+      <Ellipse cx={cx} cy={cy} rx={r * sx} ry={r * sy} fill={base} />
+      {Array.from({ length: n }, (_, i) => {
+        const a = (i / n) * Math.PI * 2;
+        return <Circle key={i} cx={cx + Math.cos(a) * r * sx * 0.82} cy={cy + Math.sin(a) * r * sy * 0.82} r={r * 0.32} fill={i % 2 ? top : base} />;
+      })}
+      <Ellipse cx={cx} cy={cy} rx={r * sx * 0.75} ry={r * sy * 0.75} fill={base} />
+    </G>
   );
 }
 

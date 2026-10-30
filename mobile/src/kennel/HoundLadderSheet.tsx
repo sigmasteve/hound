@@ -73,6 +73,7 @@ export function HoundLadderSheet({
                   ears={kennel.ears}
                   tail={kennel.tail}
                   markings={kennel.markings}
+                  breedId={kennel.breedId}
                   size={96}
                   animate={false}
                 />
@@ -105,6 +106,7 @@ export function HoundLadderSheet({
                           ears={kennel.ears}
                           tail={kennel.tail}
                           markings={kennel.markings}
+                          breedId={kennel.breedId}
                           size={44}
                           animate={false}
                         />
