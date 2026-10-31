@@ -16,7 +16,9 @@ export type KennelItemKind =
   | 'sun'
   | 'mask'
   | 'coat'
-  | 'breed';
+  | 'breed'
+  | 'pilgrim'
+  | 'turkey';
 
 export interface KennelItem {
   id: string;
@@ -27,9 +29,11 @@ export interface KennelItem {
   color: string;
   // A second color where the drawing needs one (a bandana's dots).
   accent?: string;
-  // Limited-time items (0112_halloween_kennel.sql): the season's name and
-  // the last day it can be bought, YYYY-MM-DD. Owned ones stay for good.
+  // Limited-time items (0112_halloween_kennel.sql): the season's name,
+  // the first day it's shown and the last day it can be bought,
+  // YYYY-MM-DD. Owned ones stay for good.
   season?: string;
+  availableFrom?: string;
   availableUntil?: string;
 }
 
@@ -68,11 +72,20 @@ export const KENNEL_ITEMS: KennelItem[] = [
       { id: 'coat_pumpkin', slot: 'coat', name: 'Pumpkin Spice', costBones: 120, kind: 'coat', color: '#e07b2a' },
     ] as const
   ).map((i) => ({ ...i, season: 'Halloween', availableUntil: '2026-10-31' })),
+  // Thanksgiving 2026 (0134_thanksgiving.sql), November.
+  ...(
+    [
+      { id: 'hat_pilgrim', slot: 'head', name: 'Pilgrim Hat', costBones: 100, kind: 'pilgrim', color: '#2b2b33', accent: '#e0b84f' },
+      { id: 'hat_turkey', slot: 'head', name: 'Turkey Hat', costBones: 120, kind: 'turkey', color: '#8a4a1c', accent: '#e07b2a' },
+      { id: 'bandana_harvest', slot: 'neck', name: 'Harvest Bandana', costBones: 60, kind: 'bandana', color: '#8a4a1c', accent: '#e0a94f' },
+      { id: 'coat_maple', slot: 'coat', name: 'Maple', costBones: 120, kind: 'coat', color: '#a3402a' },
+    ] as const
+  ).map((i) => ({ ...i, season: 'Thanksgiving', availableFrom: '2026-11-01', availableUntil: '2026-11-30' })),
 ];
 
-// Whether it can be bought on this day (YYYY-MM-DD, the member's own).
+// Whether it's for sale on this day (YYYY-MM-DD, the member's own).
 export function onSale(item: KennelItem, dayKey: string): boolean {
-  return !item.availableUntil || dayKey <= item.availableUntil;
+  return (!item.availableFrom || dayKey >= item.availableFrom) && (!item.availableUntil || dayKey <= item.availableUntil);
 }
 
 // "Until Oct 31", for a limited-time item.
@@ -104,6 +117,7 @@ const COATS: Record<string, CoatColors> = {
   coat_midnight: { coat: '#3b3f8f', dark: '#24275c', light: '#a9b1f0', eyeSpots: true },
   coat_candy: { coat: '#f2a7c3', dark: '#c96b92', light: '#fde3ee' },
   coat_pumpkin: { coat: '#e07b2a', dark: '#8a3f12', light: '#fbd9a8' },
+  coat_maple: { coat: '#a3402a', dark: '#5e2314', light: '#f1cfb0' },
 };
 
 export function coatColors(coatId: string | null | undefined): CoatColors {

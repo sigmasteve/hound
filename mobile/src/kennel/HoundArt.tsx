@@ -541,6 +541,36 @@ function HeadItem({ item, headCy, headR }: { item: KennelItem; headCy: number; h
       </G>
     );
   }
+  if (item.kind === 'pilgrim') {
+    // A tall black hat with a brim and a gold-buckled band.
+    const brim = top + 8;
+    return (
+      <G>
+        <Ellipse cx={100} cy={brim} rx={40} ry={8} fill={item.color} />
+        <Path d={`M 80 ${brim} L 84 ${brim - 44} L 116 ${brim - 44} L 120 ${brim} Z`} fill={item.color} />
+        <Path d={`M 82 ${brim - 8} L 118 ${brim - 8}`} stroke="#6b6b78" strokeWidth={7} />
+        <Rect x={95} y={brim - 13} width={10} height={10} rx={1.5} fill="none" stroke={item.accent ?? '#e0b84f'} strokeWidth={2.5} />
+      </G>
+    );
+  }
+  if (item.kind === 'turkey') {
+    // A fan of tail feathers standing up behind the head, and a small
+    // brown cap with a wattle.
+    const cy = top + 6;
+    const feathers = ['#8a4a1c', '#e07b2a', '#d94a4a', '#e0a94f', '#8a4a1c'];
+    return (
+      <G>
+        {feathers.map((c, i) => {
+          const angle = -50 + i * 25;
+          return (
+            <Ellipse key={i} cx={100} cy={cy - 24} rx={9} ry={26} fill={c} transform={`rotate(${angle} 100 ${cy + 4})`} />
+          );
+        })}
+        <Ellipse cx={100} cy={cy} rx={22} ry={11} fill={item.color} />
+        <Circle cx={100} cy={cy - 6} r={6} fill="#d94a4a" />
+      </G>
+    );
+  }
   if (item.kind === 'witch') {
     // A wide brim and a tall, crooked point, with a band.
     const brim = top + 10;

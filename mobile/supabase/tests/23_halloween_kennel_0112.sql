@@ -7,7 +7,7 @@ select tests.new_user('Ann') as ann \gset
 select (now() at time zone 'utc')::date as today \gset
 update public.profiles set bones_balance = 1000 where id = :'ann';
 
-select is((select count(*)::int from public.kennel_items where available_until is not null), 5, 'Five Halloween items');
+select is((select count(*)::int from public.kennel_items where available_until = '2026-10-31'), 5, 'Five Halloween items');
 
 -- Pumpkin Hat's last day is today; the Witch Hat's was yesterday.
 update public.kennel_items set available_until = :'today' where id = 'hat_pumpkin';

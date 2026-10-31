@@ -32,7 +32,7 @@ export interface CosmeticItem {
   digPieces?: number;
 }
 
-export type SeasonalCollectionId = 'halloween_2026';
+export type SeasonalCollectionId = 'halloween_2026' | 'thanksgiving_2026';
 
 export interface SeasonalCollection {
   id: SeasonalCollectionId;
@@ -41,15 +41,31 @@ export interface SeasonalCollection {
   // purchase_cosmetic is the real gate; this drives the Shop's countdown
   // and when the Shop stops listing the set.
   availableUntil: string;
+  // When the Shop starts listing it (the rows exist earlier, so the
+  // build can go out ahead of the day).
+  availableFrom?: string;
+  // The one accent the Shop's card for it uses instead of the app's
+  // purple, so the drop reads as seasonal at a glance.
+  color: string;
 }
 
 export const SEASONAL_COLLECTIONS: Record<SeasonalCollectionId, SeasonalCollection> = {
   // Midnight at the end of Oct 31, US Pacific time.
-  halloween_2026: { id: 'halloween_2026', name: 'Halloween', availableUntil: '2026-11-01T07:00:00Z' },
+  halloween_2026: { id: 'halloween_2026', name: 'Halloween', availableUntil: '2026-11-01T07:00:00Z', color: '#ff7a1a' },
+  // 0134_thanksgiving.sql: November.
+  thanksgiving_2026: {
+    id: 'thanksgiving_2026',
+    name: 'Thanksgiving',
+    availableFrom: '2026-11-01T07:00:00Z',
+    availableUntil: '2026-12-01T08:00:00Z',
+    color: '#c2410c',
+  },
 };
 
 export function isCollectionOnSale(id: SeasonalCollectionId, now: Date = new Date()): boolean {
-  return now.getTime() < new Date(SEASONAL_COLLECTIONS[id].availableUntil).getTime();
+  const c = SEASONAL_COLLECTIONS[id];
+  const t = now.getTime();
+  return (!c.availableFrom || t >= new Date(c.availableFrom).getTime()) && t < new Date(c.availableUntil).getTime();
 }
 
 export interface FrameStyle extends CosmeticItem {
@@ -88,6 +104,9 @@ export const FRAMES: FrameStyle[] = [
   // Halloween 2026 — limited time, see 0071_halloween_cosmetics.sql.
   { id: 'frame_pumpkin', slot: 'frame', name: 'Pumpkin Ring', unlockXp: null, costBones: 300, ringColor: '#ff7a1a', collection: 'halloween_2026' },
   { id: 'frame_slime', slot: 'frame', name: 'Slime Ring', unlockXp: null, costBones: 450, ringColor: '#8fe33b', collection: 'halloween_2026' },
+  // Thanksgiving 2026 — limited time, see 0134_thanksgiving.sql.
+  { id: 'frame_maple', slot: 'frame', name: 'Maple Ring', unlockXp: null, costBones: 300, ringColor: '#c2410c', collection: 'thanksgiving_2026' },
+  { id: 'frame_harvest_gold', slot: 'frame', name: 'Harvest Gold Ring', unlockXp: null, costBones: 450, ringColor: '#d4a017', collection: 'thanksgiving_2026' },
   // Bone Dig — see 0103_bone_dig.sql.
   { id: 'frame_fossil', slot: 'frame', name: 'Fossil Ring', unlockXp: null, costBones: null, digPieces: 5, ringColor: '#d9c7a3' },
 ];
@@ -178,6 +197,27 @@ export const BACKGROUNDS: BackgroundStyle[] = [
     gradientTo: '#ff7a1a',
     collection: 'halloween_2026',
   },
+  // Thanksgiving 2026 — limited time, see 0134_thanksgiving.sql.
+  {
+    id: 'bg_harvest',
+    slot: 'background',
+    name: 'Harvest',
+    unlockXp: null,
+    costBones: 350,
+    gradientFrom: '#5e2314',
+    gradientTo: '#e0a94f',
+    collection: 'thanksgiving_2026',
+  },
+  {
+    id: 'bg_pumpkin_pie',
+    slot: 'background',
+    name: 'Pumpkin Pie',
+    unlockXp: null,
+    costBones: 600,
+    gradientFrom: '#c2410c',
+    gradientTo: '#fbe3a6',
+    collection: 'thanksgiving_2026',
+  },
   // Bone Dig — see 0103_bone_dig.sql.
   {
     id: 'bg_dig_site',
@@ -208,6 +248,10 @@ export const ICONS: IconStyle[] = [
   { id: 'icon_ghost', slot: 'icon', name: 'Ghost', unlockXp: null, costBones: 300, icon: 'ghost', collection: 'halloween_2026' },
   { id: 'icon_broom', slot: 'icon', name: 'Witch’s Broom', unlockXp: null, costBones: 400, icon: 'broom', collection: 'halloween_2026' },
   { id: 'icon_skull', slot: 'icon', name: 'Skull', unlockXp: null, costBones: 550, icon: 'skull', collection: 'halloween_2026' },
+  // Thanksgiving 2026 — limited time, see 0134_thanksgiving.sql.
+  { id: 'icon_acorn', slot: 'icon', name: 'Acorn', unlockXp: null, costBones: 300, icon: 'acorn', collection: 'thanksgiving_2026' },
+  { id: 'icon_leaf', slot: 'icon', name: 'Autumn Leaf', unlockXp: null, costBones: 400, icon: 'leaf', collection: 'thanksgiving_2026' },
+  { id: 'icon_turkey', slot: 'icon', name: 'Turkey', unlockXp: null, costBones: 550, icon: 'bird', collection: 'thanksgiving_2026' },
   // Bone Dig — see 0103_bone_dig.sql.
   { id: 'icon_bone', slot: 'icon', name: 'Bone', unlockXp: null, costBones: null, digPieces: 15, icon: 'bone' },
 ];
