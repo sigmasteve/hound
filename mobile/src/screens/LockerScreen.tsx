@@ -3,7 +3,8 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } fro
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon, LockSimpleIcon, PlusIcon, ShovelIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon,
+  LeafIcon, LockSimpleIcon, PlusIcon, ShovelIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -17,6 +18,7 @@ import {
   ICONS,
   isCollectionOnSale,
   SEASONAL_COLLECTIONS,
+  type SeasonalCollectionId,
   type BackgroundStyle,
   type CosmeticSlot,
   type FrameStyle,
@@ -242,23 +244,27 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   const shopBackgrounds = BACKGROUNDS.filter((b) => b.costBones !== null && !b.collection);
   const shopIcons = ICONS.filter((i) => i.costBones !== null && !i.collection);
 
-  // The Halloween drop: everything while it's on sale; afterwards only
-  // what this viewer already owns (still equippable forever), and the
-  // card disappears entirely for anyone who didn't buy anything.
-  const halloween = SEASONAL_COLLECTIONS.halloween_2026;
-  const halloweenOnSale = isCollectionOnSale(halloween.id);
-  const halloweenItems: { item: FrameStyle | BackgroundStyle | IconStyle; slot: CosmeticSlot }[] = [
-    ...FRAMES.filter((f) => f.collection === halloween.id).map((item) => ({ item, slot: 'frame' as const })),
-    ...BACKGROUNDS.filter((b) => b.collection === halloween.id).map((item) => ({ item, slot: 'background' as const })),
-    ...ICONS.filter((i) => i.collection === halloween.id).map((item) => ({ item, slot: 'icon' as const })),
-  ].filter(({ item }) => halloweenOnSale || !!purchasedIds?.has(item.id));
-  // Calendar days left in the viewer's own time zone, counting today —
-  // so the sale's final day reads "last day", not "1 day left".
-  const saleLastDay = new Date(new Date(halloween.availableUntil).getTime() - 1);
-  saleLastDay.setHours(0, 0, 0, 0);
+  // Seasonal drops, one card each: everything while it's on sale;
+  // afterwards only what this viewer already owns (still equippable
+  // forever), and the card disappears for anyone who didn't buy anything.
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const halloweenDaysLeft = Math.max(1, Math.round((saleLastDay.getTime() - today.getTime()) / 86_400_000) + 1);
+  const seasons = Object.values(SEASONAL_COLLECTIONS)
+    .map((collection) => {
+      const onSale = isCollectionOnSale(collection.id);
+      const items: { item: FrameStyle | BackgroundStyle | IconStyle; slot: CosmeticSlot }[] = [
+        ...FRAMES.filter((f) => f.collection === collection.id).map((item) => ({ item, slot: 'frame' as const })),
+        ...BACKGROUNDS.filter((b) => b.collection === collection.id).map((item) => ({ item, slot: 'background' as const })),
+        ...ICONS.filter((i) => i.collection === collection.id).map((item) => ({ item, slot: 'icon' as const })),
+      ].filter(({ item }) => onSale || !!purchasedIds?.has(item.id));
+      // Calendar days left in the viewer's own time zone, counting today,
+      // so the sale's final day reads "last day", not "1 day left".
+      const saleLastDay = new Date(new Date(collection.availableUntil).getTime() - 1);
+      saleLastDay.setHours(0, 0, 0, 0);
+      const daysLeft = Math.max(1, Math.round((saleLastDay.getTime() - today.getTime()) / 86_400_000) + 1);
+      return { collection, onSale, items, daysLeft };
+    })
+    .filter((s) => s.items.length > 0);
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
@@ -366,34 +372,44 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
           </>
         ) : (
           <>
-            {halloweenItems.length > 0 && (
-              <Card style={styles.seasonCard} elevated={false}>
-                <View style={styles.seasonHeader}>
-                  <GhostIcon size={20} color={SEASON_ORANGE} weight="fill" />
-                  <View style={{ flex: 1, gap: 1 }}>
-                    <Text style={text.h4}>{halloween.name}</Text>
-                    <Text style={styles.seasonNote}>
-                      {halloweenOnSale
-                        ? `Limited time · ${halloweenDaysLeft === 1 ? 'last day' : `${halloweenDaysLeft} days left`} · yours to keep`
-                        : 'No longer sold — these are yours to keep.'}
-                    </Text>
-                  </View>
-                </View>
-                {/* Same Frames / Backgrounds / Icons grouping as the
-                    evergreen shop below — only groups with something to
-                    show (after the sale, just what the viewer owns). */}
-                {HALLOWEEN_GROUPS.map(({ slot, label }) => {
-                  const group = halloweenItems.filter((h) => h.slot === slot);
-                  if (group.length === 0) return null;
-                  return (
-                    <View key={slot} style={styles.seasonGroup}>
-                      <Text style={text.h4}>{label}</Text>
-                      {group.map(({ item }) => renderItem(item, slot))}
+            {seasons.map(({ collection, onSale, items, daysLeft }) => {
+              const SeasonIcon = SEASON_ICONS[collection.id] ?? GhostIcon;
+              return (
+                <Card
+                  key={collection.id}
+                  style={[
+                    styles.seasonCard,
+                    { borderColor: withAlpha(collection.color, 0.55), backgroundColor: withAlpha(collection.color, 0.08) },
+                  ]}
+                  elevated={false}
+                >
+                  <View style={styles.seasonHeader}>
+                    <SeasonIcon size={20} color={collection.color} weight="fill" />
+                    <View style={{ flex: 1, gap: 1 }}>
+                      <Text style={text.h4}>{collection.name}</Text>
+                      <Text style={[styles.seasonNote, { color: collection.color }]}>
+                        {onSale
+                          ? `Limited time · ${daysLeft === 1 ? 'last day' : `${daysLeft} days left`} · yours to keep`
+                          : 'No longer sold — these are yours to keep.'}
+                      </Text>
                     </View>
-                  );
-                })}
-              </Card>
-            )}
+                  </View>
+                  {/* Same Frames / Backgrounds / Icons grouping as the
+                      evergreen shop below — only groups with something to
+                      show (after the sale, just what the viewer owns). */}
+                  {SEASON_GROUPS.map(({ slot, label }) => {
+                    const group = items.filter((h) => h.slot === slot);
+                    if (group.length === 0) return null;
+                    return (
+                      <View key={slot} style={styles.seasonGroup}>
+                        <Text style={text.h4}>{label}</Text>
+                        {group.map(({ item }) => renderItem(item, slot))}
+                      </View>
+                    );
+                  })}
+                </Card>
+              );
+            })}
 
             <Card style={{ gap: 4 }} elevated={false}>
               <Text style={text.h4}>Frames</Text>
@@ -416,27 +432,24 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-const HALLOWEEN_GROUPS: { slot: CosmeticSlot; label: string }[] = [
+const SEASON_GROUPS: { slot: CosmeticSlot; label: string }[] = [
   { slot: 'frame', label: 'Frames' },
   { slot: 'background', label: 'Backgrounds' },
   { slot: 'icon', label: 'Icons' },
 ];
 
-// Pumpkin orange — the one accent this card uses instead of the app's
-// own purple, so the drop reads as seasonal at a glance.
-const SEASON_ORANGE = '#ff7a1a';
+// Each drop's glyph; its colour comes from the collection itself.
+const SEASON_ICONS: Record<SeasonalCollectionId, React.ComponentType<any>> = {
+  halloween_2026: GhostIcon,
+  thanksgiving_2026: LeafIcon,
+};
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     digHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    seasonCard: {
-      gap: 4,
-      borderWidth: 1,
-      borderColor: withAlpha(SEASON_ORANGE, 0.55),
-      backgroundColor: withAlpha(SEASON_ORANGE, 0.08),
-    },
+    seasonCard: { gap: 4, borderWidth: 1 },
     seasonHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 4 },
-    seasonNote: { fontSize: 12, color: SEASON_ORANGE, fontFamily: font.heading },
+    seasonNote: { fontSize: 12, fontFamily: font.heading },
     seasonGroup: { gap: 4, paddingTop: 10 },
     container: { padding: 16, gap: 16, paddingBottom: 48 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },

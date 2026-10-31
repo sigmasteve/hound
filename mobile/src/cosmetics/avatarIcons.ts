@@ -1,5 +1,7 @@
 import type React from 'react';
 import {
+  AcornIcon,
+  BirdIcon,
   BoneIcon,
   BroomIcon,
   CatIcon,
@@ -7,6 +9,7 @@ import {
   DogIcon,
   FireIcon,
   GhostIcon,
+  LeafIcon,
   PawPrintIcon,
   RabbitIcon,
   RobotIcon,
@@ -30,6 +33,9 @@ export const ICON_COMPONENTS: Record<string, React.ComponentType<any>> = {
   broom: BroomIcon,
   skull: SkullIcon,
   bone: BoneIcon,
+  acorn: AcornIcon,
+  leaf: LeafIcon,
+  bird: BirdIcon,
 };
 
 // A build only ever ships knowing the icon keys that existed when it was

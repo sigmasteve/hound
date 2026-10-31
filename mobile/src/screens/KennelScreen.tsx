@@ -13,7 +13,8 @@ import {
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon, HeartIcon, PencilSimpleIcon, PlusIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon,
+  LeafIcon, HeartIcon, PencilSimpleIcon, PlusIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -214,7 +215,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   // place.
   const today = localDayKey(new Date());
   const seasonItems = KENNEL_ITEMS.filter((i) => i.season && onSale(i, today));
-  const season = seasonItems[0]?.season ?? null;
+  const seasons = [...new Set(seasonItems.map((i) => i.season!))];
   const inShop = (i: KennelItem) => !i.season || (!onSale(i, today) && kennel.owned.includes(i.id));
 
   const itemRow = (item: KennelItem) => {
@@ -489,17 +490,21 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
           )}
         </Card>
 
-        {season && seasonItems.length > 0 && (
-          <Card style={[{ gap: 4 }, styles.seasonCard]} elevated={false}>
-            <View style={styles.seasonHeader}>
-              <GhostIcon size={18} color={colors.amber} weight="fill" />
-              <Text style={text.h4}>{season}</Text>
-              <Text style={styles.seasonEnds}>{saleEndsLabel(seasonItems[0])}</Text>
-            </View>
-            <Text style={styles.itemNote}>Only around for a little while. Anything you get, you keep.</Text>
-            {seasonItems.map(itemRow)}
-          </Card>
-        )}
+        {seasons.map((season) => {
+          const items = seasonItems.filter((i) => i.season === season);
+          const SeasonIcon = season === 'Halloween' ? GhostIcon : LeafIcon;
+          return (
+            <Card key={season} style={[{ gap: 4 }, styles.seasonCard]} elevated={false}>
+              <View style={styles.seasonHeader}>
+                <SeasonIcon size={18} color={colors.amber} weight="fill" />
+                <Text style={text.h4}>{season}</Text>
+                <Text style={styles.seasonEnds}>{saleEndsLabel(items[0])}</Text>
+              </View>
+              <Text style={styles.itemNote}>Only around for a little while. Anything you get, you keep.</Text>
+              {items.map(itemRow)}
+            </Card>
+          );
+        })}
 
         {KENNEL_SLOTS.map(({ slot, label }) => (
           <Card key={slot} style={{ gap: 4 }} elevated={false}>
