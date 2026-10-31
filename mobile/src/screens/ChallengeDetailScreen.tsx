@@ -130,6 +130,9 @@ import {
   setChecklistTick,
   setPersonalLine,
 } from '../challenges/checklistApi';
+import { advanceHoundopoly, decideHoundopoly, getHoundopolyGame } from '../challenges/houndopolyApi';
+import { netWorth as houndopolyNetWorth, type HoundopolyGame } from '../challenges/houndopoly';
+import { HoundopolySection } from '../components/HoundopolySection';
 import {
   listSeventyFiveCheckins,
   listSeventyFiveJoinDates,
@@ -340,6 +343,11 @@ export function ChallengeDetailScreen({
   const [checklistCheckins, setChecklistCheckins] = useState<ChecklistCheckin[]>([]);
   const [checklistStatuses, setChecklistStatuses] = useState<Map<string, ChecklistStatus>>(new Map());
   const [checklistSaving, setChecklistSaving] = useState<string | null>(null);
+  // Hound'opoly (0136): the board, players, deeds and the overnight feed,
+  // plus today's steps for "your move tonight".
+  const [houndopoly, setHoundopoly] = useState<HoundopolyGame | null>(null);
+  const [houndopolySteps, setHoundopolySteps] = useState<number | null>(null);
+  const [houndopolyDeciding, setHoundopolyDeciding] = useState(false);
   // Your own line, as being typed; null while not editing.
   const [personalDraft, setPersonalDraft] = useState<string | null>(null);
   const [savingPersonal, setSavingPersonal] = useState(false);
@@ -594,6 +602,7 @@ export function ChallengeDetailScreen({
       const needsSeventyFive = c.kind === 'seventyfive';
       const needsChecklist = c.kind === 'checklist';
       const needsJourney = c.kind === 'journey';
+      const needsHoundopoly = c.kind === 'houndopoly';
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
       const needsMovement =
@@ -607,6 +616,8 @@ export function ChallengeDetailScreen({
       // Same idea for Tic-Tac-Go: pass a turn that's run past 24 hours
       // (or end a game whose time is up) before reading the board.
       if (needsTicTacGo) await settleTicTacGo(challengeId).catch(() => {});
+      // Hound'opoly: roll any day that's over before reading the board.
+      if (needsHoundopoly) await advanceHoundopoly(challengeId).catch(() => {});
       const [
         p,
         l,
@@ -628,6 +639,7 @@ export function ChallengeDetailScreen({
         checklistJoinDates,
         yesterdayBoard,
         standingResult,
+        houndopolyResult,
       ] = await Promise.all([
         supabaseChallengesProvider.listParticipants(challengeId),
         supabaseChallengesProvider.getLeaderboard(challengeId),
@@ -655,9 +667,11 @@ export function ChallengeDetailScreen({
           : Promise.resolve(null),
         // Best-effort too: the map still draws from the board without it.
         needsJourney ? journeyStanding(challengeId).catch(() => null) : Promise.resolve<JourneyStanding | null>(null),
+        needsHoundopoly ? getHoundopolyGame(challengeId) : Promise.resolve<HoundopolyGame | null>(null),
       ]);
       setChallenge(c);
       setStanding(standingResult);
+      setHoundopoly(houndopolyResult);
       setParticipants(p);
       setLeaderboard(l);
       setBots(b);
@@ -698,6 +712,33 @@ export function ChallengeDetailScreen({
   useEffect(() => {
     load();
   }, [load]);
+
+  // Hound'opoly: today's steps so far, for tonight's dice.
+  useEffect(() => {
+    if (challenge?.kind !== 'houndopoly') return;
+    let cancelled = false;
+    health
+      .getSnapshot()
+      .then((s) => {
+        if (!cancelled) setHoundopolySteps(s.stepsToday);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [challenge?.kind, health]);
+
+  const decideHoundopolySquare = async (buy: boolean) => {
+    setHoundopolyDeciding(true);
+    try {
+      await decideHoundopoly(challengeId, buy);
+      setHoundopoly(await getHoundopolyGame(challengeId));
+    } catch (e) {
+      Alert.alert(buy ? 'Couldn’t buy that' : 'Couldn’t pass', e instanceof Error ? e.message : 'Try again in a moment.');
+    } finally {
+      setHoundopolyDeciding(false);
+    }
+  };
 
   // A miles pool on a course: the first open after the group's miles
   // pass a stop gets its postcard, once per stop on this phone.
@@ -1416,6 +1457,15 @@ export function ChallengeDetailScreen({
           longestStreak: checklistStatuses.get(me)?.longestStreak ?? 0,
           days: challenge.durationDays,
         };
+      case 'houndopoly': {
+        if (!houndopoly) return null;
+        const worths = houndopoly.players
+          .map((p) => ({ userId: p.userId, worth: houndopolyNetWorth(p, houndopoly.deeds) }))
+          .sort((a, b) => b.worth - a.worth);
+        const at = worths.findIndex((w) => w.userId === me);
+        if (at < 0) return null;
+        return { type: 'houndopoly', rank: at + 1, of: worths.length, worth: worths[at].worth };
+      }
       case 'tictacgo':
         if (!tttGame || (tttGame.status !== 'won' && tttGame.status !== 'draw')) return null;
         return {
@@ -2134,6 +2184,18 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
+          {challenge.kind === 'houndopoly' && houndopoly && (
+            <HoundopolySection
+              challenge={challenge}
+              game={houndopoly}
+              participants={participants}
+              myUserId={user?.id ?? null}
+              stepsToday={houndopolySteps}
+              deciding={houndopolyDeciding}
+              onDecide={decideHoundopolySquare}
+            />
+          )}
+
           {challenge.kind === 'checklist' && (
             <Card style={{ gap: 12 }} elevated={false}>
               <Text style={text.h4}>Today&rsquo;s list</Text>
@@ -2257,7 +2319,7 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
-          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && (
+          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && (
             <Card style={{ gap: 12 }} elevated={false}>
               <View style={styles.leaderboardHeader}>
                 <TrophyIcon size={16} color={colors.accent} />
@@ -2503,7 +2565,8 @@ export function ChallengeDetailScreen({
             challenge.kind !== 'tictacgo' &&
             challenge.kind !== 'bingo' &&
             challenge.kind !== 'seventyfive' &&
-            challenge.kind !== 'checklist' && (
+            challenge.kind !== 'checklist' &&
+            challenge.kind !== 'houndopoly' && (
             <Card style={{ gap: 14 }} elevated={false}>
               <Text style={text.h4}>Log your progress</Text>
               <Text style={styles.footNote}>

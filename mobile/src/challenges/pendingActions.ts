@@ -2,7 +2,13 @@ import { usesDeviceSteps, usesWorkoutDistance } from './scoring';
 import type { Challenge, TagRound } from './types';
 import type { TicTacGoGame } from './tictacgoApi';
 
-export type PendingActionKind = 'tagPickTarget' | 'tictacgoYourMove' | 'seventyfiveChecklist' | 'checklistToday' | 'logProgress';
+export type PendingActionKind =
+  | 'tagPickTarget'
+  | 'tictacgoYourMove'
+  | 'seventyfiveChecklist'
+  | 'checklistToday'
+  | 'houndopolyDecide'
+  | 'logProgress';
 
 export interface PendingAction {
   challengeId: string;
@@ -23,7 +29,8 @@ export function needsManualEntry(challenge: Challenge): boolean {
     challenge.kind !== 'tictacgo' &&
     challenge.kind !== 'bingo' &&
     challenge.kind !== 'seventyfive' &&
-    challenge.kind !== 'checklist'
+    challenge.kind !== 'checklist' &&
+    challenge.kind !== 'houndopoly'
   );
 }
 
@@ -49,6 +56,9 @@ export interface PendingActionsInput {
   seventyfiveTodayComplete: Map<string, boolean>;
   // The same for an Accountability challenge's list — kind 'checklist'.
   checklistTodayComplete: Map<string, boolean>;
+  // Hound'opoly games where a square is waiting on the caller to buy or
+  // pass (houndopoly_players.pending_idx).
+  houndopolyPending: Set<string>;
   // Whether the caller has logged anything today — only meaningful for
   // challenges needsManualEntry() considers manual-entry kinds.
   loggedProgressToday: Map<string, boolean>;
@@ -68,6 +78,7 @@ export function computePendingActions({
   tictacgoGames,
   seventyfiveTodayComplete,
   checklistTodayComplete,
+  houndopolyPending,
   loggedProgressToday,
 }: PendingActionsInput): PendingAction[] {
   const actions: PendingAction[] = [];
@@ -116,6 +127,15 @@ export function computePendingActions({
           challengeName: c.name,
           kind: 'checklistToday',
           label: `Tick off today's list in ${c.name}`,
+        });
+      }
+    } else if (c.kind === 'houndopoly') {
+      if (houndopolyPending.has(c.id)) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'houndopolyDecide',
+          label: `Buy or pass on the square you landed on in ${c.name}`,
         });
       }
     } else if (needsManualEntry(c) && loggedProgressToday.get(c.id) === false) {

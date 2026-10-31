@@ -63,6 +63,7 @@ import {
   type ChecklistItemKind,
 } from '../challenges/checklist';
 import { addChecklistItems, getChecklistMaxItems, type NewChecklistItem } from '../challenges/checklistApi';
+import { DEFAULT_HOUNDOPOLY_DAYS } from '../challenges/houndopoly';
 import { DEFAULT_GLOBAL_PRIZES, POT_CHOICES, POT_KINDS, setChallengePot, setGlobalPrizes } from '../challenges/potApi';
 import type { DistanceGoalUnit, DistanceSource, HuntRole, ScoringMethod } from '../challenges/types';
 import type { RematchDraft } from '../challenges/rematch';
@@ -121,6 +122,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   bingo: 'Real bingo with steps and workouts; first line wins.',
   seventyfive: 'A daily checklist for 75 days.',
   checklist: 'Your own daily list. Tick it all, every day.',
+  houndopoly: 'Buy the squares your steps land you on. Richest wins.',
   journey: 'Same course, same start. First to the end wins.',
 };
 
@@ -390,6 +392,7 @@ export function CreateScreen({
     }
     if (draftType === 'seventyfive') setLength('75');
     if (draftType === 'checklist') setLength(String(DEFAULT_CHECKLIST_DAYS));
+    if (draftType === 'houndopoly') setLength(String(DEFAULT_HOUNDOPOLY_DAYS));
     if (draftType === 'journey') setLength(String(journeyDefaultDays(course.miles)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftType]);
@@ -588,7 +591,12 @@ export function CreateScreen({
       // just because the "Bot opponents" step above is hidden for all of
       // these.
       const chosenBots =
-        draftType === 'tag' || draftType === 'bingo' || draftType === 'tictacgo' || draftType === 'seventyfive' || draftType === 'checklist'
+        draftType === 'tag' ||
+        draftType === 'bingo' ||
+        draftType === 'tictacgo' ||
+        draftType === 'seventyfive' ||
+        draftType === 'checklist' ||
+        draftType === 'houndopoly'
           ? []
           : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
       const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
@@ -866,7 +874,8 @@ export function CreateScreen({
               onChange={setLength}
             />
             <Slider
-              minimumValue={1}
+              // A Hound'opoly game needs a week to go anywhere.
+              minimumValue={draftType === 'houndopoly' ? 7 : 1}
               // Every other kind keeps its existing 45-day ceiling
               // unchanged — only 75 Day Challenge needs to reach past it,
               // since its own default (seeded below) is 75.
@@ -1438,7 +1447,12 @@ export function CreateScreen({
             Friends on iPhone connect Apple Health, friends on Android connect Health Connect.
           </Text>
 
-          {draftType !== 'tag' && draftType !== 'bingo' && draftType !== 'tictacgo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (
+          {draftType !== 'tag' &&
+            draftType !== 'bingo' &&
+            draftType !== 'tictacgo' &&
+            draftType !== 'seventyfive' &&
+            draftType !== 'checklist' &&
+            draftType !== 'houndopoly' && (
             <>
               <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>
               <Text style={styles.footNote}>

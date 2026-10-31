@@ -162,6 +162,10 @@ export function toChallengeCard(
     // Same again: the list and today's ticks live on the detail screen.
     stat = 'Daily';
     statLabel = 'list · tick it all';
+  } else if (challenge.kind === 'houndopoly') {
+    // The board, cash and deeds live on the detail screen.
+    stat = '24';
+    statLabel = 'squares · richest wins';
   } else if (distanceGoal) {
     // A distance pool isn't a ranked leaderboard at all — everyone's
     // steps or miles (whichever unit its creator picked — see

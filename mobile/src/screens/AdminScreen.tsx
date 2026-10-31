@@ -35,6 +35,7 @@ import { GoalsAdminCard } from '../components/GoalsAdminCard';
 import { EngagementAdminCard } from '../components/EngagementAdminCard';
 import { AdsAdminCard } from '../components/AdsAdminCard';
 import { ChecklistAdminCard } from '../components/ChecklistAdminCard';
+import { HoundopolyAdminCard } from '../components/HoundopolyAdminCard';
 import { endChallengeEarly } from '../challenges/supabaseChallenges';
 import { PushReachCard } from '../components/PushReachCard';
 import { SignupAlertsCard } from '../components/SignupAlertsCard';
@@ -976,6 +977,7 @@ export function AdminScreen({
                 </AdminFold>
                 <AdminFold title="Accountability lists" summary="How many items a list can hold">
                   <ChecklistAdminCard />
+                  <HoundopolyAdminCard />
                 </AdminFold>
                 <AdminFold title="Challenge unlocks" summary={unlocksSummary}>
                   <Card style={{ gap: 12 }} elevated={false}>
