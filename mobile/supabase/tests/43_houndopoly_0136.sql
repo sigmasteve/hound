@@ -31,10 +31,10 @@ insert into public.challenge_participants (challenge_id, user_id) values ('99999
 select is((select count(*)::int from public.houndopoly_players where challenge_id = '99999999-0000-0000-0000-000000000011'), 0, 'A Step Race seats nobody');
 
 -- ── Dice from steps ──────────────────────────────────────────────────
-select is(public.houndopoly_dice(1500, s), 0, 'Under 2,000 steps: no roll') from public.houndopoly_settings s;
-select is(public.houndopoly_dice(5999, s), 1, 'Under 6,000: one die') from public.houndopoly_settings s;
-select is(public.houndopoly_dice(11999, s), 2, 'Under 12,000: two dice') from public.houndopoly_settings s;
-select is(public.houndopoly_dice(16000, s), 3, '12,000 and up: three dice') from public.houndopoly_settings s;
+select is(public.houndopoly_dice(1500, s, 1), 0, 'Under 2,000 steps in a day: no roll') from public.houndopoly_settings s;
+select is(public.houndopoly_dice(5999, s, 1), 1, 'Under 6,000: one die') from public.houndopoly_settings s;
+select is(public.houndopoly_dice(11999, s, 1), 2, 'Under 12,000: two dice') from public.houndopoly_settings s;
+select is(public.houndopoly_dice(16000, s, 1), 3, '12,000 and up: three dice') from public.houndopoly_settings s;
 
 -- ── Landing, as the server does it ───────────────────────────────────
 -- Ann moves 4 from Start: Riverside Trail (100), for sale.
@@ -83,7 +83,7 @@ select tests.sign_in(:'ann');
 set local role authenticated;
 select ok(public.houndopoly_advance('99999999-0000-0000-0000-000000000010') >= 2, 'A player can roll the days that are over');
 reset role;
-select is((select count(*)::int from public.houndopoly_days where challenge_id = '99999999-0000-0000-0000-000000000010' and day = :'today'::date - 2), 1, 'The day is marked rolled');
+select is((select count(*)::int from public.houndopoly_days where challenge_id = '99999999-0000-0000-0000-000000000010' and day = :'today'::date - 2), 2, 'The day is marked rolled, both turns (0137)');
 select is((select kind from public.houndopoly_events where challenge_id = '99999999-0000-0000-0000-000000000010' and day = :'today'::date - 2 and user_id = :'bob' and kind in ('stayed_in', 'moved') limit 1),
   'stayed_in', 'Under 2,000 steps stays in');
 select ok((select (detail ->> 'dice')::int = 3 and amount between 3 and 18 from public.houndopoly_events

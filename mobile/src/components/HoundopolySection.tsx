@@ -17,14 +17,17 @@ import {
   HOUNDOPOLY_BOARD,
   dayNumber,
   describeFeedDay,
+  describeSlot,
   diceFor,
   eventLine,
   netWorth,
+  nextTurn,
   ownerOf,
   ownsWholeGroup,
   rentFor,
   squareAt,
   stepsToNextDie,
+  turnTiers,
   type HoundopolyGame,
 } from '../challenges/houndopoly';
 import { localDayKey } from '../goals/goals';
@@ -83,8 +86,14 @@ export function HoundopolySection({
   const todayKey = localDayKey(new Date());
   const firstDay = challenge.startDay ?? localDayKey(new Date(challenge.startsAt));
   const day = dayNumber(firstDay, todayKey, challenge.durationDays);
-  const dice = stepsToday !== null ? diceFor(stepsToday, game.settings) : null;
-  const next = stepsToday !== null ? stepsToNextDie(stepsToday, game.settings) : null;
+  // Steps this turn: today's so far, less what a midday roll already used.
+  const counted = game.myTurnsToday.filter((t) => t.slot === 'noon').reduce((s, t) => s + t.steps, 0);
+  const turnSteps = stepsToday !== null ? Math.max(0, stepsToday - counted) : null;
+  const dice = turnSteps !== null ? diceFor(turnSteps, game.settings) : null;
+  const next = turnSteps !== null ? stepsToNextDie(turnSteps, game.settings) : null;
+  const upcoming = nextTurn(game.settings, game.myTurnsToday);
+  const rollsAt = upcoming.at.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const tiers = turnTiers(game.settings);
 
   const pending = me?.pendingIdx !== null && me?.pendingIdx !== undefined ? squareAt(me.pendingIdx) : null;
   const pendingOwned = pending ? ownerOf(pending.idx, game.deeds) !== null : false;
@@ -95,9 +104,12 @@ export function HoundopolySection({
   );
   const topWorth = standings[0]?.worth ?? 1;
 
-  const lastDay = game.rolledDays[0] ?? null;
-  const feed = lastDay ? game.events.filter((e) => e.day === lastDay) : [];
-  const today = game.events.filter((e) => e.day === todayKey && e.kind !== 'moved' && lastDay !== todayKey);
+  const lastTurn = game.rolledTurns[0] ?? null;
+  const feed = lastTurn ? game.events.filter((e) => e.day === lastTurn.day && e.slot === lastTurn.slot) : [];
+  // Today's own buys and passes since that roll.
+  const today = game.events.filter(
+    (e) => e.day === todayKey && (e.kind === 'bought' || e.kind === 'passed') && !(lastTurn && e.day === lastTurn.day && e.slot === lastTurn.slot),
+  );
 
   const deed = deedIdx !== null ? squareAt(deedIdx) : null;
   const deedOwner = deed ? ownerOf(deed.idx, game.deeds) : null;
@@ -132,7 +144,7 @@ export function HoundopolySection({
 
       {me && pending && (
         <Card style={{ gap: 10 }} elevated={false}>
-          <Text style={styles.eyebrow}>You landed here last night</Text>
+          <Text style={styles.eyebrow}>You landed here</Text>
           {pendingOwned ? (
             <Text style={styles.body}>
               <Text style={styles.bold}>{pending.name}</Text> was bought before you decided. It&rsquo;s gone.
@@ -140,7 +152,7 @@ export function HoundopolySection({
           ) : (
             <Text style={styles.body}>
               Buy <Text style={styles.bold}>{pending.name}</Text> for {pending.price}? You have {me.cash.toLocaleString()} cash. Decide before
-              the next roll or it stays for sale.
+              the next roll, at about {rollsAt}, or it stays for sale.
             </Text>
           )}
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -161,7 +173,7 @@ export function HoundopolySection({
 
       {me && !me.bankrupt && day <= challenge.durationDays && (
         <Card style={{ gap: 8 }} elevated={false}>
-          <Text style={styles.eyebrow}>Your move tonight</Text>
+          <Text style={styles.eyebrow}>Your next roll · {upcoming.slot === 'noon' ? 'midday' : 'overnight'}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <View style={styles.dice}>
               {dice === null ? (
@@ -172,23 +184,24 @@ export function HoundopolySection({
             </View>
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={styles.body}>
-                {stepsToday === null
+                {turnSteps === null
                   ? 'Checking today’s steps…'
                   : dice === 0
-                    ? `${stepsToday.toLocaleString()} steps so far · no roll yet`
-                    : `${stepsToday.toLocaleString()} steps so far · ${dice} ${dice === 1 ? 'die' : 'dice'} tonight`}
+                    ? `${turnSteps.toLocaleString()} steps this turn · no roll yet`
+                    : `${turnSteps.toLocaleString()} steps this turn · ${dice} ${dice === 1 ? 'die' : 'dice'}`}
               </Text>
               <Text style={styles.footNote}>
                 {next
                   ? `${next.steps.toLocaleString()} more steps for ${next.dice === 1 ? 'a roll' : `${next.dice} dice`}. `
                   : 'Top tier: three dice. '}
-                Rolls once the day is over everywhere. Under {game.settings.dogHouseSteps.toLocaleString()} steps and you stay in.
+                Rolls at about {rollsAt}
+                {upcoming.slot === 'night' ? ' tomorrow' : ''}.{counted > 0 ? ` Midday already counted ${counted.toLocaleString()}.` : ''}
               </Text>
             </View>
           </View>
           {dice !== null && dice > 0 && me && (
             <Text style={styles.footNote}>
-              Tonight you land {dice} to {dice * 6} squares ahead: {squareAt(me.position + dice).name} through {squareAt(me.position + dice * 6).name}.
+              You&rsquo;d land {dice} to {dice * 6} squares ahead: {squareAt(me.position + dice).name} through {squareAt(me.position + dice * 6).name}.
             </Text>
           )}
         </Card>
@@ -198,7 +211,7 @@ export function HoundopolySection({
         <Card style={{ gap: 10 }} elevated={false}>
           <View style={styles.header}>
             <CalendarBlankIcon size={16} color={colors.accent} />
-            <Text style={text.h4}>{lastDay ? `Last night · ${describeFeedDay(lastDay)}` : 'Today'}</Text>
+            <Text style={text.h4}>{lastTurn ? `${describeSlot(lastTurn.slot)} · ${describeFeedDay(lastTurn.day)}` : 'Today'}</Text>
           </View>
           {[...today, ...feed].map((e) => {
             const line = eventLine(e, nameOf, myUserId);
@@ -267,11 +280,10 @@ export function HoundopolySection({
           </Text>
         ))}
         <Text style={styles.footNote}>
-          Under {game.settings.dogHouseSteps.toLocaleString()} steps: no roll. {game.settings.dogHouseSteps.toLocaleString()} to{' '}
-          {(game.settings.twoDiceSteps - 1).toLocaleString()}: one die. {game.settings.twoDiceSteps.toLocaleString()} to{' '}
-          {(game.settings.threeDiceSteps - 1).toLocaleString()}: two. {game.settings.threeDiceSteps.toLocaleString()} and up: three. Passing
-          Start pays {game.settings.passStartCash}; the Vet costs {game.settings.vetCost}. Rent is a tenth of the price, doubled with a whole
-          colour group.
+          Two rolls a day: midday on the steps so far, overnight on the rest. Per roll, under {tiers[0].toLocaleString()} steps: no roll.{' '}
+          {tiers[0].toLocaleString()} to {(tiers[1] - 1).toLocaleString()}: one die. {tiers[1].toLocaleString()} to {(tiers[2] - 1).toLocaleString()}:
+          two. {tiers[2].toLocaleString()} and up: three. Passing Start pays {game.settings.passStartCash}; the Vet costs {game.settings.vetCost}.
+          Rent is a tenth of the price, doubled with a whole colour group.
         </Text>
       </Card>
 
