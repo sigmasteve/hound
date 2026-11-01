@@ -19,7 +19,9 @@ export type ResultOutcome =
   | { type: 'tictacgo'; result: 'won' | 'lost' | 'draw' }
   // A Journey: your place by miles, whether you reached the end of the
   // course, and the course's name.
-  | { type: 'journey'; rank: number; of: number; miles: string; finished: boolean; courseName: string };
+  | { type: 'journey'; rank: number; of: number; miles: string; finished: boolean; courseName: string }
+  // Hound'opoly: your place by net worth.
+  | { type: 'houndopoly'; rank: number; of: number; worth: number };
 
 export function ordinal(n: number): string {
   const mod100 = n % 100;
@@ -88,6 +90,10 @@ export function resultLine(challengeName: string, outcome: ResultOutcome, labels
       if (outcome.rank === 1) return `I won ${challengeName}, furthest along the ${outcome.courseName} with ${outcome.miles}! 🏆`;
       if (outcome.finished) return `I finished the ${outcome.courseName} in ${challengeName}, ${ordinal(outcome.rank)} of ${outcome.of}! 🏅`;
       return `I made it ${outcome.miles} along the ${outcome.courseName} in ${challengeName}, ${ordinal(outcome.rank)} of ${outcome.of}.`;
+    case 'houndopoly':
+      return outcome.rank === 1
+        ? `I won ${challengeName} at Hound'opoly, worth ${outcome.worth.toLocaleString()} at the end! 🏆`
+        : `I finished ${ordinal(outcome.rank)} of ${outcome.of} in ${challengeName} at Hound'opoly, worth ${outcome.worth.toLocaleString()}.`;
   }
 }
 
@@ -121,6 +127,8 @@ export function isWin(outcome: ResultOutcome): boolean {
     case 'tictacgo':
       return outcome.result === 'won';
     case 'journey':
+      return outcome.rank === 1;
+    case 'houndopoly':
       return outcome.rank === 1;
   }
 }

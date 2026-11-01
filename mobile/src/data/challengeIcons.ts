@@ -1,5 +1,6 @@
 import type React from 'react';
 import {
+  BuildingsIcon,
   ClipboardTextIcon,
   FlagIcon,
   FlagCheckeredIcon,
@@ -25,6 +26,7 @@ export const CHALLENGE_KIND_ICON: Record<ChallengeKind, React.ComponentType<any>
   seventyfive: ListChecksIcon,
   checklist: ClipboardTextIcon,
   journey: MapTrifoldIcon,
+  houndopoly: BuildingsIcon,
 };
 
 // A build only ever ships knowing the challenge kinds that existed when

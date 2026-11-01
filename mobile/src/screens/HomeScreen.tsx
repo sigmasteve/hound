@@ -88,6 +88,7 @@ import { getTagRound } from '../challenges/tagApi';
 import { computePendingActions, needsManualEntry, type PendingAction } from '../challenges/pendingActions';
 import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
 import { isMyChecklistTodayComplete } from '../challenges/checklistApi';
+import { listMyHoundopolyPending } from '../challenges/houndopolyApi';
 import { challengeDayNumber, getChallengeDays, localDayKey } from '../challenges/challengeDays';
 import { computeStreakStatus, type StreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
@@ -1558,7 +1559,7 @@ export function HomeScreen({
       const activeResults = results.filter((r) => !r.finished);
       if (user?.id) {
         const myId = user.id;
-        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries] = await Promise.all([
+        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending] = await Promise.all([
           Promise.all(
             activeResults
               .filter((r) => r.challenge.kind === 'tag')
@@ -1611,6 +1612,10 @@ export function HomeScreen({
                 await hasLoggedProgressToday(r.challenge.id, myId).catch(() => true),
               ]),
           ),
+          // Fails toward nothing waiting, like the others.
+          activeResults.some((r) => r.challenge.kind === 'houndopoly')
+            ? listMyHoundopolyPending(myId).catch(() => new Set<string>())
+            : Promise.resolve(new Set<string>()),
         ]);
         if (!cancelled) {
           const actions = computePendingActions({
@@ -1621,6 +1626,7 @@ export function HomeScreen({
             tictacgoGames: new Map(tictacgoEntries.filter((e): e is readonly [string, TicTacGoGame] => e[1] !== null)),
             seventyfiveTodayComplete: new Map(seventyfiveEntries),
             checklistTodayComplete: new Map(checklistEntries),
+            houndopolyPending,
             loggedProgressToday: new Map(manualEntries),
           });
           setPendingActions(actions);

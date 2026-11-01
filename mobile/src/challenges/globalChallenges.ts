@@ -10,7 +10,7 @@ import type { BingoCardType, ChallengeKind, DistanceGoalUnit, DistanceSource } f
 // The kinds that work with an open-ended crowd — the same list
 // publish_global_challenge enforces server-side. Chase, Tag, and
 // Tic-Tac-Go all depend on a small, known group.
-export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist'];
+export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly'];
 
 // How long after the start people can still join. 'start' closes
 // joining the moment it begins (only offered for a future start); 'end'
@@ -101,6 +101,14 @@ export const GLOBAL_TEMPLATES: GlobalTemplate[] = [
     durationDays: 30,
     blurb: 'A short daily list for everyone: a workout, a few thousand steps, a quiet minute. Tick it all or the day doesn’t count.',
     joinWindow: '7',
+  },
+  {
+    id: 'houndopoly-three-weeks',
+    name: 'Hound’opoly',
+    kind: 'houndopoly',
+    durationDays: 21,
+    blurb: 'The property board game, played with your steps. Three weeks; richest at the end wins.',
+    joinWindow: '3',
   },
   {
     id: 'windy-city-journey',

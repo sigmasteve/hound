@@ -60,7 +60,18 @@ export const TALLY: TallyRow[] = [
   { label: 'Marcus · dog walk', meta: 'Saturday 6:15pm · Health Connect', dist: '3.2 mi', tint: TINT_N, iconKind: 'dog' },
 ];
 
-export type ChallengeKind = 'hunt' | 'steps' | 'streak' | 'distance' | 'tag' | 'bingo' | 'tictacgo' | 'seventyfive' | 'journey' | 'checklist';
+export type ChallengeKind =
+  | 'hunt'
+  | 'steps'
+  | 'streak'
+  | 'distance'
+  | 'tag'
+  | 'bingo'
+  | 'tictacgo'
+  | 'seventyfive'
+  | 'journey'
+  | 'checklist'
+  | 'houndopoly';
 
 export interface ChallengeCard {
   id: string;
@@ -160,6 +171,13 @@ export const CHALLENGE_TYPES: {
   { id: 'tictacgo', name: 'Tic-Tac-Go', desc: 'Two players, one board. Hit a square’s goal to claim it, then it’s their move. Three in a row wins.', tint: '#6b1f4f', iconColor: '#fbc9e8' },
   { id: 'seventyfive', name: '75 Day Challenge', desc: 'A daily checklist — two workouts (one outdoors), a diet, water, reading, and a progress photo. Miss a day and your streak resets, but you keep going the whole way.', tint: '#1f4f6b', iconColor: '#c9e8fb' },
   { id: 'checklist', name: 'Accountability', desc: 'Your daily checklist, kept with friends: a workout, your steps, a quiet minute, and anything you type in. Add one line of your own. Tick everything or the day doesn’t count; a miss resets your streak, but you keep going.', tint: '#4f1f6b', iconColor: '#e8c9fb' },
+  {
+    id: 'houndopoly',
+    name: 'Hound’opoly',
+    desc: 'A property board game played with your steps. Each day’s steps pick your dice, the roll happens overnight, and you buy the parks and trails you land on. Rent, Fetch! cards, the Dog House. Richest when time runs out wins.',
+    tint: '#3f2a1f',
+    iconColor: '#fbe3c9',
+  },
   { id: 'journey', name: 'Journey', desc: 'Everyone walks the same famous course from the same start — Windy City 26.2, Route 66, the Appalachian Trail. Your walks, runs and hikes move you along the map. First to the end wins; if nobody gets there, furthest along does.', tint: '#2f5a3f', iconColor: '#cdebd6' },
 ];
 
@@ -176,7 +194,7 @@ export const CHALLENGE_TYPES: {
 // appear in the picker at all.
 export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
   { label: 'Races', kinds: ['steps', 'distance', 'journey'] },
-  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'bingo'] },
+  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'bingo', 'houndopoly'] },
   { label: 'Habits', kinds: ['streak', 'seventyfive', 'checklist'] },
 ];
 
