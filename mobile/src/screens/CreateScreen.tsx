@@ -634,7 +634,8 @@ export function CreateScreen({
       // means nothing. Never sends one along even if selectedBots somehow
       // has stale entries from switching kind after picking bots, not
       // just because the "Bot opponents" step above is hidden for all of
-      // these.
+      // these. Rally too: a return is verified from synced steps the bot
+      // never writes (0139_rally.sql), so a bot could never hit the shuttle.
       const chosenBots =
         draftType === 'tag' ||
         draftType === 'bingo' ||
@@ -1570,6 +1571,7 @@ export function CreateScreen({
           {draftType !== 'tag' &&
             draftType !== 'bingo' &&
             draftType !== 'tictacgo' &&
+            draftType !== 'rally' &&
             draftType !== 'seventyfive' &&
             draftType !== 'checklist' &&
             draftType !== 'houndopoly' && (
