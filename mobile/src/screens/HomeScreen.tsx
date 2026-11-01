@@ -327,7 +327,7 @@ function rallyHeadline(name: string, game: RallyGame | null, userId: string | nu
   if (game.status === 'waiting') return `Waiting for ${waiting === 1 ? 'your opponent' : `${waiting} players`} to join ${name}.`;
   const myTeam = rallyTeamOf(game, userId) ?? 'a';
   const otherTeam = myTeam === 'a' ? 'b' : 'a';
-  const others = rallyTeamMembers(game, otherTeam).map((m) => nameOf(m.userId)).join(' and ');
+  const others = rallyTeamMembers(game, otherTeam).map((m) => nameOf(m.playerId)).join(' and ');
   const mine = myTeam === 'a' ? game.gamesA : game.gamesB;
   const theirs = myTeam === 'a' ? game.gamesB : game.gamesA;
   if (game.status === 'won') {

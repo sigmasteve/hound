@@ -55,17 +55,18 @@ export function RallyCourt({
         <View style={styles.centreLine} />
         <View style={styles.players}>
           {slots.map((p, i) => {
-            const person = p ? people.find((x) => x.userId === p.userId) : undefined;
-            const isMe = !!p && p.userId === userId;
-            const hasShuttle = !!p && game.status === 'active' && game.sideUserId === p.userId;
+            const person = p ? people.find((x) => x.userId === p.playerId) : undefined;
+            const isMe = !!p && p.playerId === userId;
+            const isBot = !!p?.botId;
+            const hasShuttle = !!p && game.status === 'active' && game.sideUserId === p.playerId;
             const label = !p ? 'Open' : !p.joined ? 'Invited' : isMe ? 'You' : (person?.name ?? 'Player');
             return (
-              <View key={p?.userId ?? `slot-${i}`} style={styles.player}>
+              <View key={p?.playerId ?? `slot-${i}`} style={styles.player}>
                 <View style={[styles.avatarRing, hasShuttle && styles.avatarRingOn, { width: size + 8, height: size + 8, borderRadius: (size + 8) / 2 }]}>
                   {p?.joined && person ? (
                     <Avatar
                       initials={person.initials}
-                      tint={isMe ? TINT_A : TINT_N}
+                      tint={isMe ? TINT_A : isBot ? colors.neutral800 : TINT_N}
                       size={size}
                       fontSize={compact ? 11 : 14}
                       frameId={person.frameId}
@@ -131,7 +132,7 @@ export function RallyScore({
     const members = rallyTeamMembers(game, team);
     if (members.length === 0) return 'Waiting…';
     return members
-      .map((m) => (m.userId === userId ? 'You' : (people.find((x) => x.userId === m.userId)?.name ?? (m.joined ? 'Player' : 'Invited'))))
+      .map((m) => (m.playerId === userId ? 'You' : (people.find((x) => x.userId === m.playerId)?.name ?? (m.joined ? 'Player' : 'Invited'))))
       .join(' & ');
   };
   const rows: { team: RallyTeam; games: number; points: number }[] = [
@@ -204,7 +205,7 @@ export function RallyCard({
   const otherTeam: RallyTeam | null = myTeam ? (myTeam === 'a' ? 'b' : 'a') : null;
   const otherTeamName = otherTeam
     ? rallyTeamMembers(game, otherTeam)
-        .map((m) => participants.find((p) => p.userId === m.userId)?.name ?? 'your opponent')
+        .map((m) => participants.find((p) => p.userId === m.playerId)?.name ?? 'your opponent')
         .join(' and ')
     : 'your opponent';
   const need = (game.targetSteps ?? 0) * (game.smashArmed ? 2 : 1);

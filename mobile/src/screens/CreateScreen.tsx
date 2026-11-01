@@ -634,18 +634,21 @@ export function CreateScreen({
       // means nothing. Never sends one along even if selectedBots somehow
       // has stale entries from switching kind after picking bots, not
       // just because the "Bot opponents" step above is hidden for all of
-      // these. Rally too: a return is verified from synced steps the bot
-      // never writes (0139_rally.sql), so a bot could never hit the shuttle.
+      // these.
+      // A Rally's bots are picked in its own team picker (they sit in
+      // `invited` under their preset ids), not the generic bot step.
+      const rallyBots = draftType === 'rally' ? BOT_PRESETS.filter((b) => invited.includes(b.id)) : [];
       const chosenBots =
-        draftType === 'tag' ||
-        draftType === 'bingo' ||
-        draftType === 'tictacgo' ||
-        draftType === 'rally' ||
-        draftType === 'seventyfive' ||
-        draftType === 'checklist' ||
-        draftType === 'houndopoly'
-          ? []
-          : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
+        draftType === 'rally'
+          ? rallyBots
+          : draftType === 'tag' ||
+              draftType === 'bingo' ||
+              draftType === 'tictacgo' ||
+              draftType === 'seventyfive' ||
+              draftType === 'checklist' ||
+              draftType === 'houndopoly'
+            ? []
+            : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
       const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
       const created = await supabaseChallengesProvider.createChallenge({
         name: draftName.trim(),
@@ -695,12 +698,22 @@ export function CreateScreen({
       }
       if (draftType === 'rally') {
         try {
+          // A bot picked as a preset is now a real challenge_bots row;
+          // the server wants that row's id.
+          const createdBots = rallyBots.length > 0 ? await supabaseChallengesProvider.listBots(created.id) : [];
+          const resolve = (id: string) => {
+            const preset = BOT_PRESETS.find((b) => b.id === id);
+            if (!preset) return id;
+            const bot = createdBots.find((b) => b.name === preset.name);
+            if (!bot) throw new Error(`${preset.name} didn’t get added to the match.`);
+            return bot.id;
+          };
           await setupRally(
             created.id,
             rallyServe,
             rallyWindow,
-            rallyDoubles ? rallyPartnerId : null,
-            invited.filter((id) => !rallyDoubles || id !== rallyPartnerId),
+            rallyDoubles && rallyPartnerId ? resolve(rallyPartnerId) : null,
+            invited.filter((id) => !rallyDoubles || id !== rallyPartnerId).map(resolve),
           );
         } catch (e) {
           // Same as Tic-Tac-Go: a match with no serve can't be played.
@@ -714,9 +727,11 @@ export function CreateScreen({
       // whatever) shouldn't read as "could not save that challenge" —
       // Promise.all would reject the whole thing on the first failure.
       await Promise.allSettled(
-        invited.map((friendUserId) =>
-          supabaseChallengesProvider.inviteFriendToChallenge(created.id, friendUserId, roleFor(friendUserId)),
-        ),
+        invited
+          .filter((id) => !BOT_PRESETS.some((b) => b.id === id))
+          .map((friendUserId) =>
+            supabaseChallengesProvider.inviteFriendToChallenge(created.id, friendUserId, roleFor(friendUserId)),
+          ),
       );
       onFinish();
     } catch (e) {
@@ -1483,9 +1498,40 @@ export function CreateScreen({
               />
               <Text style={styles.footNote}>
                 {rallyDoubles
-                  ? 'Tap a friend once for an opponent, again to make them your partner. The match starts when all three accept — your team serves, and partners take turns returning.'
-                  : 'One-on-one. The match starts when they accept — you serve, so the shuttle lands on their side first.'}
+                  ? 'Tap a friend or a bot once for an opponent, again to make them your partner. The match starts when everyone has accepted — your team serves, and partners take turns returning.'
+                  : 'One-on-one, against a friend or a bot. The match starts when they accept — you serve, so the shuttle lands on their side first.'}
               </Text>
+              <Text style={[text.h4, { marginTop: 4 }]}>Bots</Text>
+              <Text style={styles.footNote}>
+                A bot walks a steady, plausible number of steps a day at its pace, and returns the shuttle the moment
+                it has walked the target. It never smashes.
+              </Text>
+              {BOT_PRESETS.map((b) => {
+                const picked = invited.includes(b.id);
+                const level = BOT_FITNESS_LEVELS[b.fitnessLevel];
+                return (
+                  <Pressable key={b.id} onPress={() => toggleFriend(b.id)} style={[styles.friendRow, picked && styles.friendRowOn]}>
+                    <Avatar initials={botInitials(b.name)} tint={colors.neutral800} size={30} fontSize={11} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.friendName}>
+                        {b.name}
+                        {rallyDoubles && picked ? (b.id === rallyPartnerId ? ' · your partner' : ' · opponent') : ''}
+                      </Text>
+                      <Text style={styles.botLevelDesc}>{level.desc}</Text>
+                    </View>
+                    <View style={styles.platformBadge}>
+                      <RobotIcon size={11} color={colors.neutral200} />
+                      <Text style={styles.platformBadgeText}>{level.label}</Text>
+                    </View>
+                    {picked ? (
+                      <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
+                    ) : (
+                      <CircleIcon size={18} color={colors.neutral700} />
+                    )}
+                  </Pressable>
+                );
+              })}
+              <Text style={[text.h4, { marginTop: 4 }]}>Friends</Text>
             </View>
           )}
           {draftType !== 'tictacgo' && draftType !== 'rally' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (

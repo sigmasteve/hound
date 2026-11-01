@@ -128,17 +128,21 @@ Deno.serve(async (req) => {
   }
 
   const profileCols = 'name, username, use_username, notify_push_enabled, time_zone';
-  const [{ data: challenge }, { data: recipient }, { data: actor }, { data: players }, { data: returnerRow }] = await Promise.all([
+  const [{ data: challenge }, { data: recipient }, { data: actor }, { data: players }, { data: returnerRow }, { data: bots }] = await Promise.all([
     supabase.from('challenges').select('name').eq('id', body.challenge_id).single(),
     supabase.from('profiles').select(profileCols).eq('id', body.recipient_id).single<ProfileRow>(),
     body.actor_id
-      ? supabase.from('profiles').select(profileCols).eq('id', body.actor_id).single<ProfileRow>()
+      ? supabase.from('profiles').select(profileCols).eq('id', body.actor_id).maybeSingle<ProfileRow>()
       : Promise.resolve({ data: null }),
     supabase.from('rally_players').select('user_id, team').eq('challenge_id', body.challenge_id),
     body.returner_id && body.returner_id !== body.recipient_id
-      ? supabase.from('profiles').select(profileCols).eq('id', body.returner_id).single<ProfileRow>()
+      ? supabase.from('profiles').select(profileCols).eq('id', body.returner_id).maybeSingle<ProfileRow>()
       : Promise.resolve({ data: null }),
+    // The actor or the returner may be a bot (0140_rally_bots.sql), which
+    // has a name but no profile.
+    supabase.from('challenge_bots').select('id, name').eq('challenge_id', body.challenge_id),
   ]);
+  const botName = (id: string | null | undefined) => ((bots ?? []) as { id: string; name: string }[]).find((b) => b.id === id)?.name ?? null;
   const recipientTeam = ((players ?? []) as { user_id: string; team: 'a' | 'b' }[]).find((p) => p.user_id === body.recipient_id)?.team ?? null;
 
   if (!challenge || !recipient) {
@@ -159,11 +163,11 @@ Deno.serve(async (req) => {
 
   const messageBody = messageFor(
     body,
-    actor ? displayName(actor) : 'Your opponent',
+    actor ? displayName(actor) : (botName(body.actor_id) ?? 'Your opponent'),
     challenge.name,
     recipient,
     recipientTeam,
-    returnerRow ? displayName(returnerRow) : null,
+    returnerRow ? displayName(returnerRow) : botName(body.returner_id),
   );
   const messages = tokens.map((to) => ({ to, title: 'Hound', body: messageBody, sound: 'default' }));
   await fetch(EXPO_PUSH_URL, {
