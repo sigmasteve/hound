@@ -14,9 +14,14 @@ export type RallyEndedReason = 'two_games' | 'time_up';
 export type RallyTeam = 'a' | 'b';
 
 // Who plays where. Team A is the creator's; seat 2 is the doubles
-// partner. `joined` flips when the person accepts the invite.
+// partner. A seat holds a person or one of the challenge's bots
+// (0140_rally_bots.sql); playerId is whichever it is, and it's what
+// sideUserId holds. `joined` flips when a person accepts the invite; a
+// bot is in from the start.
 export interface RallyPlayer {
-  userId: string;
+  playerId: string;
+  userId: string | null;
+  botId: string | null;
   team: RallyTeam;
   seat: 1 | 2;
   joined: boolean;
@@ -52,7 +57,7 @@ export interface RallyGame {
 }
 
 export function rallyTeamOf(game: RallyGame, userId: string | null | undefined): RallyTeam | null {
-  return game.players.find((p) => p.userId === userId)?.team ?? null;
+  return game.players.find((p) => p.playerId === userId)?.team ?? null;
 }
 
 export function rallyTeamMembers(game: RallyGame, team: RallyTeam): RallyPlayer[] {
@@ -65,7 +70,7 @@ export async function getRallyGame(challengeId: string): Promise<RallyGame | nul
   const client = requireClient();
   const [{ data, error }, { data: playerRows, error: playersError }] = await Promise.all([
     client.from('rally_games').select('*').eq('challenge_id', challengeId).maybeSingle(),
-    client.from('rally_players').select('user_id, team, seat, joined').eq('challenge_id', challengeId),
+    client.from('rally_players').select('user_id, bot_id, team, seat, joined').eq('challenge_id', challengeId),
   ]);
   if (error) throw new Error(error.message);
   if (playersError) throw new Error(playersError.message);
@@ -75,7 +80,14 @@ export async function getRallyGame(challengeId: string): Promise<RallyGame | nul
     serveSteps: data.serve_steps ?? DEFAULT_RALLY_SERVE_STEPS,
     windowHours: data.window_hours ?? DEFAULT_RALLY_WINDOW_HOURS,
     doubles: !!data.doubles,
-    players: (playerRows ?? []).map((r) => ({ userId: r.user_id, team: r.team as RallyTeam, seat: r.seat as 1 | 2, joined: !!r.joined })),
+    players: (playerRows ?? []).map((r) => ({
+      playerId: (r.user_id ?? r.bot_id) as string,
+      userId: r.user_id ?? null,
+      botId: r.bot_id ?? null,
+      team: r.team as RallyTeam,
+      seat: r.seat as 1 | 2,
+      joined: !!r.joined,
+    })),
     status: data.status as RallyStatus,
     gameNo: data.game_no,
     gamesA: data.games_a,
@@ -99,7 +111,8 @@ export async function getRallyGame(challengeId: string): Promise<RallyGame | nul
 
 // The creator stores the serve, the window and the teams right after
 // creating the challenge: a partner (null for singles) and one or two
-// opponents, who still have to accept their invites.
+// opponents. Each id is a friend's user id, who still has to accept the
+// invite, or the id of one of this challenge's bots, which is in at once.
 export async function setupRally(
   challengeId: string,
   serveSteps: number,

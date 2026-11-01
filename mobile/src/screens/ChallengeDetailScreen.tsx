@@ -91,6 +91,7 @@ import { HoundBingoCard } from '../components/HoundBingoCard';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { checkRallyShot, getRallyGame, rallyTeamOf, settleRally, type RallyGame } from '../challenges/rallyApi';
 import { RallyCard } from '../components/RallyCard';
+import { botToParticipant } from '../challenges/botSimulation';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { getChallengeSponsor, isGlobalChallenge, type ChallengeSponsor } from '../challenges/globalChallenges';
 import { SponsorBanner } from '../components/SponsorLine';
@@ -2005,7 +2006,7 @@ export function ChallengeDetailScreen({
           {challenge.kind === 'rally' && (
             <RallyCard
               game={rallyGame}
-              participants={participants}
+              participants={[...participants, ...bots.map(botToParticipant)]}
               userId={user?.id}
               myTotalSteps={board.find((r) => r.userId === user?.id)?.totalSteps ?? 0}
               now={now}

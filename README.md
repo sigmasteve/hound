@@ -21,7 +21,7 @@ Current version: **0.10.0**. Testers install it through TestFlight on iOS and an
 | **Daily Streak** | Hit a daily goal every day. One miss and you're out. |
 | **Variety Bingo** | Log different kinds of workouts to fill your own card: variety, strength or sports cards. |
 | **Tic-Tac-Go** | Two players, one board. Hit a square's goal to claim it, then it's their move. Three in a row wins. |
-| **Rally** | Badminton on your steps. The shuttle sits on one side with a step target and a deadline; walk the target to return it and it crosses back 15% bigger. Miss and your opponent scores. Games to 21, best of three, one smash a game. |
+| **Rally** | Badminton on your steps, singles or doubles, against friends or bots. The shuttle sits on one side with a step target and a deadline; walk the target to return it and it crosses back 15% bigger. Miss and the other side scores. Games to 21, best of three, one smash a game. |
 | **75 Day Challenge** | A daily checklist: two workouts (one outdoors), diet, water, reading and a progress photo. |
 | **Accountability** | Your own daily checklist, kept with friends: the creator writes the list (a workout, a step count, mindfulness, anything typed in, up to an admin-set six), each person adds one line of their own, and a day counts only when everything is ticked. A miss resets your streak but you keep going. |
 | **Journey** | Everyone walks the same famous course (Windy City 26.2, Route 66, the Appalachian Trail…) from the same start. First to the end wins, or whoever is furthest along when time runs out. As a Global Hound Challenge it shows how many people are ahead of you and behind. |
