@@ -231,6 +231,8 @@ as $$
   select coalesce(c.start_day, (c.starts_at at time zone 'America/New_York')::date);
 $$;
 
+revoke execute on function public.houndopoly_first_day(public.challenges) from public, anon, authenticated;
+
 -- Rent on a square: a tenth of its price, doubled when its owner has
 -- the whole colour group.
 create or replace function public.houndopoly_rent(p_challenge_id uuid, p_idx integer)
@@ -466,6 +468,8 @@ as $$
     else 3
   end;
 $$;
+
+revoke execute on function public.houndopoly_dice(integer, public.houndopoly_settings) from public, anon, authenticated;
 
 -- Rolls one day for one game: every player who had joined by then and
 -- hasn't rolled it. A square still held from the day before goes back
