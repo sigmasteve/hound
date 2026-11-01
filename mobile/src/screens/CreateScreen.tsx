@@ -583,7 +583,7 @@ export function CreateScreen({
     (draftType === 'hunt' && scoringMethod === 'device_steps') ||
     ((draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps');
 
-  const start = async () => {
+  const start = async (allowDuplicate = false) => {
     // The Hunt screen still reads static sample data unconditionally —
     // see mobile/README.md "What's not implemented" for why that's a
     // deliberate, separate follow-up. Everything else this saves is
@@ -698,6 +698,24 @@ export function CreateScreen({
       return;
     }
     setSaveError(null);
+    // Names aren't unique anywhere (two friend groups can each run a
+    // "Weekly Step-Off"), but a second active challenge of your own with
+    // the same name is almost always a slip — a retry after a late error,
+    // or a tap on Start twice over two visits. Ask once.
+    if (!allowDuplicate && user?.id) {
+      const wanted = draftName.trim().toLowerCase();
+      const mine = await supabaseChallengesProvider.listMyChallenges().catch(() => []);
+      const twin = mine.find(
+        (c) => c.createdBy === user.id && c.name.trim().toLowerCase() === wanted && new Date(c.endsAt).getTime() > Date.now(),
+      );
+      if (twin) {
+        Alert.alert(`You already have an active “${twin.name}”`, 'Start another with the same name anyway, or change the name first.', [
+          { text: 'Change the name', style: 'cancel', onPress: () => setStep(2) },
+          { text: 'Start anyway', onPress: () => void start(true) },
+        ]);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const isHunt = draftType === 'hunt';
