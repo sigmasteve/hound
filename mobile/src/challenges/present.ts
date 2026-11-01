@@ -166,6 +166,10 @@ export function toChallengeCard(
     // The score and the shuttle live in rally_games, on the detail screen.
     stat = '21';
     statLabel = 'points a game · best of 3';
+  } else if (challenge.kind === 'soccer') {
+    // The score and line-ups live in soccer_games, on the detail screen.
+    stat = '90′';
+    statLabel = `over ${challenge.durationDays} days · most goals wins`;
   } else if (challenge.kind === 'houndopoly') {
     // The board, cash and deeds live on the detail screen.
     stat = '24';

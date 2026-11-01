@@ -33,7 +33,8 @@ export function needsManualEntry(challenge: Challenge): boolean {
     challenge.kind !== 'bingo' &&
     challenge.kind !== 'seventyfive' &&
     challenge.kind !== 'checklist' &&
-    challenge.kind !== 'houndopoly'
+    challenge.kind !== 'houndopoly' &&
+    challenge.kind !== 'soccer'
   );
 }
 

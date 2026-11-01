@@ -107,6 +107,9 @@ import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenge
 import { getRallyGame, listMyRallyShots, rallyTeamMembers, rallyTeamOf, settleRally, type MyRallyShot, type RallyGame } from '../challenges/rallyApi';
 import { formatRallyDue, formatRallyTimeLeft, formatSteps } from '../challenges/rally';
 import { RallyCourt, RallyScore } from '../components/RallyCard';
+import { advanceSoccer, getSoccerGame, soccerTeamOf, type SoccerGame } from '../challenges/soccerApi';
+import { SoccerPitch, SoccerScore } from '../components/SoccerCard';
+import { soccerClock } from '../challenges/soccer';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
 import { notifyBonesChanged } from '../bones/bonesChanged';
@@ -342,6 +345,19 @@ function rallyHeadline(name: string, game: RallyGame | null, userId: string | nu
   return `${nameOf(game.sideUserId)} has the shuttle in ${name}: ${formatSteps(need)}, ${left} left.`;
 }
 
+function soccerHeadline(name: string, days: number, game: SoccerGame | null, userId: string | null): string {
+  if (!game) return `Getting ${name} ready.`;
+  const myTeam = soccerTeamOf(game, userId) ?? 'a';
+  const us = myTeam === 'a' ? game.goalsA : game.goalsB;
+  const them = myTeam === 'a' ? game.goalsB : game.goalsA;
+  if (game.status === 'final') {
+    return game.winnerTeam == null ? `${name} ended ${us}–${them}, a draw.` : game.winnerTeam === myTeam ? `You won ${name} ${us}–${them}!` : `You lost ${name} ${us}–${them}.`;
+  }
+  if (game.daysPlayed === 0) return `${name} kicks off — every step today counts.`;
+  const standing = us > them ? `you lead ${us}–${them}` : us < them ? `you trail ${us}–${them}` : `level at ${us}–${them}`;
+  return `${soccerClock(game.daysPlayed, days)} in ${name}: ${standing}.`;
+}
+
 // The headline sentence + eyebrow for whichever real challenge Home
 // decided to lead with — "Marcus is 7.4 mi behind you" was hand-authored
 // for one specific hardcoded matchup, so a real version has to cover
@@ -357,6 +373,7 @@ function heroCopy(
   tttGame: TicTacGoGame | null = null,
   bingoCard: BingoCardRow | null = null,
   rallyGame: RallyGame | null = null,
+  soccerGame: SoccerGame | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -397,6 +414,9 @@ function heroCopy(
   }
   if (challenge.kind === 'rally') {
     return { eyebrow, headline: rallyHeadline(challenge.name, rallyGame, userId, board) };
+  }
+  if (challenge.kind === 'soccer') {
+    return { eyebrow, headline: soccerHeadline(challenge.name, challenge.durationDays, soccerGame, userId) };
   }
 
   const me = userId ? board.find((r) => r.userId === userId) : undefined;
@@ -918,6 +938,8 @@ export function HomeScreen({
   const [primaryTttGame, setPrimaryTttGame] = useState<TicTacGoGame | null>(null);
   // Only populated when `primary` is a Rally.
   const [primaryRallyGame, setPrimaryRallyGame] = useState<RallyGame | null>(null);
+  // Only populated when `primary` is a Soccer match.
+  const [primarySoccerGame, setPrimarySoccerGame] = useState<SoccerGame | null>(null);
 
   // The step-free parts of the challenge section from last time
   // (todayCache.ts), shown on open until this open's own data is in.
@@ -1590,6 +1612,20 @@ export function HomeScreen({
       } else {
         setPrimaryRallyGame(null);
       }
+      if (primaryResult?.challenge.kind === 'soccer') {
+        const soccerId = primaryResult.challenge.id;
+        advanceSoccer(soccerId)
+          .catch(() => {})
+          .then(() => getSoccerGame(soccerId))
+          .then((game) => {
+            if (!cancelled) setPrimarySoccerGame(game);
+          })
+          .catch(() => {
+            if (!cancelled) setPrimarySoccerGame(null);
+          });
+      } else {
+        setPrimarySoccerGame(null);
+      }
 
       // The challenge section can show now. Needs you fills in below,
       // once the per-kind checks for every active challenge are back.
@@ -1743,6 +1779,7 @@ export function HomeScreen({
         primaryTttGame,
         primaryBingoCard,
         primaryRallyGame,
+        primarySoccerGame,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -2223,6 +2260,8 @@ export function HomeScreen({
               <TicTacGoPreview primary={primary} game={primaryTttGame} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'rally' ? (
               <RallyPreview primary={primary} game={primaryRallyGame} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : primary.challenge.kind === 'soccer' ? (
+              <SoccerPreview primary={primary} game={primarySoccerGame} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : (
               <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} colors={colors} />
             )}
@@ -2858,6 +2897,44 @@ function RallyPreview({
         </>
       ) : (
         <Text style={styles.tileSub}>Loading the score…</Text>
+      )}
+      <Button label="Open match" variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+function SoccerPreview({
+  primary,
+  game,
+  userId,
+  onOpen,
+  styles,
+}: {
+  primary: PrimaryChallenge;
+  game: SoccerGame | null;
+  userId: string | null;
+  onOpen: () => void;
+  styles: HomeStyles;
+}) {
+  const { challenge, board } = primary;
+  const daysLeft = Math.max(0, Math.ceil((new Date(challenge.endsAt).getTime() - Date.now()) / 86_400_000));
+
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+        <Text style={styles.raceMeta}>
+          {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+        </Text>
+      </View>
+      {game ? (
+        <>
+          <SoccerScore game={game} people={board} userId={userId} days={challenge.durationDays} compact />
+          <SoccerPitch game={game} people={board} userId={userId} compact />
+        </>
+      ) : (
+        <Text style={styles.tileSub}>Loading the match…</Text>
       )}
       <Button label="Open match" variant="ghost" small onPress={onOpen} />
     </Card>

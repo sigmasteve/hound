@@ -60,6 +60,17 @@ import {
 } from '../challenges/rally';
 import { setupRally } from '../challenges/rallyApi';
 import {
+  DEFAULT_SOCCER_DAYS,
+  DEFAULT_SOCCER_SHOT_STEPS,
+  SOCCER_MAX_TEAM,
+  SOCCER_POSITION_DESC,
+  SOCCER_POSITION_NAME,
+  SOCCER_POSITIONS,
+  SOCCER_SHOT_OPTIONS,
+  type SoccerPosition,
+} from '../challenges/soccer';
+import { setupSoccer, type SoccerSeat } from '../challenges/soccerApi';
+import {
   autoHint,
   CHECKLIST_LABEL_MAX,
   CHECKLIST_PRESETS,
@@ -126,6 +137,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   hunt: 'Catch the runner before time runs out.',
   tictacgo: 'Claim squares; three in a row wins.',
   rally: 'Return the shuttle on your steps. To 21, best of three.',
+  soccer: 'Forwards shoot, defenders block, the keeper saves. All on steps.',
   steps: 'Most steps wins.',
   tag: 'Catch someone ahead of you, or stay It.',
   distance: 'The group chases one shared target.',
@@ -198,6 +210,11 @@ export function CreateScreen({
   // which of them is the partner.
   const [rallyDoubles, setRallyDoubles] = useState(false);
   const [rallyPartnerId, setRallyPartnerId] = useState<string | null>(null);
+  // Soccer: the shot size, your own position, and a seat (team and
+  // position) for every friend or bot in `invited`.
+  const [soccerShot, setSoccerShot] = useState<number>(DEFAULT_SOCCER_SHOT_STEPS);
+  const [myPosition, setMyPosition] = useState<SoccerPosition>('forward');
+  const [soccerSeats, setSoccerSeats] = useState<Map<string, { team: 'a' | 'b'; position: SoccerPosition }>>(new Map());
   const [distanceGoalMi, setDistanceGoalMi] = useState(rematch?.distanceGoalMi ?? 100);
   const [distanceGoalSteps, setDistanceGoalSteps] = useState(rematch?.distanceGoalSteps ?? 500_000);
   const [dailyGoalSteps, setDailyGoalSteps] = useState(rematch?.dailyGoalSteps ?? 10_000);
@@ -411,6 +428,7 @@ export function CreateScreen({
     if (draftType === 'checklist') setLength(String(DEFAULT_CHECKLIST_DAYS));
     if (draftType === 'houndopoly') setLength(String(DEFAULT_HOUNDOPOLY_DAYS));
     if (draftType === 'rally') setLength(String(DEFAULT_RALLY_DAYS));
+    if (draftType === 'soccer') setLength(String(DEFAULT_SOCCER_DAYS));
     if (draftType === 'journey') setLength(String(journeyDefaultDays(course.miles)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftType]);
@@ -476,6 +494,22 @@ export function CreateScreen({
       setRallyPartnerId(null);
       return;
     }
+    // Soccer: a tap adds someone to the other team as a forward (their
+    // seat's own controls move them), a second tap takes them out.
+    if (draftType === 'soccer') {
+      if (invited.includes(userId)) {
+        setInvited((cur) => cur.filter((id) => id !== userId));
+        setSoccerSeats((cur) => {
+          const next = new Map(cur);
+          next.delete(userId);
+          return next;
+        });
+      } else {
+        setInvited((cur) => [...cur, userId]);
+        setSoccerSeats((cur) => new Map(cur).set(userId, { team: 'b', position: 'forward' }));
+      }
+      return;
+    }
     // Rally doubles: each tap moves a friend on — opponent, then partner,
     // then out — within one partner and two opponents.
     if (draftType === 'rally') {
@@ -503,6 +537,30 @@ export function CreateScreen({
     // "You", same reasoning toggleBot already uses.
     setHunterId((cur) => (cur === userId ? 'me' : cur));
   };
+  // Soccer: a picked player's team and position, under their row.
+  const soccerSeatControls = (id: string) => {
+    const seat = soccerSeats.get(id) ?? { team: 'b' as const, position: 'forward' as const };
+    const setSeat = (patch: Partial<{ team: 'a' | 'b'; position: SoccerPosition }>) =>
+      setSoccerSeats((cur) => new Map(cur).set(id, { ...seat, ...patch }));
+    return (
+      <View style={{ gap: 6, paddingTop: 2 }}>
+        <SegmentedControl
+          options={[
+            { value: 'a' as const, label: 'My team' },
+            { value: 'b' as const, label: 'Other team' },
+          ]}
+          value={seat.team}
+          onChange={(team) => setSeat({ team })}
+        />
+        <SegmentedControl
+          options={SOCCER_POSITIONS.map((p) => ({ value: p, label: SOCCER_POSITION_NAME[p] }))}
+          value={seat.position}
+          onChange={(position) => setSeat({ position })}
+        />
+      </View>
+    );
+  };
+
   const toggleBot = (id: string) => {
     setSelectedBots((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
     // Deselecting the bot currently picked as Hunter would leave hunterId
@@ -616,6 +674,25 @@ export function CreateScreen({
       setSaveError('Doubles needs a partner and two opponents.');
       return;
     }
+    if (draftType === 'soccer') {
+      const seats = invited.map((id) => soccerSeats.get(id)).filter((s): s is { team: 'a' | 'b'; position: SoccerPosition } => !!s);
+      const sizeA = 1 + seats.filter((s) => s.team === 'a').length;
+      const sizeB = seats.filter((s) => s.team === 'b').length;
+      const keepersA = (myPosition === 'keeper' ? 1 : 0) + seats.filter((s) => s.team === 'a' && s.position === 'keeper').length;
+      const keepersB = seats.filter((s) => s.team === 'b' && s.position === 'keeper').length;
+      if (sizeB === 0) {
+        setSaveError('Pick at least one player for the other team.');
+        return;
+      }
+      if (sizeA > SOCCER_MAX_TEAM || sizeB > SOCCER_MAX_TEAM) {
+        setSaveError(`A team has at most ${SOCCER_MAX_TEAM} players.`);
+        return;
+      }
+      if (keepersA > 1 || keepersB > 1) {
+        setSaveError('One keeper a team.');
+        return;
+      }
+    }
     if (draftType === 'hunt' && !global && invited.length === 0 && selectedBots.length === 0) {
       setSaveError('Invite a friend or add a bot: a chase needs someone to chase, or be chased by.');
       return;
@@ -637,9 +714,9 @@ export function CreateScreen({
       // these.
       // A Rally's bots are picked in its own team picker (they sit in
       // `invited` under their preset ids), not the generic bot step.
-      const rallyBots = draftType === 'rally' ? BOT_PRESETS.filter((b) => invited.includes(b.id)) : [];
+      const rallyBots = draftType === 'rally' || draftType === 'soccer' ? BOT_PRESETS.filter((b) => invited.includes(b.id)) : [];
       const chosenBots =
-        draftType === 'rally'
+        draftType === 'rally' || draftType === 'soccer'
           ? rallyBots
           : draftType === 'tag' ||
               draftType === 'bingo' ||
@@ -696,18 +773,31 @@ export function CreateScreen({
           throw e;
         }
       }
+      // A bot picked as a preset is now a real challenge_bots row; the
+      // server wants that row's id.
+      const createdBots = rallyBots.length > 0 ? await supabaseChallengesProvider.listBots(created.id).catch(() => []) : [];
+      const resolve = (id: string) => {
+        const preset = BOT_PRESETS.find((b) => b.id === id);
+        if (!preset) return id;
+        const bot = createdBots.find((b) => b.name === preset.name);
+        if (!bot) throw new Error(`${preset.name} didn’t get added to the match.`);
+        return bot.id;
+      };
+      if (draftType === 'soccer') {
+        try {
+          const seats: SoccerSeat[] = [
+            { id: user?.id ?? '', team: 'a', position: myPosition },
+            ...invited.map((id) => ({ id: resolve(id), ...(soccerSeats.get(id) ?? { team: 'b' as const, position: 'forward' as const }) })),
+          ];
+          await setupSoccer(created.id, soccerShot, seats);
+        } catch (e) {
+          // A match with no line-ups can't be played — don't leave it behind.
+          await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
+          throw e;
+        }
+      }
       if (draftType === 'rally') {
         try {
-          // A bot picked as a preset is now a real challenge_bots row;
-          // the server wants that row's id.
-          const createdBots = rallyBots.length > 0 ? await supabaseChallengesProvider.listBots(created.id) : [];
-          const resolve = (id: string) => {
-            const preset = BOT_PRESETS.find((b) => b.id === id);
-            if (!preset) return id;
-            const bot = createdBots.find((b) => b.name === preset.name);
-            if (!bot) throw new Error(`${preset.name} didn’t get added to the match.`);
-            return bot.id;
-          };
           await setupRally(
             created.id,
             rallyServe,
@@ -1171,6 +1261,36 @@ export function CreateScreen({
             </View>
           )}
 
+          {draftType === 'soccer' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>A shot is</Text>
+                <Text style={styles.huntBlockValue}>{soccerShot.toLocaleString()} steps</Text>
+              </View>
+              <SegmentedControl
+                options={SOCCER_SHOT_OPTIONS.map((s) => ({ value: String(s), label: `${s / 1000}K` }))}
+                value={String(soccerShot)}
+                onChange={(v) => setSoccerShot(Number(v))}
+              />
+              <Text style={styles.huntBlockNote}>
+                A forward takes one shot per that many steps in a day, up to four. Each day is resolved the next
+                morning: a shot is on target more often the more the forward walked and less often the more the other
+                side&rsquo;s defenders walked; the keeper&rsquo;s steps decide how many on-target shots get saved. Most
+                goals after the last day wins.
+              </Text>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>You play</Text>
+                <Text style={styles.huntBlockValue}>{SOCCER_POSITION_NAME[myPosition]}</Text>
+              </View>
+              <SegmentedControl
+                options={SOCCER_POSITIONS.map((p) => ({ value: p, label: SOCCER_POSITION_NAME[p] }))}
+                value={myPosition}
+                onChange={setMyPosition}
+              />
+              <Text style={styles.huntBlockNote}>{SOCCER_POSITION_DESC[myPosition]}</Text>
+            </View>
+          )}
+
           {draftType === 'tictacgo' && (
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
@@ -1475,7 +1595,9 @@ export function CreateScreen({
 
       {step === 3 && !global && (
         <View style={{ gap: 14 }}>
-          <Text style={text.h2}>{draftType === 'tictacgo' || draftType === 'rally' ? 'Pick your opponent' : 'Bring friends'}</Text>
+          <Text style={text.h2}>
+            {draftType === 'tictacgo' || draftType === 'rally' ? 'Pick your opponent' : draftType === 'soccer' ? 'Pick the teams' : 'Bring friends'}
+          </Text>
           {draftType === 'tictacgo' && (
             <Text style={styles.footNote}>
               Tic-Tac-Go is one-on-one. The game starts when they accept — a coin flip decides who&rsquo;s X and
@@ -1534,7 +1656,42 @@ export function CreateScreen({
               <Text style={[text.h4, { marginTop: 4 }]}>Friends</Text>
             </View>
           )}
-          {draftType !== 'tictacgo' && draftType !== 'rally' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (
+          {draftType === 'soccer' && (
+            <View style={{ gap: 8 }}>
+              <Text style={styles.footNote}>
+                Tap a friend or a bot to put them on the other team, then set their team and position. Friends count
+                from the day they accept; a bot plays from day 1. Up to {SOCCER_MAX_TEAM} a side, one keeper each.
+              </Text>
+              <Text style={[text.h4, { marginTop: 4 }]}>Bots</Text>
+              {BOT_PRESETS.map((b) => {
+                const picked = invited.includes(b.id);
+                const level = BOT_FITNESS_LEVELS[b.fitnessLevel];
+                return (
+                  <View key={b.id} style={{ gap: 6 }}>
+                    <Pressable onPress={() => toggleFriend(b.id)} style={[styles.friendRow, picked && styles.friendRowOn]}>
+                      <Avatar initials={botInitials(b.name)} tint={colors.neutral800} size={30} fontSize={11} />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.friendName}>{b.name}</Text>
+                        <Text style={styles.botLevelDesc}>{level.desc}</Text>
+                      </View>
+                      <View style={styles.platformBadge}>
+                        <RobotIcon size={11} color={colors.neutral200} />
+                        <Text style={styles.platformBadgeText}>{level.label}</Text>
+                      </View>
+                      {picked ? (
+                        <CheckCircleIcon size={18} color={colors.accent} weight="fill" />
+                      ) : (
+                        <CircleIcon size={18} color={colors.neutral700} />
+                      )}
+                    </Pressable>
+                    {picked && soccerSeatControls(b.id)}
+                  </View>
+                );
+              })}
+              <Text style={[text.h4, { marginTop: 4 }]}>Friends</Text>
+            </View>
+          )}
+          {draftType !== 'tictacgo' && draftType !== 'rally' && draftType !== 'soccer' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (
             <Text style={styles.footNote}>
               Rewards need at least one friend to join. Bots and pending invites don&rsquo;t count.
             </Text>
@@ -1591,6 +1748,7 @@ export function CreateScreen({
                             : ' · opponent'
                           : ''}
                       </Text>
+                      {draftType === 'soccer' && picked && soccerSeatControls(f.userId)}
                       {!eligible && (
                         <Text style={styles.footNote}>
                           {challengeScope === 'org' ? `Not in ${myOrg?.name ?? 'this organization'}` : `In ${myOrg?.name ?? 'your organization'}`}
@@ -1618,6 +1776,7 @@ export function CreateScreen({
             draftType !== 'bingo' &&
             draftType !== 'tictacgo' &&
             draftType !== 'rally' &&
+            draftType !== 'soccer' &&
             draftType !== 'seventyfive' &&
             draftType !== 'checklist' &&
             draftType !== 'houndopoly' && (

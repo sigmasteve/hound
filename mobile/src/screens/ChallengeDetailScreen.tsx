@@ -91,6 +91,8 @@ import { HoundBingoCard } from '../components/HoundBingoCard';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { checkRallyShot, getRallyGame, rallyTeamOf, settleRally, type RallyGame } from '../challenges/rallyApi';
 import { RallyCard } from '../components/RallyCard';
+import { advanceSoccer, getSoccerGame, listSoccerDays, listSoccerShots, soccerTeamOf, type SoccerDay, type SoccerGame, type SoccerShot } from '../challenges/soccerApi';
+import { SoccerCard } from '../components/SoccerCard';
 import { botToParticipant } from '../challenges/botSimulation';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { getChallengeSponsor, isGlobalChallenge, type ChallengeSponsor } from '../challenges/globalChallenges';
@@ -359,6 +361,10 @@ export function ChallengeDetailScreen({
   // was never set up.
   const [tttGame, setTttGame] = useState<TicTacGoGame | null>(null);
   const [rallyGame, setRallyGame] = useState<RallyGame | null>(null);
+  const [soccerGame, setSoccerGame] = useState<SoccerGame | null>(null);
+  const [soccerDays, setSoccerDays] = useState<SoccerDay[]>([]);
+  const [soccerShots, setSoccerShots] = useState<SoccerShot[]>([]);
+  const [soccerSteps, setSoccerSteps] = useState<number | null>(null);
 
   // A stop's postcard on a course challenge: the group (or you, on a
   // Journey challenge) just reached it, or a look at one by tapping its
@@ -608,6 +614,7 @@ export function ChallengeDetailScreen({
       const needsJourney = c.kind === 'journey';
       const needsHoundopoly = c.kind === 'houndopoly';
       const needsRally = c.kind === 'rally';
+      const needsSoccer = c.kind === 'soccer';
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
       const needsMovement =
@@ -625,6 +632,8 @@ export function ChallengeDetailScreen({
       if (needsHoundopoly) await advanceHoundopoly(challengeId).catch(() => {});
       // Rally: score a missed return (or end a match on time) before reading the score.
       if (needsRally) await settleRally(challengeId).catch(() => {});
+      // Soccer: play any day that's over everywhere before reading the score.
+      if (needsSoccer) await advanceSoccer(challengeId).catch(() => {});
       const [
         p,
         l,
@@ -648,6 +657,9 @@ export function ChallengeDetailScreen({
         standingResult,
         houndopolyResult,
         rallyResult,
+        soccerResult,
+        soccerDaysResult,
+        soccerShotsResult,
       ] = await Promise.all([
         supabaseChallengesProvider.listParticipants(challengeId),
         supabaseChallengesProvider.getLeaderboard(challengeId),
@@ -677,11 +689,17 @@ export function ChallengeDetailScreen({
         needsJourney ? journeyStanding(challengeId).catch(() => null) : Promise.resolve<JourneyStanding | null>(null),
         needsHoundopoly ? getHoundopolyGame(challengeId, user?.id ?? null) : Promise.resolve<HoundopolyGame | null>(null),
         needsRally ? getRallyGame(challengeId) : Promise.resolve<RallyGame | null>(null),
+        needsSoccer ? getSoccerGame(challengeId) : Promise.resolve<SoccerGame | null>(null),
+        needsSoccer ? listSoccerDays(challengeId).catch(() => []) : Promise.resolve<SoccerDay[]>([]),
+        needsSoccer ? listSoccerShots(challengeId).catch(() => []) : Promise.resolve<SoccerShot[]>([]),
       ]);
       setChallenge(c);
       setStanding(standingResult);
       setHoundopoly(houndopolyResult);
       setRallyGame(rallyResult);
+      setSoccerGame(soccerResult);
+      setSoccerDays(soccerDaysResult);
+      setSoccerShots(soccerShotsResult);
       setParticipants(p);
       setLeaderboard(l);
       setBots(b);
@@ -722,6 +740,21 @@ export function ChallengeDetailScreen({
   useEffect(() => {
     load();
   }, [load]);
+
+  // Soccer: today's steps so far, for the shots or saves they're worth.
+  useEffect(() => {
+    if (challenge?.kind !== 'soccer') return;
+    let cancelled = false;
+    health
+      .getSnapshot()
+      .then((s) => {
+        if (!cancelled) setSoccerSteps(s.stepsToday);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [challenge?.kind, health]);
 
   // Hound'opoly: today's steps so far, for tonight's dice.
   useEffect(() => {
@@ -1284,7 +1317,7 @@ export function ChallengeDetailScreen({
   // Where everyone stands, for the trash-talk taunts with numbers in them
   // ("I'm 4,200 steps ahead of Casey"). Tic-Tac-Go has no single number.
   const trashTalkBoard: { standings: Standing[] | null; unit: TauntUnit | null } =
-    challenge.kind === 'tictacgo' || challenge.kind === 'rally'
+    challenge.kind === 'tictacgo' || challenge.kind === 'rally' || challenge.kind === 'soccer'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
         ? isHound
@@ -1402,7 +1435,8 @@ export function ChallengeDetailScreen({
   const wrappedUp =
     finished ||
     (challenge.kind === 'tictacgo' && (tttGame?.status === 'won' || tttGame?.status === 'draw')) ||
-    (challenge.kind === 'rally' && (rallyGame?.status === 'won' || rallyGame?.status === 'draw'));
+    (challenge.kind === 'rally' && (rallyGame?.status === 'won' || rallyGame?.status === 'draw')) ||
+    (challenge.kind === 'soccer' && soccerGame?.status === 'final');
 
   // How this challenge went for the viewer, for the wrap-up card's line
   // and the Share message — each kind reads its own outcome (see
@@ -1503,6 +1537,18 @@ export function ChallengeDetailScreen({
           type: 'rally',
           result: rallyGame.status === 'draw' ? 'draw' : rallyGame.winnerTeam === myTeam ? 'won' : 'lost',
           games: `${mine}–${theirs}`,
+        };
+      }
+      case 'soccer': {
+        if (!soccerGame || soccerGame.status !== 'final') return null;
+        const myTeam = soccerTeamOf(soccerGame, me);
+        if (!myTeam) return null;
+        const us = myTeam === 'a' ? soccerGame.goalsA : soccerGame.goalsB;
+        const them = myTeam === 'a' ? soccerGame.goalsB : soccerGame.goalsA;
+        return {
+          type: 'soccer',
+          result: soccerGame.winnerTeam == null ? 'draw' : soccerGame.winnerTeam === myTeam ? 'won' : 'lost',
+          score: `${us}–${them}`,
         };
       }
       case 'tictacgo':
@@ -2000,6 +2046,24 @@ export function ChallengeDetailScreen({
               health={health}
               now={now}
               onChanged={load}
+            />
+          )}
+
+          {challenge.kind === 'soccer' && (
+            <SoccerCard
+              game={soccerGame}
+              days={challenge.durationDays}
+              participants={[...participants, ...bots.map(botToParticipant)]}
+              userId={user?.id}
+              stepsToday={soccerSteps}
+              dayNo={(() => {
+                const start = challenge.startDay ?? dateKey(new Date(challenge.startsAt));
+                const [sy, sm, sd] = start.split('-').map(Number);
+                const n = Math.floor((Date.now() - new Date(sy, sm - 1, sd).getTime()) / 86_400_000) + 1;
+                return n >= 1 && n <= challenge.durationDays ? n : null;
+              })()}
+              matchDays={soccerDays}
+              shots={soccerShots}
             />
           )}
 
