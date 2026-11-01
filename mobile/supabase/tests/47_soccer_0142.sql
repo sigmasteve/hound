@@ -2,7 +2,7 @@
 -- day resolves once it's over everywhere with forwards shooting against
 -- the other side's defense and keeper, every roll deterministic, the
 -- match ends after its last day, and the winning side is paid.
-select plan(26);
+select plan(29);
 
 select tests.new_user('Ann') as ann \gset
 select tests.new_user('Bob') as bob \gset
