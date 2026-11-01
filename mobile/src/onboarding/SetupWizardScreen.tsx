@@ -37,7 +37,7 @@ import { MAX_GOALS } from '../goals/goals';
 import { askForPush, dismissPushOffer, getPushPermission } from '../notifications/pushPermission';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import { inviteMessage } from '../friends/discovery';
-import { canJoin, globalTimingLine, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
+import { canJoin, globalTimingLine, joinDeadlineLine, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
 import { huntKindName } from '../challenges/present';
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { HoundArt } from '../kennel/HoundArt';
@@ -59,7 +59,7 @@ import {
   type HoundUse,
 } from './welcomeApi';
 
-type StepId = 'health' | 'name' | 'uses' | 'goals' | 'push' | 'friend' | 'challenge' | 'hound' | 'done';
+type StepId = 'health' | 'name' | 'uses' | 'goals' | 'push' | 'friend' | 'globals' | 'challenge' | 'hound' | 'done';
 
 const USE_ICONS: Record<HoundUse, typeof FootprintsIcon> = {
   steps: FootprintsIcon,
@@ -93,19 +93,24 @@ export function SetupWizardScreen({
   const [plan, setPlan] = useState<StepId[] | null>(null);
   const [index, setIndex] = useState(0);
   const [uses, setUses] = useState<HoundUse[]>([]);
+  // Global challenges still open to join when the wizard opened.
+  const [openGlobals, setOpenGlobals] = useState<GlobalChallenge[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [auth, push, status, welcome] = await Promise.all([
+      const [auth, push, status, welcome, globals] = await Promise.all([
         health.getAuthorizationStatus().catch(() => null),
         getPushPermission(),
         getOnboardingStatus().catch(() => null),
         getWelcome(),
+        listGlobalChallenges().catch(() => [] as GlobalChallenge[]),
       ]);
       if (cancelled) return;
       const saved = welcome?.uses ?? [];
       setUses(saved);
+      const joinable = globals.filter((c) => canJoin(c));
+      setOpenGlobals(joinable);
       const steps: StepId[] = [];
       if (auth !== 'authorized') steps.push('health');
       // Anyone without a username yet, new or finishing setup, and anyone
@@ -115,6 +120,9 @@ export function SetupWizardScreen({
       if (!resume || !goalsSet) steps.push('goals');
       if (push === 'undetermined') steps.push('push');
       if (!status?.hasFriend) steps.push('friend');
+      // Every global challenge still taking players, however many, and
+      // whether or not they already have a challenge of their own.
+      if (joinable.length > 0) steps.push('globals');
       if (!status?.joinedChallenge) steps.push('challenge');
       if (!resume) steps.push('hound');
       steps.push('done');
@@ -173,6 +181,7 @@ export function SetupWizardScreen({
       {step === 'goals' && <GoalsStep styles={styles} uses={uses} onOpenGoals={onOpenGoals} onNext={next} />}
       {step === 'push' && <PushStep styles={styles} onNext={next} />}
       {step === 'friend' && <FriendStep styles={styles} onNext={next} />}
+      {step === 'globals' && <GlobalsStep styles={styles} initial={openGlobals} onNext={next} />}
       {step === 'challenge' && <ChallengeStep styles={styles} uses={uses} onCreate={onCreateChallenge} onNext={next} />}
       {step === 'hound' && <HoundStep styles={styles} onNext={next} />}
       {step === 'done' && <DoneStep styles={styles} onFinish={onFinish} />}
@@ -542,6 +551,84 @@ function FriendStep({ styles, onNext }: { styles: Styles; onNext: () => void }) 
   );
 }
 
+// Every global challenge still taking players, each with its own Join.
+// Joining one doesn't close the others: a new player can take two or
+// three at once, and each opens on Today straight away.
+function GlobalsStep({ styles, initial, onNext }: { styles: Styles; initial: GlobalChallenge[]; onNext: () => void }) {
+  const { colors } = useTheme();
+  const currencyName = useCurrencyName();
+  const [globals, setGlobals] = useState<GlobalChallenge[]>(initial);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
+
+  // Refresh once on open: the list was fetched when the wizard was
+  // planned, and a window may have closed since.
+  useEffect(() => {
+    listGlobalChallenges()
+      .then((all) => setGlobals(all.filter((c) => canJoin(c) || joinedIds.has(c.id))))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const join = async (c: GlobalChallenge) => {
+    setJoiningId(c.id);
+    try {
+      await joinGlobalChallenge(c.id);
+      setJoinedIds((cur) => new Set(cur).add(c.id));
+    } catch (e) {
+      Alert.alert("Couldn't join", e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setJoiningId(null);
+    }
+  };
+
+  const joinedCount = joinedIds.size;
+  return (
+    <StepPage
+      styles={styles}
+      icon={<GlobeIcon size={28} color={colors.accent} weight="fill" />}
+      title={globals.length === 1 ? 'A challenge is open to everyone' : `${globals.length} challenges are open to everyone`}
+      body="Anyone on Hound can join these while they’re still taking players. Join as many as you like; each one shows up on Today."
+      footer={
+        <Button
+          label={joinedCount > 0 ? `Next · ${joinedCount} joined` : 'Next'}
+          variant={joinedCount > 0 ? 'primary' : 'secondary'}
+          block
+          onPress={onNext}
+        />
+      }
+    >
+      {globals.map((c) => {
+        const typeName = c.kind === 'hunt' ? huntKindName() : (CHALLENGE_TYPES.find((t) => t.id === c.kind)?.name ?? 'Challenge');
+        const isJoined = joinedIds.has(c.id) || c.joined;
+        const deadline = joinDeadlineLine(c);
+        return (
+          <Card key={c.id} style={styles.panel} elevated={false}>
+            <View style={styles.rowCenter}>
+              <GlobeIcon size={18} color={colors.accent} />
+              <Text style={styles.optionName}>{c.name}</Text>
+            </View>
+            <Text style={styles.optionDetail}>
+              {typeName} · {globalTimingLine(c)} · {c.participantCount} {c.participantCount === 1 ? 'player' : 'players'}
+              {c.prizes ? ` · 1st wins ${c.prizes[0]} ${currencyName}` : ''}
+            </Text>
+            {deadline && <Text style={styles.optionDetail}>{deadline}</Text>}
+            {c.sponsor && <SponsorLine challengeId={c.id} sponsor={c.sponsor} />}
+            <Button
+              label={isJoined ? 'Joined' : joiningId === c.id ? 'Joining…' : 'Join'}
+              variant={isJoined ? 'secondary' : 'primary'}
+              small
+              disabled={isJoined || joiningId !== null}
+              onPress={() => join(c)}
+            />
+          </Card>
+        );
+      })}
+      {joinedCount > 0 && <Text style={styles.success}>You’re in. {joinedCount === 1 ? 'It’s' : 'They’re'} on Today from now on.</Text>}
+    </StepPage>
+  );
+}
+
 function ChallengeStep({
   styles,
   uses,
@@ -554,37 +641,16 @@ function ChallengeStep({
   onNext: () => void;
 }) {
   const { colors } = useTheme();
-  const currencyName = useCurrencyName();
-  const [globals, setGlobals] = useState<GlobalChallenge[] | null>(null);
-  const [joiningId, setJoiningId] = useState<string | null>(null);
-  const [joined, setJoined] = useState(false);
-
-  useEffect(() => {
-    listGlobalChallenges()
-      .then((all) => setGlobals(all.filter((c) => canJoin(c)).slice(0, 2)))
-      .catch(() => setGlobals([]));
-  }, []);
+  const [started, setStarted] = useState(false);
 
   // Back from Create: did they start one?
   useFocusEffect(
     useCallback(() => {
       getOnboardingStatus()
-        .then((s) => s?.joinedChallenge && setJoined(true))
+        .then((s) => s?.joinedChallenge && setStarted(true))
         .catch(() => {});
     }, []),
   );
-
-  const join = async (c: GlobalChallenge) => {
-    setJoiningId(c.id);
-    try {
-      await joinGlobalChallenge(c.id);
-      setJoined(true);
-    } catch (e) {
-      Alert.alert("Couldn't join", e instanceof Error ? e.message : 'Try again.');
-    } finally {
-      setJoiningId(null);
-    }
-  };
 
   const kind = suggestedKind(uses);
   const type = CHALLENGE_TYPES.find((t) => t.id === kind)!;
@@ -594,47 +660,16 @@ function ChallengeStep({
     <StepPage
       styles={styles}
       icon={<TrophyIcon size={28} color={colors.accent} weight="fill" />}
-      title={globals && globals.length > 0 ? 'Join a challenge' : 'Start a challenge'}
-      body={
-        globals && globals.length > 0
-          ? 'Everyone on Hound can join these. Or start your own with friends.'
-          : 'Challenges are where Hound gets fun. Here’s one that fits what you picked.'
-      }
-      footer={joined ? <Button label="Next" variant="primary" block onPress={onNext} /> : undefined}
+      title="Start a challenge"
+      body="Challenges with friends are where Hound gets fun. Here’s one that fits what you picked."
+      footer={started ? <Button label="Next" variant="primary" block onPress={onNext} /> : undefined}
     >
-      {globals === null && <ActivityIndicator color={colors.accent} />}
-      {(globals ?? []).map((c) => (
-        <Card key={c.id} style={styles.panel} elevated={false}>
-          <View style={styles.rowCenter}>
-            <GlobeIcon size={18} color={colors.accent} />
-            <Text style={styles.optionName}>{c.name}</Text>
-          </View>
-          <Text style={styles.optionDetail}>
-            {globalTimingLine(c)} · {c.participantCount} {c.participantCount === 1 ? 'player' : 'players'}
-            {c.prizes ? ` · 1st wins ${c.prizes[0]} ${currencyName}` : ''}
-          </Text>
-          {c.sponsor && <SponsorLine challengeId={c.id} sponsor={c.sponsor} />}
-          <Button
-            label={joined ? 'Joined' : joiningId === c.id ? 'Joining…' : 'Join'}
-            variant="primary"
-            small
-            disabled={joined || joiningId !== null}
-            onPress={() => join(c)}
-          />
-        </Card>
-      ))}
       <Card style={styles.panel} elevated={false}>
-        {globals && globals.length > 0 && <Text style={styles.panelLabel}>Or start your own</Text>}
         <Text style={styles.optionName}>{kindName}</Text>
         <Text style={styles.optionDetail}>{type.desc}</Text>
-        <Button
-          label={`Start a ${kindName}`}
-          variant={globals && globals.length > 0 ? 'secondary' : 'primary'}
-          small
-          onPress={() => onCreate(kind)}
-        />
+        <Button label={`Start a ${kindName}`} variant="primary" small onPress={() => onCreate(kind)} />
       </Card>
-      {joined && <Text style={styles.success}>You’re in. It’s on Today from now on.</Text>}
+      {started && <Text style={styles.success}>You’re in. It’s on Today from now on.</Text>}
     </StepPage>
   );
 }
