@@ -91,7 +91,19 @@ import { HoundBingoCard } from '../components/HoundBingoCard';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { checkRallyShot, getRallyGame, rallyTeamOf, settleRally, type RallyGame } from '../challenges/rallyApi';
 import { RallyCard } from '../components/RallyCard';
-import { advanceSoccer, getSoccerGame, listSoccerDays, listSoccerShots, soccerTeamOf, type SoccerDay, type SoccerGame, type SoccerShot } from '../challenges/soccerApi';
+import {
+  addSoccerPlayer,
+  advanceSoccer,
+  getSoccerGame,
+  listSoccerDays,
+  listSoccerShots,
+  soccerTeamOf,
+  type SoccerDay,
+  type SoccerGame,
+  type SoccerShot,
+  type SoccerTeam,
+} from '../challenges/soccerApi';
+import { SOCCER_POSITION_NAME, SOCCER_POSITIONS, type SoccerPosition } from '../challenges/soccer';
 import { SoccerCard } from '../components/SoccerCard';
 import { botToParticipant } from '../challenges/botSimulation';
 import { settleChallengeScore } from '../challenges/scoreApi';
@@ -879,7 +891,38 @@ export function ChallengeDetailScreen({
     }
   };
 
+  // A Soccer match seats a late player before the invite: which team,
+  // then which position. Two short prompts, then the usual invite.
+  const askSoccerSeat = (friend: Friend): Promise<{ team: SoccerTeam; position: SoccerPosition } | null> =>
+    new Promise((resolve) => {
+      Alert.alert(`Which team for ${friend.name}?`, 'Their steps count from the day they accept.', [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+        { text: 'My team', onPress: () => askPosition('a') },
+        { text: 'Other team', onPress: () => askPosition('b') },
+      ]);
+      function askPosition(team: SoccerTeam) {
+        Alert.alert(
+          `${friend.name} plays…`,
+          undefined,
+          SOCCER_POSITIONS.map((position) => ({ text: SOCCER_POSITION_NAME[position], onPress: () => resolve({ team, position }) })),
+        );
+      }
+    });
+
   const inviteFriend = async (friend: Friend) => {
+    if (challenge?.kind === 'soccer') {
+      const seat = await askSoccerSeat(friend);
+      if (!seat) return;
+      setInvitingId(friend.userId);
+      try {
+        await addSoccerPlayer(challengeId, friend.userId, seat.team, seat.position);
+      } catch (e) {
+        Alert.alert('Could not seat them', e instanceof Error ? e.message : 'Try again.');
+        setInvitingId(null);
+        return;
+      }
+      setInvitingId(null);
+    }
     setInvitingId(friend.userId);
     try {
       // A hunt's Hunter is fixed at creation (CreateScreen's own
@@ -891,6 +934,8 @@ export function ChallengeDetailScreen({
       const role = challenge?.kind === 'hunt' ? 'hunted' : undefined;
       await supabaseChallengesProvider.inviteFriendToChallenge(challengeId, friend.userId, role);
       setInvitedIds((cur) => new Set(cur).add(friend.userId));
+      // The seat shows on the pitch as Invited straight away.
+      if (challenge?.kind === 'soccer') load();
     } catch (e) {
       // "Already invited" isn't really a failure from here — still mark
       // it, so the button reads the same either way.
@@ -2812,9 +2857,13 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
-          {!wrappedUp && !isGlobal && !(challenge.kind === 'tictacgo' && (participants.length >= 2 || invitedIds.size > 0)) && (
+          {/* A Rally's seats are named at setup (two or four), so there's nobody to invite later. */}
+          {!wrappedUp && !isGlobal && challenge.kind !== 'rally' && !(challenge.kind === 'tictacgo' && (participants.length >= 2 || invitedIds.size > 0)) && (
             <Card style={{ gap: 10 }} elevated={false}>
               <Text style={text.h4}>{challenge.kind === 'tictacgo' ? 'Invite your opponent' : 'Invite a friend'}</Text>
+              {challenge.kind === 'soccer' && (
+                <Text style={styles.footNote}>You pick their team and position when you invite them. They count from the day they accept.</Text>
+              )}
               {inviteLocked ? (
                 <Text style={styles.footNote}>
                   {challenge.kind === 'hunt' && challenge.headStartDays

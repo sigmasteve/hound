@@ -152,6 +152,25 @@ export async function setupSoccer(challengeId: string, shotSteps: number, seats:
   if (error) throw new Error(error.message);
 }
 
+// Seats a friend after the match is made (0143): the creator picks their
+// team and position, then the invite goes out as usual. Same rules as
+// setup: nine a side, one keeper a team.
+export async function addSoccerPlayer(challengeId: string, userId: string, team: SoccerTeam, position: SoccerPosition): Promise<void> {
+  const { error } = await requireClient().rpc('soccer_add_player', {
+    p_challenge_id: challengeId,
+    p_user_id: userId,
+    p_team: team,
+    p_position: position,
+  });
+  if (error) throw new Error(error.message);
+}
+
+// Clears a seat nobody took up, and the invite with it.
+export async function removeSoccerPlayer(challengeId: string, userId: string): Promise<void> {
+  const { error } = await requireClient().rpc('soccer_remove_player', { p_challenge_id: challengeId, p_user_id: userId });
+  if (error) throw new Error(error.message);
+}
+
 // Plays every day that's over everywhere and not yet played, and ends the
 // match after its last day. Safe to call any time — a no-op otherwise.
 export async function advanceSoccer(challengeId: string): Promise<number> {
