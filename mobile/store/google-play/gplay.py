@@ -62,18 +62,29 @@ def listing() -> dict[str, str]:
     }
 
 
-def check() -> int:
+def check_text() -> int:
     bad = 0
     for key, value in listing().items():
         n, limit = len(value), LIMITS[key]
         print(f'{key:17} {n:5} / {limit:<5} {"ok" if n <= limit else "TOO LONG"}')
         bad += n > limit
+    return 1 if bad else 0
+
+
+def check_graphics() -> int:
     graphics = HERE / 'out'
+    missing = 0
     for name in ('icon-512.png', 'feature-graphic.png'):
-        print(f'{name:28} {"present" if (graphics / name).exists() else "missing (run play-assets.py)"}')
+        present = (graphics / name).exists()
+        missing += not present
+        print(f'{name:28} {"present" if present else "missing (run play-assets.py)"}')
     shots = sorted((STORE / 'app-store' / 'screenshots' / 'out').glob('play-*.png'))
     print(f'phone screenshots            {len(shots)} (Play needs 2 to 8)')
-    return 1 if bad or len(shots) < 2 else 0
+    return 1 if missing or len(shots) < 2 else 0
+
+
+def check() -> int:
+    return check_text() | check_graphics()
 
 
 def access_token() -> str:
@@ -173,7 +184,9 @@ def main() -> int:
         Play().show()
         return 0
     if args.text or args.graphics:
-        if check() != 0 and args.text:
+        if args.text and check_text() != 0:
+            return 1
+        if args.graphics and check_graphics() != 0:
             return 1
         play = Play()
         play.begin()

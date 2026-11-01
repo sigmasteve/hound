@@ -133,6 +133,12 @@ def editable_version(c: Client, app: str) -> dict:
     sys.exit(f'No editable version. Versions: {states}')
 
 
+def first_version(c: Client, app: str) -> bool:
+    """True while nothing has ever been released: the only versions are the unreleased ones."""
+    versions = c.get(f'/apps/{app}/appStoreVersions', **{'filter[platform]': 'IOS', 'limit': 50})['data']
+    return all(v['attributes']['appStoreState'] in EDITABLE | {'READY_FOR_REVIEW', 'IN_REVIEW', 'PENDING_DEVELOPER_RELEASE'} for v in versions)
+
+
 def version_localization(c: Client, version: str) -> dict:
     for loc in c.get(f'/appStoreVersions/{version}/appStoreVersionLocalizations')['data']:
         if loc['attributes']['locale'] == LOCALE:
@@ -164,8 +170,12 @@ def push_text(c: Client, text: dict[str, str]) -> None:
     print('app info: name, subtitle, privacy URL')
     v = editable_version(c, app)
     loc = version_localization(c, v['id'])
-    c.patch(f'/appStoreVersionLocalizations/{loc["id"]}', {k: text[k] for k in ('description', 'keywords', 'promotionalText', 'whatsNew', 'supportUrl', 'marketingUrl')})
-    print(f"version {v['attributes']['versionString']}: description, keywords, promo, what's new, URLs")
+    keys = ['description', 'keywords', 'promotionalText', 'whatsNew', 'supportUrl', 'marketingUrl']
+    if first_version(c, app):
+        # Apple has no What's New on an app's first release; the PATCH is refused with a 409.
+        keys.remove('whatsNew')
+    c.patch(f'/appStoreVersionLocalizations/{loc["id"]}', {k: text[k] for k in keys})
+    print(f"version {v['attributes']['versionString']}: description, keywords, promo, URLs" + (", what's new" if 'whatsNew' in keys else " (no what's new on a first release)"))
 
 
 def push_screenshots(c: Client) -> None:
