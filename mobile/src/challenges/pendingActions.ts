@@ -1,10 +1,13 @@
 import { usesDeviceSteps, usesWorkoutDistance } from './scoring';
 import type { Challenge, TagRound } from './types';
 import type { TicTacGoGame } from './tictacgoApi';
+import type { MyRallyShot } from './rallyApi';
+import { formatRallyDue, formatSteps } from './rally';
 
 export type PendingActionKind =
   | 'tagPickTarget'
   | 'tictacgoYourMove'
+  | 'rallyYourShot'
   | 'seventyfiveChecklist'
   | 'checklistToday'
   | 'houndopolyDecide'
@@ -51,6 +54,9 @@ export interface PendingActionsInput {
   // other map below.
   tagRounds: Map<string, TagRound>;
   tictacgoGames: Map<string, TicTacGoGame>;
+  // Rallies where the shuttle is on the caller's side right now, keyed by
+  // challengeId (my_rally_shots) — kind 'rally' entries only.
+  rallyShots: Map<string, MyRallyShot>;
   // Whether the caller has finished today's 75 Day checklist — only
   // meaningful for kind 'seventyfive' entries.
   seventyfiveTodayComplete: Map<string, boolean>;
@@ -76,6 +82,7 @@ export function computePendingActions({
   challenges,
   tagRounds,
   tictacgoGames,
+  rallyShots,
   seventyfiveTodayComplete,
   checklistTodayComplete,
   houndopolyPending,
@@ -109,6 +116,16 @@ export function computePendingActions({
           challengeName: c.name,
           kind: 'tictacgoYourMove',
           label: `Your move in ${c.name}`,
+        });
+      }
+    } else if (c.kind === 'rally') {
+      const shot = rallyShots.get(c.id);
+      if (shot) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'rallyYourShot',
+          label: `Shuttle's on your side in ${c.name} — ${formatSteps(shot.targetSteps * (shot.smashArmed ? 2 : 1))} ${formatRallyDue(shot.dueAt, now)}`,
         });
       }
     } else if (c.kind === 'seventyfive') {

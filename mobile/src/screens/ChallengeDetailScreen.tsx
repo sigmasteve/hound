@@ -89,6 +89,8 @@ import {
 } from '../challenges/houndBingo';
 import { HoundBingoCard } from '../components/HoundBingoCard';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
+import { checkRallyShot, getRallyGame, rallyTeamOf, settleRally, type RallyGame } from '../challenges/rallyApi';
+import { RallyCard } from '../components/RallyCard';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { getChallengeSponsor, isGlobalChallenge, type ChallengeSponsor } from '../challenges/globalChallenges';
 import { SponsorBanner } from '../components/SponsorLine';
@@ -355,6 +357,7 @@ export function ChallengeDetailScreen({
   // Tic-Tac-Go's board — null for any other kind, or a game whose board
   // was never set up.
   const [tttGame, setTttGame] = useState<TicTacGoGame | null>(null);
+  const [rallyGame, setRallyGame] = useState<RallyGame | null>(null);
 
   // A stop's postcard on a course challenge: the group (or you, on a
   // Journey challenge) just reached it, or a look at one by tapping its
@@ -603,6 +606,7 @@ export function ChallengeDetailScreen({
       const needsChecklist = c.kind === 'checklist';
       const needsJourney = c.kind === 'journey';
       const needsHoundopoly = c.kind === 'houndopoly';
+      const needsRally = c.kind === 'rally';
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
       const needsMovement =
@@ -618,6 +622,8 @@ export function ChallengeDetailScreen({
       if (needsTicTacGo) await settleTicTacGo(challengeId).catch(() => {});
       // Hound'opoly: roll any day that's over before reading the board.
       if (needsHoundopoly) await advanceHoundopoly(challengeId).catch(() => {});
+      // Rally: score a missed return (or end a match on time) before reading the score.
+      if (needsRally) await settleRally(challengeId).catch(() => {});
       const [
         p,
         l,
@@ -640,6 +646,7 @@ export function ChallengeDetailScreen({
         yesterdayBoard,
         standingResult,
         houndopolyResult,
+        rallyResult,
       ] = await Promise.all([
         supabaseChallengesProvider.listParticipants(challengeId),
         supabaseChallengesProvider.getLeaderboard(challengeId),
@@ -668,10 +675,12 @@ export function ChallengeDetailScreen({
         // Best-effort too: the map still draws from the board without it.
         needsJourney ? journeyStanding(challengeId).catch(() => null) : Promise.resolve<JourneyStanding | null>(null),
         needsHoundopoly ? getHoundopolyGame(challengeId, user?.id ?? null) : Promise.resolve<HoundopolyGame | null>(null),
+        needsRally ? getRallyGame(challengeId) : Promise.resolve<RallyGame | null>(null),
       ]);
       setChallenge(c);
       setStanding(standingResult);
       setHoundopoly(houndopolyResult);
+      setRallyGame(rallyResult);
       setParticipants(p);
       setLeaderboard(l);
       setBots(b);
@@ -805,6 +814,21 @@ export function ChallengeDetailScreen({
       })
       .catch(() => {});
   }, [challenge, tagRound, user?.id, load]);
+
+  // A Rally's return is verified server-side from the steps this screen
+  // just synced (rally_check_shot re-reads progress_snapshots) — same
+  // "the client notices, the server decides" shape as the Tag effect
+  // above. Re-runs whenever the leaderboard changes, which is what a
+  // device sync updates.
+  useEffect(() => {
+    if (!challenge || challenge.kind !== 'rally' || !user?.id) return;
+    if (!rallyGame || rallyGame.status !== 'active' || rallyGame.sideUserId !== user.id) return;
+    checkRallyShot(challenge.id)
+      .then((result) => {
+        if (result === 'returned' || result === 'smashed') load();
+      })
+      .catch(() => {});
+  }, [challenge, rallyGame, user?.id, load, leaderboard]);
 
   const [deleting, setDeleting] = useState(false);
   const [togglingHighlight, setTogglingHighlight] = useState(false);
@@ -1259,7 +1283,7 @@ export function ChallengeDetailScreen({
   // Where everyone stands, for the trash-talk taunts with numbers in them
   // ("I'm 4,200 steps ahead of Casey"). Tic-Tac-Go has no single number.
   const trashTalkBoard: { standings: Standing[] | null; unit: TauntUnit | null } =
-    challenge.kind === 'tictacgo'
+    challenge.kind === 'tictacgo' || challenge.kind === 'rally'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
         ? isHound
@@ -1375,7 +1399,9 @@ export function ChallengeDetailScreen({
   // full board — so "over" for the wrap-up card below also reads the
   // game's own status.
   const wrappedUp =
-    finished || (challenge.kind === 'tictacgo' && (tttGame?.status === 'won' || tttGame?.status === 'draw'));
+    finished ||
+    (challenge.kind === 'tictacgo' && (tttGame?.status === 'won' || tttGame?.status === 'draw')) ||
+    (challenge.kind === 'rally' && (rallyGame?.status === 'won' || rallyGame?.status === 'draw'));
 
   // How this challenge went for the viewer, for the wrap-up card's line
   // and the Share message — each kind reads its own outcome (see
@@ -1465,6 +1491,18 @@ export function ChallengeDetailScreen({
         const at = worths.findIndex((w) => w.userId === me);
         if (at < 0) return null;
         return { type: 'houndopoly', rank: at + 1, of: worths.length, worth: worths[at].worth };
+      }
+      case 'rally': {
+        if (!rallyGame || (rallyGame.status !== 'won' && rallyGame.status !== 'draw')) return null;
+        const myTeam = rallyTeamOf(rallyGame, me);
+        if (!myTeam) return null;
+        const mine = myTeam === 'a' ? rallyGame.gamesA : rallyGame.gamesB;
+        const theirs = myTeam === 'a' ? rallyGame.gamesB : rallyGame.gamesA;
+        return {
+          type: 'rally',
+          result: rallyGame.status === 'draw' ? 'draw' : rallyGame.winnerTeam === myTeam ? 'won' : 'lost',
+          games: `${mine}–${theirs}`,
+        };
       }
       case 'tictacgo':
         if (!tttGame || (tttGame.status !== 'won' && tttGame.status !== 'draw')) return null;
@@ -1959,6 +1997,17 @@ export function ChallengeDetailScreen({
               participants={participants}
               userId={user?.id}
               health={health}
+              now={now}
+              onChanged={load}
+            />
+          )}
+
+          {challenge.kind === 'rally' && (
+            <RallyCard
+              game={rallyGame}
+              participants={participants}
+              userId={user?.id}
+              myTotalSteps={board.find((r) => r.userId === user?.id)?.totalSteps ?? 0}
               now={now}
               onChanged={load}
             />

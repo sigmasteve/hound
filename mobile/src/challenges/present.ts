@@ -162,6 +162,10 @@ export function toChallengeCard(
     // Same again: the list and today's ticks live on the detail screen.
     stat = 'Daily';
     statLabel = 'list · tick it all';
+  } else if (challenge.kind === 'rally') {
+    // The score and the shuttle live in rally_games, on the detail screen.
+    stat = '21';
+    statLabel = 'points a game · best of 3';
   } else if (challenge.kind === 'houndopoly') {
     // The board, cash and deeds live on the detail screen.
     stat = '24';

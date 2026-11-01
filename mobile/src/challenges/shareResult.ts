@@ -17,6 +17,8 @@ export type ResultOutcome =
   // An Accountability challenge: complete days out of the run, and the best streak.
   | { type: 'checklist'; completeDays: number; longestStreak: number; days: number }
   | { type: 'tictacgo'; result: 'won' | 'lost' | 'draw' }
+  // A Rally: the match result and the games score, e.g. "2–1".
+  | { type: 'rally'; result: 'won' | 'lost' | 'draw'; games: string }
   // A Journey: your place by miles, whether you reached the end of the
   // course, and the course's name.
   | { type: 'journey'; rank: number; of: number; miles: string; finished: boolean; courseName: string }
@@ -85,6 +87,12 @@ export function resultLine(challengeName: string, outcome: ResultOutcome, labels
         : outcome.result === 'draw'
           ? `${challengeName} ended in a draw on Tic-Tac-Go.`
           : `I lost ${challengeName} on Tic-Tac-Go — rematch time.`;
+    case 'rally':
+      return outcome.result === 'won'
+        ? `I won ${challengeName} at Rally, ${outcome.games} in games! 🏸🏆`
+        : outcome.result === 'draw'
+          ? `${challengeName} ran out of time level at Rally — a draw.`
+          : `I lost ${challengeName} at Rally, ${outcome.games} — rematch time.`;
     case 'journey':
       if (outcome.rank === 1 && outcome.finished) return `I reached the end of the ${outcome.courseName} first in ${challengeName}! 🏆`;
       if (outcome.rank === 1) return `I won ${challengeName}, furthest along the ${outcome.courseName} with ${outcome.miles}! 🏆`;
@@ -125,6 +133,7 @@ export function isWin(outcome: ResultOutcome): boolean {
     case 'checklist':
       return outcome.completeDays >= outcome.days;
     case 'tictacgo':
+    case 'rally':
       return outcome.result === 'won';
     case 'journey':
       return outcome.rank === 1;

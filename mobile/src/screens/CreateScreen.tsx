@@ -50,6 +50,16 @@ import {
 } from '../challenges/tictacgo';
 import { setupTicTacGoBoard } from '../challenges/tictacgoApi';
 import {
+  DEFAULT_RALLY_DAYS,
+  DEFAULT_RALLY_SERVE_STEPS,
+  DEFAULT_RALLY_WINDOW_HOURS,
+  RALLY_SERVE_OPTIONS,
+  RALLY_WINDOW_OPTIONS,
+  rallyWindowLabel,
+  rallyWindowNote,
+} from '../challenges/rally';
+import { setupRally } from '../challenges/rallyApi';
+import {
   autoHint,
   CHECKLIST_LABEL_MAX,
   CHECKLIST_PRESETS,
@@ -115,6 +125,7 @@ const NAME_MIN_LENGTH = 4;
 const TAGLINES: Record<ChallengeKind, string> = {
   hunt: 'Catch the runner before time runs out.',
   tictacgo: 'Claim squares; three in a row wins.',
+  rally: 'Return the shuttle on your steps. To 21, best of three.',
   steps: 'Most steps wins.',
   tag: 'Catch someone ahead of you, or stay It.',
   distance: 'The group chases one shared target.',
@@ -181,6 +192,12 @@ export function CreateScreen({
   const [tictacgoDifficulty, setTictacgoDifficulty] = useState<TicTacGoDifficulty>('easy');
   const [tictacgoBoard, setTictacgoBoard] = useState<string[]>(() => drawBoard('easy'));
   const [tictacgoWindow, setTictacgoWindow] = useState<number>(DEFAULT_TICTACGO_WINDOW_HOURS);
+  const [rallyServe, setRallyServe] = useState<number>(DEFAULT_RALLY_SERVE_STEPS);
+  const [rallyWindow, setRallyWindow] = useState<number>(DEFAULT_RALLY_WINDOW_HOURS);
+  // Doubles: `invited` holds the partner and both opponents; this says
+  // which of them is the partner.
+  const [rallyDoubles, setRallyDoubles] = useState(false);
+  const [rallyPartnerId, setRallyPartnerId] = useState<string | null>(null);
   const [distanceGoalMi, setDistanceGoalMi] = useState(rematch?.distanceGoalMi ?? 100);
   const [distanceGoalSteps, setDistanceGoalSteps] = useState(rematch?.distanceGoalSteps ?? 500_000);
   const [dailyGoalSteps, setDailyGoalSteps] = useState(rematch?.dailyGoalSteps ?? 10_000);
@@ -393,6 +410,7 @@ export function CreateScreen({
     if (draftType === 'seventyfive') setLength('75');
     if (draftType === 'checklist') setLength(String(DEFAULT_CHECKLIST_DAYS));
     if (draftType === 'houndopoly') setLength(String(DEFAULT_HOUNDOPOLY_DAYS));
+    if (draftType === 'rally') setLength(String(DEFAULT_RALLY_DAYS));
     if (draftType === 'journey') setLength(String(journeyDefaultDays(course.miles)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftType]);
@@ -451,9 +469,32 @@ export function CreateScreen({
   const globalJoinClosesAt = joinClosesAt(globalStartsAt, Number(length) || 1, effectiveJoinWindow);
 
   const toggleFriend = (userId: string) => {
-    // Tic-Tac-Go is strictly 1v1 — picking someone replaces the last pick.
-    if (draftType === 'tictacgo') {
+    // Tic-Tac-Go and Rally singles are strictly 1v1 — picking someone
+    // replaces the last pick.
+    if (draftType === 'tictacgo' || (draftType === 'rally' && !rallyDoubles)) {
       setInvited((cur) => (cur.includes(userId) ? [] : [userId]));
+      setRallyPartnerId(null);
+      return;
+    }
+    // Rally doubles: each tap moves a friend on — opponent, then partner,
+    // then out — within one partner and two opponents.
+    if (draftType === 'rally') {
+      const opponents = invited.filter((id) => id !== rallyPartnerId);
+      if (userId === rallyPartnerId) {
+        setRallyPartnerId(null);
+        setInvited((cur) => cur.filter((id) => id !== userId));
+      } else if (invited.includes(userId)) {
+        if (rallyPartnerId) {
+          setInvited((cur) => cur.filter((id) => id !== userId));
+        } else {
+          setRallyPartnerId(userId);
+        }
+      } else if (opponents.length < 2) {
+        setInvited((cur) => [...cur, userId]);
+      } else if (!rallyPartnerId) {
+        setRallyPartnerId(userId);
+        setInvited((cur) => [...cur, userId]);
+      }
       return;
     }
     setInvited((cur) => (cur.includes(userId) ? cur.filter((id) => id !== userId) : [...cur, userId]));
@@ -567,8 +608,12 @@ export function CreateScreen({
       setStep(1);
       return;
     }
-    if (draftType === 'tictacgo' && invited.length !== 1) {
+    if ((draftType === 'tictacgo' || (draftType === 'rally' && !rallyDoubles)) && invited.length !== 1) {
       setSaveError('Pick one friend to play against.');
+      return;
+    }
+    if (draftType === 'rally' && rallyDoubles && (!rallyPartnerId || invited.length !== 3)) {
+      setSaveError('Doubles needs a partner and two opponents.');
       return;
     }
     if (draftType === 'hunt' && !global && invited.length === 0 && selectedBots.length === 0) {
@@ -594,6 +639,7 @@ export function CreateScreen({
         draftType === 'tag' ||
         draftType === 'bingo' ||
         draftType === 'tictacgo' ||
+        draftType === 'rally' ||
         draftType === 'seventyfive' ||
         draftType === 'checklist' ||
         draftType === 'houndopoly'
@@ -642,6 +688,21 @@ export function CreateScreen({
           await setupTicTacGoBoard(created.id, tictacgoDifficulty, tictacgoBoard, tictacgoWindow);
         } catch (e) {
           // A game with no board can't be played — don't leave it behind.
+          await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
+          throw e;
+        }
+      }
+      if (draftType === 'rally') {
+        try {
+          await setupRally(
+            created.id,
+            rallyServe,
+            rallyWindow,
+            rallyDoubles ? rallyPartnerId : null,
+            invited.filter((id) => !rallyDoubles || id !== rallyPartnerId),
+          );
+        } catch (e) {
+          // Same as Tic-Tac-Go: a match with no serve can't be played.
           await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
           throw e;
         }
@@ -1063,6 +1124,37 @@ export function CreateScreen({
             </View>
           )}
 
+          {draftType === 'rally' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Serve</Text>
+                <Text style={styles.huntBlockValue}>{rallyServe.toLocaleString()} steps</Text>
+              </View>
+              <SegmentedControl
+                options={RALLY_SERVE_OPTIONS.map((s) => ({ value: String(s), label: s >= 1000 ? `${s / 1000}K` : String(s) }))}
+                value={String(rallyServe)}
+                onChange={(v) => setRallyServe(Number(v))}
+              />
+              <Text style={styles.huntBlockNote}>
+                What the first return of every rally needs. Each return after that needs 15% more, so long rallies get
+                hard and a point eventually falls.
+              </Text>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Return window</Text>
+                <Text style={styles.huntBlockValue}>{rallyWindowLabel(rallyWindow)}</Text>
+              </View>
+              <SegmentedControl
+                options={RALLY_WINDOW_OPTIONS.map((h) => ({ value: String(h), label: h >= 24 ? 'Day' : `${h}h` }))}
+                value={String(rallyWindow)}
+                onChange={(v) => setRallyWindow(Number(v))}
+              />
+              <Text style={styles.huntBlockNote}>
+                {rallyWindowNote(rallyWindow)} Miss a return and your opponent scores. Games go to 21, win by two; best
+                of three games wins the match. Smash once a game: double your own return to double theirs.
+              </Text>
+            </View>
+          )}
+
           {draftType === 'tictacgo' && (
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
@@ -1367,14 +1459,35 @@ export function CreateScreen({
 
       {step === 3 && !global && (
         <View style={{ gap: 14 }}>
-          <Text style={text.h2}>{draftType === 'tictacgo' ? 'Pick your opponent' : 'Bring friends'}</Text>
+          <Text style={text.h2}>{draftType === 'tictacgo' || draftType === 'rally' ? 'Pick your opponent' : 'Bring friends'}</Text>
           {draftType === 'tictacgo' && (
             <Text style={styles.footNote}>
               Tic-Tac-Go is one-on-one. The game starts when they accept — a coin flip decides who&rsquo;s X and
               goes first.
             </Text>
           )}
-          {draftType !== 'tictacgo' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (
+          {draftType === 'rally' && (
+            <View style={{ gap: 8 }}>
+              <SegmentedControl
+                options={[
+                  { value: 'singles' as const, label: 'Singles' },
+                  { value: 'doubles' as const, label: 'Doubles' },
+                ]}
+                value={rallyDoubles ? 'doubles' : 'singles'}
+                onChange={(v) => {
+                  setRallyDoubles(v === 'doubles');
+                  setInvited([]);
+                  setRallyPartnerId(null);
+                }}
+              />
+              <Text style={styles.footNote}>
+                {rallyDoubles
+                  ? 'Tap a friend once for an opponent, again to make them your partner. The match starts when all three accept — your team serves, and partners take turns returning.'
+                  : 'One-on-one. The match starts when they accept — you serve, so the shuttle lands on their side first.'}
+              </Text>
+            </View>
+          )}
+          {draftType !== 'tictacgo' && draftType !== 'rally' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (
             <Text style={styles.footNote}>
               Rewards need at least one friend to join. Bots and pending invites don&rsquo;t count.
             </Text>
@@ -1423,7 +1536,14 @@ export function CreateScreen({
                       iconId={f.iconId}
                     />
                     <View style={{ flex: 1, gap: 1 }}>
-                      <Text style={styles.friendName}>{f.name}</Text>
+                      <Text style={styles.friendName}>
+                        {f.name}
+                        {draftType === 'rally' && rallyDoubles && picked
+                          ? f.userId === rallyPartnerId
+                            ? ' · your partner'
+                            : ' · opponent'
+                          : ''}
+                      </Text>
                       {!eligible && (
                         <Text style={styles.footNote}>
                           {challengeScope === 'org' ? `Not in ${myOrg?.name ?? 'this organization'}` : `In ${myOrg?.name ?? 'your organization'}`}

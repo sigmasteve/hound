@@ -97,7 +97,7 @@ export function buildRematchDraft({
     courseId: challenge.courseId,
     organizationId: challenge.organizationId,
     // Tic-Tac-Go is strictly 1v1.
-    invitedUserIds: challenge.kind === 'tictacgo' ? invitedUserIds.slice(0, 1) : invitedUserIds,
+    invitedUserIds: challenge.kind === 'tictacgo' || challenge.kind === 'rally' ? invitedUserIds.slice(0, 1) : invitedUserIds,
     botPresetIds,
     hunterId,
     skippedCount: others.length - invitedUserIds.length,
