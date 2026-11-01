@@ -22,7 +22,6 @@ import {
   netWorth,
   ownerOf,
   ownsWholeGroup,
-  reachableFrom,
   rentFor,
   squareAt,
   stepsToNextDie,
@@ -85,7 +84,6 @@ export function HoundopolySection({
   const firstDay = challenge.startDay ?? localDayKey(new Date(challenge.startsAt));
   const day = dayNumber(firstDay, todayKey, challenge.durationDays);
   const dice = stepsToday !== null ? diceFor(stepsToday, game.settings) : null;
-  const highlight = useMemo(() => new Set(me && dice ? reachableFrom(me.position, dice) : []), [me, dice]);
   const next = stepsToday !== null ? stepsToNextDie(stepsToday, game.settings) : null;
 
   const pending = me?.pendingIdx !== null && me?.pendingIdx !== undefined ? squareAt(me.pendingIdx) : null;
@@ -113,7 +111,7 @@ export function HoundopolySection({
         <Text style={styles.eyebrow}>
           Hound&rsquo;opoly · Day {day} of {challenge.durationDays}
         </Text>
-        <HoundopolyBoard players={boardPlayers} deeds={game.deeds} myUserId={myUserId} highlight={highlight} onPressSquare={setDeedIdx}>
+        <HoundopolyBoard players={boardPlayers} deeds={game.deeds} myUserId={myUserId} onPressSquare={setDeedIdx}>
           <Text style={styles.centreTitle}>HOUND&rsquo;OPOLY</Text>
           {me ? (
             <>
@@ -188,8 +186,10 @@ export function HoundopolySection({
               </Text>
             </View>
           </View>
-          {dice !== null && dice > 0 && (
-            <Text style={styles.footNote}>Tonight you can land anywhere from {dice} to {dice * 6} squares ahead; they&rsquo;re outlined on the board.</Text>
+          {dice !== null && dice > 0 && me && (
+            <Text style={styles.footNote}>
+              Tonight you land {dice} to {dice * 6} squares ahead: {squareAt(me.position + dice).name} through {squareAt(me.position + dice * 6).name}.
+            </Text>
           )}
         </Card>
       )}
