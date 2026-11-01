@@ -20,6 +20,8 @@ export function usesDeviceSteps(challenge: Challenge): boolean {
     // A Rally's returns are measured on the same synced daily steps
     // (0139_rally.sql's rally_check_shot).
     challenge.kind === 'rally' ||
+    // Soccer plays every day on everyone's synced steps (0142_soccer.sql).
+    challenge.kind === 'soccer' ||
     (challenge.kind === 'hunt' && challenge.scoringMethod === 'device_steps') ||
     ((challenge.kind === 'distance' || challenge.kind === 'tag') && challenge.distanceGoalUnit === 'steps')
   );

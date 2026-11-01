@@ -19,6 +19,8 @@ export type ResultOutcome =
   | { type: 'tictacgo'; result: 'won' | 'lost' | 'draw' }
   // A Rally: the match result and the games score, e.g. "2–1".
   | { type: 'rally'; result: 'won' | 'lost' | 'draw'; games: string }
+  // Soccer: the result and the score from the viewer's side, e.g. "3–1".
+  | { type: 'soccer'; result: 'won' | 'lost' | 'draw'; score: string }
   // A Journey: your place by miles, whether you reached the end of the
   // course, and the course's name.
   | { type: 'journey'; rank: number; of: number; miles: string; finished: boolean; courseName: string }
@@ -93,6 +95,12 @@ export function resultLine(challengeName: string, outcome: ResultOutcome, labels
         : outcome.result === 'draw'
           ? `${challengeName} ran out of time level at Rally — a draw.`
           : `I lost ${challengeName} at Rally, ${outcome.games} — rematch time.`;
+    case 'soccer':
+      return outcome.result === 'won'
+        ? `We won ${challengeName} ${outcome.score} on our steps! ⚽🏆`
+        : outcome.result === 'draw'
+          ? `${challengeName} finished ${outcome.score}, a draw on steps.`
+          : `We lost ${challengeName} ${outcome.score} — rematch time.`;
     case 'journey':
       if (outcome.rank === 1 && outcome.finished) return `I reached the end of the ${outcome.courseName} first in ${challengeName}! 🏆`;
       if (outcome.rank === 1) return `I won ${challengeName}, furthest along the ${outcome.courseName} with ${outcome.miles}! 🏆`;
@@ -134,6 +142,7 @@ export function isWin(outcome: ResultOutcome): boolean {
       return outcome.completeDays >= outcome.days;
     case 'tictacgo':
     case 'rally':
+    case 'soccer':
       return outcome.result === 'won';
     case 'journey':
       return outcome.rank === 1;
