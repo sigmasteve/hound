@@ -18,6 +18,8 @@ const FIELDS: { key: keyof HoundopolySettings; label: string; min: number; max: 
   { key: 'dogHouseSteps', label: 'Steps for a roll at all', min: 0, max: 50000 },
   { key: 'twoDiceSteps', label: 'Steps for two dice', min: 1, max: 60000 },
   { key: 'threeDiceSteps', label: 'Steps for three dice', min: 2, max: 80000 },
+  { key: 'middayHourUtc', label: 'Midday roll, hour UTC (18 = 1 pm Central)', min: 0, max: 23 },
+  { key: 'rollHourUtc', label: 'Overnight roll, hour UTC the next day (11 = 6 am Central)', min: 0, max: 23 },
 ];
 
 // Admin → Hound'opoly (0136_houndopoly.sql): the game's knobs. Changes
@@ -73,8 +75,8 @@ export function HoundopolyAdminCard() {
         <Text style={text.h4}>Hound&rsquo;opoly</Text>
       </View>
       <Text style={styles.note}>
-        The board game&rsquo;s numbers, for every game from the next roll on. Rent stays a tenth of a square&rsquo;s price,
-        doubled with a whole colour group.
+        The board game&rsquo;s numbers, for every game from the next roll on. The step tiers are for a whole day; each of the
+        two daily rolls uses half. Rent stays a tenth of a square&rsquo;s price, doubled with a whole colour group.
       </Text>
       {!values ? (
         error ? (

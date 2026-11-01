@@ -6,7 +6,10 @@ import {
   type HoundopolyGame,
   type HoundopolyPlayer,
   type HoundopolySettings,
+  type HoundopolySlot,
+  type HoundopolyTurn,
 } from './houndopoly';
+import { localDayKey } from '../goals/goals';
 
 // Hound'opoly's reads and its two calls (0136_houndopoly.sql). Every
 // call throws its message on failure.
@@ -25,6 +28,7 @@ function settingsFromRow(r: any): HoundopolySettings {
     twoDiceSteps: r?.two_dice_steps ?? DEFAULT_HOUNDOPOLY_SETTINGS.twoDiceSteps,
     threeDiceSteps: r?.three_dice_steps ?? DEFAULT_HOUNDOPOLY_SETTINGS.threeDiceSteps,
     rollHourUtc: r?.roll_hour_utc ?? DEFAULT_HOUNDOPOLY_SETTINGS.rollHourUtc,
+    middayHourUtc: r?.midday_hour_utc ?? DEFAULT_HOUNDOPOLY_SETTINGS.middayHourUtc,
   };
 }
 
@@ -46,6 +50,7 @@ export async function setHoundopolySettings(s: HoundopolySettings): Promise<void
       two_dice_steps: s.twoDiceSteps,
       three_dice_steps: s.threeDiceSteps,
       roll_hour_utc: s.rollHourUtc,
+      midday_hour_utc: s.middayHourUtc,
       updated_at: new Date().toISOString(),
     })
     .eq('id', true);
@@ -65,24 +70,38 @@ export async function decideHoundopoly(challengeId: string, buy: boolean): Promi
   if (error) throw new Error(error.message);
 }
 
-const FEED_DAYS = 3;
+const FEED_TURNS = 4;
 
-export async function getHoundopolyGame(challengeId: string): Promise<HoundopolyGame> {
+export async function getHoundopolyGame(challengeId: string, myUserId: string | null): Promise<HoundopolyGame> {
   const c = client();
-  const [players, deeds, days, settings] = await Promise.all([
+  const todayKey = localDayKey(new Date());
+  const [players, deeds, days, settings, turns] = await Promise.all([
     c.from('houndopoly_players').select('user_id, position, cash, pending_idx, bankrupt, joined_day').eq('challenge_id', challengeId),
     c.from('houndopoly_deeds').select('idx, owner_id, bought_on').eq('challenge_id', challengeId),
-    c.from('houndopoly_days').select('day').eq('challenge_id', challengeId).order('day', { ascending: false }).limit(FEED_DAYS),
+    c
+      .from('houndopoly_days')
+      .select('day, slot')
+      .eq('challenge_id', challengeId)
+      .order('day', { ascending: false })
+      .order('slot', { ascending: true })
+      .limit(FEED_TURNS),
     c.from('houndopoly_settings').select('*').maybeSingle(),
+    myUserId
+      ? c.from('houndopoly_turns').select('user_id, day, slot, steps, dice, roll').eq('challenge_id', challengeId).eq('user_id', myUserId).eq('day', todayKey)
+      : Promise.resolve({ data: [], error: null } as { data: any[]; error: null }),
   ]);
-  for (const r of [players, deeds, days, settings]) if (r.error) throw new Error(r.error.message);
-  const rolledDays = (days.data ?? []).map((r: any) => String(r.day));
-  // The feed: everything from the last few rolled days, plus today's own
+  for (const r of [players, deeds, days, settings, turns]) if (r.error) throw new Error(r.error.message);
+  // 'night' sorts after 'noon' alphabetically, so within a day the
+  // overnight turn comes first here; newest first overall.
+  const rolledTurns = (days.data ?? [])
+    .map((r: any) => ({ day: String(r.day), slot: r.slot as HoundopolySlot }))
+    .sort((a, b) => (a.day === b.day ? (a.slot === 'night' ? -1 : 1) : a.day < b.day ? 1 : -1));
+  // The feed: everything from the last few rolled turns, plus today's own
   // buys and passes (which carry today's date).
-  const since = rolledDays.length > 0 ? rolledDays[rolledDays.length - 1] : '1970-01-01';
+  const since = rolledTurns.length > 0 ? rolledTurns[rolledTurns.length - 1].day : '1970-01-01';
   const events = await c
     .from('houndopoly_events')
-    .select('id, day, seq, user_id, kind, idx, amount, other_user_id, detail')
+    .select('id, day, slot, seq, user_id, kind, idx, amount, other_user_id, detail')
     .eq('challenge_id', challengeId)
     .gte('day', since)
     .order('day', { ascending: false })
@@ -105,6 +124,7 @@ export async function getHoundopolyGame(challengeId: string): Promise<Houndopoly
       (r: any): HoundopolyEvent => ({
         id: Number(r.id),
         day: String(r.day),
+        slot: (r.slot ?? 'night') as HoundopolySlot,
         seq: r.seq,
         userId: r.user_id,
         kind: r.kind,
@@ -114,7 +134,10 @@ export async function getHoundopolyGame(challengeId: string): Promise<Houndopoly
         detail: r.detail ?? {},
       }),
     ),
-    rolledDays,
+    rolledTurns,
+    myTurnsToday: ((turns.data ?? []) as any[]).map(
+      (r): HoundopolyTurn => ({ userId: r.user_id, day: String(r.day), slot: r.slot, steps: r.steps, dice: r.dice, roll: r.roll }),
+    ),
     settings: settingsFromRow(settings.data),
   };
 }

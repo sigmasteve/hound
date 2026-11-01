@@ -77,8 +77,15 @@ export interface HoundopolySettings {
   dogHouseSteps: number;
   twoDiceSteps: number;
   threeDiceSteps: number;
+  // The overnight roll (UTC hour, the day after) and the midday one.
   rollHourUtc: number;
+  middayHourUtc: number;
 }
+
+// Two turns a day (0137): midday on the steps synced so far, overnight
+// on the rest.
+export const TURNS_PER_DAY = 2;
+export type HoundopolySlot = 'noon' | 'night';
 
 export const DEFAULT_HOUNDOPOLY_SETTINGS: HoundopolySettings = {
   startCash: 1500,
@@ -88,6 +95,7 @@ export const DEFAULT_HOUNDOPOLY_SETTINGS: HoundopolySettings = {
   twoDiceSteps: 6000,
   threeDiceSteps: 12000,
   rollHourUtc: 11,
+  middayHourUtc: 18,
 };
 
 export interface HoundopolyPlayer {
@@ -111,13 +119,24 @@ export type HoundopolyCard = 'workout_bonus' | 'streak_advance' | 'fewest_steps'
 export interface HoundopolyEvent {
   id: number;
   day: string; // YYYY-MM-DD
+  slot: HoundopolySlot;
   seq: number;
   userId: string;
   kind: string;
   idx: number | null;
   amount: number | null;
   otherUserId: string | null;
-  detail: { steps?: number; dice?: number; card?: HoundopolyCard; hit?: boolean; to?: number; owed?: number };
+  detail: { steps?: number; dice?: number; card?: HoundopolyCard; hit?: boolean; to?: number; owed?: number; slot?: HoundopolySlot };
+}
+
+// One roll for one player (houndopoly_turns).
+export interface HoundopolyTurn {
+  userId: string;
+  day: string;
+  slot: HoundopolySlot;
+  steps: number;
+  dice: number;
+  roll: number;
 }
 
 export interface HoundopolyGame {
@@ -125,26 +144,52 @@ export interface HoundopolyGame {
   deeds: HoundopolyDeed[];
   // Newest first, the last few rolled days.
   events: HoundopolyEvent[];
-  // Days rolled so far, newest first.
-  rolledDays: string[];
+  // Turns rolled so far, newest first.
+  rolledTurns: { day: string; slot: HoundopolySlot }[];
+  // The viewer's own turns today (to know what midday already counted).
+  myTurnsToday: HoundopolyTurn[];
   settings: HoundopolySettings;
 }
 
-// How many dice a day's steps earn.
-export function diceFor(steps: number, s: HoundopolySettings): number {
-  if (steps < s.dogHouseSteps) return 0;
-  if (steps < s.twoDiceSteps) return 1;
-  if (steps < s.threeDiceSteps) return 2;
+// How many dice a turn's steps earn: the day's tiers, shared across the
+// day's turns (the server's houndopoly_dice).
+export function diceFor(steps: number, s: HoundopolySettings, turns: number = TURNS_PER_DAY): number {
+  if (steps * turns < s.dogHouseSteps) return 0;
+  if (steps * turns < s.twoDiceSteps) return 1;
+  if (steps * turns < s.threeDiceSteps) return 2;
   return 3;
 }
 
-// Steps still needed for one more die, or null at the top tier.
-export function stepsToNextDie(steps: number, s: HoundopolySettings): { steps: number; dice: number } | null {
-  const tiers = [s.dogHouseSteps, s.twoDiceSteps, s.threeDiceSteps];
+// A turn's tiers: the day's, divided among the day's turns.
+export function turnTiers(s: HoundopolySettings, turns: number = TURNS_PER_DAY): [number, number, number] {
+  return [Math.ceil(s.dogHouseSteps / turns), Math.ceil(s.twoDiceSteps / turns), Math.ceil(s.threeDiceSteps / turns)];
+}
+
+// Steps still needed for one more die this turn, or null at the top tier.
+export function stepsToNextDie(steps: number, s: HoundopolySettings, turns: number = TURNS_PER_DAY): { steps: number; dice: number } | null {
+  const tiers = turnTiers(s, turns);
   for (let i = 0; i < tiers.length; i++) {
     if (steps < tiers[i]) return { steps: tiers[i] - steps, dice: i + 1 };
   }
   return null;
+}
+
+// Which turn is next for the viewer today, and when it rolls, from the
+// settings' UTC hours. The overnight turn for today rolls tomorrow.
+export function nextTurn(
+  s: HoundopolySettings,
+  myTurnsToday: HoundopolyTurn[],
+  now: Date = new Date(),
+): { slot: HoundopolySlot; at: Date } {
+  const noonDone = myTurnsToday.some((t) => t.slot === 'noon');
+  const midday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), s.middayHourUtc));
+  if (!noonDone && now < midday) return { slot: 'noon', at: midday };
+  const overnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, s.rollHourUtc));
+  return { slot: 'night', at: overnight };
+}
+
+export function describeSlot(slot: HoundopolySlot): string {
+  return slot === 'noon' ? 'Midday' : 'Overnight';
 }
 
 // Where n dice can take you from here: the squares min..max ahead.
@@ -202,11 +247,11 @@ export function eventLine(
     case 'moved': {
       const d = e.detail;
       const how = d.card ? '' : d.dice ? ` on ${d.dice} ${d.dice === 1 ? 'die' : 'dice'}` : '';
-      return { text: `${who} ${verb('walked', 'walked')} ${e.amount} to ${sq?.name ?? 'a square'}${how}.`, amount: null, tone: null };
+      return { text: `${who} walked ${e.amount} to ${sq?.name ?? 'a square'}${how}.`, amount: null, tone: null };
     }
     case 'stayed_in':
       return {
-        text: `${who} had ${e.detail.steps?.toLocaleString() ?? 'too few'} steps and stayed in.`,
+        text: `${who} had ${e.detail.steps?.toLocaleString() ?? 'too few'} steps ${e.slot === 'noon' ? 'by midday' : 'the rest of the day'} and stayed put.`,
         amount: null,
         tone: null,
       };

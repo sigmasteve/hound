@@ -667,7 +667,7 @@ export function ChallengeDetailScreen({
           : Promise.resolve(null),
         // Best-effort too: the map still draws from the board without it.
         needsJourney ? journeyStanding(challengeId).catch(() => null) : Promise.resolve<JourneyStanding | null>(null),
-        needsHoundopoly ? getHoundopolyGame(challengeId) : Promise.resolve<HoundopolyGame | null>(null),
+        needsHoundopoly ? getHoundopolyGame(challengeId, user?.id ?? null) : Promise.resolve<HoundopolyGame | null>(null),
       ]);
       setChallenge(c);
       setStanding(standingResult);
@@ -707,7 +707,7 @@ export function ChallengeDetailScreen({
     } finally {
       setLoading(false);
     }
-  }, [challengeId]);
+  }, [challengeId, user?.id]);
 
   useEffect(() => {
     load();
@@ -732,7 +732,7 @@ export function ChallengeDetailScreen({
     setHoundopolyDeciding(true);
     try {
       await decideHoundopoly(challengeId, buy);
-      setHoundopoly(await getHoundopolyGame(challengeId));
+      setHoundopoly(await getHoundopolyGame(challengeId, user?.id ?? null));
     } catch (e) {
       Alert.alert(buy ? 'Couldn’t buy that' : 'Couldn’t pass', e instanceof Error ? e.message : 'Try again in a moment.');
     } finally {
