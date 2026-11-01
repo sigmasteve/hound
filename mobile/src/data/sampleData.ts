@@ -71,7 +71,8 @@ export type ChallengeKind =
   | 'seventyfive'
   | 'journey'
   | 'checklist'
-  | 'houndopoly';
+  | 'houndopoly'
+  | 'rally';
 
 export interface ChallengeCard {
   id: string;
@@ -178,6 +179,13 @@ export const CHALLENGE_TYPES: {
     tint: '#3f2a1f',
     iconColor: '#fbe3c9',
   },
+  {
+    id: 'rally',
+    name: 'Rally',
+    desc: 'Badminton on your steps. The shuttle is on one side with a step target and a deadline: walk the target to return it, and it crosses back a little bigger. Miss and your opponent scores. Games to 21, best of three.',
+    tint: '#1f5a6b',
+    iconColor: '#c9f0fb',
+  },
   { id: 'journey', name: 'Journey', desc: 'Everyone walks the same famous course from the same start — Windy City 26.2, Route 66, the Appalachian Trail. Your walks, runs and hikes move you along the map. First to the end wins; if nobody gets there, furthest along does.', tint: '#2f5a3f', iconColor: '#cdebd6' },
 ];
 
@@ -194,7 +202,7 @@ export const CHALLENGE_TYPES: {
 // appear in the picker at all.
 export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
   { label: 'Races', kinds: ['steps', 'distance', 'journey'] },
-  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'bingo', 'houndopoly'] },
+  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'rally', 'bingo', 'houndopoly'] },
   { label: 'Habits', kinds: ['streak', 'seventyfive', 'checklist'] },
 ];
 

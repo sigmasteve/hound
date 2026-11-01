@@ -1,5 +1,6 @@
 import { supabaseChallengesProvider } from './supabaseChallenges';
 import { usesDeviceSteps, usesWorkoutDistance } from './scoring';
+import { checkRallyShot } from './rallyApi';
 import { classifyWorkout, DEFAULT_BINGO_CARD_TYPE, type BingoCategory } from './bingo';
 import { getMyBingoCard, listBingoProgress, moveStepMark, recordBingoProgress } from './bingoApi';
 import { isHoundCard, planBingoMarks, type BingoDay } from './houndBingo';
@@ -155,6 +156,10 @@ export async function syncChallengeProgressFromDevice(challenge: Challenge, heal
         challenge.id,
         daily.map((d) => ({ day: d.date, steps: d.steps, distanceMi: d.distanceMi })),
       );
+      // A Rally's return is checked server-side from the rows just
+      // written — right away, so a return lands from a background sync
+      // too, not only when the challenge is open on screen.
+      if (challenge.kind === 'rally') await checkRallyShot(challenge.id).catch(() => {});
     }
   } catch {
     // Best-effort — every caller of this already treats a sync failure

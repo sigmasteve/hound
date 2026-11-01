@@ -21,6 +21,7 @@ Current version: **0.10.0**. Testers install it through TestFlight on iOS and an
 | **Daily Streak** | Hit a daily goal every day. One miss and you're out. |
 | **Variety Bingo** | Log different kinds of workouts to fill your own card: variety, strength or sports cards. |
 | **Tic-Tac-Go** | Two players, one board. Hit a square's goal to claim it, then it's their move. Three in a row wins. |
+| **Rally** | Badminton on your steps. The shuttle sits on one side with a step target and a deadline; walk the target to return it and it crosses back 15% bigger. Miss and your opponent scores. Games to 21, best of three, one smash a game. |
 | **75 Day Challenge** | A daily checklist: two workouts (one outdoors), diet, water, reading and a progress photo. |
 | **Accountability** | Your own daily checklist, kept with friends: the creator writes the list (a workout, a step count, mindfulness, anything typed in, up to an admin-set six), each person adds one line of their own, and a day counts only when everything is ticked. A miss resets your streak but you keep going. |
 | **Journey** | Everyone walks the same famous course (Windy City 26.2, Route 66, the Appalachian Trail…) from the same start. First to the end wins, or whoever is furthest along when time runs out. As a Global Hound Challenge it shows how many people are ahead of you and behind. |
@@ -29,7 +30,7 @@ Challenges start Today, Now or Tomorrow in each person's local time. They can be
 
 ## Around the challenges
 
-- **Today:** your active challenges, anything waiting on you (your Tic-Tac-Go move, a 75 Day check-in, today's Accountability list, a Tag target), a weekly recap, and live leaderboards with rank movement.
+- **Today:** your active challenges, anything waiting on you (your Tic-Tac-Go move, a Rally shuttle on your side, a 75 Day check-in, today's Accountability list, a Tag target), a weekly recap, and live leaderboards with rank movement.
 - **Hound Score, XP and levels:** finishing challenges earns XP and raises your Hound Score.
 - **Bones:** an in-app currency. You earn it from challenge results and a daily bonus, or buy it in the shop. Some challenge types unlock after you've earned enough Bones. Organizations can rename the currency.
 - **Locker:** avatar frames, backgrounds and icons to buy with Bones and equip. They show wherever your avatar appears.
@@ -38,7 +39,7 @@ Challenges start Today, Now or Tomorrow in each person's local time. They can be
   - Friend codes, invite by email, invite links, and Find people search with suggestions.
   - Nudges and reactions on leaderboards.
   - A trash-talk wall for each challenge, with a word filter, mute and report.
-- **Notifications:** push for friend requests, your Tic-Tac-Go turn, Tag catches, nudges and reactions. Optional daily standings, stale-data alerts and login reminders, by push or email, sent in your local time.
+- **Notifications:** push for friend requests, your Tic-Tac-Go turn, Rally returns and points, Tag catches, nudges and reactions. Optional daily standings, stale-data alerts and login reminders, by push or email, sent in your local time.
 - **Data tab:** steps, distance, heart rate and weight from your phone, plus manual entry.
 - **Organizations:** schools and companies get their own member lists, admins, invite codes, challenge labels and currency name.
 - **Admin tools:** user directory, bans, global challenges, unlock gates, daily bonus amounts, push reach, sign-up alerts and app versions.

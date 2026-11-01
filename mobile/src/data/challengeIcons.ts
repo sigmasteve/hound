@@ -12,6 +12,7 @@ import {
   ListChecksIcon,
   MapTrifoldIcon,
   PawPrintIcon,
+  RacquetIcon,
 } from 'phosphor-react-native';
 import type { ChallengeKind } from './sampleData';
 
@@ -27,6 +28,7 @@ export const CHALLENGE_KIND_ICON: Record<ChallengeKind, React.ComponentType<any>
   checklist: ClipboardTextIcon,
   journey: MapTrifoldIcon,
   houndopoly: BuildingsIcon,
+  rally: RacquetIcon,
 };
 
 // A build only ever ships knowing the challenge kinds that existed when

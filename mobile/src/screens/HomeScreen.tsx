@@ -104,6 +104,9 @@ import { listBingoCards, listBingoProgress } from '../challenges/bingoApi';
 import { houndStandings, isHoundCard, lineStatus, SQUARES, type BingoCardRow } from '../challenges/houndBingo';
 import { formatTimeLeft, turnDeadline } from '../challenges/tictacgo';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
+import { getRallyGame, listMyRallyShots, rallyTeamMembers, rallyTeamOf, settleRally, type MyRallyShot, type RallyGame } from '../challenges/rallyApi';
+import { formatRallyDue, formatRallyTimeLeft, formatSteps } from '../challenges/rally';
+import { RallyCourt, RallyScore } from '../components/RallyCard';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
 import { notifyBonesChanged } from '../bones/bonesChanged';
@@ -317,6 +320,28 @@ function ticTacGoHeadline(name: string, game: TicTacGoGame | null, userId: strin
     : `${nameOf(game.turnUserId)}’s move in ${name} — ${timeLeft}.`;
 }
 
+function rallyHeadline(name: string, game: RallyGame | null, userId: string | null, board: BoardEntry[]): string {
+  const nameOf = (id: string | null) => board.find((r) => r.userId === id)?.name ?? 'Your opponent';
+  if (!game) return `Getting ${name} ready.`;
+  const waiting = game.players.filter((p) => !p.joined).length;
+  if (game.status === 'waiting') return `Waiting for ${waiting === 1 ? 'your opponent' : `${waiting} players`} to join ${name}.`;
+  const myTeam = rallyTeamOf(game, userId) ?? 'a';
+  const otherTeam = myTeam === 'a' ? 'b' : 'a';
+  const others = rallyTeamMembers(game, otherTeam).map((m) => nameOf(m.userId)).join(' and ');
+  const mine = myTeam === 'a' ? game.gamesA : game.gamesB;
+  const theirs = myTeam === 'a' ? game.gamesB : game.gamesA;
+  if (game.status === 'won') {
+    return game.winnerTeam === myTeam ? `You won ${name} ${mine}–${theirs} in games!` : `${others} won ${name} ${theirs}–${mine}.`;
+  }
+  if (game.status === 'draw') return `${name} ran out of time level — a draw.`;
+  if (!game.sideSince || new Date(game.sideSince).getTime() > Date.now()) return `${name} starts soon.`;
+  const need = (game.targetSteps ?? 0) * (game.smashArmed ? 2 : 1);
+  const left = formatRallyTimeLeft(game.dueAt);
+  if (game.sideUserId === userId) return `Shuttle’s on your side in ${name}: ${formatSteps(need)} ${formatRallyDue(game.dueAt)}, ${left} left.`;
+  if (game.sideTeam === myTeam) return `${nameOf(game.sideUserId)} has your side’s return in ${name}: ${formatSteps(need)}, ${left} left.`;
+  return `${nameOf(game.sideUserId)} has the shuttle in ${name}: ${formatSteps(need)}, ${left} left.`;
+}
+
 // The headline sentence + eyebrow for whichever real challenge Home
 // decided to lead with — "Marcus is 7.4 mi behind you" was hand-authored
 // for one specific hardcoded matchup, so a real version has to cover
@@ -331,6 +356,7 @@ function heroCopy(
   bingoFilled: Set<BingoCategory> = new Set(),
   tttGame: TicTacGoGame | null = null,
   bingoCard: BingoCardRow | null = null,
+  rallyGame: RallyGame | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -368,6 +394,9 @@ function heroCopy(
 
   if (challenge.kind === 'tictacgo') {
     return { eyebrow, headline: ticTacGoHeadline(challenge.name, tttGame, userId, board) };
+  }
+  if (challenge.kind === 'rally') {
+    return { eyebrow, headline: rallyHeadline(challenge.name, rallyGame, userId, board) };
   }
 
   const me = userId ? board.find((r) => r.userId === userId) : undefined;
@@ -887,6 +916,8 @@ export function HomeScreen({
   const [primaryBingoCard, setPrimaryBingoCard] = useState<BingoCardRow | null>(null);
   // Only populated when `primary` is a Tic-Tac-Go game.
   const [primaryTttGame, setPrimaryTttGame] = useState<TicTacGoGame | null>(null);
+  // Only populated when `primary` is a Rally.
+  const [primaryRallyGame, setPrimaryRallyGame] = useState<RallyGame | null>(null);
 
   // The step-free parts of the challenge section from last time
   // (todayCache.ts), shown on open until this open's own data is in.
@@ -1545,6 +1576,20 @@ export function HomeScreen({
       } else {
         setPrimaryTttGame(null);
       }
+      if (primaryResult?.challenge.kind === 'rally') {
+        const rallyId = primaryResult.challenge.id;
+        settleRally(rallyId)
+          .catch(() => {})
+          .then(() => getRallyGame(rallyId))
+          .then((game) => {
+            if (!cancelled) setPrimaryRallyGame(game);
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryRallyGame(null);
+          });
+      } else {
+        setPrimaryRallyGame(null);
+      }
 
       // The challenge section can show now. Needs you fills in below,
       // once the per-kind checks for every active challenge are back.
@@ -1559,7 +1604,7 @@ export function HomeScreen({
       const activeResults = results.filter((r) => !r.finished);
       if (user?.id) {
         const myId = user.id;
-        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending] = await Promise.all([
+        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots] = await Promise.all([
           Promise.all(
             activeResults
               .filter((r) => r.challenge.kind === 'tag')
@@ -1616,6 +1661,15 @@ export function HomeScreen({
           activeResults.some((r) => r.challenge.kind === 'houndopoly')
             ? listMyHoundopolyPending(myId).catch(() => new Set<string>())
             : Promise.resolve(new Set<string>()),
+          // Rallies: settle each first (a missed return scores), then one
+          // call for every shuttle on my side. Fails toward nothing waiting.
+          activeResults.some((r) => r.challenge.kind === 'rally')
+            ? Promise.all(
+                activeResults.filter((r) => r.challenge.kind === 'rally').map((r) => settleRally(r.challenge.id).catch(() => {})),
+              )
+                .then(() => listMyRallyShots())
+                .catch(() => new Map<string, MyRallyShot>())
+            : Promise.resolve(new Map<string, MyRallyShot>()),
         ]);
         if (!cancelled) {
           const actions = computePendingActions({
@@ -1624,6 +1678,7 @@ export function HomeScreen({
             challenges: activeResults.map((r) => r.challenge),
             tagRounds: new Map(tagEntries.filter((e): e is readonly [string, TagRound] => e[1] !== null)),
             tictacgoGames: new Map(tictacgoEntries.filter((e): e is readonly [string, TicTacGoGame] => e[1] !== null)),
+            rallyShots,
             seventyfiveTodayComplete: new Map(seventyfiveEntries),
             checklistTodayComplete: new Map(checklistEntries),
             houndopolyPending,
@@ -1687,6 +1742,7 @@ export function HomeScreen({
         primaryBingoFilled,
         primaryTttGame,
         primaryBingoCard,
+        primaryRallyGame,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -2165,6 +2221,8 @@ export function HomeScreen({
               />
             ) : primary.challenge.kind === 'tictacgo' ? (
               <TicTacGoPreview primary={primary} game={primaryTttGame} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : primary.challenge.kind === 'rally' ? (
+              <RallyPreview primary={primary} game={primaryRallyGame} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : (
               <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} colors={colors} />
             )}
@@ -2764,6 +2822,44 @@ function TicTacGoPreview({
       </View>
       {game ? <TicTacGoBoard game={game} compact /> : <Text style={styles.tileSub}>Loading the board…</Text>}
       <Button label="Open game" variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+function RallyPreview({
+  primary,
+  game,
+  userId,
+  onOpen,
+  styles,
+}: {
+  primary: PrimaryChallenge;
+  game: RallyGame | null;
+  userId: string | null;
+  onOpen: () => void;
+  styles: HomeStyles;
+}) {
+  const { challenge, board } = primary;
+  const daysLeft = Math.max(0, Math.ceil((new Date(challenge.endsAt).getTime() - Date.now()) / 86_400_000));
+
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+        <Text style={styles.raceMeta}>
+          1v1 · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+        </Text>
+      </View>
+      {game ? (
+        <>
+          <RallyCourt game={game} people={board} userId={userId} compact />
+          <RallyScore game={game} people={board} userId={userId} compact />
+        </>
+      ) : (
+        <Text style={styles.tileSub}>Loading the score…</Text>
+      )}
+      <Button label="Open match" variant="ghost" small onPress={onOpen} />
     </Card>
   );
 }

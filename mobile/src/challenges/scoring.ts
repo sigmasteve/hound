@@ -17,6 +17,9 @@ export function usesDeviceSteps(challenge: Challenge): boolean {
   return (
     challenge.kind === 'steps' ||
     challenge.kind === 'streak' ||
+    // A Rally's returns are measured on the same synced daily steps
+    // (0139_rally.sql's rally_check_shot).
+    challenge.kind === 'rally' ||
     (challenge.kind === 'hunt' && challenge.scoringMethod === 'device_steps') ||
     ((challenge.kind === 'distance' || challenge.kind === 'tag') && challenge.distanceGoalUnit === 'steps')
   );
