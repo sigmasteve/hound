@@ -170,6 +170,10 @@ export function toChallengeCard(
     // The score and line-ups live in soccer_games, on the detail screen.
     stat = '90′';
     statLabel = `over ${challenge.durationDays} days · most goals wins`;
+  } else if (challenge.kind === 'cricket') {
+    // The scoreboard and overs live in cricket_games, on the detail screen.
+    stat = String(Math.floor(challenge.durationDays / 2));
+    statLabel = 'overs a side · one a day';
   } else if (challenge.kind === 'houndopoly') {
     // The board, cash and deeds live on the detail screen.
     stat = '24';

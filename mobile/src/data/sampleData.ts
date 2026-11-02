@@ -73,7 +73,8 @@ export type ChallengeKind =
   | 'checklist'
   | 'houndopoly'
   | 'rally'
-  | 'soccer';
+  | 'soccer'
+  | 'cricket';
 
 export interface ChallengeCard {
   id: string;
@@ -194,6 +195,13 @@ export const CHALLENGE_TYPES: {
     tint: '#1f6b3a',
     iconColor: '#c9fbd9',
   },
+  {
+    id: 'cricket',
+    name: 'Cricket',
+    desc: 'A limited-overs match on everyone’s steps, one over a day. Each ball is the batter’s steps against the bowler’s: out-walk them for boundaries, fall behind and wickets fall. Then the sides swap and chase. Teams of one to nine, friends or bots.',
+    tint: '#5a3f1f',
+    iconColor: '#f3e2c4',
+  },
   { id: 'journey', name: 'Journey', desc: 'Everyone walks the same famous course from the same start — Windy City 26.2, Route 66, the Appalachian Trail. Your walks, runs and hikes move you along the map. First to the end wins; if nobody gets there, furthest along does.', tint: '#2f5a3f', iconColor: '#cdebd6' },
 ];
 
@@ -210,7 +218,7 @@ export const CHALLENGE_TYPES: {
 // appear in the picker at all.
 export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
   { label: 'Races', kinds: ['steps', 'distance', 'journey'] },
-  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'rally', 'soccer', 'bingo', 'houndopoly'] },
+  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'rally', 'soccer', 'cricket', 'bingo', 'houndopoly'] },
   { label: 'Habits', kinds: ['streak', 'seventyfive', 'checklist'] },
 ];
 
