@@ -1,13 +1,34 @@
-import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { Avatar } from './Avatar';
 import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import type { Participant } from '../challenges/types';
-import { formatSteps, shotsFor, soccerClock, SOCCER_POSITION_NAME, SOCCER_POSITION_SHORT, type SoccerPosition } from '../challenges/soccer';
-import { soccerTeamMembers, soccerTeamOf, type SoccerDay, type SoccerGame, type SoccerPlayer, type SoccerShot, type SoccerTeam } from '../challenges/soccerApi';
+import {
+  formatSteps,
+  shotsFor,
+  soccerClock,
+  SOCCER_PICK_PROMPT,
+  SOCCER_POSITION_NAME,
+  SOCCER_POSITION_SHORT,
+  SOCCER_ZONE_NAME,
+  type SoccerPosition,
+  type SoccerZone,
+} from '../challenges/soccer';
+import {
+  listSoccerTactics,
+  setSoccerTactic,
+  soccerTeamMembers,
+  soccerTeamOf,
+  type SoccerDay,
+  type SoccerGame,
+  type SoccerPlayer,
+  type SoccerShot,
+  type SoccerTactic,
+  type SoccerTeam,
+} from '../challenges/soccerApi';
 
 // Whoever's on the pitch: the fields Participant and BoardEntry both
 // carry, so the detail screen and Home can each hand over what they have.
@@ -146,6 +167,55 @@ export function SoccerScore({
   );
 }
 
+// The goal seen from the penalty spot: four corners and the centre, each
+// a tap target. A forward picks where to shoot, the keeper where to dive.
+function GoalMouth({
+  picked,
+  mode,
+  disabled,
+  onPick,
+}: {
+  picked: SoccerZone | null;
+  mode: 'aim' | 'dive';
+  disabled: boolean;
+  onPick: (zone: SoccerZone) => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const mark = mode === 'aim' ? '⚽' : '🧤';
+  const zone = (z: SoccerZone, style: object) => {
+    const on = picked === z;
+    return (
+      <Pressable
+        key={z}
+        onPress={() => onPick(z)}
+        disabled={disabled}
+        style={({ pressed }) => [styles.zone, style, on && styles.zoneOn, pressed && !disabled && styles.zonePressed]}
+        accessibilityRole="button"
+        accessibilityState={{ selected: on, disabled }}
+        accessibilityLabel={`${mode === 'aim' ? 'Shoot' : 'Dive'} ${SOCCER_ZONE_NAME[z]}`}
+      >
+        <Text style={[styles.zoneText, on && styles.zoneTextOn]}>{on ? mark : SOCCER_ZONE_NAME[z].replace('the ', '')}</Text>
+      </Pressable>
+    );
+  };
+  return (
+    <View style={styles.goalFrame}>
+      <View style={styles.goalRow}>
+        {zone('top_left', styles.zoneCorner)}
+        {zone('top_right', styles.zoneCorner)}
+      </View>
+      <View style={styles.goalRow}>
+        {zone('bottom_left', styles.zoneCorner)}
+        {zone('bottom_right', styles.zoneCorner)}
+      </View>
+      <View style={styles.zoneCenterWrap} pointerEvents="box-none">
+        {zone('center', styles.zoneCenter)}
+      </View>
+    </View>
+  );
+}
+
 export function SoccerCard({
   game,
   days,
@@ -153,6 +223,7 @@ export function SoccerCard({
   userId,
   stepsToday,
   dayNo,
+  firstDay,
   matchDays,
   shots,
 }: {
@@ -164,11 +235,52 @@ export function SoccerCard({
   stepsToday: number | null;
   // Today's day number in the match (1-based), or null outside it.
   dayNo: number | null;
+  // The match's first day ('YYYY-MM-DD'), to name today's date.
+  firstDay: string;
   matchDays: SoccerDay[];
   shots: SoccerShot[];
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+
+  // Today's picks the viewer may see: their own side's (0145).
+  const todayDay = useMemo(() => {
+    if (dayNo == null) return null;
+    const [y, m, d] = firstDay.split('-').map(Number);
+    const at = new Date(y, m - 1, d + dayNo - 1);
+    return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
+  }, [firstDay, dayNo]);
+  const [tactics, setTactics] = useState<SoccerTactic[] | null>(null);
+  const [picking, setPicking] = useState(false);
+  const [pickError, setPickError] = useState<string | null>(null);
+  const challengeId = game?.challengeId ?? null;
+  const active = game?.status === 'active';
+  const loadTactics = useCallback(
+    (day: string) => {
+      if (!challengeId) return;
+      listSoccerTactics(challengeId, day)
+        .then(setTactics)
+        .catch(() => setTactics([]));
+    },
+    [challengeId],
+  );
+  useEffect(() => {
+    if (active && todayDay) loadTactics(todayDay);
+  }, [active, todayDay, loadTactics]);
+
+  const pick = async (choice: string | null) => {
+    if (!challengeId) return;
+    setPicking(true);
+    setPickError(null);
+    try {
+      const day = await setSoccerTactic(challengeId, choice);
+      loadTactics(day);
+    } catch (e) {
+      setPickError(e instanceof Error ? e.message : 'Couldn’t save your pick.');
+    } finally {
+      setPicking(false);
+    }
+  };
 
   if (!game) {
     return (
@@ -186,6 +298,33 @@ export function SoccerCard({
   const todaysShots = stepsToday == null ? null : shotsFor(stepsToday, game.shotSteps);
   const us = myTeam === 'a' ? game.goalsA : game.goalsB;
   const them = myTeam === 'a' ? game.goalsB : game.goalsA;
+
+  const myPick = tactics?.find((t) => t.playerId === userId) ?? null;
+  const theirForwards = game.players.filter((p) => p.team !== myTeam && p.position === 'forward');
+  const myPickLine = () => {
+    if (!me) return '';
+    if (!myPick) {
+      return me.position === 'forward'
+        ? 'No pick yet: your shots go somewhere at random.'
+        : me.position === 'keeper'
+          ? 'No pick yet: you stay put, no gain and no loss.'
+          : 'No pick yet: you help the whole defense.';
+    }
+    if (myPick.aim) return `You’re shooting ${SOCCER_ZONE_NAME[myPick.aim]}.`;
+    if (myPick.dive) return `You’re diving ${SOCCER_ZONE_NAME[myPick.dive]}.`;
+    if (myPick.markId) return `You’re marking ${nameOf(myPick.markId)}.`;
+    return '';
+  };
+  const teamPicks = (tactics ?? [])
+    .filter((t) => t.playerId !== userId)
+    .map((t) => {
+      const who = nameOf(t.playerId);
+      if (t.aim) return `${who} shoots ${SOCCER_ZONE_NAME[t.aim]}`;
+      if (t.dive) return `${who} dives ${SOCCER_ZONE_NAME[t.dive]}`;
+      if (t.markId) return `${who} marks ${nameOf(t.markId)}`;
+      return '';
+    })
+    .filter((l) => l.length > 0);
 
   const roleLine = () => {
     if (!me) return null;
@@ -220,6 +359,78 @@ export function SoccerCard({
         </Text>
       )}
       {me && <Text style={styles.note}>You play {SOCCER_POSITION_NAME[me.position]}. {roleLine()}</Text>}
+
+      {me && me.joined && game.status === 'active' && dayNo != null && (
+        <View style={styles.tactics}>
+          <View style={styles.tacticsHead}>
+            <Text style={styles.reportTitle}>Today&rsquo;s play</Text>
+            {tactics === null || picking ? <ActivityIndicator size="small" color={colors.accent} /> : null}
+          </View>
+          <Text style={styles.note}>{SOCCER_PICK_PROMPT[me.position]} Hidden from the other side until tomorrow&rsquo;s report.</Text>
+          {(me.position === 'forward' || me.position === 'keeper') && (
+            <GoalMouth
+              mode={me.position === 'forward' ? 'aim' : 'dive'}
+              picked={(me.position === 'forward' ? myPick?.aim : myPick?.dive) ?? null}
+              disabled={picking || tactics === null}
+              onPick={(z) => pick(z)}
+            />
+          )}
+          {me.position === 'defender' && (
+            <View style={styles.markRow}>
+              {theirForwards.length === 0 ? (
+                <Text style={styles.note}>The other side has no forwards to mark.</Text>
+              ) : (
+                theirForwards.map((f) => {
+                  const on = myPick?.markId === f.playerId;
+                  const person = participants.find((x) => x.userId === f.playerId);
+                  return (
+                    <Pressable
+                      key={f.playerId}
+                      onPress={() => pick(f.playerId)}
+                      disabled={picking || tactics === null}
+                      style={({ pressed }) => [styles.markChip, on && styles.markChipOn, pressed && styles.zonePressed]}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: on }}
+                      accessibilityLabel={`Mark ${person?.name ?? 'this forward'}`}
+                    >
+                      <Avatar
+                        initials={person?.initials ?? '?'}
+                        tint={f.botId ? colors.neutral800 : TINT_N}
+                        size={30}
+                        fontSize={11}
+                        frameId={person?.frameId}
+                        backgroundId={person?.backgroundId}
+                        iconId={person?.iconId}
+                      />
+                      <Text style={[styles.markName, on && styles.markNameOn]} numberOfLines={1}>
+                        {on ? '🛡 ' : ''}
+                        {person?.name ?? (f.joined ? 'Forward' : 'Invited')}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
+          )}
+          <Text style={styles.note}>{myPickLine()}</Text>
+          {myPick && (
+            <Pressable onPress={() => pick(null)} disabled={picking} accessibilityRole="button">
+              <Text style={styles.clear}>Clear my pick</Text>
+            </Pressable>
+          )}
+          {teamPicks.length > 0 && (
+            <View style={{ gap: 2 }}>
+              <Text style={styles.teamTitle}>Your side today</Text>
+              {teamPicks.map((line) => (
+                <Text key={line} style={styles.reportLine}>
+                  {line}
+                </Text>
+              ))}
+            </View>
+          )}
+          {pickError && <Text style={styles.error}>{pickError}</Text>}
+        </View>
+      )}
       {game.status === 'final' && (
         <Text style={styles.note}>
           Full time, {us}–{them}. {game.winnerTeam == null ? 'A draw.' : game.winnerTeam === myTeam ? 'Your side won!' : 'Their side won.'}
@@ -233,6 +444,18 @@ export function SoccerCard({
             const dayShots = shots.filter((s) => s.dayNo === d.dayNo);
             const goals = dayShots.filter((s) => s.outcome === 'goal');
             const saves = dayShots.filter((s) => s.outcome === 'saved');
+            // One line per marked forward: who marked them and how it went.
+            const marks = Array.from(
+              dayShots
+                .filter((s) => s.markerIds && s.markerIds.length > 0)
+                .reduce((acc, s) => {
+                  const m = acc.get(s.shooterId) ?? { shooterId: s.shooterId, markers: s.markerIds ?? [], taken: 0, on: 0 };
+                  m.taken += 1;
+                  if (s.outcome !== 'miss') m.on += 1;
+                  return acc.set(s.shooterId, m);
+                }, new Map<string, { shooterId: string; markers: string[]; taken: number; on: number }>())
+                .values(),
+            );
             const usDay = myTeam === 'a' ? d.goalsA : d.goalsB;
             const themDay = myTeam === 'a' ? d.goalsB : d.goalsA;
             const ourShots = myTeam === 'a' ? d.shotsA : d.shotsB;
@@ -250,15 +473,23 @@ export function SoccerCard({
                 <Text style={styles.reportLine}>
                   Your side {ourShots} shot{ourShots === 1 ? '' : 's'}, {ourOn} on target · theirs {theirShots}, {theirOn} on target.
                 </Text>
+                {marks.map((m) => (
+                  <Text key={`m${m.shooterId}`} style={styles.reportLine}>
+                    🛡 {m.markers.map((id) => nameOf(id)).join(' & ')} marked {nameOf(m.shooterId)}: {m.on} of {m.taken} on target.
+                  </Text>
+                ))}
                 {goals.map((g, i) => (
                   <Text key={`g${i}`} style={styles.reportLine}>
-                    ⚽ {nameOf(g.shooterId)} scored on {formatSteps(g.shooterSteps)}
-                    {g.keeperId ? ` past ${nameOf(g.keeperId)}` : ''}.
+                    ⚽ {nameOf(g.shooterId)} scored{g.aim ? ` ${SOCCER_ZONE_NAME[g.aim]}` : ''} on {formatSteps(g.shooterSteps)}
+                    {g.keeperId ? (g.dive ? `, ${nameOf(g.keeperId)} dove ${SOCCER_ZONE_NAME[g.dive]}` : ` past ${nameOf(g.keeperId)}`) : ''}.
                   </Text>
                 ))}
                 {saves.map((s, i) => (
                   <Text key={`s${i}`} style={styles.reportLine}>
-                    🧤 {nameOf(s.keeperId)} saved from {nameOf(s.shooterId)}.
+                    🧤{' '}
+                    {s.aim && s.dive && s.aim === s.dive
+                      ? `${nameOf(s.shooterId)} shot ${SOCCER_ZONE_NAME[s.aim]}, ${nameOf(s.keeperId)} dove ${SOCCER_ZONE_NAME[s.dive]}. Saved.`
+                      : `${nameOf(s.keeperId)} saved ${nameOf(s.shooterId)}’s shot${s.aim ? ` to ${SOCCER_ZONE_NAME[s.aim]}` : ''}.`}
                   </Text>
                 ))}
               </View>
@@ -307,6 +538,38 @@ function makeStyles(colors: Palette) {
     scoreNumCompact: { fontSize: 18 },
     scoreClock: { fontSize: 11, color: withAlpha(colors.text, 0.55), fontVariant: ['tabular-nums'] },
     reportTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
+    tactics: { gap: 8, padding: 12, borderRadius: 12, backgroundColor: withAlpha(colors.accent, 0.08) },
+    tacticsHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    teamTitle: { fontSize: 11, letterSpacing: 0.6, textTransform: 'uppercase', color: withAlpha(colors.text, 0.55), marginTop: 4 },
+    clear: { fontSize: 12.5, color: colors.accentActive, fontFamily: font.heading },
+    error: { fontSize: 12.5, color: colors.amber },
+    goalFrame: {
+      alignSelf: 'stretch',
+      height: 132,
+      backgroundColor: PITCH,
+      borderColor: '#ffffff',
+      borderTopWidth: 5,
+      borderLeftWidth: 5,
+      borderRightWidth: 5,
+      borderTopLeftRadius: 4,
+      borderTopRightRadius: 4,
+      padding: 6,
+      gap: 6,
+    },
+    goalRow: { flex: 1, flexDirection: 'row', gap: 6 },
+    zone: { alignItems: 'center', justifyContent: 'center', borderRadius: 8, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.45)', backgroundColor: 'rgba(255,255,255,0.08)' },
+    zoneCorner: { flex: 1 },
+    zoneCenterWrap: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
+    zoneCenter: { width: '34%', height: '46%', backgroundColor: 'rgba(47,122,79,0.92)' },
+    zoneOn: { backgroundColor: colors.amber, borderColor: '#ffffff' },
+    zonePressed: { opacity: 0.75 },
+    zoneText: { color: '#ffffff', fontSize: 11, fontFamily: font.heading, textTransform: 'uppercase', letterSpacing: 0.5 },
+    zoneTextOn: { fontSize: 20 },
+    markRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    markChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, borderWidth: 1.5, borderColor: withAlpha(colors.text, 0.15), maxWidth: '100%' },
+    markChipOn: { borderColor: colors.accent, backgroundColor: withAlpha(colors.accent, 0.14) },
+    markName: { fontFamily: font.heading, fontSize: 13, color: colors.text, flexShrink: 1 },
+    markNameOn: { color: colors.accentActive },
     report: { gap: 2, padding: 10, borderRadius: 10, backgroundColor: withAlpha(colors.accent, 0.08) },
     reportHead: { flexDirection: 'row', justifyContent: 'space-between' },
     reportDay: { fontFamily: font.heading, fontSize: 13, color: colors.text },

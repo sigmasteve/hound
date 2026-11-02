@@ -37,6 +37,26 @@ export function shotsFor(steps: number, shotSteps: number): number {
   return Math.min(SOCCER_MAX_SHOTS_A_DAY, Math.floor(steps / Math.max(1, shotSteps)));
 }
 
+// The five places a shot can go, and a keeper can dive (0145).
+export type SoccerZone = 'top_left' | 'top_right' | 'bottom_left' | 'bottom_right' | 'center';
+
+export const SOCCER_ZONES: SoccerZone[] = ['top_left', 'top_right', 'center', 'bottom_left', 'bottom_right'];
+
+export const SOCCER_ZONE_NAME: Record<SoccerZone, string> = {
+  top_left: 'top left',
+  top_right: 'top right',
+  bottom_left: 'bottom left',
+  bottom_right: 'bottom right',
+  center: 'the centre',
+};
+
+// What a pick does, in the player's own position.
+export const SOCCER_PICK_PROMPT: Record<SoccerPosition, string> = {
+  forward: 'Pick your corner. Every shot you take today goes there.',
+  keeper: 'Guess their corner. Guess right and your saves get much likelier; guess wrong and a little less.',
+  defender: 'Pick a forward to mark. Your steps go up against theirs alone.',
+};
+
 export function formatSteps(n: number): string {
   return `${Math.round(n).toLocaleString()} steps`;
 }

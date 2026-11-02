@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { DEFAULT_SOCCER_SHOT_STEPS, type SoccerPosition } from './soccer';
+import { DEFAULT_SOCCER_SHOT_STEPS, type SoccerPosition, type SoccerZone } from './soccer';
 
 // The client-facing half of Soccer — see 0142_soccer.sql for the schema
 // and RPCs this wraps. Same shape as rallyApi.ts.
@@ -56,6 +56,20 @@ export interface SoccerShot {
   shooterSteps: number;
   shotNo: number;
   outcome: 'miss' | 'saved' | 'goal';
+  // Where it went, where the keeper dove (null: no guess), and who was
+  // marking the shooter (0145). Null on days played before tactics.
+  aim: SoccerZone | null;
+  dive: SoccerZone | null;
+  markerIds: string[] | null;
+}
+
+// A player's pick for a day: one of the three, by position.
+export interface SoccerTactic {
+  day: string;
+  playerId: string;
+  aim: SoccerZone | null;
+  dive: SoccerZone | null;
+  markId: string | null;
 }
 
 export function soccerTeamOf(game: SoccerGame, playerId: string | null | undefined): SoccerTeam | null {
@@ -117,7 +131,7 @@ export async function listSoccerDays(challengeId: string): Promise<SoccerDay[]> 
 export async function listSoccerShots(challengeId: string): Promise<SoccerShot[]> {
   const { data, error } = await requireClient()
     .from('soccer_events')
-    .select('day, day_no, team, shooter_id, keeper_id, shooter_steps, shot_no, outcome')
+    .select('day, day_no, team, shooter_id, keeper_id, shooter_steps, shot_no, outcome, aim, dive, marker_ids')
     .eq('challenge_id', challengeId)
     .order('day_no', { ascending: true })
     .order('created_at', { ascending: true });
@@ -131,6 +145,9 @@ export async function listSoccerShots(challengeId: string): Promise<SoccerShot[]
     shooterSteps: r.shooter_steps,
     shotNo: r.shot_no,
     outcome: r.outcome as SoccerShot['outcome'],
+    aim: (r.aim as SoccerZone | null) ?? null,
+    dive: (r.dive as SoccerZone | null) ?? null,
+    markerIds: (r.marker_ids as string[] | null) ?? null,
   }));
 }
 
@@ -169,6 +186,33 @@ export async function addSoccerPlayer(challengeId: string, userId: string, team:
 export async function removeSoccerPlayer(challengeId: string, userId: string): Promise<void> {
   const { error } = await requireClient().rpc('soccer_remove_player', { p_challenge_id: challengeId, p_user_id: userId });
   if (error) throw new Error(error.message);
+}
+
+// The picks for a day the viewer may see: their own side's always, the
+// other side's once that day has been played (row-level security).
+export async function listSoccerTactics(challengeId: string, day: string): Promise<SoccerTactic[]> {
+  const { data, error } = await requireClient()
+    .from('soccer_tactics')
+    .select('day, player_id, aim, dive, mark_id')
+    .eq('challenge_id', challengeId)
+    .eq('day', day);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    day: r.day,
+    playerId: r.player_id,
+    aim: (r.aim as SoccerZone | null) ?? null,
+    dive: (r.dive as SoccerZone | null) ?? null,
+    markId: r.mark_id ?? null,
+  }));
+}
+
+// Sets the caller's pick for their today: a zone for a forward (aim) or
+// the keeper (dive), a forward's id for a defender (mark), or null to
+// clear it. Returns the day it's for.
+export async function setSoccerTactic(challengeId: string, choice: SoccerZone | string | null): Promise<string> {
+  const { data, error } = await requireClient().rpc('soccer_set_tactic', { p_challenge_id: challengeId, p_choice: choice });
+  if (error) throw new Error(error.message);
+  return data as string;
 }
 
 // Plays every day that's over everywhere and not yet played, and ends the
