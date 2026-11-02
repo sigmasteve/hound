@@ -100,6 +100,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const [yard, setYard] = useState<Yard | null>(null);
   const [yardSpot, setYardSpot] = useState<YardSpot>('house');
   const [sceneWidth, setSceneWidth] = useState(0);
+  // While a finger is throwing the toy, the page holds still.
+  const [throwing, setThrowing] = useState(false);
   const focused = useIsFocused();
 
   // Whether your avatar is this hound (0106_hound_avatar.sql).
@@ -350,7 +352,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <ScrollView scrollEnabled={!throwing} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
         <Card style={styles.hero} elevated={false}>
@@ -358,6 +360,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             <View style={styles.yardFloor} onLayout={(e) => setSceneWidth(Math.floor(e.nativeEvent.layout.width))}>
               {sceneWidth > 0 && (
                 <YardScene
+                  onGesture={setThrowing}
                   yard={yard}
                   width={sceneWidth}
                   animate={focused}

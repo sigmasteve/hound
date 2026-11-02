@@ -116,6 +116,7 @@ export function YardScene({
   time,
   season,
   guest,
+  onGesture,
 }: {
   yard: Yard;
   hound: YardHound;
@@ -130,6 +131,10 @@ export function YardScene({
   // tagging along on a visit. label is the tag over it; line what it
   // says when tapped.
   guest?: { hound: YardHound; label: string; line?: string } | null;
+  // True while a finger is throwing the toy: the screen should stop its
+  // ScrollView scrolling until it's false again, or a flick scrolls the
+  // page instead.
+  onGesture?: (active: boolean) => void;
 }) {
   const size = Math.max(0, Math.min(YARD_SIZES.length - 1, yard.size));
   const { left, width: W } = YARD_SIZES[size];
@@ -266,11 +271,38 @@ export function YardScene({
   };
   const throwRef = useRef(throwToy);
   throwRef.current = throwToy;
+  const gestureRef = useRef(onGesture);
+  gestureRef.current = onGesture;
+  // A touch on the toy is the toy's from the start: the page holds still
+  // until the finger lifts.
   const pan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => gestureRef.current?.(true),
       onPanResponderTerminationRequest: () => false,
-      onPanResponderRelease: (_, g) => throwRef.current(Math.abs(g.dx) + Math.abs(g.dy) < 8 ? 0 : g.dx + g.vx * 120),
+      onPanResponderRelease: (_, g) => {
+        gestureRef.current?.(false);
+        throwRef.current(Math.abs(g.dx) + Math.abs(g.dy) < 8 ? 0 : g.dx + g.vx * 120);
+      },
+      onPanResponderTerminate: () => gestureRef.current?.(false),
+    }),
+  ).current;
+  // The yard is a play area: a touch anywhere on it is the yard's (taps
+  // on a hound or the toy still go to them, which claim theirs first),
+  // so swiping inside it never scrolls the page. A swipe throws the toy
+  // that way; straight up or down throws it a random way; a tap on the
+  // grass does nothing.
+  const sweep = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => gestureRef.current?.(true),
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderRelease: (_, g) => {
+        gestureRef.current?.(false);
+        if (Math.abs(g.dx) + Math.abs(g.dy) < 12) return;
+        throwRef.current(Math.abs(g.dx) > Math.abs(g.dy) * 0.5 ? g.dx + g.vx * 120 : 0);
+      },
+      onPanResponderTerminate: () => gestureRef.current?.(false),
     }),
   ).current;
 
@@ -321,7 +353,7 @@ export function YardScene({
   };
 
   return (
-    <View style={{ width, height: H * k, overflow: 'hidden', borderRadius: 14 }}>
+    <View style={{ width, height: H * k, overflow: 'hidden', borderRadius: 14 }} {...(toyId ? sweep.panHandlers : {})}>
       <Svg width={width} height={H * k} viewBox={`${left} ${top} ${W} ${H}`}>
         <Defs>
           <LinearGradient id="yardSky" x1="0" y1="0" x2="0" y2="1">
@@ -424,6 +456,7 @@ export function YardScene({
       {toyId && (
         <Animated.View
           {...pan.panHandlers}
+          hitSlop={{ top: 18, bottom: 18, left: 18, right: 18 }}
           accessible
           accessibilityRole="button"
           accessibilityLabel={`Throw the ${yardItemById(toyId)?.name ?? 'toy'}`}
