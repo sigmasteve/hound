@@ -1,5 +1,6 @@
 import type React from 'react';
 import {
+  BaseballIcon,
   BuildingsIcon,
   ClipboardTextIcon,
   FlagIcon,
@@ -31,6 +32,7 @@ export const CHALLENGE_KIND_ICON: Record<ChallengeKind, React.ComponentType<any>
   houndopoly: BuildingsIcon,
   rally: RacquetIcon,
   soccer: SoccerBallIcon,
+  cricket: BaseballIcon,
 };
 
 // A build only ever ships knowing the challenge kinds that existed when

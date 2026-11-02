@@ -105,6 +105,19 @@ import {
 } from '../challenges/soccerApi';
 import { SOCCER_POSITION_NAME, SOCCER_POSITIONS, type SoccerPosition } from '../challenges/soccer';
 import { SoccerCard } from '../components/SoccerCard';
+import {
+  addCricketPlayer,
+  advanceCricket,
+  cricketTeamOf,
+  getCricketGame,
+  getCricketOnStrike,
+  listCricketBalls,
+  type CricketBall,
+  type CricketGame,
+  type CricketOnStrike,
+  type CricketTeam,
+} from '../challenges/cricketApi';
+import { CricketCard, cricketResultLine } from '../components/CricketCard';
 import { botToParticipant } from '../challenges/botSimulation';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { getChallengeSponsor, isGlobalChallenge, type ChallengeSponsor } from '../challenges/globalChallenges';
@@ -377,6 +390,9 @@ export function ChallengeDetailScreen({
   const [soccerDays, setSoccerDays] = useState<SoccerDay[]>([]);
   const [soccerShots, setSoccerShots] = useState<SoccerShot[]>([]);
   const [soccerSteps, setSoccerSteps] = useState<number | null>(null);
+  const [cricketGame, setCricketGame] = useState<CricketGame | null>(null);
+  const [cricketBalls, setCricketBalls] = useState<CricketBall[]>([]);
+  const [cricketOnStrike, setCricketOnStrike] = useState<CricketOnStrike | null>(null);
 
   // A stop's postcard on a course challenge: the group (or you, on a
   // Journey challenge) just reached it, or a look at one by tapping its
@@ -627,6 +643,7 @@ export function ChallengeDetailScreen({
       const needsHoundopoly = c.kind === 'houndopoly';
       const needsRally = c.kind === 'rally';
       const needsSoccer = c.kind === 'soccer';
+      const needsCricket = c.kind === 'cricket';
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
       const needsMovement =
@@ -646,6 +663,8 @@ export function ChallengeDetailScreen({
       if (needsRally) await settleRally(challengeId).catch(() => {});
       // Soccer: play any day that's over everywhere before reading the score.
       if (needsSoccer) await advanceSoccer(challengeId).catch(() => {});
+      // Cricket: play any over that's due before reading the scoreboard.
+      if (needsCricket) await advanceCricket(challengeId).catch(() => {});
       const [
         p,
         l,
@@ -672,6 +691,9 @@ export function ChallengeDetailScreen({
         soccerResult,
         soccerDaysResult,
         soccerShotsResult,
+        cricketResult,
+        cricketBallsResult,
+        cricketOnStrikeResult,
       ] = await Promise.all([
         supabaseChallengesProvider.listParticipants(challengeId),
         supabaseChallengesProvider.getLeaderboard(challengeId),
@@ -704,6 +726,9 @@ export function ChallengeDetailScreen({
         needsSoccer ? getSoccerGame(challengeId) : Promise.resolve<SoccerGame | null>(null),
         needsSoccer ? listSoccerDays(challengeId).catch(() => []) : Promise.resolve<SoccerDay[]>([]),
         needsSoccer ? listSoccerShots(challengeId).catch(() => []) : Promise.resolve<SoccerShot[]>([]),
+        needsCricket ? getCricketGame(challengeId) : Promise.resolve<CricketGame | null>(null),
+        needsCricket ? listCricketBalls(challengeId).catch(() => []) : Promise.resolve<CricketBall[]>([]),
+        needsCricket ? getCricketOnStrike(challengeId).catch(() => null) : Promise.resolve<CricketOnStrike | null>(null),
       ]);
       setChallenge(c);
       setStanding(standingResult);
@@ -712,6 +737,9 @@ export function ChallengeDetailScreen({
       setSoccerGame(soccerResult);
       setSoccerDays(soccerDaysResult);
       setSoccerShots(soccerShotsResult);
+      setCricketGame(cricketResult);
+      setCricketBalls(cricketBallsResult);
+      setCricketOnStrike(cricketOnStrikeResult);
       setParticipants(p);
       setLeaderboard(l);
       setBots(b);
@@ -753,9 +781,9 @@ export function ChallengeDetailScreen({
     load();
   }, [load]);
 
-  // Soccer: today's steps so far, for the shots or saves they're worth.
+  // Soccer and Cricket: today's steps so far, for what they're worth.
   useEffect(() => {
-    if (challenge?.kind !== 'soccer') return;
+    if (challenge?.kind !== 'soccer' && challenge?.kind !== 'cricket') return;
     let cancelled = false;
     health
       .getSnapshot()
@@ -909,7 +937,32 @@ export function ChallengeDetailScreen({
       }
     });
 
+  // A Cricket match seats a late player on a side before the invite; they
+  // bat at the end of that side's order.
+  const askCricketSide = (friend: Friend): Promise<CricketTeam | null> =>
+    new Promise((resolve) => {
+      const mine = cricketGame ? cricketTeamOf(cricketGame, user?.id) ?? 'a' : 'a';
+      Alert.alert(`Which side for ${friend.name}?`, 'They bat at the end of that side’s order, from the day they accept.', [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+        { text: 'My side', onPress: () => resolve(mine) },
+        { text: 'Other side', onPress: () => resolve(mine === 'a' ? 'b' : 'a') },
+      ]);
+    });
+
   const inviteFriend = async (friend: Friend) => {
+    if (challenge?.kind === 'cricket') {
+      const side = await askCricketSide(friend);
+      if (!side) return;
+      setInvitingId(friend.userId);
+      try {
+        await addCricketPlayer(challengeId, friend.userId, side);
+      } catch (e) {
+        Alert.alert('Could not seat them', e instanceof Error ? e.message : 'Try again.');
+        setInvitingId(null);
+        return;
+      }
+      setInvitingId(null);
+    }
     if (challenge?.kind === 'soccer') {
       const seat = await askSoccerSeat(friend);
       if (!seat) return;
@@ -934,8 +987,8 @@ export function ChallengeDetailScreen({
       const role = challenge?.kind === 'hunt' ? 'hunted' : undefined;
       await supabaseChallengesProvider.inviteFriendToChallenge(challengeId, friend.userId, role);
       setInvitedIds((cur) => new Set(cur).add(friend.userId));
-      // The seat shows on the pitch as Invited straight away.
-      if (challenge?.kind === 'soccer') load();
+      // The seat shows on the pitch or the ground as Invited straight away.
+      if (challenge?.kind === 'soccer' || challenge?.kind === 'cricket') load();
     } catch (e) {
       // "Already invited" isn't really a failure from here — still mark
       // it, so the button reads the same either way.
@@ -1362,7 +1415,7 @@ export function ChallengeDetailScreen({
   // Where everyone stands, for the trash-talk taunts with numbers in them
   // ("I'm 4,200 steps ahead of Casey"). Tic-Tac-Go has no single number.
   const trashTalkBoard: { standings: Standing[] | null; unit: TauntUnit | null } =
-    challenge.kind === 'tictacgo' || challenge.kind === 'rally' || challenge.kind === 'soccer'
+    challenge.kind === 'tictacgo' || challenge.kind === 'rally' || challenge.kind === 'soccer' || challenge.kind === 'cricket'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
         ? isHound
@@ -1481,7 +1534,8 @@ export function ChallengeDetailScreen({
     finished ||
     (challenge.kind === 'tictacgo' && (tttGame?.status === 'won' || tttGame?.status === 'draw')) ||
     (challenge.kind === 'rally' && (rallyGame?.status === 'won' || rallyGame?.status === 'draw')) ||
-    (challenge.kind === 'soccer' && soccerGame?.status === 'final');
+    (challenge.kind === 'soccer' && soccerGame?.status === 'final') ||
+    (challenge.kind === 'cricket' && cricketGame?.status === 'final');
 
   // How this challenge went for the viewer, for the wrap-up card's line
   // and the Share message — each kind reads its own outcome (see
@@ -1582,6 +1636,20 @@ export function ChallengeDetailScreen({
           type: 'rally',
           result: rallyGame.status === 'draw' ? 'draw' : rallyGame.winnerTeam === myTeam ? 'won' : 'lost',
           games: `${mine}–${theirs}`,
+        };
+      }
+      case 'cricket': {
+        if (!cricketGame || cricketGame.status !== 'final') return null;
+        const side = cricketTeamOf(cricketGame, me);
+        if (!side) return null;
+        const line = cricketResultLine(cricketGame, [], me);
+        const won = cricketGame.winnerTeam === side;
+        const how =
+          cricketGame.result === 'defended' ? line.replace(/^.* won /, '').replace(/\.$/, '') : won ? 'chasing it down' : 'to their chase';
+        return {
+          type: 'cricket',
+          result: cricketGame.result === 'tie' ? 'tie' : won ? 'won' : 'lost',
+          how,
         };
       }
       case 'soccer': {
@@ -2091,6 +2159,17 @@ export function ChallengeDetailScreen({
               health={health}
               now={now}
               onChanged={load}
+            />
+          )}
+
+          {challenge.kind === 'cricket' && (
+            <CricketCard
+              game={cricketGame}
+              onStrike={cricketOnStrike}
+              balls={cricketBalls}
+              participants={[...participants, ...bots.map(botToParticipant)]}
+              userId={user?.id}
+              stepsToday={soccerSteps}
             />
           )}
 

@@ -110,6 +110,9 @@ import { formatRallyDue, formatRallyTimeLeft, formatSteps } from '../challenges/
 import { RallyCourt, RallyScore } from '../components/RallyCard';
 import { advanceSoccer, getSoccerGame, soccerTeamOf, type SoccerGame } from '../challenges/soccerApi';
 import { SoccerPitch, SoccerScore } from '../components/SoccerCard';
+import { advanceCricket, battingNow, cricketTeamOf, getCricketGame, getCricketOnStrike, otherSide, type CricketGame, type CricketOnStrike } from '../challenges/cricketApi';
+import { CricketGround, CricketScore, cricketResultLine } from '../components/CricketCard';
+import { oversLabel } from '../challenges/cricket';
 import { soccerClock } from '../challenges/soccer';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
@@ -359,6 +362,28 @@ function soccerHeadline(name: string, days: number, game: SoccerGame | null, use
   return `${soccerClock(game.daysPlayed, days)} in ${name}: ${standing}.`;
 }
 
+// A pinned Cricket match: where the innings stands from your side, the
+// chase once there is one, and the result at the end.
+function cricketHeadline(name: string, game: CricketGame | null, onStrike: CricketOnStrike | null, userId: string | null): string {
+  if (!game) return `Getting ${name} ready.`;
+  if (game.status === 'final') return `${name}: ${cricketResultLine(game, [], userId)}`;
+  const mine = cricketTeamOf(game, userId) ?? 'a';
+  const bt = battingNow(game);
+  const runs = bt === 'a' ? game.runsA : game.runsB;
+  const wk = bt === 'a' ? game.wicketsA : game.wicketsB;
+  const balls = bt === 'a' ? game.ballsA : game.ballsB;
+  const who = bt === mine ? 'you’re' : 'they’re';
+  const duty =
+    onStrike?.batterId === userId ? ' You’re on strike today.' : onStrike?.bowlerId === userId ? ' You’re bowling today.' : '';
+  if (game.innings === 2 && game.target != null) {
+    const need = game.target - runs;
+    const left = game.overs * 6 - balls;
+    return `${name}: ${who} ${runs}/${wk}, ${need} needed from ${left} balls.${duty}`;
+  }
+  if (balls === 0) return `${name}: ${bt === mine ? 'you bat' : 'you bowl'} first.${duty}`;
+  return `${name}: ${who} ${runs}/${wk} after ${oversLabel(balls)} overs.${duty}`;
+}
+
 // A pinned Hound'opoly: your place by net worth, your cash and deeds, or
 // the board's own state once it's over — never the steps leaderboard,
 // which is all zeros for this kind.
@@ -394,6 +419,7 @@ function heroCopy(
   rallyGame: RallyGame | null = null,
   soccerGame: SoccerGame | null = null,
   houndopolyGame: HoundopolyGame | null = null,
+  cricket: { game: CricketGame | null; onStrike: CricketOnStrike | null } = { game: null, onStrike: null },
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -437,6 +463,9 @@ function heroCopy(
   }
   if (challenge.kind === 'soccer') {
     return { eyebrow, headline: soccerHeadline(challenge.name, challenge.durationDays, soccerGame, userId) };
+  }
+  if (challenge.kind === 'cricket') {
+    return { eyebrow, headline: cricketHeadline(challenge.name, cricket.game, cricket.onStrike, userId) };
   }
   if (challenge.kind === 'houndopoly') {
     return { eyebrow, headline: houndopolyHeadline(challenge.name, houndopolyGame, userId, isChallengeFinished(challenge, board)) };
@@ -965,6 +994,11 @@ export function HomeScreen({
   const [primarySoccerGame, setPrimarySoccerGame] = useState<SoccerGame | null>(null);
   // Only populated when `primary` is a Hound'opoly game.
   const [primaryHoundopoly, setPrimaryHoundopoly] = useState<HoundopolyGame | null>(null);
+  // Only populated when `primary` is a Cricket match.
+  const [primaryCricket, setPrimaryCricket] = useState<{ game: CricketGame | null; onStrike: CricketOnStrike | null }>({
+    game: null,
+    onStrike: null,
+  });
 
   // The step-free parts of the challenge section from last time
   // (todayCache.ts), shown on open until this open's own data is in.
@@ -1666,6 +1700,20 @@ export function HomeScreen({
       } else {
         setPrimaryHoundopoly(null);
       }
+      if (primaryResult?.challenge.kind === 'cricket') {
+        const cId = primaryResult.challenge.id;
+        advanceCricket(cId)
+          .catch(() => {})
+          .then(() => Promise.all([getCricketGame(cId), getCricketOnStrike(cId).catch(() => null)]))
+          .then(([game, onStrike]) => {
+            if (!cancelled) setPrimaryCricket({ game, onStrike });
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryCricket({ game: null, onStrike: null });
+          });
+      } else {
+        setPrimaryCricket({ game: null, onStrike: null });
+      }
 
       // The challenge section can show now. Needs you fills in below,
       // once the per-kind checks for every active challenge are back.
@@ -1821,6 +1869,7 @@ export function HomeScreen({
         primaryRallyGame,
         primarySoccerGame,
         primaryHoundopoly,
+        primaryCricket,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -2303,6 +2352,8 @@ export function HomeScreen({
               <RallyPreview primary={primary} game={primaryRallyGame} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'soccer' ? (
               <SoccerPreview primary={primary} game={primarySoccerGame} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : primary.challenge.kind === 'cricket' ? (
+              <CricketPreview primary={primary} game={primaryCricket.game} onStrike={primaryCricket.onStrike} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'houndopoly' ? (
               <HoundopolyPreview
                 primary={primary}
@@ -2986,6 +3037,54 @@ function SoccerPreview({
         </>
       ) : (
         <Text style={styles.tileSub}>Loading the match…</Text>
+      )}
+      <Button label="Open match" variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+function CricketPreview({
+  primary,
+  game,
+  onStrike,
+  userId,
+  onOpen,
+  styles,
+}: {
+  primary: PrimaryChallenge;
+  game: CricketGame | null;
+  onStrike: CricketOnStrike | null;
+  userId: string | null;
+  onOpen: () => void;
+  styles: HomeStyles;
+}) {
+  const { challenge, board } = primary;
+  const daysLeft = Math.max(0, Math.ceil((new Date(challenge.endsAt).getTime() - Date.now()) / 86_400_000));
+  const nameOf = (id: string | undefined) => (id === userId ? 'You' : (board.find((r) => r.userId === id)?.name ?? 'Someone'));
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+        <Text style={styles.raceMeta}>
+          {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+        </Text>
+      </View>
+      {game ? (
+        <>
+          <CricketScore game={game} people={board} userId={userId} compact />
+          <CricketGround game={game} onStrike={onStrike} people={board} userId={userId} compact />
+          {onStrike && (
+            <Text style={styles.tileSub}>
+              Today, over {onStrike.overNo}: {nameOf(onStrike.batterId)} bat{onStrike.batterId === userId ? '' : 's'} against {nameOf(onStrike.bowlerId)}.
+              {game.innings === 2 && game.target != null
+                ? ` Chasing ${game.target}.`
+                : ` ${otherSide(game.battingFirst) === cricketTeamOf(game, userId) ? 'You chase next.' : 'You bowl next.'}`}
+            </Text>
+          )}
+        </>
+      ) : (
+        <Text style={styles.tileSub}>Loading the scoreboard…</Text>
       )}
       <Button label="Open match" variant="ghost" small onPress={onOpen} />
     </Card>
