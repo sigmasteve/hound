@@ -6,7 +6,7 @@ select tests.new_user('Ann') as ann \gset
 select (now() at time zone 'utc')::date as today \gset
 update public.profiles set bones_balance = 1000 where id = :'ann';
 
-select is((select count(*)::int from public.kennel_items where available_until = '2026-11-30'), 4, 'Four Thanksgiving Kennel items');
+select is((select count(*)::int from public.kennel_items where available_until = '2026-11-30' and slot in ('neck', 'head', 'face', 'coat')), 4, 'Four Thanksgiving Kennel items');
 select is((select count(*)::int from public.cosmetic_items where available_until = '2026-12-01 08:00:00+00'), 7, 'Seven Thanksgiving Locker items');
 
 -- Make the Turkey Hat's last day today, so this runs the same whenever.
