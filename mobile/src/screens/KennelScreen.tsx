@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon,
   LeafIcon, HeartIcon, PencilSimpleIcon, PlusIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
@@ -42,6 +42,20 @@ import {
   type KennelItem,
 } from '../kennel/kennelItems';
 import { localDayKey } from '../goals/goals';
+import { YardScene, YardThumb } from '../kennel/YardArt';
+import { getYard, placeYardItem, setYardTrophies, type Yard } from '../kennel/yardApi';
+import {
+  TROPHIES,
+  YARD_ITEMS,
+  YARD_SIZES,
+  YARD_SPOTS,
+  nextSizeLine,
+  spotSlot,
+  trophyRoom,
+  type TrophyKind,
+  type YardItem,
+  type YardSpot,
+} from '../kennel/yardItems';
 import {
   buyKennelItem,
   equipKennelItem,
@@ -79,6 +93,12 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [ladderOpen, setLadderOpen] = useState(false);
+  // The Yard (0148_yard.sql). Null until it loads, and if it can't (before
+  // 0148 has run) the hound stands on its own as before.
+  const [yard, setYard] = useState<Yard | null>(null);
+  const [yardSpot, setYardSpot] = useState<YardSpot>('house');
+  const [sceneWidth, setSceneWidth] = useState(0);
+  const focused = useIsFocused();
 
   // Whether your avatar is this hound (0106_hound_avatar.sql).
   const { user } = useAuth();
@@ -91,6 +111,9 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
         setLoadError(null);
       })
       .catch((e) => setLoadError(e instanceof Error ? e.message : 'Could not load the Kennel.'));
+    getYard()
+      .then(setYard)
+      .catch(() => setYard(null));
     if (user?.id) {
       getMyEquippedCosmetics(user.id)
         .then((c) => setHoundIsAvatar(!!c.iconId?.startsWith(HOUND_AVATAR_PREFIX)))
@@ -218,6 +241,62 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const seasons = [...new Set(seasonItems.map((i) => i.season!))];
   const inShop = (i: KennelItem) => !i.season || (!onSale(i, today) && kennel.owned.includes(i.id));
 
+  // The Yard (0148): what the hound says when you tap it.
+  const yardLines =
+    kennel.mood === 'happy'
+      ? [
+          ...(kennel.goalDayToday ? ['Goal day! Again, again!'] : []),
+          `${kennel.goalDays7} goal day${kennel.goalDays7 === 1 ? '' : 's'} this week!`,
+          'Throw the ball?',
+        ]
+      : kennel.mood === 'okay'
+        ? ['Walk with me?', 'Finish your goals and I’ll do zoomies.']
+        : kennel.mood === 'hungry'
+          ? [classic ? 'Is it dinner time?' : 'A treat? Please?']
+          : ['Zzz… a walk would wake me up.', '*yawn*'];
+
+  // Yours or free: straight in. Otherwise bought first, like the gear.
+  const pressYardItem = (spot: YardSpot, item: YardItem) => {
+    const owned = item.costBones === 0 || kennel.owned.includes(item.id);
+    if (owned) {
+      run(`yard-${item.id}`, () => placeYardItem(spot, item.id), "Couldn't change the yard");
+    } else if (shortOf(item.costBones)) {
+      offerMore(item.costBones);
+    } else {
+      Alert.alert(`Get the ${item.name}?`, `${item.costBones} ${currencyName} from your balance.`, [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: `Spend ${item.costBones}`,
+          onPress: () =>
+            run(
+              `yard-${item.id}`,
+              async () => {
+                await buyKennelItem(item.id);
+                await placeYardItem(spot, item.id);
+              },
+              "Couldn't get that",
+            ),
+        },
+      ]);
+    }
+  };
+
+  // Up or down; the row holds as many as the yard has room for.
+  const toggleTrophy = (kind: TrophyKind) => {
+    if (!yard) return;
+    const room = trophyRoom(yard.size);
+    if (yard.shown.includes(kind)) {
+      run(`trophy-${kind}`, () => setYardTrophies(yard.shown.filter((k) => k !== kind)), "Couldn't change the trophies");
+    } else if (yard.shown.length >= room) {
+      Alert.alert(
+        'The trophy row is full',
+        `Your yard has room for ${room}. Take one down first${yard.size < YARD_SIZES.length - 1 ? ', or rank up for a bigger yard' : ''}.`,
+      );
+    } else {
+      run(`trophy-${kind}`, () => setYardTrophies([...yard.shown, kind]), "Couldn't change the trophies");
+    }
+  };
+
   const itemRow = (item: KennelItem) => {
     const isCoat = item.slot === 'coat';
     const owned = kennel.owned.includes(item.id);
@@ -273,21 +352,48 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
         <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
         <Card style={styles.hero} elevated={false}>
-          <View style={styles.kennelFloor}>
-            <HoundArt
-              rank={rank.id}
-              mood={kennel.mood}
-              neckId={kennel.neckId}
-              headId={kennel.headId}
-              faceId={kennel.faceId}
-              coatId={kennel.coatId}
-              ears={kennel.ears}
-              tail={kennel.tail}
-              markings={kennel.markings}
-              breedId={kennel.breedId}
-              size={190}
-            />
-          </View>
+          {yard ? (
+            <View style={styles.yardFloor} onLayout={(e) => setSceneWidth(Math.floor(e.nativeEvent.layout.width))}>
+              {sceneWidth > 0 && (
+                <YardScene
+                  yard={yard}
+                  width={sceneWidth}
+                  animate={focused}
+                  lines={yardLines}
+                  hound={{
+                    name: kennel.name,
+                    rank: rank.id,
+                    mood: kennel.mood,
+                    neckId: kennel.neckId,
+                    headId: kennel.headId,
+                    faceId: kennel.faceId,
+                    coatId: kennel.coatId,
+                    breedId: kennel.breedId,
+                    ears: kennel.ears,
+                    tail: kennel.tail,
+                    markings: kennel.markings,
+                  }}
+                />
+              )}
+              <Text style={styles.yardHint}>Tap {kennel.name} to say hi. Press and hold to pet.</Text>
+            </View>
+          ) : (
+            <View style={styles.kennelFloor}>
+              <HoundArt
+                rank={rank.id}
+                mood={kennel.mood}
+                neckId={kennel.neckId}
+                headId={kennel.headId}
+                faceId={kennel.faceId}
+                coatId={kennel.coatId}
+                ears={kennel.ears}
+                tail={kennel.tail}
+                markings={kennel.markings}
+                breedId={kennel.breedId}
+                size={190}
+              />
+            </View>
+          )}
 
           {editingName !== null ? (
             <TextInput
@@ -358,6 +464,119 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             />
           </View>
         </Card>
+
+        {/* The Yard (0148): a fixed spot for everything, more spots as the
+            hound ranks up, and trophies that can only be won. */}
+        {yard && (
+          <Card style={{ gap: 10 }} elevated={false}>
+            <View style={styles.seasonHeader}>
+              <Text style={text.h4}>Your yard</Text>
+              <Text style={styles.yardSize}>{YARD_SIZES[yard.size]?.name}</Text>
+            </View>
+            {nextSizeLine(yard.size) && <Text style={styles.itemNote}>{nextSizeLine(yard.size)}</Text>}
+            <View style={styles.chips}>
+              {YARD_SPOTS.map(({ spot, label, opensAt }) => {
+                const open = opensAt <= yard.size;
+                const on = yardSpot === spot;
+                return (
+                  <Pressable
+                    key={spot}
+                    style={[styles.chip, on && styles.chipOn, !open && styles.chipLocked]}
+                    disabled={!open || on}
+                    onPress={() => setYardSpot(spot)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on, disabled: !open }}
+                    accessibilityLabel={open ? label : `${label}, opens at ${YARD_SIZES[opensAt].rank}`}
+                  >
+                    <Text style={[styles.chipText, on && styles.chipTextOn]}>
+                      {open ? label : `${label} · ${YARD_SIZES[opensAt].rank}`}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={styles.yardItems}>
+              {YARD_ITEMS.filter((i) => i.slot === spotSlot(yardSpot)).map((item) => {
+                const placed = yard.spots[yardSpot] === item.id;
+                const owned = item.costBones === 0 || kennel.owned.includes(item.id);
+                return (
+                  <Pressable
+                    key={item.id}
+                    style={[styles.yardItem, placed && styles.yardItemOn]}
+                    disabled={placed || busyId !== null}
+                    onPress={() => pressYardItem(yardSpot, item)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: placed }}
+                    accessibilityLabel={`${item.name}${placed ? ', in the yard' : owned ? '' : `, ${item.costBones} ${currencyName}`}`}
+                  >
+                    <View style={styles.yardThumb}>
+                      <YardThumb id={item.id} size={52} />
+                    </View>
+                    <Text style={styles.swatchName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    {busyId === `yard-${item.id}` ? (
+                      <ActivityIndicator size="small" color={colors.accent} />
+                    ) : (
+                      <Text style={[styles.yardItemNote, placed && { color: colors.accent }]}>
+                        {placed ? 'In the yard' : owned ? (item.costBones === 0 ? 'Free' : 'Yours') : `${item.costBones} ${currencyName}`}
+                      </Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Card>
+        )}
+
+        {yard && (
+          <Card style={{ gap: 8 }} elevated={false}>
+            <View style={styles.seasonHeader}>
+              <Text style={text.h4}>Trophies</Text>
+              <Text style={styles.yardSize}>
+                {yard.shown.length} of {trophyRoom(yard.size)} up
+              </Text>
+            </View>
+            {yard.trophies.filter((t) => TROPHIES[t.kind]).length === 0 ? (
+              <Text style={styles.itemNote}>
+                Trophies can’t be bought. Win a challenge (a Step Race, a Soccer match, a Journey to the finish) and its trophy goes up in
+                your yard.
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.itemNote}>Won, never bought. Tap one to put it up or take it down.</Text>
+                <View style={styles.yardItems}>
+                  {yard.trophies
+                    .filter((t) => TROPHIES[t.kind])
+                    .map((t) => {
+                      const up = yard.shown.includes(t.kind);
+                      return (
+                        <Pressable
+                          key={t.kind}
+                          style={[styles.yardItem, up && styles.yardItemOn]}
+                          disabled={busyId !== null}
+                          onPress={() => toggleTrophy(t.kind)}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: up }}
+                        >
+                          <View style={styles.yardThumb}>
+                            <YardThumb trophy={t.kind} size={44} />
+                          </View>
+                          <Text style={styles.swatchName} numberOfLines={2}>
+                            {TROPHIES[t.kind].name}
+                          </Text>
+                          <Text style={[styles.yardItemNote, up && { color: colors.accent }]}>
+                            {t.wins === 1 ? 'Won once' : `Won ${t.wins} times`}
+                            {up ? ' · up' : ''}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                </View>
+              </>
+            )}
+          </Card>
+        )}
 
         {/* Your hound in your avatar's place on leaderboards, friends,
             chats and Today. Your frame and background stay. */}
@@ -550,6 +769,23 @@ function makeStyles(colors: Palette) {
       borderRadius: 12,
       backgroundColor: withAlpha(colors.amber, 0.08),
     },
+    yardFloor: { alignSelf: 'stretch', gap: 6 },
+    yardHint: { fontSize: 11.5, color: withAlpha(colors.text, 0.5), textAlign: 'center' },
+    yardSize: { marginLeft: 'auto', fontSize: 12.5, fontFamily: font.heading, color: colors.accent },
+    yardItems: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    yardItem: {
+      width: '31%',
+      alignItems: 'center',
+      gap: 4,
+      padding: 8,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: 'transparent',
+      backgroundColor: withAlpha(colors.text, 0.05),
+    },
+    yardItemOn: { borderColor: colors.amber },
+    yardThumb: { width: 60, height: 60, borderRadius: 10, backgroundColor: '#6dbb73', alignItems: 'center', justifyContent: 'center' },
+    yardItemNote: { fontSize: 11, color: withAlpha(colors.text, 0.6) },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
     name: { fontFamily: font.headingSemibold, fontSize: 24, color: colors.text },
     nameInput: {
@@ -630,6 +866,7 @@ function makeStyles(colors: Palette) {
       borderColor: withAlpha(colors.text, 0.2),
     },
     chipOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+    chipLocked: { opacity: 0.45, borderStyle: 'dashed' },
     chipText: { fontFamily: font.heading, fontSize: 13.5, color: colors.text },
     chipTextOn: { color: '#ffffff' },
   });
