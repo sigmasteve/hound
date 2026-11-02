@@ -18,7 +18,8 @@
 //
 // Deploy with the Supabase CLI:
 //   supabase functions deploy revenuecat-webhook
-// Requires the REVENUECAT_WEBHOOK_SECRET function secret.
+// Requires the REVENUECAT_WEBHOOK_SECRET function secret. Optional:
+// REVENUECAT_IGNORE_SANDBOX (see the comment where it's read below).
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -104,9 +105,12 @@ Deno.serve(async (req) => {
   // Answering 500 would make RevenueCat retry them forever, so answer 200.
   if (!UUID_RE.test(appUserId)) return ignored('Not a Hound user id');
 
-  // TestFlight and Play test purchases arrive as SANDBOX. While the app is
-  // in beta they should still credit, so this is off by default. Set
-  // REVENUECAT_IGNORE_SANDBOX=true when the app goes live to the public.
+  // REVENUECAT_IGNORE_SANDBOX: sandbox purchases (TestFlight, and Google
+  // Play license testers, who aren't charged) arrive with environment
+  // SANDBOX and credit Bones while it's unset, which is what the beta
+  // wants. Set it to 'true' when the app goes public and sandbox purchases
+  // stop crediting. sync-purchase reads the same secret, so set it once
+  // for both.
   if (Deno.env.get('REVENUECAT_IGNORE_SANDBOX') === 'true' && event?.environment === 'SANDBOX') {
     return ignored('Sandbox purchase');
   }

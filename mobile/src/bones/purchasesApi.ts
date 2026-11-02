@@ -91,7 +91,15 @@ export async function listBonesPackOffers(userId: string): Promise<BonesPackOffe
 // succeeded but the sync call failed — a screen should tell the person
 // their Bones may take a minute, not that the purchase failed, since it
 // didn't: they were charged and revenuecat-webhook will still catch it.
-export async function purchaseBonesPack(userId: string, offer: BonesPackOffer): Promise<{ credited: boolean }> {
+//
+// `sandbox: true` means sync-purchase verified a test purchase (TestFlight
+// or a Play license tester) and didn't credit it, because
+// REVENUECAT_IGNORE_SANDBOX is on. revenuecat-webhook won't credit it
+// either, so the screen shouldn't promise the Bones are on their way.
+export async function purchaseBonesPack(
+  userId: string,
+  offer: BonesPackOffer,
+): Promise<{ credited: boolean; sandbox?: boolean }> {
   await ensureConfigured(userId);
 
   let transactionId: string;
@@ -107,8 +115,10 @@ export async function purchaseBonesPack(userId: string, offer: BonesPackOffer): 
   }
 
   const store = Platform.OS === 'ios' ? 'app_store' : 'play_store';
-  const { error } = await requireClient().functions.invoke('sync-purchase', {
+  const { data, error } = await requireClient().functions.invoke('sync-purchase', {
     body: { productId: offer.productId, transactionId, store },
   });
-  return { credited: !error };
+  if (error) return { credited: false };
+  if (data?.credited === false && data?.reason === 'sandbox') return { credited: false, sandbox: true };
+  return { credited: true };
 }

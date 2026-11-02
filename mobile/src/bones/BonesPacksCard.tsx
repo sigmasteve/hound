@@ -53,9 +53,13 @@ export function BonesPacksCard({
   const buy = async (offer: BonesPackOffer) => {
     setBuyingId(offer.productId);
     try {
-      const { credited } = await purchaseBonesPack(userId, offer);
+      const { credited, sandbox } = await purchaseBonesPack(userId, offer);
       if (credited) {
         onCredited(offer.bonesAmount);
+      } else if (sandbox) {
+        // A TestFlight or Play test purchase, after launch: nobody was
+        // charged, so no Bones (REVENUECAT_IGNORE_SANDBOX).
+        Alert.alert('Test purchase', `Test purchases don't add ${currencyName}. Nothing was charged.`);
       } else {
         // The purchase went through; only the instant balance update
         // didn't. revenuecat-webhook still credits it shortly.
