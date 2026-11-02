@@ -88,7 +88,8 @@ import { getTagRound } from '../challenges/tagApi';
 import { computePendingActions, needsManualEntry, type PendingAction } from '../challenges/pendingActions';
 import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
 import { isMyChecklistTodayComplete } from '../challenges/checklistApi';
-import { listMyHoundopolyPending } from '../challenges/houndopolyApi';
+import { advanceHoundopoly, getHoundopolyGame, listMyHoundopolyPending } from '../challenges/houndopolyApi';
+import { diceFor, netWorth as houndopolyNetWorth, nextTurn as houndopolyNextTurn, squareAt, type HoundopolyGame } from '../challenges/houndopoly';
 import { challengeDayNumber, getChallengeDays, localDayKey } from '../challenges/challengeDays';
 import { computeStreakStatus, type StreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
@@ -358,6 +359,24 @@ function soccerHeadline(name: string, days: number, game: SoccerGame | null, use
   return `${soccerClock(game.daysPlayed, days)} in ${name}: ${standing}.`;
 }
 
+// A pinned Hound'opoly: your place by net worth, your cash and deeds, or
+// the board's own state once it's over — never the steps leaderboard,
+// which is all zeros for this kind.
+function houndopolyHeadline(name: string, game: HoundopolyGame | null, userId: string | null, finished: boolean): string {
+  if (!game) return `Getting ${name} ready.`;
+  const ranked = game.players.map((p) => ({ p, worth: houndopolyNetWorth(p, game.deeds) })).sort((a, b) => b.worth - a.worth);
+  const at = ranked.findIndex((r) => r.p.userId === userId);
+  if (at < 0) return `${name}: ${ranked.length} ${ranked.length === 1 ? 'player' : 'players'} on the board.`;
+  const me = ranked[at];
+  const deeds = game.deeds.filter((d) => d.ownerId === userId).length;
+  if (finished) {
+    return at === 0 ? `You won ${name}, worth ${me.worth.toLocaleString()} at the end!` : `You finished ${ordinal(at + 1)} of ${ranked.length} in ${name}, worth ${me.worth.toLocaleString()}.`;
+  }
+  if (me.p.bankrupt) return `You're bankrupt in ${name} — ${ordinal(at + 1)} of ${ranked.length}.`;
+  const lead = at === 0 && ranked.length > 1 ? ` · ${(me.worth - ranked[1].worth).toLocaleString()} ahead` : '';
+  return `${ordinal(at + 1)} of ${ranked.length} in ${name}: ${me.p.cash.toLocaleString()} cash · ${deeds} ${deeds === 1 ? 'square' : 'squares'} · worth ${me.worth.toLocaleString()}${lead}.`;
+}
+
 // The headline sentence + eyebrow for whichever real challenge Home
 // decided to lead with — "Marcus is 7.4 mi behind you" was hand-authored
 // for one specific hardcoded matchup, so a real version has to cover
@@ -374,6 +393,7 @@ function heroCopy(
   bingoCard: BingoCardRow | null = null,
   rallyGame: RallyGame | null = null,
   soccerGame: SoccerGame | null = null,
+  houndopolyGame: HoundopolyGame | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -417,6 +437,9 @@ function heroCopy(
   }
   if (challenge.kind === 'soccer') {
     return { eyebrow, headline: soccerHeadline(challenge.name, challenge.durationDays, soccerGame, userId) };
+  }
+  if (challenge.kind === 'houndopoly') {
+    return { eyebrow, headline: houndopolyHeadline(challenge.name, houndopolyGame, userId, isChallengeFinished(challenge, board)) };
   }
 
   const me = userId ? board.find((r) => r.userId === userId) : undefined;
@@ -940,6 +963,8 @@ export function HomeScreen({
   const [primaryRallyGame, setPrimaryRallyGame] = useState<RallyGame | null>(null);
   // Only populated when `primary` is a Soccer match.
   const [primarySoccerGame, setPrimarySoccerGame] = useState<SoccerGame | null>(null);
+  // Only populated when `primary` is a Hound'opoly game.
+  const [primaryHoundopoly, setPrimaryHoundopoly] = useState<HoundopolyGame | null>(null);
 
   // The step-free parts of the challenge section from last time
   // (todayCache.ts), shown on open until this open's own data is in.
@@ -1626,6 +1651,21 @@ export function HomeScreen({
       } else {
         setPrimarySoccerGame(null);
       }
+      if (primaryResult?.challenge.kind === 'houndopoly' && user?.id) {
+        const hId = primaryResult.challenge.id;
+        const me = user.id;
+        advanceHoundopoly(hId)
+          .catch(() => {})
+          .then(() => getHoundopolyGame(hId, me))
+          .then((game) => {
+            if (!cancelled) setPrimaryHoundopoly(game);
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryHoundopoly(null);
+          });
+      } else {
+        setPrimaryHoundopoly(null);
+      }
 
       // The challenge section can show now. Needs you fills in below,
       // once the per-kind checks for every active challenge are back.
@@ -1780,6 +1820,7 @@ export function HomeScreen({
         primaryBingoCard,
         primaryRallyGame,
         primarySoccerGame,
+        primaryHoundopoly,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -2262,6 +2303,16 @@ export function HomeScreen({
               <RallyPreview primary={primary} game={primaryRallyGame} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'soccer' ? (
               <SoccerPreview primary={primary} game={primarySoccerGame} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : primary.challenge.kind === 'houndopoly' ? (
+              <HoundopolyPreview
+                primary={primary}
+                game={primaryHoundopoly}
+                userId={user?.id ?? null}
+                stepsToday={snap?.stepsToday ?? null}
+                onOpen={sheetOpenPrimary}
+                styles={styles}
+                colors={colors}
+              />
             ) : (
               <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} colors={colors} />
             )}
@@ -2937,6 +2988,93 @@ function SoccerPreview({
         <Text style={styles.tileSub}>Loading the match…</Text>
       )}
       <Button label="Open match" variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+// A pinned Hound'opoly: the standings by net worth (cash plus the price
+// of every square owned), with the viewer's own row marked, and their
+// next roll — the dice today's steps have earned so far and when it
+// rolls. The full board stays on the challenge screen.
+function HoundopolyPreview({
+  primary,
+  game,
+  userId,
+  stepsToday,
+  onOpen,
+  styles,
+  colors,
+}: {
+  primary: PrimaryChallenge;
+  game: HoundopolyGame | null;
+  userId: string | null;
+  stepsToday: number | null;
+  onOpen: () => void;
+  styles: HomeStyles;
+  colors: Palette;
+}) {
+  const { challenge, board } = primary;
+  const daysLeft = Math.max(0, Math.ceil((new Date(challenge.endsAt).getTime() - Date.now()) / 86_400_000));
+  const nameOf = (id: string) => (id === userId ? 'You' : (board.find((r) => r.userId === id)?.name ?? 'Player'));
+  const ranked = game
+    ? game.players
+        .map((p) => ({ p, worth: houndopolyNetWorth(p, game.deeds), deeds: game.deeds.filter((d) => d.ownerId === p.userId).length }))
+        .sort((a, b) => b.worth - a.worth)
+    : [];
+  const myAt = ranked.findIndex((r) => r.p.userId === userId);
+  // The top four, plus the viewer's own row if they sit lower.
+  const shown = ranked.slice(0, 4);
+  if (myAt >= 4) shown.push(ranked[myAt]);
+  const counted = game ? game.myTurnsToday.filter((t) => t.slot === 'noon').reduce((s, t) => s + t.steps, 0) : 0;
+  const turnSteps = stepsToday !== null ? Math.max(0, stepsToday - counted) : null;
+  const dice = game && turnSteps !== null ? diceFor(turnSteps, game.settings) : null;
+  const upcoming = game ? houndopolyNextTurn(game.settings, game.myTurnsToday) : null;
+  const rollsAt = upcoming ? upcoming.at.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
+  const me = game?.players.find((p) => p.userId === userId);
+
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+        <Text style={styles.raceMeta}>
+          {ranked.length} {ranked.length === 1 ? 'player' : 'players'} · {daysLeft} {daysLeft === 1 ? 'day' : 'days'} left
+        </Text>
+      </View>
+      {!game ? (
+        <Text style={styles.tileSub}>Loading the board…</Text>
+      ) : (
+        <>
+          <Text style={styles.tileSub}>Standings by net worth · cash and squares</Text>
+          {shown.map((r) => {
+            const place = ranked.indexOf(r) + 1;
+            const mine = r.p.userId === userId;
+            return (
+              <View key={r.p.userId} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 3 }}>
+                <Text style={[styles.tileSub, { width: 16 }]}>{place}</Text>
+                <Text style={[styles.raceTitle, mine && { color: colors.accentActive }]} numberOfLines={1}>
+                  {nameOf(r.p.userId)}
+                  {r.p.bankrupt ? ' · bankrupt' : ''}
+                </Text>
+                <Text style={styles.tileSub}>
+                  {r.p.cash.toLocaleString()} cash · {r.deeds} {r.deeds === 1 ? 'sq' : 'sqs'}
+                </Text>
+                <Text style={[styles.raceTitle, { flex: 0, color: mine ? colors.accentActive : colors.text }]}>{r.worth.toLocaleString()}</Text>
+              </View>
+            );
+          })}
+          {me && upcoming && (
+            <Text style={styles.tileSub}>
+              {dice === null
+                ? `Next roll ${upcoming.slot === 'noon' ? 'at midday' : 'overnight'}, about ${rollsAt}.`
+                : dice === 0
+                  ? `${(turnSteps ?? 0).toLocaleString()} steps this turn: not enough to roll yet. Rolls ${upcoming.slot === 'noon' ? 'at' : 'overnight, about'} ${rollsAt}.`
+                  : `${(turnSteps ?? 0).toLocaleString()} steps this turn = ${dice} ${dice === 1 ? 'die' : 'dice'}, rolling ${upcoming.slot === 'noon' ? 'at' : 'overnight, about'} ${rollsAt}: ${squareAt(me.position + dice).name} through ${squareAt(me.position + dice * 6).name}.`}
+            </Text>
+          )}
+        </>
+      )}
+      <Button label="Open board" variant="ghost" small onPress={onOpen} />
     </Card>
   );
 }
