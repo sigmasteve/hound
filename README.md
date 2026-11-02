@@ -84,6 +84,8 @@ Details on iOS, Android, Google sign-in, push credentials and EAS are in [`mobil
 - **Edge functions:** each function in `mobile/supabase/functions/` is a single file that can be deployed from the Supabase dashboard or with `supabase functions deploy <name>`. They need these secrets:
   - `RESEND_API_KEY` for email.
   - `REVENUECAT_WEBHOOK_SECRET`, at least 32 characters.
+  - `REVENUECAT_SECRET_API_KEY`, RevenueCat's secret API key, for `sync-purchase`.
+  - `REVENUECAT_IGNORE_SANDBOX`: leave it unset during the beta, so TestFlight and Play test purchases credit Bones. Set it to `true` when the app goes public; then `sync-purchase` and `revenuecat-webhook` both stop crediting sandbox purchases.
 - **Scheduled jobs:** daily standings, stale-data alerts, login reminders and trash-talk cleanup run through `pg_cron`. They're set up by the migrations that add them.
 - **Website:** `site/` deploys to Vercel automatically on every merge to `master`. See [`site/README.md`](site/README.md) to configure it.
 - **Staging and tests:** every pull request is checked by CI: typechecks, all migrations applied to a fresh database, and the database tests in `mobile/supabase/tests/`. Merges to `master` deploy to the staging Supabase project. See [`mobile/supabase/STAGING.md`](mobile/supabase/STAGING.md).

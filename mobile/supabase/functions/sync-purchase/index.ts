@@ -21,7 +21,13 @@
 // Requires the REVENUECAT_SECRET_API_KEY function secret (RevenueCat
 // dashboard: Project Settings > API Keys > Secret API key — never the
 // public SDK key, which has no access to the subscriber-verification
-// endpoint used below).
+// endpoint used below). Optional: REVENUECAT_IGNORE_SANDBOX, below.
+//
+// REVENUECAT_IGNORE_SANDBOX: sandbox purchases (TestFlight, and Google
+// Play license testers, who aren't charged) credit Bones while it's unset,
+// which is what the beta wants. Set it to 'true' when the app goes public
+// and sandbox purchases stop crediting. revenuecat-webhook reads the same
+// secret, so set it once for both.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -80,6 +86,7 @@ Deno.serve(async (req) => {
     // treating that ordinary propagation lag as one.
     const delaysMs = [1000, 2000, 3000];
     let matched = false;
+    let isSandbox = false;
     let verifiedStore: 'app_store' | 'play_store' = store;
     let verifiedTransactionId = transactionId;
     for (let attempt = 0; attempt <= delaysMs.length; attempt++) {
@@ -96,7 +103,10 @@ Deno.serve(async (req) => {
       // exact shape against current docs before relying on this in
       // production, since third-party API surfaces move.
       const payload = await verifyRes.json();
-      const records: Array<{ id?: string; store?: string; store_transaction_id?: string }> =
+      //
+      // is_sandbox is on each non_subscriptions entry in RevenueCat's v1
+      // GET /subscribers example (checked November 2026).
+      const records: Array<{ id?: string; store?: string; store_transaction_id?: string; is_sandbox?: boolean }> =
         payload?.subscriber?.non_subscriptions?.[productId] ?? [];
       const record = records.find((r) => r.id === transactionId || r.store_transaction_id === transactionId);
       matched = record !== undefined;
@@ -109,12 +119,22 @@ Deno.serve(async (req) => {
         // Credit under the store's own transaction id when RevenueCat gives
         // one, so this path and the webhook agree on a single key.
         if (record.store_transaction_id) verifiedTransactionId = record.store_transaction_id;
+        isSandbox = record.is_sandbox === true;
       }
       if (matched) break;
       if (attempt < delaysMs.length) await new Promise((resolve) => setTimeout(resolve, delaysMs[attempt]));
     }
     if (!matched) {
       return jsonError('That purchase could not be verified for this account.', 403);
+    }
+
+    // See REVENUECAT_IGNORE_SANDBOX above. A 200, not an error: the
+    // purchase is real and verified, there's nothing to retry, and the
+    // app tells the tester it was a test purchase.
+    if (Deno.env.get('REVENUECAT_IGNORE_SANDBOX') === 'true' && isSandbox) {
+      return new Response(JSON.stringify({ credited: false, reason: 'sandbox' }), {
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
     }
 
     const adminClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
