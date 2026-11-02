@@ -11,6 +11,12 @@ export interface YardItem {
   name: string;
   // 0 is free: every slot has one, shown until you change it.
   costBones: number;
+  // Limited-time ones (0149_yard_seasons.sql), like the Kennel's: the
+  // season, and the first and last days it can be bought (YYYY-MM-DD,
+  // the member's own). Owned ones stay for good.
+  season?: string;
+  availableFrom?: string;
+  availableUntil?: string;
 }
 
 export const YARD_ITEMS: YardItem[] = [
@@ -38,7 +44,29 @@ export const YARD_ITEMS: YardItem[] = [
   { id: 'tree_cherry', slot: 'tree', name: 'Cherry Blossom', costBones: 150 },
   { id: 'pond_lily', slot: 'pond', name: 'Lily Pond', costBones: 0 },
   { id: 'pond_fountain', slot: 'pond', name: 'Fountain', costBones: 200 },
+  // Autumn 2026, through November.
+  { id: 'ground_pumpkins', slot: 'ground', name: 'Pumpkin Patch', costBones: 80, season: 'Autumn', availableFrom: '2026-11-01', availableUntil: '2026-11-30' },
+  // Winter 2026, December.
+  ...(
+    [
+      { id: 'house_gingerbread', slot: 'house', name: 'Gingerbread House', costBones: 200 },
+      { id: 'ground_snowman', slot: 'ground', name: 'Snowman', costBones: 100 },
+      { id: 'fence_garland', slot: 'fence', name: 'Holiday Garland', costBones: 60 },
+    ] as const
+  ).map((i) => ({ ...i, season: 'Winter', availableFrom: '2026-12-01', availableUntil: '2026-12-31' })),
 ];
+
+// Whether it's for sale on this day (YYYY-MM-DD, the member's own).
+export function yardItemOnSale(item: YardItem, dayKey: string): boolean {
+  return (!item.availableFrom || dayKey >= item.availableFrom) && (!item.availableUntil || dayKey <= item.availableUntil);
+}
+
+// "Until Nov 30", for a limited-time one.
+export function yardSaleEnds(item: YardItem): string | null {
+  if (!item.availableUntil) return null;
+  const [y, m, d] = item.availableUntil.split('-').map(Number);
+  return `Until ${new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+}
 
 const BY_ID = new Map(YARD_ITEMS.map((i) => [i.id, i] as const));
 

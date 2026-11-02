@@ -51,6 +51,8 @@ import {
   YARD_SPOTS,
   nextSizeLine,
   spotSlot,
+  yardItemOnSale,
+  yardSaleEnds,
   trophyRoom,
   type TrophyKind,
   type YardItem,
@@ -375,7 +377,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                   }}
                 />
               )}
-              <Text style={styles.yardHint}>Tap {kennel.name} to say hi. Press and hold to pet.</Text>
+              <Text style={styles.yardHint}>Tap {kennel.name} to say hi, press and hold to pet, flick the toy to play fetch.</Text>
             </View>
           ) : (
             <View style={styles.kennelFloor}>
@@ -496,9 +498,15 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
               })}
             </View>
             <View style={styles.yardItems}>
-              {YARD_ITEMS.filter((i) => i.slot === spotSlot(yardSpot)).map((item) => {
+              {YARD_ITEMS.filter(
+                (i) =>
+                  i.slot === spotSlot(yardSpot) &&
+                  // Limited-time ones while they're on sale, then only if yours.
+                  (!i.season || yardItemOnSale(i, today) || kennel.owned.includes(i.id)),
+              ).map((item) => {
                 const placed = yard.spots[yardSpot] === item.id;
                 const owned = item.costBones === 0 || kennel.owned.includes(item.id);
+                const ends = item.season && !owned ? yardSaleEnds(item) : null;
                 return (
                   <Pressable
                     key={item.id}
@@ -522,6 +530,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                         {placed ? 'In the yard' : owned ? (item.costBones === 0 ? 'Free' : 'Yours') : `${item.costBones} ${currencyName}`}
                       </Text>
                     )}
+                    {ends && <Text style={styles.yardSeason}>{`${item.season} · ${ends}`}</Text>}
                   </Pressable>
                 );
               })}
@@ -786,6 +795,7 @@ function makeStyles(colors: Palette) {
     yardItemOn: { borderColor: colors.amber },
     yardThumb: { width: 60, height: 60, borderRadius: 10, backgroundColor: '#6dbb73', alignItems: 'center', justifyContent: 'center' },
     yardItemNote: { fontSize: 11, color: withAlpha(colors.text, 0.6) },
+    yardSeason: { fontSize: 10.5, color: colors.amber, fontFamily: font.heading, textAlign: 'center' },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
     name: { fontFamily: font.headingSemibold, fontSize: 24, color: colors.text },
     nameInput: {

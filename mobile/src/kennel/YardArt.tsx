@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AppState, Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { AppState, Animated, Easing, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, Line, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { Text } from '../components/Text';
 import type { Rank } from '../challenges/ranks';
 import { HoundArt, type HoundMood } from './HoundArt';
 import type { HoundEars, HoundMarkings, HoundTail } from './kennelItems';
-import { YARD_SIZES, type TrophyKind, type YardSpot } from './yardItems';
+import { YARD_SIZES, yardItemById, type TrophyKind, type YardSpot } from './yardItems';
 import type { Yard } from './yardApi';
 
 // The Yard (0148_yard.sql), drawn in code like the hound. One 540-wide
@@ -14,7 +14,10 @@ import type { Yard } from './yardApi';
 // new spots come into it. The sky follows the time of day, and the
 // hound goes where its mood puts it: zoomies when happy, by the house
 // when okay, napping in bed when sleepy (and at night), by the bowl
-// when hungry. Tap it for a word; press and hold to pet it.
+// when hungry. Tap it for a word; press and hold to pet it; flick the
+// toy and it fetches. The yard dresses up for the season on its own
+// (yardSeason): leaves and pumpkins in the autumn, a jack-o'-lantern and
+// bats for Halloween, snow and a wreath in winter.
 
 const INK = '#2b1d14';
 
@@ -50,6 +53,16 @@ const GROUND_Y = 172;
 const WORLD_BOTTOM = 300;
 
 export type YardTime = 'day' | 'evening' | 'night';
+export type YardSeason = 'halloween' | 'autumn' | 'winter' | null;
+
+// By the phone's own date: October, November, then December to mid-January.
+export function yardSeason(d: Date = new Date()): YardSeason {
+  const m = d.getMonth() + 1;
+  if (m === 10) return 'halloween';
+  if (m === 11) return 'autumn';
+  if (m === 12 || (m === 1 && d.getDate() <= 15)) return 'winter';
+  return null;
+}
 
 export function yardTime(d: Date = new Date()): YardTime {
   const h = d.getHours();
@@ -67,6 +80,11 @@ const GRASS: Record<YardTime, [string, string]> = {
   day: ['#6dbb73', '#5aa862'],
   evening: ['#4f9a5d', '#448a51'],
   night: ['#2e4a3a', '#263f31'],
+};
+const SNOW: Record<YardTime, [string, string]> = {
+  day: ['#e9eff7', '#d7e0ec'],
+  evening: ['#c9d3e6', '#b7c2d8'],
+  night: ['#4a5272', '#3f4663'],
 };
 const FENCE: Record<YardTime, [string, string]> = {
   day: ['#e9dcc4', '#cdbb99'],
@@ -95,6 +113,7 @@ export function YardScene({
   animate = true,
   lines,
   time,
+  season,
 }: {
   yard: Yard;
   hound: YardHound;
@@ -103,6 +122,8 @@ export function YardScene({
   // What the hound says when tapped, in turn. None: tapping just wags.
   lines?: string[];
   time?: YardTime;
+  // Undefined: today's (yardSeason). Null: none.
+  season?: YardSeason;
 }) {
   const size = Math.max(0, Math.min(YARD_SIZES.length - 1, yard.size));
   const { left, width: W } = YARD_SIZES[size];
@@ -111,6 +132,8 @@ export function YardScene({
   const k = width / W;
   const t = time ?? yardTime();
   const night = t === 'night';
+  const sn = season === undefined ? yardSeason() : season;
+  const grass = sn === 'winter' ? SNOW[t] : GRASS[t];
 
   // Only while the app is in front.
   const [awake, setAwake] = useState(AppState.currentState === 'active');
@@ -128,10 +151,16 @@ export function YardScene({
   const houndLeft = (at.x - left) * k - houndW / 2;
   const houndTop = (at.y - top) * k - houndW * 1.2 * 0.98;
 
+  // Fetch: the hound's run out and back, on top of anything else.
+  const [fetching, setFetching] = useState(false);
+  const fetchingRef = useRef(false);
+  const chase = useRef(new Animated.Value(0)).current;
+  const toyPos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+
   // Zoomies: a dash one way, then the other, then a breather.
   const run = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    if (!moving || pose !== 'zoomies') {
+    if (!moving || pose !== 'zoomies' || fetching) {
       run.setValue(0);
       return;
     }
@@ -140,7 +169,7 @@ export function YardScene({
     const loop = Animated.loop(Animated.sequence([dash(1, 650), dash(-1, 1100), dash(0, 600), Animated.delay(2600)]));
     loop.start();
     return () => loop.stop();
-  }, [moving, pose, run]);
+  }, [moving, pose, run, fetching]);
 
   // A tap: a hop and a word. Press and hold: hearts.
   const hop = useRef(new Animated.Value(0)).current;
@@ -154,7 +183,7 @@ export function YardScene({
     return () => clearTimeout(id);
   }, [said]);
 
-  const onTap = () => {
+  const onTap = (line?: string) => {
     hop.setValue(0);
     Animated.sequence([
       Animated.timing(hop, { toValue: 1, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }),
@@ -162,11 +191,75 @@ export function YardScene({
     ]).start();
     // At night it's asleep whatever its mood.
     const say = night && lines && lines.length > 0 ? ['Zzz…', 'It’s bedtime. See you in the morning!'] : lines;
-    if (say && say.length > 0) {
+    if (line) {
+      sayNow(line);
+    } else if (say && say.length > 0) {
       setSaid(say[lineIx.current % say.length]);
       lineIx.current += 1;
     }
   };
+  const onTapRef = useRef<((line?: string) => void) | null>(null);
+  onTapRef.current = onTap;
+  const sayNow = (line: string) => {
+    setSaid(null);
+    setTimeout(() => setSaid(line), 0);
+  };
+
+  // Flick the toy (or tap it): it flies, the hound runs it down and
+  // brings it back. flick is how far the finger went, in pixels; 0 throws
+  // it a random way.
+  const toyId = yard.spots.toy ?? null;
+  const toyAt = SPOT_AT.toy;
+  const toyPxX = (toyAt.x - left) * k;
+  const toyPxY = (toyAt.y - top) * k;
+  const throwToy = (flick: number) => {
+    if (fetchingRef.current || !toyId) return;
+    if (night) {
+      sayNow('Zzz… fetch in the morning.');
+      return;
+    }
+    fetchingRef.current = true;
+    setFetching(true);
+    setSaid(null);
+    const way = flick === 0 ? (Math.random() < 0.5 ? -1 : 1) * (90 + Math.random() * 70) : (flick / k) * 2.5;
+    const landX = Math.max(left + 34, Math.min(left + W - 34, toyAt.x + way));
+    const landY = 262 + Math.random() * 22;
+    const dx = (landX - toyAt.x) * k;
+    const dy = (landY - toyAt.y) * k;
+    const chaseTo = (landX - at.x) * k - Math.sign(landX - at.x) * houndW * 0.15;
+    const runMs = 260 + Math.abs(chaseTo / k) * 4;
+    const mouth = (c: number) => ({
+      x: houndLeft + houndW / 2 + c - toyPxX,
+      y: houndTop + houndW * 1.2 * 0.62 - toyPxY,
+    });
+    const ease = (v: Animated.Value, to: number, ms: number, easing = Easing.inOut(Easing.quad)) =>
+      Animated.timing(v, { toValue: to, duration: ms, easing, useNativeDriver: true });
+    Animated.sequence([
+      Animated.parallel([
+        ease(toyPos.x, dx, 650, Easing.out(Easing.quad)),
+        Animated.sequence([ease(toyPos.y, Math.min(dy, 0) - 70 * k, 300, Easing.out(Easing.quad)), ease(toyPos.y, dy, 380, Easing.bounce)]),
+        Animated.sequence([Animated.delay(250), ease(chase, chaseTo, runMs)]),
+      ]),
+      // Picks it up, and trots back with it.
+      Animated.parallel([ease(toyPos.x, mouth(chaseTo).x, 160), ease(toyPos.y, mouth(chaseTo).y, 160)]),
+      Animated.parallel([ease(chase, 0, runMs + 200), ease(toyPos.x, mouth(0).x, runMs + 200), ease(toyPos.y, mouth(0).y, runMs + 200)]),
+      Animated.parallel([ease(toyPos.x, 0, 320, Easing.out(Easing.quad)), ease(toyPos.y, 0, 320, Easing.bounce)]),
+    ]).start(() => {
+      fetchingRef.current = false;
+      setFetching(false);
+      onTapRef.current?.(['Again! Again!', 'Got it!', 'One more?'][Math.floor(Math.random() * 3)]);
+    });
+  };
+  const throwRef = useRef(throwToy);
+  throwRef.current = throwToy;
+  const pan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderRelease: (_, g) => throwRef.current(Math.abs(g.dx) + Math.abs(g.dy) < 8 ? 0 : g.dx + g.vx * 120),
+    }),
+  ).current;
+
   const onPet = () => {
     setPetting(true);
     hearts.setValue(0);
@@ -183,7 +276,7 @@ export function YardScene({
     width: houndW,
     height: houndW * 1.2,
     transform: [
-      { translateX: run.interpolate({ inputRange: [-1, 1], outputRange: [-runPx, runPx] }) },
+      { translateX: Animated.add(run.interpolate({ inputRange: [-1, 1], outputRange: [-runPx, runPx] }), chase) },
       { translateY: hop.interpolate({ inputRange: [0, 1], outputRange: [0, -houndW * 0.18] }) },
     ],
   };
@@ -214,8 +307,9 @@ export function YardScene({
 
         {place('tree')}
         <Fence time={t} left={left} width={W} />
-        <Rect x={left} y={GROUND_Y} width={W} height={WORLD_BOTTOM - GROUND_Y} fill={GRASS[t][0]} />
-        <Rect x={left} y={GROUND_Y} width={W} height={10} fill={GRASS[t][1]} />
+        <Rect x={left} y={GROUND_Y} width={W} height={WORLD_BOTTOM - GROUND_Y} fill={grass[0]} />
+        <Rect x={left} y={GROUND_Y} width={W} height={10} fill={grass[1]} />
+        {sn && <SeasonBack season={sn} left={left} width={W} top={top} time={t} />}
         {size < YARD_SIZES.length - 1 && <Hedges left={left} width={W} night={night} />}
 
         {yard.shown.slice(0, size + 1).map((kind, i) => (
@@ -230,14 +324,14 @@ export function YardScene({
         {place('pond')}
         {place('bowl')}
         {place('bed')}
-        {place('toy')}
+        {sn && <SeasonFront season={sn} left={left} width={W} top={top} time={t} hasHouse={!!spots.house} />}
         {night && <Rect x={left} y={top} width={W} height={H} fill="#0b0d2a" opacity={0.28} />}
         {place('fence')}
       </Svg>
 
       <Animated.View style={houndStyle}>
         <Pressable
-          onPress={onTap}
+          onPress={() => onTap()}
           onLongPress={onPet}
           delayLongPress={350}
           hitSlop={8}
@@ -260,6 +354,28 @@ export function YardScene({
           />
         </Pressable>
       </Animated.View>
+
+      {toyId && (
+        <Animated.View
+          {...pan.panHandlers}
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={`Throw the ${yardItemById(toyId)?.name ?? 'toy'}`}
+          onAccessibilityTap={() => throwToy(0)}
+          style={{
+            position: 'absolute',
+            left: toyPxX - 36 * k,
+            top: toyPxY - 40 * k,
+            width: 72 * k,
+            height: 48 * k,
+            transform: toyPos.getTranslateTransform(),
+          }}
+        >
+          <Svg width={72 * k} height={48 * k} viewBox="-36 -40 72 48">
+            <YardItemArt id={toyId} />
+          </Svg>
+        </Animated.View>
+      )}
 
       {petting && (
         <View pointerEvents="none" style={[StyleSheet.absoluteFill]}>
@@ -318,6 +434,126 @@ const styles = StyleSheet.create({
   },
   bubbleText: { color: '#1b1d29', fontSize: 12.5, fontWeight: '600' },
 });
+
+// Seasonal dressing behind the house and trophies: snow on the fence and
+// along its foot,
+// and Halloween's bats in an evening or night sky.
+function SeasonBack({ season, left, width, top, time }: { season: NonNullable<YardSeason>; left: number; width: number; top: number; time: YardTime }) {
+  if (season === 'winter') {
+    const flakes = [];
+    for (let i = 0; i < 26; i++) {
+      const fx = ((i * 37) % 100) / 100;
+      const fy = ((i * 53) % 100) / 100;
+      flakes.push(<Circle key={i} cx={left + fx * width} cy={top + 6 + fy * (GROUND_Y - top - 10)} r={i % 3 === 0 ? 1.8 : 1.2} fill="#ffffff" opacity={0.85} />);
+    }
+    const caps = [];
+    const start = Math.floor(left / 20) * 20;
+    for (let x = start; x < left + width; x += 20) {
+      caps.push(<Path key={x} d={`M${x + 1} 121 L${x + 10} 111 L${x + 19} 121 Q${x + 10} 117 ${x + 1} 121 Z`} fill="#ffffff" />);
+    }
+    return (
+      <G>
+        {flakes}
+        {caps}
+        <Rect x={left} y={130} width={width} height={3} rx={1.5} fill="#ffffff" />
+        <Rect x={left} y={158} width={width} height={3} rx={1.5} fill="#ffffff" />
+        {[0.1, 0.32, 0.55, 0.78, 0.95].map((f) => (
+          <Ellipse key={f} cx={left + f * width} cy={182} rx={30} ry={6} fill="#ffffff" opacity={0.9} />
+        ))}
+      </G>
+    );
+  }
+  if (season === 'halloween' && time !== 'day') {
+    const bat = (x: number, y: number, s: number) => (
+      <Path
+        key={`${x}`}
+        transform={`translate(${x} ${y}) scale(${s})`}
+        d="M0 0 Q-4 -4 -8 -2 Q-12 -6 -18 -2 Q-13 0 -12 4 Q-8 2 -5 5 Q-2 2 0 4 Q2 2 5 5 Q8 2 12 4 Q13 0 18 -2 Q12 -6 8 -2 Q4 -4 0 0 Z"
+        fill="#1b1d29"
+      />
+    );
+    return (
+      <G>
+        {bat(left + width * 0.28, top + 34, 0.9)}
+        {bat(left + width * 0.42, top + 52, 0.7)}
+        {bat(left + width * 0.6, top + 28, 0.6)}
+      </G>
+    );
+  }
+  return null;
+}
+
+// Seasonal dressing in front: autumn leaves and pumpkins, a jack-o'-
+// lantern, snow drifts and a wreath on the house.
+function SeasonFront({
+  season,
+  left,
+  width,
+  time,
+  hasHouse,
+}: {
+  season: NonNullable<YardSeason>;
+  left: number;
+  width: number;
+  top: number;
+  time: YardTime;
+  hasHouse: boolean;
+}) {
+  const house = SPOT_AT.house;
+  if (season === 'autumn') {
+    const leaves = [];
+    const colors = ['#e07b2a', '#c94a2a', '#e0a94f', '#a3402a'];
+    for (let i = 0; i < 34; i++) {
+      const x = left + (((i * 61) % 100) / 100) * width;
+      const y = 184 + ((i * 29) % 110);
+      leaves.push(
+        <Ellipse key={i} cx={x} cy={y} rx={3.2} ry={1.8} fill={colors[i % colors.length]} transform={`rotate(${(i * 47) % 180} ${x} ${y})`} />,
+      );
+    }
+    return (
+      <G>
+        {leaves}
+        <G transform={`translate(${house.x + 58} ${house.y + 2})`}>
+          <Pumpkin x={0} s={1} />
+          <Pumpkin x={13} s={0.7} />
+        </G>
+      </G>
+    );
+  }
+  if (season === 'halloween') {
+    const lit = time !== 'day';
+    return (
+      <G transform={`translate(${house.x + 60} ${house.y + 2})`}>
+        {lit && <Circle cx={0} cy={-9} r={16} fill="#f2c84b" opacity={0.25} />}
+        <Pumpkin x={0} s={1.2} />
+        <Path d="M-6 -12 L-3 -15 L0 -12 Z M2 -12 L5 -15 L8 -12 Z" fill={lit ? '#ffe28a' : '#5e2314'} transform="translate(-1 0)" />
+        <Path d="M-6 -6 Q1 -2 8 -6 L6 -4 Q1 -1 -4 -4 Z" fill={lit ? '#ffe28a' : '#5e2314'} />
+      </G>
+    );
+  }
+  // Winter: snow on the roof, and a wreath over the door.
+  return (
+    <G>
+      {hasHouse && (
+        <G transform={`translate(${house.x} ${house.y})`}>
+          <Path d="M-53 -60 L0 -105 L53 -60 L47 -58 L0 -97 L-47 -58 Z" fill="#ffffff" />
+          <Circle cx={0} cy={-60} r={7} fill="none" stroke="#3f9a57" strokeWidth={4} />
+          <Path d="M-4 -54 L0 -57 L4 -54 L2 -51 L0 -53 L-2 -51 Z" fill="#d94a4a" />
+        </G>
+      )}
+    </G>
+  );
+}
+
+function Pumpkin({ x, s }: { x: number; s: number }) {
+  return (
+    <G transform={`translate(${x} 0) scale(${s})`}>
+      <Ellipse cx={0} cy={-8} rx={11} ry={8} fill="#e07b2a" />
+      <Path d="M-4 -15 Q-6 -8 -4 -1 M4 -15 Q6 -8 4 -1" stroke="#b85d1c" strokeWidth={1.2} fill="none" />
+      <Rect x={-1.2} y={-19} width={2.4} height={4} fill="#3f9a57" />
+    </G>
+  );
+}
 
 function SkyThings({ time, left, top, width }: { time: YardTime; left: number; top: number; width: number }) {
   const sx = left + width - 52;
@@ -391,6 +627,7 @@ export function YardItemArt({ id, name, time = 'day' }: { id: string; name?: str
     case 'house_classic':
     case 'house_barn':
     case 'house_cabin':
+    case 'house_gingerbread':
       return <House id={id} name={name} />;
     case 'bed_cushion':
       return (
@@ -576,6 +813,43 @@ export function YardItemArt({ id, name, time = 'day' }: { id: string; name?: str
           <Path d="M0 -32 Q-12 -44 -18 -14 M0 -32 Q12 -44 18 -14" stroke="#a9d4f0" strokeWidth={2} fill="none" />
         </G>
       );
+    case 'ground_pumpkins':
+      return (
+        <G>
+          <Rect x={-44} y={-8} width={88} height={8} rx={3} fill="#e4c062" />
+          <Pumpkin x={-28} s={1.1} />
+          <Pumpkin x={0} s={1.4} />
+          <Pumpkin x={27} s={0.9} />
+        </G>
+      );
+    case 'ground_snowman':
+      return (
+        <G>
+          <Circle cx={0} cy={-13} r={13} fill="#ffffff" />
+          <Circle cx={0} cy={-34} r={10} fill="#ffffff" />
+          <Circle cx={0} cy={-51} r={8} fill="#ffffff" />
+          <Circle cx={-3} cy={-53} r={1.2} fill={INK} />
+          <Circle cx={3} cy={-53} r={1.2} fill={INK} />
+          <Path d="M0 -50 L8 -48 L0 -47 Z" fill="#e07b2a" />
+          <Rect x={-9} y={-44} width={18} height={4} rx={2} fill="#d94a4a" />
+          <Rect x={4} y={-44} width={4} height={10} rx={2} fill="#d94a4a" />
+          <Rect x={-7} y={-66} width={14} height={8} fill="#1b1d29" />
+          <Rect x={-10} y={-59} width={20} height={2.5} fill="#1b1d29" />
+          <Path d="M-10 -36 L-22 -44 M10 -36 L22 -44" stroke="#7a4a24" strokeWidth={1.8} strokeLinecap="round" />
+        </G>
+      );
+    case 'fence_garland':
+      return (
+        <G>
+          <Path d="M-48 0 Q-24 12 0 2 Q24 12 48 0" stroke="#3f9a57" strokeWidth={6} fill="none" strokeLinecap="round" />
+          {[-48, 0, 48].map((x) => (
+            <Path key={x} d={`M${x - 5} ${x === 0 ? 0 : -2} L${x} ${x === 0 ? 4 : 2} L${x + 5} ${x === 0 ? 0 : -2} L${x + 3} ${x === 0 ? 6 : 4} L${x} ${x === 0 ? 4 : 2} L${x - 3} ${x === 0 ? 6 : 4} Z`} fill="#d94a4a" />
+          ))}
+          {[-34, -16, 16, 34].map((x, i) => (
+            <Circle key={x} cx={x} cy={7} r={2.2} fill={['#f2c84b', '#d94a4a'][i % 2]} />
+          ))}
+        </G>
+      );
     default:
       // fence_plain, ground_grass, or one this build doesn't know.
       return null;
@@ -600,6 +874,25 @@ function House({ id, name }: { id: string; name?: string }) {
         <Rect x={-18} y={-38} width={36} height={38} fill="#7a2e24" />
         <Path d="M-18 -38 L18 0 M18 -38 L-18 0" stroke="#f3e3c3" strokeWidth={2.5} />
         <Rect x={-18} y={-38} width={36} height={38} fill="none" stroke="#f3e3c3" strokeWidth={2.5} />
+        {nameplate}
+      </G>
+    );
+  }
+  if (id === 'house_gingerbread') {
+    return (
+      <G>
+        <Rect x={-44} y={-66} width={88} height={66} fill="#a8683a" />
+        <Path d="M-50 -62 L0 -102 L50 -62 Z" fill="#7a4a24" />
+        <Path d="M-50 -62 L-44 -66 L-38 -62 L-32 -66 L-26 -62 L-20 -66 L-14 -62 L-8 -66 L-2 -62 L4 -66 L10 -62 L16 -66 L22 -62 L28 -66 L34 -62 L40 -66 L46 -62" stroke="#ffffff" strokeWidth={2.5} fill="none" />
+        <Path d="M-46 -64 L0 -100 L46 -64" stroke="#ffffff" strokeWidth={3} fill="none" strokeDasharray="4 3" />
+        <Path d="M-20 0 L-20 -32 Q0 -54 20 -32 L20 0 Z" fill="#d94a4a" />
+        <Path d="M-20 -26 H20 M-20 -16 H20 M-20 -6 H20" stroke="#ffffff" strokeWidth={2} />
+        {[-34, 34].map((x) => (
+          <Circle key={x} cx={x} cy={-30} r={6} fill="#ffffff" />
+        ))}
+        {[-34, 34].map((x) => (
+          <Path key={`p${x}`} d={`M${x - 6} -30 A6 6 0 0 1 ${x} -36 L${x} -30 Z M${x} -30 L${x + 6} -30 A6 6 0 0 1 ${x} -24 Z`} fill="#d94a4a" />
+        ))}
         {nameplate}
       </G>
     );
@@ -741,7 +1034,7 @@ export function YardThumb({ id, trophy, size = 56 }: { id?: string; trophy?: Tro
       ? '-60 -112 120 116'
       : slot === 'fence'
         ? '-52 -20 104 44'
-        : slot === 'plant'
+        : slot === 'plant' || id === 'ground_snowman'
           ? '-36 -70 72 72'
           : slot === 'pond'
             ? '-38 -40 76 44'
