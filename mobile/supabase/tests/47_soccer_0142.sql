@@ -10,12 +10,18 @@ select tests.new_user('Cat') as cat \gset
 select tests.new_user('Dan') as dan \gset
 select tests.new_user('Eve') as eve \gset
 
--- A three-day match that started two days ago: days 1 and 2 are over
--- everywhere, day 3 is today.
+-- The latest day that's over everywhere, by the game's own rule
+-- (soccer_advance): yesterday (UTC) once 11:00 UTC has passed, otherwise
+-- the day before. Every date below hangs off it, so the test reads the
+-- same at any hour.
+select (now() at time zone 'utc')::date
+  - case when extract(hour from now() at time zone 'utc') >= 11 then 1 else 2 end as cutoff \gset
+
+-- A three-day match: days 1 and 2 are over everywhere, day 3 isn't yet.
 insert into public.challenges (id, name, kind, created_by, duration_days, starts_at, ends_at, start_day) values
   ('00000000-0000-0000-0000-0000000000c1', 'Derby', 'soccer', :'ann', 3,
-   ((now() at time zone 'utc')::date - 2)::timestamp at time zone 'utc', ((now() at time zone 'utc')::date + 1)::timestamp at time zone 'utc',
-   (now() at time zone 'utc')::date - 2);
+   (:'cutoff'::date - 1)::timestamp at time zone 'utc', (:'cutoff'::date + 2)::timestamp at time zone 'utc',
+   :'cutoff'::date - 1);
 insert into public.challenge_participants (challenge_id, user_id) values ('00000000-0000-0000-0000-0000000000c1', :'ann');
 insert into public.challenge_bots (id, challenge_id, name, fitness_level) values
   ('00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-0000000000c1', 'Blaze', 'elite');
@@ -49,16 +55,16 @@ select is((select count(*)::int from public.soccer_players where challenge_id = 
 
 -- Day 1: Ann walked 9,500 (three shots), Bob 2,000 (none), Dan 4,000.
 insert into public.progress_snapshots (challenge_id, user_id, day, steps) values
-  ('00000000-0000-0000-0000-0000000000c1', :'ann', (now() at time zone 'utc')::date - 2, 9500),
-  ('00000000-0000-0000-0000-0000000000c1', :'bob', (now() at time zone 'utc')::date - 2, 2000),
-  ('00000000-0000-0000-0000-0000000000c1', :'dan', (now() at time zone 'utc')::date - 2, 4000),
-  ('00000000-0000-0000-0000-0000000000c1', :'cat', (now() at time zone 'utc')::date - 2, 6000);
+  ('00000000-0000-0000-0000-0000000000c1', :'ann', :'cutoff'::date - 1, 9500),
+  ('00000000-0000-0000-0000-0000000000c1', :'bob', :'cutoff'::date - 1, 2000),
+  ('00000000-0000-0000-0000-0000000000c1', :'dan', :'cutoff'::date - 1, 4000),
+  ('00000000-0000-0000-0000-0000000000c1', :'cat', :'cutoff'::date - 1, 6000);
 -- Day 2: Bob walked 13,000 (four shots, the cap), Ann 3,100 (one).
 insert into public.progress_snapshots (challenge_id, user_id, day, steps) values
-  ('00000000-0000-0000-0000-0000000000c1', :'ann', (now() at time zone 'utc')::date - 1, 3100),
-  ('00000000-0000-0000-0000-0000000000c1', :'bob', (now() at time zone 'utc')::date - 1, 13000),
-  ('00000000-0000-0000-0000-0000000000c1', :'dan', (now() at time zone 'utc')::date - 1, 7000),
-  ('00000000-0000-0000-0000-0000000000c1', :'cat', (now() at time zone 'utc')::date - 1, 5000);
+  ('00000000-0000-0000-0000-0000000000c1', :'ann', :'cutoff'::date, 3100),
+  ('00000000-0000-0000-0000-0000000000c1', :'bob', :'cutoff'::date, 13000),
+  ('00000000-0000-0000-0000-0000000000c1', :'dan', :'cutoff'::date, 7000),
+  ('00000000-0000-0000-0000-0000000000c1', :'cat', :'cutoff'::date, 5000);
 
 select tests.sign_in(:'eve');
 set local role authenticated;
@@ -86,8 +92,8 @@ select is((select status from public.soccer_games where challenge_id = '00000000
 
 -- The same day plays the same way: a second match with the same ids and steps is identical.
 select is(
-  (select public.rally_js_rand(public.rally_js_hash('00000000-0000-0000-0000-0000000000c1:' || ((now() at time zone 'utc')::date - 2) || ':' || :'ann' || ':1:on'))),
-  (select public.rally_js_rand(public.rally_js_hash('00000000-0000-0000-0000-0000000000c1:' || ((now() at time zone 'utc')::date - 2) || ':' || :'ann' || ':1:on'))),
+  (select public.rally_js_rand(public.rally_js_hash('00000000-0000-0000-0000-0000000000c1:' || (:'cutoff'::date - 1) || ':' || :'ann' || ':1:on'))),
+  (select public.rally_js_rand(public.rally_js_hash('00000000-0000-0000-0000-0000000000c1:' || (:'cutoff'::date - 1) || ':' || :'ann' || ':1:on'))),
   'Rolls are seeded');
 
 -- Full time: move the match back a day so day 3 is over too.
