@@ -87,11 +87,14 @@ jobs:
             echo "::error::Add SUPABASE_ACCESS_TOKEN and STAGING_DB_PASSWORD under Settings > Secrets and variables > Actions. See mobile/supabase/STAGING.md."
             exit 1
           fi
+      # Pinned: a new major version can change what a command targets.
+      # 3.0.0 made `db push` aim at a local database unless told
+      # --remote, which quietly stopped staging deploys from #471 on.
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.0.0
       - run: supabase link --project-ref "$STAGING_PROJECT_REF"
       - name: Apply new migrations
-        run: supabase db push --include-all
+        run: supabase db push --include-all --remote --password "$SUPABASE_DB_PASSWORD"
       - name: Deploy edge functions
-        run: supabase functions deploy --project-ref "$STAGING_PROJECT_REF"
+        run: supabase functions deploy --remote="$STAGING_PROJECT_REF"
