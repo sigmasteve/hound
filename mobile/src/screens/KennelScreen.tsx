@@ -14,7 +14,7 @@ import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon,
-  LeafIcon, HeartIcon, PencilSimpleIcon, PlusIcon } from 'phosphor-react-native';
+  LeafIcon, HeartIcon, PawPrintIcon, PencilSimpleIcon, PlusIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -362,6 +362,27 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                   width={sceneWidth}
                   animate={focused}
                   lines={yardLines}
+                  guest={
+                    yard.guest
+                      ? {
+                          hound: {
+                            name: yard.guest.name,
+                            rank: rankForLevel(levelProgressForXp(yard.guest.xpTotal).level).id,
+                            mood: 'happy',
+                            neckId: yard.guest.neckId,
+                            headId: yard.guest.headId,
+                            faceId: yard.guest.faceId,
+                            coatId: yard.guest.coatId,
+                            breedId: yard.guest.breedId,
+                            ears: yard.guest.ears,
+                            tail: yard.guest.tail,
+                            markings: yard.guest.markings,
+                          },
+                          label: `${yard.guest.name} · ${yard.guest.owner}'s`,
+                          line: `${yard.guest.owner} finished their goals too!`,
+                        }
+                      : null
+                  }
                   hound={{
                     name: kennel.name,
                     rank: rank.id,
@@ -535,6 +556,38 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                 );
               })}
             </View>
+          </Card>
+        )}
+
+        {/* Visits (0150): who stopped by in the last day, and a friend's
+            hound over to play. */}
+        {yard && (yard.visitors.length > 0 || yard.guest) && (
+          <Card style={{ gap: 8 }} elevated={false}>
+            <View style={styles.seasonHeader}>
+              <Text style={text.h4}>Visitors</Text>
+              <Text style={styles.yardSize}>Last 24 hours</Text>
+            </View>
+            {yard.guest && (
+              <Text style={styles.itemNote}>
+                {yard.guest.name}, {yard.guest.owner}'s hound, came over to play: you both finished your goals today, and you're in{' '}
+                {yard.guest.challenge} together.
+              </Text>
+            )}
+            {yard.visitors.map((v) => (
+              <View key={v.userId} style={styles.visitorRow}>
+                <PawPrintIcon size={16} color={colors.accent} weight="fill" />
+                <Text style={styles.itemName}>
+                  {v.name}{' '}
+                  <Text style={styles.itemNote}>
+                    {v.pawprint && v.treat
+                      ? `left a pawprint and tossed ${kennel.name} a treat`
+                      : v.treat
+                        ? `tossed ${kennel.name} a treat`
+                        : 'left a pawprint'}
+                  </Text>
+                </Text>
+              </View>
+            ))}
           </Card>
         )}
 
@@ -779,6 +832,7 @@ function makeStyles(colors: Palette) {
       backgroundColor: withAlpha(colors.amber, 0.08),
     },
     yardFloor: { alignSelf: 'stretch', gap: 6 },
+    visitorRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     yardHint: { fontSize: 11.5, color: withAlpha(colors.text, 0.5), textAlign: 'center' },
     yardSize: { marginLeft: 'auto', fontSize: 12.5, fontFamily: font.heading, color: colors.accent },
     yardItems: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

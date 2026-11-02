@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeftIcon, TrashIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BoneIcon, PawPrintIcon, TrashIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -18,9 +18,11 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
 import { HoundArt } from '../kennel/HoundArt';
-import { friendMoodLine, getFriendKennel, type FriendKennel } from '../kennel/kennelApi';
+import { friendMoodLine, getFriendKennel, getKennel, type FriendKennel, type Kennel } from '../kennel/kennelApi';
 import { YardScene } from '../kennel/YardArt';
-import { getFriendYard, type Yard } from '../kennel/yardApi';
+import { getFriendYard, leavePawprint, tossYardTreat, type Yard } from '../kennel/yardApi';
+import { TREAT_BONES } from '../kennel/kennelItems';
+import { notifyBonesChanged } from '../bones/bonesChanged';
 import { TROPHIES } from '../kennel/yardItems';
 
 export function FriendDetailScreen({
@@ -62,15 +64,41 @@ export function FriendDetailScreen({
   // 0148 has run) the card shows just the hound, as before.
   const [yard, setYard] = useState<Yard | null>(null);
   const [yardWidth, setYardWidth] = useState(0);
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
+  // Your own hound, which tags along when you visit (0150).
+  const [myHound, setMyHound] = useState<Kennel | null>(null);
+  const [yardBusy, setYardBusy] = useState<'pawprint' | 'treat' | null>(null);
+  const loadYard = () => {
     getFriendKennel(friendUserId)
       .then(setHound)
       .catch(() => {});
     getFriendYard(friendUserId)
       .then(setYard)
       .catch(() => setYard(null));
+  };
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    loadYard();
+    getKennel()
+      .then(setMyHound)
+      .catch(() => setMyHound(null));
   }, [friendUserId]);
+
+  const visit = async (what: 'pawprint' | 'treat') => {
+    setYardBusy(what);
+    try {
+      if (what === 'pawprint') {
+        await leavePawprint(friendUserId);
+      } else {
+        await tossYardTreat(friendUserId);
+        notifyBonesChanged();
+      }
+      loadYard();
+    } catch (e) {
+      Alert.alert(what === 'pawprint' ? "Couldn't leave a pawprint" : "Couldn't toss a treat", e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setYardBusy(null);
+    }
+  };
 
   useEffect(() => {
     Promise.all([listAchievements(), listEarnedAchievements(friendUserId)])
@@ -198,6 +226,27 @@ export function FriendDetailScreen({
                 <YardScene
                   yard={yard}
                   width={yardWidth}
+                  guest={
+                    myHound
+                      ? {
+                          hound: {
+                            name: myHound.name,
+                            rank: rankForLevel(levelProgressForXp(myHound.xpTotal).level).id,
+                            mood: myHound.mood,
+                            neckId: myHound.neckId,
+                            headId: myHound.headId,
+                            faceId: myHound.faceId,
+                            coatId: myHound.coatId,
+                            breedId: myHound.breedId,
+                            ears: myHound.ears,
+                            tail: myHound.tail,
+                            markings: myHound.markings,
+                          },
+                          label: `${myHound.name} · yours`,
+                          line: `Hi, ${hound.name}!`,
+                        }
+                      : null
+                  }
                   hound={{
                     name: hound.name,
                     rank: rankForLevel(levelProgressForXp(hound.xpTotal).level).id,
@@ -227,6 +276,26 @@ export function FriendDetailScreen({
                 })()}
               </View>
               <Text style={styles.footNote}>{friendMoodLine(hound.name, hound.mood)}</Text>
+              {yard.mine && (
+                <View style={styles.yardActions}>
+                  <Button
+                    label={yard.mine.pawprint ? 'Pawprint left' : yardBusy === 'pawprint' ? '…' : 'Leave a pawprint'}
+                    variant={yard.mine.pawprint ? 'ghost' : 'primary'}
+                    small
+                    icon={<PawPrintIcon size={13} color={colors.accent} weight="fill" />}
+                    disabled={yard.mine.pawprint || yardBusy !== null}
+                    onPress={() => visit('pawprint')}
+                  />
+                  <Button
+                    label={yard.mine.treat ? 'Treat tossed' : yardBusy === 'treat' ? '…' : `Toss a treat · ${TREAT_BONES}`}
+                    variant="ghost"
+                    small
+                    icon={<BoneIcon size={13} color={colors.accent} weight="fill" />}
+                    disabled={yard.mine.treat || yardBusy !== null}
+                    onPress={() => visit('treat')}
+                  />
+                </View>
+              )}
               {yard.trophies.some((t) => TROPHIES[t.kind]) && (
                 <Text style={styles.footNote}>
                   Trophies:{' '}
@@ -384,6 +453,7 @@ function makeStyles(colors: Palette) {
   return StyleSheet.create({
     houndCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 },
     yardCard: { gap: 10, padding: 12 },
+    yardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
     houndArt: {
       width: 92,
       height: 104,
