@@ -19,6 +19,9 @@ import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
 import { HoundArt } from '../kennel/HoundArt';
 import { friendMoodLine, getFriendKennel, type FriendKennel } from '../kennel/kennelApi';
+import { YardScene } from '../kennel/YardArt';
+import { getFriendYard, type Yard } from '../kennel/yardApi';
+import { TROPHIES } from '../kennel/yardItems';
 
 export function FriendDetailScreen({
   friendshipId,
@@ -55,11 +58,18 @@ export function FriendDetailScreen({
   // Their hound (0105_kennel_friends_coats.sql). The card just doesn't
   // show if it can't load.
   const [hound, setHound] = useState<FriendKennel | null>(null);
+  // And their yard (0148_yard.sql), to look around; without it (before
+  // 0148 has run) the card shows just the hound, as before.
+  const [yard, setYard] = useState<Yard | null>(null);
+  const [yardWidth, setYardWidth] = useState(0);
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     getFriendKennel(friendUserId)
       .then(setHound)
       .catch(() => {});
+    getFriendYard(friendUserId)
+      .then(setYard)
+      .catch(() => setYard(null));
   }, [friendUserId]);
 
   useEffect(() => {
@@ -181,7 +191,56 @@ export function FriendDetailScreen({
 
         {loadError && <Text style={styles.errorNote}>{loadError}</Text>}
 
-        {hound && (
+        {hound && yard && (
+          <Card style={styles.yardCard} elevated={false}>
+            <View onLayout={(e) => setYardWidth(Math.floor(e.nativeEvent.layout.width))}>
+              {yardWidth > 0 && (
+                <YardScene
+                  yard={yard}
+                  width={yardWidth}
+                  hound={{
+                    name: hound.name,
+                    rank: rankForLevel(levelProgressForXp(hound.xpTotal).level).id,
+                    mood: hound.mood,
+                    neckId: hound.neckId,
+                    headId: hound.headId,
+                    faceId: hound.faceId,
+                    coatId: hound.coatId,
+                    breedId: hound.breedId,
+                    ears: hound.ears,
+                    tail: hound.tail,
+                    markings: hound.markings,
+                  }}
+                />
+              )}
+            </View>
+            <View style={{ gap: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={text.h4}>{hound.name}’s yard</Text>
+                {(() => {
+                  const rank = rankForLevel(levelProgressForXp(hound.xpTotal).level);
+                  return (
+                    <View style={[styles.houndRank, { backgroundColor: withAlpha(rank.color, 0.18) }]}>
+                      <Text style={[styles.houndRankText, { color: rank.color }]}>{rank.name}</Text>
+                    </View>
+                  );
+                })()}
+              </View>
+              <Text style={styles.footNote}>{friendMoodLine(hound.name, hound.mood)}</Text>
+              {yard.trophies.some((t) => TROPHIES[t.kind]) && (
+                <Text style={styles.footNote}>
+                  Trophies:{' '}
+                  {yard.trophies
+                    .filter((t) => TROPHIES[t.kind])
+                    .map((t) => `${TROPHIES[t.kind].name}${t.wins > 1 ? ` ×${t.wins}` : ''}`)
+                    .join(' · ')}
+                </Text>
+              )}
+            </View>
+          </Card>
+        )}
+
+        {hound && !yard && (
           <Card style={styles.houndCard} elevated={false}>
             <View style={styles.houndArt}>
               <HoundArt
@@ -324,6 +383,7 @@ function Stat({ label, value, styles }: { label: string; value: string; styles: 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     houndCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 },
+    yardCard: { gap: 10, padding: 12 },
     houndArt: {
       width: 92,
       height: 104,
