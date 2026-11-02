@@ -64,6 +64,8 @@ export function FriendDetailScreen({
   // 0148 has run) the card shows just the hound, as before.
   const [yard, setYard] = useState<Yard | null>(null);
   const [yardWidth, setYardWidth] = useState(0);
+  // While a finger is throwing the toy, the page holds still.
+  const [throwing, setThrowing] = useState(false);
   // Your own hound, which tags along when you visit (0150).
   const [myHound, setMyHound] = useState<Kennel | null>(null);
   const [yardBusy, setYardBusy] = useState<'pawprint' | 'treat' | null>(null);
@@ -197,7 +199,7 @@ export function FriendDetailScreen({
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView scrollEnabled={!throwing} contentContainerStyle={styles.container}>
         <Button label="Friends" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
 
         <View style={styles.headerRow}>
@@ -224,6 +226,7 @@ export function FriendDetailScreen({
             <View onLayout={(e) => setYardWidth(Math.floor(e.nativeEvent.layout.width))}>
               {yardWidth > 0 && (
                 <YardScene
+                  onGesture={setThrowing}
                   yard={yard}
                   width={yardWidth}
                   guest={
