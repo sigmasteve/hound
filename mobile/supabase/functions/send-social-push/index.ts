@@ -13,6 +13,9 @@
 //                 bounty" — to the poster (claim_bounty)
 //   'journey_finished' "Jordan finished the Windy City 26.2 🏅" — to
 //                 their friends (check_journey_finish, 0120_journeys.sql)
+//   'yard_pawprint' "Jordan left a pawprint in Scout's yard 🐾" — to the
+//                 yard's owner (leave_pawprint, 0150_yard_visits.sql)
+//   'yard_treat'  "Jordan tossed Scout a treat 🦴" (toss_yard_treat)
 // The RPC has already checked who can do what, and that each recipient
 // has these pushes on; a failure here never undoes the nudge, reaction
 // or message — the calling side swallows it.
@@ -25,7 +28,15 @@ import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EMOJI = ['🔥', '💪', '👏', '😮'];
 
-type Kind = 'nudge' | 'reaction' | 'trash_talk' | 'bounty_posted' | 'bounty_claimed' | 'journey_finished';
+type Kind =
+  | 'nudge'
+  | 'reaction'
+  | 'trash_talk'
+  | 'bounty_posted'
+  | 'bounty_claimed'
+  | 'journey_finished'
+  | 'yard_pawprint'
+  | 'yard_treat';
 
 interface RequestBody {
   kind: Kind;
@@ -43,6 +54,8 @@ interface RequestBody {
   // journey_finished
   course_name?: string;
   miles?: number;
+  // yard_pawprint / yard_treat: the owner's hound
+  hound_name?: string;
 }
 
 interface ProfileRow {
@@ -81,7 +94,7 @@ Deno.serve(async (req) => {
   if (
     !body?.from_user ||
     !body?.to_user ||
-    (body.kind !== 'nudge' && body.kind !== 'reaction' && body.kind !== 'bounty_claimed') ||
+    !['nudge', 'reaction', 'bounty_claimed', 'yard_pawprint', 'yard_treat'].includes(body.kind) ||
     (body.kind === 'reaction' && (!body.challenge_id || !EMOJI.includes(body.emoji ?? '')))
   ) {
     return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
@@ -113,8 +126,13 @@ Deno.serve(async (req) => {
 
   const name = displayName(sender);
   const challengeName = challenge?.name ?? null;
+  const hound = body.hound_name || 'your hound';
   const messageBody =
-    body.kind === 'bounty_claimed'
+    body.kind === 'yard_pawprint'
+      ? `${name} left a pawprint in ${hound}'s yard 🐾`
+      : body.kind === 'yard_treat'
+      ? `${name} tossed ${hound} a treat 🦴`
+      : body.kind === 'bounty_claimed'
       ? `${name} hit ${steps(body.target_steps)} steps and claimed your ${body.bones ?? ''}-Bone bounty 🎯`
       : body.kind === 'nudge'
       ? challengeName

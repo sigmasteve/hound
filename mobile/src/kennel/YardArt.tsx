@@ -46,6 +46,7 @@ const HOUND_AT: Record<'zoomies' | 'house' | 'bed' | 'bowl', { x: number; y: num
   bowl: { x: 318, y: 266 },
 };
 const HOUND_SIZE = [92, 100, 108, 116, 124];
+const GUEST_AT = { x: 358, y: 264 };
 
 // Height for width: the same shape at every size.
 export const YARD_ASPECT = 0.75;
@@ -114,6 +115,7 @@ export function YardScene({
   lines,
   time,
   season,
+  guest,
 }: {
   yard: Yard;
   hound: YardHound;
@@ -124,6 +126,10 @@ export function YardScene({
   time?: YardTime;
   // Undefined: today's (yardSeason). Null: none.
   season?: YardSeason;
+  // A second hound in the yard: a friend's over to play (0150), or yours
+  // tagging along on a visit. label is the tag over it; line what it
+  // says when tapped.
+  guest?: { hound: YardHound; label: string; line?: string } | null;
 }) {
   const size = Math.max(0, Math.min(YARD_SIZES.length - 1, yard.size));
   const { left, width: W } = YARD_SIZES[size];
@@ -150,6 +156,11 @@ export function YardScene({
   const at = HOUND_AT[pose];
   const houndLeft = (at.x - left) * k - houndW / 2;
   const houndTop = (at.y - top) * k - houndW * 1.2 * 0.98;
+  // Over by the trophies; in zoomies it runs the other way, so the two
+  // chase each other. At night everyone's gone home.
+  const showGuest = !!guest && !night;
+  const guestLeft = (GUEST_AT.x - left) * k - houndW / 2;
+  const guestTop = (GUEST_AT.y - top) * k - houndW * 1.2 * 0.98;
 
   // Fetch: the hound's run out and back, on top of anything else.
   const [fetching, setFetching] = useState(false);
@@ -174,6 +185,8 @@ export function YardScene({
   // A tap: a hop and a word. Press and hold: hearts.
   const hop = useRef(new Animated.Value(0)).current;
   const [said, setSaid] = useState<string | null>(null);
+  // Whose bubble it is.
+  const [saidBy, setSaidBy] = useState<'host' | 'guest'>('host');
   const lineIx = useRef(0);
   const hearts = useRef(new Animated.Value(0)).current;
   const [petting, setPetting] = useState(false);
@@ -184,6 +197,7 @@ export function YardScene({
   }, [said]);
 
   const onTap = (line?: string) => {
+    setSaidBy('host');
     hop.setValue(0);
     Animated.sequence([
       Animated.timing(hop, { toValue: 1, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }),
@@ -260,6 +274,19 @@ export function YardScene({
     }),
   ).current;
 
+  const guestHop = useRef(new Animated.Value(0)).current;
+  const onGuestTap = () => {
+    guestHop.setValue(0);
+    Animated.sequence([
+      Animated.timing(guestHop, { toValue: 1, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.spring(guestHop, { toValue: 0, friction: 4, useNativeDriver: true }),
+    ]).start();
+    if (guest?.line) {
+      setSaidBy('guest');
+      sayNow(guest.line);
+    }
+  };
+
   const onPet = () => {
     setPetting(true);
     hearts.setValue(0);
@@ -325,9 +352,48 @@ export function YardScene({
         {place('bowl')}
         {place('bed')}
         {sn && <SeasonFront season={sn} left={left} width={W} top={top} time={t} hasHouse={!!spots.house} />}
+        {yard.pawprints > 0 && <Pawprints n={Math.min(6, yard.pawprints)} left={left} />}
         {night && <Rect x={left} y={top} width={W} height={H} fill="#0b0d2a" opacity={0.28} />}
         {place('fence')}
       </Svg>
+
+      {showGuest && guest && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            left: guestLeft,
+            top: guestTop,
+            width: houndW,
+            height: houndW * 1.2,
+            transform: [
+              { translateX: Animated.multiply(run.interpolate({ inputRange: [-1, 1], outputRange: [-runPx, runPx] }), -1) },
+              { translateY: guestHop.interpolate({ inputRange: [0, 1], outputRange: [0, -houndW * 0.18] }) },
+            ],
+          }}
+        >
+          <Pressable onPress={onGuestTap} hitSlop={8} accessibilityRole="button" accessibilityLabel={guest.label}>
+            <HoundArt
+              rank={guest.hound.rank}
+              mood={guest.hound.mood}
+              neckId={guest.hound.neckId}
+              headId={guest.hound.headId}
+              faceId={guest.hound.faceId}
+              coatId={guest.hound.coatId}
+              breedId={guest.hound.breedId}
+              ears={guest.hound.ears}
+              tail={guest.hound.tail}
+              markings={guest.hound.markings}
+              size={houndW}
+              animate={moving}
+            />
+          </Pressable>
+          <View pointerEvents="none" style={styles.guestTag}>
+            <Text style={styles.guestTagText} numberOfLines={1}>
+              {guest.label}
+            </Text>
+          </View>
+        </Animated.View>
+      )}
 
       <Animated.View style={houndStyle}>
         <Pressable
@@ -404,8 +470,8 @@ export function YardScene({
           style={[
             styles.bubble,
             {
-              left: Math.max(6, Math.min(width - 186, houndLeft + houndW * 0.55)),
-              top: Math.max(6, houndTop - 8),
+              left: Math.max(6, Math.min(width - 186, (saidBy === 'guest' && showGuest ? guestLeft - houndW * 0.6 : houndLeft + houndW * 0.55))),
+              top: Math.max(6, (saidBy === 'guest' && showGuest ? guestTop : houndTop) - 8),
             },
           ]}
         >
@@ -433,6 +499,17 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   bubbleText: { color: '#1b1d29', fontSize: 12.5, fontWeight: '600' },
+  guestTag: {
+    position: 'absolute',
+    top: -2,
+    alignSelf: 'center',
+    maxWidth: 120,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+  },
+  guestTagText: { color: '#ffffff', fontSize: 10.5, fontWeight: '600' },
 });
 
 // Seasonal dressing behind the house and trophies: snow on the fence and
@@ -543,6 +620,25 @@ function SeasonFront({
       )}
     </G>
   );
+}
+
+// Friends' pawprints by the gate, one trail mark per friend.
+function Pawprints({ n, left }: { n: number; left: number }) {
+  const marks = [];
+  for (let i = 0; i < n; i++) {
+    const x = left + 26 + i * 16;
+    const y = 292 - (i % 2) * 7;
+    marks.push(
+      <G key={i} transform={`translate(${x} ${y}) rotate(-12)`} fill="#ffffff" opacity={0.7}>
+        <Ellipse cx={0} cy={2} rx={3.6} ry={3} />
+        <Circle cx={-3.6} cy={-2.2} r={1.4} />
+        <Circle cx={-1.2} cy={-3.8} r={1.4} />
+        <Circle cx={1.5} cy={-3.8} r={1.4} />
+        <Circle cx={3.9} cy={-2.2} r={1.4} />
+      </G>,
+    );
+  }
+  return <G>{marks}</G>;
 }
 
 function Pumpkin({ x, s }: { x: number; s: number }) {
