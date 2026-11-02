@@ -89,12 +89,14 @@ jobs:
           fi
       # Pinned: a new major version can change what a command targets.
       # 3.0.0 made `db push` aim at a local database unless told
-      # --remote, which quietly stopped staging deploys from #471 on.
+      # --remote, which quietly stopped staging deploys from #471 on, and
+      # asks before changing a hosted project, which CI can't answer:
+      # --yes is that answer.
       - uses: supabase/setup-cli@v1
         with:
           version: 3.0.0
       - run: supabase link --project-ref "$STAGING_PROJECT_REF"
       - name: Apply new migrations
-        run: supabase db push --include-all --remote --password "$SUPABASE_DB_PASSWORD"
+        run: supabase db push --include-all --remote --password "$SUPABASE_DB_PASSWORD" --yes
       - name: Deploy edge functions
-        run: supabase functions deploy --remote="$STAGING_PROJECT_REF"
+        run: supabase functions deploy --remote="$STAGING_PROJECT_REF" --yes
