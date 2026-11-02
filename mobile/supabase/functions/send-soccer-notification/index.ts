@@ -2,6 +2,7 @@
 // once a day has been resolved — same shape as send-rally-notification:
 //   - 'day'    a day's report: the score, today's goals, shots and saves
 //   - 'final'  the last day: who won, or a draw
+//   - 'pick'   midday, to a player with no pick for today yet (0145)
 // Scores arrive as team A / team B; the recipient's own side is looked up
 // so the message reads from their point of view. A failure here never
 // affects the match: the calling side swallows it.
@@ -13,8 +14,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
-type Kind = 'day' | 'final';
-const KINDS: Kind[] = ['day', 'final'];
+type Kind = 'day' | 'final' | 'pick';
+const KINDS: Kind[] = ['day', 'final', 'pick'];
 
 interface RequestBody {
   kind: Kind;
@@ -22,17 +23,20 @@ interface RequestBody {
   recipient_id: string;
   day_no: number;
   days: number;
-  goals_a: number;
-  goals_b: number;
-  today_a: number;
-  today_b: number;
-  shots_a: number;
-  shots_b: number;
-  on_target_a: number;
-  on_target_b: number;
-  saves_a: number;
-  saves_b: number;
+  // The rest are only on a day report or the final.
+  goals_a?: number;
+  goals_b?: number;
+  today_a?: number;
+  today_b?: number;
+  shots_a?: number;
+  shots_b?: number;
+  on_target_a?: number;
+  on_target_b?: number;
+  saves_a?: number;
+  saves_b?: number;
   winner_team?: 'a' | 'b' | null;
+  // Only on a pick reminder.
+  position?: 'forward' | 'defender' | 'keeper';
 }
 
 interface ProfileRow {
@@ -40,14 +44,24 @@ interface ProfileRow {
 }
 
 function messageFor(body: RequestBody, team: 'a' | 'b', game: string): string {
+  if (body.kind === 'pick') {
+    switch (body.position) {
+      case 'keeper':
+        return `Day ${body.day_no} in "${game}": guess their corner before the day ends.`;
+      case 'defender':
+        return `Day ${body.day_no} in "${game}": pick a forward to mark before the day ends.`;
+      default:
+        return `Day ${body.day_no} in "${game}": pick your corner before the day ends.`;
+    }
+  }
   const mine = team === 'a';
-  const us = mine ? body.goals_a : body.goals_b;
-  const them = mine ? body.goals_b : body.goals_a;
-  const usToday = mine ? body.today_a : body.today_b;
-  const themToday = mine ? body.today_b : body.today_a;
-  const ourShots = mine ? body.shots_a : body.shots_b;
-  const ourOn = mine ? body.on_target_a : body.on_target_b;
-  const ourSaves = mine ? body.saves_a : body.saves_b;
+  const us = (mine ? body.goals_a : body.goals_b) ?? 0;
+  const them = (mine ? body.goals_b : body.goals_a) ?? 0;
+  const usToday = (mine ? body.today_a : body.today_b) ?? 0;
+  const themToday = (mine ? body.today_b : body.today_a) ?? 0;
+  const ourShots = (mine ? body.shots_a : body.shots_b) ?? 0;
+  const ourOn = (mine ? body.on_target_a : body.on_target_b) ?? 0;
+  const ourSaves = (mine ? body.saves_a : body.saves_b) ?? 0;
   const clock = Math.round((90 * body.day_no) / Math.max(1, body.days));
   const standing = us > them ? `You lead ${us}–${them}` : us < them ? `You trail ${us}–${them}` : `Level at ${us}–${them}`;
   const today = `Today ${usToday}–${themToday}: ${ourShots} shot${ourShots === 1 ? '' : 's'}, ${ourOn} on target, ${ourSaves} save${ourSaves === 1 ? '' : 's'} at your end.`;

@@ -2107,6 +2107,7 @@ export function ChallengeDetailScreen({
                 const n = Math.floor((Date.now() - new Date(sy, sm - 1, sd).getTime()) / 86_400_000) + 1;
                 return n >= 1 && n <= challenge.durationDays ? n : null;
               })()}
+              firstDay={challenge.startDay ?? dateKey(new Date(challenge.startsAt))}
               matchDays={soccerDays}
               shots={soccerShots}
             />
