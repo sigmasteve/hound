@@ -132,7 +132,7 @@ import { RECORD_TITLE, syncPersonalRecords, takePendingNewRecords, type NewRecor
 import { nudgesReceived, type ReceivedNudge } from '../social/social';
 import { shouldOfferPush } from '../notifications/pushPermission';
 import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from '../onboarding/onboardingApi';
-import { checkAchievements, type NewlyEarnedAchievement } from '../achievements/achievementsApi';
+import { checkAchievements, listAchievements, type NewlyEarnedAchievement } from '../achievements/achievementsApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
 import { GlobalChallengesCard } from '../components/GlobalChallengesCard';
@@ -2490,6 +2490,16 @@ export function HomeScreen({
           onOpenAchievements();
         }}
         onClose={() => setUnlocked([])}
+        onShare={(a) => {
+          setUnlocked([]);
+          const earnedAt = new Date().toISOString();
+          // With what it took ("Finish 100 challenges."), when the catalog
+          // can be read; without, the card still works.
+          listAchievements()
+            .then((all) => all.find((x) => x.id === a.id)?.description)
+            .catch(() => undefined)
+            .then((description) => setSharing({ kind: 'badge', id: a.id, name: a.name, description, earnedAt }));
+        }}
       />
     )}
     {levelUp && !dailyBonus && unlocked.length === 0 && (

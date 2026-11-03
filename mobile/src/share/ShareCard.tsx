@@ -23,18 +23,22 @@ import type { GoalStreak } from '../goals/goalStreakApi';
 import { stepsChangePct, type WeeklyRecap } from '../home/weeklyRecap';
 import { isWin, ordinal, shareMessage, type ResultOutcome } from '../challenges/shareResult';
 import { CARD_HEIGHT, CARD_WIDTH } from './shareImage';
+import { achievementIcon } from '../achievements/achievementIcons';
 
 // What can be shared as a picture (ShareSheet): last week, today's goals,
-// or how a challenge ended.
+// how a challenge ended, or a badge (K-06).
 export type ShareContent =
   | { kind: 'week'; recap: WeeklyRecap }
   | { kind: 'goals'; progress: GoalProgress[]; streak: GoalStreak | null }
-  | { kind: 'challenge'; name: string; outcome: ResultOutcome; line: string };
+  | { kind: 'challenge'; name: string; outcome: ResultOutcome; line: string }
+  // id and name from the achievements catalog; earnedAt an ISO date.
+  | { kind: 'badge'; id: string; name: string; description?: string; earnedAt?: string };
 
 const EYEBROW: Record<ShareContent['kind'], string> = {
   week: 'MY WEEK',
   goals: 'TODAY',
   challenge: 'CHALLENGE',
+  badge: 'BADGE',
 };
 
 const GOAL_ICONS: Record<GoalMetric, React.ComponentType<any>> = {
@@ -82,6 +86,11 @@ export function shareText(content: ShareContent, inviteUrl: string | null): stri
     }
     case 'challenge':
       return shareMessage(content.line, inviteUrl);
+    case 'badge':
+      return shareMessage(
+        `I earned the ${content.name} badge on Hound${content.description ? `: ${content.description.replace(/\.$/, '')}` : ''} 🏅`,
+        inviteUrl,
+      );
   }
 }
 
@@ -99,7 +108,7 @@ export function ShareCard({
   inviteUrl: string | null;
   cardRef?: Ref<View>;
 }) {
-  const celebrate = content.kind === 'challenge' && isWin(content.outcome);
+  const celebrate = (content.kind === 'challenge' && isWin(content.outcome)) || content.kind === 'badge';
   const link = inviteUrl ?? 'https://houndchallenge.net';
   return (
     <View ref={cardRef} collapsable={false} style={styles.card}>
@@ -122,7 +131,9 @@ export function ShareCard({
       </View>
 
       <View style={styles.hero}>
-        {kennel ? (
+        {content.kind === 'badge' ? (
+          <BadgeHero id={content.id} kennel={kennel} />
+        ) : kennel ? (
           <HoundArt
             rank={rankForLevel(levelProgressForXp(kennel.xpTotal).level).id}
             mood="happy"
@@ -146,6 +157,7 @@ export function ShareCard({
         {content.kind === 'week' && <WeekBody recap={content.recap} />}
         {content.kind === 'goals' && <GoalsBody progress={content.progress} streak={content.streak} />}
         {content.kind === 'challenge' && <ChallengeBody name={content.name} outcome={content.outcome} line={content.line} />}
+        {content.kind === 'badge' && <BadgeBody name={content.name} description={content.description} earnedAt={content.earnedAt} />}
       </View>
 
       {/* A link can't be tapped or copied out of a story or a saved
@@ -255,6 +267,57 @@ function ChallengeBody({ name, outcome, line }: { name: string; outcome: ResultO
   );
 }
 
+// A badge: the medal itself, big, with your hound beside it.
+function BadgeHero({ id, kennel }: { id: string; kennel: Kennel | null }) {
+  const Icon = achievementIcon(id);
+  return (
+    <View style={styles.medalWrap}>
+      <View style={styles.medalRing}>
+        <View style={styles.medal}>
+          <Icon size={92} color={C.gold} weight="fill" />
+        </View>
+      </View>
+      {kennel && (
+        <View style={styles.medalHound}>
+          <HoundArt
+            rank={rankForLevel(levelProgressForXp(kennel.xpTotal).level).id}
+            mood="happy"
+            neckId={kennel.neckId}
+            headId={kennel.headId}
+            faceId={kennel.faceId}
+            coatId={kennel.coatId}
+            ears={kennel.ears}
+            tail={kennel.tail}
+            markings={kennel.markings}
+            breedId={kennel.breedId}
+            size={96}
+            animate={false}
+          />
+        </View>
+      )}
+    </View>
+  );
+}
+
+function BadgeBody({ name, description, earnedAt }: { name: string; description?: string; earnedAt?: string }) {
+  const when = earnedAt
+    ? new Date(earnedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : null;
+  return (
+    <View style={{ gap: 8 }}>
+      <Text style={[styles.kicker, { color: C.gold }]}>{when ? `Badge earned · ${when}` : 'Badge earned'}</Text>
+      <Text style={styles.headline} numberOfLines={2}>
+        {name}
+      </Text>
+      {description ? (
+        <Text style={styles.line} numberOfLines={3}>
+          {description}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 function Stat({ Icon, value, label }: { Icon: React.ComponentType<any>; value: string; label: string }) {
   return (
     <View style={styles.stat}>
@@ -328,4 +391,24 @@ const styles = StyleSheet.create({
   footerHint: { fontSize: 12.5, color: withAlpha(C.text, 0.65) },
   footerUrl: { fontSize: 13, color: C.accent300 },
   qr: { padding: 5, borderRadius: 8, backgroundColor: '#ffffff' },
+  medalWrap: { width: 260, height: 220, alignItems: 'center', justifyContent: 'center' },
+  medalRing: {
+    width: 188,
+    height: 188,
+    borderRadius: 94,
+    padding: 8,
+    borderWidth: 3,
+    borderColor: withAlpha(C.gold, 0.85),
+    backgroundColor: withAlpha(C.gold, 0.08),
+  },
+  medal: {
+    flex: 1,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: withAlpha(C.gold, 0.16),
+    borderWidth: 1,
+    borderColor: withAlpha(C.gold, 0.45),
+  },
+  medalHound: { position: 'absolute', right: -6, bottom: -18 },
 });

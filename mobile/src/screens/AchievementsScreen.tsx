@@ -1,9 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, BoneIcon, CheckCircleIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, ShareNetworkIcon } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { LoadingView } from '../components/LoadingView';
@@ -13,7 +13,15 @@ import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { achievementIcon } from '../achievements/achievementIcons';
-import { listAchievements, listEarnedAchievements, type Achievement } from '../achievements/achievementsApi';
+import {
+  FINISH_MILESTONES,
+  getFinishProgress,
+  listAchievements,
+  listEarnedAchievements,
+  type Achievement,
+} from '../achievements/achievementsApi';
+import { ShareSheet } from '../share/ShareSheet';
+import type { ShareContent } from '../share/ShareCard';
 
 function formatEarned(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -27,6 +35,10 @@ export function AchievementsScreen({ onBack }: { onBack: () => void }) {
   const [catalog, setCatalog] = useState<Achievement[] | null>(null);
   const [earned, setEarned] = useState<Map<string, string>>(new Map());
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Finishes toward the milestone badges (0151), for "26 of 50".
+  const [finishes, setFinishes] = useState<number | null>(null);
+  // The badge being shared as a picture (K-06).
+  const [sharing, setSharing] = useState<ShareContent | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -38,6 +50,7 @@ export function AchievementsScreen({ onBack }: { onBack: () => void }) {
           setLoadError(null);
         })
         .catch((e) => setLoadError(e instanceof Error ? e.message : 'Could not load achievements.'));
+      getFinishProgress().then(setFinishes);
     }, [user?.id]),
   );
 
@@ -60,26 +73,54 @@ export function AchievementsScreen({ onBack }: { onBack: () => void }) {
                 {earnedCount} of {catalog.length} earned
               </Text>
               <ProgressBar pct={catalog.length ? (earnedCount / catalog.length) * 100 : 0} fillColor={color.gold} height={6} />
-              <Text style={styles.footNote}>Each one pays {currencyName} once, the moment you earn it.</Text>
+              <Text style={styles.footNote}>
+                Each one pays {currencyName} once, the moment you earn it. Tap one you've earned to share it.
+              </Text>
             </Card>
 
             <Card style={{ gap: 2 }} elevated={false}>
               {catalog.map((a, i) => {
                 const earnedAt = earned.get(a.id);
                 const Icon = achievementIcon(a.id);
+                const target = FINISH_MILESTONES[a.id];
+                const progress = !earnedAt && target && finishes !== null ? Math.min(finishes, target) : null;
                 return (
-                  <View key={a.id} style={[styles.row, i > 0 && styles.rowDivider]}>
+                  <Pressable
+                    key={a.id}
+                    style={[styles.row, i > 0 && styles.rowDivider]}
+                    disabled={!earnedAt}
+                    onPress={() =>
+                      earnedAt &&
+                      setSharing({ kind: 'badge', id: a.id, name: a.name, description: a.description, earnedAt })
+                    }
+                    accessibilityRole={earnedAt ? 'button' : undefined}
+                    accessibilityLabel={earnedAt ? `${a.name}, earned. Share it` : `${a.name}, not earned yet. ${a.description}`}
+                  >
                     <View style={[styles.badge, earnedAt ? styles.badgeEarned : styles.badgeLocked]}>
                       <Icon size={20} color={earnedAt ? color.gold : withAlpha(colors.text, 0.35)} weight={earnedAt ? 'fill' : 'regular'} />
                     </View>
                     <View style={{ flex: 1, gap: 2 }}>
                       <Text style={[styles.name, !earnedAt && styles.nameLocked]}>{a.name}</Text>
                       <Text style={styles.description}>{a.description}</Text>
+                      {progress !== null && (
+                        <View style={{ gap: 4, marginTop: 4 }}>
+                          <ProgressBar pct={(progress / target) * 100} fillColor={color.gold} height={4} />
+                          <Text style={styles.progressText}>
+                            {progress} of {target}. Counts challenges that ran 3 days or more, or had someone else in them.
+                          </Text>
+                        </View>
+                      )}
                     </View>
                     {earnedAt ? (
-                      <View style={styles.earnedTag}>
-                        <CheckCircleIcon size={14} color={colors.green} weight="fill" />
-                        <Text style={styles.earnedText}>{formatEarned(earnedAt)}</Text>
+                      <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                        <View style={styles.earnedTag}>
+                          <CheckCircleIcon size={14} color={colors.green} weight="fill" />
+                          <Text style={styles.earnedText}>{formatEarned(earnedAt)}</Text>
+                        </View>
+                        <View style={styles.earnedTag}>
+                          <ShareNetworkIcon size={14} color={colors.accentActive} />
+                          <Text style={[styles.earnedText, { color: colors.accentActive }]}>Share</Text>
+                        </View>
                       </View>
                     ) : (
                       <View style={styles.rewardTag}>
@@ -87,13 +128,14 @@ export function AchievementsScreen({ onBack }: { onBack: () => void }) {
                         <Text style={styles.rewardText}>+{a.bones}</Text>
                       </View>
                     )}
-                  </View>
+                  </Pressable>
                 );
               })}
             </Card>
           </>
         )}
       </ScrollView>
+      {sharing && <ShareSheet content={sharing} onClose={() => setSharing(null)} />}
     </SafeAreaView>
   );
 }
@@ -115,6 +157,7 @@ function makeStyles(colors: Palette) {
     earnedTag: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     earnedText: { fontSize: 11.5, color: withAlpha(colors.text, 0.6) },
     rewardTag: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+    progressText: { fontSize: 11.5, color: withAlpha(colors.text, 0.55) },
     rewardText: { fontSize: 12.5, color: withAlpha(colors.text, 0.7), fontFamily: font.heading },
   });
 }
