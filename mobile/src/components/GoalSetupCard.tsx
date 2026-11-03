@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { Text } from './Text';
 import { Button } from './Button';
 import { Card } from './Card';
@@ -12,6 +12,10 @@ import { useGoalHistory } from '../goals/useGoalHistory';
 import { HOUND_LEVELS } from '../goals/hound';
 import type { HoundLevel } from '../goals/goalsApi';
 import { describeGoal, formatAmount, METRIC_NAMES, suggestTarget } from '../goals/goals';
+import { useWater } from '../water/WaterContext';
+import { WaterStepper } from '../water/WaterCards';
+import { waterColors } from '../water/WaterGlass';
+import { amountText, DEFAULT_WATER_GOAL, type WaterGoal } from '../water/water';
 
 // Goal setup, right on Today: the goals you have (the three starters, for
 // a new account) with a − / + for each, what you've been averaging where
@@ -27,9 +31,20 @@ export function GoalSetupCard({
   onMoreOptions: () => void;
   canDismiss: boolean;
 }) {
-  const { colors, text } = useTheme();
+  const { colors, text, mode } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { goals, houndLevel, updateGoal, setHoundLevel, markGoalsSet } = useGoals();
+  // Water (0153): off unless they already have it. Saved with the rest.
+  const water = useWater();
+  const [waterDraft, setWaterDraft] = useState<WaterGoal | null>(null);
+  const [waterTouched, setWaterTouched] = useState(false);
+  useEffect(() => {
+    if (!waterTouched) setWaterDraft(water.goal);
+  }, [water.goal, waterTouched]);
+  const changeWater = (next: WaterGoal | null) => {
+    setWaterTouched(true);
+    setWaterDraft(next);
+  };
   const history = useGoalHistory();
 
   const [targets, setTargets] = useState<Record<string, number>>({});
@@ -46,6 +61,12 @@ export function GoalSetupCard({
         goals.filter((g) => targets[g.id] !== undefined && targets[g.id] !== g.target).map((g) => updateGoal(g.id, { target: targets[g.id] })),
       );
       if (level !== houndLevel) await setHoundLevel(level);
+      if (waterTouched) {
+        if (waterDraft) await water.setGoal(waterDraft);
+        else if (water.goal) await water.removeGoal();
+      }
+      // Saved without water: Today doesn't offer it again.
+      if (!waterDraft && !water.goal) water.dismissOffer();
       await markGoalsSet();
       onDone();
     } catch (err) {
@@ -84,6 +105,32 @@ export function GoalSetupCard({
           </View>
         );
       })}
+
+      {water.available && (
+        <View style={{ gap: 10 }}>
+          <View style={styles.row}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.name}>Track water</Text>
+              <Text style={styles.note} numberOfLines={2}>
+                {waterDraft
+                  ? `${amountText(waterDraft.targetMl, waterDraft.units)} a day, one tap a glass`
+                  : 'Log glasses with one tap. It doesn’t touch your goals or streak.'}
+              </Text>
+            </View>
+            <Switch
+              value={!!waterDraft}
+              onValueChange={(on) => changeWater(on ? water.goal ?? DEFAULT_WATER_GOAL : null)}
+              trackColor={{ true: waterColors(mode).water, false: withAlpha(colors.text, 0.2) }}
+              accessibilityLabel="Track water"
+            />
+          </View>
+          {waterDraft && (
+            <View style={[styles.row, { justifyContent: 'flex-end' }]}>
+              <WaterStepper goal={waterDraft} onChange={changeWater} colors={colors} />
+            </View>
+          )}
+        </View>
+      )}
 
       <View style={{ gap: 8 }}>
         <Text style={styles.label}>How hard should Hound hound you?</Text>

@@ -43,6 +43,10 @@ export interface WaterState {
   pours: number;
   // The day just counted as a water day, for Home to check badges.
   claimedDay: string | null;
+  // The "Track your water?" offer on Today's Goals tile: true once it's
+  // been turned down (×, or setup saved without water) on this phone.
+  offerDismissed: boolean;
+  dismissOffer(): void;
   add(ml?: number): Promise<WaterEntry | null>;
   remove(id: string): Promise<void>;
   setGoal(goal: WaterGoal): Promise<void>;
@@ -72,6 +76,19 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
   const [claimedDay, setClaimedDay] = useState<string | null>(null);
   const [pours, setPours] = useState(0);
   const [today, setToday] = useState(localDayKey());
+  // Unknown (true) until read, so the offer never flashes up.
+  const [offerDismissed, setOfferDismissed] = useState(true);
+  const offerKey = `water:offer-dismissed:${userId ?? 'local'}`;
+  useEffect(() => {
+    setOfferDismissed(true);
+    AsyncStorage.getItem(offerKey)
+      .then((v) => setOfferDismissed(v === '1'))
+      .catch(() => {});
+  }, [offerKey]);
+  const dismissOffer = useCallback(() => {
+    setOfferDismissed(true);
+    AsyncStorage.setItem(offerKey, '1').catch(() => {});
+  }, [offerKey]);
 
   const undoneEarly = useRef(new Set<string>());
   const goalRef = useRef(goal);
@@ -289,13 +306,15 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
       met,
       pours,
       claimedDay,
+      offerDismissed,
+      dismissOffer,
       add,
       remove,
       setGoal,
       removeGoal,
       refresh,
     }),
-    [available, loaded, goal, todayMl, healthTodayMl, entries, byDay, met, pours, claimedDay, add, remove, setGoal, removeGoal, refresh],
+    [available, loaded, goal, todayMl, healthTodayMl, entries, byDay, met, pours, claimedDay, offerDismissed, dismissOffer, add, remove, setGoal, removeGoal, refresh],
   );
 
   return <WaterContext.Provider value={value}>{children}</WaterContext.Provider>;

@@ -200,7 +200,18 @@ export function WaterGlass({
       >
         <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateY: surfaceY }] }]}>
           {/* The surface: a back wave and a front one, sliding apart. */}
-          <Animated.View style={{ position: 'absolute', top: -waveH + 1, left: 0, height: waveH, width: innerW, transform: [{ scaleY: slosh }] }}>
+          <Animated.View
+            style={{
+              position: 'absolute',
+              top: -waveH + 1,
+              left: 0,
+              height: waveH,
+              width: innerW,
+              // An empty glass has no surface to show.
+              opacity: target > 0 ? 1 : 0,
+              transform: [{ scaleY: slosh }],
+            }}
+          >
             <Animated.View
               style={{
                 position: 'absolute',
