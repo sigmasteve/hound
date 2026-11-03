@@ -122,12 +122,12 @@ export function AchievementsScreen({ onBack }: { onBack: () => void }) {
                           <Text style={[styles.earnedText, { color: colors.accentActive }]}>Share</Text>
                         </View>
                       </View>
-                    ) : (
+                    ) : a.bones > 0 ? (
                       <View style={styles.rewardTag}>
                         <BoneIcon size={12} color={color.accent} weight="fill" />
                         <Text style={styles.rewardText}>+{a.bones}</Text>
                       </View>
-                    )}
+                    ) : null}
                   </Pressable>
                 );
               })}

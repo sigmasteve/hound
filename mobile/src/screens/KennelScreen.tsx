@@ -43,6 +43,7 @@ import {
 } from '../kennel/kennelItems';
 import { localDayKey } from '../goals/goals';
 import { YardScene, YardThumb } from '../kennel/YardArt';
+import { useWater } from '../water/WaterContext';
 import { getYard, placeYardItem, setYardTrophies, type Yard } from '../kennel/yardApi';
 import {
   TROPHIES,
@@ -90,6 +91,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const currencyName = useCurrencyName();
+  const water = useWater();
   const [kennel, setKennelState] = useState<Kennel | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -360,6 +362,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             <View style={styles.yardFloor} onLayout={(e) => setSceneWidth(Math.floor(e.nativeEvent.layout.width))}>
               {sceneWidth > 0 && (
                 <YardScene
+                  water={water.goal ? water.todayMl / water.goal.targetMl : null}
                   onGesture={setThrowing}
                   yard={yard}
                   width={sceneWidth}

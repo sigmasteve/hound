@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import type { PendingAction } from '../challenges/pendingActions';
 import { describeGoal, formatAmount, localDayKey, progressLine, workoutWord, type GoalProgress } from './goals';
+import { amountText, progressText, type WaterGoal } from '../water/water';
 import { saveHoundSettings, type HoundLevel } from './goalsApi';
 
 // The Hound: the phone's own reminders about your goals, at your own
@@ -54,9 +55,19 @@ interface HoundInputs {
   // A goal streak that `day` (a local day key) could still break; 0
   // once that day's goals are done.
   streak: { count: number; day: string } | null;
+  // Water (0153): today's total and the goal, null without a water goal.
+  // lastAt: when the last glass was logged, for the sip reminders.
+  // day: the local day ml is for; a saved one from yesterday counts as 0.
+  water: { ml: number; day: string; goal: WaterGoal; lastAt: number | null } | null;
 }
 
-const inputs: HoundInputs = { userId: null, level: null, progress: null, pending: [], bonus: null, streak: null };
+const inputs: HoundInputs = { userId: null, level: null, progress: null, pending: [], bonus: null, streak: null, water: null };
+
+// Sip reminders: every 2 hours, 10 AM to 6 PM, when the water goal's
+// switch is on. Their own ids, so the goal reminders' level doesn't
+// touch them.
+const SIP_SLOTS = [10 * 60, 12 * 60, 14 * 60, 16 * 60, 18 * 60];
+const SIP_PREFIX = 'hound-sip-';
 let timer: ReturnType<typeof setTimeout> | null = null;
 let lastSavedThrough: string | null = null;
 // One reschedule at a time, so two can't cancel each other's reminders.
@@ -68,10 +79,10 @@ let running: Promise<void> = Promise.resolve();
 const SAVED_INPUTS_KEY = 'hound:saved-inputs';
 
 function remember(patch: Partial<HoundInputs>): void {
-  if (!('bonus' in patch) && !('pending' in patch) && !('streak' in patch)) return;
+  if (!('bonus' in patch) && !('pending' in patch) && !('streak' in patch) && !('water' in patch)) return;
   AsyncStorage.setItem(
     SAVED_INPUTS_KEY,
-    JSON.stringify({ bonus: inputs.bonus, pending: inputs.pending, streak: inputs.streak }),
+    JSON.stringify({ bonus: inputs.bonus, pending: inputs.pending, streak: inputs.streak, water: inputs.water }),
   ).catch(() => {});
 }
 
@@ -171,13 +182,34 @@ function goalSentence(p: GoalProgress, asOf: string): string {
   return `As of ${asOf}: ${have}${unit}, ${progressLine(p).toLowerCase()}.${effortHint(p)}`;
 }
 
+// Today's water so far: 0 when what's saved is from another day.
+function waterToday(): number {
+  const w = inputs.water;
+  return w && w.day === localDayKey(new Date()) ? w.ml : 0;
+}
+
+function waterOpen(): boolean {
+  const w = inputs.water;
+  return !!w && waterToday() < w.goal.targetMl;
+}
+
+function waterSentence(asOf: string): string {
+  return `As of ${asOf}: ${progressText(waterToday(), inputs.water!.goal)} of water.`;
+}
+
 const TODAY_TITLES = ["Hound's on you", 'Still on you', "The Hound doesn't let go", 'Not done yet', 'Last call'];
 
 function todayMessage(slotIndex: number, slotCount: number, now: Date): { title: string; body: string } | null {
   const open = openGoals(inputs.progress ?? []);
   const pending = inputs.pending;
-  if (open.length === 0 && pending.length === 0) return null;
+  const water = waterOpen();
+  if (open.length === 0 && pending.length === 0 && !water) return null;
   const title = slotIndex === slotCount - 1 && slotCount > 1 ? 'Last call' : TODAY_TITLES[Math.min(slotIndex, TODAY_TITLES.length - 2)];
+  if (open.length === 0 && water) {
+    let body = waterSentence(timeLabel(now));
+    if (pending.length > 0) body += ` ${pending.length} ${pending.length === 1 ? 'thing is' : 'things are'} waiting on you.`;
+    return { title: 'Water break', body };
+  }
   if (open.length === 0) {
     const [first, ...rest] = pending;
     return { title: 'Still on your list today', body: rest.length > 0 ? `${first.label}, and ${rest.length} more.` : `${first.label}.` };
@@ -188,6 +220,7 @@ function todayMessage(slotIndex: number, slotCount: number, now: Date): { title:
   if (streak && streak.count > 0 && streak.day === localDayKey(now) && open.some((p) => p.goal.period === 'day')) {
     body += ` Keep your ${streak.count}-day streak going.`;
   }
+  if (water) body += ` And ${progressText(waterToday(), inputs.water!.goal)} of water so far.`;
   if (pending.length > 0) body += ` ${pending.length} ${pending.length === 1 ? 'thing is' : 'things are'} waiting on you.`;
   return { title, body };
 }
@@ -196,6 +229,7 @@ function tomorrowMessage(slotIndex: number): { title: string; body: string } | n
   const progress = inputs.progress ?? [];
   const daily = progress.filter((p) => p.goal.period === 'day').map((p) => shortGoal(p));
   const bonus = inputs.bonus;
+  if (inputs.water) daily.push(`${amountText(inputs.water.goal.targetMl, inputs.water.goal.units)} of water`);
   const goalsText = daily.length > 0 ? listText(daily.slice(0, 3)) : null;
   if (slotIndex === 0) {
     const parts: string[] = [];
@@ -227,10 +261,33 @@ async function schedule(id: string, at: Date, title: string, body: string): Prom
   });
 }
 
+async function scheduleSips(now: Date): Promise<void> {
+  const w = inputs.water;
+  if (!w || !w.goal.sipReminders) return;
+  const ml = waterToday();
+  const metToday = ml >= w.goal.targetMl;
+  for (const day of [0, 1]) {
+    if (day === 0 && metToday) continue;
+    for (let i = 0; i < SIP_SLOTS.length; i++) {
+      const at = atMinutes(day, SIP_SLOTS[i]);
+      if (at.getTime() - now.getTime() < MIN_LEAD_MS) continue;
+      // Not within an hour of the last glass.
+      if (day === 0 && ml > 0 && w.lastAt !== null && at.getTime() - w.lastAt < 60 * 60 * 1000) continue;
+      const body =
+        day === 0
+          ? `${progressText(ml, w.goal)} so far today. Time for some water.`
+          : i === 0
+            ? `New day: ${amountText(w.goal.targetMl, w.goal.units)} of water to go.`
+            : 'Time for some water.';
+      await schedule(`${SIP_PREFIX}${localDayKey(at)}-${i}`, at, 'Water break', body);
+    }
+  }
+}
+
 async function reschedule(): Promise<void> {
   if (!supported || inputs.level === null) return;
   await cancelAllHound();
-  if (inputs.level === 'off' || !(await permissionGranted())) return;
+  if (!(await permissionGranted())) return;
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
@@ -239,8 +296,11 @@ async function reschedule(): Promise<void> {
     });
   }
 
-  const slots = SLOTS[inputs.level];
   const now = new Date();
+  await scheduleSips(now);
+  if (inputs.level === 'off') return;
+
+  const slots = SLOTS[inputs.level];
   for (const [day, compose] of [
     [0, (i: number) => todayMessage(i, slots.length, now)],
     [1, (i: number) => tomorrowMessage(i)],

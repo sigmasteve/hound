@@ -13,6 +13,7 @@ import { useGoalHistory, type GoalHistory } from '../goals/useGoalHistory';
 import { GoalStepper } from '../components/GoalStepper';
 import { useGoals } from '../goals/GoalsContext';
 import { HOUND_LEVELS } from '../goals/hound';
+import { WaterGoalCard } from '../water/WaterCards';
 import {
   ACTIVITIES,
   ACTIVITY_NAMES,
@@ -110,6 +111,8 @@ export function GoalsScreen() {
         )}
         {goals.length >= MAX_GOALS && <Text style={styles.footNote}>That&rsquo;s the most goals you can have at once.</Text>}
       </Card>
+
+      <WaterGoalCard />
 
       {adding && (
         <NewGoalCard

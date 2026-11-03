@@ -21,6 +21,7 @@ import {
   TrophyIcon,
   UserPlusIcon,
   XIcon,
+  DropIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { LoadingView } from '../components/LoadingView';
@@ -158,6 +159,9 @@ import { useGoalStreak } from '../goals/useGoalStreak';
 import { buyStreakShield } from '../goals/goalStreakApi';
 import { updateHound } from '../goals/hound';
 import { GoalsSheet } from '../home/GoalsSheet';
+import { WaterRow, WaterSheet } from '../water/WaterCards';
+import { useWater } from '../water/WaterContext';
+import { amountNumber, amountText, glassName, type WaterEntry } from '../water/water';
 import { KennelCard } from '../components/KennelCard';
 import { getKennel, type Kennel } from '../kennel/kennelApi';
 import { BoneDigCard } from '../components/BoneDigCard';
@@ -914,7 +918,7 @@ export function HomeScreen({
   const [nudgesDismissedAt, setNudgesDismissedAt] = useState<string | null>(null);
   // Which tile's sheet is open (TodayTiles.tsx), and how the goals tile
   // looks (Settings → Today).
-  const [openTile, setOpenTile] = useState<'goals' | 'hound' | 'needs' | 'challenges' | 'week' | null>(null);
+  const [openTile, setOpenTile] = useState<'goals' | 'water' | 'hound' | 'needs' | 'challenges' | 'week' | null>(null);
   const goalsTileStyle = useGoalsTileStyle();
   // Your rank among everyone on Hound today (0027_daily_step_totals.sql),
   // in Week in review's spot Thursday to Sunday.
@@ -1299,6 +1303,43 @@ export function HomeScreen({
   // Your hound (0104_kennel.sql), re-read when the goal day lands so its
   // mood updates straight away.
   const [kennel, setKennel] = useState<Kennel | null>(null);
+
+  // Water: each glass logged gets a toast with Undo, replacing the last
+  // one rather than queueing behind it. Built once the new total shows.
+  const water = useWater();
+  const [waterToast, setWaterToast] = useState<WaterEntry | null>(null);
+  const waterAdded = useCallback((entry: WaterEntry) => setWaterToast(entry), []);
+  useEffect(() => {
+    if (!waterToast || !water.goal) return;
+    const entry = waterToast;
+    const goal = water.goal;
+    setWaterToast(null);
+    const met = water.todayMl >= goal.targetMl;
+    const text = met
+      ? `Water goal met. ${kennel?.name ? `${kennel.name}’s` : 'Your hound’s'} bowl is full.`
+      : `Added a ${glassName(entry.ml, goal.units)}. ${amountNumber(water.todayMl, goal.units)} of ${amountText(goal.targetMl, goal.units)}.`;
+    setToasts((cur) => [
+      ...cur.filter((t) => !t.id.startsWith('water-')),
+      { id: `water-${entry.id}`, text, Icon: DropIcon, action: 'Undo', onPress: () => water.remove(entry.id) },
+    ]);
+  }, [waterToast, water, kennel?.name]);
+
+  // A new water day can earn a water badge.
+  useEffect(() => {
+    if (!water.claimedDay) return;
+    checkAchievements()
+      .then((earned) => {
+        for (const a of earned) {
+          pushToast({
+            id: `achievement-${a.id}`,
+            text: `Achievement unlocked: ${a.name}`,
+            Icon: TrophyIcon,
+            onPress: () => navRef.current.onOpenAchievements(),
+          });
+        }
+      })
+      .catch(() => {});
+  }, [water.claimedDay, pushToast]);
   // Your Journey, for its tile under the two-by-two; null for none.
   const [journey, setJourney] = useState<MyJourney | null>(null);
   // A stop you've just reached on it, for its pop-up.
@@ -2124,6 +2165,7 @@ export function HomeScreen({
             needsSetup={!goalsSet}
             onOpen={() => setOpenTile('goals')}
             onSetGoals={() => setSetupOpen(true)}
+            water={<WaterRow onOpen={() => setOpenTile('water')} onAdded={waterAdded} />}
           />
         )}
         {/* Two to a row, in rows of their own: a wrapping row let a tile
@@ -2183,6 +2225,11 @@ export function HomeScreen({
           }}
           onShare={goalsSet ? () => setSharing({ kind: 'goals', progress: goalProgress, streak: goalStreak }) : null}
         />
+      </TileSheet>
+    )}
+    {openTile === 'water' && water.goal && (
+      <TileSheet title="Water" onClose={closeTile}>
+        <WaterSheet onAdded={waterAdded} onEdit={() => sheetGoTab('goals')} />
       </TileSheet>
     )}
     {openTile === 'hound' && kennel && (

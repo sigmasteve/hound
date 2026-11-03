@@ -85,6 +85,12 @@ interface GoalRow {
   label: string | null;
 }
 
+interface WaterGoalRow {
+  user_id: string;
+  target_ml: number;
+  units: string;
+}
+
 interface PushTokenRow {
   user_id: string;
   expo_push_token: string;
@@ -125,8 +131,15 @@ function goalPhrase(g: GoalRow): string {
   return `${Math.round(n)} ${n === 1 ? 'workout' : 'workouts'}`;
 }
 
-function reminderBody(goals: GoalRow[]): string {
+// "8 cups of water", "2,000 ml of water" (0153).
+function waterPhrase(w: WaterGoalRow): string {
+  if (w.units === 'ml') return `${Math.round(w.target_ml).toLocaleString('en-US')} ml of water`;
+  return `${Math.round(w.target_ml / 236.588)} cups of water`;
+}
+
+function reminderBody(goals: GoalRow[], water: WaterGoalRow | undefined): string {
   const daily = goals.filter((g) => g.period === 'day').slice(0, 3).map(goalPhrase);
+  if (water) daily.push(waterPhrase(water));
   if (daily.length === 0) return "Hound hasn't seen you today. Check in before the day's over.";
   const list = daily.length === 1 ? daily[0] : `${daily.slice(0, -1).join(', ')} and ${daily[daily.length - 1]}`;
   return `Hound hasn't seen you today. ${list} ${daily.length === 1 && !/s$/.test(list) ? 'is' : 'are'} still on the table.`;
@@ -226,7 +239,7 @@ Deno.serve(async (req) => {
   // Hounding off, or the phone already has today covered: skip. No row
   // means the default, gentle, with nothing scheduled.
   const ids = candidates.map((p) => p.id);
-  const [{ data: houndRows }, { data: goalRows }] = await Promise.all([
+  const [{ data: houndRows }, { data: goalRows }, { data: waterRows }] = await Promise.all([
     supabase.from('hound_settings').select('user_id, level, scheduled_through').in('user_id', ids).returns<HoundRow[]>(),
     supabase
       .from('goals')
@@ -235,7 +248,10 @@ Deno.serve(async (req) => {
       .is('archived_at', null)
       .order('sort')
       .returns<GoalRow[]>(),
+    // Before 0153 this table isn't there: no rows, and no water named.
+    supabase.from('water_goals').select('user_id, target_ml, units').in('user_id', ids).returns<WaterGoalRow[]>(),
   ]);
+  const waterByUser = new Map((waterRows ?? []).map((w) => [w.user_id, w]));
   const houndByUser = new Map((houndRows ?? []).map((h) => [h.user_id, h]));
   const goalsByUser = new Map<string, GoalRow[]>();
   for (const g of goalRows ?? []) {
@@ -273,7 +289,7 @@ Deno.serve(async (req) => {
   const emailSends: Promise<void>[] = [];
 
   for (const profile of profiles) {
-    const body = reminderBody(goalsByUser.get(profile.id) ?? []);
+    const body = reminderBody(goalsByUser.get(profile.id) ?? [], waterByUser.get(profile.id));
     if (profile.notify_push_enabled) {
       for (const to of tokensByUser.get(profile.id) ?? []) pushes.push({ to, body });
     }

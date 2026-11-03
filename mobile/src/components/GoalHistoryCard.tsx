@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { WaterDayDrop } from '../water/WaterDayDrop';
 import { CaretLeftIcon } from 'phosphor-react-native';
 import { Text } from './Text';
 import { Card } from './Card';
@@ -119,6 +120,11 @@ export function GoalHistoryCard({
                       }`}
                     >
                       <Text style={[styles.cellText, textStyle]}>{n}</Text>
+                      {!future && (
+                        <View style={styles.cellDrop} pointerEvents="none">
+                          <WaterDayDrop day={day} size={6} />
+                        </View>
+                      )}
                     </Pressable>
                   );
                 })}
@@ -206,6 +212,7 @@ function makeStyles(colors: Palette) {
     gridRow: { flexDirection: 'row', gap: 6 },
     weekday: { flex: 1, textAlign: 'center', fontFamily: font.heading, fontSize: 10.5, color: withAlpha(colors.text, 0.5) },
     cell: { flex: 1, aspectRatio: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    cellDrop: { position: 'absolute', top: 3, right: 3 },
     cellText: { fontSize: 11.5, fontFamily: font.heading },
     cellFuture: { backgroundColor: 'transparent' },
     cellNoData: { backgroundColor: withAlpha(colors.text, 0.04) },

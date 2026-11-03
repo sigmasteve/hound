@@ -53,7 +53,7 @@ export function AchievementUnlockedModal({
                     <Text style={styles.listName} numberOfLines={1}>
                       {a.name}
                     </Text>
-                    <Text style={styles.listBones}>+{a.bones}</Text>
+                    {a.bones > 0 && <Text style={styles.listBones}>+{a.bones}</Text>}
                     {onShare && (
                       <Pressable onPress={() => onShare(a)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Share ${a.name}`}>
                         <ShareNetworkIcon size={18} color={colors.accent} />
@@ -65,12 +65,15 @@ export function AchievementUnlockedModal({
             </View>
           )}
 
-          <View style={styles.rewardRow}>
-            <BoneIcon size={16} color={color.accent} weight="fill" />
-            <Text style={styles.reward}>
-              +{total.toLocaleString()} {currencyName}
-            </Text>
-          </View>
+          {/* Water badges (0153) pay nothing. */}
+          {total > 0 && (
+            <View style={styles.rewardRow}>
+              <BoneIcon size={16} color={color.accent} weight="fill" />
+              <Text style={styles.reward}>
+                +{total.toLocaleString()} {currencyName}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.buttons}>
             {single && onShare ? (
