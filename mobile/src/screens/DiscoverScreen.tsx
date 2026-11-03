@@ -64,7 +64,9 @@ export function DiscoverScreen({
   useFocusEffect(
     useCallback(() => {
       listGlobalChallenges()
-        .then((all) => setGlobals(all.filter((c) => canJoin(c) || c.joined)))
+        // Only ones you can still join: not ones you're already in, and
+        // not ones whose joining has closed.
+        .then((all) => setGlobals(all.filter((c) => canJoin(c))))
         .catch(() => setGlobals([]));
       getMyInterests()
         .then((i) => setInterests(i ?? []))
