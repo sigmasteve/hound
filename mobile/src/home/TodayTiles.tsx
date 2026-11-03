@@ -57,7 +57,8 @@ export function Tile({
       accessibilityLabel={accessibilityLabel}
     >
       <View style={styles.labelRow}>
-        <Text style={styles.label} numberOfLines={1}>
+        {/* Shrinks a little rather than cutting off at a larger text size. */}
+        <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
           {label}
         </Text>
         {badge !== undefined && badge > 0 && (
