@@ -12,6 +12,8 @@ export interface ToastMessage {
   Icon?: React.ComponentType<any>;
   // Where tapping it goes, if anywhere.
   onPress?: () => void;
+  // A word for what tapping does ("Undo"), shown in place of the arrow.
+  action?: string;
 }
 
 const VISIBLE_MS = 4500;
@@ -63,7 +65,12 @@ export function Toast({ message, brief = false, onDone }: { message: ToastMessag
         <Text style={styles.text} numberOfLines={2}>
           {message.text}
         </Text>
-        {message.onPress && <CaretRightIcon size={14} color={withAlpha(colors.text, 0.5)} />}
+        {message.onPress &&
+          (message.action ? (
+            <Text style={styles.action}>{message.action}</Text>
+          ) : (
+            <CaretRightIcon size={14} color={withAlpha(colors.text, 0.5)} />
+          ))}
       </Pressable>
     </Animated.View>
   );
@@ -91,5 +98,6 @@ function makeStyles(colors: Palette) {
       elevation: 6,
     },
     text: { flex: 1, fontFamily: font.heading, fontSize: 14, color: colors.text },
+    action: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.accentActive },
   });
 }

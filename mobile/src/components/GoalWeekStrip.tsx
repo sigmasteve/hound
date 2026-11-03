@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { WaterDayDrop } from '../water/WaterDayDrop';
 import { CheckIcon, ShieldCheckIcon } from 'phosphor-react-native';
 import { Text } from './Text';
 import { useTheme } from '../theme/ThemeContext';
@@ -51,6 +52,7 @@ export function GoalWeekStrip({
           >
             <Text style={[styles.label, (isToday || isSelected) && { color: colors.accentActive }]}>{label}</Text>
             <DayRing summary={d} allDone={allDone} shielded={shielded} />
+            <WaterDayDrop day={d.day} reserve />
           </Pressable>
         );
       })}

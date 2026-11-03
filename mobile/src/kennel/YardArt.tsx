@@ -117,7 +117,11 @@ export function YardScene({
   season,
   guest,
   onGesture,
+  water,
 }: {
+  // Today's water as a share of the water goal (0153): the bowl fills
+  // through the day. Undefined or null: the bowl as it's drawn.
+  water?: number | null;
   yard: Yard;
   hound: YardHound;
   width: number;
@@ -345,9 +349,16 @@ export function YardScene({
     const id = spots[spot];
     if (!id) return null;
     const p = SPOT_AT[spot];
+    const fill = spot === 'bowl' && water != null ? Math.max(0, Math.min(1, water)) : 0;
     return (
       <G key={spot} transform={`translate(${p.x} ${p.y})`}>
         <YardItemArt id={id} name={hound.name} time={t} />
+        {fill > 0 && (
+          <G>
+            <Ellipse cx={0} cy={-10 + (1 - fill) * 1.5} rx={6 + 6.5 * fill} ry={1.6 + 2 * fill} fill={night ? '#3a86b8' : '#5ec8f2'} />
+            <Ellipse cx={-3 * fill} cy={-11 + (1 - fill) * 1.5} rx={3 * fill} ry={0.8 * fill} fill="#ffffff" opacity={0.6} />
+          </G>
+        )}
       </G>
     );
   };

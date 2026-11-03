@@ -4,6 +4,8 @@ import {
   CalendarStarIcon,
   CrownIcon,
   CrownSimpleIcon,
+  DropHalfIcon,
+  DropIcon,
   FireIcon,
   FlagCheckeredIcon,
   FootprintsIcon,
@@ -16,6 +18,7 @@ import {
   StarIcon,
   TrophyIcon,
   UsersThreeIcon,
+  WavesIcon,
 } from 'phosphor-react-native';
 
 // Badge glyph per achievement id (0072_achievements.sql's seeded rows).
@@ -39,6 +42,10 @@ export const ACHIEVEMENT_ICONS: Record<string, React.ComponentType<any>> = {
   streak_30: CalendarStarIcon,
   level_5: StarIcon,
   level_10: CrownIcon,
+  // 0153's water badges.
+  water_first: DropIcon,
+  water_7: DropHalfIcon,
+  water_30: WavesIcon,
 };
 
 export const DEFAULT_ACHIEVEMENT_ICON: React.ComponentType<any> = MedalIcon;

@@ -6,7 +6,8 @@ import type { ChallengeDayRange } from './streak';
 // line of their own; a day counts only when every item is ticked. Pure
 // computation here, same split as seventyFive.ts / seventyFiveApi.ts.
 
-export type ChecklistItemKind = 'manual' | 'workout' | 'mindfulness' | 'steps';
+// 'water' (0153): ticks on days your water goal is met.
+export type ChecklistItemKind = 'manual' | 'workout' | 'mindfulness' | 'steps' | 'water';
 
 export interface ChecklistItem {
   id: string;
@@ -56,7 +57,7 @@ export const CHECKLIST_PRESETS: ChecklistPreset[] = [
   { label: 'Steps', kind: 'steps' },
   { label: 'Mindfulness', kind: 'mindfulness' },
   { label: 'Read or learn something', kind: 'manual' },
-  { label: 'Drink enough water', kind: 'manual' },
+  { label: 'Drink enough water', kind: 'water' },
   { label: 'No junk food', kind: 'manual' },
   { label: 'Sleep 7+ hours', kind: 'manual' },
   { label: 'Stretch', kind: 'manual' },
@@ -96,6 +97,8 @@ export function autoHint(kind: ChecklistItemKind): string | null {
       return 'Auto · workouts';
     case 'mindfulness':
       return 'Auto · yoga, meditation';
+    case 'water':
+      return 'Auto · water goal';
     default:
       return null;
   }

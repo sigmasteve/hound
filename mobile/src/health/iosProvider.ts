@@ -46,6 +46,9 @@ const READ_TYPES = [
   'HKWorkoutTypeIdentifier',
 ] as const;
 
+// Not in READ_TYPES: asked for only once someone sets a water goal.
+const WATER_TYPE = 'HKQuantityTypeIdentifierDietaryWater' as const;
+
 function startOfDay(d: Date): Date {
   const copy = new Date(d);
   copy.setHours(0, 0, 0, 0);
@@ -144,6 +147,30 @@ export const iosHealthProvider: HealthProvider = {
     } catch {
       return 'denied';
     }
+  },
+
+  // Water (0153): asked for on its own, the first time someone sets a
+  // water goal, so nobody else is asked. Apple never says whether a read
+  // was allowed, so a request that went through counts as yes.
+  async requestWaterAccess(): Promise<boolean> {
+    try {
+      await requestAuthorization({ toRead: [WATER_TYPE], toShare: [] });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  async getDailyWaterSince(since: Date): Promise<Map<string, number>> {
+    const start = startOfDay(since);
+    const buckets = await orDefault(
+      queryStatisticsCollectionForQuantity(WATER_TYPE, ['cumulativeSum'], start, { day: 1 }, {
+        filter: { date: { startDate: start, endDate: new Date() } },
+        unit: 'mL',
+      }),
+      [],
+    );
+    return totalsByDay(buckets, start);
   },
 
   async getSnapshot(): Promise<HealthSnapshot> {

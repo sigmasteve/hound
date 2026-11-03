@@ -107,6 +107,15 @@ export const mockProvider: HealthProvider = {
     };
   },
 
+  // Sample data has no other water app.
+  async getDailyWaterSince(): Promise<Map<string, number>> {
+    return new Map();
+  },
+
+  async requestWaterAccess(): Promise<boolean> {
+    return true;
+  },
+
   async getStepsSince(since: Date): Promise<number> {
     // Roughly 600 steps an hour, so a sample-data turn fills up at a
     // believable pace.

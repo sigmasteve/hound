@@ -142,7 +142,11 @@ export function GoalsTile({
   needsSetup,
   onOpen,
   onSetGoals,
+  water,
 }: {
+  // The water row (src/water/WaterCards.tsx), under the goals: water
+  // isn't one of them, so it's never a ring or counted in "1 of 3".
+  water?: React.ReactNode;
   progress: GoalProgress[];
   streak: GoalStreak | null;
   tileStyle: GoalsTileStyle;
@@ -239,6 +243,8 @@ export function GoalsTile({
           })}
         </View>
       )}
+
+      {water}
 
       {(more > 0 || needsSetup) && (
         <View style={styles.goalsFoot}>

@@ -99,4 +99,12 @@ export interface HealthProvider {
   // Android only: opens Health Connect, where sharing and the order apps
   // are counted in are changed.
   openSettings?(): void;
+  // Water (0153): millilitres logged in Health by other apps, per local
+  // day ('YYYY-MM-DD') from `since` through today. Hound never writes
+  // water to Health, so all of it is someone else's. Empty when it can't
+  // be read (no permission, or this build can't ask for it).
+  getDailyWaterSince?(since: Date): Promise<Map<string, number>>;
+  // Asks to read water, the first time someone sets a water goal. False
+  // when it can't be asked on this phone yet.
+  requestWaterAccess?(): Promise<boolean>;
 }

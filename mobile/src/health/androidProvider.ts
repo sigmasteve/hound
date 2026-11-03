@@ -320,6 +320,33 @@ export const androidHealthProvider: HealthProvider = {
     return out;
   },
 
+  // Water (0153): read only once Health Connect has allowed it, which
+  // needs READ_HYDRATION in the app's manifest. This build doesn't have
+  // it, so nothing is asked and nothing is read until the next native
+  // build adds it (and requestWaterAccess asks for it).
+  async getDailyWaterSince(since: Date): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    try {
+      if (!(await ensureInitialized())) return out;
+      const granted = await getGrantedPermissions();
+      if (!granted.some((g) => 'recordType' in g && g.recordType === 'Hydration' && g.accessType === 'read')) return out;
+      const today = dateOnly(new Date());
+      for (let cursor = dateOnly(since); cursor.getTime() <= today.getTime(); cursor.setDate(cursor.getDate() + 1)) {
+        const end = new Date(cursor);
+        end.setDate(end.getDate() + 1);
+        const result = await aggregateRecord({
+          recordType: 'Hydration',
+          timeRangeFilter: { operator: 'between', startTime: cursor.toISOString(), endTime: end.toISOString() },
+        });
+        const ml = (result as any)?.VOLUME_TOTAL?.inMilliliters ?? 0;
+        if (ml > 0) out.set(dateKey(cursor), ml);
+      }
+    } catch {
+      // Same as every read here: nothing rather than an error.
+    }
+    return out;
+  },
+
   async canReadNow(): Promise<boolean> {
     try {
       if (!(await ensureInitialized())) return false;

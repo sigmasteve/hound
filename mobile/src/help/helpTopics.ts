@@ -217,6 +217,20 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       tip: 'Hound checks your progress in the background every so often, so reminders stop once you hit a goal. Your phone decides how often, so a reminder can still say what time its numbers are from.',
     },
     {
+      id: 'water',
+      section: 'basics',
+      title: 'Water',
+      summary: 'Log glasses of water with one tap.',
+      steps: [
+        'Add a water goal under You → Goals → Water: 8 cups a day to start, from 4 to 16. You can show it in cups and ounces or in millilitres.',
+        'Tap the blue + on the Goals tile on Today to log a glass. Tap the water row to see the big glass, change the glass size (a cup, a bottle or a big bottle), and see today’s log and this week.',
+        'Logged one by mistake? Tap Undo on the message that pops up, or Remove it in the water sheet.',
+        'Water other apps put in Apple Health counts too.',
+        'Water sits beside your goals: it doesn’t change your goal day, streak or Bones. Water days earn their own badges and fill your hound’s bowl in the Yard.',
+        'Turn on Sip reminders for a nudge every 2 hours from 10 AM to 6 PM, until your goal’s met.',
+      ],
+    },
+    {
       id: 'daily-bonus',
       section: 'rewards',
       title: 'Daily bonus and streak',

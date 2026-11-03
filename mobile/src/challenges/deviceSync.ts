@@ -7,7 +7,10 @@ import { isHoundCard, planBingoMarks, type BingoDay } from './houndBingo';
 import { goalProgress } from '../goals/goals';
 import { listGoals } from '../goals/goalsApi';
 import { signedInUserId } from '../lib/supabase';
-import { recordSeventyFiveWorkouts } from './seventyFiveApi';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { recordSeventyFiveWorkouts, setSelfReportCheckin } from './seventyFiveApi';
+import { getWaterSnapshot } from '../water/waterSnapshot';
+import { GALLON_ML } from '../water/water';
 import { isMindfulnessWorkout } from './checklist';
 import { listChecklistItems, recordDeviceTicks } from './checklistApi';
 import { getChallengeDays, localDayKey as dateKey, workoutCounts } from './challengeDays';
@@ -319,9 +322,28 @@ export async function syncSeventyFiveFromDevice(challenge: Challenge, health: He
         return recordSeventyFiveWorkouts(challenge.id, day, workout1Done, workout2OutdoorDone);
       }),
     );
+    await tickSeventyFiveWater(challenge.id, days.firstDay, days.lastDay, todayKey);
   } catch {
     // Best-effort, same reasoning as syncChallengeProgressFromDevice's own
     // catch above.
+  }
+}
+
+// 75 Day's water item ticks itself on a day you log a gallon (0153), once
+// per day: this phone remembers it ticked it, so a tick someone undoes by
+// hand stays undone.
+async function tickSeventyFiveWater(challengeId: string, firstDay: string, lastDay: string, todayKey: string): Promise<void> {
+  const water = getWaterSnapshot();
+  for (const [day, ml] of water.byDay) {
+    if (ml < GALLON_ML || day < firstDay || day > lastDay || day > todayKey) continue;
+    const key = `75water:${challengeId}:${day}`;
+    try {
+      if (await AsyncStorage.getItem(key)) continue;
+      await setSelfReportCheckin(challengeId, 'water', true, day);
+      await AsyncStorage.setItem(key, '1');
+    } catch {
+      // Next sync tries again.
+    }
   }
 }
 
@@ -342,7 +364,7 @@ export async function syncChecklistFromDevice(challenge: Challenge, health: Heal
     if (todayKey < days.firstDay) return;
     const [y, m, d] = days.firstDay.split('-').map(Number);
     const needSteps = items.some((i) => i.kind === 'steps');
-    const needWorkouts = items.some((i) => i.kind !== 'steps');
+    const needWorkouts = items.some((i) => i.kind === 'workout' || i.kind === 'mindfulness');
     const [daily, workouts] = await Promise.all([
       needSteps ? health.getDailyStepsSince(new Date(y, m - 1, d)) : Promise.resolve([] as DailyStepsWithDate[]),
       needWorkouts ? health.getRecentWorkouts(200) : Promise.resolve([] as WorkoutSample[]),
@@ -363,6 +385,14 @@ export async function syncChecklistFromDevice(challenge: Challenge, health: Heal
       for (const i of items) {
         if (i.kind === 'workout') add(day, i.id);
         else if (i.kind === 'mindfulness' && isMindfulnessWorkout(w.name)) add(day, i.id);
+      }
+    }
+    // Water days: your own water goal, met (0153).
+    const water = getWaterSnapshot();
+    if (water.goal) {
+      for (const [day, ml] of water.byDay) {
+        if (ml < water.goal.targetMl) continue;
+        for (const i of items) if (i.kind === 'water') add(day, i.id);
       }
     }
     await Promise.all(Array.from(earned.entries()).map(([day, ids]) => recordDeviceTicks(challenge.id, day, Array.from(ids))));
