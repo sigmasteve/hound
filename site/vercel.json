@@ -4,6 +4,7 @@
     { "source": "/c/:code", "destination": "/c.html" },
     { "source": "/get", "destination": "/download.html" },
     { "source": "/whats-new", "destination": "/whats-new.html" },
+    { "source": "/guide", "destination": "/guide.html" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/delete-account", "destination": "/delete-account.html" }
