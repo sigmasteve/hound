@@ -37,7 +37,7 @@ select public.equip_kennel_item(:'today', 'head', 'hat_party');
 select is((select head_id from public.my_kennel(:'today')), 'hat_party', 'An owned hat goes on');
 select is((select bones_balance from public.my_kennel(:'today')), 90, 'The treat and the hat came off the balance');
 
-select throws_ok('update public.kennels set hearts = 3', '42501', null, 'Nobody can write their own kennel');
+select throws_ok('update public.kennels set hearts = 3 where true', '42501', null, 'Nobody can write their own kennel');
 
 select public.set_kennel(:'today', null, 'classic');
 select is((select hearts from public.my_kennel(:'today')), 3, 'Classic care starts with full hearts');

@@ -13,7 +13,7 @@ select is((select shields from public.buy_streak_shield()), 1, 'A shield can be 
 select is((select shields from public.buy_streak_shield()), 2, 'A second one too');
 select throws_ok('select * from public.buy_streak_shield()', 'You already have 2 shields, the most you can hold.',
   'You can hold at most 2');
-select throws_ok('update public.goal_streaks set shields = 2', '42501', null, 'Nobody can give themselves shields');
+select throws_ok('update public.goal_streaks set shields = 2 where true', '42501', null, 'Nobody can give themselves shields');
 reset role;
 
 select is((select bones_balance from public.profiles where id = :'ann'), 20, 'Each shield cost 50 Bones');

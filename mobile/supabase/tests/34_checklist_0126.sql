@@ -129,13 +129,13 @@ select is((select count(*)::int from public.activity_events where challenge_id =
 -- ── Admin sets the cap ───────────────────────────────────────────────
 select tests.sign_in(:'bob');
 set local role authenticated;
-update public.checklist_settings set max_items = 2;
+update public.checklist_settings set max_items = 2 where true;
 reset role;
 select is((select max_items from public.checklist_settings), 6, 'Bob can''t change the cap');
 
 select tests.sign_in(:'zed');
 set local role authenticated;
-update public.checklist_settings set max_items = 2;
+update public.checklist_settings set max_items = 2 where true;
 select is((select max_items from public.checklist_settings), 2, 'Zed can');
 
 -- and publishes a global one with a short list.

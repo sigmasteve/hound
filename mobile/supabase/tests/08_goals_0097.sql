@@ -11,7 +11,7 @@ select is(public.ensure_starter_goals(8000, 2.5), true, 'A new account is report
 select is((select count(*)::int from public.goals), 3, 'Starter goals: three of them');
 select is((select target from public.goals where metric = 'steps'), 8000::numeric,
   'The steps goal keeps the phone''s own setting');
-update public.goals set archived_at = now();
+update public.goals set archived_at = now() where true;
 select public.ensure_starter_goals(10000, 3);
 select is((select count(*)::int from public.goals where archived_at is null), 0,
   'Removing every goal does not bring the starters back');
