@@ -489,9 +489,14 @@ export function YardScene({
   // so swiping inside it never scrolls the page. A swipe throws the toy
   // that way; straight up or down throws it a random way; a tap on the
   // grass does nothing.
+  // Only a touch that starts in the bottom half throws the toy: the top
+  // half (sky and fence) is left to the page, so a swipe there still goes
+  // across to the Porch.
+  const sceneHeight = useRef(0);
+  sceneHeight.current = H * k;
   const sweep = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: (e) => e.nativeEvent.locationY >= sceneHeight.current / 2,
       onPanResponderGrant: () => gestureRef.current?.(true),
       onPanResponderTerminationRequest: () => false,
       onPanResponderRelease: (_, g) => {
