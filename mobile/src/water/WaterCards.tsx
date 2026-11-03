@@ -202,6 +202,22 @@ export function WaterSheet({ onAdded, onEdit }: { onAdded: (entry: WaterEntry) =
         </View>
       </View>
 
+      <View style={{ gap: 8 }}>
+        <Text style={styles.label}>SHOW IT IN</Text>
+        <SegmentedControl
+          options={[
+            { value: 'cups', label: 'Cups and ounces' },
+            { value: 'ml', label: 'Millilitres' },
+          ]}
+          value={goal.units}
+          onChange={(u) =>
+            water
+              .setGoal(switchUnits(goal, u as WaterGoal['units']))
+              .catch((e) => Alert.alert('Couldn’t change that', e instanceof Error ? e.message : 'Try again.'))
+          }
+        />
+      </View>
+
       <Text style={styles.note}>
         Water from other apps in Health counts too. Water days earn their own badges and fill your hound’s bowl in the Yard; they
         don’t change your goal day or streak.
