@@ -8,6 +8,7 @@ import {
   HouseIcon,
   MedalIcon,
   PlusCircleIcon,
+  MagnifyingGlassIcon,
 } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -95,9 +96,12 @@ function placeholderFinishedCard(c: Challenge): ChallengeCard {
 export function ChallengesScreen({
   onOpenChallenge,
   onCreate,
+  onDiscover,
 }: {
   onOpenChallenge: (challengeId: string) => void;
   onCreate: () => void;
+  // K-01: search and filter challenges to join or start.
+  onDiscover?: () => void;
 }) {
   const { user } = useAuth();
   const { colors, text } = useTheme();
@@ -437,6 +441,12 @@ export function ChallengesScreen({
         <Text style={text.h2}>Challenges</Text>
         <Button label="New challenge" variant="primary" small icon={<PlusCircleIcon size={14} color={color.accent} />} onPress={onCreate} />
       </View>
+      {onDiscover && (
+        <Pressable onPress={onDiscover} style={styles.findBar} accessibilityRole="button" accessibilityLabel="Find a challenge">
+          <MagnifyingGlassIcon size={18} color={withAlpha(colors.text, 0.55)} />
+          <Text style={styles.findText}>Find a challenge: football, marathon, bingo…</Text>
+        </Pressable>
+      )}
 
       {invitesLoading
         ? null
@@ -717,6 +727,19 @@ function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 14, paddingBottom: 48 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 },
+    // K-01: opens Discover.
+    findBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      minHeight: 46,
+      paddingHorizontal: 14,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.text, 0.1),
+    },
+    findText: { flex: 1, fontSize: 14, color: withAlpha(colors.text, 0.55) },
     inviteCard: {
       flexDirection: 'row',
       gap: 12,
