@@ -32,6 +32,8 @@ import { huntKindName } from '../challenges/present';
 import { AppVersionsCard } from '../components/AppVersionsCard';
 import { DeveloperToolsCard } from '../components/DeveloperToolsCard';
 import { GoalsAdminCard } from '../components/GoalsAdminCard';
+import { WaterAdminCard } from '../components/WaterAdminCard';
+import { getWaterOverview } from '../admin/waterOverview';
 import { EngagementAdminCard } from '../components/EngagementAdminCard';
 import { AdsAdminCard } from '../components/AdsAdminCard';
 import { ChecklistAdminCard } from '../components/ChecklistAdminCard';
@@ -116,6 +118,8 @@ export function AdminScreen({
   const [behindCount, setBehindCount] = useState(0);
   const [versionsSummary, setVersionsSummary] = useState<string | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  // The Water fold's line: how many have a water goal (0154).
+  const [waterSummary, setWaterSummary] = useState<string | null>(null);
   // Where the App versions fold sits, so "Versions" in Needs you can
   // scroll to it as it opens: it's below Engagement, off the screen.
   const scrollRef = useRef<ScrollView>(null);
@@ -125,6 +129,9 @@ export function AdminScreen({
       if (!user?.isAdmin) return;
       listTrashTalkReports()
         .then((r) => setReportCount(r.length))
+        .catch(() => {});
+      getWaterOverview()
+        .then((w) => setWaterSummary(`${w.withGoal} with a water goal`))
         .catch(() => {});
       listActiveApps(14)
         .then((apps) => {
@@ -640,6 +647,9 @@ export function AdminScreen({
                 </View>
                 <AdminFold title="Goals" summary="Who sets goals and hits them">
                   <GoalsAdminCard />
+                </AdminFold>
+                <AdminFold title="Water" summary={waterSummary ?? 'Who tracks water'}>
+                  <WaterAdminCard />
                 </AdminFold>
                 <AdminFold title="Push reach" summary="Who pushes can reach">
                   <PushReachCard />
