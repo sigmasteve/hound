@@ -1132,7 +1132,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             />
             {zone === 0 ? (
               <>
-            <GardenCard state={garden} currencyName={currencyName} />
+            <GardenCard state={garden} currencyName={currencyName} onShort={offerMore} />
             {/* The Yard (0148): a fixed spot for everything, more spots as the
                 hound ranks up, and trophies that can only be won. */}
             {yard && (
