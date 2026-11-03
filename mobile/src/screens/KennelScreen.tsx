@@ -52,6 +52,9 @@ import { TRICKS, isTrick, type TrickId } from '../kennel/tricks';
 import { useWater } from '../water/WaterContext';
 import { useHoundWalks } from '../walks/useHoundWalks';
 import { WalksTab } from '../walks/WalksTab';
+import { useGarden } from '../garden/useGarden';
+import { GardenCard } from '../garden/GardenCard';
+import { plantStage } from '../garden/garden';
 import { getYard, placeYardItem, setYardTrophies, type Yard } from '../kennel/yardApi';
 import {
   PORCH_ITEMS,
@@ -129,6 +132,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const currencyName = useCurrencyName();
   const water = useWater();
   const walks = useHoundWalks();
+  // The garden (0162): seed packs change the Bones shown up top.
+  const garden = useGarden((n) => setKennelState((k) => (k ? { ...k, bonesBalance: n } : k)));
   const [kennel, setKennelState] = useState<Kennel | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -744,6 +749,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                   <View style={{ width: sceneWidth }}>
                     <YardScene
                       water={water.goal ? water.todayMl / water.goal.targetMl : null}
+                      garden={garden.garden?.plots.map((p) => (p ? { seedId: p.seedId, stage: plantStage(p) } : null))}
                       onGesture={setThrowing}
                       yard={shownYard ?? yard}
                       tricks={kennel.owned.filter(isTrick)}
@@ -1124,6 +1130,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             />
             {zone === 0 ? (
               <>
+            <GardenCard state={garden} currencyName={currencyName} />
             {/* The Yard (0148): a fixed spot for everything, more spots as the
                 hound ranks up, and trophies that can only be won. */}
             {yard && (

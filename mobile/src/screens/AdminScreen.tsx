@@ -34,6 +34,8 @@ import { DeveloperToolsCard } from '../components/DeveloperToolsCard';
 import { GoalsAdminCard } from '../components/GoalsAdminCard';
 import { WaterAdminCard } from '../components/WaterAdminCard';
 import { WalksAdminCard } from '../components/WalksAdminCard';
+import { GardenAdminCard } from '../components/GardenAdminCard';
+import { getGardenOverview } from '../garden/garden';
 import { getWalksOverview } from '../admin/walksOverview';
 import { ShopAdminCard } from '../components/ShopAdminCard';
 import { dollars, getShopOverview } from '../admin/shopOverview';
@@ -126,6 +128,8 @@ export function AdminScreen({
   const [waterSummary, setWaterSummary] = useState<string | null>(null);
   // The Walks fold's line: who walked this week (0161).
   const [walksSummary, setWalksSummary] = useState<string | null>(null);
+  // The Garden fold's line: gardens growing (0162).
+  const [gardenSummary, setGardenSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
   const [shopSummary, setShopSummary] = useState<string | null>(null);
   // Where the App versions fold sits, so "Versions" in Needs you can
@@ -143,6 +147,9 @@ export function AdminScreen({
         .catch(() => {});
       getWalksOverview()
         .then((w) => setWalksSummary(`${w.walkers7d} walking this week · ${w.walks7d} walks`))
+        .catch(() => {});
+      getGardenOverview()
+        .then((g) => setGardenSummary(`${g.growingNow} ${g.growingNow === 1 ? 'garden' : 'gardens'} growing`))
         .catch(() => {});
       getShopOverview()
         .then((d) => setShopSummary(`${dollars(d.revenue30d)} this month · ${d.buyers30d} ${d.buyers30d === 1 ? 'buyer' : 'buyers'}`))
@@ -667,6 +674,9 @@ export function AdminScreen({
                 </AdminFold>
                 <AdminFold title="Walks" summary={walksSummary ?? 'Walks, finds and the diary'}>
                   <WalksAdminCard />
+                </AdminFold>
+                <AdminFold title="Garden" summary={gardenSummary ?? 'Seeds planted and grown'}>
+                  <GardenAdminCard />
                 </AdminFold>
                 <AdminFold title="Shop" summary={shopSummary ?? 'Packs sold and Bones spent'}>
                   <ShopAdminCard />

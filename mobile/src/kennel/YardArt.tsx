@@ -5,6 +5,8 @@ import { Text } from '../components/Text';
 import type { Rank } from '../challenges/ranks';
 import { HoundArt, type HoundMood } from './HoundArt';
 import type { HoundEars, HoundMarkings, HoundTail } from './kennelItems';
+import { GardenBedArt } from '../garden/PlantArt';
+import type { PlantStage } from '../garden/garden';
 import { YARD_SIZES, yardItemById, type TrophyKind, type YardSpot } from './yardItems';
 import type { Yard } from './yardApi';
 import { isTrick, trickById, type TrickId } from './tricks';
@@ -48,6 +50,8 @@ const HOUND_AT: Record<'zoomies' | 'house' | 'bed' | 'bowl', { x: number; y: num
 };
 const HOUND_SIZE = [92, 100, 108, 116, 124];
 const GUEST_AT = { x: 358, y: 264 };
+// The garden bed's middle, on the ground between the house and the trophies.
+const GARDEN_AT = { x: 306, y: 228 };
 
 // Height for width: the same shape at every size.
 export const YARD_ASPECT = 0.75;
@@ -149,7 +153,10 @@ export function YardScene({
   water,
   tricks,
   trick,
+  garden,
 }: {
+  // The garden bed's 3 plots (0162); undefined or null: no garden.
+  garden?: ({ seedId: string; stage: PlantStage } | null)[] | null;
   // Tricks owned (0158): a double-tap on the hound does the next one.
   tricks?: string[];
   // Do this one now (a preview in the shop); n goes up each time.
@@ -593,6 +600,12 @@ export function YardScene({
             <TrophyArt kind={kind} />
           </G>
         ))}
+        {/* The garden (0162), between the house and the trophies. */}
+        {garden && (
+          <G transform={`translate(${GARDEN_AT.x} ${GARDEN_AT.y}) scale(1.35)`}>
+            <GardenBedArt plots={garden} />
+          </G>
+        )}
         {place('house')}
         {place('ground')}
         {place('plant_left')}
