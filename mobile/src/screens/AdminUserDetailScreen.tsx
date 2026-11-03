@@ -12,7 +12,7 @@ import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { banUser, deleteUser, getMemberItems, getUserOverview, giveItems, isBanned, takeItems, unbanUser, type AdminUserOverview } from '../admin/adminApi';
 import { PORCH_ITEMS, PORCH_UNLOCK } from '../kennel/yardItems';
-import { buildLabel, getUserApp, updateLabel, type ReportedApp } from '../admin/appVersions';
+import { buildLabel, getUserApp, SOURCE_NAME, updateLabel, type ReportedApp } from '../admin/appVersions';
 import { getUserPushReach, REACH_LABEL, REACH_NOTE, type PushReach } from '../admin/pushReach';
 
 type BanDurationChoice = '1' | '7' | '30' | 'forever';
@@ -248,7 +248,10 @@ export function AdminUserDetailScreen({
             <Text style={styles.appLabel}>APP</Text>
             {app?.appVersion ? (
               <>
-                <Text style={styles.appValue}>{buildLabel(app)}</Text>
+                <Text style={styles.appValue}>
+                  {buildLabel(app)}
+                  {app.installSource ? `, ${SOURCE_NAME[app.installSource]}` : ''}
+                </Text>
                 <Text style={styles.footNote}>
                   {updateLabel(app)}
                   {app.reportedAt ? ` · seen ${timeAgo(app.reportedAt).toLowerCase()}` : ''}

@@ -6,7 +6,7 @@ import { CheckCircleIcon, ClockCounterClockwiseIcon } from 'phosphor-react-nativ
 import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { groupApps, listActiveApps, STATUS_LABEL, type ReportedApp } from '../admin/appVersions';
+import { groupApps, listActiveApps, sourceCounts, STATUS_LABEL, type ReportedApp } from '../admin/appVersions';
 
 const ACTIVE_DAYS = 14;
 const NAMES_SHOWN = 4;
@@ -37,6 +37,12 @@ export function AppVersionsCard() {
   );
 
   const summary = useMemo(() => (apps ? groupApps(apps) : null), [apps]);
+  // Android phones by where the app came from (0163).
+  const sources = useMemo(() => (apps ? sourceCounts(apps) : null), [apps]);
+  const sourceLine = (c: { play: number; website: number; unknown: number }) =>
+    [c.play && `${c.play} from Play`, c.website && `${c.website} from the website`, c.unknown && `${c.unknown} not known yet`]
+      .filter(Boolean)
+      .join(' · ');
 
   return (
     <Card style={{ gap: 12 }} elevated={false}>
@@ -55,6 +61,11 @@ export function AppVersionsCard() {
           <Text style={styles.headline}>
             {summary.latestCount} of {apps!.length} on the latest code
           </Text>
+          {sources && sources.play + sources.website + sources.unknown > 0 && (
+            <Text style={styles.footNote}>
+              Android: {sourceLine(sources)}. Play Console only counts the ones from Play.
+            </Text>
+          )}
           {summary.groups.map((g) => (
             <View key={g.key} style={styles.row}>
               {g.status !== 'latest' ? (
@@ -70,6 +81,9 @@ export function AppVersionsCard() {
                   </Text>
                 </View>
                 <Text style={styles.footNote}>{g.update}</Text>
+                {g.sources.play + g.sources.website + g.sources.unknown > 0 && (
+                  <Text style={styles.footNote}>{sourceLine(g.sources)}</Text>
+                )}
                 <Text style={styles.people}>
                   {g.people.length} · {namesLine(g.people)}
                 </Text>

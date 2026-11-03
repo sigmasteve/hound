@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { touchLastActive } from '../notifications/supabaseNotifications';
-import { reportAppVersion } from '../admin/appVersions';
+import { reportAppVersion, reportInstallSource } from '../admin/appVersions';
 import { syncPushRegistration } from '../notifications/pushPermission';
 import { reportTimeZone } from '../notifications/timeZone';
 import { MisconfiguredScreen } from '../components/MisconfiguredScreen';
@@ -103,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Which build and update this open is running, for Admin → App
     // versions (0076_app_version_tracking.sql).
     reportAppVersion(user.id);
+    reportInstallSource(user.id);
     // Registers this phone for push once notifications are allowed, and
     // reports the phone's setting (0081_push_permission.sql).
     syncPushRegistration(user.id);
