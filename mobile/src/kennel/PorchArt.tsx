@@ -29,6 +29,27 @@ const AT = {
   tub: { x: 316, y: 284 },
 };
 
+// Where a porch item is, in pixels, for a scene this wide (the Kennel's
+// zoom while you pick).
+export function porchFocusPoint(itemId: string, width: number): { x: number; y: number; height: number } {
+  const k = width / W;
+  const at =
+    itemId === 'porch_hottub'
+      ? { x: AT.tub.x, y: AT.tub.y - 30 }
+      : itemId === 'porch_lounge'
+        ? { x: AT.lounge.x, y: AT.lounge.y - 24 }
+        : itemId === 'porch_swing'
+          ? { x: AT.swing.x, y: AT.swing.y - 40 }
+          : itemId === 'porch_firepit'
+            ? { x: AT.firepit.x, y: AT.firepit.y - 20 }
+            : itemId === 'porch_umbrella'
+              ? { x: AT.umbrella.x, y: AT.umbrella.y - 90 }
+              : itemId === 'porch_grill'
+                ? { x: AT.grill.x, y: AT.grill.y - 30 }
+                : { x: W / 2, y: H / 2 };
+  return { x: at.x * k, y: at.y * k, height: H * k };
+}
+
 type Spot = 'tub' | 'fire' | 'lounge' | 'swing' | 'mat' | 'grill';
 
 export function PorchScene({
