@@ -899,7 +899,12 @@ export function YardItemArt({ id, name, time = 'day' }: { id: string; name?: str
     case 'house_cabin':
     case 'house_gingerbread':
     case 'house_igloo':
-      return <House id={id} name={name} />;
+    case 'house_bungalow':
+    case 'house_glass':
+    case 'house_treehouse':
+    case 'house_castle':
+    case 'house_mansion':
+      return <House id={id} name={name} time={time} />;
     case 'bed_cushion':
       return (
         <G>
@@ -1157,7 +1162,10 @@ export function YardItemArt({ id, name, time = 'day' }: { id: string; name?: str
   }
 }
 
-function House({ id, name }: { id: string; name?: string }) {
+function House({ id, name, time = 'day' }: { id: string; name?: string; time?: YardTime }) {
+  // Windows glow in the evening and at night.
+  const lit = time !== 'day';
+  const glass = lit ? '#ffd98a' : '#bfe3f5';
   const plate = (name ?? '').toUpperCase().slice(0, 9);
   const nameplate = plate ? (
     <G>
@@ -1176,6 +1184,126 @@ function House({ id, name }: { id: string; name?: string }) {
         <Path d="M-18 -38 L18 0 M18 -38 L-18 0" stroke="#f3e3c3" strokeWidth={2.5} />
         <Rect x={-18} y={-38} width={36} height={38} fill="none" stroke="#f3e3c3" strokeWidth={2.5} />
         {nameplate}
+      </G>
+    );
+  }
+  if (id === 'house_bungalow') {
+    // A beach hut: planked walls, a thatched roof, a lantern.
+    return (
+      <G>
+        <Rect x={-46} y={-62} width={92} height={62} fill="#7cc7c4" />
+        {[-50, -38, -26, -14].map((y) => (
+          <Line key={y} x1={-46} y1={y} x2={46} y2={y} stroke="#5aa6a3" strokeWidth={2} />
+        ))}
+        <Rect x={-36} y={-48} width={18} height={16} rx={2} fill={glass} />
+        <Rect x={18} y={-48} width={18} height={16} rx={2} fill={glass} />
+        <Path d="M-60 -58 L0 -104 L60 -58 Z" fill="#d9b35f" />
+        <Path d="M-60 -58 L-54 -50 L-48 -58 L-42 -50 L-36 -58 L-30 -50 L-24 -58 L-18 -50 L-12 -58 L-6 -50 L0 -58 L6 -50 L12 -58 L18 -50 L24 -58 L30 -50 L36 -58 L42 -50 L48 -58 L54 -50 L60 -58 Z" fill="#c49a45" />
+        <Path d="M-18 0 L-18 -30 Q0 -46 18 -30 L18 0 Z" fill="#2b5f6b" />
+        <Path d="M40 -58 V-48" stroke="#7a4a24" strokeWidth={1.5} />
+        <Rect x={36} y={-48} width={8} height={11} rx={2} fill={lit ? '#ffd23f' : '#e8c26b'} />
+        {lit && <Circle cx={40} cy={-42} r={12} fill="#ffd23f" opacity={0.25} />}
+        <Path d="M-58 0 Q-64 -30 -54 -58 Q-48 -30 -52 0 Z" fill="#e8737a" />
+        {nameplate}
+      </G>
+    );
+  }
+  if (id === 'house_glass') {
+    // A modern box: big windows, a timber panel, a flat roof.
+    return (
+      <G>
+        <Rect x={-54} y={-72} width={108} height={72} fill="#2e3245" />
+        <Rect x={-50} y={-66} width={62} height={62} fill={glass} />
+        <Path d="M-19 -66 V-4 M-50 -35 H12" stroke="#2e3245" strokeWidth={3} />
+        {lit && <Rect x={-50} y={-66} width={62} height={62} fill="#ffb347" opacity={0.2} />}
+        <Rect x={16} y={-66} width={34} height={66} fill="#b5743c" />
+        {[-58, -50, -42, -34, -26, -18, -10].map((y) => (
+          <Line key={y} x1={16} y1={y} x2={50} y2={y} stroke="#8f5a2c" strokeWidth={1.5} />
+        ))}
+        <Rect x={24} y={-30} width={18} height={30} rx={1} fill="#1c1a2b" />
+        <Rect x={-62} y={-80} width={124} height={9} fill="#1c1e2b" />
+        <G transform="translate(-22 4)">{nameplate}</G>
+      </G>
+    );
+  }
+  if (id === 'house_treehouse') {
+    // A little house up a tree, with a ladder down.
+    return (
+      <G>
+        <Rect x={-9} y={-70} width={18} height={70} rx={3} fill="#7a4a24" />
+        <Circle cx={-34} cy={-118} r={24} fill="#3f9a57" />
+        <Circle cx={34} cy={-120} r={24} fill="#3f9a57" />
+        <Circle cx={0} cy={-138} r={28} fill="#57b56c" />
+        <Rect x={-46} y={-74} width={92} height={8} fill="#8f5a2c" />
+        <Rect x={-36} y={-116} width={72} height={42} fill="#c98a4b" />
+        <Path d="M-44 -114 L0 -142 L44 -114 Z" fill="#a8452e" />
+        <Rect x={-26} y={-106} width={16} height={14} rx={2} fill={glass} />
+        <Rect x={8} y={-104} width={16} height={30} rx={2} fill="#1c1a2b" />
+        <Path d="M30 -66 L40 0 M44 -66 L54 0 M32 -54 L46 -54 M34 -40 L48 -40 M36 -26 L50 -26 M38 -12 L52 -12" stroke="#7a4a24" strokeWidth={3} strokeLinecap="round" />
+        <G transform="translate(0 -36)">{nameplate}</G>
+      </G>
+    );
+  }
+  if (id === 'house_castle') {
+    // Stone walls with battlements, two towers, a flag with the name.
+    const flag = (name ?? '').slice(0, 8);
+    return (
+      <G>
+        <Rect x={-62} y={-96} width={26} height={96} fill="#9aa0ab" />
+        <Rect x={36} y={-96} width={26} height={96} fill="#9aa0ab" />
+        <Path d="M-66 -96 L-49 -126 L-32 -96 Z M32 -96 L49 -126 L66 -96 Z" fill="#5d5294" />
+        <Rect x={-36} y={-70} width={72} height={70} fill="#b0b5bf" />
+        {[-36, -20, -4, 12, 28].map((x) => (
+          <Rect key={x} x={x} y={-80} width={10} height={12} fill="#b0b5bf" />
+        ))}
+        {[-58, -46, -34].map((y) => (
+          <Line key={y} x1={-36} y1={y} x2={36} y2={y} stroke="#9aa0ab" strokeWidth={1.5} />
+        ))}
+        <Rect x={-54} y={-80} width={8} height={14} rx={4} fill={glass} />
+        <Rect x={46} y={-80} width={8} height={14} rx={4} fill={glass} />
+        <Path d="M-18 0 L-18 -32 Q0 -52 18 -32 L18 0 Z" fill="#5a3a24" />
+        <Path d="M-18 -10 H18 M-18 -20 H18" stroke="#3f2818" strokeWidth={1.5} />
+        <Path d="M49 -126 V-150" stroke="#4a3a30" strokeWidth={2} />
+        <Path d="M49 -150 L80 -144 L49 -138 Z" fill="#e0b84f" />
+        {!!flag && (
+          <SvgText x={62} y={-142} fontSize={5} fontWeight="bold" textAnchor="middle" fill="#5d5294">
+            {flag.toUpperCase()}
+          </SvgText>
+        )}
+      </G>
+    );
+  }
+  if (id === 'house_mansion') {
+    // Two floors, white columns, a gold door, a chandelier lit at night.
+    return (
+      <G>
+        <Rect x={-66} y={-110} width={132} height={110} fill="#f3ede2" />
+        <Path d="M-74 -108 L0 -142 L74 -108 Z" fill="#5d5294" />
+        <Path d="M-40 -112 L0 -134 L40 -112 Z" fill="#f3ede2" />
+        <Rect x={-70} y={-58} width={140} height={6} fill="#ddd4c4" />
+        {[-54, -30, 22, 46].map((x) => (
+          <G key={x}>
+            <Rect x={x} y={-98} width={14} height={26} rx={2} fill={glass} />
+            <Rect x={x} y={-44} width={14} height={26} rx={2} fill={glass} />
+          </G>
+        ))}
+        <Rect x={-9} y={-100} width={18} height={30} rx={9} fill={glass} />
+        {lit && (
+          <G>
+            <Path d="M0 -100 V-92 M-6 -86 Q0 -92 6 -86" stroke="#e0b84f" strokeWidth={1.5} fill="none" />
+            <Circle cx={-6} cy={-85} r={1.8} fill="#fff3c4" />
+            <Circle cx={0} cy={-88} r={1.8} fill="#fff3c4" />
+            <Circle cx={6} cy={-85} r={1.8} fill="#fff3c4" />
+            <Circle cx={0} cy={-86} r={13} fill="#ffd98a" opacity={0.3} />
+          </G>
+        )}
+        {[-34, -22, 14, 26].map((x) => (
+          <Rect key={x} x={x} y={-52} width={8} height={52} fill="#ffffff" />
+        ))}
+        <Path d="M-12 0 L-12 -30 Q0 -42 12 -30 L12 0 Z" fill="#e0b84f" />
+        <Circle cx={7} cy={-14} r={1.8} fill="#8a6a1c" />
+        <Rect x={-28} y={-2} width={56} height={4} fill="#ddd4c4" />
+        <G transform="translate(0 -36)">{nameplate}</G>
       </G>
     );
   }
@@ -1344,8 +1472,10 @@ export function YardThumb({ id, trophy, size = 56 }: { id?: string; trophy?: Tro
   const slot = id?.split('_')[0];
   const box = trophy
     ? '-22 -40 44 44'
-    : slot === 'house' || slot === 'tree'
-      ? '-60 -112 120 116'
+    : id === 'house_treehouse' || id === 'house_castle' || id === 'house_mansion' || id === 'tree_lit'
+      ? '-82 -170 164 174'
+      : slot === 'house' || slot === 'tree'
+        ? '-60 -112 120 116'
       : slot === 'fence'
         ? '-52 -20 104 44'
         : slot === 'plant' || id === 'ground_snowman'

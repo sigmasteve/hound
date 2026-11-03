@@ -16,6 +16,8 @@
 //   'yard_pawprint' "Jordan left a pawprint in Scout's yard 🐾" — to the
 //                 yard's owner (leave_pawprint, 0150_yard_visits.sql)
 //   'yard_treat'  "Jordan tossed Scout a treat 🦴" (toss_yard_treat)
+//   'gift'        "Jordan sent Scout a Santa Hat 🎁" (gift_kennel_item,
+//                 0157_shop_phase2.sql)
 // The RPC has already checked who can do what, and that each recipient
 // has these pushes on; a failure here never undoes the nudge, reaction
 // or message — the calling side swallows it.
@@ -36,7 +38,8 @@ type Kind =
   | 'bounty_claimed'
   | 'journey_finished'
   | 'yard_pawprint'
-  | 'yard_treat';
+  | 'yard_treat'
+  | 'gift';
 
 interface RequestBody {
   kind: Kind;
@@ -54,8 +57,10 @@ interface RequestBody {
   // journey_finished
   course_name?: string;
   miles?: number;
-  // yard_pawprint / yard_treat: the owner's hound
+  // yard_pawprint / yard_treat / gift: the owner's hound
   hound_name?: string;
+  // gift: what was sent
+  item_name?: string;
 }
 
 interface ProfileRow {
@@ -94,7 +99,7 @@ Deno.serve(async (req) => {
   if (
     !body?.from_user ||
     !body?.to_user ||
-    !['nudge', 'reaction', 'bounty_claimed', 'yard_pawprint', 'yard_treat'].includes(body.kind) ||
+    !['nudge', 'reaction', 'bounty_claimed', 'yard_pawprint', 'yard_treat', 'gift'].includes(body.kind) ||
     (body.kind === 'reaction' && (!body.challenge_id || !EMOJI.includes(body.emoji ?? '')))
   ) {
     return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
@@ -128,7 +133,9 @@ Deno.serve(async (req) => {
   const challengeName = challenge?.name ?? null;
   const hound = body.hound_name || 'your hound';
   const messageBody =
-    body.kind === 'yard_pawprint'
+    body.kind === 'gift'
+      ? `${name} sent ${hound} ${body.item_name ? `a ${body.item_name}` : 'a gift'} 🎁`
+      : body.kind === 'yard_pawprint'
       ? `${name} left a pawprint in ${hound}'s yard 🐾`
       : body.kind === 'yard_treat'
       ? `${name} tossed ${hound} a treat 🦴`

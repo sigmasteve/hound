@@ -3,6 +3,17 @@
 // checks. How each one looks lives in YardArt.tsx.
 
 export type YardSlot = 'house' | 'bed' | 'bowl' | 'toy' | 'plant' | 'fence' | 'ground' | 'tree' | 'pond';
+
+// The Porch (0157): unlocked once, then each item has its own place on it.
+export const PORCH_UNLOCK = { id: 'zone_porch', name: 'The Porch', costBones: 1500, minLevel: 10 };
+export const PORCH_ITEMS: { id: string; name: string; costBones: number; note: string }[] = [
+  { id: 'porch_hottub', name: 'Hot Tub', costBones: 1200, note: 'Your hound sits in it, with bubbles' },
+  { id: 'porch_lounge', name: 'Lounge Chair', costBones: 300, note: 'For naps in the sun' },
+  { id: 'porch_swing', name: 'Porch Swing', costBones: 350, note: 'Swings, slowly' },
+  { id: 'porch_firepit', name: 'Fire Pit', costBones: 400, note: 'Lit at night; your hound lies by it' },
+  { id: 'porch_umbrella', name: 'Patio Umbrella', costBones: 200, note: 'Shades the lounge chair' },
+  { id: 'porch_grill', name: 'Grill', costBones: 250, note: 'Your hound sits by it, hopefully' },
+];
 export type YardSpot = 'house' | 'bed' | 'bowl' | 'toy' | 'plant_left' | 'plant_right' | 'fence' | 'ground' | 'tree' | 'pond';
 
 export interface YardItem {
@@ -23,6 +34,12 @@ export const YARD_ITEMS: YardItem[] = [
   { id: 'house_classic', slot: 'house', name: 'Hound House', costBones: 0 },
   { id: 'house_barn', slot: 'house', name: 'Red Barn', costBones: 120 },
   { id: 'house_cabin', slot: 'house', name: 'Log Cabin', costBones: 200 },
+  // The bougie houses (0157).
+  { id: 'house_bungalow', slot: 'house', name: 'Beach Bungalow', costBones: 800 },
+  { id: 'house_glass', slot: 'house', name: 'Modern Glass House', costBones: 900 },
+  { id: 'house_treehouse', slot: 'house', name: 'Treehouse', costBones: 1000 },
+  { id: 'house_castle', slot: 'house', name: 'Castle', costBones: 1500 },
+  { id: 'house_mansion', slot: 'house', name: 'Doghouse Mansion', costBones: 2500 },
   { id: 'bed_cushion', slot: 'bed', name: 'Cushion', costBones: 0 },
   { id: 'bed_donut', slot: 'bed', name: 'Donut Bed', costBones: 60 },
   { id: 'bed_hammock', slot: 'bed', name: 'Hammock', costBones: 150 },

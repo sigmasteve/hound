@@ -189,3 +189,34 @@ export function moodLine(k: Kennel): string {
       return `${k.name} is sleepy. Hit your goals to wake them up.`;
   }
 }
+
+// ── Gifts (0157) ─────────────────────────────────────────────────────
+
+// Buys an item for a friend, with a short note. Returns your balance.
+export async function giftKennelItem(friendUserId: string, itemId: string, note: string | null): Promise<number> {
+  const { data, error } = await client().rpc('gift_kennel_item', {
+    p_friend: friendUserId,
+    p_item_id: itemId,
+    p_note: note,
+    p_local_date: today(),
+  });
+  if (error) throw new Error(error.message);
+  return data as number;
+}
+
+export interface NewGift {
+  id: string;
+  fromName: string;
+  itemId: string;
+  itemName: string;
+  note: string | null;
+}
+
+// Gifts you haven't seen yet; reading them marks them seen. Empty before
+// 0157 has run.
+export async function getNewGifts(): Promise<NewGift[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('my_new_gifts');
+  if (error) return [];
+  return ((data ?? []) as any[]).map((g) => ({ id: g.id, fromName: g.from_name, itemId: g.item_id, itemName: g.item_name, note: g.note ?? null }));
+}

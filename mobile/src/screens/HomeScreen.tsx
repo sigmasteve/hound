@@ -22,6 +22,7 @@ import {
   UserPlusIcon,
   XIcon,
   DropIcon,
+  GiftIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { LoadingView } from '../components/LoadingView';
@@ -163,7 +164,7 @@ import { WaterRow, WaterSheet } from '../water/WaterCards';
 import { useWater } from '../water/WaterContext';
 import { amountNumber, amountText, glassName, type WaterEntry } from '../water/water';
 import { KennelCard } from '../components/KennelCard';
-import { getKennel, type Kennel } from '../kennel/kennelApi';
+import { getKennel, getNewGifts, type Kennel } from '../kennel/kennelApi';
 import { BoneDigCard } from '../components/BoneDigCard';
 import { BoneDigModal } from '../components/BoneDigModal';
 import { digBone, getBoneDig, type BoneDigResult, type BoneDigState } from '../goals/boneDigApi';
@@ -1324,6 +1325,26 @@ export function HomeScreen({
     ]);
   }, [waterToast, water, kennel?.name]);
 
+  // Gifts from friends (0157), once each, with their note.
+  useEffect(() => {
+    if (!user?.id) return;
+    getNewGifts()
+      .then((gifts) => {
+        for (const g of gifts) {
+          pushToast({
+            id: `gift-${g.id}`,
+            text: `${g.fromName} sent ${kennel?.name ?? 'your hound'} a ${g.itemName}${g.note ? `: “${g.note}”` : '!'}`,
+            Icon: GiftIcon,
+            onPress: () => navRef.current.onGoTab('kennel'),
+          });
+        }
+        if (gifts.length > 0) reloadKennelRef.current?.();
+      })
+      .catch(() => {});
+    // Once per sign-in on this screen; the next open picks up new ones.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   // A new water day can earn a water badge.
   useEffect(() => {
     if (!water.claimedDay) return;
@@ -1344,11 +1365,13 @@ export function HomeScreen({
   const [journey, setJourney] = useState<MyJourney | null>(null);
   // A stop you've just reached on it, for its pop-up.
   const [stopMoment, setStopMoment] = useState<{ course: Course; stop: CourseStop; friendsHere: string[] } | null>(null);
+  const reloadKennelRef = useRef<(() => void) | null>(null);
   const reloadKennel = useCallback(() => {
     getKennel()
       .then(setKennel)
       .catch(() => {});
   }, []);
+  reloadKennelRef.current = reloadKennel;
   useEffect(() => {
     if (!isSupabaseConfigured || !user?.id) return;
     reloadKennel();

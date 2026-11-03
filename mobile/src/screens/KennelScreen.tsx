@@ -43,9 +43,12 @@ import {
 } from '../kennel/kennelItems';
 import { localDayKey } from '../goals/goals';
 import { YardScene, YardThumb } from '../kennel/YardArt';
+import { PorchScene } from '../kennel/PorchArt';
 import { useWater } from '../water/WaterContext';
 import { getYard, placeYardItem, setYardTrophies, type Yard } from '../kennel/yardApi';
 import {
+  PORCH_ITEMS,
+  PORCH_UNLOCK,
   TROPHIES,
   YARD_ITEMS,
   YARD_SIZES,
@@ -104,6 +107,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const [sceneWidth, setSceneWidth] = useState(0);
   // While a finger is throwing the toy, the page holds still.
   const [throwing, setThrowing] = useState(false);
+  // The Yard (0) or the Porch (1), swiped between (0157).
+  const [zone, setZone] = useState(0);
   const focused = useIsFocused();
 
   // Whether your avatar is this hound (0106_hound_avatar.sql).
@@ -296,6 +301,29 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
     }
   };
 
+  // The Porch (0157): unlocked once, then each item goes in its place.
+  const unlockPorch = () => {
+    if (shortOf(PORCH_UNLOCK.costBones)) {
+      offerMore(PORCH_UNLOCK.costBones);
+      return;
+    }
+    Alert.alert('Unlock the Porch?', `${PORCH_UNLOCK.costBones.toLocaleString()} ${currencyName} from your balance. It's yours for good.`, [
+      { text: 'Not now', style: 'cancel' },
+      { text: `Spend ${PORCH_UNLOCK.costBones.toLocaleString()}`, onPress: () => run(PORCH_UNLOCK.id, () => buyKennelItem(PORCH_UNLOCK.id).then(() => {}), "Couldn't unlock it") },
+    ]);
+  };
+  const pressPorchItem = (item: (typeof PORCH_ITEMS)[number]) => {
+    if (kennel.owned.includes(item.id)) return;
+    if (shortOf(item.costBones)) {
+      offerMore(item.costBones);
+      return;
+    }
+    Alert.alert(`Get the ${item.name}?`, `${item.costBones.toLocaleString()} ${currencyName} from your balance.`, [
+      { text: 'Not now', style: 'cancel' },
+      { text: `Spend ${item.costBones.toLocaleString()}`, onPress: () => run(`porch-${item.id}`, () => buyKennelItem(item.id).then(() => {}), "Couldn't get that") },
+    ]);
+  };
+
   // Up or down; the row holds as many as the yard has room for.
   const toggleTrophy = (kind: TrophyKind) => {
     if (!yard) return;
@@ -372,54 +400,119 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
           {yard ? (
             <View style={styles.yardFloor} onLayout={(e) => setSceneWidth(Math.floor(e.nativeEvent.layout.width))}>
               {sceneWidth > 0 && (
-                <YardScene
-                  water={water.goal ? water.todayMl / water.goal.targetMl : null}
-                  onGesture={setThrowing}
-                  yard={yard}
-                  width={sceneWidth}
-                  animate={focused}
-                  lines={yardLines}
-                  guest={
-                    yard.guest
-                      ? {
-                          hound: {
-                            name: yard.guest.name,
-                            rank: rankForLevel(levelProgressForXp(yard.guest.xpTotal).level).id,
-                            mood: 'happy',
-                            neckId: yard.guest.neckId,
-                            headId: yard.guest.headId,
-                            faceId: yard.guest.faceId,
-                            coatId: yard.guest.coatId,
-                            breedId: yard.guest.breedId,
-                            bodyId: yard.guest.bodyId,
-                            feetId: yard.guest.feetId,
-                            ears: yard.guest.ears,
-                            tail: yard.guest.tail,
-                            markings: yard.guest.markings,
-                          },
-                          label: `${yard.guest.name} · ${yard.guest.owner}'s`,
-                          line: `${yard.guest.owner} finished their goals too!`,
-                        }
-                      : null
-                  }
-                  hound={{
-                    name: kennel.name,
-                    rank: rank.id,
-                    mood: kennel.mood,
-                    neckId: kennel.neckId,
-                    headId: kennel.headId,
-                    faceId: kennel.faceId,
-                    coatId: kennel.coatId,
-                    breedId: kennel.breedId,
-                    bodyId: kennel.bodyId,
-                    feetId: kennel.feetId,
-                    ears: kennel.ears,
-                    tail: kennel.tail,
-                    markings: kennel.markings,
-                  }}
-                />
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  scrollEnabled={!throwing}
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => setZone(Math.round(e.nativeEvent.contentOffset.x / sceneWidth))}
+                  style={{ width: sceneWidth }}
+                >
+                  <View style={{ width: sceneWidth }}>
+                    <YardScene
+                      water={water.goal ? water.todayMl / water.goal.targetMl : null}
+                      onGesture={setThrowing}
+                      yard={yard}
+                      width={sceneWidth}
+                      animate={focused}
+                      lines={yardLines}
+                      guest={
+                        yard.guest
+                          ? {
+                              hound: {
+                                name: yard.guest.name,
+                                rank: rankForLevel(levelProgressForXp(yard.guest.xpTotal).level).id,
+                                mood: 'happy',
+                                neckId: yard.guest.neckId,
+                                headId: yard.guest.headId,
+                                faceId: yard.guest.faceId,
+                                coatId: yard.guest.coatId,
+                                breedId: yard.guest.breedId,
+                                bodyId: yard.guest.bodyId,
+                                feetId: yard.guest.feetId,
+                                ears: yard.guest.ears,
+                                tail: yard.guest.tail,
+                                markings: yard.guest.markings,
+                              },
+                              label: `${yard.guest.name} · ${yard.guest.owner}'s`,
+                              line: `${yard.guest.owner} finished their goals too!`,
+                            }
+                          : null
+                      }
+                      hound={{
+                        name: kennel.name,
+                        rank: rank.id,
+                        mood: kennel.mood,
+                        neckId: kennel.neckId,
+                        headId: kennel.headId,
+                        faceId: kennel.faceId,
+                        coatId: kennel.coatId,
+                        breedId: kennel.breedId,
+                        bodyId: kennel.bodyId,
+                        feetId: kennel.feetId,
+                        ears: kennel.ears,
+                        tail: kennel.tail,
+                        markings: kennel.markings,
+                      }}
+                    />
+
+                  </View>
+                  <View style={{ width: sceneWidth }}>
+                    <PorchScene
+                      items={yard.porch ?? []}
+                      locked={!yard.porch}
+                      width={sceneWidth}
+                      animate={focused && zone === 1}
+                      hound={{
+                        name: kennel.name,
+                        rank: rank.id,
+                        mood: kennel.mood,
+                        neckId: kennel.neckId,
+                        headId: kennel.headId,
+                        faceId: kennel.faceId,
+                        coatId: kennel.coatId,
+                        breedId: kennel.breedId,
+                        bodyId: kennel.bodyId,
+                        feetId: kennel.feetId,
+                        ears: kennel.ears,
+                        tail: kennel.tail,
+                        markings: kennel.markings,
+                      }}
+                    />
+                    {!yard.porch && (
+                      <View style={styles.porchLock} pointerEvents="box-none">
+                        <View style={styles.porchLockCard}>
+                          <Text style={text.h4}>The Porch</Text>
+                          <Text style={styles.itemNote}>A hot tub, a swing, a fire pit and more, round the back of the house.</Text>
+                          {level >= PORCH_UNLOCK.minLevel ? (
+                            <Button
+                              label={busyId === PORCH_UNLOCK.id ? 'Unlocking…' : `Unlock · ${PORCH_UNLOCK.costBones.toLocaleString()} ${currencyName}`}
+                              variant="primary"
+                              small
+                              disabled={busyId !== null}
+                              onPress={unlockPorch}
+                            />
+                          ) : (
+                            <Text style={styles.itemNote}>Opens at Hunter (level {PORCH_UNLOCK.minLevel}).</Text>
+                          )}
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                </ScrollView>
               )}
-              <Text style={styles.yardHint}>Tap {kennel.name} to say hi, press and hold to pet, flick the toy to play fetch.</Text>
+              <View style={styles.zoneDots}>
+                {[0, 1].map((i) => (
+                  <View key={i} style={[styles.zoneDot, zone === i && styles.zoneDotOn]} />
+                ))}
+              </View>
+              <Text style={styles.yardHint}>
+                {zone === 0
+                  ? `Tap ${kennel.name} to say hi, press and hold to pet, flick the toy to play fetch. Swipe for the Porch.`
+                  : yard.porch
+                    ? 'Your Porch. Add a hot tub, a swing and more below.'
+                    : 'Swipe back for the Yard.'}
+              </Text>
             </View>
           ) : (
             <View style={styles.kennelFloor}>
@@ -635,6 +728,44 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                       </Text>
                     )}
                     {ends && <Text style={styles.yardSeason}>{`${item.season} · ${ends}`}</Text>}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Card>
+        )}
+
+        {/* The Porch's shop (0157), once it's unlocked. */}
+        {yard?.porch && (
+          <Card style={{ gap: 10 }} elevated={false}>
+            <View style={styles.seasonHeader}>
+              <Text style={text.h4}>Your porch</Text>
+            </View>
+            <View style={styles.yardItems}>
+              {PORCH_ITEMS.map((item) => {
+                const owned = kennel.owned.includes(item.id);
+                return (
+                  <Pressable
+                    key={item.id}
+                    style={[styles.yardItem, owned && styles.yardItemOn]}
+                    disabled={owned || busyId !== null}
+                    onPress={() => pressPorchItem(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.name}${owned ? ', on your porch' : `, ${item.costBones} ${currencyName}`}`}
+                  >
+                    <Text style={styles.swatchName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.itemNote} numberOfLines={2}>
+                      {item.note}
+                    </Text>
+                    {busyId === `porch-${item.id}` ? (
+                      <ActivityIndicator size="small" color={colors.accent} />
+                    ) : (
+                      <Text style={[styles.yardItemNote, owned && { color: colors.accent }]}>
+                        {owned ? 'On your porch' : `${item.costBones.toLocaleString()} ${currencyName}`}
+                      </Text>
+                    )}
                   </Pressable>
                 );
               })}
@@ -899,6 +1030,11 @@ function makeStyles(colors: Palette) {
       backgroundColor: withAlpha(colors.amber, 0.08),
     },
     yardFloor: { alignSelf: 'stretch', gap: 6 },
+    zoneDots: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
+    zoneDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: withAlpha(colors.text, 0.2) },
+    zoneDotOn: { backgroundColor: colors.accent },
+    porchLock: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 20 },
+    porchLockCard: { gap: 8, alignItems: 'center', padding: 16, borderRadius: 14, backgroundColor: colors.surface, maxWidth: 280 },
     visitorRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     yardHint: { fontSize: 11.5, color: withAlpha(colors.text, 0.5), textAlign: 'center' },
     yardSize: { marginLeft: 'auto', fontSize: 12.5, fontFamily: font.heading, color: colors.accent },
