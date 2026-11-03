@@ -12,6 +12,9 @@ import { diaryDayLabel, diaryLine, diaryShareText } from './diary';
 import { RARITY_NAMES, SEASON_NAMES, walkName, walkStats, type FindKind, type HoundWalk, type Season } from './walks';
 import { logWalkEvent } from './walksApi';
 import type { HoundWalksState } from './useHoundWalks';
+import type { HoundProfileState } from '../growth/useHoundProfile';
+import { AboutCard } from '../growth/AboutCard';
+import { traitInfo } from '../growth/growth';
 
 // The Kennel's Walks tab (lifestyle phase 1, 0161): today's walks and
 // what each found, the Hound's diary for the week, and the collection
@@ -19,6 +22,8 @@ import type { HoundWalksState } from './useHoundWalks';
 
 interface Props {
   houndName: string;
+  // Fitness, age, traits and the birthday (0165).
+  growth?: HoundProfileState;
   walks: HoundWalksState;
   treatedToday: boolean;
   goalHitToday: boolean;
@@ -26,7 +31,7 @@ interface Props {
   waterByDay: Map<string, number>;
 }
 
-export function WalksTab({ houndName, walks, treatedToday, goalHitToday, waterGoal, waterByDay }: Props) {
+export function WalksTab({ houndName, growth, walks, treatedToday, goalHitToday, waterGoal, waterByDay }: Props) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [bookOpen, setBookOpen] = useState(false);
@@ -51,6 +56,8 @@ export function WalksTab({ houndName, walks, treatedToday, goalHitToday, waterGo
       const steps = data.stepsByDay.get(day) ?? null;
       if (dayWalks.length === 0 && steps === null && i > 0) continue;
       const ml = waterByDay.get(day) ?? 0;
+      const profile = growth?.profile;
+      const traitsToday = (profile?.traits ?? []).filter((t) => dayKeyBefore(0, t.earnedAt) === day).map((t) => traitInfo(t.id).name);
       out.push({
         day,
         label: diaryDayLabel(day, today),
@@ -64,11 +71,15 @@ export function WalksTab({ houndName, walks, treatedToday, goalHitToday, waterGo
             goalHit: i === 0 ? goalHitToday : undefined,
           },
           kinds,
+          {
+            birthday: i === 0 && !!profile?.isBirthday,
+            newTraits: traitsToday,
+          },
         ),
       });
     }
     return out;
-  }, [data, today, waterByDay, waterGoal, treatedToday, goalHitToday, kinds]);
+  }, [data, today, waterByDay, waterGoal, treatedToday, goalHitToday, kinds, growth?.profile]);
 
   const foundKinds = (data?.kinds ?? []).filter((k) => data?.found.has(k.id));
 
@@ -88,6 +99,9 @@ export function WalksTab({ houndName, walks, treatedToday, goalHitToday, waterGo
 
   return (
     <>
+      {growth?.profile && (
+        <AboutCard profile={growth.profile} today={today} onSetBirthday={growth.setBirthday} busy={growth.busy} />
+      )}
       <Card style={{ gap: 10 }} elevated={false}>
         <View style={styles.header}>
           <Text style={text.h4}>Today&rsquo;s walks</Text>

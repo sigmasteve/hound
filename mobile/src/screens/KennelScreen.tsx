@@ -55,6 +55,7 @@ import { WalksTab } from '../walks/WalksTab';
 import { useGarden } from '../garden/useGarden';
 import { GardenCard } from '../garden/GardenCard';
 import { plantStage } from '../garden/garden';
+import { useHoundProfile } from '../growth/useHoundProfile';
 import { getYard, placeYardItem, setYardTrophies, type Yard } from '../kennel/yardApi';
 import {
   PORCH_ITEMS,
@@ -133,6 +134,9 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const water = useWater();
   const walks = useHoundWalks();
   // The garden (0162): seed packs change the Bones shown up top.
+  // Fitness, age, traits and the birthday (0165).
+  const growth = useHoundProfile();
+  const partying = !!growth.profile?.isBirthday;
   const garden = useGarden((n) => setKennelState((k) => (k ? { ...k, bonesBalance: n } : k)));
   const [kennel, setKennelState] = useState<Kennel | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -468,7 +472,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
     rank: rank.id,
     mood: kennel.mood,
     neckId: over('neck', kennel.neckId),
-    headId: over('head', kennel.headId),
+    // On its birthday, a party hat (unless trying on another).
+    headId: over('head', partying ? 'hat_party' : kennel.headId),
     faceId: over('face', kennel.faceId),
     coatId: over('coat', kennel.coatId),
     breedId: over('breed', kennel.breedId),
@@ -757,8 +762,31 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                       width={sceneWidth}
                       animate={focused}
                       lines={yardLines}
+                      stage={growth.profile?.stage}
+                      fitness={growth.profile?.fitness}
+                      birthday={partying}
                       guest={
-                        yard.guest
+                        !yard.guest && partying && growth.profile?.partyGuest
+                          ? {
+                              hound: {
+                                name: growth.profile.partyGuest.name,
+                                rank: rankForLevel(levelProgressForXp(growth.profile.partyGuest.xpTotal).level).id,
+                                mood: 'happy',
+                                neckId: growth.profile.partyGuest.neckId,
+                                headId: 'hat_party',
+                                faceId: growth.profile.partyGuest.faceId,
+                                coatId: growth.profile.partyGuest.coatId,
+                                breedId: growth.profile.partyGuest.breedId,
+                                bodyId: growth.profile.partyGuest.bodyId,
+                                feetId: growth.profile.partyGuest.feetId,
+                                ears: growth.profile.partyGuest.ears as any,
+                                tail: growth.profile.partyGuest.tail as any,
+                                markings: growth.profile.partyGuest.markings as any,
+                              },
+                              label: `${growth.profile.partyGuest.name} · ${growth.profile.partyGuest.owner}'s`,
+                              line: `Happy birthday, ${kennel.name}!`,
+                            }
+                          : yard.guest
                           ? {
                               hound: {
                                 name: yard.guest.name,
@@ -987,6 +1015,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
         {tab === 'walks' && (
           <WalksTab
             houndName={kennel.name}
+            growth={growth}
             walks={walks}
             treatedToday={kennel.treatedToday}
             goalHitToday={kennel.goalDayToday}
