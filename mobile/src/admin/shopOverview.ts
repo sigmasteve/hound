@@ -15,6 +15,13 @@ export interface ShopOverview {
   wearingBody: number;
   wearingFeet: number;
   clothesBuyers: number;
+  // 0157.
+  porchUnlocks: number;
+  hotTubs: number;
+  bougieHouses: number;
+  gifts30d: number;
+  giftBones30d: number;
+  gifters30d: number;
 }
 
 export async function getShopOverview(): Promise<ShopOverview> {
@@ -41,6 +48,12 @@ export async function getShopOverview(): Promise<ShopOverview> {
     wearingBody: n(d.wearing_body),
     wearingFeet: n(d.wearing_feet),
     clothesBuyers: n(d.clothes_buyers),
+    porchUnlocks: n(d.porch_unlocks),
+    hotTubs: n(d.hot_tubs),
+    bougieHouses: n(d.bougie_houses),
+    gifts30d: n(d.gifts_30d),
+    giftBones30d: n(d.gift_bones_30d),
+    gifters30d: n(d.gifters_30d),
   };
 }
 

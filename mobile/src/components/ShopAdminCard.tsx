@@ -50,6 +50,9 @@ export function ShopAdminCard() {
         ],
         ['On holiday items, last 30 days', `${data.spent30d.limited.toLocaleString()} Bones`],
         ['Bought new clothes', `${data.clothesBuyers} · wearing an outfit ${data.wearingBody}, booties or shoes ${data.wearingFeet}`],
+        ['Porch unlocked', `${data.porchUnlocks} · ${data.hotTubs} with a hot tub`],
+        ['Bougie houses bought', `${data.bougieHouses}`],
+        ['Gifts, last 30 days', `${data.gifts30d} from ${data.gifters30d} ${data.gifters30d === 1 ? 'person' : 'people'} · ${data.giftBones30d.toLocaleString()} Bones`],
       ]
     : [];
 

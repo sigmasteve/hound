@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeftIcon, BoneIcon, PawPrintIcon, TrashIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BoneIcon, GiftIcon, PawPrintIcon, TrashIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -20,6 +20,8 @@ import { rankForLevel } from '../challenges/ranks';
 import { HoundArt } from '../kennel/HoundArt';
 import { friendMoodLine, getFriendKennel, getKennel, type FriendKennel, type Kennel } from '../kennel/kennelApi';
 import { YardScene } from '../kennel/YardArt';
+import { PorchScene } from '../kennel/PorchArt';
+import { GiftSheet } from '../kennel/GiftSheet';
 import { getFriendYard, leavePawprint, tossYardTreat, type Yard } from '../kennel/yardApi';
 import { TREAT_BONES } from '../kennel/kennelItems';
 import { notifyBonesChanged } from '../bones/bonesChanged';
@@ -69,6 +71,8 @@ export function FriendDetailScreen({
   // Your own hound, which tags along when you visit (0150).
   const [myHound, setMyHound] = useState<Kennel | null>(null);
   const [yardBusy, setYardBusy] = useState<'pawprint' | 'treat' | null>(null);
+  // Sending them a gift (0157).
+  const [gifting, setGifting] = useState(false);
   const loadYard = () => {
     getFriendKennel(friendUserId)
       .then(setHound)
@@ -269,6 +273,26 @@ export function FriendDetailScreen({
                   }}
                 />
               )}
+              {/* Their Porch (0157), once they've unlocked it. */}
+              {yardWidth > 0 && yard.porch && (
+                <View style={{ marginTop: 8 }}>
+                  <PorchScene items={yard.porch} width={yardWidth} hound={{
+                    name: hound.name,
+                    rank: rankForLevel(levelProgressForXp(hound.xpTotal).level).id,
+                    mood: hound.mood,
+                    neckId: hound.neckId,
+                    headId: hound.headId,
+                    faceId: hound.faceId,
+                    coatId: hound.coatId,
+                    breedId: hound.breedId,
+                    bodyId: hound.bodyId,
+                    feetId: hound.feetId,
+                    ears: hound.ears,
+                    tail: hound.tail,
+                    markings: hound.markings,
+                  }} />
+                </View>
+              )}
             </View>
             <View style={{ gap: 4 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -300,6 +324,13 @@ export function FriendDetailScreen({
                     icon={<BoneIcon size={13} color={colors.accent} weight="fill" />}
                     disabled={yard.mine.treat || yardBusy !== null}
                     onPress={() => visit('treat')}
+                  />
+                  <Button
+                    label="Send a gift"
+                    variant="ghost"
+                    small
+                    icon={<GiftIcon size={13} color={colors.accent} weight="fill" />}
+                    onPress={() => setGifting(true)}
                   />
                 </View>
               )}
@@ -445,6 +476,20 @@ export function FriendDetailScreen({
           <Text style={styles.deleteLabel}>{removing ? 'Removing…' : 'Remove friend'}</Text>
         </Pressable>
       </ScrollView>
+      {gifting && hound && (
+        <GiftSheet
+          friendUserId={friendUserId}
+          friendName={friendName}
+          houndName={hound.name}
+          hasPorch={!!yard?.porch}
+          balance={myHound?.bonesBalance ?? null}
+          onClose={() => setGifting(false)}
+          onSent={(left) => {
+            setGifting(false);
+            setMyHound((h) => (h ? { ...h, bonesBalance: left } : h));
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
