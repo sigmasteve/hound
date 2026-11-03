@@ -26,6 +26,19 @@ The rest of the release steps are in `mobile/supabase/STAGING.md` (build
 profiles: Android testers get `npm run build:android:apk`, not
 `--profile preview`) and issue #288.
 
+## New features: engagement data on Admin
+
+Every new feature ships with engagement numbers on the Admin screen
+(Steve's standing ask): how many people have tried it, how many use it
+now, and how. Build it in the same PR as the feature:
+
+- An admin-only read on the server (`admin_<feature>_overview()`,
+  security definer, checking `profiles.is_admin`, with pgTAP tests),
+  like `admin_goals_overview` (0098) and `admin_water_overview` (0154).
+- A fold on Admin → Overview with a one-line summary that shows without
+  opening it (e.g. "12 with a water goal"), and a card inside with the
+  detail, like `GoalsAdminCard` and `WaterAdminCard`.
+
 ## Pull requests
 
 Steve merges fast, often before the next message. So, every time:
