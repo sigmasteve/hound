@@ -675,10 +675,11 @@ function ChallengeRow({
         <Icon size={18} color={c.iconColor} weight={c.kind === 'hunt' ? 'fill' : 'regular'} />
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
           {/* The one Today is showing (see pickPrimaryChallenge). */}
-          {isPrimary && <HouseIcon size={13} color={colors.accentActive} weight="fill" />}
-          <Text style={[styles.rowName, { flexShrink: 1 }]} numberOfLines={1}>
+          {isPrimary && <HouseIcon size={13} color={colors.accentActive} weight="fill" style={{ marginTop: 4 }} />}
+          {/* Up to two lines, so a long name isn't cut short. */}
+          <Text style={[styles.rowName, { flexShrink: 1 }]} numberOfLines={2}>
             {c.name}
           </Text>
         </View>
