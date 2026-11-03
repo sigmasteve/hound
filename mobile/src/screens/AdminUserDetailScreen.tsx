@@ -10,7 +10,8 @@ import { SegmentedControl } from '../components/SegmentedControl';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
-import { banUser, deleteUser, getUserOverview, isBanned, unbanUser, type AdminUserOverview } from '../admin/adminApi';
+import { banUser, deleteUser, getMemberItems, getUserOverview, giveItems, isBanned, takeItems, unbanUser, type AdminUserOverview } from '../admin/adminApi';
+import { PORCH_ITEMS, PORCH_UNLOCK } from '../kennel/yardItems';
 import { buildLabel, getUserApp, updateLabel, type ReportedApp } from '../admin/appVersions';
 import { getUserPushReach, REACH_LABEL, REACH_NOTE, type PushReach } from '../admin/pushReach';
 
@@ -97,6 +98,29 @@ export function AdminUserDetailScreen({
   useEffect(() => {
     getUserPushReach(userId).then(setPush);
   }, [userId]);
+  // Testing (0160): what they own, and what an admin gave them.
+  const [items, setItems] = useState<{ itemId: string; given: boolean }[] | null>(null);
+  const [granting, setGranting] = useState(false);
+  const loadItems = () =>
+    getMemberItems(userId)
+      .then(setItems)
+      .catch(() => setItems(null));
+  useEffect(() => {
+    loadItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+  const grant = async (give: boolean, ids: string[], done: string) => {
+    setGranting(true);
+    try {
+      const n = give ? await giveItems(userId, ids) : await takeItems(userId, ids);
+      await loadItems();
+      Alert.alert(done, n === 0 ? 'Nothing changed.' : `${n} ${n === 1 ? 'item' : 'items'}.`);
+    } catch (e) {
+      Alert.alert('Couldn’t do that', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setGranting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -242,6 +266,56 @@ export function AdminUserDetailScreen({
             </View>
           )}
         </Card>
+
+        {/* Testing (0160): give a tester the Porch before they've earned it. */}
+        {items && (
+          <Card style={{ gap: 10, padding: 18 }} elevated={false}>
+            <Text style={text.h4}>Testing</Text>
+            {(() => {
+              const has = (id: string) => items.some((i) => i.itemId === id);
+              const given = (id: string) => items.some((i) => i.itemId === id && i.given);
+              const porchItemsHad = PORCH_ITEMS.filter((p) => has(p.id)).length;
+              return (
+                <>
+                  <Text style={styles.footNote}>
+                    {has(PORCH_UNLOCK.id)
+                      ? `Has the Porch${given(PORCH_UNLOCK.id) ? ' (given by an admin)' : ''} · ${porchItemsHad} of ${PORCH_ITEMS.length} porch items.`
+                      : 'No Porch yet. It normally opens at Hunter (level 10) for 1,500 Bones.'}
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {!has(PORCH_UNLOCK.id) && (
+                      <Button label="Give the Porch" variant="primary" small disabled={granting} onPress={() => grant(true, [PORCH_UNLOCK.id], 'Porch given')} />
+                    )}
+                    {porchItemsHad < PORCH_ITEMS.length && (
+                      <Button
+                        label={has(PORCH_UNLOCK.id) ? 'Give the porch items' : 'Give the Porch and its items'}
+                        variant="secondary"
+                        small
+                        disabled={granting}
+                        onPress={() => grant(true, [PORCH_UNLOCK.id, ...PORCH_ITEMS.map((p) => p.id)], 'Given')}
+                      />
+                    )}
+                    {items.some((i) => i.given) && (
+                      <Button
+                        label="Take back what was given"
+                        variant="ghost"
+                        small
+                        disabled={granting}
+                        onPress={() =>
+                          Alert.alert('Take it back?', `Only what an admin gave ${name}. Anything they bought or were gifted stays.`, [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Take back', style: 'destructive', onPress: () => grant(false, items.filter((i) => i.given).map((i) => i.itemId), 'Taken back') },
+                          ])
+                        }
+                      />
+                    )}
+                  </View>
+                  <Text style={styles.footNote}>They see it next time they open the Kennel.</Text>
+                </>
+              );
+            })()}
+          </Card>
+        )}
 
         {isSelf ? (
           <Text style={[styles.footNote, { textAlign: 'center' }]}>You can't ban or delete your own account from here.</Text>

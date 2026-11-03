@@ -189,3 +189,26 @@ export async function deleteUser(userId: string): Promise<void> {
     throw new Error(detail ?? error.message);
   }
 }
+
+// ── Testing (0160) ───────────────────────────────────────────────────
+
+// What a member owns, and which of it an admin gave.
+export async function getMemberItems(userId: string): Promise<{ itemId: string; given: boolean }[]> {
+  const { data, error } = await requireClient().rpc('admin_member_items', { p_user: userId });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as any[]).map((r) => ({ itemId: r.item_id, given: !!r.given }));
+}
+
+// Gives items they don't have yet (the Porch skips its level and Bones).
+export async function giveItems(userId: string, itemIds: string[]): Promise<number> {
+  const { data, error } = await requireClient().rpc('admin_give_items', { p_user: userId, p_item_ids: itemIds });
+  if (error) throw new Error(error.message);
+  return Number(data ?? 0);
+}
+
+// Takes back only what an admin gave.
+export async function takeItems(userId: string, itemIds: string[]): Promise<number> {
+  const { data, error } = await requireClient().rpc('admin_take_items', { p_user: userId, p_item_ids: itemIds });
+  if (error) throw new Error(error.message);
+  return Number(data ?? 0);
+}
