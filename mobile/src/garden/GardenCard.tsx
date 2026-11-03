@@ -21,7 +21,16 @@ function stepsText(n: number): string {
   return `${k >= 10 || Number.isInteger(Math.round(k * 10) / 10) ? Math.round(k) : (Math.round(k * 10) / 10).toFixed(1)}k`;
 }
 
-export function GardenCard({ state, currencyName }: { state: GardenState; currencyName: string }) {
+export function GardenCard({
+  state,
+  currencyName,
+  onShort,
+}: {
+  state: GardenState;
+  currencyName: string;
+  // Not enough Bones for a pack: the Kennel's "Get Bones" offer.
+  onShort(cost: number): void;
+}) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   // The seed sheet: for planting in a plot, or just the shop.
@@ -138,6 +147,7 @@ export function GardenCard({ state, currencyName }: { state: GardenState; curren
           state={state}
           currencyName={currencyName}
           onClose={() => setSheet(null)}
+          onShort={onShort}
           styles={styles}
         />
       )}
@@ -151,6 +161,7 @@ function SeedSheet({
   state,
   currencyName,
   onClose,
+  onShort,
   styles,
 }: {
   garden: Garden;
@@ -158,6 +169,7 @@ function SeedSheet({
   state: GardenState;
   currencyName: string;
   onClose(): void;
+  onShort(cost: number): void;
   styles: Styles;
 }) {
   const { colors, text } = useTheme();
@@ -171,6 +183,19 @@ function SeedSheet({
       return;
     }
     if (await state.plant(emptyPlot, k.id)) onClose();
+  };
+
+  // Short of Bones: the sheet closes and the Kennel offers a way to get
+  // more, instead of an error.
+  const buy = (k: SeedKind) => {
+    if (garden.balance !== null && garden.balance < k.packBones) {
+      onClose();
+      // After the sheet has slid away: iOS drops an alert shown while a
+      // modal is closing.
+      setTimeout(() => onShort(k.packBones), 400);
+      return;
+    }
+    state.buy(k.id);
   };
 
   return (
@@ -232,7 +257,7 @@ function SeedSheet({
                   <Pressable
                     style={[styles.buy, (!k.onSale || state.busy) && { opacity: 0.45 }]}
                     disabled={!k.onSale || state.busy}
-                    onPress={() => state.buy(k.id)}
+                    onPress={() => buy(k)}
                     accessibilityRole="button"
                     accessibilityLabel={`${k.packSize} ${k.name} seeds for ${k.packBones} ${currencyName}`}
                   >
