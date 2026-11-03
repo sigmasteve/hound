@@ -126,6 +126,8 @@ export function HoundTile({ kennel, onPress }: { kennel: Kennel; onPress: () => 
           tail={kennel.tail}
           markings={kennel.markings}
           breedId={kennel.breedId}
+          bodyId={kennel.bodyId}
+          feetId={kennel.feetId}
           size={84}
         />
       </View>

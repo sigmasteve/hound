@@ -152,6 +152,8 @@ export function ShareCard({
             tail={kennel.tail}
             markings={kennel.markings}
             breedId={kennel.breedId}
+            bodyId={kennel.bodyId}
+            feetId={kennel.feetId}
             size={200}
             animate={false}
           />
@@ -318,6 +320,8 @@ function BadgeHero({ id, kennel }: { id: string; kennel: Kennel | null }) {
             tail={kennel.tail}
             markings={kennel.markings}
             breedId={kennel.breedId}
+            bodyId={kennel.bodyId}
+            feetId={kennel.feetId}
             size={96}
             animate={false}
           />

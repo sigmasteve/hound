@@ -35,6 +35,8 @@ export interface YardGuest {
   tail: HoundTail;
   markings: HoundMarkings;
   breedId: string | null;
+  bodyId: string | null;
+  feetId: string | null;
 }
 
 export interface Yard {
@@ -85,6 +87,8 @@ function toYard(r: any): Yard {
           tail: r.guest.tail ?? 'wavy',
           markings: r.guest.markings ?? 'none',
           breedId: r.guest.breed_id ?? null,
+          bodyId: r.guest.body_id ?? null,
+          feetId: r.guest.feet_id ?? null,
         }
       : null,
     mine: r?.mine ? { pawprint: !!r.mine.pawprint, treat: !!r.mine.treat } : null,

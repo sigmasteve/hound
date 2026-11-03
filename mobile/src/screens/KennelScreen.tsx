@@ -14,7 +14,7 @@ import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon,
-  LeafIcon, HeartIcon, PawPrintIcon, PencilSimpleIcon, PlusIcon } from 'phosphor-react-native';
+  LeafIcon, SnowflakeIcon, HeartIcon, PawPrintIcon, PencilSimpleIcon, PlusIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -170,7 +170,11 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
           ? kennel.faceId
           : item.slot === 'coat'
             ? kennel.coatId
-            : kennel.breedId;
+            : item.slot === 'body'
+              ? kennel.bodyId
+              : item.slot === 'feet'
+                ? kennel.feetId
+                : kennel.breedId;
 
   // On blur only: Done blurs the field too, so a second handler on submit
   // saved the name twice.
@@ -244,7 +248,12 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   // place.
   const today = localDayKey(new Date());
   const seasonItems = KENNEL_ITEMS.filter((i) => i.season && onSale(i, today));
-  const seasons = [...new Set(seasonItems.map((i) => i.season!))];
+  const seasons = [
+    ...new Set([
+      ...seasonItems.map((i) => i.season!),
+      ...YARD_ITEMS.filter((i) => i.season && yardItemOnSale(i, today)).map((i) => i.season!),
+    ]),
+  ];
   const inShop = (i: KennelItem) => !i.season || (!onSale(i, today) && kennel.owned.includes(i.id));
 
   // The Yard (0148): what the hound says when you tap it.
@@ -327,6 +336,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             tail={kennel.tail}
             markings={kennel.markings}
             breedId={item.slot === 'breed' ? item.id : kennel.breedId}
+            bodyId={item.slot === 'body' ? item.id : kennel.bodyId}
+            feetId={item.slot === 'feet' ? item.id : kennel.feetId}
             size={44}
             animate={false}
           />
@@ -380,6 +391,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                             faceId: yard.guest.faceId,
                             coatId: yard.guest.coatId,
                             breedId: yard.guest.breedId,
+                            bodyId: yard.guest.bodyId,
+                            feetId: yard.guest.feetId,
                             ears: yard.guest.ears,
                             tail: yard.guest.tail,
                             markings: yard.guest.markings,
@@ -398,6 +411,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                     faceId: kennel.faceId,
                     coatId: kennel.coatId,
                     breedId: kennel.breedId,
+                    bodyId: kennel.bodyId,
+                    feetId: kennel.feetId,
                     ears: kennel.ears,
                     tail: kennel.tail,
                     markings: kennel.markings,
@@ -419,6 +434,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                 tail={kennel.tail}
                 markings={kennel.markings}
                 breedId={kennel.breedId}
+                bodyId={kennel.bodyId}
+                feetId={kennel.feetId}
                 size={190}
               />
             </View>
@@ -493,6 +510,66 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             />
           </View>
         </Card>
+
+        {/* Holiday drops (0112, 0149, 0156): the clothes and the yard
+            pieces together, first in the shop while they're on sale. */}
+        {seasons.map((season) => {
+          const items = seasonItems.filter((i) => i.season === season);
+          const yardPieces = YARD_ITEMS.filter((i) => i.season === season && yardItemOnSale(i, today));
+          const SeasonIcon = season === 'Halloween' ? GhostIcon : season === 'Winter' ? SnowflakeIcon : LeafIcon;
+          const ends = items[0] ? saleEndsLabel(items[0]) : yardPieces[0] ? yardSaleEnds(yardPieces[0]) : null;
+          return (
+            <Card key={season} style={[{ gap: 4 }, styles.seasonCard]} elevated={false}>
+              <View style={styles.seasonHeader}>
+                <SeasonIcon size={18} color={colors.amber} weight="fill" />
+                <Text style={text.h4}>{season}</Text>
+                <Text style={styles.seasonEnds}>{ends}</Text>
+              </View>
+              <Text style={styles.itemNote}>Only around for a little while. Anything you get, you keep.</Text>
+              {items.map(itemRow)}
+              {yard && yardPieces.length > 0 && (
+                <View style={[styles.yardItems, { paddingTop: 8 }]}>
+                  {yardPieces.map((item) => {
+                    const spot = (item.slot === 'plant' ? 'plant_left' : item.slot) as YardSpot;
+                    const opensAt = YARD_SPOTS.find((x) => x.spot === spot)?.opensAt ?? 0;
+                    const open = opensAt <= yard.size;
+                    const placed = yard.spots[spot] === item.id;
+                    const owned = kennel.owned.includes(item.id);
+                    return (
+                      <Pressable
+                        key={item.id}
+                        style={[styles.yardItem, placed && styles.yardItemOn]}
+                        disabled={placed || busyId !== null}
+                        onPress={() =>
+                          open
+                            ? pressYardItem(spot, item)
+                            : Alert.alert('Not yet', `Your yard gets a spot for this at ${YARD_SIZES[opensAt].rank}.`)
+                        }
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: placed }}
+                        accessibilityLabel={`${item.name}${placed ? ', in the yard' : owned ? '' : `, ${item.costBones} ${currencyName}`}`}
+                      >
+                        <View style={styles.yardThumb}>
+                          <YardThumb id={item.id} size={52} />
+                        </View>
+                        <Text style={styles.swatchName} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        {busyId === `yard-${item.id}` ? (
+                          <ActivityIndicator size="small" color={colors.accent} />
+                        ) : (
+                          <Text style={[styles.yardItemNote, placed && { color: colors.accent }]}>
+                            {placed ? 'In the yard' : owned ? 'Yours' : open ? `${item.costBones} ${currencyName}` : `At ${YARD_SIZES[opensAt].rank}`}
+                          </Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+            </Card>
+          );
+        })}
 
         {/* The Yard (0148): a fixed spot for everything, more spots as the
             hound ranks up, and trophies that can only be won. */}
@@ -776,22 +853,6 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
           ))
           )}
         </Card>
-
-        {seasons.map((season) => {
-          const items = seasonItems.filter((i) => i.season === season);
-          const SeasonIcon = season === 'Halloween' ? GhostIcon : LeafIcon;
-          return (
-            <Card key={season} style={[{ gap: 4 }, styles.seasonCard]} elevated={false}>
-              <View style={styles.seasonHeader}>
-                <SeasonIcon size={18} color={colors.amber} weight="fill" />
-                <Text style={text.h4}>{season}</Text>
-                <Text style={styles.seasonEnds}>{saleEndsLabel(items[0])}</Text>
-              </View>
-              <Text style={styles.itemNote}>Only around for a little while. Anything you get, you keep.</Text>
-              {items.map(itemRow)}
-            </Card>
-          );
-        })}
 
         {KENNEL_SLOTS.map(({ slot, label }) => (
           <Card key={slot} style={{ gap: 4 }} elevated={false}>

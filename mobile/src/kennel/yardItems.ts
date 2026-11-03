@@ -46,14 +46,16 @@ export const YARD_ITEMS: YardItem[] = [
   { id: 'pond_fountain', slot: 'pond', name: 'Fountain', costBones: 200 },
   // Autumn 2026, through November.
   { id: 'ground_pumpkins', slot: 'ground', name: 'Pumpkin Patch', costBones: 80, season: 'Autumn', availableFrom: '2026-11-01', availableUntil: '2026-11-30' },
-  // Winter 2026, December.
+  // Winter 2026, Nov 15 to Dec 31 (0149, and 0156's Igloo and Lit Tree).
   ...(
     [
       { id: 'house_gingerbread', slot: 'house', name: 'Gingerbread House', costBones: 200 },
       { id: 'ground_snowman', slot: 'ground', name: 'Snowman', costBones: 100 },
       { id: 'fence_garland', slot: 'fence', name: 'Holiday Garland', costBones: 60 },
+      { id: 'house_igloo', slot: 'house', name: 'Igloo', costBones: 300 },
+      { id: 'tree_lit', slot: 'tree', name: 'Lit Tree', costBones: 180 },
     ] as const
-  ).map((i) => ({ ...i, season: 'Winter', availableFrom: '2026-12-01', availableUntil: '2026-12-31' })),
+  ).map((i) => ({ ...i, season: 'Winter', availableFrom: '2026-11-15', availableUntil: '2026-12-31' })),
 ];
 
 // Whether it's for sale on this day (YYYY-MM-DD, the member's own).

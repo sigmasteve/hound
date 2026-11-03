@@ -241,6 +241,8 @@ export function FriendDetailScreen({
                             faceId: myHound.faceId,
                             coatId: myHound.coatId,
                             breedId: myHound.breedId,
+                            bodyId: myHound.bodyId,
+                            feetId: myHound.feetId,
                             ears: myHound.ears,
                             tail: myHound.tail,
                             markings: myHound.markings,
@@ -259,6 +261,8 @@ export function FriendDetailScreen({
                     faceId: hound.faceId,
                     coatId: hound.coatId,
                     breedId: hound.breedId,
+                    bodyId: hound.bodyId,
+                    feetId: hound.feetId,
                     ears: hound.ears,
                     tail: hound.tail,
                     markings: hound.markings,
@@ -326,6 +330,8 @@ export function FriendDetailScreen({
                 tail={hound.tail}
                 markings={hound.markings}
                 breedId={hound.breedId}
+                bodyId={hound.bodyId}
+                feetId={hound.feetId}
                 size={84}
               />
             </View>

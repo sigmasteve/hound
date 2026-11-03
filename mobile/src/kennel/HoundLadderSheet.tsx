@@ -74,6 +74,8 @@ export function HoundLadderSheet({
                   tail={kennel.tail}
                   markings={kennel.markings}
                   breedId={kennel.breedId}
+                  bodyId={kennel.bodyId}
+                  feetId={kennel.feetId}
                   size={96}
                   animate={false}
                 />
@@ -107,6 +109,8 @@ export function HoundLadderSheet({
                           tail={kennel.tail}
                           markings={kennel.markings}
                           breedId={kennel.breedId}
+                          bodyId={kennel.bodyId}
+                          feetId={kennel.feetId}
                           size={44}
                           animate={false}
                         />
