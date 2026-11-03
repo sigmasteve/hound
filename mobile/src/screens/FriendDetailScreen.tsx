@@ -232,6 +232,7 @@ export function FriendDetailScreen({
                 <YardScene
                   onGesture={setThrowing}
                   yard={yard}
+                  tricks={yard.tricks}
                   width={yardWidth}
                   guest={
                     myHound
