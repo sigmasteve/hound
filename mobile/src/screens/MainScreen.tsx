@@ -76,6 +76,7 @@ export function MainScreen({ route, navigation }: Props) {
             onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
             onCreate={() => navigation.navigate('Create')}
             onDiscover={() => navigation.navigate('Discover')}
+            onPickUsername={() => navigation.navigate('Settings')}
           />
         )}
         {tab === 'friends' && (

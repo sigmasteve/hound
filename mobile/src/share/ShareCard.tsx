@@ -24,6 +24,7 @@ import { stepsChangePct, type WeeklyRecap } from '../home/weeklyRecap';
 import { isWin, ordinal, shareMessage, type ResultOutcome } from '../challenges/shareResult';
 import { CARD_HEIGHT, CARD_WIDTH } from './shareImage';
 import { achievementIcon } from '../achievements/achievementIcons';
+import { codeLink, formatCode } from '../challenges/communityApi';
 
 // What can be shared as a picture (ShareSheet): last week, today's goals,
 // how a challenge ended, or a badge (K-06).
@@ -32,13 +33,16 @@ export type ShareContent =
   | { kind: 'goals'; progress: GoalProgress[]; streak: GoalStreak | null }
   | { kind: 'challenge'; name: string; outcome: ResultOutcome; line: string }
   // id and name from the achievements catalog; earnedAt an ISO date.
-  | { kind: 'badge'; id: string; name: string; description?: string; earnedAt?: string };
+  | { kind: 'badge'; id: string; name: string; description?: string; earnedAt?: string }
+  // A community challenge's invite (K-04): its code, link and QR code.
+  | { kind: 'invite'; name: string; code: string; line: string; description?: string | null };
 
 const EYEBROW: Record<ShareContent['kind'], string> = {
   week: 'MY WEEK',
   goals: 'TODAY',
   challenge: 'CHALLENGE',
   badge: 'BADGE',
+  invite: 'JOIN MY CHALLENGE',
 };
 
 const GOAL_ICONS: Record<GoalMetric, React.ComponentType<any>> = {
@@ -86,6 +90,8 @@ export function shareText(content: ShareContent, inviteUrl: string | null): stri
     }
     case 'challenge':
       return shareMessage(content.line, inviteUrl);
+    case 'invite':
+      return `Join my challenge "${content.name}" on Hound: ${codeLink(content.code)} (or enter code ${formatCode(content.code)} under Challenges)`;
     case 'badge':
       return shareMessage(
         `I earned the ${content.name} badge on Hound${content.description ? `: ${content.description.replace(/\.$/, '')}` : ''} 🏅`,
@@ -109,7 +115,8 @@ export function ShareCard({
   cardRef?: Ref<View>;
 }) {
   const celebrate = (content.kind === 'challenge' && isWin(content.outcome)) || content.kind === 'badge';
-  const link = inviteUrl ?? 'https://houndchallenge.net';
+  // An invite carries its own link: the challenge, not your friend code.
+  const link = content.kind === 'invite' ? codeLink(content.code) : (inviteUrl ?? 'https://houndchallenge.net');
   return (
     <View ref={cardRef} collapsable={false} style={styles.card}>
       <Svg style={StyleSheet.absoluteFill} width={CARD_WIDTH} height={CARD_HEIGHT}>
@@ -158,6 +165,19 @@ export function ShareCard({
         {content.kind === 'goals' && <GoalsBody progress={content.progress} streak={content.streak} />}
         {content.kind === 'challenge' && <ChallengeBody name={content.name} outcome={content.outcome} line={content.line} />}
         {content.kind === 'badge' && <BadgeBody name={content.name} description={content.description} earnedAt={content.earnedAt} />}
+        {content.kind === 'invite' && (
+          <View style={{ gap: 8 }}>
+            <Text style={styles.kicker}>{content.line}</Text>
+            <Text style={styles.headline} numberOfLines={2}>
+              {content.name}
+            </Text>
+            {content.description ? (
+              <Text style={styles.line} numberOfLines={2}>
+                {content.description}
+              </Text>
+            ) : null}
+          </View>
+        )}
       </View>
 
       {/* A link can't be tapped or copied out of a story or a saved
@@ -165,13 +185,21 @@ export function ShareCard({
           (the website's /f/ page for a friend code). Dark on white, which
           every scanner reads. */}
       <View style={styles.footer}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={styles.footerTitle}>Challenge me on Hound</Text>
-          <Text style={styles.footerHint}>{inviteUrl ? 'Scan to add me' : 'Scan to get Hound'}</Text>
-          <Text style={styles.footerUrl} numberOfLines={1}>
-            {link.replace(/^https:\/\//, '')}
-          </Text>
-        </View>
+        {content.kind === 'invite' ? (
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.footerHint}>CODE</Text>
+            <Text style={styles.code}>{formatCode(content.code)}</Text>
+            <Text style={styles.footerHint}>Scan, or enter it in Hound → Challenges</Text>
+          </View>
+        ) : (
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.footerTitle}>Challenge me on Hound</Text>
+            <Text style={styles.footerHint}>{inviteUrl ? 'Scan to add me' : 'Scan to get Hound'}</Text>
+            <Text style={styles.footerUrl} numberOfLines={1}>
+              {link.replace(/^https:\/\//, '')}
+            </Text>
+          </View>
+        )}
         <View style={styles.qr}>
           <QRCode value={link} size={64} color={C.bg} backgroundColor="#ffffff" quietZone={0} />
         </View>
@@ -391,6 +419,7 @@ const styles = StyleSheet.create({
   footerHint: { fontSize: 12.5, color: withAlpha(C.text, 0.65) },
   footerUrl: { fontSize: 13, color: C.accent300 },
   qr: { padding: 5, borderRadius: 8, backgroundColor: '#ffffff' },
+  code: { fontFamily: font.headingSemibold, fontSize: 26, letterSpacing: 3, color: C.text },
   medalWrap: { width: 260, height: 220, alignItems: 'center', justifyContent: 'center' },
   medalRing: {
     width: 188,

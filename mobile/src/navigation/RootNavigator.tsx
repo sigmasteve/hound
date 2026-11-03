@@ -22,6 +22,8 @@ import { OrgDetailScreen } from '../screens/OrgDetailScreen';
 import { HelpScreen } from '../screens/HelpScreen';
 import { AchievementsScreen } from '../screens/AchievementsScreen';
 import { DiscoverScreen } from '../screens/DiscoverScreen';
+import { JoinCodeScreen } from '../screens/JoinCodeScreen';
+import { useChallengeCodeLinks } from '../challenges/codeLinks';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { MetricsScreen } from '../screens/MetricsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
@@ -85,6 +87,7 @@ export function RootNavigator() {
   const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const [navReady, setNavReady] = useState(false);
   useNotificationTaps(navigationRef, status === 'signedIn' && connectGate === 'hide', navReady);
+  useChallengeCodeLinks(navigationRef, status === 'signedIn' && connectGate === 'hide', navReady);
 
   useEffect(() => {
     if (status !== 'signedIn') {
@@ -239,6 +242,7 @@ export function RootNavigator() {
                   // A global challenge is published from Admin, so it
                   // returns there instead.
                   kind={route.params?.kind}
+                  onOpenChallenge={(challengeId) => navigation.replace('ChallengeDetail', { challengeId })}
                   onCancel={() =>
                     route.params?.global || route.params?.fromSetup
                       ? navigation.goBack()
@@ -417,6 +421,16 @@ export function RootNavigator() {
                     if (user?.id) AsyncStorage.setItem(welcomeDoneKey(user.id), 'true').catch(() => {});
                     navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
                   }}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="JoinCode" options={{ animation: 'slide_from_right' }}>
+              {({ navigation, route }) => (
+                <JoinCodeScreen
+                  code={route.params.code}
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { tab: 'challenges' }))}
+                  onJoined={(challengeId) => navigation.replace('ChallengeDetail', { challengeId })}
+                  onPickUsername={() => navigation.navigate('Settings')}
                 />
               )}
             </Stack.Screen>

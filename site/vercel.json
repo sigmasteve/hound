@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/f/:code", "destination": "/f.html" },
+    { "source": "/c/:code", "destination": "/c.html" },
     { "source": "/get", "destination": "/download.html" },
     { "source": "/whats-new", "destination": "/whats-new.html" },
     { "source": "/privacy", "destination": "/privacy.html" },

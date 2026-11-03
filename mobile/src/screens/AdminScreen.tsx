@@ -41,6 +41,7 @@ import { PushReachCard } from '../components/PushReachCard';
 import { SignupAlertsCard } from '../components/SignupAlertsCard';
 import { FindPeopleAdminCard } from '../components/FindPeopleAdminCard';
 import { TrashTalkAdminCard } from '../components/TrashTalkAdminCard';
+import { CommunityAdminCard } from '../components/CommunityAdminCard';
 import { AdminFold, AdminNote, AdminTabs } from '../components/AdminParts';
 import { listTrashTalkReports } from '../social/trashTalk';
 import { groupApps, listActiveApps } from '../admin/appVersions';
@@ -110,6 +111,8 @@ export function AdminScreen({
   // For "Needs you" and the Social tab's badge: reported messages waiting,
   // and who isn't on the latest code.
   const [reportCount, setReportCount] = useState(0);
+  // Community challenges waiting, paused or reported (0152).
+  const [communityQueue, setCommunityQueue] = useState(0);
   const [behindCount, setBehindCount] = useState(0);
   const [versionsSummary, setVersionsSummary] = useState<string | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
@@ -596,7 +599,7 @@ export function AdminScreen({
                 { id: 'overview', label: 'Overview' },
                 { id: 'people', label: 'People' },
                 { id: 'publish', label: 'Publish' },
-                { id: 'social', label: 'Social', badge: reportCount },
+                { id: 'social', label: 'Social', badge: reportCount + communityQueue },
                 { id: 'bones', label: 'Bones' },
               ]}
               value={tab}
@@ -898,6 +901,7 @@ export function AdminScreen({
               <>
                 <TrashTalkAdminCard part="reports" onReportsChange={setReportCount} />
                 <TrashTalkAdminCard part="settings" />
+                <CommunityAdminCard onQueueChange={setCommunityQueue} />
                 <FindPeopleAdminCard />
               </>
             )}

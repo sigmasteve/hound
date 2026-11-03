@@ -55,6 +55,8 @@ export type RootStackParamList = {
   Achievements: undefined;
   // K-01: search and filter challenges to join or start.
   Discover: undefined;
+  // K-04: a community challenge's Join card, from its link.
+  JoinCode: { code: string };
   // Opened from the You tab (they used to be tabs or the top bar).
   Stats: undefined;
   Settings: undefined;
