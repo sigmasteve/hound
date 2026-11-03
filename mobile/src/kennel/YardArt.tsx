@@ -7,6 +7,7 @@ import { HoundArt, type HoundMood } from './HoundArt';
 import type { HoundEars, HoundMarkings, HoundTail } from './kennelItems';
 import { YARD_SIZES, yardItemById, type TrophyKind, type YardSpot } from './yardItems';
 import type { Yard } from './yardApi';
+import { isTrick, trickById, type TrickId } from './tricks';
 
 // The Yard (0148_yard.sql), drawn in code like the hound. One 540-wide
 // world with every spot in a fixed place; a yard shows the part of it
@@ -120,7 +121,13 @@ export function YardScene({
   guest,
   onGesture,
   water,
+  tricks,
+  trick,
 }: {
+  // Tricks owned (0158): a double-tap on the hound does the next one.
+  tricks?: string[];
+  // Do this one now (a preview in the shop); n goes up each time.
+  trick?: { id: TrickId; n: number } | null;
   // Today's water as a share of the water goal (0153): the bowl fills
   // through the day. Undefined or null: the bowl as it's drawn.
   water?: number | null;
@@ -320,6 +327,54 @@ export function YardScene({
     setTimeout(() => setSaid(line), 0);
   };
 
+  // Tricks (0158): a double-tap does the next one owned; the shop's
+  // preview asks for one by id.
+  const trickAnim = useRef(new Animated.Value(0)).current;
+  const [doing, setDoing] = useState<TrickId | null>(null);
+  const doingRef = useRef(false);
+  const perform = (id: TrickId) => {
+    if (fetchingRef.current || doingRef.current) return;
+    doingRef.current = true;
+    setDoing(id);
+    setSaid(null);
+    trickAnim.setValue(0);
+    Animated.timing(trickAnim, {
+      toValue: 1,
+      duration: id === 'trick_playdead' ? 2200 : id === 'trick_highfive' ? 1300 : 1000,
+      easing: Easing.inOut(Easing.quad),
+      useNativeDriver: true,
+    }).start(() => {
+      doingRef.current = false;
+      setDoing(null);
+      trickAnim.setValue(0);
+      const t = trickById(id);
+      if (t) sayNow(t.line);
+    });
+  };
+  useEffect(() => {
+    if (trick) perform(trick.id);
+    // A new request only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trick?.n]);
+  const lastTap = useRef(0);
+  const trickIx = useRef(0);
+  const press = () => {
+    const now = Date.now();
+    const owned = (tricks ?? []).filter(isTrick);
+    if (now - lastTap.current < 330 && owned.length > 0) {
+      lastTap.current = 0;
+      if (night) {
+        sayNow('Zzz… tricks in the morning.');
+        return;
+      }
+      perform(owned[trickIx.current % owned.length]);
+      trickIx.current += 1;
+      return;
+    }
+    lastTap.current = now;
+    onTap();
+  };
+
   // Flick the toy (or tap it): it flies, the hound runs it down and
   // brings it back. flick is how far the finger went, in pixels; 0 throws
   // it a random way.
@@ -444,6 +499,28 @@ export function YardScene({
         ),
       },
       { rotate: Animated.add(step, sway).interpolate({ inputRange: [-1, 0, 1], outputRange: ['-2deg', '0deg', '3deg'] }) },
+      // The trick being done, if any.
+      {
+        translateY:
+          doing === 'trick_rollover' || doing === 'trick_spin'
+            ? trickAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, -houndW * 0.22, 0] })
+            : doing === 'trick_playdead'
+              ? trickAnim.interpolate({ inputRange: [0, 0.15, 0.85, 1], outputRange: [0, houndW * 0.2, houndW * 0.2, 0] })
+              : doing === 'trick_highfive'
+                ? trickAnim.interpolate({ inputRange: [0, 0.2, 0.8, 1], outputRange: [0, -houndW * 0.06, -houndW * 0.06, 0] })
+                : 0,
+      },
+      {
+        rotate:
+          doing === 'trick_rollover'
+            ? trickAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
+            : doing === 'trick_playdead'
+              ? trickAnim.interpolate({ inputRange: [0, 0.15, 0.85, 1], outputRange: ['0deg', '90deg', '90deg', '0deg'] })
+              : doing === 'trick_highfive'
+                ? trickAnim.interpolate({ inputRange: [0, 0.2, 0.8, 1], outputRange: ['0deg', '-7deg', '-7deg', '0deg'] })
+                : '0deg',
+      },
+      { scaleX: doing === 'trick_spin' ? trickAnim.interpolate({ inputRange: [0, 0.25, 0.5, 0.75, 1], outputRange: [1, -1, 1, -1, 1] }) : 1 },
     ],
   };
 
@@ -545,16 +622,17 @@ export function YardScene({
 
       <Animated.View style={houndStyle}>
         <Pressable
-          onPress={() => onTap()}
+          onPress={press}
           onLongPress={onPet}
           delayLongPress={350}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={`${hound.name}. Tap to say hi, press and hold to pet.`}
+          accessibilityLabel={`${hound.name}. Tap to say hi, press and hold to pet${(tricks ?? []).some(isTrick) ? ', double-tap for a trick' : ''}.`}
         >
           <HoundArt
             rank={hound.rank}
-            mood={artMood}
+            mood={doing === 'trick_playdead' ? 'sleepy' : artMood}
+            wave={doing === 'trick_highfive'}
             neckId={hound.neckId}
             headId={hound.headId}
             faceId={hound.faceId}

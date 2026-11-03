@@ -50,6 +50,7 @@ export function HoundArt({
   bodyId,
   feetId,
   pose = 'sit',
+  wave = false,
   ears = 'floppy',
   tail = 'wavy',
   markings = 'none',
@@ -70,6 +71,8 @@ export function HoundArt({
   feetId?: string | null;
   // 'lie': lying down, in the Yard's bed or hammock.
   pose?: 'sit' | 'lie';
+  // A front paw raised, for a high five (the Yard's tricks, 0158).
+  wave?: boolean;
   ears?: HoundEars;
   tail?: HoundTail;
   markings?: HoundMarkings;
@@ -260,6 +263,13 @@ export function HoundArt({
             <>
               {bodyPart}
               {clothes}
+              {wave && (
+                <G>
+                  <Path d={`M 116 ${bodyCy + 6} Q 138 ${bodyCy - 10} 150 ${headCy + 22}`} stroke={COAT} strokeWidth={18} strokeLinecap="round" fill="none" />
+                  <Ellipse cx={152} cy={headCy + 16} rx={12} ry={11} fill={LIGHT} />
+                  <Path d={`M 146 ${headCy + 9} V ${headCy + 14} M 152 ${headCy + 8} V ${headCy + 13} M 158 ${headCy + 9} V ${headCy + 14}`} stroke={COAT_DARK} strokeWidth={1.6} strokeLinecap="round" />
+                </G>
+              )}
             </>
           )}
           <G transform={headDrop ? `translate(0 ${headDrop})` : undefined}>
