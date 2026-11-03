@@ -973,7 +973,9 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
               >
-                <Text style={[styles.tabLabel, on && styles.tabLabelOn]}>{t.label}</Text>
+                <Text style={[styles.tabLabel, on && styles.tabLabelOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                  {t.label}
+                </Text>
                 {t.id === 'wardrobe' && seasonItems.length > 0 && <View style={styles.tabDot} />}
               </Pressable>
             );
@@ -1506,8 +1508,13 @@ function makeStyles(colors: Palette) {
       backgroundColor: withAlpha(colors.accent, 0.12),
     },
     tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
+    // Each as wide as its label, sharing what's left, so "Wardrobe" never
+    // breaks onto two lines at larger text sizes.
     tab: {
-      flex: 1,
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 'auto',
+      paddingHorizontal: 4,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
@@ -1520,7 +1527,7 @@ function makeStyles(colors: Palette) {
     tabOn: { borderBottomColor: colors.accent },
     tabLabel: { fontFamily: font.heading, fontSize: 14.5, color: withAlpha(colors.text, 0.6) },
     tabLabelOn: { fontFamily: font.headingSemibold, color: colors.text },
-    tabDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.amber },
+    tabDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.amber, flexShrink: 0 },
     tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     trickTile: {
       width: '48.5%',
