@@ -57,7 +57,7 @@ select ok((select due_at > now() from public.rally_games where challenge_id = '0
 select tests.sign_in(:'bob');
 set local role authenticated;
 select is(public.rally_check_shot('00000000-0000-0000-0000-0000000000a1'), 'short', 'No steps yet: short');
-select throws_ok('update public.rally_games set points_b = 21', '42501', null, 'Nobody writes the game directly');
+select throws_ok('update public.rally_games set points_b = 21 where true', '42501', null, 'Nobody writes the game directly');
 select is((select count(*)::int from public.rally_players where challenge_id = '00000000-0000-0000-0000-0000000000a1'), 2, 'Players see the line-up');
 reset role;
 select tests.sign_in(:'dan');

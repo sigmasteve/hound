@@ -28,7 +28,7 @@ select is((select streak from public.my_goal_streak(:'today'::date + 2)), 0, 'Mi
 select is((select bones_awarded from public.claim_goal_week(:'today')), 15, 'A goal week pays 15');
 select is((select awarded from public.claim_goal_week(:'today')), false, 'A week only pays once');
 
-select throws_ok('update public.goal_streaks set streak = 99', '42501', null, 'Nobody can change their own streak');
+select throws_ok('update public.goal_streaks set streak = 99 where true', '42501', null, 'Nobody can change their own streak');
 reset role;
 
 -- 5 + 5 for the goal days and 15 for the week, plus 25 for reaching

@@ -27,18 +27,18 @@ set local role authenticated;
 select is((select bones from public.claim_ad_reward(current_date)), 10, 'Watching one pays 10 Bones');
 select is((select awarded from public.claim_ad_reward(current_date)), false, 'A second claim straight away pays nothing');
 reset role;
-update public.ad_rewards set created_at = now() - interval '1 minute';
+update public.ad_rewards set created_at = now() - interval '1 minute' where true;
 select tests.sign_in(:'bob');
 set local role authenticated;
 select is((select awarded from public.claim_ad_reward(current_date)), true, 'The next ad pays');
 reset role;
-update public.ad_rewards set created_at = now() - interval '1 minute';
+update public.ad_rewards set created_at = now() - interval '1 minute' where true;
 select tests.sign_in(:'bob');
 set local role authenticated;
 select is((select awarded from public.claim_ad_reward(current_date)), false, 'Past the daily cap, nothing');
 reset role;
 
-update public.ad_settings set verify_by_server = true, daily_cap = 5;
+update public.ad_settings set verify_by_server = true, daily_cap = 5 where true;
 select tests.sign_in(:'bob');
 set local role authenticated;
 select throws_ok('select public.claim_ad_reward(current_date)', 'Bones for ads are paid by the server now.',

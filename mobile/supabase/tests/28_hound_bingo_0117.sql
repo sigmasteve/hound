@@ -47,7 +47,7 @@ select is(public.my_bingo_card('00000000-0000-0000-0000-0000000000b5'),
   'my_bingo_card returns the card already dealt');
 select is((select count(*)::int from public.bingo_cards where challenge_id = '00000000-0000-0000-0000-0000000000b5'),
   3, 'Players see everyone''s card');
-select throws_ok('update public.bingo_cards set bingo_at = now()', '42501', null, 'Nobody writes cards directly');
+select throws_ok('update public.bingo_cards set bingo_at = now() where true', '42501', null, 'Nobody writes cards directly');
 reset role;
 
 select tests.sign_in(:'dan');

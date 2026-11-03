@@ -42,3 +42,10 @@ for f in $(cd "$MIGRATIONS" && ls [0-9]*.sql | sort); do
   count=$((count + 1))
 done
 echo "Applied $count migrations to a fresh database."
+
+# The app reaches the database through Supabase's API, whose connections
+# load pg-safeupdate: an UPDATE or DELETE without a WHERE is refused, even
+# inside a function. The tests load it too, so they catch one (0155).
+# Migrations themselves run without it, as in the SQL Editor.
+docker exec "$CONTAINER" psql -U supabase_admin -d postgres -q -v ON_ERROR_STOP=1 \
+  -c "alter role postgres set session_preload_libraries = 'safeupdate';"

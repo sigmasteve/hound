@@ -53,7 +53,7 @@ select tests.sign_in(:'dan');
 set local role authenticated;
 select throws_ok($$select public.soccer_set_tactic('00000000-0000-0000-0000-0000000000c5', '$$ || :'cat' || $$')$$, null, null, 'A defender can''t mark the keeper');
 select lives_ok($$select public.soccer_set_tactic('00000000-0000-0000-0000-0000000000c5', '$$ || :'ann' || $$')$$, 'A defender marks a forward');
-select throws_ok('update public.soccer_tactics set mark_id = null', '42501', null, 'Nobody writes picks directly');
+select throws_ok('update public.soccer_tactics set mark_id = null where true', '42501', null, 'Nobody writes picks directly');
 reset role;
 
 -- Today's picks: your side sees them, the other side doesn't.
