@@ -174,6 +174,8 @@ import type { Friend } from '../friends/types';
 import { buildRematchDraft, type RematchDraft } from '../challenges/rematch';
 import { ordinal, resultLine, type ResultOutcome } from '../challenges/shareResult';
 import { ShareSheet } from '../share/ShareSheet';
+import { CommunityCard } from '../components/CommunityCard';
+import { getCommunityInfo, type CommunityInfo } from '../challenges/communityApi';
 import { friendEligible } from '../friends/eligibility';
 import { useAuth } from '../auth/AuthContext';
 import {
@@ -225,6 +227,15 @@ export function ChallengeDetailScreen({
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   // The finished challenge's Share result sheet is open.
   const [sharingResult, setSharingResult] = useState(false);
+  // A community challenge (K-04, 0152): its code and state. Null for any
+  // other challenge.
+  const [community, setCommunity] = useState<CommunityInfo | null>(null);
+  const [sharingInvite, setSharingInvite] = useState(false);
+  useEffect(() => {
+    getCommunityInfo(challengeId)
+      .then(setCommunity)
+      .catch(() => setCommunity(null));
+  }, [challengeId]);
   // Which calendar days count on this phone (challengeDays.ts) — for
   // Bingo's workout picker and the 75 Day checklist.
   const [challengeDays, setChallengeDays] = useState<ChallengeDays | null>(null);
@@ -1784,6 +1795,20 @@ export function ChallengeDetailScreen({
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+    {sharingInvite && community?.code && (
+      <ShareSheet
+        content={{
+          kind: 'invite',
+          name: challenge.name,
+          code: community.code,
+          description: community.description,
+          line: `${CHALLENGE_TYPES.find((t) => t.id === challenge.kind)?.name ?? 'Challenge'} · ${challenge.durationDays} days · starts ${new Date(
+            challenge.startsAt,
+          ).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`,
+        }}
+        onClose={() => setSharingInvite(false)}
+      />
+    )}
     {sharingResult && myOutcome && myResultLine && (
       <ShareSheet
         content={{ kind: 'challenge', name: challenge.name, outcome: myOutcome, line: myResultLine }}
@@ -2924,6 +2949,19 @@ export function ChallengeDetailScreen({
               expires (see load()'s own invitedIds refresh, sourced from
               listSentChallengeInvites — a no-longer-pending invite just drops
               out of that list). */}
+          {!wrappedUp && community && (
+            <CommunityCard
+              challengeId={challengeId}
+              name={challenge.name}
+              info={community}
+              isCreator={challenge.createdBy === user?.id}
+              othersJoined={participants.some((p) => p.userId !== challenge.createdBy)}
+              onChanged={setCommunity}
+              onSharePicture={() => setSharingInvite(true)}
+              onCancelled={onBack}
+            />
+          )}
+
           {!wrappedUp && isGlobal && (
             <Card style={{ gap: 6 }} elevated={false}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -2938,7 +2976,7 @@ export function ChallengeDetailScreen({
           )}
 
           {/* A Rally's seats are named at setup (two or four), so there's nobody to invite later. */}
-          {!wrappedUp && !isGlobal && challenge.kind !== 'rally' && !(challenge.kind === 'tictacgo' && (participants.length >= 2 || invitedIds.size > 0)) && (
+          {!wrappedUp && !isGlobal && !community && challenge.kind !== 'rally' && !(challenge.kind === 'tictacgo' && (participants.length >= 2 || invitedIds.size > 0)) && (
             <Card style={{ gap: 10 }} elevated={false}>
               <Text style={text.h4}>{challenge.kind === 'tictacgo' ? 'Invite your opponent' : 'Invite a friend'}</Text>
               {challenge.kind === 'soccer' && (
@@ -3038,7 +3076,9 @@ export function ChallengeDetailScreen({
               <Text style={styles.deleteLabel}>{ending ? 'Ending…' : 'End early — today is the last day'}</Text>
             </Pressable>
           )}
-          {challenge.createdBy === user?.id && (
+          {/* A community challenge has strangers in it: its creator can
+              only call it off before anyone joins (CommunityCard). */}
+          {challenge.createdBy === user?.id && !community && (
             <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteRow}>
               <TrashIcon size={14} color={colors.amber} />
               <Text style={styles.deleteLabel}>{deleting ? 'Deleting…' : 'Delete challenge'}</Text>

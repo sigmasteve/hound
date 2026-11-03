@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
@@ -106,6 +106,12 @@ import {
   type GlobalTemplate,
   type JoinWindow,
 } from '../challenges/globalChallenges';
+import {
+  confirmCommunityAge,
+  getCommunityStatus,
+  publishCommunityChallenge,
+  type CommunityStatus,
+} from '../challenges/communityApi';
 
 const SCORING_METHODS: { id: ScoringMethod; label: string }[] = [
   { id: 'gps_distance', label: 'GPS distance from runs & walks' },
@@ -165,9 +171,13 @@ export function CreateScreen({
   global = false,
   kind,
   inviteUserIds,
+  onOpenChallenge,
 }: {
   onCancel: () => void;
   onFinish: () => void;
+  // Opens a challenge just published as a community challenge, where its
+  // code and invite card are.
+  onOpenChallenge?: (challengeId: string) => void;
   // Friends already picked on step 3, from a friend's page.
   inviteUserIds?: string[];
   // An admin publishing a Global Hound Challenge (opened from the Admin
@@ -227,6 +237,23 @@ export function CreateScreen({
   // A miles pool: the course map to show the group's miles along, if any.
   const [poolCourseId, setPoolCourseId] = useState<string | null>(rematch?.kind === 'distance' ? (rematch.courseId ?? null) : null);
   const [length, setLength] = useState(rematch ? String(rematch.durationDays) : '7');
+  // K-04: "Anyone with the code", a community challenge (0152). The same
+  // start date, join window and review as a global challenge; only the
+  // crowd-safe kinds; a description; optionally just your organization.
+  const [community, setCommunity] = useState(false);
+  const [communityStatus, setCommunityStatus] = useState<CommunityStatus | null>(null);
+  const [description, setDescription] = useState('');
+  const [orgOnly, setOrgOnly] = useState(false);
+  useEffect(() => {
+    if (global || rematch) return;
+    getCommunityStatus()
+      .then(setCommunityStatus)
+      .catch(() => {});
+    // Once, when the wizard opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Published to a crowd rather than started with invites.
+  const crowd = global || community;
   // Accountability only: the shared list as drafted (src/challenges/
   // checklist.ts), the steps item's daily count, and the admin cap.
   const [checklistItems, setChecklistItems] = useState<{ key: string; label: string; kind: ChecklistItemKind }[]>(() =>
@@ -323,7 +350,7 @@ export function CreateScreen({
   const [sponsorName, setSponsorName] = useState('');
   const [sponsorMessage, setSponsorMessage] = useState('');
   const [sponsorUrl, setSponsorUrl] = useState('');
-  const canHavePot = !global && POT_KINDS.includes(draftType);
+  const canHavePot = !crowd && POT_KINDS.includes(draftType);
   const canHavePrizes = global && draftType !== 'seventyfive' && draftType !== 'checklist';
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -446,6 +473,46 @@ export function CreateScreen({
     setLength(String(journeyDefaultDays(c.miles)));
     if (!draftName.trim() || draftName === course.name) setDraftName(c.name);
     if (nameError) setNameError(null);
+  };
+
+  // Choosing "Anyone with the code": only when they can publish, after a
+  // one-time 13+ when that's on, and only the crowd-safe kinds.
+  const pickCommunity = (on: boolean) => {
+    if (!on) {
+      setCommunity(false);
+      return;
+    }
+    const st = communityStatus;
+    if (!st) return;
+    if (st.publishProblem) {
+      Alert.alert('Not yet', st.publishProblem);
+      return;
+    }
+    const turnOn = () => {
+      if (!GLOBAL_KINDS.includes(draftType)) setDraftType('steps');
+      setCommunity(true);
+    };
+    if (st.ageGate && !st.ageOk) {
+      Alert.alert(
+        'Are you 13 or older?',
+        'Community challenges are open to people you don’t know, so they’re for ages 13 and up.',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'I’m 13 or older',
+            onPress: () =>
+              confirmCommunityAge()
+                .then(() => {
+                  setCommunityStatus({ ...st, ageOk: true });
+                  turnOn();
+                })
+                .catch((e) => Alert.alert('Couldn’t save that', e instanceof Error ? e.message : 'Try again.')),
+          },
+        ],
+      );
+      return;
+    }
+    turnOn();
   };
 
   // Whether a kind is still Bones-locked for this viewer — the picker
@@ -611,6 +678,42 @@ export function CreateScreen({
     if (draftType === 'checklist' && checklistItems.length === 0) {
       setSaveError('Add at least one item to the list.');
       setStep(2);
+      return;
+    }
+    if (community) {
+      setSaveError(null);
+      setSaving(true);
+      try {
+        const isDistance = draftType === 'distance';
+        const isJourney = draftType === 'journey';
+        const published = await publishCommunityChallenge({
+          name: draftName.trim(),
+          description: description.trim() || null,
+          kind: draftType,
+          durationDays: Number(length),
+          startsAt: globalStartsAt,
+          joinClosesAt: globalJoinClosesAt,
+          orgOnly,
+          dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
+          distanceGoalUnit: isDistance ? distanceGoalUnit : undefined,
+          distanceGoalMi: isDistance && distanceGoalUnit === 'miles' ? distanceGoalMi : isJourney ? course.miles : undefined,
+          distanceGoalSteps: isDistance && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
+          bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
+          courseId: isJourney ? course.id : isDistance && distanceGoalUnit === 'miles' ? (poolCourseId ?? undefined) : undefined,
+          distanceSource: isDistance && distanceGoalUnit === 'miles' ? distanceSource : undefined,
+        });
+        if (draftType === 'checklist') {
+          await addChecklistItems(published.id, checklistToSave).catch((e: Error) =>
+            Alert.alert('Published, but the list didn’t save', e.message),
+          );
+        }
+        if (onOpenChallenge) onOpenChallenge(published.id);
+        else onFinish();
+      } catch (e) {
+        setSaveError(e instanceof Error ? e.message : 'Could not publish that challenge — try again.');
+      } finally {
+        setSaving(false);
+      }
       return;
     }
     if (global) {
@@ -909,6 +1012,24 @@ export function CreateScreen({
 
       {step === 1 && (
         <View style={{ gap: 20 }}>
+          {!global && !rematch && communityStatus?.enabled && (
+            <View style={{ gap: 8 }}>
+              <Text style={styles.fieldLabel}>Who can join</Text>
+              <SegmentedControl
+                options={[
+                  { value: 'invite', label: 'People I invite' },
+                  { value: 'code', label: 'Anyone with the code' },
+                ]}
+                value={community ? 'code' : 'invite'}
+                onChange={(v) => pickCommunity(v === 'code')}
+              />
+              <Text style={styles.footNote}>
+                {community
+                  ? 'A community challenge: anyone with its code, link or QR code can join. It isn’t listed anywhere, and it’s people only.'
+                  : 'Friends you invite, and bots where they can play.'}
+              </Text>
+            </View>
+          )}
           {global && (
             <View style={{ gap: 10 }}>
               <View style={styles.rematchNote}>
@@ -949,7 +1070,7 @@ export function CreateScreen({
             <View key={group.label || i} style={{ gap: 10 }}>
               {!!group.label && <Text style={styles.groupLabel}>{group.label}</Text>}
               <View style={{ gap: 10 }}>
-                {group.kinds.filter((k) => !global || GLOBAL_KINDS.includes(k)).map((kindId) => {
+                {group.kinds.filter((k) => !crowd || GLOBAL_KINDS.includes(k)).map((kindId) => {
                   const t = CHALLENGE_TYPES.find((ct) => ct.id === kindId);
                   if (!t) return null;
                   const unlockBones = unlockGates[t.id];
@@ -1010,11 +1131,30 @@ export function CreateScreen({
               if (nameError) setNameError(null);
             }}
             placeholder="Name your challenge"
-            // The server's limit (0090_security_hardening.sql).
-            maxLength={60}
+            // The server's limit (0090_security_hardening.sql); a
+            // community challenge's is 40 (0152).
+            maxLength={community ? 40 : 60}
             error={nameError ?? undefined}
           />
-          {global ? (
+          {community && (
+            <TextField
+              label="One line about it (optional)"
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Most steps in two weeks wins."
+              maxLength={120}
+            />
+          )}
+          {community && !!myOrgId && (
+            <View style={styles.huntBlockHeader}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.fieldLabel}>Only my organization</Text>
+                <Text style={styles.footNote}>Only people in your organization can join with the code.</Text>
+              </View>
+              <Switch value={orgOnly} onValueChange={setOrgOnly} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+            </View>
+          )}
+          {crowd ? (
             <>
               <View style={{ gap: 5 }}>
                 <View style={styles.huntBlockHeader}>
@@ -1023,7 +1163,7 @@ export function CreateScreen({
                 </View>
                 <Slider
                   minimumValue={0}
-                  maximumValue={30}
+                  maximumValue={community ? 14 : 30}
                   step={1}
                   value={startInDays}
                   onValueChange={(v) => setStartInDays(Math.round(v))}
@@ -1099,11 +1239,22 @@ export function CreateScreen({
             />
             <Slider
               // A Hound'opoly game needs a week to go anywhere.
-              minimumValue={draftType === 'houndopoly' ? 7 : 1}
+              minimumValue={community ? (draftType === 'seventyfive' ? 75 : Math.max(3, draftType === 'houndopoly' ? 7 : 3)) : draftType === 'houndopoly' ? 7 : 1}
               // Every other kind keeps its existing 45-day ceiling
               // unchanged — only 75 Day Challenge needs to reach past it,
               // since its own default (seeded below) is 75.
-              maximumValue={draftType === 'seventyfive' || draftType === 'checklist' ? 100 : draftType === 'journey' ? 365 : 45}
+              maximumValue={
+                // A community challenge runs 3 to 30 days (75 Day: 75).
+                community
+                  ? draftType === 'seventyfive'
+                    ? 75
+                    : 30
+                  : draftType === 'seventyfive' || draftType === 'checklist'
+                    ? 100
+                    : draftType === 'journey'
+                      ? 365
+                      : 45
+              }
               step={1}
               value={customLength}
               onValueChange={(v) => setLength(String(Math.round(v)))}
@@ -1558,7 +1709,7 @@ export function CreateScreen({
         </View>
       )}
 
-      {step === 3 && global && (
+      {step === 3 && crowd && (
         <View style={{ gap: 14 }}>
           <Text style={text.h2}>Review and publish</Text>
           <View style={styles.huntBlock}>
@@ -1659,14 +1810,22 @@ export function CreateScreen({
               the sponsor, not Hound.
             </Text>
           </View>
-          <Text style={styles.footNote}>
-            Publishing shows it on everyone’s Today screen under Global Hound Challenges. You’re not added
-            automatically — join it from Today like anyone else. You can take it down from the Admin screen.
-          </Text>
+          {global ? (
+            <Text style={styles.footNote}>
+              Publishing shows it on everyone’s Today screen under Global Hound Challenges. You’re not added
+              automatically — join it from Today like anyone else. You can take it down from the Admin screen.
+            </Text>
+          ) : (
+            <Text style={styles.footNote}>
+              You’ll get a code, a link and a QR code to share; only people you share them with can find it, and
+              you’re in it already.
+              {communityStatus?.preReview ? ' New community challenges are checked first, so the code starts working once it’s approved.' : ''}
+            </Text>
+          )}
         </View>
       )}
 
-      {step === 3 && !global && (
+      {step === 3 && !crowd && (
         <View style={{ gap: 14 }}>
           <Text style={text.h2}>
             {draftType === 'tictacgo' || draftType === 'rally'
@@ -1980,10 +2139,12 @@ export function CreateScreen({
         <Button
           label={
             step === 3
-              ? global
+              ? crowd
                 ? saving
                   ? 'Publishing…'
-                  : 'Publish to everyone'
+                  : global
+                    ? 'Publish to everyone'
+                    : 'Publish and get the code'
                 : saving
                   ? 'Starting…'
                   : 'Start the challenge'

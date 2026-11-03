@@ -47,6 +47,29 @@ function toDisplayable(p: ProfileRow): DisplayableProfile & { initials: string }
   return { name: p.name, initials: p.initials, username: p.username, useUsername: p.use_username };
 }
 
+// Community challenges (K-04, 0152) show usernames, never names, on
+// their boards and lists: everyone in one has a username (joining needs
+// it). Which challenges are community ones, remembered per session.
+const communityById = new Map<string, Promise<boolean>>();
+function isCommunityChallenge(challengeId: string): Promise<boolean> {
+  let known = communityById.get(challengeId);
+  if (!known) {
+    known = (async () => {
+      const client = requireClient();
+      const { data, error } = await client.from('challenges').select('community').eq('id', challengeId).maybeSingle();
+      // Before 0152 the column isn't there: never a community challenge.
+      return !error && !!(data as { community?: boolean } | null)?.community;
+    })().catch(() => false);
+    communityById.set(challengeId, known);
+  }
+  return known;
+}
+
+// The profile as a community board shows it: by username.
+function asShown(p: ProfileRow, community: boolean): ProfileRow {
+  return community && p.username ? { ...p, use_username: true } : p;
+}
+
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
   return supabase;
@@ -194,12 +217,13 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       )
       .eq('challenge_id', challengeId);
     if (error) throw new Error(error.message);
+    const community = await isCommunityChallenge(challengeId);
     return (data ?? []).map((row) => {
       const profile = row.profiles as unknown as ParticipantProfileRow | null;
       return {
         userId: row.user_id,
-        name: profile ? displayName(toDisplayable(profile)) : 'Someone',
-        initials: profile ? displayInitials(toDisplayable(profile)) : '?',
+        name: profile ? displayName(toDisplayable(asShown(profile, community))) : 'Someone',
+        initials: profile ? displayInitials(toDisplayable(asShown(profile, community))) : '?',
         role: (row.role as HuntRole | null) ?? null,
         highlighted: row.highlighted,
         frameId: profile?.equipped_frame_id ?? null,
@@ -242,6 +266,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       return query.order('day').order('user_id').range(from, to);
     });
 
+    const community = await isCommunityChallenge(challengeId);
     const totals = new Map<string, LeaderboardEntry>();
     for (const row of data) {
       const profile = row.profiles as unknown as ProfileRow | null;
@@ -252,8 +277,8 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       } else {
         totals.set(row.user_id, {
           userId: row.user_id,
-          name: profile ? displayName(toDisplayable(profile)) : 'Someone',
-          initials: profile ? displayInitials(toDisplayable(profile)) : '?',
+          name: profile ? displayName(toDisplayable(asShown(profile, community))) : 'Someone',
+          initials: profile ? displayInitials(toDisplayable(asShown(profile, community))) : '?',
           totalSteps: row.steps,
           totalDistanceMi: Number(row.distance_mi),
         });
@@ -688,13 +713,20 @@ async function fetchChallengeBoards(challenges: Challenge[]): Promise<Map<string
   });
   if (error) return null;
   const boards = new Map<string, BoardInputs>();
-  for (const row of (data ?? []) as { challenge_id: string; participants: BoardParticipantRow[]; bots: any[] }[]) {
+  const rows = (data ?? []) as { challenge_id: string; participants: BoardParticipantRow[]; bots: any[] }[];
+  const communityIds = new Set(
+    (await Promise.all(rows.map(async (r) => ((await isCommunityChallenge(r.challenge_id)) ? r.challenge_id : null)))).filter(
+      (id): id is string => id !== null,
+    ),
+  );
+  for (const row of rows) {
+    const community = communityIds.has(row.challenge_id);
     const participants: Participant[] = [];
     const leaderboard: LeaderboardEntry[] = [];
     const headStartLeaderboard: LeaderboardEntry[] = [];
     for (const p of row.participants ?? []) {
       const known = p.name != null;
-      const profile = { name: p.name, initials: p.initials, username: p.username, use_username: p.use_username };
+      const profile = asShown({ name: p.name, initials: p.initials, username: p.username, use_username: p.use_username }, community);
       const name = known ? displayName(toDisplayable(profile)) : 'Someone';
       const initials = known ? displayInitials(toDisplayable(profile)) : '?';
       participants.push({

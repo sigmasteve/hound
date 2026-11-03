@@ -27,6 +27,8 @@ import { useLabels } from '../labels/LabelsContext';
 import type { Challenge, ChallengeInvite } from '../challenges/types';
 import { canJoin, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
 import { GlobalChallengesCard } from '../components/GlobalChallengesCard';
+import { CodeJoinCard } from '../components/CodeJoinCard';
+import { getCommunityStatus } from '../challenges/communityApi';
 import { computeStreakStatus } from '../challenges/streak';
 import { listDailyProgress, listParticipantJoinDates } from '../challenges/streakApi';
 import { getChallengeDays } from '../challenges/challengeDays';
@@ -97,12 +99,22 @@ export function ChallengesScreen({
   onOpenChallenge,
   onCreate,
   onDiscover,
+  onPickUsername,
 }: {
   onOpenChallenge: (challengeId: string) => void;
   onCreate: () => void;
   // K-01: search and filter challenges to join or start.
   onDiscover?: () => void;
+  // K-04: the code field sends people without a username to pick one.
+  onPickUsername?: () => void;
 }) {
+  // K-04: the "Have a code?" field shows once 0152 is in and it's on.
+  const [codesOn, setCodesOn] = useState(false);
+  useEffect(() => {
+    getCommunityStatus()
+      .then((s) => setCodesOn(!!s?.enabled))
+      .catch(() => setCodesOn(false));
+  }, []);
   const { user } = useAuth();
   const { colors, text } = useTheme();
   const { labelsForOrg } = useLabels();
@@ -447,6 +459,7 @@ export function ChallengesScreen({
           <Text style={styles.findText}>Find a challenge: football, marathon, bingo…</Text>
         </Pressable>
       )}
+      {codesOn && <CodeJoinCard onJoined={onOpenChallenge} onPickUsername={() => onPickUsername?.()} />}
 
       {invitesLoading
         ? null
