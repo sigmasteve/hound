@@ -24,6 +24,9 @@ import {
 export type HoundMood = 'happy' | 'okay' | 'sleepy' | 'hungry';
 
 const NOSE = '#2b1d14';
+// How a lying hound's body is squashed: wider and much lower.
+const LIE_SX = 1.18;
+const LIE_SY = 0.58;
 const INK = '#2b1d14';
 
 // Per rank: head radius, body size, ear length, and how big the whole
@@ -44,6 +47,9 @@ export function HoundArt({
   faceId,
   coatId,
   breedId,
+  bodyId,
+  feetId,
+  pose = 'sit',
   ears = 'floppy',
   tail = 'wavy',
   markings = 'none',
@@ -59,6 +65,11 @@ export function HoundArt({
   coatId?: string | null;
   // A breed item; its own ears and tail replace the look's.
   breedId?: string | null;
+  // Clothes (0156): an outfit and booties or shoes, drawn on any breed.
+  bodyId?: string | null;
+  feetId?: string | null;
+  // 'lie': lying down, in the Yard's bed or hammock.
+  pose?: 'sit' | 'lie';
   ears?: HoundEars;
   tail?: HoundTail;
   markings?: HoundMarkings;
@@ -107,28 +118,24 @@ export function HoundArt({
   const neck = kennelItemById(neckId);
   const head = kennelItemById(headId);
   const face = kennelItemById(faceId);
+  const bodyItem = kennelItemById(bodyId);
+  const feetItem = kennelItemById(feetId);
+  // Over the body and paws, under the head and ears.
+  const clothes =
+    bodyItem || feetItem ? (
+      <G>
+        {bodyItem && <BodyItem item={bodyItem} g={g} />}
+        {feetItem && <FeetItem item={feetItem} />}
+      </G>
+    ) : null;
   const palette = breedCoatColors(breed, coatId);
   const { coat: COAT, dark: COAT_DARK, light: LIGHT, eyeSpots } = palette;
   const tailX = 100 + s.bodyRx - 10;
   const tailY = bodyCy + 14;
 
-  return (
-    <Animated.View style={{ width: size, height: asAvatar ? size : size * 1.2, transform }}>
-      <Svg width={size} height={asAvatar ? size : size * 1.2} viewBox={asAvatar ? `38 ${headCy - 52} 124 124` : '0 -30 200 240'}>
-        <Defs>
-          <RadialGradient id="aura" cx="50%" cy="50%" r="50%">
-            <Stop offset="0" stopColor="#e0b84f" stopOpacity="0.55" />
-            <Stop offset="1" stopColor="#e0b84f" stopOpacity="0" />
-          </RadialGradient>
-        </Defs>
-
-        {!asAvatar && rank === 'legend' && <Circle cx={100} cy={115} r={100} fill="url(#aura)" />}
-        {!asAvatar && <Ellipse cx={100} cy={204} rx={(g.bodyRx + 12) * s.scale} ry={6} fill="#000" opacity={0.15} />}
-        <G transform={`translate(${100 * (1 - s.scale)} ${200 * (1 - s.scale)}) scale(${s.scale})`}>
-          {breed ? (
-            <BreedBody breed={breed} g={g} palette={palette} />
-          ) : (
-            <>
+  // The hound's own body and head (a breed draws its own, BreedBody).
+  const houndBody = (
+    <>
               {/* Tail, behind the body. */}
               <Path
                 d={
@@ -165,7 +172,10 @@ export function HoundArt({
           <Rect x={100 + 10} y={bodyCy + s.bodyRy * 0.35} width={20} height={s.bodyRy * 0.62} rx={10} fill={COAT} />
           <Ellipse cx={100 - 20} cy={198} rx={13} ry={7} fill={LIGHT} />
           <Ellipse cx={100 + 20} cy={198} rx={13} ry={7} fill={LIGHT} />
-
+    </>
+  );
+  const houndHead = (
+    <>
           {/* Head, with its ears: long and floppy over its sides, short,
               or perked up on top. */}
           {ears === 'perky' &&
@@ -211,19 +221,61 @@ export function HoundArt({
           <Ellipse cx={100} cy={headCy + 18} rx={27} ry={20} fill={LIGHT} />
           <Ellipse cx={100} cy={headCy + 9} rx={9.5} ry={7} fill={NOSE} />
           <Path d={`M 100 ${headCy + 15} L 100 ${headCy + 21}`} stroke={INK} strokeWidth={2.5} strokeLinecap="round" />
+    </>
+  );
+  const bodyPart = breed ? <BreedBody breed={breed} g={g} palette={palette} part="body" /> : houndBody;
+  const headPart = breed ? <BreedBody breed={breed} g={g} palette={palette} part="head" /> : houndHead;
+  // Lying down (the Yard's bed and hammock): the body squashed flat from
+  // the ground up, and the head lowered onto it.
+  const lying = pose === 'lie' && !asAvatar;
+  const bodyTop = bodyCy - g.bodyRy;
+  const headDrop = lying ? (200 - (200 - bodyTop) * LIE_SY - bodyTop) * 0.82 : 0;
+
+  return (
+    <Animated.View style={{ width: size, height: asAvatar ? size : size * 1.2, transform }}>
+      <Svg width={size} height={asAvatar ? size : size * 1.2} viewBox={asAvatar ? `38 ${headCy - 52} 124 124` : '0 -30 200 240'}>
+        <Defs>
+          <RadialGradient id="aura" cx="50%" cy="50%" r="50%">
+            <Stop offset="0" stopColor="#e0b84f" stopOpacity="0.55" />
+            <Stop offset="1" stopColor="#e0b84f" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+
+        {!asAvatar && rank === 'legend' && <Circle cx={100} cy={115} r={100} fill="url(#aura)" />}
+        {!asAvatar && <Ellipse cx={100} cy={204} rx={(g.bodyRx + 12) * s.scale} ry={6} fill="#000" opacity={0.15} />}
+        <G transform={`translate(${100 * (1 - s.scale)} ${200 * (1 - s.scale)}) scale(${s.scale})`}>
+          {lying ? (
+            <>
+              {/* Lying down: the body flattened along the ground, the front
+                  paws out in front, and the head resting lower. */}
+              <G transform={`translate(${100 * (1 - LIE_SX)} ${200 * (1 - LIE_SY)}) scale(${LIE_SX} ${LIE_SY})`}>
+                {bodyPart}
+                {bodyItem && <BodyItem item={bodyItem} g={g} />}
+              </G>
+              <Ellipse cx={80} cy={198} rx={15} ry={8} fill={LIGHT} />
+              <Ellipse cx={120} cy={198} rx={15} ry={8} fill={LIGHT} />
+              {feetItem && <FeetItem item={feetItem} />}
+            </>
+          ) : (
+            <>
+              {bodyPart}
+              {clothes}
             </>
           )}
-          {neck && <NeckItem item={neck} y={neckY} width={headR * 1.25} />}
+          <G transform={headDrop ? `translate(0 ${headDrop})` : undefined}>
+            {headPart}
+            {neck && <NeckItem item={neck} y={neckY} width={headR * 1.25} />}
 
-          <Face mood={mood} headCy={headCy + g.faceDy} eyeY={eyeY} />
-          {face && <FaceItem item={face} eyeY={eyeY} />}
-          {head && <HeadItem item={head} headCy={headCy} headR={headR} />}
+            <Face mood={mood} headCy={headCy + g.faceDy} eyeY={eyeY} />
+            {face && <FaceItem item={face} eyeY={eyeY} />}
+            {head && <HeadItem item={head} headCy={headCy} headR={headR} />}
 
-          {!asAvatar && mood === 'sleepy' && (
-            <SvgText x={150} y={headCy - headR + 4} fontSize={22} fontWeight="bold" fill="#8a8fa3">
-              z
-            </SvgText>
-          )}
+            {!asAvatar && mood === 'sleepy' && (
+              <SvgText x={150} y={headCy - headR + 4} fontSize={22} fontWeight="bold" fill="#8a8fa3">
+                z
+              </SvgText>
+            )}
+          </G>
         </G>
       </Svg>
     </Animated.View>
@@ -288,13 +340,14 @@ const EAR_PINK = '#f0a8a8';
 // Everything but the face and accessories for a breed: tail, body, legs,
 // ears, head and muzzle. Same flat shapes as the hound, same coat
 // palette (a coat item recolours it), so it reads as the same family.
-function BreedBody({ breed, g, palette }: { breed: HoundBreed; g: Geometry; palette: CoatColors }) {
+function BreedBody({ breed, g, palette, part }: { breed: HoundBreed; g: Geometry; palette: CoatColors; part: 'body' | 'head' }) {
   const { coat: COAT, dark: DARK, light: LIGHT } = palette;
   const { bodyRx, bodyRy, bodyCy, headR, headCy, eyeY } = g;
 
   if (breed === 'corgi') {
     return (
-      <G>
+      part === 'body' ? (
+        <G>
         <Circle cx={100 + bodyRx - 6} cy={bodyCy + 8} r={9} fill={LIGHT} />
         <Ellipse cx={100 - bodyRx * 0.66} cy={bodyCy + bodyRy * 0.45} rx={bodyRx * 0.4} ry={bodyRy * 0.42} fill={DARK} />
         <Ellipse cx={100 + bodyRx * 0.66} cy={bodyCy + bodyRy * 0.45} rx={bodyRx * 0.4} ry={bodyRy * 0.42} fill={DARK} />
@@ -308,6 +361,9 @@ function BreedBody({ breed, g, palette }: { breed: HoundBreed; g: Geometry; pale
         <Rect x={110} y={bodyCy + bodyRy * 0.78} width={20} height={bodyRy * 0.3} rx={10} fill={LIGHT} />
         <Ellipse cx={80} cy={198} rx={13} ry={7} fill={LIGHT} />
         <Ellipse cx={120} cy={198} rx={13} ry={7} fill={LIGHT} />
+        </G>
+      ) : (
+        <G>
         {/* Big upright ears, pink inside. */}
         {[-1, 1].map((side) => {
           const bx = 100 + side * headR * 0.45;
@@ -335,14 +391,16 @@ function BreedBody({ breed, g, palette }: { breed: HoundBreed; g: Geometry; pale
         <Path d={`M 100 ${headCy + 15} L 100 ${headCy + 21}`} stroke={INK} strokeWidth={2.5} strokeLinecap="round" />
         <Ellipse cx={80} cy={eyeY - 12} rx={6} ry={3.5} fill={DARK} opacity={0.35} />
         <Ellipse cx={120} cy={eyeY - 12} rx={6} ry={3.5} fill={DARK} opacity={0.35} />
-      </G>
+        </G>
+      )
     );
   }
 
   if (breed === 'poodle') {
     const curl = LIGHT;
     return (
-      <G>
+      part === 'body' ? (
+        <G>
         {/* Tail: a stick with a pom. */}
         <Path d={`M ${100 + bodyRx - 10} ${bodyCy + 10} L ${100 + bodyRx + 16} ${bodyCy - 34}`} stroke={COAT} strokeWidth={7} strokeLinecap="round" />
         <Puff cx={100 + bodyRx + 18} cy={bodyCy - 42} r={13} base={COAT} top={curl} />
@@ -355,6 +413,9 @@ function BreedBody({ breed, g, palette }: { breed: HoundBreed; g: Geometry; pale
         <Rect x={113} y={bodyCy + bodyRy * 0.4} width={14} height={bodyRy * 0.55} rx={7} fill={COAT} />
         <Puff cx={80} cy={193} r={12} base={COAT} top={curl} />
         <Puff cx={120} cy={193} r={12} base={COAT} top={curl} />
+        </G>
+      ) : (
+        <G>
         {/* Long curly ears, behind the head: solid, so they read as ears
             and not a shadow on the body. */}
         {[-1, 1].map((side) => (
@@ -367,13 +428,15 @@ function BreedBody({ breed, g, palette }: { breed: HoundBreed; g: Geometry; pale
         <Ellipse cx={100} cy={headCy + 22} rx={19} ry={22} fill={LIGHT} />
         <Ellipse cx={100} cy={headCy + 12} rx={8.5} ry={6.5} fill={NOSE} />
         <Path d={`M 100 ${headCy + 18} L 100 ${headCy + 26}`} stroke={INK} strokeWidth={2.5} strokeLinecap="round" />
-      </G>
+        </G>
+      )
     );
   }
 
   // French bulldog.
   return (
-    <G>
+    part === 'body' ? (
+      <G>
       <Circle cx={100 + bodyRx - 8} cy={bodyCy + 12} r={7} fill={DARK} />
       <Ellipse cx={100 - bodyRx * 0.64} cy={bodyCy + bodyRy * 0.48} rx={bodyRx * 0.44} ry={bodyRy * 0.42} fill={DARK} />
       <Ellipse cx={100 + bodyRx * 0.64} cy={bodyCy + bodyRy * 0.48} rx={bodyRx * 0.44} ry={bodyRy * 0.42} fill={DARK} />
@@ -385,6 +448,9 @@ function BreedBody({ breed, g, palette }: { breed: HoundBreed; g: Geometry; pale
       <Rect x={108} y={bodyCy + bodyRy * 0.4} width={24} height={bodyRy * 0.58} rx={12} fill={COAT} />
       <Ellipse cx={80} cy={198} rx={14} ry={7} fill={LIGHT} />
       <Ellipse cx={120} cy={198} rx={14} ry={7} fill={LIGHT} />
+      </G>
+    ) : (
+      <G>
       {/* Bat ears, pink inside. */}
       {[-1, 1].map((side) => {
         const cx = 100 + side * headR * 0.78;
@@ -405,7 +471,8 @@ function BreedBody({ breed, g, palette }: { breed: HoundBreed; g: Geometry; pale
       <Ellipse cx={112} cy={headCy + 24} rx={13} ry={10} fill={LIGHT} opacity={0.35} />
       <Ellipse cx={100} cy={headCy + 10} rx={12} ry={8} fill={NOSE} />
       <Path d={`M 100 ${headCy + 17} L 100 ${headCy + 23}`} stroke={INK} strokeWidth={2.5} strokeLinecap="round" />
-    </G>
+      </G>
+    )
   );
 }
 
@@ -541,6 +608,43 @@ function HeadItem({ item, headCy, headR }: { item: KennelItem; headCy: number; h
       </G>
     );
   }
+  if (item.kind === 'santa') {
+    // A floppy red hat leaning to one side, white band and pom.
+    return (
+      <G>
+        <Path
+          d={`M ${100 - headR * 0.82} ${top + headR * 0.5} Q ${100 - headR * 0.2} ${top - headR * 0.75} ${100 + headR * 0.55} ${top - headR * 0.35} Q ${100 + headR * 1.05} ${top - headR * 0.1} ${100 + headR * 1.05} ${top + headR * 0.42} L ${100 + headR * 0.82} ${top + headR * 0.5} Z`}
+          fill={item.color}
+        />
+        <Rect x={100 - headR * 0.95} y={top + headR * 0.36} width={headR * 1.9} height={14} rx={7} fill={item.accent ?? '#fff'} />
+        <Circle cx={100 + headR * 1.08} cy={top + headR * 0.42} r={9} fill={item.accent ?? '#fff'} />
+      </G>
+    );
+  }
+  if (item.kind === 'antlers') {
+    // Two branched antlers on a headband, with a jingle bell.
+    return (
+      <G>
+        {[-1, 1].map((side) => {
+          const bx = 100 + side * headR * 0.45;
+          const by = top + headR * 0.12;
+          return (
+            <G key={side}>
+              <Path
+                d={`M ${bx} ${by} Q ${bx + side * 6} ${by - 26} ${bx + side * 2} ${by - 44} M ${bx + side * 4} ${by - 22} Q ${bx + side * 18} ${by - 26} ${bx + side * 22} ${by - 38} M ${bx + side * 3} ${by - 34} Q ${bx - side * 8} ${by - 40} ${bx - side * 10} ${by - 50}`}
+                stroke={item.color}
+                strokeWidth={6}
+                strokeLinecap="round"
+                fill="none"
+              />
+            </G>
+          );
+        })}
+        <Path d={`M ${100 - headR * 0.7} ${top + headR * 0.25} Q 100 ${top - headR * 0.12} ${100 + headR * 0.7} ${top + headR * 0.25}`} stroke={item.accent ?? '#d12f3f'} strokeWidth={5} fill="none" strokeLinecap="round" />
+        <Circle cx={100} cy={top + 1} r={5} fill="#e0b84f" />
+      </G>
+    );
+  }
   if (item.kind === 'pilgrim') {
     // A tall black hat with a brim and a gold-buckled band.
     const brim = top + 8;
@@ -633,6 +737,212 @@ function FaceItem({ item, eyeY }: { item: KennelItem; eyeY: number }) {
       <Circle cx={83} cy={eyeY} r={11} stroke={item.color} strokeWidth={3} fill="#fff" fillOpacity={0.12} />
       <Circle cx={117} cy={eyeY} r={11} stroke={item.color} strokeWidth={3} fill="#fff" fillOpacity={0.12} />
       <Path d={`M 94 ${eyeY - 2} L 106 ${eyeY - 2}`} stroke={item.color} strokeWidth={3} />
+    </G>
+  );
+}
+
+// An outfit on the body (0156). Sized from the breed's own body, so one
+// drawing fits the hound and every breed: the chest and belly, sleeves
+// over the tops of the front legs, and each item's own details.
+function BodyItem({ item, g }: { item: KennelItem; g: Geometry }) {
+  const { bodyRx, bodyRy, bodyCy, neckY } = g;
+  const c = item.color;
+  const a = item.accent ?? '#ffffff';
+  const top = bodyCy - bodyRy * 0.9;
+  const hem = bodyCy + bodyRy * 0.62;
+  const torso = `M ${100 - bodyRx * 0.86} ${hem} Q ${100 - bodyRx * 1.02} ${bodyCy - bodyRy * 0.1} ${100 - bodyRx * 0.62} ${top + 4} Q 100 ${top - 10} ${100 + bodyRx * 0.62} ${top + 4} Q ${100 + bodyRx * 1.02} ${bodyCy - bodyRy * 0.1} ${100 + bodyRx * 0.86} ${hem} Q 100 ${hem + 10} ${100 - bodyRx * 0.86} ${hem} Z`;
+  const sleeves = (color: string, cuff?: string) => (
+    <>
+      {[70, 110].map((x) => (
+        <G key={x}>
+          <Rect x={x - 1} y={bodyCy + bodyRy * 0.3} width={22} height={bodyRy * 0.36} rx={9} fill={color} />
+          {cuff && <Rect x={x - 1} y={bodyCy + bodyRy * 0.56} width={22} height={7} rx={3.5} fill={cuff} />}
+        </G>
+      ))}
+    </>
+  );
+
+  if (item.kind === 'cape') {
+    // Flaring out behind both sides from a clasp at the neck.
+    return (
+      <G>
+        <Path d={`M 100 ${neckY + 6} L ${100 - bodyRx * 1.18} ${hem + 8} Q ${100 - bodyRx * 0.9} ${hem - 6} ${100 - bodyRx * 0.55} ${hem + 2} Z`} fill={c} />
+        <Path d={`M 100 ${neckY + 6} L ${100 + bodyRx * 1.18} ${hem + 8} Q ${100 + bodyRx * 0.9} ${hem - 6} ${100 + bodyRx * 0.55} ${hem + 2} Z`} fill={c} />
+        <Path d={`M ${100 - 16} ${neckY + 6} Q 100 ${neckY + 16} ${100 + 16} ${neckY + 6}`} stroke={c} strokeWidth={7} fill="none" strokeLinecap="round" />
+        <Circle cx={100} cy={neckY + 12} r={7} fill={a} stroke="#b8902f" strokeWidth={1.5} />
+      </G>
+    );
+  }
+
+  if (item.kind === 'tutu') {
+    // Layered net skirt round the middle, a band on top.
+    const y = bodyCy + bodyRy * 0.28;
+    const frill = (w: number, dy: number, fill: string) => {
+      let d = `M ${100 - w} ${y + dy}`;
+      const n = 9;
+      for (let i = 0; i < n; i++) {
+        const x0 = 100 - w + (2 * w * i) / n;
+        const x1 = 100 - w + (2 * w * (i + 1)) / n;
+        d += ` Q ${(x0 + x1) / 2} ${y + dy + 22} ${x1} ${y + dy}`;
+      }
+      return <Path d={`${d} L ${100 + w * 0.8} ${y + dy - 8} L ${100 - w * 0.8} ${y + dy - 8} Z`} fill={fill} />;
+    };
+    return (
+      <G>
+        {frill(bodyRx * 1.12, 6, c)}
+        {frill(bodyRx * 0.98, 0, a)}
+        <Rect x={100 - bodyRx * 0.82} y={y - 12} width={bodyRx * 1.64} height={10} rx={5} fill={c} />
+      </G>
+    );
+  }
+
+  if (item.kind === 'tux') {
+    return (
+      <G>
+        <Path d={torso} fill={c} />
+        {/* White shirt front between the lapels, and buttons. */}
+        <Path d={`M ${100 - 15} ${top + 2} L 100 ${hem - 6} L ${100 + 15} ${top + 2} Z`} fill={a} />
+        <Path d={`M ${100 - 15} ${top + 2} L ${100 - 4} ${top + 34} L ${100 - 26} ${top + 10} Z`} fill="#2e3245" />
+        <Path d={`M ${100 + 15} ${top + 2} L ${100 + 4} ${top + 34} L ${100 + 26} ${top + 10} Z`} fill="#2e3245" />
+        <Circle cx={100} cy={top + 30} r={2.5} fill="#1f2230" />
+        <Circle cx={100} cy={top + 42} r={2.5} fill="#1f2230" />
+        {sleeves(c, a)}
+        {/* Bow tie at the neck. */}
+        <Path d={`M 100 ${neckY + 8} L ${100 - 14} ${neckY + 1} L ${100 - 14} ${neckY + 15} Z`} fill="#1f2230" />
+        <Path d={`M 100 ${neckY + 8} L ${100 + 14} ${neckY + 1} L ${100 + 14} ${neckY + 15} Z`} fill="#1f2230" />
+        <Circle cx={100} cy={neckY + 8} r={3.5} fill="#1f2230" />
+      </G>
+    );
+  }
+
+  if (item.kind === 'trench') {
+    return (
+      <G>
+        <Path d={torso} fill={c} />
+        {/* Wide lapels, a belt with a buckle, two rows of buttons. */}
+        <Path d={`M ${100 - 22} ${top + 2} L 100 ${top + 30} L ${100 + 22} ${top + 2} L ${100 + 8} ${top} L 100 ${top + 14} L ${100 - 8} ${top} Z`} fill={a} opacity={0.75} />
+        <Rect x={100 - bodyRx * 0.92} y={bodyCy + bodyRy * 0.12} width={bodyRx * 1.84} height={9} rx={4} fill={a} />
+        <Rect x={100 - 7} y={bodyCy + bodyRy * 0.12 - 2} width={14} height={13} rx={2} fill="none" stroke="#e0b84f" strokeWidth={2.5} />
+        {[-10, 10].map((dx) => (
+          <G key={dx}>
+            <Circle cx={100 + dx} cy={top + 36} r={2.6} fill={a} />
+            <Circle cx={100 + dx} cy={bodyCy + bodyRy * 0.42} r={2.6} fill={a} />
+          </G>
+        ))}
+        {sleeves(c, a)}
+      </G>
+    );
+  }
+
+  if (item.kind === 'raincoat') {
+    return (
+      <G>
+        <Path d={torso} fill={c} />
+        <Path d={`M 100 ${top + 2} L 100 ${hem + 4}`} stroke={a} strokeWidth={2} />
+        {[0.18, 0.4, 0.62].map((f) => (
+          <Rect key={f} x={100 - 9} y={top + (hem - top) * f} width={7} height={4} rx={2} fill={a} />
+        ))}
+        <Path d={`M ${100 - 24} ${top + 4} Q 100 ${top + 20} ${100 + 24} ${top + 4}`} stroke={a} strokeWidth={4} fill="none" strokeLinecap="round" />
+        {sleeves(c, a)}
+      </G>
+    );
+  }
+
+  if (item.kind === 'puffer') {
+    // A sleeveless vest in quilted bands.
+    const bands = 4;
+    return (
+      <G>
+        <Path d={torso} fill={c} />
+        {Array.from({ length: bands - 1 }, (_, i) => {
+          const y = top + ((hem - top) * (i + 1)) / bands;
+          return <Path key={i} d={`M ${100 - bodyRx * 0.92} ${y} Q 100 ${y + 6} ${100 + bodyRx * 0.92} ${y}`} stroke={a} strokeWidth={2.5} fill="none" />;
+        })}
+        <Path d={`M 100 ${top + 2} L 100 ${hem + 4}`} stroke={a} strokeWidth={2.5} />
+      </G>
+    );
+  }
+
+  if (item.kind === 'hoodie') {
+    return (
+      <G>
+        {/* The hood, down, round the back of the neck. */}
+        <Path d={`M ${100 - 34} ${neckY + 4} Q 100 ${neckY - 10} ${100 + 34} ${neckY + 4} Q 100 ${neckY + 22} ${100 - 34} ${neckY + 4} Z`} fill={c} />
+        <Path d={torso} fill={c} />
+        <Path d={`M ${100 - 22} ${bodyCy + bodyRy * 0.2} L ${100 + 22} ${bodyCy + bodyRy * 0.2} L ${100 + 18} ${hem - 4} L ${100 - 18} ${hem - 4} Z`} fill="#000" opacity={0.12} />
+        <Path d={`M ${100 - 6} ${neckY + 12} L ${100 - 8} ${top + 32} M ${100 + 6} ${neckY + 12} L ${100 + 8} ${top + 32}`} stroke={a} strokeWidth={2.5} strokeLinecap="round" />
+        {sleeves(c, '#000000')}
+      </G>
+    );
+  }
+
+  // Sweater: ribbed hem and neck; the holiday one has a zigzag band and
+  // snowflakes.
+  const holiday = item.id === 'sweater_holiday';
+  return (
+    <G>
+      <Path d={torso} fill={c} />
+      {holiday && (
+        <>
+          <Path
+            d={Array.from({ length: 9 }, (_, i) => {
+              const x = 100 - bodyRx * 0.85 + (bodyRx * 1.7 * i) / 8;
+              return `${i === 0 ? 'M' : 'L'} ${x} ${bodyCy + (i % 2 ? -6 : 6)}`;
+            }).join(' ')}
+            stroke={a}
+            strokeWidth={5}
+            fill="none"
+            strokeLinejoin="round"
+          />
+          {[-0.5, 0, 0.5].map((f) => (
+            <G key={f}>
+              <Path d={`M ${100 + bodyRx * f - 6} ${top + 22} L ${100 + bodyRx * f + 6} ${top + 22} M ${100 + bodyRx * f} ${top + 16} L ${100 + bodyRx * f} ${top + 28}`} stroke="#ffffff" strokeWidth={2.5} strokeLinecap="round" />
+            </G>
+          ))}
+        </>
+      )}
+      <Path d={`M ${100 - bodyRx * 0.86} ${hem - 2} Q 100 ${hem + 8} ${100 + bodyRx * 0.86} ${hem - 2}`} stroke={holiday ? '#ffffff' : a} strokeWidth={6} fill="none" opacity={0.85} />
+      <Path d={`M ${100 - 22} ${top + 6} Q 100 ${top + 18} ${100 + 22} ${top + 6}`} stroke={holiday ? '#ffffff' : a} strokeWidth={5} fill="none" strokeLinecap="round" opacity={0.85} />
+      {sleeves(c, holiday ? '#ffffff' : a)}
+    </G>
+  );
+}
+
+// Booties or shoes on the front paws (0156), at the same two spots on
+// every breed.
+function FeetItem({ item }: { item: KennelItem }) {
+  const c = item.color;
+  return (
+    <G>
+      {[80, 120].map((x) => {
+        if (item.kind === 'rainboots') {
+          return (
+            <G key={x}>
+              <Rect x={x - 12} y={174} width={24} height={22} rx={5} fill={c} />
+              <Ellipse cx={x} cy={198} rx={15} ry={8} fill={c} />
+              <Rect x={x - 13} y={172} width={26} height={6} rx={3} fill="#c79a16" />
+            </G>
+          );
+        }
+        if (item.kind === 'sneakers') {
+          return (
+            <G key={x}>
+              <Ellipse cx={x} cy={197} rx={15} ry={8.5} fill={c} />
+              <Rect x={x - 15} y={199} width={30} height={5} rx={2.5} fill={item.id === 'feet_gold' ? '#b8902f' : '#d9dbe3'} />
+              <Path d={`M ${x - 9} ${195} L ${x + 9} ${192}`} stroke={item.accent ?? '#4f7fd0'} strokeWidth={3} strokeLinecap="round" />
+              {item.id === 'feet_gold' && <Ellipse cx={x - 6} cy={193} rx={3.5} ry={1.8} fill="#fff3c4" />}
+            </G>
+          );
+        }
+        // Booties: a soft boot with a cuff.
+        return (
+          <G key={x}>
+            <Ellipse cx={x} cy={197} rx={14.5} ry={8.5} fill={c} />
+            <Rect x={x - 11} y={184} width={22} height={13} rx={6} fill={c} />
+            <Rect x={x - 12} y={182} width={24} height={6} rx={3} fill="#ffffff" opacity={0.85} />
+          </G>
+        );
+      })}
     </G>
   );
 }

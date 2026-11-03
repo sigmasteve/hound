@@ -26,6 +26,9 @@ export interface Kennel {
   markings: HoundMarkings;
   // A breed item (0132), or null for the hound.
   breedId: string | null;
+  // Clothes (0156), null before it's run.
+  bodyId: string | null;
+  feetId: string | null;
   owned: string[];
   xpTotal: number;
   bonesBalance: number;
@@ -59,6 +62,8 @@ export async function getKennel(): Promise<Kennel> {
     tail: r.tail ?? 'wavy',
     markings: r.markings ?? 'none',
     breedId: r.breed_id ?? null,
+    bodyId: r.body_id ?? null,
+    feetId: r.feet_id ?? null,
     owned: r.owned ?? [],
     xpTotal: r.xp_total ?? 0,
     bonesBalance: r.bones_balance ?? 0,
@@ -94,6 +99,8 @@ export interface FriendKennel {
   tail: HoundTail;
   markings: HoundMarkings;
   breedId: string | null;
+  bodyId: string | null;
+  feetId: string | null;
   xpTotal: number;
 }
 
@@ -112,6 +119,8 @@ export async function getFriendKennel(friendUserId: string): Promise<FriendKenne
     tail: r.tail,
     markings: r.markings,
     breedId: r.breed_id ?? null,
+    bodyId: r.body_id ?? null,
+    feetId: r.feet_id ?? null,
     xpTotal: r.xp_total ?? 0,
   };
 }

@@ -2,7 +2,8 @@
 // hand (ids, slot, name, price); buy_kennel_item is the real price check.
 // How each one looks lives only here (HoundArt draws them).
 
-export type KennelSlot = 'neck' | 'head' | 'face' | 'coat' | 'breed';
+// body and feet: clothes (0156_shop_phase1.sql).
+export type KennelSlot = 'neck' | 'head' | 'face' | 'coat' | 'breed' | 'body' | 'feet';
 
 export type KennelItemKind =
   | 'collar'
@@ -18,7 +19,20 @@ export type KennelItemKind =
   | 'coat'
   | 'breed'
   | 'pilgrim'
-  | 'turkey';
+  | 'turkey'
+  | 'santa'
+  | 'antlers'
+  | 'sweater'
+  | 'hoodie'
+  | 'raincoat'
+  | 'puffer'
+  | 'tutu'
+  | 'cape'
+  | 'tux'
+  | 'trench'
+  | 'booties'
+  | 'sneakers'
+  | 'rainboots';
 
 export interface KennelItem {
   id: string;
@@ -81,6 +95,32 @@ export const KENNEL_ITEMS: KennelItem[] = [
       { id: 'coat_maple', slot: 'coat', name: 'Maple', costBones: 120, kind: 'coat', color: '#a3402a' },
     ] as const
   ).map((i) => ({ ...i, season: 'Thanksgiving', availableFrom: '2026-11-01', availableUntil: '2026-11-30' })),
+  // Clothes (0156_shop_phase1.sql): drawn on every breed by HoundArt.
+  { id: 'sweater_red', slot: 'body', name: 'Red Sweater', costBones: 120, kind: 'sweater', color: '#d94a4a', accent: '#f5e6d3' },
+  { id: 'sweater_blue', slot: 'body', name: 'Blue Sweater', costBones: 120, kind: 'sweater', color: '#4f7fd0', accent: '#f5e6d3' },
+  { id: 'sweater_green', slot: 'body', name: 'Green Sweater', costBones: 120, kind: 'sweater', color: '#3f9a63', accent: '#f5e6d3' },
+  { id: 'body_hoodie', slot: 'body', name: 'Hoodie', costBones: 150, kind: 'hoodie', color: '#6f7686', accent: '#e9e9ed' },
+  { id: 'body_raincoat', slot: 'body', name: 'Raincoat', costBones: 150, kind: 'raincoat', color: '#f2c430', accent: '#c79a16' },
+  { id: 'body_puffer', slot: 'body', name: 'Puffer Vest', costBones: 200, kind: 'puffer', color: '#e8743a', accent: '#b9531f' },
+  { id: 'body_tutu', slot: 'body', name: 'Tutu', costBones: 180, kind: 'tutu', color: '#f4a3c8', accent: '#fbd3e6' },
+  { id: 'body_cape', slot: 'body', name: 'Superhero Cape', costBones: 300, kind: 'cape', color: '#d12f3f', accent: '#f2c430' },
+  { id: 'body_tux', slot: 'body', name: 'Tuxedo', costBones: 400, kind: 'tux', color: '#1f2230', accent: '#ffffff' },
+  { id: 'body_trench', slot: 'body', name: 'Designer Trench', costBones: 800, kind: 'trench', color: '#c9a77a', accent: '#8a6a3f' },
+  { id: 'booties_red', slot: 'feet', name: 'Red Booties', costBones: 80, kind: 'booties', color: '#d94a4a' },
+  { id: 'booties_blue', slot: 'feet', name: 'Blue Booties', costBones: 80, kind: 'booties', color: '#4f7fd0' },
+  { id: 'booties_pink', slot: 'feet', name: 'Pink Booties', costBones: 80, kind: 'booties', color: '#f08ab8' },
+  { id: 'booties_black', slot: 'feet', name: 'Black Booties', costBones: 80, kind: 'booties', color: '#2b2b33' },
+  { id: 'feet_sneakers', slot: 'feet', name: 'Sneakers', costBones: 120, kind: 'sneakers', color: '#ffffff', accent: '#4f7fd0' },
+  { id: 'feet_rainboots', slot: 'feet', name: 'Rain Boots', costBones: 120, kind: 'rainboots', color: '#f2c430' },
+  { id: 'feet_gold', slot: 'feet', name: 'Gold Sneakers', costBones: 500, kind: 'sneakers', color: '#e0b84f', accent: '#fff3c4' },
+  // Winter 2026 (0156), on sale Nov 15 to Dec 31.
+  ...(
+    [
+      { id: 'hat_santa', slot: 'head', name: 'Santa Hat', costBones: 120, kind: 'santa', color: '#d12f3f', accent: '#ffffff' },
+      { id: 'hat_antlers', slot: 'head', name: 'Reindeer Antlers', costBones: 100, kind: 'antlers', color: '#8a5a2b', accent: '#d12f3f' },
+      { id: 'sweater_holiday', slot: 'body', name: 'Christmas Sweater', costBones: 150, kind: 'sweater', color: '#2f7a4a', accent: '#d12f3f' },
+    ] as const
+  ).map((i) => ({ ...i, season: 'Winter', availableFrom: '2026-11-15', availableUntil: '2026-12-31' })),
 ];
 
 // Whether it's for sale on this day (YYYY-MM-DD, the member's own).
@@ -185,6 +225,8 @@ export const KENNEL_SLOTS: { slot: KennelSlot; label: string }[] = [
   { slot: 'neck', label: 'Collars & bandanas' },
   { slot: 'head', label: 'Hats' },
   { slot: 'face', label: 'Glasses & masks' },
+  { slot: 'body', label: 'Outfits' },
+  { slot: 'feet', label: 'Booties & shoes' },
 ];
 
 // What a treat (or, in classic care, a meal) costs. give_treat's own

@@ -33,6 +33,8 @@ import { AppVersionsCard } from '../components/AppVersionsCard';
 import { DeveloperToolsCard } from '../components/DeveloperToolsCard';
 import { GoalsAdminCard } from '../components/GoalsAdminCard';
 import { WaterAdminCard } from '../components/WaterAdminCard';
+import { ShopAdminCard } from '../components/ShopAdminCard';
+import { dollars, getShopOverview } from '../admin/shopOverview';
 import { getWaterOverview } from '../admin/waterOverview';
 import { EngagementAdminCard } from '../components/EngagementAdminCard';
 import { AdsAdminCard } from '../components/AdsAdminCard';
@@ -120,6 +122,8 @@ export function AdminScreen({
   const [versionsOpen, setVersionsOpen] = useState(false);
   // The Water fold's line: how many have a water goal (0154).
   const [waterSummary, setWaterSummary] = useState<string | null>(null);
+  // The Shop fold's line: this month's packs and buyers (0156).
+  const [shopSummary, setShopSummary] = useState<string | null>(null);
   // Where the App versions fold sits, so "Versions" in Needs you can
   // scroll to it as it opens: it's below Engagement, off the screen.
   const scrollRef = useRef<ScrollView>(null);
@@ -132,6 +136,9 @@ export function AdminScreen({
         .catch(() => {});
       getWaterOverview()
         .then((w) => setWaterSummary(`${w.withGoal} with a water goal`))
+        .catch(() => {});
+      getShopOverview()
+        .then((d) => setShopSummary(`${dollars(d.revenue30d)} this month · ${d.buyers30d} ${d.buyers30d === 1 ? 'buyer' : 'buyers'}`))
         .catch(() => {});
       listActiveApps(14)
         .then((apps) => {
@@ -650,6 +657,9 @@ export function AdminScreen({
                 </AdminFold>
                 <AdminFold title="Water" summary={waterSummary ?? 'Who tracks water'}>
                   <WaterAdminCard />
+                </AdminFold>
+                <AdminFold title="Shop" summary={shopSummary ?? 'Packs sold and Bones spent'}>
+                  <ShopAdminCard />
                 </AdminFold>
                 <AdminFold title="Push reach" summary="Who pushes can reach">
                   <PushReachCard />

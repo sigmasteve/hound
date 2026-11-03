@@ -102,6 +102,8 @@ export interface YardHound {
   faceId?: string | null;
   coatId?: string | null;
   breedId?: string | null;
+  bodyId?: string | null;
+  feetId?: string | null;
   ears?: HoundEars;
   tail?: HoundTail;
   markings?: HoundMarkings;
@@ -162,7 +164,10 @@ export function YardScene({
     night || hound.mood === 'sleepy' ? 'bed' : hound.mood === 'hungry' ? 'bowl' : hound.mood === 'happy' ? 'zoomies' : 'house';
   const artMood: HoundMood = night ? 'sleepy' : hound.mood;
   const houndW = HOUND_SIZE[size] * k;
-  const at = HOUND_AT[pose];
+  // In bed it lies down; a hammock holds it up off the ground.
+  const bedId = yard.spots.bed ?? 'bed_cushion';
+  const inHammock = pose === 'bed' && bedId === 'bed_hammock';
+  const at = inHammock ? { x: HOUND_AT.bed.x, y: HOUND_AT.bed.y - 14 } : HOUND_AT[pose];
   const houndLeft = (at.x - left) * k - houndW / 2;
   const houndTop = (at.y - top) * k - houndW * 1.2 * 0.98;
   // Over by the trophies; in zoomies it runs the other way, so the two
@@ -190,6 +195,93 @@ export function YardScene({
     loop.start();
     return () => loop.stop();
   }, [moving, pose, run, fetching]);
+
+  // A stroll (the shop design's "walking"): every 20 to 40 seconds in the
+  // day, over to the toy, the bowl, a plant or the pond, a sniff, and
+  // back. A trot while it goes. Not while it's in bed, doing zoomies or
+  // fetching.
+  const strollX = useRef(new Animated.Value(0)).current;
+  const strollY = useRef(new Animated.Value(0)).current;
+  const step = useRef(new Animated.Value(0)).current;
+  const spotsKey = JSON.stringify(yard.spots);
+  useEffect(() => {
+    if (!moving || pose === 'bed' || pose === 'zoomies' || fetching) {
+      strollX.setValue(0);
+      strollY.setValue(0);
+      step.setValue(0);
+      return;
+    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const trot = Animated.loop(
+      Animated.sequence([
+        Animated.timing(step, { toValue: 1, duration: 170, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(step, { toValue: 0, duration: 170, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    const places = (['toy', 'bowl', 'plant_left', 'plant_right', 'pond', 'tree'] as YardSpot[]).filter(
+      (sp) => yard.spots[sp] && SPOT_AT[sp].x > left + 40 && SPOT_AT[sp].x < left + W - 40,
+    );
+    const walkTo = (x: number, y: number, done: (ok: boolean) => void) => {
+      const dx = (x - at.x) * k;
+      const dy = (y - at.y) * k;
+      const ms = Math.max(900, (Math.hypot(dx, dy) / (55 * k)) * 1000);
+      trot.start();
+      Animated.parallel([
+        Animated.timing(strollX, { toValue: dx, duration: ms, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(strollY, { toValue: dy, duration: ms, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ]).start(({ finished }) => {
+        trot.stop();
+        step.setValue(0);
+        done(finished && !cancelled);
+      });
+    };
+    const next = (first: boolean) => {
+      timer = setTimeout(
+        () => {
+          if (cancelled || places.length === 0) return;
+          const sp = places[Math.floor(Math.random() * places.length)];
+          const to = SPOT_AT[sp];
+          // Beside it, not on top of it.
+          const side = to.x > at.x ? -1 : 1;
+          walkTo(to.x + side * 34, Math.min(WORLD_BOTTOM - 8, to.y + 2), (ok) => {
+            if (!ok) return;
+            timer = setTimeout(() => walkTo(at.x, at.y, (back) => back && next(false)), 4000 + Math.random() * 4000);
+          });
+        },
+        first ? 6000 + Math.random() * 6000 : 20000 + Math.random() * 20000,
+      );
+    };
+    next(true);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      trot.stop();
+      strollX.stopAnimation();
+      strollY.stopAnimation();
+      strollX.setValue(0);
+      strollY.setValue(0);
+      step.setValue(0);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moving, pose, fetching, spotsKey, left, W, k]);
+
+  // The hammock sways with the hound in it.
+  const sway = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!moving || !inHammock) {
+      sway.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sway, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(sway, { toValue: -1, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [moving, inHammock, sway]);
 
   // A tap: a hop and a word. Press and hold: hearts.
   const hop = useRef(new Animated.Value(0)).current;
@@ -339,8 +431,19 @@ export function YardScene({
     width: houndW,
     height: houndW * 1.2,
     transform: [
-      { translateX: Animated.add(run.interpolate({ inputRange: [-1, 1], outputRange: [-runPx, runPx] }), chase) },
-      { translateY: hop.interpolate({ inputRange: [0, 1], outputRange: [0, -houndW * 0.18] }) },
+      {
+        translateX: Animated.add(
+          Animated.add(run.interpolate({ inputRange: [-1, 1], outputRange: [-runPx, runPx] }), chase),
+          Animated.add(strollX, sway.interpolate({ inputRange: [-1, 1], outputRange: [-3 * k, 3 * k] })),
+        ),
+      },
+      {
+        translateY: Animated.add(
+          Animated.add(hop.interpolate({ inputRange: [0, 1], outputRange: [0, -houndW * 0.18] }), strollY),
+          step.interpolate({ inputRange: [0, 1], outputRange: [0, -houndW * 0.05] }),
+        ),
+      },
+      { rotate: Animated.add(step, sway).interpolate({ inputRange: [-1, 0, 1], outputRange: ['-2deg', '0deg', '3deg'] }) },
     ],
   };
 
@@ -423,6 +526,8 @@ export function YardScene({
               faceId={guest.hound.faceId}
               coatId={guest.hound.coatId}
               breedId={guest.hound.breedId}
+              bodyId={guest.hound.bodyId}
+              feetId={guest.hound.feetId}
               ears={guest.hound.ears}
               tail={guest.hound.tail}
               markings={guest.hound.markings}
@@ -455,6 +560,9 @@ export function YardScene({
             faceId={hound.faceId}
             coatId={hound.coatId}
             breedId={hound.breedId}
+            bodyId={hound.bodyId}
+            feetId={hound.feetId}
+            pose={pose === 'bed' ? 'lie' : 'sit'}
             ears={hound.ears}
             tail={hound.tail}
             markings={hound.markings}
@@ -463,6 +571,28 @@ export function YardScene({
           />
         </Pressable>
       </Animated.View>
+
+      {/* The front of the bed over the hound, so it's lying in it: the
+          donut's rim, or the hammock's near edge. */}
+      {pose === 'bed' && (bedId === 'bed_donut' || inHammock) && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            inHammock && { transform: [{ translateX: sway.interpolate({ inputRange: [-1, 1], outputRange: [-3 * k, 3 * k] }) }] },
+          ]}
+        >
+          <Svg width={width} height={H * k} viewBox={`${left} ${top} ${W} ${H}`}>
+            <G transform={`translate(${SPOT_AT.bed.x} ${SPOT_AT.bed.y})`}>
+              {inHammock ? (
+                <Path d="M-40 -26 Q0 4 40 -26 L38 -20 Q0 10 -38 -20 Z" fill="#e0a94f" />
+              ) : (
+                <Path d="M-37 -12 Q-37 1 0 1 Q37 1 37 -12 Q30 -4 0 -4 Q-30 -4 -37 -12 Z" fill="#5d5294" />
+              )}
+            </G>
+          </Svg>
+        </Animated.View>
+      )}
 
       {toyId && (
         <Animated.View
@@ -768,6 +898,7 @@ export function YardItemArt({ id, name, time = 'day' }: { id: string; name?: str
     case 'house_barn':
     case 'house_cabin':
     case 'house_gingerbread':
+    case 'house_igloo':
       return <House id={id} name={name} />;
     case 'bed_cushion':
       return (
@@ -934,6 +1065,36 @@ export function YardItemArt({ id, name, time = 'day' }: { id: string; name?: str
         </G>
       );
     }
+    case 'tree_lit':
+      // An evergreen with coloured lights and a star; brighter at night.
+      return (
+        <G>
+          <Rect x={-6} y={-22} width={12} height={22} rx={2} fill="#7a4a24" />
+          <Path d="M-40 -20 L0 -64 L40 -20 Z" fill="#2f7a4a" />
+          <Path d="M-32 -50 L0 -88 L32 -50 Z" fill="#3a8f57" />
+          <Path d="M-24 -78 L0 -110 L24 -78 Z" fill="#45a265" />
+          {[
+            [-24, -28],
+            [10, -34],
+            [26, -26],
+            [-12, -58],
+            [16, -60],
+            [-6, -86],
+            [8, -94],
+            [-30, -24],
+          ].map(([x, y], i) => (
+            <Circle
+              key={`${x}${y}`}
+              cx={x}
+              cy={y}
+              r={time === 'night' ? 3.4 : 2.6}
+              fill={['#f2c84b', '#e8737a', '#7fd0f6', '#b5abfc'][i % 4]}
+              opacity={time === 'night' ? 1 : 0.85}
+            />
+          ))}
+          <Path d="M0 -122 L4 -112 L14 -112 L6 -106 L9 -96 L0 -102 L-9 -96 L-6 -106 L-14 -112 L-4 -112 Z" fill="#f2c84b" />
+        </G>
+      );
     case 'pond_lily':
       return (
         <G>
@@ -1014,6 +1175,19 @@ function House({ id, name }: { id: string; name?: string }) {
         <Rect x={-18} y={-38} width={36} height={38} fill="#7a2e24" />
         <Path d="M-18 -38 L18 0 M18 -38 L-18 0" stroke="#f3e3c3" strokeWidth={2.5} />
         <Rect x={-18} y={-38} width={36} height={38} fill="none" stroke="#f3e3c3" strokeWidth={2.5} />
+        {nameplate}
+      </G>
+    );
+  }
+  if (id === 'house_igloo') {
+    // Snow blocks in a dome, a round doorway, icicles.
+    return (
+      <G>
+        <Path d="M-52 0 Q-52 -78 0 -80 Q52 -78 52 0 Z" fill="#eef4fb" />
+        <Path d="M-50 -20 H50 M-44 -40 H44 M-30 -60 H30" stroke="#c9d8ea" strokeWidth={2} />
+        <Path d="M-30 0 V-20 M10 -20 V-40 M-18 -40 V-60 M22 -60 V-74 M30 0 V-20 M-40 -20 V-40 M36 -20 V-40" stroke="#c9d8ea" strokeWidth={2} />
+        <Path d="M-20 0 L-20 -16 Q0 -36 20 -16 L20 0 Z" fill="#3d4a66" />
+        <Path d="M-24 -18 Q0 -42 24 -18" stroke="#ffffff" strokeWidth={5} fill="none" />
         {nameplate}
       </G>
     );
