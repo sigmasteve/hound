@@ -147,3 +147,13 @@ a project with email confirmation off.
   value once, not imported — this page has no build step and doesn't
   depend on the Expo project at all, so a future palette change in the
   app won't automatically show up here.
+
+## The guide (`/guide`)
+
+`guide.html` is the "Everything you can do in Hound" page: every challenge
+type and feature, with where to find it in the app. `hound-guide.pdf` (its
+Download the PDF button) is printed from the page, so after changing the
+page, print it again: serve this folder (`python3 -m http.server 8780`),
+then in Chrome open `http://localhost:8780/guide.html`, Print → Save as PDF,
+Letter, background graphics on, scale 85%. The print styles in
+`styles.css` turn it black on white and keep each item on one page.
