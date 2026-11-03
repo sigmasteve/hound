@@ -22,7 +22,7 @@ import { traitInfo } from '../growth/growth';
 
 interface Props {
   houndName: string;
-  // Fitness, age, traits and the birthday (0164).
+  // Fitness, age, traits and the birthday (0165).
   growth?: HoundProfileState;
   walks: HoundWalksState;
   treatedToday: boolean;

@@ -1,4 +1,4 @@
--- 0164: fitness from active days, age stages, older hounds grown,
+-- 0165: fitness from active days, age stages, older hounds grown,
 -- traits earned and kept, the birthday (and its once-a-month limit), the
 -- party guest, a friend's view, and the admin overview.
 select plan(15);

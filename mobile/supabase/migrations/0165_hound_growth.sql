@@ -21,7 +21,7 @@
 --   set_hound_birthday()
 --   admin_growth_overview() Admin → Overview → Growth
 --
--- Run this once, after 0001-0163, in the SQL Editor.
+-- Run this once, after 0001-0164, in the SQL Editor.
 
 alter table public.kennels
   add column born_on date,

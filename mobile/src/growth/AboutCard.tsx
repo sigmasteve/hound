@@ -15,7 +15,7 @@ import {
   type HoundProfile,
 } from './growth';
 
-// Kennel → Walks → About (0164): the hound's age and stage, its
+// Kennel → Walks → About (0165): the hound's age and stage, its
 // birthday, fitness, and the traits its habits have earned. With
 // `onSetBirthday` it's yours and the birthday can be picked; without,
 // it's a friend's, read only.

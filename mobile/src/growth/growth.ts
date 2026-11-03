@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 
-// The Hound grows with you (0164_hound_growth.sql): fitness from active
+// The Hound grows with you (0165_hound_growth.sql): fitness from active
 // days, traits from habits, age from steps since it was born, and a
 // birthday.
 
@@ -52,7 +52,7 @@ export interface TraitInfo {
   how: string;
 }
 
-// The same nine as 0164's hound_trait_check.
+// The same nine as 0165's hound_trait_check.
 export const TRAITS: TraitInfo[] = [
   { id: 'early_bird', name: 'Early bird', how: '8 walks before 8am in a month' },
   { id: 'night_owl', name: 'Night owl', how: '8 walks after 7pm in a month' },
@@ -143,7 +143,7 @@ export const getFriendHoundProfile = async (friend: string, day: string) =>
 export const setHoundBirthday = async (day: string, birthday: string) =>
   parse(await rpc('set_hound_birthday', { p_day: day, p_birthday: birthday }));
 
-// Admin → Growth (0164).
+// Admin → Growth (0165).
 export interface GrowthOverview {
   hounds: number;
   byFitness: { level: number; count: number }[];

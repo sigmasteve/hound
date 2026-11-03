@@ -158,12 +158,12 @@ export function YardScene({
   fitness,
   birthday,
 }: {
-  // How grown the hound is (0164): a puppy is drawn smaller.
+  // How grown the hound is (0165): a puppy is drawn smaller.
   stage?: 'puppy' | 'young' | 'grown';
-  // Fitness 1 to 10 (0164): a fitter hound strolls more often, quicker
+  // Fitness 1 to 10 (0165): a fitter hound strolls more often, quicker
   // and with more bounce. Undefined: as before.
   fitness?: number;
-  // Its birthday (0164): bunting, balloons and a cake. The name's on the
+  // Its birthday (0165): bunting, balloons and a cake. The name's on the
   // banner.
   birthday?: boolean;
   // The garden bed's 3 plots (0162); undefined or null: no garden.
@@ -867,7 +867,7 @@ function SeasonBack({ season, left, width, top, time }: { season: NonNullable<Ya
 
 // Seasonal dressing in front: autumn leaves and pumpkins, a jack-o'-
 // lantern, snow drifts and a wreath on the house.
-// The birthday party (0164): bunting along the fence with the name, a
+// The birthday party (0165): bunting along the fence with the name, a
 // bunch of balloons by the house, and a cake.
 function Party({ name, left, width }: { name: string; left: number; width: number }) {
   const flags = Math.floor(width / 16);

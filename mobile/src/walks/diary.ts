@@ -77,7 +77,7 @@ function findsSentence(d: DiaryDay, kinds: Map<string, FindKind>): string | null
   return `Found ${listOf(names)}.`;
 }
 
-// Extras from 0164: the birthday, and traits earned that day.
+// Extras from 0165: the birthday, and traits earned that day.
 export interface DiaryExtras {
   birthday?: boolean;
   newTraits?: string[];

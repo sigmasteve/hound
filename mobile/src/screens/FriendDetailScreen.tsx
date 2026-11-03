@@ -76,7 +76,7 @@ export function FriendDetailScreen({
   const [yardBusy, setYardBusy] = useState<'pawprint' | 'treat' | null>(null);
   // Sending them a gift (0157).
   const [gifting, setGifting] = useState(false);
-  // Their hound's age, fitness, traits and birthday (0164).
+  // Their hound's age, fitness, traits and birthday (0165).
   const [growth, setGrowth] = useState<HoundProfile | null>(null);
   const loadYard = () => {
     getFriendHoundProfile(friendUserId, localDayKey())

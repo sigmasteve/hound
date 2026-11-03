@@ -134,7 +134,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const water = useWater();
   const walks = useHoundWalks();
   // The garden (0162): seed packs change the Bones shown up top.
-  // Fitness, age, traits and the birthday (0164).
+  // Fitness, age, traits and the birthday (0165).
   const growth = useHoundProfile();
   const partying = !!growth.profile?.isBirthday;
   const garden = useGarden((n) => setKennelState((k) => (k ? { ...k, bonesBalance: n } : k)));

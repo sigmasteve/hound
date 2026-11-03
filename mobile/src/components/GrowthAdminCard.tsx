@@ -7,7 +7,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { getGrowthOverview, traitInfo, type GrowthOverview } from '../growth/growth';
 
-// Admin → Growth (0164): fitness levels, puppies and grown hounds,
+// Admin → Growth (0165): fitness levels, puppies and grown hounds,
 // traits earned, and birthdays. Hounds active in the last 30 days.
 export function GrowthAdminCard() {
   const { colors, text } = useTheme();
@@ -25,7 +25,7 @@ export function GrowthAdminCard() {
         .catch((e) =>
           setError(
             e instanceof Error && /admin_growth_overview/.test(e.message)
-              ? 'Run 0164_hound_growth.sql to see these numbers.'
+              ? 'Run 0165_hound_growth.sql to see these numbers.'
               : e instanceof Error
                 ? e.message
                 : 'Could not load the growth numbers.',
@@ -48,7 +48,7 @@ export function GrowthAdminCard() {
     <Card style={{ gap: 12 }} elevated={false}>
       <Text style={text.h4}>Growth</Text>
       <Text style={styles.footNote}>
-        Fitness goes 1 to 10 with active days (5,000 steps) ever. Hounds from before 0164 are grown; new ones grow up at
+        Fitness goes 1 to 10 with active days (5,000 steps) ever. Hounds from before 0165 are grown; new ones grow up at
         100,000 and 400,000 steps.
       </Text>
       {error ? (

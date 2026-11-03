@@ -132,7 +132,7 @@ export function AdminScreen({
   const [walksSummary, setWalksSummary] = useState<string | null>(null);
   // The Garden fold's line: gardens growing (0162).
   const [gardenSummary, setGardenSummary] = useState<string | null>(null);
-  // The Growth fold's line: hounds with a trait (0164).
+  // The Growth fold's line: hounds with a trait (0165).
   const [growthSummary, setGrowthSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
   const [shopSummary, setShopSummary] = useState<string | null>(null);

@@ -5,7 +5,7 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { localDayKey } from '../water/water';
 import { getMyHoundProfile, setHoundBirthday, type HoundProfile } from './growth';
 
-// Your hound's fitness, age, birthday and traits (0164), read each time
+// Your hound's fitness, age, birthday and traits (0165), read each time
 // the Kennel comes into view (which is also when new traits are awarded).
 
 export interface HoundProfileState {
