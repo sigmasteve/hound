@@ -12,6 +12,7 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import { TextSizeProvider } from './src/theme/textSize';
 import { AuthProvider } from './src/auth/AuthContext';
 import { HealthDataProvider } from './src/health/HealthContext';
 import { LabelsProvider } from './src/labels/LabelsContext';
@@ -105,7 +106,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <AppContent />
+        <TextSizeProvider>
+          <AppContent />
+        </TextSizeProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

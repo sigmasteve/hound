@@ -17,6 +17,7 @@ import { TodaySettings } from '../home/TodaySettings';
 import { AdPrivacyCard } from '../ads/AdPrivacyCard';
 import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
+import { TEXT_SIZES, useTextSize } from '../theme/textSize';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import type { AuthProviderId } from '../auth/types';
@@ -76,6 +77,7 @@ export function SettingsScreen() {
     );
   };
   const { colors, text, mode, setMode } = useTheme();
+  const { size: textSize, setSize: setTextSize } = useTextSize();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   // Seeded from the signed-in user, not a separate fetch — profiles.username
@@ -505,6 +507,30 @@ export function SettingsScreen() {
           value={mode === 'light'}
           onChange={(v) => setMode(v ? 'light' : 'dark')}
         />
+        {/* K-07: bigger, clearer text everywhere in the app. */}
+        <View style={{ gap: 8 }}>
+          <Text style={styles.sourceName}>Text size</Text>
+          <View style={styles.sizeRow}>
+            {TEXT_SIZES.map((t) => {
+              const on = textSize === t.id;
+              return (
+                <Pressable
+                  key={t.id}
+                  style={[styles.sizeChip, on && { backgroundColor: colors.accent, borderColor: colors.accent }]}
+                  onPress={() => setTextSize(t.id)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${t.name} text`}
+                >
+                  <Text style={[styles.sizeChipText, on && { color: '#ffffff' }]}>{t.name}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={styles.footNote}>
+            Makes every screen's text bigger and clearer. Your phone's own text size setting still applies on top.
+          </Text>
+        </View>
       </Card>
 
 
@@ -830,6 +856,17 @@ function makeStyles(colors: Palette) {
     sourceName: { fontSize: 14.5, color: colors.text },
     subheading: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text, marginTop: 6 },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    sizeRow: { flexDirection: 'row', gap: 8 },
+    sizeChip: {
+      flex: 1,
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.text, 0.2),
+    },
+    sizeChipText: { fontFamily: font.heading, fontSize: 14, color: colors.text },
     phonePushNote: {
       gap: 10,
       padding: 12,
