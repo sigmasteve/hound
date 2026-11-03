@@ -52,6 +52,9 @@ import { TRICKS, isTrick, type TrickId } from '../kennel/tricks';
 import { useWater } from '../water/WaterContext';
 import { useHoundWalks } from '../walks/useHoundWalks';
 import { WalksTab } from '../walks/WalksTab';
+import { useGarden } from '../garden/useGarden';
+import { GardenCard } from '../garden/GardenCard';
+import { plantStage } from '../garden/garden';
 import { getYard, placeYardItem, setYardTrophies, type Yard } from '../kennel/yardApi';
 import {
   PORCH_ITEMS,
@@ -129,6 +132,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const currencyName = useCurrencyName();
   const water = useWater();
   const walks = useHoundWalks();
+  // The garden (0162): seed packs change the Bones shown up top.
+  const garden = useGarden((n) => setKennelState((k) => (k ? { ...k, bonesBalance: n } : k)));
   const [kennel, setKennelState] = useState<Kennel | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -744,6 +749,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                   <View style={{ width: sceneWidth }}>
                     <YardScene
                       water={water.goal ? water.todayMl / water.goal.targetMl : null}
+                      garden={garden.garden?.plots.map((p) => (p ? { seedId: p.seedId, stage: plantStage(p) } : null))}
                       onGesture={setThrowing}
                       yard={shownYard ?? yard}
                       tricks={kennel.owned.filter(isTrick)}
@@ -967,7 +973,9 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
               >
-                <Text style={[styles.tabLabel, on && styles.tabLabelOn]}>{t.label}</Text>
+                <Text style={[styles.tabLabel, on && styles.tabLabelOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                  {t.label}
+                </Text>
                 {t.id === 'wardrobe' && seasonItems.length > 0 && <View style={styles.tabDot} />}
               </Pressable>
             );
@@ -1124,6 +1132,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             />
             {zone === 0 ? (
               <>
+            <GardenCard state={garden} currencyName={currencyName} />
             {/* The Yard (0148): a fixed spot for everything, more spots as the
                 hound ranks up, and trophies that can only be won. */}
             {yard && (
@@ -1499,8 +1508,13 @@ function makeStyles(colors: Palette) {
       backgroundColor: withAlpha(colors.accent, 0.12),
     },
     tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
+    // Each as wide as its label, sharing what's left, so "Wardrobe" never
+    // breaks onto two lines at larger text sizes.
     tab: {
-      flex: 1,
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 'auto',
+      paddingHorizontal: 4,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
@@ -1513,7 +1527,7 @@ function makeStyles(colors: Palette) {
     tabOn: { borderBottomColor: colors.accent },
     tabLabel: { fontFamily: font.heading, fontSize: 14.5, color: withAlpha(colors.text, 0.6) },
     tabLabelOn: { fontFamily: font.headingSemibold, color: colors.text },
-    tabDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.amber },
+    tabDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.amber, flexShrink: 0 },
     tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     trickTile: {
       width: '48.5%',
