@@ -54,6 +54,38 @@ export function DiscoverScreen({
   onStart: (kind: ChallengeKind) => void;
 }) {
   const { colors, text } = useTheme();
+  return (
+    <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+      <DiscoverContent
+        onOpenChallenge={onOpenChallenge}
+        onStart={onStart}
+        top={
+          <>
+            <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
+            <Text style={text.h2}>Discover</Text>
+          </>
+        }
+      />
+    </SafeAreaView>
+  );
+}
+
+// Discover's search, filters, global challenges open to join, and the
+// kinds to start: its own screen, and the Challenges screen's Join tab.
+export function DiscoverContent({
+  onOpenChallenge,
+  onStart,
+  top,
+  onOpenCount,
+}: {
+  onOpenChallenge: (challengeId: string) => void;
+  onStart: (kind: ChallengeKind) => void;
+  // Shown first in the scroll, over the search.
+  top?: React.ReactNode;
+  // How many global challenges are open to join, for the Join tab's dot.
+  onOpenCount?: (n: number) => void;
+}) {
+  const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [interests, setInterests] = useState<Interest[]>([]);
@@ -66,11 +98,16 @@ export function DiscoverScreen({
       listGlobalChallenges()
         // Only ones you can still join: not ones you're already in, and
         // not ones whose joining has closed.
-        .then((all) => setGlobals(all.filter((c) => canJoin(c))))
+        .then((all) => {
+          const open = all.filter((c) => canJoin(c));
+          setGlobals(open);
+          onOpenCount?.(open.length);
+        })
         .catch(() => setGlobals([]));
       getMyInterests()
         .then((i) => setInterests(i ?? []))
         .catch(() => {});
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
 
@@ -93,10 +130,9 @@ export function DiscoverScreen({
   const filtered = isFiltered(filters);
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-        <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
-        <Text style={text.h2}>Discover</Text>
+        {top}
 
         <TextField
           label=""
@@ -184,7 +220,7 @@ export function DiscoverScreen({
           }}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

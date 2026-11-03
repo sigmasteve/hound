@@ -8,7 +8,6 @@ import {
   HouseIcon,
   MedalIcon,
   PlusCircleIcon,
-  MagnifyingGlassIcon,
 } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -25,8 +24,9 @@ import { huntKindName, toChallengeCard } from '../challenges/present';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { useLabels } from '../labels/LabelsContext';
 import type { Challenge, ChallengeInvite } from '../challenges/types';
-import { canJoin, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
-import { GlobalChallengesCard } from '../components/GlobalChallengesCard';
+import { canJoin, listGlobalChallenges } from '../challenges/globalChallenges';
+import { DiscoverContent } from './DiscoverScreen';
+import type { ChallengeKind } from '../data/sampleData';
 import { CodeJoinCard } from '../components/CodeJoinCard';
 import { getCommunityStatus } from '../challenges/communityApi';
 import { computeStreakStatus } from '../challenges/streak';
@@ -98,13 +98,13 @@ function placeholderFinishedCard(c: Challenge): ChallengeCard {
 export function ChallengesScreen({
   onOpenChallenge,
   onCreate,
-  onDiscover,
+  onStart,
   onPickUsername,
 }: {
   onOpenChallenge: (challengeId: string) => void;
   onCreate: () => void;
-  // K-01: search and filter challenges to join or start.
-  onDiscover?: () => void;
+  // Join tab (K-01's Discover): start a challenge of this kind.
+  onStart: (kind: ChallengeKind) => void;
   // K-04: the code field sends people without a username to pick one.
   onPickUsername?: () => void;
 }) {
@@ -158,18 +158,14 @@ export function ChallengesScreen({
   // Collapsed by default — the medal tally is the headline, the finished
   // challenges themselves are detail you dig into, same "summary first,
   // list on demand" shape as MetricsScreen's Today's Workouts card.
-  const [finishedExpanded, setFinishedExpanded] = useState(false);
-  // Global Hound Challenges you could join (0075): the same box as
-  // Today's, in full, so one hidden there is still here.
-  const [globalChallenges, setGlobalChallenges] = useState<GlobalChallenge[]>([]);
-  const [joiningGlobalId, setJoiningGlobalId] = useState<string | null>(null);
-  const joinGlobal = (c: GlobalChallenge) => {
-    setJoiningGlobalId(c.id);
-    joinGlobalChallenge(c.id)
-      .then(() => onOpenChallenge(c.id))
-      .catch((e) => Alert.alert('Couldn’t join', e instanceof Error ? e.message : 'Try again in a moment.'))
-      .finally(() => setJoiningGlobalId(null));
-  };
+  // Active (your challenges), Join (codes and Discover) or Finished (the
+  // trophy case). Opens on Active.
+  const [tab, setTab] = useState<ChallengesTab>('active');
+  // Finished's placements are fetched once it's opened.
+  const finishedExpanded = tab === 'finished';
+  // Global Hound Challenges you could still join (0075), for the dot on
+  // Join; the tab itself lists them.
+  const [openToJoin, setOpenToJoin] = useState(0);
   const [groupById, setGroupById] = useState<Map<string, ChallengeGroup>>(
     cachedChallengesState?.groupById ?? new Map(),
   );
@@ -185,7 +181,7 @@ export function ChallengesScreen({
       getFeatureNewest(),
     ]);
     const globalIds = new Set(globals.map((g) => g.id));
-    setGlobalChallenges(globals.filter((g) => !g.joined && canJoin(g)));
+    setOpenToJoin(globals.filter((g) => !g.joined && canJoin(g)).length);
     const groups = new Map<string, ChallengeGroup>(
       challenges.map((c) => [c.id, globalIds.has(c.id) ? 'global' : c.organizationId ? 'org' : 'personal']),
     );
@@ -447,157 +443,185 @@ export function ChallengesScreen({
   // fetch and can resolve before or after loadChallenges().
   const invitesLoading = liveInvites === null && isSupabaseConfigured;
 
+  const inviteCards = invitesLoading
+    ? null
+    : (liveInvites ?? []).map((invite) => (
+        <Card key={invite.id} style={styles.inviteCard} elevated={false}>
+          <EnvelopeOpenIcon size={18} color={color.accent300} weight="fill" />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.inviteTitle}>
+              {invite.inviterName} invited you to &ldquo;{invite.challengeName}&rdquo;
+            </Text>
+            <Text style={styles.inviteSub}>
+              {invite.challengeKind === 'hunt'
+                ? huntKindName()
+                : CHALLENGE_TYPES.find((t) => t.id === invite.challengeKind)?.name ?? invite.challengeKind}{' '}
+              ·{' '}
+              {invite.durationDays} days
+            </Text>
+          </View>
+          <View style={{ gap: 6 }}>
+            <Button
+              label="Join"
+              variant="primary"
+              small
+              disabled={respondingId === invite.id}
+              onPress={() => respondToInvite(invite, true)}
+            />
+            <Button
+              label="Decline"
+              small
+              disabled={respondingId === invite.id}
+              onPress={() => respondToInvite(invite, false)}
+            />
+          </View>
+        </Card>
+      ));
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Text style={text.h2}>Challenges</Text>
-        <Button label="New challenge" variant="primary" small icon={<PlusCircleIcon size={14} color={color.accent} />} onPress={onCreate} />
+    <View style={{ flex: 1 }}>
+      <View style={styles.top}>
+        <View style={styles.header}>
+          <Text style={text.h2}>Challenges</Text>
+          <Button label="New challenge" variant="primary" small icon={<PlusCircleIcon size={14} color={color.accent} />} onPress={onCreate} />
+        </View>
+        <ChallengeTabs
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { id: 'active', label: 'Active', count: challengesLoading ? undefined : challenges.length },
+            { id: 'join', label: 'Join', dot: openToJoin > 0 },
+            { id: 'finished', label: 'Finished', count: finishedChallenges.length || undefined },
+          ]}
+          styles={styles}
+        />
       </View>
-      {onDiscover && (
-        <Pressable onPress={onDiscover} style={styles.findBar} accessibilityRole="button" accessibilityLabel="Find a challenge">
-          <MagnifyingGlassIcon size={18} color={withAlpha(colors.text, 0.55)} />
-          <Text style={styles.findText}>Find a challenge: football, marathon, bingo…</Text>
-        </Pressable>
+
+      {tab === 'active' && (
+        <ScrollView contentContainerStyle={styles.container}>
+          {inviteCards}
+          {challengesLoading ? (
+            <View style={styles.loadingRow}>
+              <LoadingView />
+            </View>
+          ) : (
+            <>
+              {activeGroups.map(({ group, cards }) => (
+                <View key={group} style={{ gap: 8 }}>
+                  {showGroupHeadings && (
+                    <View style={styles.groupHeading}>
+                      <Text style={styles.groupTitle}>
+                        {group === 'global' ? 'Global' : group === 'org' ? orgName ?? 'Organization' : 'Personal'}
+                      </Text>
+                      <Text style={styles.groupCount}>{cards.length}</Text>
+                    </View>
+                  )}
+                  <Card style={styles.listCard} elevated={false}>
+                    {cards.map((c, i) => (
+                      <ChallengeRow
+                        key={c.id}
+                        c={c}
+                        first={i === 0}
+                        isPrimary={c.id === primaryChallengeId}
+                        styles={styles}
+                        colors={colors}
+                        onPress={c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined}
+                      />
+                    ))}
+                  </Card>
+                </View>
+              ))}
+
+              {challenges.length === 0 && (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyNote}>No challenges going right now.</Text>
+                  <Button label="Find one to join" variant="ghost" small onPress={() => setTab('join')} />
+                </View>
+              )}
+            </>
+          )}
+        </ScrollView>
       )}
-      {codesOn && <CodeJoinCard onJoined={onOpenChallenge} onPickUsername={() => onPickUsername?.()} />}
 
-      {invitesLoading
-        ? null
-        : (liveInvites ?? []).map((invite) => (
-          <Card key={invite.id} style={styles.inviteCard} elevated={false}>
-            <EnvelopeOpenIcon size={18} color={color.accent300} weight="fill" />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={styles.inviteTitle}>
-                {invite.inviterName} invited you to &ldquo;{invite.challengeName}&rdquo;
-              </Text>
-              <Text style={styles.inviteSub}>
-                {invite.challengeKind === 'hunt'
-                  ? huntKindName()
-                  : CHALLENGE_TYPES.find((t) => t.id === invite.challengeKind)?.name ?? invite.challengeKind}{' '}
-                ·{' '}
-                {invite.durationDays} days
-              </Text>
-            </View>
-            <View style={{ gap: 6 }}>
-              <Button
-                label="Join"
-                variant="primary"
-                small
-                disabled={respondingId === invite.id}
-                onPress={() => respondToInvite(invite, true)}
-              />
-              <Button
-                label="Decline"
-                small
-                disabled={respondingId === invite.id}
-                onPress={() => respondToInvite(invite, false)}
-              />
-            </View>
-          </Card>
-        ))}
-
-      {globalChallenges.length > 0 && (
-        <GlobalChallengesCard
-          challenges={globalChallenges}
-          joiningId={joiningGlobalId}
-          onJoin={joinGlobal}
-          onOpen={(c) => onOpenChallenge(c.id)}
-          where="challenges"
+      {tab === 'join' && (
+        <DiscoverContent
+          onOpenChallenge={onOpenChallenge}
+          onStart={onStart}
+          onOpenCount={setOpenToJoin}
+          top={codesOn ? <CodeJoinCard onJoined={onOpenChallenge} onPickUsername={() => onPickUsername?.()} /> : null}
         />
       )}
 
-      {challengesLoading ? (
-        <View style={styles.loadingRow}>
-          <LoadingView />
-        </View>
-      ) : (
-        <>
-          {activeGroups.map(({ group, cards }) => (
-            <View key={group} style={{ gap: 8 }}>
-              {showGroupHeadings && (
-                <View style={styles.groupHeading}>
-                  <Text style={styles.groupTitle}>
-                    {group === 'global' ? 'Global' : group === 'org' ? orgName ?? 'Organization' : 'Personal'}
-                  </Text>
-                  <Text style={styles.groupCount}>{cards.length}</Text>
-                </View>
-              )}
-              <Card style={styles.listCard} elevated={false}>
-                {cards.map((c, i) => (
-                  <ChallengeRow
-                    key={c.id}
-                    c={c}
-                    first={i === 0}
-                    isPrimary={c.id === primaryChallengeId}
-                    styles={styles}
-                    colors={colors}
-                    onPress={
-                      c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined
-                    }
-                  />
-                ))}
-              </Card>
-            </View>
-          ))}
-
-          {challenges.length === 0 && (
-            <Text style={styles.emptyNote}>No challenges yet — start one above.</Text>
-          )}
-
-          {/* Only once there's something in it: a new member's tab shouldn't open on an empty trophy case. */}
-          {finishedChallenges.length > 0 && (
-          <Card style={{ padding: 0, overflow: 'hidden' }} elevated={false}>
-            <Pressable
-              style={[styles.medalsHeader, finishedExpanded && styles.medalsHeaderOpen]}
-              onPress={() => setFinishedExpanded((open) => !open)}
-            >
-              <View style={styles.medalsTitleRow}>
-                <Text style={styles.finishedLabel}>Finished</Text>
-                <Text style={styles.finishedCount}>{finishedChallenges.length}</Text>
-                <CaretRightIcon
-                  size={16}
-                  color={withAlpha(colors.text, 0.5)}
-                  style={finishedExpanded ? styles.medalsCaretOpen : undefined}
-                />
-              </View>
+      {tab === 'finished' && (
+        <ScrollView contentContainerStyle={styles.container}>
+          {finishedChallenges.length === 0 ? (
+            <Text style={styles.emptyNote}>Nothing finished yet. Your medals show here.</Text>
+          ) : (
+            <>
               <View style={styles.medalsRow}>
                 <MedalTile tint={color.gold} count={medalCounts.gold} label="Gold" styles={styles} />
                 <MedalTile tint={color.silver} count={medalCounts.silver} label="Silver" styles={styles} />
                 <MedalTile tint={color.bronze} count={medalCounts.bronze} label="Bronze" styles={styles} />
                 <MedalTile tint={color.neutral500} count={medalCounts.other} label="Other" styles={styles} />
               </View>
-              {/* unresolvedFinishedCount is only ever nonzero before
-                  Finished has been expanded at least once this visit (see
-                  its own comment) — the placement for that many finished
-                  challenges hasn't been fetched yet, so the tally above is
-                  a real but partial count, not the final one. */}
-              {unresolvedFinishedCount > 0 && (
-                <Text style={styles.medalsPendingNote}>
-                  Tap to count {unresolvedFinishedCount} more.
-                </Text>
+              {loadingFinishedDetails && unresolvedFinishedCount > 0 && (
+                <Text style={styles.medalsPendingNote}>Counting {unresolvedFinishedCount} more…</Text>
               )}
-            </Pressable>
-            {finishedExpanded && (
-              <View style={styles.finishedList}>
-                {finishedChallenges.length === 0 ? (
-                  <Text style={styles.emptyNote}>Nothing finished yet.</Text>
-                ) : (
-                  finishedChallenges.map((c) => (
-                    <FinishedRow
-                      key={c.id}
-                      c={c}
-                      styles={styles}
-                      onPress={c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined}
-                    />
-                  ))
-                )}
+              <View style={{ gap: 10 }}>
+                {finishedChallenges.map((c) => (
+                  <FinishedRow
+                    key={c.id}
+                    c={c}
+                    styles={styles}
+                    onPress={c.target === 'detail' ? () => onOpenChallenge(c.id) : undefined}
+                  />
+                ))}
               </View>
-            )}
-          </Card>
+            </>
           )}
-        </>
+        </ScrollView>
       )}
-    </ScrollView>
+    </View>
+  );
+}
+
+type ChallengesTab = 'active' | 'join' | 'finished';
+
+// Active · Join · Finished, under the title: your challenges, finding or
+// joining a new one, and the trophy case.
+function ChallengeTabs({
+  tabs,
+  value,
+  onChange,
+  styles,
+}: {
+  tabs: { id: ChallengesTab; label: string; count?: number; dot?: boolean }[];
+  value: ChallengesTab;
+  onChange: (t: ChallengesTab) => void;
+  styles: ChallengesStyles;
+}) {
+  return (
+    <View style={styles.tabs} accessibilityRole="tablist">
+      {tabs.map((t) => {
+        const on = t.id === value;
+        return (
+          <Pressable
+            key={t.id}
+            onPress={() => onChange(t.id)}
+            style={[styles.tab, on && styles.tabOn]}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={`${t.label}${t.count !== undefined ? `, ${t.count}` : ''}${t.dot ? ', new to join' : ''}`}
+          >
+            <Text style={[styles.tabLabel, on && styles.tabLabelOn]} numberOfLines={1}>
+              {t.label}
+            </Text>
+            {t.count !== undefined && <Text style={[styles.tabCount, on && styles.tabCountOn]}>{t.count}</Text>}
+            {t.dot && <View style={styles.tabDot} />}
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -739,7 +763,27 @@ function MedalTile({
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 14, paddingBottom: 48 },
+    top: { paddingHorizontal: 16, paddingTop: 16, gap: 14 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12 },
+    tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
+    tab: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 10,
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
+      marginBottom: -StyleSheet.hairlineWidth,
+    },
+    tabOn: { borderBottomColor: colors.accent },
+    tabLabel: { fontFamily: font.heading, fontSize: 15, color: withAlpha(colors.text, 0.6) },
+    tabLabelOn: { fontFamily: font.headingSemibold, color: colors.text },
+    tabCount: { fontSize: 13, color: withAlpha(colors.text, 0.45), fontVariant: ['tabular-nums'] },
+    tabCountOn: { color: colors.accentActive },
+    tabDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent },
+    empty: { alignItems: 'center', gap: 6, paddingVertical: 16 },
     // K-01: opens Discover.
     findBar: {
       flexDirection: 'row',
