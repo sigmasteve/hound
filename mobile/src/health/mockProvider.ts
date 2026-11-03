@@ -1,5 +1,5 @@
 import type { DataSourcesReport } from './dataSources';
-import type { DailySteps, DailyStepsWithDate, HealthAuthStatus, HealthProvider, HealthSnapshot, WorkoutSample } from './types';
+import type { DailySteps, DailyStepsWithDate, HealthAuthStatus, HealthProvider, HealthSnapshot, StepBucket, WorkoutSample } from './types';
 
 // Sample-data provider — used automatically whenever the platform module
 // isn't linked (Expo Go, this dev sandbox, or web), so every screen has
@@ -121,6 +121,21 @@ export const mockProvider: HealthProvider = {
     // believable pace.
     const hours = Math.max(0, (Date.now() - since.getTime()) / 3_600_000);
     return Math.round(hours * 600);
+  },
+
+  async getStepBuckets(start: Date, end: Date): Promise<StepBucket[]> {
+    // Sample data: a morning walk at 8:00 and an evening one at 18:30 on
+    // every day in range, plus a little pottering about.
+    const out: StepBucket[] = [];
+    const q = 15 * 60_000;
+    for (let t = Math.ceil(start.getTime() / q) * q; t + q <= end.getTime(); t += q) {
+      const d = new Date(t);
+      const m = d.getHours() * 60 + d.getMinutes();
+      const walk = (m >= 480 && m < 525) || (m >= 1110 && m < 1140);
+      const steps = walk ? 1350 : m >= 420 && m < 1320 ? 90 : 0;
+      if (steps > 0) out.push({ start: d, end: new Date(t + q), steps });
+    }
+    return out;
   },
 };
 

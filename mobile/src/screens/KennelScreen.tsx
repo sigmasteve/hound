@@ -50,6 +50,8 @@ import { YardScene, YardThumb, yardFocusPoint } from '../kennel/YardArt';
 import { PorchScene, porchFocusPoint } from '../kennel/PorchArt';
 import { TRICKS, isTrick, type TrickId } from '../kennel/tricks';
 import { useWater } from '../water/WaterContext';
+import { useHoundWalks } from '../walks/useHoundWalks';
+import { WalksTab } from '../walks/WalksTab';
 import { getYard, placeYardItem, setYardTrophies, type Yard } from '../kennel/yardApi';
 import {
   PORCH_ITEMS,
@@ -95,8 +97,9 @@ const CARE_MODES: { id: CareMode; name: string; detail: string }[] = [
 
 // Your hound (0104_kennel.sql): how they're doing, a treat or meal, their
 // accessories and how you look after them. Grows with your rank.
-type KennelTab = 'wardrobe' | 'look' | 'yard' | 'more';
+type KennelTab = 'walks' | 'wardrobe' | 'look' | 'yard' | 'more';
 const KENNEL_TABS: { id: KennelTab; label: string }[] = [
+  { id: 'walks', label: 'Walks' },
   { id: 'wardrobe', label: 'Wardrobe' },
   { id: 'look', label: 'Look' },
   { id: 'yard', label: 'Yard' },
@@ -125,6 +128,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const currencyName = useCurrencyName();
   const water = useWater();
+  const walks = useHoundWalks();
   const [kennel, setKennelState] = useState<Kennel | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -136,7 +140,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const [yardSpot, setYardSpot] = useState<YardSpot>('house');
   // The fitting room: which tab, which wardrobe chip, and what's being
   // tried on (shown on the hound or in the yard before it's bought).
-  const [tab, setTab] = useState<KennelTab>('wardrobe');
+  // Walks first (lifestyle phase 1, 0161): what today's walks found.
+  const [tab, setTab] = useState<KennelTab>('walks');
   const [wardrobe, setWardrobe] = useState<WardrobeChip>('holiday');
   const [trying, setTrying] = useState<Trying | null>(null);
   const pagerRef = useRef<ScrollView>(null);
@@ -971,6 +976,17 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
       </View>
 
       <ScrollView scrollEnabled={!throwing} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+        {tab === 'walks' && (
+          <WalksTab
+            houndName={kennel.name}
+            walks={walks}
+            treatedToday={kennel.treatedToday}
+            goalHitToday={kennel.goalDayToday}
+            waterGoal={water.goal}
+            waterByDay={water.byDay}
+          />
+        )}
+
         {tab === 'wardrobe' && (
           <>
             <View style={styles.chips}>

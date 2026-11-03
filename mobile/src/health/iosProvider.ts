@@ -15,6 +15,7 @@ import type {
   HealthAuthStatus,
   HealthProvider,
   HealthSnapshot,
+  StepBucket,
   WorkoutSample,
 } from './types';
 import { pickNonOverlapping } from './dedupeWorkouts';
@@ -337,6 +338,27 @@ export const iosHealthProvider: HealthProvider = {
     let sum = 0;
     for (const v of totals.values()) sum += v;
     return Math.round(sum);
+  },
+
+  async getStepBuckets(start: Date, end: Date): Promise<StepBucket[]> {
+    // The same statistics query as the day totals, in 15-minute buckets
+    // anchored at `start`, so a watch and a phone counting the same steps
+    // are counted once.
+    const buckets = await orDefault(
+      queryStatisticsCollectionForQuantity('HKQuantityTypeIdentifierStepCount', ['cumulativeSum'], start, { minute: 15 }, {
+        filter: { date: { startDate: start, endDate: end } },
+        unit: 'count',
+      }),
+      [],
+    );
+    const out: StepBucket[] = [];
+    for (const b of buckets) {
+      if (!b.startDate || b.startDate.getTime() < start.getTime()) continue;
+      const steps = Math.round(b.sumQuantity?.quantity ?? 0);
+      if (steps <= 0) continue;
+      out.push({ start: b.startDate, end: b.endDate ?? new Date(b.startDate.getTime() + 15 * 60_000), steps });
+    }
+    return out.sort((a, b) => a.start.getTime() - b.start.getTime());
   },
 };
 
