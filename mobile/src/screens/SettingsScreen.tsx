@@ -16,6 +16,8 @@ import { CelebrationSettings } from '../celebrate/CelebrationSettings';
 import { TodaySettings } from '../home/TodaySettings';
 import { AdPrivacyCard } from '../ads/AdPrivacyCard';
 import { TextField } from '../components/TextField';
+import { getMyInterests, saveMyInterests, type Interest } from '../onboarding/interests';
+import { InterestsPicker } from '../onboarding/InterestsPicker';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
@@ -83,6 +85,30 @@ export function SettingsScreen() {
   // supabaseAuth.ts's userFromSession), so there's nothing else to load.
   const [usernameInput, setUsernameInput] = useState(user?.username ?? '');
   const [usernameError, setUsernameError] = useState<string | null>(null);
+  // K-08's interests (0151). Null until read, and if they can't be (before
+  // 0151 has run) the card doesn't show.
+  const [interests, setInterests] = useState<Interest[] | null>(null);
+  const [interestsSaving, setInterestsSaving] = useState(false);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    getMyInterests()
+      .then(setInterests)
+      .catch(() => setInterests(null));
+  }, []);
+  const toggleInterest = async (id: Interest) => {
+    if (!interests) return;
+    const next = interests.includes(id) ? interests.filter((i) => i !== id) : [...interests, id];
+    setInterests(next);
+    setInterestsSaving(true);
+    try {
+      setInterests(await saveMyInterests(next));
+    } catch (e) {
+      setInterests(interests);
+      Alert.alert("Couldn't save that", e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setInterestsSaving(false);
+    }
+  };
   const [savingUsername, setSavingUsername] = useState(false);
   const [savingUseUsername, setSavingUseUsername] = useState(false);
 
@@ -582,6 +608,14 @@ export function SettingsScreen() {
               />
             </>
           )}
+        </Card>
+      )}
+
+      {interests !== null && (
+        <Card style={{ gap: 12 }} elevated={false}>
+          <Text style={text.h4}>Your interests</Text>
+          <Text style={styles.footNote}>What you're working toward. Only you see this; Hound uses it to suggest challenges that fit you.</Text>
+          <InterestsPicker picked={interests} onToggle={toggleInterest} disabled={interestsSaving} />
         </Card>
       )}
 

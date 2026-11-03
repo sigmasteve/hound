@@ -45,6 +45,8 @@ import { EAR_OPTIONS, KENNEL_ITEMS, TAN_SWATCH, type HoundEars } from '../kennel
 import { buyKennelItem, equipKennelItem, getKennel, setHoundAvatar, setKennel, setKennelLook, type Kennel } from '../kennel/kennelApi';
 import { notifyBonesChanged } from '../bones/bonesChanged';
 import { useCurrencyName } from '../organizations/useCurrencyName';
+import { getMyInterests, saveMyInterests, type Interest } from './interests';
+import { InterestsPicker } from './InterestsPicker';
 import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from './onboardingApi';
 import { markAskedForUsername, useUsernameForm, usernameBody, UsernameFields } from '../profiles/UsernameForm';
 import { setMyName } from '../profiles/supabaseProfile';
@@ -59,7 +61,7 @@ import {
   type HoundUse,
 } from './welcomeApi';
 
-type StepId = 'health' | 'name' | 'uses' | 'goals' | 'push' | 'friend' | 'globals' | 'challenge' | 'hound' | 'done';
+type StepId = 'health' | 'name' | 'uses' | 'interests' | 'goals' | 'push' | 'friend' | 'globals' | 'challenge' | 'hound' | 'done';
 
 const USE_ICONS: Record<HoundUse, typeof FootprintsIcon> = {
   steps: FootprintsIcon,
@@ -99,12 +101,13 @@ export function SetupWizardScreen({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [auth, push, status, welcome, globals] = await Promise.all([
+      const [auth, push, status, welcome, globals, interests] = await Promise.all([
         health.getAuthorizationStatus().catch(() => null),
         getPushPermission(),
         getOnboardingStatus().catch(() => null),
         getWelcome(),
         listGlobalChallenges().catch(() => [] as GlobalChallenge[]),
+        getMyInterests().catch(() => null),
       ]);
       if (cancelled) return;
       const saved = welcome?.uses ?? [];
@@ -117,6 +120,9 @@ export function SetupWizardScreen({
       // sign-up didn't give a name (NameStep asks for one first).
       if (!user?.username || user?.needsName) steps.push('name');
       if (!resume || saved.length === 0) steps.push('uses');
+      // K-08: what they're working toward. Skipped when it can't be read
+      // (before 0151 has run) or, finishing setup, already answered.
+      if (interests !== null && (!resume || interests.length === 0)) steps.push('interests');
       if (!resume || !goalsSet) steps.push('goals');
       if (push === 'undetermined') steps.push('push');
       if (!status?.hasFriend) steps.push('friend');
@@ -178,6 +184,7 @@ export function SetupWizardScreen({
       {step === 'health' && <HealthStep styles={styles} onNext={next} />}
       {step === 'name' && <NameStep styles={styles} onNext={next} />}
       {step === 'uses' && <UsesStep styles={styles} initial={uses} onNext={(u) => (setUses(u), next())} />}
+      {step === 'interests' && <InterestsStep styles={styles} onNext={next} />}
       {step === 'goals' && <GoalsStep styles={styles} uses={uses} onOpenGoals={onOpenGoals} onNext={next} />}
       {step === 'push' && <PushStep styles={styles} onNext={next} />}
       {step === 'friend' && <FriendStep styles={styles} onNext={next} />}
@@ -406,6 +413,27 @@ function UsesStep({ styles, initial, onNext }: { styles: Styles; initial: HoundU
           );
         })}
       </View>
+    </StepPage>
+  );
+}
+
+// K-08: what they're working toward, kept private, so Hound can suggest
+// challenges that fit.
+function InterestsStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
+  const [picked, setPicked] = useState<Interest[]>([]);
+  const toggle = (id: Interest) => setPicked((cur) => (cur.includes(id) ? cur.filter((i) => i !== id) : [...cur, id]));
+  const save = () => {
+    saveMyInterests(picked).catch(() => {});
+    onNext();
+  };
+  return (
+    <StepPage
+      styles={styles}
+      title="What are you working toward?"
+      body="Pick any. Only you see this: Hound uses it to suggest challenges that fit you."
+      footer={<Button label="Next" variant="primary" block disabled={picked.length === 0} onPress={save} />}
+    >
+      <InterestsPicker picked={picked} onToggle={toggle} />
     </StepPage>
   );
 }

@@ -34,6 +34,21 @@ export async function checkAchievements(): Promise<NewlyEarnedAchievement[]> {
   }));
 }
 
+// The milestone badges' (0151) count of finishes, for "37 of 50". Null
+// before 0151 has run, or when it can't be read.
+export async function getFinishProgress(): Promise<number | null> {
+  const { data, error } = await requireClient().rpc('my_finish_progress');
+  if (error) return null;
+  return typeof data === 'number' ? data : null;
+}
+
+// Each milestone badge's target, for the progress line.
+export const FINISH_MILESTONES: Record<string, number> = {
+  finishes_25: 25,
+  finishes_50: 50,
+  finishes_100: 100,
+};
+
 export async function listAchievements(): Promise<Achievement[]> {
   const { data, error } = await requireClient()
     .from('achievements')

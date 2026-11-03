@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { Modal, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
-import { BoneIcon } from 'phosphor-react-native';
+import { BoneIcon, ShareNetworkIcon } from 'phosphor-react-native';
 import { Button } from './Button';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
@@ -17,11 +17,14 @@ export function AchievementUnlockedModal({
   currencyName,
   onViewAll,
   onClose,
+  onShare,
 }: {
   achievements: NewlyEarnedAchievement[];
   currencyName: string;
   onViewAll: () => void;
   onClose: () => void;
+  // Shares one badge as a picture (K-06); left out, there's no Share.
+  onShare?: (a: NewlyEarnedAchievement) => void;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -51,6 +54,11 @@ export function AchievementUnlockedModal({
                       {a.name}
                     </Text>
                     <Text style={styles.listBones}>+{a.bones}</Text>
+                    {onShare && (
+                      <Pressable onPress={() => onShare(a)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Share ${a.name}`}>
+                        <ShareNetworkIcon size={18} color={colors.accent} />
+                      </Pressable>
+                    )}
                   </View>
                 );
               })}
@@ -65,9 +73,23 @@ export function AchievementUnlockedModal({
           </View>
 
           <View style={styles.buttons}>
-            <Button label="View all" variant="ghost" onPress={onViewAll} />
+            {single && onShare ? (
+              <Button
+                label="Share"
+                variant="ghost"
+                icon={<ShareNetworkIcon size={16} color={colors.accent} />}
+                onPress={() => onShare(single)}
+              />
+            ) : (
+              <Button label="View all" variant="ghost" onPress={onViewAll} />
+            )}
             <Button label="Nice!" variant="primary" onPress={onClose} />
           </View>
+          {single && onShare && (
+            <Pressable onPress={onViewAll} hitSlop={8} accessibilityRole="button">
+              <Text style={styles.viewAll}>See all badges</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     </Modal>
@@ -108,5 +130,6 @@ function makeStyles(colors: Palette) {
     rewardRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
     reward: { fontFamily: font.headingSemibold, fontSize: 18, color: colors.text },
     buttons: { flexDirection: 'row', gap: 8, marginTop: 8 },
+    viewAll: { fontFamily: font.heading, fontSize: 13.5, color: colors.accentActive, marginTop: 2 },
   });
 }
