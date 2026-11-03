@@ -159,7 +159,8 @@ export async function listActiveApps(days = 14): Promise<ReportedApp[]> {
       .order('last_active_at', { ascending: false })
       .limit(1000);
   let { data, error } = await read(COLUMNS);
-  if (error && /app_install_source/.test(error.message)) ({ data, error } = await read(BASE_COLUMNS));
+  // Before 0163, or before 0164's read grant: the columns everyone has.
+  if (error && /app_install_source|permission denied/i.test(error.message)) ({ data, error } = await read(BASE_COLUMNS));
   if (error) throw new Error(error.message);
   return ((data ?? []) as any[]).map(rowToReported);
 }
@@ -167,7 +168,7 @@ export async function listActiveApps(days = 14): Promise<ReportedApp[]> {
 export async function getUserApp(userId: string): Promise<ReportedApp | null> {
   if (!supabase) return null;
   let { data, error } = await supabase.from('profiles').select(COLUMNS).eq('id', userId).maybeSingle();
-  if (error && /app_install_source/.test(error.message)) {
+  if (error && /app_install_source|permission denied/i.test(error.message)) {
     ({ data, error } = await supabase.from('profiles').select(BASE_COLUMNS).eq('id', userId).maybeSingle());
   }
   if (error || !data) return null;
