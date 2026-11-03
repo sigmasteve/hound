@@ -77,13 +77,21 @@ function findsSentence(d: DiaryDay, kinds: Map<string, FindKind>): string | null
   return `Found ${listOf(names)}.`;
 }
 
-export function diaryLine(d: DiaryDay, kinds: Map<string, FindKind>): string {
+// Extras from 0164: the birthday, and traits earned that day.
+export interface DiaryExtras {
+  birthday?: boolean;
+  newTraits?: string[];
+}
+
+export function diaryLine(d: DiaryDay, kinds: Map<string, FindKind>, extras: DiaryExtras = {}): string {
   const parts = [walksSentence(d)];
+  if (extras.birthday) parts.unshift(pick(d.day, 'bday', ['It’s my birthday! There was cake.', 'My birthday today! Party hat on.']));
   const finds = findsSentence(d, kinds);
   if (finds) parts.push(finds);
   if (d.goalHit) parts.push('We hit our goals.');
   else if (d.waterMet) parts.push('You drank all your water, so I had a big drink too.');
   else if (d.treated) parts.push('Got a treat.');
+  if (extras.newTraits?.length) parts.push(`New ${extras.newTraits.length === 1 ? 'trait' : 'traits'}: ${listOf(extras.newTraits)}.`);
   return parts.join(' ');
 }
 

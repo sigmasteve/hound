@@ -18,6 +18,9 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
 import { HoundArt } from '../kennel/HoundArt';
+import { AboutCard } from '../growth/AboutCard';
+import { getFriendHoundProfile, type HoundProfile } from '../growth/growth';
+import { localDayKey } from '../water/water';
 import { friendMoodLine, getFriendKennel, getKennel, type FriendKennel, type Kennel } from '../kennel/kennelApi';
 import { YardScene } from '../kennel/YardArt';
 import { PorchScene } from '../kennel/PorchArt';
@@ -73,7 +76,12 @@ export function FriendDetailScreen({
   const [yardBusy, setYardBusy] = useState<'pawprint' | 'treat' | null>(null);
   // Sending them a gift (0157).
   const [gifting, setGifting] = useState(false);
+  // Their hound's age, fitness, traits and birthday (0164).
+  const [growth, setGrowth] = useState<HoundProfile | null>(null);
   const loadYard = () => {
+    getFriendHoundProfile(friendUserId, localDayKey())
+      .then(setGrowth)
+      .catch(() => setGrowth(null));
     getFriendKennel(friendUserId)
       .then(setHound)
       .catch(() => {});
@@ -231,6 +239,9 @@ export function FriendDetailScreen({
               {yardWidth > 0 && (
                 <YardScene
                   onGesture={setThrowing}
+                  stage={growth?.stage}
+                  fitness={growth?.fitness}
+                  birthday={!!growth?.isBirthday}
                   yard={yard}
                   tricks={yard.tricks}
                   width={yardWidth}
@@ -262,7 +273,7 @@ export function FriendDetailScreen({
                     rank: rankForLevel(levelProgressForXp(hound.xpTotal).level).id,
                     mood: hound.mood,
                     neckId: hound.neckId,
-                    headId: hound.headId,
+                    headId: growth?.isBirthday ? 'hat_party' : hound.headId,
                     faceId: hound.faceId,
                     coatId: hound.coatId,
                     breedId: hound.breedId,
@@ -347,6 +358,8 @@ export function FriendDetailScreen({
             </View>
           </Card>
         )}
+
+        {growth && <AboutCard profile={growth} today={localDayKey()} />}
 
         {hound && !yard && (
           <Card style={styles.houndCard} elevated={false}>

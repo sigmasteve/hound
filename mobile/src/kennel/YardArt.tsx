@@ -154,7 +154,18 @@ export function YardScene({
   tricks,
   trick,
   garden,
+  stage,
+  fitness,
+  birthday,
 }: {
+  // How grown the hound is (0164): a puppy is drawn smaller.
+  stage?: 'puppy' | 'young' | 'grown';
+  // Fitness 1 to 10 (0164): a fitter hound strolls more often, quicker
+  // and with more bounce. Undefined: as before.
+  fitness?: number;
+  // Its birthday (0164): bunting, balloons and a cake. The name's on the
+  // banner.
+  birthday?: boolean;
   // The garden bed's 3 plots (0162); undefined or null: no garden.
   garden?: ({ seedId: string; stage: PlantStage } | null)[] | null;
   // Tricks owned (0158): a double-tap on the hound does the next one.
@@ -203,7 +214,9 @@ export function YardScene({
   const pose: keyof typeof HOUND_AT =
     night || hound.mood === 'sleepy' ? 'bed' : hound.mood === 'hungry' ? 'bowl' : hound.mood === 'happy' ? 'zoomies' : 'house';
   const artMood: HoundMood = night ? 'sleepy' : hound.mood;
-  const houndW = HOUND_SIZE[size] * k;
+  const houndW = HOUND_SIZE[size] * k * (stage === 'puppy' ? 0.8 : stage === 'young' ? 0.9 : 1);
+  // 4 is how it moved before fitness; 1 a little slower, 10 much livelier.
+  const fit = Math.max(1, Math.min(10, fitness ?? 4));
   // In bed it lies down; a hammock holds it up off the ground.
   const bedId = yard.spots.bed ?? 'bed_cushion';
   const inHammock = pose === 'bed' && bedId === 'bed_hammock';
@@ -265,7 +278,7 @@ export function YardScene({
     const walkTo = (x: number, y: number, done: (ok: boolean) => void) => {
       const dx = (x - at.x) * k;
       const dy = (y - at.y) * k;
-      const ms = Math.max(900, (Math.hypot(dx, dy) / (55 * k)) * 1000);
+      const ms = Math.max(700, (Math.hypot(dx, dy) / (55 * k * (0.8 + 0.05 * fit))) * 1000);
       trot.start();
       Animated.parallel([
         Animated.timing(strollX, { toValue: dx, duration: ms, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
@@ -289,7 +302,7 @@ export function YardScene({
             timer = setTimeout(() => walkTo(at.x, at.y, (back) => back && next(false)), 4000 + Math.random() * 4000);
           });
         },
-        first ? 6000 + Math.random() * 6000 : 20000 + Math.random() * 20000,
+        (first ? 6000 + Math.random() * 6000 : 20000 + Math.random() * 20000) * (1.24 - 0.06 * fit),
       );
     };
     next(true);
@@ -304,7 +317,7 @@ export function YardScene({
       step.setValue(0);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [moving, pose, fetching, spotsKey, left, W, k]);
+  }, [moving, pose, fetching, spotsKey, left, W, k, fit]);
 
   // The hammock sways with the hound in it.
   const sway = useRef(new Animated.Value(0)).current;
@@ -528,7 +541,7 @@ export function YardScene({
       {
         translateY: Animated.add(
           Animated.add(hop.interpolate({ inputRange: [0, 1], outputRange: [0, -houndW * 0.18] }), strollY),
-          step.interpolate({ inputRange: [0, 1], outputRange: [0, -houndW * 0.05] }),
+          step.interpolate({ inputRange: [0, 1], outputRange: [0, -houndW * (0.034 + 0.004 * fit)] }),
         ),
       },
       { rotate: Animated.add(step, sway).interpolate({ inputRange: [-1, 0, 1], outputRange: ['-2deg', '0deg', '3deg'] }) },
@@ -614,6 +627,7 @@ export function YardScene({
         {place('bowl')}
         {place('bed')}
         {sn && <SeasonFront season={sn} left={left} width={W} top={top} time={t} hasHouse={!!spots.house} />}
+        {birthday && <Party name={hound.name} left={left} width={W} />}
         {yard.pawprints > 0 && <Pawprints n={Math.min(6, yard.pawprints)} left={left} />}
         {night && <Rect x={left} y={top} width={W} height={H} fill="#0b0d2a" opacity={0.28} />}
         {place('fence')}
@@ -853,6 +867,50 @@ function SeasonBack({ season, left, width, top, time }: { season: NonNullable<Ya
 
 // Seasonal dressing in front: autumn leaves and pumpkins, a jack-o'-
 // lantern, snow drifts and a wreath on the house.
+// The birthday party (0164): bunting along the fence with the name, a
+// bunch of balloons by the house, and a cake.
+function Party({ name, left, width }: { name: string; left: number; width: number }) {
+  const flags = Math.floor(width / 16);
+  const colours = ['#e85d75', '#f4b942', '#5cb85f', '#5b8fd9', '#b18cf0'];
+  return (
+    <G>
+      <Path d={`M${left} 138 Q${left + width / 2} 156 ${left + width} 138`} stroke="#7a6f9a" strokeWidth={1.2} fill="none" />
+      {Array.from({ length: flags }, (_, i) => {
+        const x = left + 8 + i * 16;
+        const f = (x - left) / width;
+        const y = 138 + 18 * f * (1 - f) * 4 * 0.5;
+        return <Path key={i} d={`M${x - 5} ${y} L${x + 5} ${y} L${x} ${y + 9} Z`} fill={colours[i % colours.length]} />;
+      })}
+      <G transform={`translate(${left + width / 2} 112)`}>
+        <Rect x={-58} y={-9} width={116} height={17} rx={8.5} fill="#ffffff" opacity={0.92} />
+        <SvgText x={0} y={3.5} fontSize={9.5} fontWeight="bold" textAnchor="middle" fill="#c2366a">
+          {`Happy birthday, ${name}!`}
+        </SvgText>
+      </G>
+      <G transform="translate(132 196)">
+        {[
+          [-9, -46, '#e85d75'],
+          [3, -54, '#5b8fd9'],
+          [12, -42, '#f4b942'],
+        ].map(([x, y, c]) => (
+          <G key={String(c)}>
+            <Path d={`M0 0 Q${Number(x) / 2} ${Number(y) / 2} ${x} ${Number(y) + 9}`} stroke="#8f8676" strokeWidth={0.8} fill="none" />
+            <Ellipse cx={Number(x)} cy={Number(y)} rx={7} ry={9} fill={String(c)} />
+            <Ellipse cx={Number(x) - 2.5} cy={Number(y) - 3} rx={1.8} ry={2.6} fill="#ffffff" opacity={0.5} />
+          </G>
+        ))}
+      </G>
+      <G transform="translate(404 252)">
+        <Ellipse cx={0} cy={1} rx={15} ry={3} fill="#000" opacity={0.15} />
+        <Rect x={-12} y={-12} width={24} height={12} rx={2} fill="#f6e3c5" />
+        <Rect x={-12} y={-12} width={24} height={4} rx={2} fill="#f37ba0" />
+        <Rect x={-1} y={-20} width={2} height={8} fill="#5b8fd9" />
+        <Ellipse cx={0} cy={-22} rx={1.6} ry={2.4} fill="#f4b942" />
+      </G>
+    </G>
+  );
+}
+
 function SeasonFront({
   season,
   left,
