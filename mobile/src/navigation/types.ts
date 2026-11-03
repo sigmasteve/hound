@@ -53,6 +53,8 @@ export type RootStackParamList = {
   JourneyPicker: undefined;
   Help: undefined;
   Achievements: undefined;
+  // K-01: search and filter challenges to join or start.
+  Discover: undefined;
   // Opened from the You tab (they used to be tabs or the top bar).
   Stats: undefined;
   Settings: undefined;

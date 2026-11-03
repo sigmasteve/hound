@@ -21,6 +21,7 @@ import { OrgManagementScreen } from '../screens/OrgManagementScreen';
 import { OrgDetailScreen } from '../screens/OrgDetailScreen';
 import { HelpScreen } from '../screens/HelpScreen';
 import { AchievementsScreen } from '../screens/AchievementsScreen';
+import { DiscoverScreen } from '../screens/DiscoverScreen';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { MetricsScreen } from '../screens/MetricsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
@@ -416,6 +417,15 @@ export function RootNavigator() {
                     if (user?.id) AsyncStorage.setItem(welcomeDoneKey(user.id), 'true').catch(() => {});
                     navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
                   }}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Discover" options={{ animation: 'slide_from_right' }}>
+              {({ navigation }) => (
+                <DiscoverScreen
+                  onBack={() => navigation.goBack()}
+                  onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
+                  onStart={(kind) => navigation.navigate('Create', { kind })}
                 />
               )}
             </Stack.Screen>
