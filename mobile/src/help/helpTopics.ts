@@ -6,7 +6,7 @@ import type { HuntLabels } from '../labels/types';
 // any layout code. Every string here describes what the app actually
 // does today; when a feature changes, its topic here should too.
 
-export type HelpSectionId = 'basics' | 'challenges' | 'rewards' | 'friends' | 'settings';
+export type HelpSectionId = 'basics' | 'challenges' | 'hound' | 'rewards' | 'friends' | 'settings';
 
 export interface HelpTopic {
   id: string;
@@ -23,6 +23,7 @@ export interface HelpTopic {
 export const HELP_SECTIONS: { id: HelpSectionId; label: string }[] = [
   { id: 'basics', label: 'The basics' },
   { id: 'challenges', label: 'Challenges' },
+  { id: 'hound', label: 'Your hound' },
   { id: 'rewards', label: 'Score & rewards' },
   { id: 'friends', label: 'Friends' },
   { id: 'settings', label: 'Settings & account' },
@@ -186,7 +187,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         `You earn ${currency} every time a challenge you’re in wraps up, plus a bonus each time you level up.`,
         `Opening the app each day adds a daily bonus, and hitting your goals pays too (see below).`,
-        `Spend ${currency} in the Shop tab of Your look on looks no level unlocks.`,
+        `Spend ${currency} on your hound (its wardrobe, yard, Porch, tricks and treats), garden seeds, Streak Shields, bounties, and looks in the Shop tab of Your look.`,
         'Limited-time drops (like Halloween) sit at the top of the Shop until they end — anything you buy from one is yours to keep afterward.',
         `Some challenge types unlock after you’ve earned enough ${currency} through play. Spending never re-locks them.`,
       ],
@@ -284,19 +285,94 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
     },
     {
       id: 'kennel',
-      section: 'rewards',
+      section: 'hound',
       title: 'Your hound (Kennel)',
       summary: 'A hound who’s happy when you hit your goals.',
       steps: [
-        'Open the Kennel from Today or the You tab. Tap the name to rename your hound.',
+        'Open the Kennel from your hound on Today, or from the You tab. Tap the name to rename your hound.',
         'Their mood follows your goal days over the last week, and a goal day today always makes them happy. A quiet week just makes them sleepy.',
         `Give a treat once a day for ${currency} to cheer them up. Today’s Kennel card lists what’s left to do, and its Treat chip gives one right there.`,
-        `They grow with your rank: Pup, Tracker, Hunter, Alpha, then Legend. Collars, bandanas, hats and glasses are bought with ${currency} and kept for good.`,
-        `Now and then, limited-time items show up at the top of the Kennel, like a Halloween set each October. Each one is only for sale until its date, and anything you buy, you keep.`,
-        `Under Look, pick their coat, ears, tail and markings. Tan, Chocolate, Cream and Gray coats are free, special coats cost ${currency}, and the rest of the look is free to change any time.`,
+        'The Kennel has five tabs: Walks (what today’s walks found, the diary and the About card), Wardrobe, Look, Yard and More (tricks).',
         'Your friends see your hound on your friend page, and you see theirs.',
         'Turn on “Use as my avatar” in the Kennel and your hound replaces your initials everywhere: leaderboards, friends and chats. It keeps your frame and background, and picking an icon in Your look switches back.',
         'Care style: Gentle is the default. Classic pet adds 3 meal hearts; one empties each day they aren’t fed, and with none left they’re hungry until you feed them. Going up a level fills every heart. You can switch back any time.',
+      ],
+    },
+    {
+      id: 'wardrobe',
+      section: 'hound',
+      title: 'Wardrobe and look',
+      summary: 'Dress them up, and try things on before you buy.',
+      steps: [
+        `Wardrobe has collars and bandanas, hats, glasses, outfits (sweaters, a hoodie, a raincoat, a tutu, a cape, a tuxedo) and shoes, bought with ${currency} and kept for good.`,
+        'Tap anything to try it on: the scene zooms in and a row of choices runs along the bottom. Red ✕ puts it back; green ✓ keeps it, and shows the price when it buys.',
+        'Holiday drops sit first in the Wardrobe for a little while, like Thanksgiving in November and Winter from 15 November. Anything you buy, you keep.',
+        `Under Look, pick their coat, ears, tail, markings and breed. Tan, Chocolate, Cream and Gray coats are free; special coats and breeds cost ${currency}.`,
+      ],
+    },
+    {
+      id: 'yard',
+      section: 'hound',
+      title: 'The Yard and the Porch',
+      summary: 'Their home, a garden, and a porch round the back.',
+      steps: [
+        'Kennel → Yard: a spot for each thing, and more spots and a bigger yard as you rank up. Pick a spot (House, Bed, Bowl, Toy and more) to choose what goes there.',
+        'Your hound strolls about, naps in bed or the hammock, and drinks from a bowl that fills with your water through the day.',
+        'Swipe the grass to throw their toy. Swipe the sky across to go round to the Porch.',
+        `Houses go from the free Hound House to an Igloo, a Beach Bungalow, a Modern Glass House, a Treehouse, a Castle and the Doghouse Mansion (2,500 ${currency}).`,
+        'The Porch opens at Hunter (level 10): a Hot Tub, Lounge Chair, Porch Swing, Fire Pit, Patio Umbrella and Grill.',
+        'Trophies you win in challenges stand in the yard. Choose which under Yard → Trophies.',
+        'Tricks (Kennel → More): High Five, Spin, Roll Over and Play Dead. Double-tap your hound to do one. Friends can do it in your yard too.',
+      ],
+    },
+    {
+      id: 'walks',
+      section: 'hound',
+      title: 'Walks and finds',
+      summary: 'Your walks become their walks, and every one finds something.',
+      steps: [
+        'Nothing to start or stop: 10 minutes or more of steady steps counts as a walk. Kennel → Walks shows today’s, like “Morning walk · 1.5 mi · 32 min”.',
+        'Every finished walk brings something home, up to 5 a day. A walk still going says so, and finds something once you’re back.',
+        'Longer walks find rarer things. There are 22 kinds: 10 all year and 3 each season, like a golden acorn in autumn or a perfect snowflake in winter.',
+        'Open the collection book to see everything you’ve found, and silhouettes of what’s still out there.',
+      ],
+      tip: 'Walks are worked out from your steps when you open the Kennel, so open it after a walk to see what you found.',
+    },
+    {
+      id: 'diary',
+      section: 'hound',
+      title: 'Your hound’s diary',
+      summary: 'A line a day, in their own voice.',
+      steps: [
+        'Kennel → Walks has a diary for the last 7 days, written from your walks, finds, steps and water, and today’s treat and goals.',
+        'Birthdays and new traits get a mention too.',
+        'Only you see it. Tap Share the week to send it to someone.',
+      ],
+    },
+    {
+      id: 'garden',
+      section: 'hound',
+      title: 'The garden',
+      summary: 'Plant a seed and your steps water it.',
+      steps: [
+        'Kennel → Yard → Garden has 3 plots. Tap an empty one to plant a seed.',
+        'The steps you take after planting make it grow: seed, sprout, bud, then bloom. A daisy needs 20,000 steps; a giant sunflower 70,000.',
+        'A day without steps just pauses it. Nothing wilts.',
+        `One free seed a week (a daisy, sunflower or tulip). More come in packs of 2 or 3 for ${currency}, and some only in their season, like pumpkins in autumn.`,
+        'Once it’s bloomed, tap it to pick it (it goes in “Grown so far”), or leave it to show off. Tap a plant that’s still growing to dig it up.',
+      ],
+    },
+    {
+      id: 'growth',
+      section: 'hound',
+      title: 'Fitness, traits, age and birthday',
+      summary: 'Your hound grows with you.',
+      steps: [
+        'Kennel → Walks → About shows how old they are, their fitness and their traits.',
+        'Fitness goes from 1 to 10 with active days (5,000 steps or more). It only goes up, and a fitter hound is livelier in the yard.',
+        'Traits come from your habits and are kept for good: Early bird, Night owl, Lunch stroller, Trail dog, Well watered, Weekend warrior, Steady paws, Collector and Green paws. Tap “All 9 traits” to see how to earn each.',
+        'A new hound starts as a puppy, then grows up at 100,000 and 400,000 steps.',
+        'Their birthday is the day they were born, or pick your own (it can change once a month). On the day, the yard has a party and a friend’s hound comes round.',
       ],
     },
     {
@@ -355,6 +431,18 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'Tap a friend to see how many challenges you’ve done together and your record against them.',
         'Send kudos to cheer them on — they’re unlimited and just for fun.',
+      ],
+    },
+    {
+      id: 'visits',
+      section: 'friends',
+      title: 'Visits and gifts',
+      summary: 'Drop by a friend’s yard, and send their hound something.',
+      steps: [
+        'Open a friend to see their yard. Your hound comes along and plays with theirs.',
+        `Tap Leave a pawprint, or Toss a treat for ${currency}. They see who visited next time they open their Kennel.`,
+        `Tap Send a gift to give their hound something from the shop, with a note. It comes out of your ${currency}.`,
+        'Their page also shows their hound’s age, fitness, traits and birthday, and on the day, their yard has a party.',
       ],
     },
     {

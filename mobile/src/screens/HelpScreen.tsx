@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { LONG_FORM_SCALE_CAP, Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeftIcon,
+  ArrowSquareOutIcon,
+  BookOpenIcon,
   CaretDownIcon,
   CaretRightIcon,
   FlagCheckeredIcon,
@@ -21,6 +23,8 @@ import { useAuth } from '../auth/AuthContext';
 import { useLabels } from '../labels/LabelsContext';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { buildHelpTopics, HELP_SECTIONS, type HelpTopic } from '../help/helpTopics';
+
+const GUIDE_URL = 'https://houndchallenge.net/guide';
 
 const QUICK_START: { Icon: React.ComponentType<any>; title: string; body: string }[] = [
   { Icon: PlugsIcon, title: 'Connect your health app', body: 'You → Health data → Apple Health or Health Connect.' },
@@ -149,6 +153,22 @@ export function HelpScreen({ onBack }: { onBack: () => void }) {
         {searching && visible.length === 0 && (
           <Text style={styles.footNote}>Nothing matches “{query.trim()}” — try a different word.</Text>
         )}
+
+        {/* The full guide on the website (site/guide.html), with a PDF. */}
+        <Pressable
+          onPress={() => Linking.openURL(GUIDE_URL).catch(() => {})}
+          accessibilityRole="link"
+          accessibilityLabel="Open the full Hound guide on the website"
+        >
+          <Card style={styles.guideCard} elevated={false}>
+            <BookOpenIcon size={22} color={colors.accentActive} weight="fill" />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.topicTitle}>The full guide</Text>
+              <Text style={styles.footNote}>Everything Hound does on one page, with a PDF to save or share.</Text>
+            </View>
+            <ArrowSquareOutIcon size={16} color={withAlpha(colors.text, 0.5)} />
+          </Card>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -157,6 +177,7 @@ export function HelpScreen({ onBack }: { onBack: () => void }) {
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 14, paddingBottom: 48 },
+    guideCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     footNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     sectionTitle: { fontSize: 15, fontFamily: font.heading, color: colors.text },
     sectionLabel: { fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: withAlpha(colors.text, 0.55) },
