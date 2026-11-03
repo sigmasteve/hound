@@ -22,6 +22,9 @@ export interface ShopOverview {
   gifts30d: number;
   giftBones30d: number;
   gifters30d: number;
+  // 0158.
+  tricksBought: number;
+  trickOwners: number;
 }
 
 export async function getShopOverview(): Promise<ShopOverview> {
@@ -54,6 +57,8 @@ export async function getShopOverview(): Promise<ShopOverview> {
     gifts30d: n(d.gifts_30d),
     giftBones30d: n(d.gift_bones_30d),
     gifters30d: n(d.gifters_30d),
+    tricksBought: n(d.tricks_bought),
+    trickOwners: n(d.trick_owners),
   };
 }
 

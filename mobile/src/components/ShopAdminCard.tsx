@@ -52,6 +52,7 @@ export function ShopAdminCard() {
         ['Bought new clothes', `${data.clothesBuyers} · wearing an outfit ${data.wearingBody}, booties or shoes ${data.wearingFeet}`],
         ['Porch unlocked', `${data.porchUnlocks} · ${data.hotTubs} with a hot tub`],
         ['Bougie houses bought', `${data.bougieHouses}`],
+        ['Tricks bought', `${data.tricksBought} by ${data.trickOwners} ${data.trickOwners === 1 ? 'person' : 'people'}`],
         ['Gifts, last 30 days', `${data.gifts30d} from ${data.gifters30d} ${data.gifters30d === 1 ? 'person' : 'people'} · ${data.giftBones30d.toLocaleString()} Bones`],
       ]
     : [];

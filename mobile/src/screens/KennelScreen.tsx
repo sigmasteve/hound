@@ -46,6 +46,7 @@ import {
 import { localDayKey } from '../goals/goals';
 import { YardScene, YardThumb } from '../kennel/YardArt';
 import { PorchScene } from '../kennel/PorchArt';
+import { TRICKS, isTrick, type TrickId } from '../kennel/tricks';
 import { useWater } from '../water/WaterContext';
 import { getYard, placeYardItem, setYardTrophies, type Yard } from '../kennel/yardApi';
 import {
@@ -111,7 +112,7 @@ const WARDROBE_CHIPS: { id: WardrobeChip; label: string }[] = [
 // Something being tried on: an item to wear (or null, for the plain
 // hound or tan coat), a yard item in a spot, or a porch item.
 interface Trying {
-  kind: 'wear' | 'yard' | 'porch';
+  kind: 'wear' | 'yard' | 'porch' | 'trick';
   item: any | null;
   slot?: KennelSlot;
   spot?: YardSpot;
@@ -137,6 +138,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const [wardrobe, setWardrobe] = useState<WardrobeChip>('holiday');
   const [trying, setTrying] = useState<Trying | null>(null);
   const pagerRef = useRef<ScrollView>(null);
+  // A trick being shown in the yard (0158); n replays it.
+  const [trickShow, setTrickShow] = useState<{ id: TrickId; n: number } | null>(null);
   const [sceneWidth, setSceneWidth] = useState(0);
   // While a finger is throwing the toy, the page holds still.
   const [throwing, setThrowing] = useState(false);
@@ -433,6 +436,10 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
     setTrying(t);
     if (t.kind === 'yard') showZone(0);
     if (t.kind === 'porch') showZone(1);
+    if (t.kind === 'trick') {
+      showZone(0);
+      setTrickShow((cur) => ({ id: t.item.id, n: (cur?.n ?? 0) + 1 }));
+    }
   };
   const wearSlot = trying?.kind === 'wear' ? (trying.slot ?? trying.item?.slot ?? null) : null;
   const over = (slot: KennelSlot, current: string | null) => (wearSlot === slot ? (trying?.item?.id ?? null) : current);
@@ -516,6 +523,17 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                 ? offerMore(item.costBones)
                 : act(`yard-${item.id}`, async () => { await buyKennelItem(item.id); await placeYardItem(spot, item.id); }, "Couldn't get that"),
           };
+  } else if (trying?.kind === 'trick') {
+    const item = trying.item as (typeof TRICKS)[number];
+    const owned = kennel.owned.includes(item.id);
+    tryName = item.name;
+    tryNote = owned ? `Yours · double-tap ${kennel.name} for it` : `${item.costBones} ${currencyName}`;
+    tryAction = owned
+      ? { label: 'Again', run: () => setTrickShow((cur) => ({ id: item.id, n: (cur?.n ?? 0) + 1 })) }
+      : {
+          label: `Get it · ${item.costBones}`,
+          run: () => (shortOf(item.costBones) ? offerMore(item.costBones) : act(item.id, () => buyKennelItem(item.id), "Couldn't get that")),
+        };
   } else if (trying?.kind === 'porch') {
     const item = trying.item as (typeof PORCH_ITEMS)[number];
     const owned = kennel.owned.includes(item.id);
@@ -634,6 +652,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                       water={water.goal ? water.todayMl / water.goal.targetMl : null}
                       onGesture={setThrowing}
                       yard={shownYard ?? yard}
+                      tricks={kennel.owned.filter(isTrick)}
+                      trick={trickShow}
                       width={sceneWidth}
                       animate={focused}
                       lines={yardLines}
@@ -1051,6 +1071,34 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
 
         {tab === 'more' && (
           <>
+            {/* Tricks (0158): tap one to see it; double-tap the hound in the
+                yard for the ones you have. */}
+            <Card style={{ gap: 10 }} elevated={false}>
+              <View style={styles.seasonHeader}>
+                <Text style={text.h4}>Tricks</Text>
+                <Text style={styles.yardSize}>Double-tap {kennel.name}</Text>
+              </View>
+              <View style={styles.tileGrid}>
+                {TRICKS.map((t) => {
+                  const owned = kennel.owned.includes(t.id);
+                  const on = trying?.kind === 'trick' && trying.item?.id === t.id;
+                  return (
+                    <Pressable
+                      key={t.id}
+                      style={[styles.trickTile, owned && styles.tileWearing, on && styles.tileOn]}
+                      onPress={() => tryOn({ kind: 'trick', item: t })}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${t.name}${owned ? ', yours' : `, ${t.costBones} ${currencyName}`}. Watch it`}
+                    >
+                      <Text style={styles.tileName}>{t.name}</Text>
+                      <Text style={[styles.tileNote, owned && { color: colors.accentActive }]}>
+                        {owned ? 'Yours' : `${t.costBones} ${currencyName}`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Card>
             {nextStep && (
               <Card style={{ gap: 6, alignItems: 'center' }} elevated={false}>
               {nextStep && (
@@ -1236,6 +1284,16 @@ function makeStyles(colors: Palette) {
     tabLabelOn: { fontFamily: font.headingSemibold, color: colors.text },
     tabDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.amber },
     tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    trickTile: {
+      width: '48.5%',
+      gap: 2,
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: withAlpha(colors.text, 0.08),
+      backgroundColor: colors.surface,
+    },
     tile: {
       width: '31.5%',
       alignItems: 'center',

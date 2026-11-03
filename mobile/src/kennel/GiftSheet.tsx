@@ -12,6 +12,7 @@ import { YardThumb } from './YardArt';
 import { KENNEL_ITEMS, onSale } from './kennelItems';
 import { PORCH_ITEMS, YARD_ITEMS, yardItemOnSale } from './yardItems';
 import { giftKennelItem } from './kennelApi';
+import { TRICKS } from './tricks';
 
 interface GiftOption {
   id: string;
@@ -75,6 +76,7 @@ export function GiftSheet({
       { title: `For ${houndName} to wear`, items: wear.filter((i) => !i.season) },
       { title: 'For the yard', items: yard.filter((i) => !i.season) },
       { title: 'For the porch', items: porch },
+      { title: 'Tricks', items: TRICKS.map((t) => ({ id: t.id, name: t.name, costBones: t.costBones, kind: 'porch' as const, slot: 'trick' })) },
     ].filter((g) => g.items.length > 0);
   }, [today, hasPorch, houndName]);
 
