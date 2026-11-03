@@ -110,6 +110,32 @@ export interface YardHound {
   markings?: HoundMarkings;
 }
 
+// Where something is in a scene this wide, in pixels: a spot's item, or
+// the hound where its mood puts it. For the Kennel's zoom while you pick.
+export function yardFocusPoint(
+  yard: Yard,
+  width: number,
+  target: YardSpot | 'hound',
+  mood: HoundMood,
+  time?: YardTime,
+): { x: number; y: number; height: number } {
+  const size = Math.max(0, Math.min(YARD_SIZES.length - 1, yard.size));
+  const { left, width: W } = YARD_SIZES[size];
+  const H = W * YARD_ASPECT;
+  const top = WORLD_BOTTOM - H;
+  const k = width / W;
+  const night = (time ?? yardTime()) === 'night';
+  let p: { x: number; y: number };
+  if (target === 'hound') {
+    const pose: keyof typeof HOUND_AT = night || mood === 'sleepy' ? 'bed' : mood === 'hungry' ? 'bowl' : mood === 'happy' ? 'zoomies' : 'house';
+    p = { x: HOUND_AT[pose].x, y: HOUND_AT[pose].y - 48 };
+  } else {
+    const at = SPOT_AT[target];
+    p = { x: at.x, y: at.y - (target === 'house' || target === 'tree' ? 50 : 14) };
+  }
+  return { x: (p.x - left) * k, y: (p.y - top) * k, height: H * k };
+}
+
 export function YardScene({
   yard,
   hound,

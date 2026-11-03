@@ -1,7 +1,9 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   Keyboard,
   Pressable,
   ScrollView,
@@ -14,7 +16,7 @@ import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon,
-  LeafIcon, SnowflakeIcon, HeartIcon, PawPrintIcon, PencilSimpleIcon, PlusIcon } from 'phosphor-react-native';
+  LeafIcon, SnowflakeIcon, HeartIcon, PawPrintIcon, PencilSimpleIcon, PlusIcon, CheckIcon, XIcon, LockSimpleIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -44,8 +46,8 @@ import {
   type KennelSlot,
 } from '../kennel/kennelItems';
 import { localDayKey } from '../goals/goals';
-import { YardScene, YardThumb } from '../kennel/YardArt';
-import { PorchScene } from '../kennel/PorchArt';
+import { YardScene, YardThumb, yardFocusPoint } from '../kennel/YardArt';
+import { PorchScene, porchFocusPoint } from '../kennel/PorchArt';
 import { TRICKS, isTrick, type TrickId } from '../kennel/tricks';
 import { useWater } from '../water/WaterContext';
 import { getYard, placeYardItem, setYardTrophies, type Yard } from '../kennel/yardApi';
@@ -138,8 +140,16 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const [wardrobe, setWardrobe] = useState<WardrobeChip>('holiday');
   const [trying, setTrying] = useState<Trying | null>(null);
   const pagerRef = useRef<ScrollView>(null);
+  const pickRowRef = useRef<ScrollView>(null);
+  // The last zoom, kept so ✗ and ✓ ease back out from where it was.
+  const lastZoom = useRef({ by: 1.6, x: 0, y: 0 });
   // A trick being shown in the yard (0158); n replays it.
   const [trickShow, setTrickShow] = useState<{ id: TrickId; n: number } | null>(null);
+  // Picking in place: the scene zooms in on what's being changed.
+  const zoom = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(zoom, { toValue: trying ? 1 : 0, duration: 320, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start();
+  }, [trying, zoom]);
   const [sceneWidth, setSceneWidth] = useState(0);
   // While a finger is throwing the toy, the page holds still.
   const [throwing, setThrowing] = useState(false);
@@ -472,6 +482,22 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
       },
       fail,
     );
+  const currentIn = (slot: KennelSlot): string | null =>
+    slot === 'neck'
+      ? kennel.neckId
+      : slot === 'head'
+        ? kennel.headId
+        : slot === 'face'
+          ? kennel.faceId
+          : slot === 'coat'
+            ? kennel.coatId
+            : slot === 'body'
+              ? kennel.bodyId
+              : slot === 'feet'
+                ? kennel.feetId
+                : slot === 'breed'
+                  ? kennel.breedId
+                  : null;
   let tryName = '';
   let tryNote = '';
   let tryAction: { label: string; run: () => void } | null = null;
@@ -479,9 +505,9 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
     const item: KennelItem | null = trying.item;
     const slot = (trying.slot ?? item?.slot) as KennelSlot;
     if (!item) {
-      tryName = slot === 'breed' ? 'The hound' : 'Tan coat';
-      const wearingNow = slot === 'breed' ? !kennel.breedId : !kennel.coatId;
-      tryNote = wearingNow ? 'On now' : 'Free';
+      tryName = slot === 'breed' ? 'The hound' : slot === 'coat' ? 'Tan coat' : 'Nothing';
+      const wearingNow = !currentIn(slot);
+      tryNote = wearingNow ? 'On now' : slot === 'breed' || slot === 'coat' ? 'Free' : 'Take it off';
       if (!wearingNow) tryAction = { label: 'Wear it', run: () => act('wear', () => equipKennelItem(slot, null), "Couldn't change that") };
     } else {
       const owned = kennel.owned.includes(item.id);
@@ -546,6 +572,59 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
           run: () => (shortOf(item.costBones) ? offerMore(item.costBones) : act(`porch-${item.id}`, () => buyKennelItem(item.id), "Couldn't get that")),
         };
   }
+
+  // What the ✓ costs: a price when it buys, otherwise nothing to show.
+  const tryCost: number | null =
+    trying && tryAction?.label.startsWith('Get it') && trying.item && typeof trying.item.costBones === 'number' ? trying.item.costBones : null;
+  const tryShort = tryCost !== null && shortOf(tryCost);
+  // The other choices for the same spot, along the bottom of the scene.
+  const today0 = localDayKey(new Date());
+  const pickOptions: { key: string; item: any | null; label: string }[] = (() => {
+    if (!trying) return [];
+    if (trying.kind === 'wear') {
+      const slot = (trying.slot ?? trying.item?.slot) as KennelSlot;
+      const items = KENNEL_ITEMS.filter((i) => i.slot === slot && (inShop(i) || (!!i.season && onSale(i, today0))));
+      const none = slot === 'breed' ? 'Hound' : slot === 'coat' ? 'Tan' : 'None';
+      return [{ key: `none-${slot}`, item: null, label: none }, ...items.map((i) => ({ key: i.id, item: i, label: i.name }))];
+    }
+    if (trying.kind === 'yard' && trying.spot) {
+      const slot = spotSlot(trying.spot);
+      return YARD_ITEMS.filter((i) => i.slot === slot && (!i.season || yardItemOnSale(i, today0) || kennel.owned.includes(i.id))).map((i) => ({
+        key: i.id,
+        item: i,
+        label: i.name,
+      }));
+    }
+    if (trying.kind === 'porch') return PORCH_ITEMS.map((i) => ({ key: i.id, item: i, label: i.name }));
+    return TRICKS.map((i) => ({ key: i.id, item: i, label: i.name }));
+  })();
+  const pick = (item: any | null) => {
+    if (!trying) return;
+    if (trying.kind === 'trick') tryOn({ kind: 'trick', item });
+    else tryOn({ ...trying, item });
+  };
+  // Where to zoom: the spot being changed, or the hound. The tile row
+  // covers the bottom of the scene, so the point is centred in what's left
+  // above it; something low (the bowl, the ground) zooms in further, up to
+  // 2.4x, so it still clears the row.
+  const PICK_BAR = 64;
+  const focus =
+    !trying || !yard || sceneWidth === 0
+      ? null
+      : trying.kind === 'porch'
+        ? porchFocusPoint(trying.item?.id ?? '', sceneWidth)
+        : yardFocusPoint(yard, sceneWidth, trying.kind === 'yard' && trying.spot ? trying.spot : 'hound', kennel.mood);
+  const clampShift = (v: number, by: number, half: number) => Math.max(-(by - 1) * half, Math.min((by - 1) * half, v));
+  if (focus) {
+    const by = Math.min(2.4, Math.max(1.6, (PICK_BAR + 26) / Math.max(1, focus.height - focus.y)));
+    // The point moves toward the middle, but never past an edge.
+    lastZoom.current = {
+      by,
+      x: clampShift(-by * (focus.x - sceneWidth / 2), by, sceneWidth / 2),
+      y: clampShift(-by * (focus.y - focus.height / 2) - PICK_BAR / 2, by, focus.height / 2),
+    };
+  }
+  const { by: zoomBy, x: shiftX, y: shiftY } = lastZoom.current;
 
   // The wardrobe: a chip per slot (Holiday first while a drop is on), and
   // the items as tiles with the hound wearing each.
@@ -638,6 +717,16 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
           {yard ? (
             <View style={styles.yardFloor} onLayout={(e) => setSceneWidth(Math.floor(e.nativeEvent.layout.width))}>
               {sceneWidth > 0 && (
+                <View style={{ width: sceneWidth, height: sceneWidth * 0.75, overflow: 'hidden', borderRadius: 14 }}>
+                <Animated.View
+                  style={{
+                    transform: [
+                      { translateX: zoom.interpolate({ inputRange: [0, 1], outputRange: [0, shiftX] }) },
+                      { translateY: zoom.interpolate({ inputRange: [0, 1], outputRange: [0, shiftY] }) },
+                      { scale: zoom.interpolate({ inputRange: [0, 1], outputRange: [1, zoomBy] }) },
+                    ],
+                  }}
+                >
                 <ScrollView
                   ref={pagerRef}
                   horizontal
@@ -713,6 +802,84 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                     )}
                   </View>
                 </ScrollView>
+                </Animated.View>
+
+                {/* Picking in place: the choices along the bottom, ✗ to put
+                    it back, ✓ to keep it (with the price when it buys). */}
+                {trying && (
+                  <View style={styles.pickBar} pointerEvents="box-none">
+                    <Pressable
+                      onPress={() => setTrying(null)}
+                      style={[styles.pickRound, styles.pickCancel]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Put it back"
+                      hitSlop={6}
+                    >
+                      <XIcon size={24} color="#ffffff" weight="bold" />
+                    </Pressable>
+                    <ScrollView ref={pickRowRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pickRow} style={{ flex: 1 }}>
+                      {pickOptions.map((o) => {
+                        const on = (trying.item?.id ?? null) === (o.item?.id ?? null);
+                        return (
+                          <Pressable
+                            key={o.key}
+                            onPress={() => pick(o.item)}
+                            // The row opens scrolled to what's being tried.
+                            onLayout={on ? (e) => pickRowRef.current?.scrollTo({ x: Math.max(0, e.nativeEvent.layout.x - 62), animated: false }) : undefined}
+                            style={[styles.pickTile, on && styles.pickTileOn]}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: on }}
+                            accessibilityLabel={o.label}
+                          >
+                            {trying.kind === 'wear' ? (
+                              o.item || trying.slot === 'breed' || trying.slot === 'coat' ? (
+                                <HoundArt
+                                  {...{ ...shownHound, [`${trying.slot}Id`]: o.item?.id ?? null }}
+                                  rank={rank.id}
+                                  mood="okay"
+                                  size={42}
+                                  animate={false}
+                                  variant={trying.slot === 'feet' || trying.slot === 'body' ? 'full' : 'avatar'}
+                                />
+                              ) : (
+                                <Text style={styles.pickNone}>None</Text>
+                              )
+                            ) : trying.kind === 'yard' ? (
+                              <YardThumb id={o.item.id} size={42} />
+                            ) : (
+                              <Text style={styles.pickWord} numberOfLines={2}>
+                                {o.label}
+                              </Text>
+                            )}
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                    <Pressable
+                      onPress={() => (tryAction ? tryAction.run() : setTrying(null))}
+                      disabled={busyId !== null}
+                      style={[styles.pickRound, styles.pickOk, tryShort && { opacity: 0.55 }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={tryCost !== null ? `Get the ${tryName} for ${tryCost} ${currencyName}` : `Keep ${tryName}`}
+                      hitSlop={6}
+                    >
+                      {busyId ? (
+                        <ActivityIndicator color="#ffffff" />
+                      ) : tryShort ? (
+                        <LockSimpleIcon size={22} color="#ffffff" weight="bold" />
+                      ) : (
+                        <CheckIcon size={26} color="#ffffff" weight="bold" />
+                      )}
+                      {tryCost !== null && (
+                        <View style={styles.pickPrice}>
+                          <BoneIcon size={10} color={colors.amber} weight="fill" />
+                          <Text style={styles.pickPriceText}>{tryCost.toLocaleString()}</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  </View>
+                )}
+                </View>
               )}
               <View style={styles.zoneDots}>
                 {[0, 1].map((i) => (
@@ -742,19 +909,13 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
 
 
         {trying ? (
-          <View style={styles.tryBar}>
-            <View style={{ flex: 1, gap: 1 }}>
-              <Text style={styles.itemName} numberOfLines={1}>
-                {tryName}
-              </Text>
-              <Text style={styles.itemNote} numberOfLines={1}>
-                {tryNote}
-              </Text>
-            </View>
-            <Button label="Put back" variant="ghost" small onPress={() => setTrying(null)} />
-            {tryAction && (
-              <Button label={busyId ? '…' : tryAction.label} variant="primary" small disabled={busyId !== null} onPress={tryAction.run} />
-            )}
+          <View style={styles.statusRow}>
+            <Text style={styles.itemName} numberOfLines={1}>
+              {tryName}
+            </Text>
+            <Text style={[styles.itemNote, { flex: 1 }]} numberOfLines={1}>
+              {tryShort ? `${tryNote} · you have ${kennel.bonesBalance}` : tryNote}
+            </Text>
           </View>
         ) : (
           <View style={styles.statusRow}>
@@ -1257,6 +1418,60 @@ function makeStyles(colors: Palette) {
     },
     bonesText: { fontFamily: font.headingSemibold, fontSize: 13.5, color: colors.text },
     statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 36 },
+    pickBar: {
+      position: 'absolute',
+      left: 8,
+      right: 8,
+      bottom: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    pickRow: { gap: 8, paddingHorizontal: 2, alignItems: 'center' },
+    pickRound: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 3,
+      borderColor: '#ffffff',
+      shadowColor: '#000',
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 4,
+    },
+    pickCancel: { backgroundColor: '#e0545a' },
+    pickOk: { backgroundColor: '#3fae5f' },
+    pickPrice: {
+      position: 'absolute',
+      bottom: -10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: 999,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.amber, 0.6),
+    },
+    pickPriceText: { fontFamily: font.headingSemibold, fontSize: 11, color: colors.text },
+    pickTile: {
+      width: 54,
+      height: 54,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      backgroundColor: 'rgba(255,255,255,0.88)',
+      borderWidth: 2.5,
+      borderColor: 'rgba(255,255,255,0.95)',
+    },
+    pickTileOn: { borderColor: colors.amber, transform: [{ scale: 1.08 }] },
+    pickNone: { fontFamily: font.headingSemibold, fontSize: 12, color: '#5d5294' },
+    pickWord: { fontFamily: font.headingSemibold, fontSize: 10.5, color: '#2b2741', textAlign: 'center', paddingHorizontal: 3 },
     tryBar: {
       flexDirection: 'row',
       alignItems: 'center',
