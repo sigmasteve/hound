@@ -1,4 +1,5 @@
 import {
+  aggregateGroupByDuration,
   aggregateRecord,
   ExerciseType,
   getGrantedPermissions,
@@ -14,6 +15,7 @@ import type {
   HealthAuthStatus,
   HealthProvider,
   HealthSnapshot,
+  StepBucket,
   WorkoutSample,
 } from './types';
 import { pickNonOverlapping } from './dedupeWorkouts';
@@ -443,6 +445,31 @@ export const androidHealthProvider: HealthProvider = {
       endTime: new Date().toISOString(),
     });
     return Math.round(total);
+  },
+
+  async getStepBuckets(start: Date, end: Date): Promise<StepBucket[]> {
+    await ensureInitialized();
+    const timeRangeFilter = { operator: 'between' as const, startTime: start.toISOString(), endTime: end.toISOString() };
+    const read = async (dataOriginFilter?: string[]): Promise<StepBucket[]> => {
+      try {
+        const groups = await aggregateGroupByDuration({
+          recordType: 'Steps',
+          timeRangeFilter,
+          timeRangeSlicer: { duration: 'MINUTES', length: 15 },
+          dataOriginFilter,
+        });
+        return groups
+          .map((g) => ({ start: new Date(g.startTime), end: new Date(g.endTime), steps: Math.round(g.result.COUNT_TOTAL ?? 0) }))
+          .filter((b) => b.steps > 0);
+      } catch {
+        return [];
+      }
+    };
+    // As with the day totals: Health Connect's buckets, or Samsung
+    // Health's alone if those come to more. One source, never both.
+    const [all, samsung] = await Promise.all([read(), read(SAMSUNG_HEALTH_PACKAGES)]);
+    const sum = (bs: StepBucket[]) => bs.reduce((n, b) => n + b.steps, 0);
+    return (sum(samsung) > sum(all) ? samsung : all).sort((a, b) => a.start.getTime() - b.start.getTime());
   },
 };
 

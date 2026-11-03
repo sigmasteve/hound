@@ -64,6 +64,12 @@ export interface HealthSnapshot {
   lastSyncedAt: Date | null;
 }
 
+export interface StepBucket {
+  start: Date;
+  end: Date;
+  steps: number;
+}
+
 export type HealthAuthStatus = 'unavailable' | 'not-determined' | 'denied' | 'authorized';
 
 export interface HealthProvider {
@@ -87,6 +93,9 @@ export interface HealthProvider {
   // Total steps from an exact moment (not a day boundary) until now —
   // Tic-Tac-Go's step goals count only steps taken since your turn began.
   getStepsSince(since: Date): Promise<number>;
+  // Steps in 15-minute buckets from `start` to `end`, oldest first, for
+  // spotting walks (0161_hound_walks.sql). Empty buckets may be left out.
+  getStepBuckets?(start: Date, end: Date): Promise<StepBucket[]>;
   // Whether health data can be read right now. Every read above returns
   // nothing instead of failing, which looks like 0 steps, so background
   // sync asks first: a locked iPhone can't read Apple Health, and Android
