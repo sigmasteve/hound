@@ -3,7 +3,7 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-nat
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, MagnifyingGlassIcon, RobotIcon, SparkleIcon, XIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, MagnifyingGlassIcon, RobotIcon, SlidersHorizontalIcon, SparkleIcon, XIcon } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { TextField } from '../components/TextField';
@@ -54,23 +54,63 @@ export function DiscoverScreen({
   onStart: (kind: ChallengeKind) => void;
 }) {
   const { colors, text } = useTheme();
+  return (
+    <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+      <DiscoverContent
+        onOpenChallenge={onOpenChallenge}
+        onStart={onStart}
+        top={
+          <>
+            <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
+            <Text style={text.h2}>Discover</Text>
+          </>
+        }
+      />
+    </SafeAreaView>
+  );
+}
+
+// Discover's search, filters, global challenges open to join, and the
+// kinds to start: its own screen, and the Challenges screen's Join tab.
+export function DiscoverContent({
+  onOpenChallenge,
+  onStart,
+  top,
+  onOpenCount,
+}: {
+  onOpenChallenge: (challengeId: string) => void;
+  onStart: (kind: ChallengeKind) => void;
+  // Shown first in the scroll, over the search.
+  top?: React.ReactNode;
+  // How many global challenges are open to join, for the Join tab's dot.
+  onOpenCount?: (n: number) => void;
+}) {
+  const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [interests, setInterests] = useState<Interest[]>([]);
   const [globals, setGlobals] = useState<GlobalChallenge[]>([]);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [detail, setDetail] = useState<KindInfo | null>(null);
+  // The four rows of filter chips, folded behind "Filters" so the search
+  // and the challenges come first.
+  const [showFilters, setShowFilters] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       listGlobalChallenges()
         // Only ones you can still join: not ones you're already in, and
         // not ones whose joining has closed.
-        .then((all) => setGlobals(all.filter((c) => canJoin(c))))
+        .then((all) => {
+          const open = all.filter((c) => canJoin(c));
+          setGlobals(open);
+          onOpenCount?.(open.length);
+        })
         .catch(() => setGlobals([]));
       getMyInterests()
         .then((i) => setInterests(i ?? []))
         .catch(() => {});
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
 
@@ -91,26 +131,39 @@ export function DiscoverScreen({
   const openGlobals = globals.filter((c) => globalMatches(c, filters));
   const kinds = rankKinds(filters, interests);
   const filtered = isFiltered(filters);
+  const chipCount = filters.format.length + filters.counts.length + filters.players.length + filters.level.length;
 
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-        <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
-        <Text style={text.h2}>Discover</Text>
+        {top}
 
-        <TextField
-          label=""
-          icon={<MagnifyingGlassIcon size={18} color={withAlpha(colors.text, 0.55)} />}
-          placeholder="Search: football, marathon, bingo…"
-          value={filters.query}
-          onChangeText={(query) => setFilters((f) => ({ ...f, query }))}
-          returnKeyType="search"
-          autoCorrect={false}
-          accessibilityLabel="Search challenges"
-        />
+        <View style={styles.searchRow}>
+          <TextField
+            label=""
+            style={{ flex: 1 }}
+            icon={<MagnifyingGlassIcon size={18} color={withAlpha(colors.text, 0.55)} />}
+            placeholder="Search: football, marathon, bingo…"
+            value={filters.query}
+            onChangeText={(query) => setFilters((f) => ({ ...f, query }))}
+            returnKeyType="search"
+            autoCorrect={false}
+            accessibilityLabel="Search challenges"
+          />
+          <Pressable
+            onPress={() => setShowFilters((v) => !v)}
+            style={[styles.filtersButton, (showFilters || chipCount > 0) && styles.filtersButtonOn]}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showFilters }}
+            accessibilityLabel={`Filters${chipCount > 0 ? `, ${chipCount} on` : ''}`}
+          >
+            <SlidersHorizontalIcon size={17} color={colors.accentActive} />
+            <Text style={styles.filtersText}>{chipCount > 0 ? `Filters · ${chipCount}` : 'Filters'}</Text>
+          </Pressable>
+        </View>
 
         <View style={{ gap: 10 }}>
-          {FILTER_ROWS.map((row) => (
+          {showFilters && FILTER_ROWS.map((row) => (
             <View key={row.key} style={{ gap: 6 }}>
               <Text style={styles.rowLabel}>{row.label}</Text>
               <View style={styles.chips}>
@@ -184,7 +237,7 @@ export function DiscoverScreen({
           }}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -293,6 +346,19 @@ function makeStyles(colors: Palette) {
     chipText: { fontFamily: font.heading, fontSize: 13.5, color: colors.text },
     chipTextOn: { color: '#ffffff' },
     clear: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+    searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    filtersButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      minHeight: 46,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.text, 0.15),
+    },
+    filtersButtonOn: { borderColor: colors.accent, backgroundColor: withAlpha(colors.accent, 0.1) },
+    filtersText: { fontFamily: font.heading, fontSize: 14, color: colors.accentActive },
     clearText: { fontFamily: font.heading, fontSize: 13.5, color: colors.accentActive },
     note: { fontSize: 13, color: withAlpha(colors.text, 0.6) },
     kindRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
