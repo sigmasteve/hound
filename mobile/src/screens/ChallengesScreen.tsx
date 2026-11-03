@@ -625,6 +625,13 @@ function ChallengeTabs({
   );
 }
 
+// Shorter names for the kinds whose full name crowds a row's second line.
+const SHORT_KIND: Partial<Record<string, string>> = {
+  distance: 'Group distance',
+  seventyfive: '75 Day',
+  tag: 'Tag',
+};
+
 // Two lines: the name, then the type and where it's at, with your
 // standing on the right. The type badge, head-start tag and "On Today"
 // badge used to stack up on their own lines.
@@ -651,7 +658,10 @@ function ChallengeRow({
   // count and your total are on the challenge itself, and the full line
   // didn't fit next to the name.
   const firstPart = (t: string) => t.split(' · ')[0];
-  const details = [c.kindLabel, firstPart(c.sub), c.headStartDaysLeft ? `head start ${c.headStartDaysLeft}d` : null]
+  // "Group distance · Day 3/60" rather than "Group Distance Target ·
+  // Day 3 of 60", so the line fits beside the standing.
+  const day = firstPart(c.sub).replace(/^Day (\d+) of (\d+)$/, 'Day $1/$2');
+  const details = [SHORT_KIND[c.kind] ?? c.kindLabel, day, c.headStartDaysLeft ? `head start ${c.headStartDaysLeft}d` : null]
     .filter(Boolean)
     .join(' · ');
   return (
@@ -676,7 +686,7 @@ function ChallengeRow({
           {details}
         </Text>
       </View>
-      <View style={{ alignItems: 'flex-end', gap: 1, maxWidth: '36%' }}>
+      <View style={{ alignItems: 'flex-end', gap: 1, maxWidth: '30%' }}>
         <Text style={styles.rowStat} numberOfLines={1}>
           {c.stat}
         </Text>
