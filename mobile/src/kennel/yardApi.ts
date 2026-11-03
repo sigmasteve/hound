@@ -56,6 +56,8 @@ export interface Yard {
   mine: { pawprint: boolean; treat: boolean } | null;
   // The Porch (0157): what's on it, or null before it's unlocked.
   porch: string[] | null;
+  // The tricks this yard's hound knows (0159); empty before it's run.
+  tricks: string[];
 }
 
 function client() {
@@ -95,6 +97,7 @@ function toYard(r: any): Yard {
       : null,
     mine: r?.mine ? { pawprint: !!r.mine.pawprint, treat: !!r.mine.treat } : null,
     porch: Array.isArray(r?.porch) ? r.porch : null,
+    tricks: Array.isArray(r?.tricks) ? r.tricks : [],
   };
 }
 
