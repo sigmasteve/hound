@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { MinusIcon, PlusIcon } from 'phosphor-react-native';
+import { MinusIcon, PlusIcon, XIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -49,13 +49,70 @@ function glassCount(goal: WaterGoal): number {
 // The water row on Today's Goals tile: a small glass, "5 of 8 cups" over a
 // drop per glass, and a + that logs one. Tapping the row opens the sheet;
 // holding + does too, for another size.
-export function WaterRow({ onOpen, onAdded }: { onOpen: () => void; onAdded: (entry: WaterEntry) => void }) {
+//
+// Without a water goal, the same spot offers one ("New: track your
+// water"), until it's added or turned down.
+export function WaterRow({
+  onOpen,
+  onAdded,
+  onOfferDismissed,
+}: {
+  onOpen: () => void;
+  onAdded: (entry: WaterEntry) => void;
+  // After × on the offer, to say where water lives now.
+  onOfferDismissed?: () => void;
+}) {
   const { colors, mode } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const water = useWater();
   const c = waterColors(mode);
+  const [adding, setAdding] = useState(false);
   const goal = water.goal;
-  if (!goal) return null;
+  if (!goal) {
+    if (!water.available || !water.loaded || water.offerDismissed) return null;
+    const add = async () => {
+      setAdding(true);
+      try {
+        await water.setGoal(DEFAULT_WATER_GOAL);
+        onOpen();
+      } catch (e) {
+        Alert.alert('Couldn’t add it', e instanceof Error ? e.message : 'Try again.');
+      } finally {
+        setAdding(false);
+      }
+    };
+    return (
+      <View style={[styles.row, { backgroundColor: c.wash }]}>
+        <View style={{ marginTop: -18, marginBottom: -2 }}>
+          <WaterGlass width={34} height={46} fraction={0} pours={0} met={false} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.count}>New: track your water</Text>
+          <Text style={styles.offerNote}>8 cups a day, one tap a glass. It doesn’t touch your goals or streak.</Text>
+        </View>
+        <Pressable
+          onPress={add}
+          disabled={adding}
+          style={({ pressed }) => [styles.offerAdd, { backgroundColor: c.water }, (pressed || adding) && { opacity: 0.8 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Add a water goal"
+        >
+          <Text style={[styles.offerAddText, { color: c.on }]}>{adding ? 'Adding…' : 'Add'}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            water.dismissOffer();
+            onOfferDismissed?.();
+          }}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="No thanks"
+        >
+          <XIcon size={16} color={withAlpha(colors.text, 0.55)} />
+        </Pressable>
+      </View>
+    );
+  }
   const n = glassCount(goal);
   const filled = Math.min(n, Math.floor(water.todayMl / goal.glassMl + 0.01));
   const name = glassName(goal.glassMl, goal.units);
@@ -357,7 +414,7 @@ export function WaterGoalCard() {
               <Text style={styles.goalName}>Every day</Text>
               <Text style={styles.note}>{amountText(editing.targetMl, editing.units)} of water</Text>
             </View>
-            <Stepper goal={editing} onChange={change} colors={colors} />
+            <WaterStepper goal={editing} onChange={change} colors={colors} />
           </View>
           <View style={{ gap: 8 }}>
             <Text style={styles.fieldLabel}>One tap adds</Text>
@@ -419,7 +476,7 @@ export function WaterGoalCard() {
   );
 }
 
-function Stepper({ goal, onChange, colors }: { goal: WaterGoal; onChange: (g: WaterGoal) => void; colors: Palette }) {
+export function WaterStepper({ goal, onChange, colors }: { goal: WaterGoal; onChange: (g: WaterGoal) => void; colors: Palette }) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { min, max, step } = TARGET_STEPS[goal.units];
   const value = targetInUnits(goal);
@@ -448,6 +505,9 @@ function makeStyles(colors: Palette) {
     count: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text },
     countOf: { fontFamily: font.heading, color: withAlpha(colors.text, 0.6) },
     pips: { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
+    offerNote: { fontSize: 12, lineHeight: 16, color: withAlpha(colors.text, 0.6) },
+    offerAdd: { paddingHorizontal: 14, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+    offerAddText: { fontFamily: font.headingSemibold, fontSize: 14 },
     plus: {
       width: 44,
       height: 44,

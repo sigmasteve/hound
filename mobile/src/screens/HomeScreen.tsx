@@ -2165,7 +2165,20 @@ export function HomeScreen({
             needsSetup={!goalsSet}
             onOpen={() => setOpenTile('goals')}
             onSetGoals={() => setSetupOpen(true)}
-            water={<WaterRow onOpen={() => setOpenTile('water')} onAdded={waterAdded} />}
+            water={
+              <WaterRow
+                onOpen={() => setOpenTile('water')}
+                onAdded={waterAdded}
+                onOfferDismissed={() =>
+                  pushToast({
+                    id: 'water-offer',
+                    text: 'You can add water any time under You → Goals.',
+                    Icon: DropIcon,
+                    onPress: () => navRef.current.onGoTab('goals'),
+                  })
+                }
+              />
+            }
           />
         )}
         {/* Two to a row, in rows of their own: a wrapping row let a tile
