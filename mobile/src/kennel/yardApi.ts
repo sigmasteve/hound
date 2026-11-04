@@ -58,6 +58,8 @@ export interface Yard {
   porch: string[] | null;
   // The tricks this yard's hound knows (0159); empty before it's run.
   tricks: string[];
+  // The room inside the house (0169): its items; empty before it's run.
+  room: string[];
 }
 
 function client() {
@@ -98,6 +100,7 @@ function toYard(r: any): Yard {
     mine: r?.mine ? { pawprint: !!r.mine.pawprint, treat: !!r.mine.treat } : null,
     porch: Array.isArray(r?.porch) ? r.porch : null,
     tricks: Array.isArray(r?.tricks) ? r.tricks : [],
+    room: Array.isArray(r?.room) ? r.room : [],
   };
 }
 
