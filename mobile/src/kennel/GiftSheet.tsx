@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { GiftIcon, XIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
@@ -13,14 +13,22 @@ import { KENNEL_ITEMS, onSale } from './kennelItems';
 import { PORCH_ITEMS, YARD_ITEMS, yardItemOnSale } from './yardItems';
 import { giftKennelItem } from './kennelApi';
 import { TRICKS } from './tricks';
+import { ROOM_ITEMS } from './roomItems';
+import { RoomThumb } from './RoomArt';
+import { TreatArt } from '../care/TreatArt';
+import { getCare, giftTreat, type Care } from '../care/care';
 
 interface GiftOption {
   id: string;
   name: string;
   costBones: number;
-  kind: 'wear' | 'yard' | 'porch';
+  kind: 'wear' | 'yard' | 'porch' | 'room' | 'treat';
   slot: string;
   season?: string;
+  // A homemade treat (0169): the one in your pantry to send, and how many
+  // of that kind you have.
+  treatId?: string;
+  count?: number;
 }
 
 // Send a friend something for their hound (0157): pick an item, add a
@@ -41,7 +49,8 @@ export function GiftSheet({
   hasPorch: boolean;
   balance: number | null;
   onClose: () => void;
-  onSent: (newBalance: number) => void;
+  // Your balance after (unchanged, null, for a treat from your pantry).
+  onSent: (newBalance: number | null) => void;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -49,6 +58,13 @@ export function GiftSheet({
   const [picked, setPicked] = useState<GiftOption | null>(null);
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
+  // Treats you baked (0169), to send from your pantry. Empty before 0169.
+  const [care, setCare] = useState<Care | null>(null);
+  useEffect(() => {
+    getCare(localDayKey(new Date()))
+      .then(setCare)
+      .catch(() => {});
+  }, []);
 
   const today = localDayKey(new Date());
   const groups = useMemo(() => {
@@ -71,14 +87,27 @@ export function GiftSheet({
     const porch: GiftOption[] = hasPorch
       ? PORCH_ITEMS.map((i) => ({ id: i.id, name: i.name, costBones: i.costBones, kind: 'porch', slot: 'porch' }))
       : [];
+    const room: GiftOption[] = ROOM_ITEMS.map((i) => ({ id: i.id, name: i.name, costBones: i.costBones, kind: 'room', slot: 'room' }));
+    const baked = new Map<string, GiftOption>();
+    for (const t of care?.pantry ?? []) {
+      if (t.from) continue;
+      const have = baked.get(t.recipeId);
+      if (have) have.count = (have.count ?? 1) + 1;
+      else {
+        const name = care?.recipes.find((r) => r.id === t.recipeId)?.name ?? 'A treat';
+        baked.set(t.recipeId, { id: `treat-${t.recipeId}`, name, costBones: 0, kind: 'treat', slot: 'treat', treatId: t.id, count: 1 });
+      }
+    }
     return [
+      { title: 'From your kitchen', items: [...baked.values()] },
       { title: 'Holiday', items: [...wear, ...yard].filter((i) => i.season) },
       { title: `For ${houndName} to wear`, items: wear.filter((i) => !i.season) },
       { title: 'For the yard', items: yard.filter((i) => !i.season) },
       { title: 'For the porch', items: porch },
+      { title: 'For the room', items: room },
       { title: 'Tricks', items: TRICKS.map((t) => ({ id: t.id, name: t.name, costBones: t.costBones, kind: 'porch' as const, slot: 'trick' })) },
     ].filter((g) => g.items.length > 0);
-  }, [today, hasPorch, houndName]);
+  }, [today, hasPorch, houndName, care]);
 
   const send = async () => {
     if (!picked) return;
@@ -88,6 +117,12 @@ export function GiftSheet({
     }
     setSending(true);
     try {
+      if (picked.kind === 'treat' && picked.treatId) {
+        await giftTreat(localDayKey(new Date()), friendUserId, picked.treatId, note.trim() || null);
+        Alert.alert('Sent!', `${picked.name} for ${houndName}, from your kitchen. ${friendName} will see your note next time they open Hound.`);
+        onSent(null);
+        return;
+      }
       const left = await giftKennelItem(friendUserId, picked.id, note.trim() || null);
       Alert.alert('Sent!', `${friendName} has the ${picked.name}. They'll see your note next time they open Hound.`);
       onSent(left);
@@ -129,7 +164,7 @@ export function GiftSheet({
                           style={[styles.option, on && styles.optionOn]}
                           accessibilityRole="radio"
                           accessibilityState={{ selected: on }}
-                          accessibilityLabel={`${i.name}, ${i.costBones} ${currencyName}`}
+                          accessibilityLabel={i.kind === 'treat' ? `${i.name}, homemade` : `${i.name}, ${i.costBones} ${currencyName}`}
                         >
                           <View style={styles.thumb}>
                             {i.kind === 'wear' ? (
@@ -147,6 +182,10 @@ export function GiftSheet({
                               />
                             ) : i.kind === 'yard' ? (
                               <YardThumb id={i.id} size={46} />
+                            ) : i.kind === 'room' ? (
+                              <RoomThumb id={i.id} size={46} />
+                            ) : i.kind === 'treat' ? (
+                              <TreatArt id={i.id.replace('treat-', '')} size={42} />
                             ) : (
                               <GiftIcon size={24} color={colors.accent} />
                             )}
@@ -154,7 +193,9 @@ export function GiftSheet({
                           <Text style={styles.optionName} numberOfLines={1}>
                             {i.name}
                           </Text>
-                          <Text style={styles.optionCost}>{i.costBones.toLocaleString()}</Text>
+                          <Text style={styles.optionCost}>
+                            {i.kind === 'treat' ? `Homemade${(i.count ?? 1) > 1 ? ` · ${i.count}` : ''}` : i.costBones.toLocaleString()}
+                          </Text>
                         </Pressable>
                       );
                     })}
@@ -173,7 +214,15 @@ export function GiftSheet({
               accessibilityLabel="A note with the gift"
             />
             <Button
-              label={sending ? 'Sending…' : picked ? `Send the ${picked.name} · ${picked.costBones.toLocaleString()}` : 'Pick a gift'}
+              label={
+                sending
+                  ? 'Sending…'
+                  : picked
+                    ? picked.kind === 'treat'
+                      ? `Send the ${picked.name}`
+                      : `Send the ${picked.name} · ${picked.costBones.toLocaleString()}`
+                    : 'Pick a gift'
+              }
               variant="primary"
               disabled={!picked || sending}
               onPress={send}

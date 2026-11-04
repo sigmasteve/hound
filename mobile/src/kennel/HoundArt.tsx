@@ -57,6 +57,8 @@ export function HoundArt({
   size = 160,
   animate = true,
   variant = 'full',
+  mud = false,
+  fresh = false,
 }: {
   rank: Rank['id'];
   mood: HoundMood;
@@ -81,6 +83,10 @@ export function HoundArt({
   // 'avatar': just the head and shoulders, square, still, for an avatar
   // circle (see Avatar and houndAvatar.ts).
   variant?: 'full' | 'avatar';
+  // Bath day (0169): muddy paws and splashes after a long walk, or
+  // sparkles and a few bubbles, fresh from a bath.
+  mud?: boolean;
+  fresh?: boolean;
 }) {
   const asAvatar = variant === 'avatar';
   const motion = useRef(new Animated.Value(0)).current;
@@ -272,6 +278,7 @@ export function HoundArt({
               )}
             </>
           )}
+          {mud && !asAvatar && <Mud bodyCy={bodyCy} bodyRx={s.bodyRx} bodyRy={s.bodyRy} lying={lying} />}
           <G transform={headDrop ? `translate(0 ${headDrop})` : undefined}>
             {headPart}
             {neck && <NeckItem item={neck} y={neckY} width={headR * 1.25} />}
@@ -280,6 +287,7 @@ export function HoundArt({
             {face && <FaceItem item={face} eyeY={eyeY} />}
             {head && <HeadItem item={head} headCy={headCy} headR={headR} />}
 
+            {mud && !asAvatar && <Ellipse cx={118} cy={headCy - 12} rx={6} ry={4} fill={MUD} opacity={0.85} />}
             {!asAvatar && mood === 'sleepy' && (
               <SvgText x={150} y={headCy - headR + 4} fontSize={22} fontWeight="bold" fill="#8a8fa3">
                 z
@@ -287,8 +295,60 @@ export function HoundArt({
             )}
           </G>
         </G>
+        {fresh && !asAvatar && <Sparkles />}
       </Svg>
     </Animated.View>
+  );
+}
+
+const MUD = '#6b4a2b';
+
+// Muddy paws, splashes up the legs and a smear on the side.
+function Mud({ bodyCy, bodyRx, bodyRy, lying }: { bodyCy: number; bodyRx: number; bodyRy: number; lying: boolean }) {
+  return (
+    <G>
+      {[80, 120].map((x) => (
+        <G key={x}>
+          {/* Paws dipped in it, and splashes up the legs. */}
+          <Ellipse cx={x} cy={198} rx={16} ry={8.5} fill={MUD} />
+          {!lying && <Rect x={x - 10} y={183} width={20} height={14} rx={6} fill={MUD} />}
+          <Circle cx={x - 9} cy={lying ? 189 : 176} r={3.6} fill={MUD} />
+          <Circle cx={x + 7} cy={lying ? 186 : 171} r={2.8} fill={MUD} />
+        </G>
+      ))}
+      {!lying && (
+        <>
+          <Ellipse cx={100 - bodyRx * 0.62} cy={bodyCy + bodyRy * 0.7} rx={15} ry={9} fill={MUD} />
+          <Ellipse cx={100 + bodyRx * 0.62} cy={bodyCy + bodyRy * 0.7} rx={15} ry={9} fill={MUD} />
+        </>
+      )}
+      <Ellipse cx={100 - bodyRx * 0.5} cy={bodyCy - (lying ? -12 : bodyRy * 0.12)} rx={11} ry={7} fill={MUD} opacity={0.9} />
+      <Circle cx={100 - bodyRx * 0.72} cy={bodyCy + (lying ? 16 : bodyRy * 0.12)} r={3.5} fill={MUD} />
+      <Circle cx={100 + bodyRx * 0.42} cy={bodyCy + (lying ? 14 : bodyRy * 0.28)} r={5} fill={MUD} opacity={0.9} />
+      <Circle cx={100 + bodyRx * 0.58} cy={bodyCy + (lying ? 8 : bodyRy * 0.1)} r={2.6} fill={MUD} />
+    </G>
+  );
+}
+
+// Fresh from a bath: sparkles, and a bubble or two.
+function Sparkles() {
+  const star = (x: number, y: number, r: number, c: string) => (
+    <Path
+      key={`${x}-${y}`}
+      d={`M ${x} ${y - r} Q ${x + r * 0.18} ${y - r * 0.18} ${x + r} ${y} Q ${x + r * 0.18} ${y + r * 0.18} ${x} ${y + r} Q ${x - r * 0.18} ${y + r * 0.18} ${x - r} ${y} Q ${x - r * 0.18} ${y - r * 0.18} ${x} ${y - r} Z`}
+      fill={c}
+    />
+  );
+  return (
+    <G>
+      {star(30, 66, 14, '#ffd84a')}
+      {star(172, 40, 16, '#ffd84a')}
+      {star(166, 138, 11, '#8fd0f2')}
+      {star(38, 148, 9, '#8fd0f2')}
+      {star(104, -14, 9, '#ffd84a')}
+      <Circle cx={150} cy={10} r={8} fill="#e6f6fd" stroke="#7fc4ea" strokeWidth={2} />
+      <Circle cx={50} cy={24} r={6} fill="#e6f6fd" stroke="#7fc4ea" strokeWidth={1.6} />
+    </G>
   );
 }
 

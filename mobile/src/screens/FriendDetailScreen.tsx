@@ -25,6 +25,7 @@ import { friendMoodLine, getFriendKennel, getKennel, type FriendKennel, type Ken
 import { YardScene } from '../kennel/YardArt';
 import { PorchScene } from '../kennel/PorchArt';
 import { GiftSheet } from '../kennel/GiftSheet';
+import { RoomScene } from '../kennel/RoomArt';
 import { getFriendYard, leavePawprint, tossYardTreat, type Yard } from '../kennel/yardApi';
 import { TREAT_BONES } from '../kennel/kennelItems';
 import { notifyBonesChanged } from '../bones/bonesChanged';
@@ -305,6 +306,26 @@ export function FriendDetailScreen({
                   }} />
                 </View>
               )}
+              {/* Their room inside (0169), once there's something in it. */}
+              {yardWidth > 0 && yard.room.length > 0 && (
+                <View style={{ marginTop: 8 }}>
+                  <RoomScene items={yard.room} width={yardWidth} hound={{
+                    name: hound.name,
+                    rank: rankForLevel(levelProgressForXp(hound.xpTotal).level).id,
+                    mood: hound.mood,
+                    neckId: hound.neckId,
+                    headId: hound.headId,
+                    faceId: hound.faceId,
+                    coatId: hound.coatId,
+                    breedId: hound.breedId,
+                    bodyId: hound.bodyId,
+                    feetId: hound.feetId,
+                    ears: hound.ears,
+                    tail: hound.tail,
+                    markings: hound.markings,
+                  }} />
+                </View>
+              )}
             </View>
             <View style={{ gap: 4 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -500,7 +521,7 @@ export function FriendDetailScreen({
           onClose={() => setGifting(false)}
           onSent={(left) => {
             setGifting(false);
-            setMyHound((h) => (h ? { ...h, bonesBalance: left } : h));
+            if (left !== null) setMyHound((h) => (h ? { ...h, bonesBalance: left } : h));
           }}
         />
       )}

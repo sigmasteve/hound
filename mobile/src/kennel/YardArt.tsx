@@ -157,7 +157,15 @@ export function YardScene({
   stage,
   fitness,
   birthday,
+  mud,
+  fresh,
+  bathN,
 }: {
+  // Bath day (0169): muddy after a long walk, or fresh from a bath. Each
+  // time bathN goes up, the hound has a bath in a tub, with bubbles.
+  mud?: boolean;
+  fresh?: boolean;
+  bathN?: number;
   // How grown the hound is (0165): a puppy is drawn smaller.
   stage?: 'puppy' | 'young' | 'grown';
   // Fitness 1 to 10 (0165): a fitter hound strolls more often, quicker
@@ -210,6 +218,29 @@ export function YardScene({
     return () => sub.remove();
   }, []);
   const moving = animate && awake;
+
+  // A bath (0169): a tub round the hound for a few seconds, with bubbles.
+  const [bathing, setBathing] = useState(false);
+  const suds = useRef([0, 1, 2, 3, 4].map(() => new Animated.Value(0))).current;
+  useEffect(() => {
+    if (!bathN) return;
+    setBathing(true);
+    const loops = suds.map((v, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 260),
+          Animated.timing(v, { toValue: 1, duration: 1400, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          Animated.timing(v, { toValue: 0, duration: 0, useNativeDriver: true }),
+        ]),
+      ),
+    );
+    loops.forEach((l) => l.start());
+    const done = setTimeout(() => setBathing(false), 7000);
+    return () => {
+      clearTimeout(done);
+      loops.forEach((l) => l.stop());
+    };
+  }, [bathN, suds]);
 
   const pose: keyof typeof HOUND_AT =
     night || hound.mood === 'sleepy' ? 'bed' : hound.mood === 'hungry' ? 'bowl' : hound.mood === 'happy' ? 'zoomies' : 'house';
@@ -689,8 +720,10 @@ export function YardScene({
         >
           <HoundArt
             rank={hound.rank}
-            mood={doing === 'trick_playdead' ? 'sleepy' : artMood}
+            mood={bathing ? 'happy' : doing === 'trick_playdead' ? 'sleepy' : artMood}
             wave={doing === 'trick_highfive'}
+            mud={!!mud && !bathing}
+            fresh={!!fresh && !bathing}
             neckId={hound.neckId}
             headId={hound.headId}
             faceId={hound.faceId}
@@ -698,7 +731,7 @@ export function YardScene({
             breedId={hound.breedId}
             bodyId={hound.bodyId}
             feetId={hound.feetId}
-            pose={pose === 'bed' ? 'lie' : 'sit'}
+            pose={pose === 'bed' && !bathing ? 'lie' : 'sit'}
             ears={hound.ears}
             tail={hound.tail}
             markings={hound.markings}
@@ -706,6 +739,41 @@ export function YardScene({
             animate={moving}
           />
         </Pressable>
+        {bathing && (
+          <View
+            pointerEvents="none"
+            style={{ position: 'absolute', left: -houndW * 0.22, top: houndW * 0.74, width: houndW * 1.44, height: houndW * 0.62 }}
+          >
+            <Svg width={houndW * 1.44} height={houndW * 0.62} viewBox="-72 -26 144 62">
+              <Ellipse cx={0} cy={-8} rx={64} ry={14} fill="#ffffff" />
+              {[-48, -30, -12, 8, 28, 46].map((x, i) => (
+                <Circle key={x} cx={x} cy={-14 + (i % 2) * 4} r={9 + (i % 3) * 2} fill="#f4fbff" stroke="#cfeaf7" strokeWidth={1.2} />
+              ))}
+              <Path d="M -66 -8 Q 0 10 66 -8 L 60 30 Q 0 42 -60 30 Z" fill="#9fd3f2" />
+              <Path d="M -66 -8 Q 0 10 66 -8" stroke="#6aa9d6" strokeWidth={4} fill="none" />
+              <Path d="M -50 30 L -54 36 M 50 30 L 54 36" stroke="#6aa9d6" strokeWidth={4} strokeLinecap="round" />
+              <Path d="M -30 4 Q -26 14 -30 22 M 30 4 Q 26 14 30 22" stroke="#ffffff" strokeWidth={2} opacity={0.5} fill="none" />
+            </Svg>
+            {suds.map((v, i) => (
+              <Animated.View
+                key={i}
+                style={{
+                  position: 'absolute',
+                  left: houndW * (0.2 + i * 0.22),
+                  top: -houndW * 0.02,
+                  width: houndW * (0.07 + (i % 2) * 0.03),
+                  height: houndW * (0.07 + (i % 2) * 0.03),
+                  borderRadius: houndW,
+                  backgroundColor: 'rgba(255,255,255,0.9)',
+                  borderWidth: 1,
+                  borderColor: '#9fd3f2',
+                  opacity: v.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 0] }),
+                  transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -houndW * 0.7] }) }],
+                }}
+              />
+            ))}
+          </View>
+        )}
       </Animated.View>
 
       {/* The front of the bed over the hound, so it's lying in it: the
