@@ -59,6 +59,7 @@ interface TagRoundRow {
   it_user_id: string;
   target_user_id: string | null;
   target_snapshot_metric: number | null;
+  baselines: Record<string, number> | null;
   round_started_at: string;
 }
 
@@ -68,6 +69,7 @@ function rowToTagRound(row: TagRoundRow): TagRound {
     itUserId: row.it_user_id,
     targetUserId: row.target_user_id,
     targetSnapshotMetric: row.target_snapshot_metric,
+    baselines: row.baselines ?? {},
     roundStartedAt: row.round_started_at,
   };
 }
@@ -82,7 +84,7 @@ export async function getTagRound(challengeId: string): Promise<TagRound | null>
   const client = requireClient();
   const { data, error } = await client
     .from('tag_rounds')
-    .select('challenge_id, it_user_id, target_user_id, target_snapshot_metric, round_started_at')
+    .select('challenge_id, it_user_id, target_user_id, target_snapshot_metric, baselines, round_started_at')
     .eq('challenge_id', challengeId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -133,14 +135,23 @@ export async function selectTagTarget(challengeId: string, targetUserId: string)
   if (error) throw new Error(error.message);
 }
 
-// Re-checks IT's own current cumulative total against the target's
-// snapshotted one, from scratch, server-side — never trusts anything
+// Re-checks, from scratch, server-side, whether IT has logged more in
+// this round than the target has (0168) — never trusts anything
 // the client itself computed. Returns true the instant this call is the
 // one that closes the gap; false otherwise (including if the caller
 // isn't currently IT, or IT hasn't picked a target yet). Meant to be
 // called after every device sync while the caller is IT, same "the
 // client notices, then persists it" shape markCaught already uses for
 // a hunt's own catch.
+// A player's steps (or miles) in the current round: their total now
+// minus their total when the round started. The same sum
+// tag_round_gain does server-side; someone with no baseline yet hasn't
+// synced since the round began, so they're at 0.
+export function tagRoundGain(round: Pick<TagRound, 'baselines'>, userId: string, total: number): number {
+  const base = round.baselines[userId];
+  return base == null ? 0 : Math.max(0, total - base);
+}
+
 export async function checkTagCatch(challengeId: string): Promise<boolean> {
   const client = requireClient();
   const { data, error } = await client.rpc('tag_check_catch', { challenge_id: challengeId });

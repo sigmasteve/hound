@@ -167,7 +167,12 @@ export interface TagRound {
   // tagApi.ts's own comment on why only the target's snapshot needs
   // storing, not IT's own.
   targetUserId: string | null;
+  // The target's steps (or miles) in this round when they were picked.
   targetSnapshotMetric: number | null;
+  // Each player's total when this round started (0168), keyed by user
+  // id. A player's steps in the round are their total now minus this;
+  // someone missing hasn't synced since the round began, so they're at 0.
+  baselines: Record<string, number>;
   // When this IT's turn began — TAG_TIME_LIMIT_MINUTES (tagApi.ts)
   // after this, with no catch yet, IT passes to a random other
   // participant regardless of whether a target had even been picked.

@@ -8,14 +8,10 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 // The visual for Game of Tag's own chase: It sits fixed at the center,
 // every other participant is arranged around it at an angle (just for
 // spacing — angle itself carries no meaning) and a radius proportional
-// to how far away they currently are. "Away" means two different things
-// depending on the member: the actual picked target's distance is the
-// real, frozen tag_rounds.target_snapshot_metric gap that
-// tag_check_catch itself is comparing against (see tagApi.ts) — closing
-// that to zero really does end this round. Everyone else has no such
-// snapshot (nobody's picked them), so their ring position is only ever
-// illustrative: today's live gap between their own total and It's,
-// recomputed on every load like the rest of this screen's board.
+// to how far away they currently are: the gap between their steps in
+// this round and It's (0168). For the picked target, closing that gap
+// is the catch.
+
 export interface TagRadarMember {
   userId: string;
   initials: string;
@@ -38,6 +34,8 @@ const MEMBER_AVATAR_SIZE = 46;
 // halo and the name label under it — with a little breathing room,
 // rather than the name text running into that member's own avatar.
 const MIN_ORBIT = 80;
+// The name and steps lines under (or over) a member's avatar.
+const LABEL_H = 30;
 const MAX_ORBIT = CENTER - MEMBER_AVATAR_SIZE / 2 - 8;
 // Just outside It's own halo (radius (IT_AVATAR_SIZE + 8) / 2 = 34) —
 // close enough to read as "this belongs to It," with a few px of gap so
@@ -192,8 +190,26 @@ export function TagRadar({
       </View>
 
       {positioned.map((m) => {
+        // A member near the top puts their name above them, so at the
+        // start of a round (everyone at 0, close to It) it doesn't run
+        // into It's ring.
+        const labelAbove = m.dirY < -0.5;
+        const labels = (
+          <>
+            <Text style={[styles.memberLabel, labelAbove && { marginTop: 0 }]} numberOfLines={1}>
+              {m.name}
+            </Text>
+            <Text style={[styles.memberDistance, labelAbove && { marginBottom: 4 }]} numberOfLines={1}>
+              {formatDistance(m.distance)}
+            </Text>
+          </>
+        );
         return (
-          <View key={m.userId} style={[styles.slot, { left: m.x - SLOT_W / 2, top: m.y - MEMBER_AVATAR_SIZE / 2 }]}>
+          <View
+            key={m.userId}
+            style={[styles.slot, { left: m.x - SLOT_W / 2, top: m.y - MEMBER_AVATAR_SIZE / 2 - (labelAbove ? LABEL_H : 0) - (labelAbove ? 3 : 0) }]}
+          >
+            {labelAbove && labels}
             <View
               style={[
                 styles.memberRing,
@@ -211,12 +227,7 @@ export function TagRadar({
                 iconId={m.iconId}
               />
             </View>
-            <Text style={styles.memberLabel} numberOfLines={1}>
-              {m.name}
-            </Text>
-            <Text style={styles.memberDistance} numberOfLines={1}>
-              {formatDistance(m.distance)}
-            </Text>
+            {!labelAbove && labels}
           </View>
         );
       })}
@@ -242,7 +253,7 @@ function makeStyles(colors: Palette) {
       borderColor: withAlpha(colors.text, 0.12),
     },
     centerLabel: { width: SLOT_W, fontSize: 11, fontFamily: font.heading, color: colors.text, marginTop: 4, textAlign: 'center' },
-    memberLabel: { width: SLOT_W, fontSize: 11, color: colors.text, fontFamily: font.body, marginTop: 4, textAlign: 'center' },
-    memberDistance: { width: SLOT_W, fontSize: 10, color: withAlpha(colors.text, 0.55), textAlign: 'center' },
+    memberLabel: { width: SLOT_W, height: 16, fontSize: 11, color: colors.text, fontFamily: font.body, marginTop: 4, textAlign: 'center' },
+    memberDistance: { width: SLOT_W, height: 14, fontSize: 10, color: withAlpha(colors.text, 0.55), textAlign: 'center' },
   });
 }
