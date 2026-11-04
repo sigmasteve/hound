@@ -48,6 +48,10 @@ import {
 import { localDayKey } from '../goals/goals';
 import { YardScene, YardThumb, yardFocusPoint } from '../kennel/YardArt';
 import { PorchScene, porchFocusPoint } from '../kennel/PorchArt';
+import { RoomScene, RoomThumb, roomFocusPoint } from '../kennel/RoomArt';
+import { ROOM_ITEMS } from '../kennel/roomItems';
+import { CareTab } from '../care/CareTab';
+import { useCare } from '../care/useCare';
 import { TRICKS, isTrick, type TrickId } from '../kennel/tricks';
 import { useWater } from '../water/WaterContext';
 import { useHoundWalks } from '../walks/useHoundWalks';
@@ -101,9 +105,11 @@ const CARE_MODES: { id: CareMode; name: string; detail: string }[] = [
 
 // Your hound (0104_kennel.sql): how they're doing, a treat or meal, their
 // accessories and how you look after them. Grows with your rank.
-type KennelTab = 'walks' | 'wardrobe' | 'look' | 'yard' | 'more';
+type KennelTab = 'walks' | 'care' | 'wardrobe' | 'look' | 'yard' | 'more';
 const KENNEL_TABS: { id: KennelTab; label: string }[] = [
   { id: 'walks', label: 'Walks' },
+  // Bath day, the kitchen and the pantry (0169).
+  { id: 'care', label: 'Care' },
   { id: 'wardrobe', label: 'Wardrobe' },
   { id: 'look', label: 'Look' },
   { id: 'yard', label: 'Yard' },
@@ -119,9 +125,9 @@ const WARDROBE_CHIPS: { id: WardrobeChip; label: string }[] = [
   { id: 'feet', label: 'Shoes' },
 ];
 // Something being tried on: an item to wear (or null, for the plain
-// hound or tan coat), a yard item in a spot, or a porch item.
+// hound or tan coat), a yard item in a spot, a porch item or a room item.
 interface Trying {
-  kind: 'wear' | 'yard' | 'porch' | 'trick';
+  kind: 'wear' | 'yard' | 'porch' | 'room' | 'trick';
   item: any | null;
   slot?: KennelSlot;
   spot?: YardSpot;
@@ -167,7 +173,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const [sceneWidth, setSceneWidth] = useState(0);
   // While a finger is throwing the toy, the page holds still.
   const [throwing, setThrowing] = useState(false);
-  // The Yard (0) or the Porch (1), swiped between (0157).
+  // The Yard (0), the Porch (1) or the room inside (2), swiped between
+  // (0157, 0169).
   const [zone, setZone] = useState(0);
   const focused = useIsFocused();
 
@@ -193,6 +200,12 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   }, [user?.id]);
 
   useFocusEffect(reload);
+
+  // Bath day and treats (0169): reloaded as the day's walks come in, and
+  // the kennel with it after a treat or a bake (the Bones, today's treat).
+  const reloadRef = useRef(reload);
+  reloadRef.current = reload;
+  const care = useCare(walks.data, () => reloadRef.current());
 
   // Getting more Bones: the Locker's shop has the ad and the packs.
   // "Get more", and anything you can't afford yet, go there; the Kennel
@@ -460,6 +473,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
     setTrying(t);
     if (t.kind === 'yard') showZone(0);
     if (t.kind === 'porch') showZone(1);
+    if (t.kind === 'room') showZone(2);
     if (t.kind === 'trick') {
       showZone(0);
       setTrickShow((cur) => ({ id: t.item.id, n: (cur?.n ?? 0) + 1 }));
@@ -486,6 +500,10 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const shownYard =
     yard && trying?.kind === 'yard' && trying.spot ? { ...yard, spots: { ...yard.spots, [trying.spot]: trying.item.id } } : yard;
   const shownPorch = [...(yard?.porch ?? []), ...(trying?.kind === 'porch' && trying.item ? [trying.item.id as string] : [])];
+  const shownRoom = [...(yard?.room ?? []), ...(trying?.kind === 'room' && trying.item ? [trying.item.id as string] : [])];
+  // Bath day on the hound: muddy after a long walk, fresh after a bath.
+  const bath = care.care?.bath;
+  const houndCare = { mud: !!bath?.muddy, fresh: !!bath?.bathed && !bath?.muddy };
 
   // Done: back to what's on, and the kennel reloaded.
   const act = (id: string, fn: () => Promise<unknown>, fail: string) =>
@@ -575,6 +593,17 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
           label: `Get it · ${item.costBones}`,
           run: () => (shortOf(item.costBones) ? offerMore(item.costBones) : act(item.id, () => buyKennelItem(item.id), "Couldn't get that")),
         };
+  } else if (trying?.kind === 'room') {
+    const item = trying.item as (typeof ROOM_ITEMS)[number];
+    const owned = kennel.owned.includes(item.id);
+    tryName = item.name;
+    tryNote = owned ? 'In your room' : `${item.costBones.toLocaleString()} ${currencyName} · ${item.note}`;
+    tryAction = owned
+      ? null
+      : {
+          label: `Get it · ${item.costBones.toLocaleString()}`,
+          run: () => (shortOf(item.costBones) ? offerMore(item.costBones) : act(`room-${item.id}`, () => buyKennelItem(item.id), "Couldn't get that")),
+        };
   } else if (trying?.kind === 'porch') {
     const item = trying.item as (typeof PORCH_ITEMS)[number];
     const owned = kennel.owned.includes(item.id);
@@ -611,6 +640,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
       }));
     }
     if (trying.kind === 'porch') return PORCH_ITEMS.map((i) => ({ key: i.id, item: i, label: i.name }));
+    if (trying.kind === 'room') return ROOM_ITEMS.map((i) => ({ key: i.id, item: i, label: i.name }));
     return TRICKS.map((i) => ({ key: i.id, item: i, label: i.name }));
   })();
   const pick = (item: any | null) => {
@@ -628,6 +658,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
       ? null
       : trying.kind === 'porch'
         ? porchFocusPoint(trying.item?.id ?? '', sceneWidth)
+        : trying.kind === 'room'
+          ? roomFocusPoint(trying.item?.id ?? '', sceneWidth)
         : yardFocusPoint(yard, sceneWidth, trying.kind === 'yard' && trying.spot ? trying.spot : 'hound', kennel.mood);
   const clampShift = (v: number, by: number, half: number) => Math.max(-(by - 1) * half, Math.min((by - 1) * half, v));
   if (focus) {
@@ -765,6 +797,9 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                       stage={growth.profile?.stage}
                       fitness={growth.profile?.fitness}
                       birthday={partying}
+                      mud={houndCare.mud}
+                      fresh={houndCare.fresh}
+                      bathN={care.bathN}
                       guest={
                         !yard.guest && partying && growth.profile?.partyGuest
                           ? {
@@ -840,6 +875,9 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                       </View>
                     )}
                   </View>
+                  <View style={{ width: sceneWidth }}>
+                    <RoomScene items={shownRoom} width={sceneWidth} animate={focused && zone === 2} hound={shownHound} houndProps={houndCare} />
+                  </View>
                 </ScrollView>
                 </Animated.View>
 
@@ -885,6 +923,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                               )
                             ) : trying.kind === 'yard' ? (
                               <YardThumb id={o.item.id} size={42} />
+                            ) : trying.kind === 'room' ? (
+                              <RoomThumb id={o.item.id} size={42} />
                             ) : (
                               <Text style={styles.pickWord} numberOfLines={2}>
                                 {o.label}
@@ -921,7 +961,7 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
                 </View>
               )}
               <View style={styles.zoneDots}>
-                {[0, 1].map((i) => (
+                {[0, 1, 2].map((i) => (
                   <View key={i} style={[styles.zoneDot, zone === i && styles.zoneDotOn]} />
                 ))}
               </View>
@@ -1021,6 +1061,23 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             goalHitToday={kennel.goalDayToday}
             waterGoal={water.goal}
             waterByDay={water.byDay}
+          />
+        )}
+
+        {tab === 'care' && (
+          <CareTab
+            state={{
+              ...care,
+              // The bath happens in the Yard: show it there.
+              bath: () => {
+                showZone(0);
+                return care.bath();
+              },
+            }}
+            houndName={kennel.name}
+            balance={kennel.bonesBalance}
+            currencyName={currencyName}
+            onShort={offerMore}
           />
         )}
 
@@ -1155,11 +1212,53 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
               options={[
                 { value: 'yard', label: 'Yard' },
                 { value: 'porch', label: 'Porch' },
+                { value: 'room', label: 'Room' },
               ]}
-              value={zone === 1 ? 'porch' : 'yard'}
-              onChange={(v) => showZone(v === 'porch' ? 1 : 0)}
+              value={zone === 2 ? 'room' : zone === 1 ? 'porch' : 'yard'}
+              onChange={(v) => showZone(v === 'room' ? 2 : v === 'porch' ? 1 : 0)}
             />
-            {zone === 0 ? (
+            {zone === 2 ? (
+              // The room inside the house (0169): open to everyone, each
+              // thing in its own place.
+              <Card style={{ gap: 10 }} elevated={false}>
+                <View style={styles.seasonHeader}>
+                  <Text style={text.h4}>Your room</Text>
+                  <Text style={styles.yardSize}>
+                    {ROOM_ITEMS.filter((i) => kennel.owned.includes(i.id)).length} of {ROOM_ITEMS.length}
+                  </Text>
+                </View>
+                <Text style={styles.itemNote}>Inside the house. Tap something to see it in the room first.</Text>
+                <View style={styles.yardItems}>
+                  {ROOM_ITEMS.map((item) => {
+                    const owned = kennel.owned.includes(item.id);
+                    return (
+                      <Pressable
+                        key={item.id}
+                        style={[styles.yardItem, (owned || trying?.item?.id === item.id) && styles.yardItemOn]}
+                        disabled={owned || busyId !== null}
+                        onPress={() => tryOn({ kind: 'room', item })}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${item.name}${owned ? ', in your room' : `, ${item.costBones} ${currencyName}`}`}
+                      >
+                        <View style={[styles.yardThumb, { backgroundColor: '#efe2cf' }]}>
+                          <RoomThumb id={item.id} size={52} />
+                        </View>
+                        <Text style={styles.swatchName} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        {busyId === `room-${item.id}` ? (
+                          <ActivityIndicator size="small" color={colors.accent} />
+                        ) : (
+                          <Text style={[styles.yardItemNote, owned && { color: colors.accent }]}>
+                            {owned ? 'In your room' : `${item.costBones.toLocaleString()} ${currencyName}`}
+                          </Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </Card>
+            ) : zone === 0 ? (
               <>
             <GardenCard state={garden} currencyName={currencyName} onShort={offerMore} />
             {/* The Yard (0148): a fixed spot for everything, more spots as the

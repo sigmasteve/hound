@@ -333,7 +333,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'Kennel → Yard: a spot for each thing, and more spots and a bigger yard as you rank up. Pick a spot (House, Bed, Bowl, Toy and more) to choose what goes there.',
         'Your hound strolls about, naps in bed or the hammock, and drinks from a bowl that fills with your water through the day.',
-        'Swipe the grass to throw their toy. Swipe the sky across to go round to the Porch.',
+        'Swipe the grass to throw their toy. Swipe the sky across to go round to the Porch, and again to go inside to the room.',
         `Houses go from the free Hound House to an Igloo, a Beach Bungalow, a Modern Glass House, a Treehouse, a Castle and the Doghouse Mansion (2,500 ${currency}).`,
         'The Porch opens at Hunter (level 10): a Hot Tub, Lounge Chair, Porch Swing, Fire Pit, Patio Umbrella and Grill.',
         'Trophies you win in challenges stand in the yard. Choose which under Yard → Trophies.',
@@ -388,6 +388,19 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Traits come from your habits and are kept for good: Early bird, Night owl, Lunch stroller, Trail dog, Well watered, Weekend warrior, Steady paws, Collector and Green paws. Tap “All 9 traits” to see how to earn each.',
         'A new hound starts as a puppy, then grows up at 100,000 and 400,000 steps.',
         'Their birthday is the day they were born, or pick your own (it can change once a month). On the day, the yard has a party and a friend’s hound comes round.',
+      ],
+    },
+    {
+      id: 'care',
+      section: 'hound',
+      title: 'Bath day, treats and the room',
+      summary: 'A bath after a busy day, treats from your finds, and a room inside.',
+      steps: [
+        'A long walk (30 minutes or 3,000 steps) brings your hound home muddy. Nothing bad comes of it: it just looks the part.',
+        'A busy day earns a bath: that long walk, 8,000 steps or your goals done. Kennel → Care → Give a bath, and watch the bubbles in the Yard. One a day, and they stay fresh until the next long walk.',
+        `Kennel → Care → Kitchen bakes treats from the things your walks find, plus a few ${currency}: Pumpkin biscuits, a Peanut butter pupcake, Frosty paws and a Birthday cake. Your collection book still counts every find.`,
+        'Treats wait in the pantry. Feed one as today’s treat, with nothing to pay, or send one to a friend’s hound: open them in Friends and tap Send a gift.',
+        `The room is inside the house, a swipe on from the Porch, and open to everyone. Kennel → Yard → Room has a Fireplace, Sofa, Bookshelf, Photo Wall (with your hound’s portrait), Fireside Cushion, Cozy Rug, Floor Lamp and Potted Fern, from 150 to 900 ${currency}.`,
       ],
     },
     {
