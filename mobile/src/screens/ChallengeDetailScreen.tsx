@@ -118,6 +118,24 @@ import {
   type CricketTeam,
 } from '../challenges/cricketApi';
 import { CricketCard, cricketResultLine } from '../components/CricketCard';
+import { BaseballCard } from '../components/BaseballCard';
+import {
+  addBaseballPlayer,
+  advanceBaseball,
+  baseballTeamOf,
+  getBaseballGame,
+  getMyBaseballPicks,
+  listBaseballInnings,
+  listBaseballPlays,
+  NO_PICKS,
+  setBaseballPick,
+  type BaseballGame,
+  type BaseballInning,
+  type BaseballPickField,
+  type BaseballPicks,
+  type BaseballPlay,
+  type BaseballTeam,
+} from '../challenges/baseballApi';
 import { botToParticipant } from '../challenges/botSimulation';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { getChallengeSponsor, isGlobalChallenge, type ChallengeSponsor } from '../challenges/globalChallenges';
@@ -404,6 +422,13 @@ export function ChallengeDetailScreen({
   const [cricketGame, setCricketGame] = useState<CricketGame | null>(null);
   const [cricketBalls, setCricketBalls] = useState<CricketBall[]>([]);
   const [cricketOnStrike, setCricketOnStrike] = useState<CricketOnStrike | null>(null);
+  // Baseball (0167): the game, the line score, every play, and your picks today.
+  const [baseball, setBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[]; plays: BaseballPlay[]; picks: BaseballPicks }>({
+    game: null,
+    innings: [],
+    plays: [],
+    picks: NO_PICKS,
+  });
 
   // A stop's postcard on a course challenge: the group (or you, on a
   // Journey challenge) just reached it, or a look at one by tapping its
@@ -792,9 +817,35 @@ export function ChallengeDetailScreen({
     load();
   }, [load]);
 
+  // Baseball: play any inning that's due, then read the game, the line
+  // score, the plays and today's picks.
+  const loadBaseball = useCallback(async () => {
+    if (challenge?.kind !== 'baseball') return;
+    await advanceBaseball(challengeId).catch(() => {});
+    const [game, innings, plays, picks] = await Promise.all([
+      getBaseballGame(challengeId).catch(() => null),
+      listBaseballInnings(challengeId).catch(() => []),
+      listBaseballPlays(challengeId).catch(() => []),
+      user?.id ? getMyBaseballPicks(challengeId, user.id, dateKey(new Date())).catch(() => NO_PICKS) : Promise.resolve(NO_PICKS),
+    ]);
+    setBaseball({ game, innings, plays, picks });
+  }, [challenge?.kind, challengeId, user?.id]);
+  useEffect(() => {
+    loadBaseball();
+  }, [loadBaseball, challenge]);
+  const onBaseballPick = async (field: BaseballPickField, value: string | null) => {
+    try {
+      await setBaseballPick(challengeId, field, value);
+      const picks = user?.id ? await getMyBaseballPicks(challengeId, user.id, dateKey(new Date())).catch(() => null) : null;
+      if (picks) setBaseball((cur) => ({ ...cur, picks }));
+    } catch (e) {
+      Alert.alert('Couldn’t save that pick', e instanceof Error ? e.message : 'Try again.');
+    }
+  };
+
   // Soccer and Cricket: today's steps so far, for what they're worth.
   useEffect(() => {
-    if (challenge?.kind !== 'soccer' && challenge?.kind !== 'cricket') return;
+    if (challenge?.kind !== 'soccer' && challenge?.kind !== 'cricket' && challenge?.kind !== 'baseball') return;
     let cancelled = false;
     health
       .getSnapshot()
@@ -961,6 +1012,26 @@ export function ChallengeDetailScreen({
     });
 
   const inviteFriend = async (friend: Friend) => {
+    if (challenge?.kind === 'baseball') {
+      const mine = baseball.game ? baseballTeamOf(baseball.game, user?.id) ?? 'a' : 'a';
+      const side = await new Promise<BaseballTeam | null>((resolve) =>
+        Alert.alert(`Which side for ${friend.name}?`, 'They bat at the end of that side’s order, and the side’s positions are handed out again.', [
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+          { text: 'My side', onPress: () => resolve(mine) },
+          { text: 'Other side', onPress: () => resolve(mine === 'a' ? 'b' : 'a') },
+        ]),
+      );
+      if (!side) return;
+      setInvitingId(friend.userId);
+      try {
+        await addBaseballPlayer(challengeId, friend.userId, side);
+      } catch (e) {
+        Alert.alert('Could not seat them', e instanceof Error ? e.message : 'Try again.');
+        setInvitingId(null);
+        return;
+      }
+      setInvitingId(null);
+    }
     if (challenge?.kind === 'cricket') {
       const side = await askCricketSide(friend);
       if (!side) return;
@@ -1000,6 +1071,7 @@ export function ChallengeDetailScreen({
       setInvitedIds((cur) => new Set(cur).add(friend.userId));
       // The seat shows on the pitch or the ground as Invited straight away.
       if (challenge?.kind === 'soccer' || challenge?.kind === 'cricket') load();
+      if (challenge?.kind === 'baseball') loadBaseball();
     } catch (e) {
       // "Already invited" isn't really a failure from here — still mark
       // it, so the button reads the same either way.
@@ -1426,7 +1498,7 @@ export function ChallengeDetailScreen({
   // Where everyone stands, for the trash-talk taunts with numbers in them
   // ("I'm 4,200 steps ahead of Casey"). Tic-Tac-Go has no single number.
   const trashTalkBoard: { standings: Standing[] | null; unit: TauntUnit | null } =
-    challenge.kind === 'tictacgo' || challenge.kind === 'rally' || challenge.kind === 'soccer' || challenge.kind === 'cricket'
+    challenge.kind === 'tictacgo' || challenge.kind === 'rally' || challenge.kind === 'soccer' || challenge.kind === 'cricket' || challenge.kind === 'baseball'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
         ? isHound
@@ -1546,7 +1618,8 @@ export function ChallengeDetailScreen({
     (challenge.kind === 'tictacgo' && (tttGame?.status === 'won' || tttGame?.status === 'draw')) ||
     (challenge.kind === 'rally' && (rallyGame?.status === 'won' || rallyGame?.status === 'draw')) ||
     (challenge.kind === 'soccer' && soccerGame?.status === 'final') ||
-    (challenge.kind === 'cricket' && cricketGame?.status === 'final');
+    (challenge.kind === 'cricket' && cricketGame?.status === 'final') ||
+    (challenge.kind === 'baseball' && baseball.game?.status === 'final');
 
   // How this challenge went for the viewer, for the wrap-up card's line
   // and the Share message — each kind reads its own outcome (see
@@ -1662,6 +1735,15 @@ export function ChallengeDetailScreen({
           result: cricketGame.result === 'tie' ? 'tie' : won ? 'won' : 'lost',
           how,
         };
+      }
+      case 'baseball': {
+        const g = baseball.game;
+        if (!g || g.status !== 'final') return null;
+        const side = baseballTeamOf(g, me);
+        if (!side) return null;
+        const us = side === 'a' ? g.runsA : g.runsB;
+        const them = side === 'a' ? g.runsB : g.runsA;
+        return { type: 'baseball', result: g.winnerTeam == null ? 'tie' : g.winnerTeam === side ? 'won' : 'lost', score: `${us}–${them}` };
       }
       case 'soccer': {
         if (!soccerGame || soccerGame.status !== 'final') return null;
@@ -2184,6 +2266,19 @@ export function ChallengeDetailScreen({
               health={health}
               now={now}
               onChanged={load}
+            />
+          )}
+
+          {challenge.kind === 'baseball' && (
+            <BaseballCard
+              game={baseball.game}
+              innings={baseball.innings}
+              plays={baseball.plays}
+              picks={baseball.picks}
+              onPick={onBaseballPick}
+              participants={[...participants, ...bots.map(botToParticipant)]}
+              userId={user?.id}
+              stepsToday={soccerSteps}
             />
           )}
 

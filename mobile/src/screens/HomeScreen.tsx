@@ -115,6 +115,8 @@ import { SoccerPitch, SoccerScore } from '../components/SoccerCard';
 import { advanceCricket, battingNow, cricketTeamOf, getCricketGame, getCricketOnStrike, otherSide, type CricketGame, type CricketOnStrike } from '../challenges/cricketApi';
 import { CricketGround, CricketScore, cricketResultLine } from '../components/CricketCard';
 import { oversLabel } from '../challenges/cricket';
+import { advanceBaseball, awayTeam, getBaseballGame, listBaseballInnings, type BaseballGame, type BaseballInning } from '../challenges/baseballApi';
+import { BaseballField, BaseballLineScore, baseballHeadline } from '../components/BaseballCard';
 import { soccerClock } from '../challenges/soccer';
 import { settleChallengeScore } from '../challenges/scoreApi';
 import { claimDailyBonus, type DailyBonusResult } from '../bones/dailyBonusApi';
@@ -425,6 +427,7 @@ function heroCopy(
   soccerGame: SoccerGame | null = null,
   houndopolyGame: HoundopolyGame | null = null,
   cricket: { game: CricketGame | null; onStrike: CricketOnStrike | null } = { game: null, onStrike: null },
+  baseball: BaseballGame | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -471,6 +474,9 @@ function heroCopy(
   }
   if (challenge.kind === 'cricket') {
     return { eyebrow, headline: cricketHeadline(challenge.name, cricket.game, cricket.onStrike, userId) };
+  }
+  if (challenge.kind === 'baseball') {
+    return { eyebrow, headline: baseballHeadline(challenge.name, baseball, userId) };
   }
   if (challenge.kind === 'houndopoly') {
     return { eyebrow, headline: houndopolyHeadline(challenge.name, houndopolyGame, userId, isChallengeFinished(challenge, board)) };
@@ -1000,6 +1006,8 @@ export function HomeScreen({
   // Only populated when `primary` is a Hound'opoly game.
   const [primaryHoundopoly, setPrimaryHoundopoly] = useState<HoundopolyGame | null>(null);
   // Only populated when `primary` is a Cricket match.
+  // Only populated when `primary` is a Baseball game.
+  const [primaryBaseball, setPrimaryBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[] }>({ game: null, innings: [] });
   const [primaryCricket, setPrimaryCricket] = useState<{ game: CricketGame | null; onStrike: CricketOnStrike | null }>({
     game: null,
     onStrike: null,
@@ -1778,6 +1786,20 @@ export function HomeScreen({
       } else {
         setPrimaryCricket({ game: null, onStrike: null });
       }
+      if (primaryResult?.challenge.kind === 'baseball') {
+        const bId = primaryResult.challenge.id;
+        advanceBaseball(bId)
+          .catch(() => {})
+          .then(() => Promise.all([getBaseballGame(bId), listBaseballInnings(bId).catch(() => [])]))
+          .then(([game, innings]) => {
+            if (!cancelled) setPrimaryBaseball({ game, innings });
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryBaseball({ game: null, innings: [] });
+          });
+      } else {
+        setPrimaryBaseball({ game: null, innings: [] });
+      }
 
       // The challenge section can show now. Needs you fills in below,
       // once the per-kind checks for every active challenge are back.
@@ -1934,6 +1956,7 @@ export function HomeScreen({
         primarySoccerGame,
         primaryHoundopoly,
         primaryCricket,
+        primaryBaseball.game,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -2437,6 +2460,8 @@ export function HomeScreen({
               <SoccerPreview primary={primary} game={primarySoccerGame} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'cricket' ? (
               <CricketPreview primary={primary} game={primaryCricket.game} onStrike={primaryCricket.onStrike} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : primary.challenge.kind === 'baseball' ? (
+              <BaseballPreview primary={primary} game={primaryBaseball.game} innings={primaryBaseball.innings} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'houndopoly' ? (
               <HoundopolyPreview
                 primary={primary}
@@ -3132,6 +3157,44 @@ function SoccerPreview({
         <Text style={styles.tileSub}>Loading the match…</Text>
       )}
       <Button label="Open match" variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+function BaseballPreview({
+  primary,
+  game,
+  innings,
+  userId,
+  onOpen,
+  styles,
+}: {
+  primary: PrimaryChallenge;
+  game: BaseballGame | null;
+  innings: BaseballInning[];
+  userId: string | null;
+  onOpen: () => void;
+  styles: HomeStyles;
+}) {
+  const { challenge, board } = primary;
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+      </View>
+      {game ? (
+        <>
+          <BaseballLineScore game={game} innings={innings} people={board} userId={userId} />
+          <BaseballField game={game} people={board} userId={userId} moment={{ battingTeam: awayTeam(game), onFirst: null, onSecond: null, onThird: null }} compact />
+          <Text style={styles.tileSub}>
+            {game.status === 'final' ? baseballHeadline(challenge.name, game, userId) : 'Aim your swing today: your steps tonight bat, pitch and field.'}
+          </Text>
+        </>
+      ) : (
+        <Text style={styles.tileSub}>Loading the line score…</Text>
+      )}
+      <Button label="Open game" variant="ghost" small onPress={onOpen} />
     </Card>
   );
 }

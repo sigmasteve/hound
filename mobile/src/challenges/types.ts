@@ -14,7 +14,8 @@ export type ChallengeKind =
   | 'houndopoly'
   | 'rally'
   | 'soccer'
-  | 'cricket';
+  | 'cricket'
+  | 'baseball';
 
 // A hunt has exactly one Hunter and one or more Hunted — never set for
 // any other challenge kind. 'zombie' is a one-way transition a Hunted
