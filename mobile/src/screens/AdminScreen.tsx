@@ -37,6 +37,8 @@ import { WalksAdminCard } from '../components/WalksAdminCard';
 import { GardenAdminCard } from '../components/GardenAdminCard';
 import { CareAdminCard } from '../components/CareAdminCard';
 import { RoomAdminCard } from '../components/RoomAdminCard';
+import { TogetherAdminCard } from '../components/TogetherAdminCard';
+import { getTogetherOverview } from '../together/together';
 import { getCareOverview, getRoomOverview } from '../care/care';
 import { GrowthAdminCard } from '../components/GrowthAdminCard';
 import { BaseballAdminCard } from '../components/BaseballAdminCard';
@@ -140,6 +142,8 @@ export function AdminScreen({
   // The Bath and treats fold's line, and Inside the house's (0169).
   const [careSummary, setCareSummary] = useState<string | null>(null);
   const [roomSummary, setRoomSummary] = useState<string | null>(null);
+  // The Together fold's line (0170).
+  const [togetherSummary, setTogetherSummary] = useState<string | null>(null);
   // The Growth fold's line: hounds with a trait (0165).
   const [growthSummary, setGrowthSummary] = useState<string | null>(null);
   // The Baseball fold's line: games on and played (0167).
@@ -167,6 +171,9 @@ export function AdminScreen({
         .catch(() => {});
       getCareOverview()
         .then((c) => setCareSummary(`${c.baths7d} ${c.baths7d === 1 ? 'bath' : 'baths'} this week · ${c.made7d} treats baked`))
+        .catch(() => {});
+      getTogetherOverview()
+        .then((t) => setTogetherSummary(`${t.playdates7d} ${t.playdates7d === 1 ? 'playdate' : 'playdates'} this week · ${t.walksTogether7d} walks together`))
         .catch(() => {});
       getRoomOverview()
         .then((r) => setRoomSummary(`${r.rooms} ${r.rooms === 1 ? 'room' : 'rooms'} decorated`))
@@ -712,6 +719,9 @@ export function AdminScreen({
                 </AdminFold>
                 <AdminFold title="Inside the house" summary={roomSummary ?? 'Rooms decorated'}>
                   <RoomAdminCard />
+                </AdminFold>
+                <AdminFold title="Together" summary={togetherSummary ?? 'Playdates, walks together, the dog park'}>
+                  <TogetherAdminCard />
                 </AdminFold>
                 <AdminFold title="Baseball" summary={baseballSummary ?? 'Games, picks and plays'}>
                   <BaseballAdminCard />

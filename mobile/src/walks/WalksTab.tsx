@@ -15,6 +15,10 @@ import type { HoundWalksState } from './useHoundWalks';
 import type { HoundProfileState } from '../growth/useHoundProfile';
 import { AboutCard } from '../growth/AboutCard';
 import { traitInfo } from '../growth/growth';
+import { DogParkScene, PARK_ROOM } from '../together/ParkArt';
+import { togetherNames, type ParkHound, type WalkTogether } from '../together/together';
+import type { TogetherState } from '../together/useTogether';
+import type { YardHound } from '../kennel/YardArt';
 
 // The Kennel's Walks tab (lifestyle phase 1, 0161): today's walks and
 // what each found, the Hound's diary for the week, and the collection
@@ -29,9 +33,25 @@ interface Props {
   goalHitToday: boolean;
   waterGoal: WaterGoal | null;
   waterByDay: Map<string, number>;
+  // Together (0170): walks with friends, today's playdate, the dog park.
+  together?: TogetherState;
+  // Your hound, for the park once you've walked.
+  myHound?: YardHound;
+  onOpenFriend?: (h: ParkHound) => void;
 }
 
-export function WalksTab({ houndName, growth, walks, treatedToday, goalHitToday, waterGoal, waterByDay }: Props) {
+export function WalksTab({
+  houndName,
+  growth,
+  walks,
+  treatedToday,
+  goalHitToday,
+  waterGoal,
+  waterByDay,
+  together,
+  myHound,
+  onOpenFriend,
+}: Props) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [bookOpen, setBookOpen] = useState(false);
@@ -45,6 +65,18 @@ export function WalksTab({ houndName, growth, walks, treatedToday, goalHitToday,
 
   const kinds = useMemo(() => new Map((data?.kinds ?? []).map((k) => [k.id, k])), [data]);
   const todays = (data?.walks ?? []).filter((w) => w.day === today);
+  // Who each walk was with (0170).
+  const withByWalk = useMemo(() => {
+    const m = new Map<string, WalkTogether[]>();
+    for (const t of together?.data?.together ?? []) m.set(t.walkId, [...(m.get(t.walkId) ?? []), t]);
+    return m;
+  }, [together?.data]);
+  const park = together?.available ? together.data : null;
+  const [parkWidth, setParkWidth] = useState(0);
+  // A look at the park, once a day per person (for Admin).
+  useEffect(() => {
+    if (park) logWalkEvent('park_open');
+  }, [!!park]);
 
   // A line a day, newest first, for days there's something to go on.
   const diary = useMemo(() => {
@@ -58,6 +90,9 @@ export function WalksTab({ houndName, growth, walks, treatedToday, goalHitToday,
       const ml = waterByDay.get(day) ?? 0;
       const profile = growth?.profile;
       const traitsToday = (profile?.traits ?? []).filter((t) => dayKeyBefore(0, t.earnedAt) === day).map((t) => traitInfo(t.id).name);
+      const withFriends = [
+        ...new Map(dayWalks.flatMap((w) => withByWalk.get(w.id) ?? []).map((t) => [t.userId, t] as const)).values(),
+      ];
       out.push({
         day,
         label: diaryDayLabel(day, today),
@@ -74,12 +109,13 @@ export function WalksTab({ houndName, growth, walks, treatedToday, goalHitToday,
           {
             birthday: i === 0 && !!profile?.isBirthday,
             newTraits: traitsToday,
+            walkedWith: withFriends.map((t) => t.houndName),
           },
         ),
       });
     }
     return out;
-  }, [data, today, waterByDay, waterGoal, treatedToday, goalHitToday, kinds, growth?.profile]);
+  }, [data, today, waterByDay, waterGoal, treatedToday, goalHitToday, kinds, growth?.profile, withByWalk]);
 
   const foundKinds = (data?.kinds ?? []).filter((k) => data?.found.has(k.id));
 
@@ -124,11 +160,66 @@ export function WalksTab({ houndName, growth, walks, treatedToday, goalHitToday,
               walk={w}
               find={w.findId ? kinds.get(w.findId) : undefined}
               capped={todays.filter((t) => t.findId).length >= 5}
+              withFriends={withByWalk.get(w.id)}
               styles={styles}
             />
           ))
         )}
       </Card>
+
+      {park && (
+        <Card style={{ gap: 10 }} elevated={false}>
+          <View style={styles.header}>
+            <Text style={text.h4}>Dog park</Text>
+            {park.park.length > 0 && (
+              <Text style={styles.headerNote}>
+                {park.park.length} {park.park.length === 1 ? 'friend' : 'friends'}
+              </Text>
+            )}
+          </View>
+          {park.playdate && (
+            <Text style={styles.note}>
+              Playdate! You and {park.playdate.owner} both finished your goals, so {park.playdate.houndName} is over to play in your
+              yard.
+            </Text>
+          )}
+          <View onLayout={(e) => setParkWidth(Math.floor(e.nativeEvent.layout.width))}>
+            {parkWidth > 0 && (
+              <DogParkScene
+                hounds={park.park}
+                me={park.meWalked && myHound ? myHound : null}
+                width={parkWidth}
+                onOpen={onOpenFriend}
+              />
+            )}
+          </View>
+          {park.park.length > 0 && (
+            <View style={styles.parkChips}>
+              {park.park.map((h) => (
+                <Pressable
+                  key={h.userId}
+                  onPress={() => onOpenFriend?.(h)}
+                  style={styles.parkChip}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${h.hound.name}, ${h.owner}'s hound, out ${h.minutes} minutes${h.withMe ? ', walked with you' : ''}. Visit ${h.owner}`}
+                >
+                  <Text style={styles.parkChipText} numberOfLines={1}>
+                    {h.withMe ? '♥ ' : ''}
+                    <Text style={styles.parkChipName}>{h.hound.name}</Text> · {h.owner} · {h.minutes} min
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+          <Text style={styles.note}>
+            {park.park.length === 0
+              ? `No friends’ hounds out yet. When friends go for a walk, their hounds turn up here${park.meWalked ? '' : `, and so does ${houndName} after yours`}.`
+              : `Friends’ hounds out walking in the last day${park.park.length > PARK_ROOM ? ` (the ${PARK_ROOM} most recent)` : ''}. Tap one to visit.${
+                  park.meWalked ? '' : ` ${houndName} joins them after your next walk.`
+                }`}
+          </Text>
+        </Card>
+      )}
 
       {diary.length > 0 && (
         <Card style={{ gap: 10 }} elevated={false}>
@@ -194,7 +285,20 @@ export function WalksTab({ houndName, growth, walks, treatedToday, goalHitToday,
   );
 }
 
-function WalkRow({ walk, find, capped, styles }: { walk: HoundWalk; find?: FindKind; capped: boolean; styles: Styles }) {
+function WalkRow({
+  walk,
+  find,
+  capped,
+  withFriends,
+  styles,
+}: {
+  walk: HoundWalk;
+  find?: FindKind;
+  capped: boolean;
+  // Friends' hounds on this walk too (0170).
+  withFriends?: WalkTogether[];
+  styles: Styles;
+}) {
   const { colors } = useTheme();
   const at = walk.startedAt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   return (
@@ -207,6 +311,9 @@ function WalkRow({ walk, find, capped, styles }: { walk: HoundWalk; find?: FindK
           {walkName(walk)} <Text style={styles.walkAt}>· {at}</Text>
         </Text>
         <Text style={styles.walkStats}>{walkStats(walk)}</Text>
+        {withFriends && withFriends.length > 0 && (
+          <Text style={[styles.walkFind, { color: colors.accentActive }]}>With {togetherNames(withFriends)}</Text>
+        )}
         <Text style={[styles.walkFind, find?.rarity === 'rare' && { color: colors.amber }]}>
           {walk.walking
             ? 'Still out walking. Something to find when you’re back.'
@@ -301,6 +408,16 @@ type Styles = ReturnType<typeof makeStyles>;
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    parkChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    parkChip: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 14,
+      backgroundColor: withAlpha(colors.accent, 0.1),
+      maxWidth: '100%',
+    },
+    parkChipText: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    parkChipName: { fontFamily: font.heading, color: colors.text },
     header: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'space-between' },
     headerNote: { fontSize: 13, color: withAlpha(colors.text, 0.55) },
     note: { fontSize: 13.5, color: withAlpha(colors.text, 0.65), lineHeight: 19 },

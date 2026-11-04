@@ -404,6 +404,17 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'together',
+      section: 'hound',
+      title: 'Playdates, walks together and the dog park',
+      summary: 'Your hound and your friends’ hounds.',
+      steps: [
+        'Playdates: on a day you and a friend have both finished your goals, their hound comes over to play in your yard. Friends you’re in a challenge with come first. It’s the same friend all day.',
+        'Walks together: when your walk and a friend’s overlap by 10 minutes or more, the walk says who with (“With Jordan’s Scout”), and so does the diary.',
+        'The dog park (Kennel → Walks): friends’ hounds that have been out walking in the last day, with yours once you’ve walked. A friend who walked with you has a ♥. Tap a hound to visit their page.',
+      ],
+    },
+    {
       id: 'locker',
       section: 'rewards',
       title: 'Customize your look',
