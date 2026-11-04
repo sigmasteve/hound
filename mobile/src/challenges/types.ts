@@ -90,6 +90,9 @@ export interface Challenge {
   distanceGoalMi: number | null;
   distanceGoalSteps: number | null;
   distanceGoalUnit: DistanceGoalUnit | null;
+  // Kind 'tag': how long It has to pick and catch someone before It
+  // passes on, in minutes (60, 90 or 120; empty means 60). 0168.
+  tagRoundMinutes?: number | null;
   // Only meaningful for a miles Distance pool — see DistanceSource.
   distanceSource: DistanceSource | null;
   // Only meaningful for kind 'bingo' — see BingoCardType's own comment.
@@ -167,14 +170,16 @@ export interface TagRound {
   // tagApi.ts's own comment on why only the target's snapshot needs
   // storing, not IT's own.
   targetUserId: string | null;
-  // The target's steps (or miles) in this round when they were picked.
+  // The target's and It's steps (or miles) in this round when It picked:
+  // the chase counts from there, so there's no instant tag.
   targetSnapshotMetric: number | null;
+  itSnapshotMetric: number | null;
   // Each player's total when this round started (0168), keyed by user
   // id. A player's steps in the round are their total now minus this;
   // someone missing hasn't synced since the round began, so they're at 0.
   baselines: Record<string, number>;
-  // When this IT's turn began — TAG_TIME_LIMIT_MINUTES (tagApi.ts)
-  // after this, with no catch yet, IT passes to a random other
+  // When this IT's turn began — the challenge's round length (tagApi.ts's
+  // tagRoundMinutes) after this, with no catch yet, IT passes to a random other
   // participant regardless of whether a target had even been picked.
   roundStartedAt: string;
 }
@@ -223,6 +228,8 @@ export interface CreateChallengeInput {
   distanceGoalMi?: number;
   distanceGoalSteps?: number;
   distanceGoalUnit?: DistanceGoalUnit;
+  // Only meaningful for kind 'tag' — see Challenge.tagRoundMinutes.
+  tagRoundMinutes?: number;
   // Only meaningful for a miles Distance pool — see Challenge.distanceSource.
   distanceSource?: DistanceSource;
   // Only meaningful for kind 'bingo' — see Challenge.bingoCardType.

@@ -59,6 +59,7 @@ import {
   rallyWindowNote,
 } from '../challenges/rally';
 import { setupRally } from '../challenges/rallyApi';
+import { DEFAULT_TAG_ROUND_MINUTES, formatTagTime, TAG_ROUND_OPTIONS } from '../challenges/tagApi';
 import {
   DEFAULT_SOCCER_DAYS,
   DEFAULT_SOCCER_SHOT_STEPS,
@@ -212,6 +213,8 @@ export function CreateScreen({
   const [draftName, setDraftName] = useState(rematch?.name ?? '');
   const [headStart, setHeadStart] = useState(rematch?.headStartDays ?? 2);
   const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>(rematch?.distanceGoalUnit ?? 'miles');
+  // Game of Tag: how long It has to pick and catch someone (0168).
+  const [tagRoundMins, setTagRoundMins] = useState<string>(String(rematch?.tagRoundMinutes ?? DEFAULT_TAG_ROUND_MINUTES));
   // A miles pool: logged workouts' distance, or every mile the phone
   // counts (Challenge.distanceSource).
   const [distanceSource, setDistanceSource] = useState<DistanceSource>(rematch?.distanceSource ?? 'workouts');
@@ -934,6 +937,7 @@ export function CreateScreen({
           draftType === 'journey' ? course.id : draftType === 'distance' && distanceGoalUnit === 'miles' ? (poolCourseId ?? undefined) : undefined,
         distanceGoalSteps:
           (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
+        tagRoundMinutes: draftType === 'tag' ? Number(tagRoundMins) : undefined,
         dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
         distanceSource: draftType === 'distance' && distanceGoalUnit === 'miles' ? distanceSource : undefined,
         bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
@@ -1425,6 +1429,23 @@ export function CreateScreen({
                   : distanceGoalUnit === 'miles' && distanceSource === 'all'
                     ? 'Every mile anyone’s phone counts adds up toward this one shared target, the same miles as on Today — it’s the whole group against the goal, not against each other.'
                     : `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — it’s the whole group against the goal, not against each other.`}
+              </Text>
+            </View>
+          )}
+
+          {draftType === 'tag' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Each round</Text>
+                <Text style={styles.huntBlockValue}>{formatTagTime(Number(tagRoundMins))}</Text>
+              </View>
+              <SegmentedControl
+                options={TAG_ROUND_OPTIONS.map((m) => ({ value: String(m), label: formatTagTime(m) }))}
+                value={tagRoundMins}
+                onChange={setTagRoundMins}
+              />
+              <Text style={styles.huntBlockNote}>
+                How long It has to pick someone and out-step them. If time runs out, It passes to someone else and a new round starts.
               </Text>
             </View>
           )}

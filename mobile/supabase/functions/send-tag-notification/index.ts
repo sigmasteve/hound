@@ -19,11 +19,13 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
-// Mirrors tagApi.ts's own TAG_TIME_LIMIT_MINUTES and
-// tag_settle_timeout's own hardcoded 15-minute interval — no single
-// source of truth for this number exists across the stack yet (a
-// pre-existing gap, not introduced here).
-const TAG_TIME_LIMIT_MINUTES = 15;
+// The round's length is the creator's pick (challenges.tag_round_minutes,
+// 0168), an hour when empty. Same wording as tagApi.ts's formatTagTime.
+function formatRound(minutes: number): string {
+  if (minutes % 60 === 0) return minutes === 60 ? '1 hour' : `${minutes / 60} hours`;
+  if (minutes % 60 === 30) return `${Math.floor(minutes / 60)}½ hours`;
+  return `${minutes} minutes`;
+}
 
 interface RequestBody {
   kind: 'caught' | 'timeout';
@@ -79,7 +81,7 @@ Deno.serve(async (req) => {
   }
 
   const [{ data: challenge }, { data: newItProfile }, { data: taggerProfile }] = await Promise.all([
-    supabase.from('challenges').select('name').eq('id', body.challenge_id).single(),
+    supabase.from('challenges').select('name, tag_round_minutes').eq('id', body.challenge_id).single(),
     supabase
       .from('profiles')
       .select('name, username, use_username, notify_push_enabled')
@@ -97,10 +99,11 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ sent: false, reason: 'Push disabled for this user' }));
   }
 
+  const roundLength = formatRound(challenge.tag_round_minutes ?? 60);
   const messageBody =
     body.kind === 'caught'
-      ? `${taggerProfile ? displayName(taggerProfile) : 'Someone'} tagged you in "${challenge.name}"! You're It — pick who to tag within ${TAG_TIME_LIMIT_MINUTES} minutes.`
-      : `Time ran out in "${challenge.name}" — you're It now! You have ${TAG_TIME_LIMIT_MINUTES} minutes to pick who to tag.`;
+      ? `${taggerProfile ? displayName(taggerProfile) : 'Someone'} tagged you in "${challenge.name}"! You're It — pick who to tag within ${roundLength}.`
+      : `Time ran out in "${challenge.name}" — you're It now! You have ${roundLength} to pick who to tag.`;
 
   const { data: tokenRows } = await supabase
     .from('device_push_tokens')

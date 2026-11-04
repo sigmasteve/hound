@@ -22,6 +22,7 @@ export interface RematchDraft {
   scoringMethod: ScoringMethod | null;
   headStartDays: number | null;
   distanceGoalUnit: DistanceGoalUnit | null;
+  tagRoundMinutes?: number | null;
   distanceSource: DistanceSource | null;
   distanceGoalMi: number | null;
   distanceGoalSteps: number | null;
@@ -89,6 +90,7 @@ export function buildRematchDraft({
     scoringMethod: challenge.scoringMethod,
     headStartDays: challenge.headStartDays,
     distanceGoalUnit: challenge.distanceGoalUnit,
+    tagRoundMinutes: challenge.tagRoundMinutes ?? null,
     distanceSource: challenge.distanceSource,
     distanceGoalMi: challenge.distanceGoalMi,
     distanceGoalSteps: challenge.distanceGoalSteps,

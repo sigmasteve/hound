@@ -155,7 +155,8 @@ import {
   selectTagTarget,
   tagRoundGain,
   settleTagTimeout,
-  TAG_TIME_LIMIT_MINUTES,
+  formatTagTime,
+  tagRoundMinutes,
   type TagEvent,
   type TagMember,
 } from '../challenges/tagApi';
@@ -1786,7 +1787,7 @@ export function ChallengeDetailScreen({
   // the brief window between the clock running out and this screen
   // next refreshing.
   const tagMinutesLeft = tagRound
-    ? Math.max(0, Math.ceil(TAG_TIME_LIMIT_MINUTES - (now - new Date(tagRound.roundStartedAt).getTime()) / 60_000))
+    ? Math.max(0, Math.ceil(tagRoundMinutes(challenge) - (now - new Date(tagRound.roundStartedAt).getTime()) / 60_000))
     : 0;
   // A player's total in the challenge's unit, from the board already
   // loaded here.
@@ -2125,6 +2126,7 @@ export function ChallengeDetailScreen({
               gainOf={tagGain}
               formatMetric={formatMetric}
               minutesLeft={tagMinutesLeft}
+              roundMinutes={tagRoundMinutes(challenge)}
               actionError={tagActionError}
               selectingTargetId={selectingTargetId}
               onPick={pickTagTarget}
@@ -2859,11 +2861,12 @@ export function ChallengeDetailScreen({
               <>
                 <Text style={styles.footNote}>
                   One player is "IT". Every round starts everyone at 0: IT picks anyone, and tags
-                  them by logging more than them that round. Whoever gets tagged becomes the new IT,
-                  and a new round starts — no tagging back the person who just tagged you.
+                  them by logging more than them from the moment of the pick. Whoever gets tagged becomes the new IT,
+                  and a new round starts — no tagging back the person who just tagged you, unless
+                  it&rsquo;s just the two of you.
                 </Text>
                 <Text style={styles.footNote}>
-                  IT has {TAG_TIME_LIMIT_MINUTES} minutes to pick and catch a target, or IT passes to
+                  IT has {formatTagTime(tagRoundMinutes(challenge))} to pick and catch a target, or IT passes to
                   someone else at random. There's no overall ranking or winner — the game ends once
                   the whole group's combined total hits the shared goal.
                 </Text>

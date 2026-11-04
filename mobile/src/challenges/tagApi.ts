@@ -10,14 +10,24 @@ import type { DistanceGoalUnit, TagRound } from './types';
 // foundation is in place, same "the flag exists before a screen needs
 // it" shape organizations/supabaseOrganizations.ts was built with.
 
-// How long IT has, from the moment their turn starts, to both pick a
-// target and catch them — matches TAG_TIME_LIMIT_MINUTES's
-// server-side twin (0045_tag_game_state.sql's own tag_settle_timeout).
-// Hardcoded for now rather than creator-configurable, on purpose (see
-// GitHub discussion): kept short and fixed while the mechanic itself is
-// still being validated, with a per-challenge picker (mirroring Chase's
-// own head-start slider) as real follow-up work once it is.
-export const TAG_TIME_LIMIT_MINUTES = 15;
+// How long IT has, from the moment their turn starts, to pick a target
+// and catch them: the creator's pick of 1 hour, 1½ hours or 2 hours
+// (challenges.tag_round_minutes, 0168), an hour when it's empty. The
+// server's tag_settle_timeout reads the same column.
+export const TAG_ROUND_OPTIONS = [60, 90, 120] as const;
+export const DEFAULT_TAG_ROUND_MINUTES = 60;
+
+export function tagRoundMinutes(challenge: { tagRoundMinutes?: number | null }): number {
+  return challenge.tagRoundMinutes ?? DEFAULT_TAG_ROUND_MINUTES;
+}
+
+// "1 hour", "1½ hours", "2 hours", or "45 min" for what's left.
+export function formatTagTime(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  if (minutes % 60 === 0) return minutes === 60 ? '1 hour' : `${minutes / 60} hours`;
+  if (minutes % 60 === 30) return `${Math.floor(minutes / 60)}½ hours`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
 
 function requireClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -59,6 +69,7 @@ interface TagRoundRow {
   it_user_id: string;
   target_user_id: string | null;
   target_snapshot_metric: number | null;
+  it_snapshot_metric: number | null;
   baselines: Record<string, number> | null;
   round_started_at: string;
 }
@@ -69,6 +80,7 @@ function rowToTagRound(row: TagRoundRow): TagRound {
     itUserId: row.it_user_id,
     targetUserId: row.target_user_id,
     targetSnapshotMetric: row.target_snapshot_metric,
+    itSnapshotMetric: row.it_snapshot_metric,
     baselines: row.baselines ?? {},
     roundStartedAt: row.round_started_at,
   };
@@ -84,7 +96,7 @@ export async function getTagRound(challengeId: string): Promise<TagRound | null>
   const client = requireClient();
   const { data, error } = await client
     .from('tag_rounds')
-    .select('challenge_id, it_user_id, target_user_id, target_snapshot_metric, baselines, round_started_at')
+    .select('challenge_id, it_user_id, target_user_id, target_snapshot_metric, it_snapshot_metric, baselines, round_started_at')
     .eq('challenge_id', challengeId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -135,8 +147,8 @@ export async function selectTagTarget(challengeId: string, targetUserId: string)
   if (error) throw new Error(error.message);
 }
 
-// Re-checks, from scratch, server-side, whether IT has logged more in
-// this round than the target has (0168) — never trusts anything
+// Re-checks, from scratch, server-side, whether IT has logged more than
+// the target since picking them (0168) — never trusts anything
 // the client itself computed. Returns true the instant this call is the
 // one that closes the gap; false otherwise (including if the caller
 // isn't currently IT, or IT hasn't picked a target yet). Meant to be
@@ -160,7 +172,7 @@ export async function checkTagCatch(challengeId: string): Promise<boolean> {
 }
 
 // A no-op unless the current round has genuinely run past
-// TAG_TIME_LIMIT_MINUTES with no catch, in which case IT passes to a
+// the round's time with no catch, in which case IT passes to a
 // random other participant — callable by any participant (not just
 // IT), e.g. right after loading the challenge, so a stalled game moves
 // on the next time anyone looks at it rather than needing a scheduled
