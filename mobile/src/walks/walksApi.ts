@@ -54,7 +54,7 @@ export async function saveWalks(day: string, walks: SpottedWalk[]): Promise<Walk
   return parse(data);
 }
 
-export type WalkEvent = 'book_open' | 'diary_open' | 'diary_share';
+export type WalkEvent = 'book_open' | 'diary_open' | 'diary_share' | 'park_open';
 
 // Counted once a day per person, for Admin. Never in the way.
 export function logWalkEvent(kind: WalkEvent): void {

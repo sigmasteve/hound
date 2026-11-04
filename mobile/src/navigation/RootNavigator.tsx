@@ -285,7 +285,9 @@ export function RootNavigator() {
                   friendFrameId={route.params.friendFrameId}
                   friendBackgroundId={route.params.friendBackgroundId}
                   friendIconId={route.params.friendIconId}
-                  onBack={() => navigation.navigate('Main', { tab: 'friends' })}
+                  // Back to wherever it was opened from (Friends, or the dog
+                  // park in the Kennel); Friends when there's nothing behind.
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { tab: 'friends' }))}
                   onChallenge={() => navigation.navigate('Create', { inviteUserIds: [route.params.friendUserId] })}
                 />
               )}
@@ -297,7 +299,26 @@ export function RootNavigator() {
             <Stack.Screen name="Kennel" options={{ animation: 'slide_from_right' }}>
               {/* Opened from Today or the You tab — goBack() returns there. */}
               {({ navigation }) => (
-                <KennelScreen onBack={() => navigation.goBack()} onOpenLocker={() => navigation.navigate('Locker')} />
+                <KennelScreen
+                  onBack={() => navigation.goBack()}
+                  onOpenLocker={() => navigation.navigate('Locker')}
+                  onOpenFriend={(h) =>
+                    navigation.navigate('FriendDetail', {
+                      friendshipId: h.friendshipId,
+                      friendUserId: h.userId,
+                      friendName: h.owner,
+                      friendInitials: h.owner
+                        .split(/\s+/)
+                        .map((w) => w[0] ?? '')
+                        .join('')
+                        .slice(0, 2)
+                        .toUpperCase(),
+                      friendFrameId: h.frameId,
+                      friendBackgroundId: h.backgroundId,
+                      friendIconId: h.iconId,
+                    })
+                  }
+                />
               )}
             </Stack.Screen>
             <Stack.Screen name="Journey" options={{ animation: 'slide_from_right' }}>

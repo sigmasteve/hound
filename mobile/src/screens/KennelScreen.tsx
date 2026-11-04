@@ -52,6 +52,8 @@ import { RoomScene, RoomThumb, roomFocusPoint } from '../kennel/RoomArt';
 import { ROOM_ITEMS } from '../kennel/roomItems';
 import { CareTab } from '../care/CareTab';
 import { useCare } from '../care/useCare';
+import { useTogether } from '../together/useTogether';
+import type { ParkHound } from '../together/together';
 import { TRICKS, isTrick, type TrickId } from '../kennel/tricks';
 import { useWater } from '../water/WaterContext';
 import { useHoundWalks } from '../walks/useHoundWalks';
@@ -133,7 +135,16 @@ interface Trying {
   spot?: YardSpot;
 }
 
-export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onOpenLocker: () => void }) {
+export function KennelScreen({
+  onBack,
+  onOpenLocker,
+  onOpenFriend,
+}: {
+  onBack: () => void;
+  onOpenLocker: () => void;
+  // A friend's hound tapped at the dog park (0170): their page.
+  onOpenFriend?: (h: ParkHound) => void;
+}) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const currencyName = useCurrencyName();
@@ -206,6 +217,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
   const reloadRef = useRef(reload);
   reloadRef.current = reload;
   const care = useCare(walks.data, () => reloadRef.current());
+  // Playdates, walks together and the dog park (0170).
+  const together = useTogether(walks.data);
 
   // Getting more Bones: the Locker's shop has the ad and the packs.
   // "Get more", and anything you can't afford yet, go there; the Kennel
@@ -1061,6 +1074,9 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             goalHitToday={kennel.goalDayToday}
             waterGoal={water.goal}
             waterByDay={water.byDay}
+            together={together}
+            myHound={shownHound}
+            onOpenFriend={onOpenFriend}
           />
         )}
 
@@ -1436,8 +1452,8 @@ export function KennelScreen({ onBack, onOpenLocker }: { onBack: () => void; onO
             </View>
             {yard.guest && (
               <Text style={styles.itemNote}>
-                {yard.guest.name}, {yard.guest.owner}'s hound, came over to play: you both finished your goals today, and you're in{' '}
-                {yard.guest.challenge} together.
+                {yard.guest.name}, {yard.guest.owner}'s hound, came over to play: you both finished your goals today
+                {yard.guest.challenge ? `, and you're in ${yard.guest.challenge} together` : ''}.
               </Text>
             )}
             {yard.visitors.map((v) => (
