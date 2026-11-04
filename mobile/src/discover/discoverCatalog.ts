@@ -87,6 +87,12 @@ export const KIND_INFO: KindInfo[] = [
     length: 'About two weeks', words: ['overs', 'wickets', 'batting', 'bowling', 'team', 'sport', 'ipl'], suits: ['sports'],
   },
   {
+    kind: 'baseball', format: 'game', counts: ['steps'], players: ['teams'], level: 'medium', bots: true,
+    summary: 'One inning a day: your steps at bat, on the mound and in the field.',
+    howToWin: 'Score more runs than the other side.', who: 'Teams of one to nine, friends or bots.',
+    length: '3 to 9 days', words: ['innings', 'home run', 'pitcher', 'batting', 'team', 'sport', 'mlb', 'softball'], suits: ['sports'],
+  },
+  {
     kind: 'bingo', format: 'game', counts: ['steps', 'workouts'], players: ['solo', 'group'], level: 'medium', bots: true,
     summary: 'A bingo card of steps, workouts and goals.',
     howToWin: 'First to finish a row, column or diagonal; play goes on for the full card.', who: 'Anyone. Bots can play.',

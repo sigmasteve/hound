@@ -1588,6 +1588,15 @@ export function TrophyArt({ kind }: { kind: TrophyKind }) {
           <Rect x={-1.3} y={-16} width={2.6} height={16} fill="#5d5294" />
         </G>
       );
+    case 'baseball':
+      return (
+        <G>
+          <Path d="M-9 -2 L5 -30 C6 -32 9 -31 8.5 -28.5 L-6 -0.5 Z" fill="#c98a4b" />
+          <Rect x={-10.5} y={-3} width={5} height={3} rx={1.2} fill="#7a4f2a" transform="rotate(-27 -8 -1.5)" />
+          <Circle cx={6} cy={-5} r={5} fill="#f7f4ec" stroke="#d6d0c2" strokeWidth={0.6} />
+          <Path d="M3 -8.5 C4.6 -6.5 4.6 -3.5 3 -1.5 M9 -8.5 C7.4 -6.5 7.4 -3.5 9 -1.5" stroke="#d64545" strokeWidth={0.8} fill="none" />
+        </G>
+      );
     case 'cricket':
       return (
         <G>

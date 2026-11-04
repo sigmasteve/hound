@@ -174,6 +174,10 @@ export function toChallengeCard(
     // The scoreboard and overs live in cricket_games, on the detail screen.
     stat = String(Math.floor(challenge.durationDays / 2));
     statLabel = 'overs a side · one a day';
+  } else if (challenge.kind === 'baseball') {
+    // The line score and the plays live in baseball_games, on the detail screen.
+    stat = String(challenge.durationDays);
+    statLabel = 'innings · one a day';
   } else if (challenge.kind === 'houndopoly') {
     // The board, cash and deeds live on the detail screen.
     stat = '24';

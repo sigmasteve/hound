@@ -24,6 +24,8 @@ export function usesDeviceSteps(challenge: Challenge): boolean {
     challenge.kind === 'soccer' ||
     // Cricket plays an over a day on the batter's and bowler's synced steps (0147).
     challenge.kind === 'cricket' ||
+    // Baseball plays an inning a day on everyone's synced steps (0167).
+    challenge.kind === 'baseball' ||
     (challenge.kind === 'hunt' && challenge.scoringMethod === 'device_steps') ||
     ((challenge.kind === 'distance' || challenge.kind === 'tag') && challenge.distanceGoalUnit === 'steps')
   );

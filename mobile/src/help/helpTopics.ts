@@ -154,6 +154,21 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       }),
     },
     {
+      id: 'baseball',
+      section: 'challenges',
+      title: 'Baseball: picks and plays',
+      summary: 'Aim your swing, call the shift, and how an at-bat is decided.',
+      steps: [
+        'One inning a day, both halves, played the next morning from that day’s steps. Your steps count for every at-bat and play you’re in.',
+        'Each day, tap Left, Center or Right on the field to aim your swing. No pick and you swing at a random zone.',
+        'The catcher calls the shift for the fielding side. Guess the batter’s zone and catches get likelier; guess wrong and they get a little harder.',
+        'The pitcher picks Power (more strikeouts, harder contact) or Finesse (softer contact, more walks).',
+        'Turn on Steal and, when you’re on base with the next one open, you’ll try for it: your steps against the catcher’s.',
+        'At bat, it’s your steps against the pitcher’s, then the fielder’s. Big step days go further: doubles from 4,000 steps, triples and home runs from 8,000.',
+        'Tied after the last inning? Extra innings, one a day, up to three. Tap Replay last night to watch the plays on the field.',
+      ],
+    },
+    {
       id: 'detail',
       section: 'challenges',
       title: 'Leaderboards and challenge details',

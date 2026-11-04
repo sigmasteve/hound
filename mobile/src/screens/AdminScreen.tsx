@@ -36,6 +36,8 @@ import { WaterAdminCard } from '../components/WaterAdminCard';
 import { WalksAdminCard } from '../components/WalksAdminCard';
 import { GardenAdminCard } from '../components/GardenAdminCard';
 import { GrowthAdminCard } from '../components/GrowthAdminCard';
+import { BaseballAdminCard } from '../components/BaseballAdminCard';
+import { getBaseballOverview } from '../challenges/baseballApi';
 import { getGrowthOverview } from '../growth/growth';
 import { getGardenOverview } from '../garden/garden';
 import { getWalksOverview } from '../admin/walksOverview';
@@ -134,6 +136,8 @@ export function AdminScreen({
   const [gardenSummary, setGardenSummary] = useState<string | null>(null);
   // The Growth fold's line: hounds with a trait (0165).
   const [growthSummary, setGrowthSummary] = useState<string | null>(null);
+  // The Baseball fold's line: games on and played (0167).
+  const [baseballSummary, setBaseballSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
   const [shopSummary, setShopSummary] = useState<string | null>(null);
   // Where the App versions fold sits, so "Versions" in Needs you can
@@ -157,6 +161,9 @@ export function AdminScreen({
         .catch(() => {});
       getGrowthOverview()
         .then((g) => setGrowthSummary(`${g.withTrait} with a trait · ${g.byStage.puppy} ${g.byStage.puppy === 1 ? 'puppy' : 'puppies'}`))
+        .catch(() => {});
+      getBaseballOverview()
+        .then((b) => setBaseballSummary(`${b.active} ${b.active === 1 ? 'game' : 'games'} on now, ${b.finished} played`))
         .catch(() => {});
       getShopOverview()
         .then((d) => setShopSummary(`${dollars(d.revenue30d)} this month · ${d.buyers30d} ${d.buyers30d === 1 ? 'buyer' : 'buyers'}`))
@@ -687,6 +694,9 @@ export function AdminScreen({
                 </AdminFold>
                 <AdminFold title="Growth" summary={growthSummary ?? 'Fitness, traits and birthdays'}>
                   <GrowthAdminCard />
+                </AdminFold>
+                <AdminFold title="Baseball" summary={baseballSummary ?? 'Games, picks and plays'}>
+                  <BaseballAdminCard />
                 </AdminFold>
                 <AdminFold title="Shop" summary={shopSummary ?? 'Packs sold and Bones spent'}>
                   <ShopAdminCard />
