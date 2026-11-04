@@ -101,7 +101,7 @@ function challengeRowToInviteWindowInput(row: {
 }
 
 const CHALLENGE_COLUMNS =
-  'id, name, kind, created_by, duration_days, starts_at, start_day, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit, distance_source, bingo_card_type, course_id, organization_id';
+  'id, name, kind, created_by, duration_days, starts_at, start_day, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit, tag_round_minutes, distance_source, bingo_card_type, course_id, organization_id';
 
 interface ChallengeRow {
   id: string;
@@ -119,6 +119,7 @@ interface ChallengeRow {
   distance_goal_mi: number | null;
   distance_goal_steps: number | null;
   distance_goal_unit: Challenge['distanceGoalUnit'];
+  tag_round_minutes?: number | null;
   bingo_card_type: Challenge['bingoCardType'];
   distance_source?: string | null;
   course_id: string | null;
@@ -160,6 +161,7 @@ function rowToChallenge(row: ChallengeRow): Challenge {
     // distance_goal_mi with no unit at all, in miles — read that
     // exactly as it already meant, rather than as "no goal."
     distanceGoalUnit: row.distance_goal_unit ?? (row.distance_goal_mi != null ? 'miles' : null),
+    tagRoundMinutes: row.tag_round_minutes ?? null,
     bingoCardType: row.bingo_card_type,
     distanceSource: (row.distance_source as Challenge['distanceSource'] | undefined) ?? null,
     courseId: row.course_id ?? null,
@@ -299,6 +301,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     distanceGoalMi,
     distanceGoalSteps,
     distanceGoalUnit,
+    tagRoundMinutes,
     distanceSource,
     bingoCardType,
     courseId,
@@ -326,6 +329,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         distance_goal_mi: distanceGoalMi ?? null,
         distance_goal_steps: distanceGoalSteps ?? null,
         distance_goal_unit: distanceGoalUnit ?? null,
+        ...(kind === 'tag' ? { tag_round_minutes: tagRoundMinutes ?? 60 } : {}),
         distance_source: distanceSource ?? null,
         bingo_card_type: bingoCardType ?? null,
         course_id: courseId ?? null,

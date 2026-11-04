@@ -28,7 +28,7 @@ import { Card } from '../components/Card';
 import { LoadingView } from '../components/LoadingView';
 import { ProgressBar } from '../components/ProgressBar';
 import { Tag } from '../components/Tag';
-import { TagRadar, type TagRadarMember } from '../components/TagRadar';
+import { TagStatusCard } from '../components/TagStatusCard';
 import { TicTacGoCard } from '../components/TicTacGoCard';
 import { TextField } from '../components/TextField';
 import { ToggleRow } from '../components/Selectable';
@@ -153,8 +153,10 @@ import {
   listTagEvents,
   listTagMembers,
   selectTagTarget,
+  tagRoundGain,
   settleTagTimeout,
-  TAG_TIME_LIMIT_MINUTES,
+  formatTagTime,
+  tagRoundMinutes,
   type TagEvent,
   type TagMember,
 } from '../challenges/tagApi';
@@ -1104,9 +1106,8 @@ export function ChallengeDetailScreen({
     } catch (e) {
       setTagActionError(e instanceof Error ? e.message : 'Could not pick that person — try again.');
     } finally {
-      // Reload even on failure: the board may be stale (e.g. the target
-      // was no longer actually ahead), and a rejected pick should drop
-      // them from the tappable list rather than leave a dead button.
+      // Reload even on failure: the round may have moved on (It passed
+      // to someone else), and the list should show where it stands.
       await load();
       setSelectingTargetId(null);
     }
@@ -1786,43 +1787,18 @@ export function ChallengeDetailScreen({
   // the brief window between the clock running out and this screen
   // next refreshing.
   const tagMinutesLeft = tagRound
-    ? Math.max(0, Math.ceil(TAG_TIME_LIMIT_MINUTES - (now - new Date(tagRound.roundStartedAt).getTime()) / 60_000))
+    ? Math.max(0, Math.ceil(tagRoundMinutes(challenge) - (now - new Date(tagRound.roundStartedAt).getTime()) / 60_000))
     : 0;
-  // Same green/amber urgency threshold TagRadar's own countdown ring
-  // uses (under a fifth of the round left reads as urgent) — kept here
-  // too since the card header shows this as plain text, not the ring.
-  const tagClockColor = tagMinutesLeft / TAG_TIME_LIMIT_MINUTES > 0.2 ? colors.green : colors.amber;
-  const iAmTagIt = !!tagRound && tagRound.itUserId === user?.id;
-  // The one person I can't pick — whoever tagged me last (no
-  // tag-backs). Doesn't matter at all unless I'm actually IT with
-  // nobody picked yet, but harmless to compute either way.
-  const myLastTaggedBy = tagMembers.find((m) => m.userId === user?.id)?.lastTaggedBy ?? null;
-  // A given userId's own current total, in whichever unit this
-  // challenge's own distanceGoalUnit says matters — the same lookup
-  // tag_select_target itself does server-side (see 0047's own
-  // instant-catch fix), just read from the board already loaded here
-  // instead of a fresh RPC call.
+  // A player's total in the challenge's unit, from the board already
+  // loaded here.
   const tagMemberTotal = (userId: string) => {
     const row = board.find((r) => r.userId === userId);
     if (!row) return 0;
     return challenge.distanceGoalUnit === 'steps' ? row.totalSteps : row.totalDistanceMi;
   };
-  const myTagMetricValue = user?.id ? tagMemberTotal(user.id) : 0;
-  // tag_select_target itself refuses a pick that isn't strictly ahead
-  // of It's own current total (0047_tag_fix_instant_catch.sql) — a
-  // "target" who's already tied or behind would either be rejected
-  // outright, or (worse) close a real gap of zero the instant they're
-  // picked. Filtering them out here means a real tap never has to round
-  // -trip to that error at all.
-  const tagTargetableMembers = tagMembers.filter(
-    (m) => m.userId !== user?.id && m.userId !== myLastTaggedBy && tagMemberTotal(m.userId) > myTagMetricValue,
-  );
-  const tagItMember = tagRound ? tagMembers.find((m) => m.userId === tagRound.itUserId) : undefined;
-  const tagTargetMember = tagRound?.targetUserId ? tagMembers.find((m) => m.userId === tagRound.targetUserId) : undefined;
-  const tagCatchPct =
-    tagRound?.targetSnapshotMetric && tagRound.targetSnapshotMetric > 0
-      ? Math.min(100, (myTagMetricValue / tagRound.targetSnapshotMetric) * 100)
-      : 0;
+  // Each round counts from its start (0168): a player's steps in the
+  // round are their total now minus their total at the reset.
+  const tagGain = (userId: string) => (tagRound ? tagRoundGain(tagRound, userId, tagMemberTotal(userId)) : 0);
 
   // A finished tag game's recap — no ranking (see 0045_tag_game_state.sql's
   // own "deliberately anti-competitive" note), just each participant's own
@@ -1838,42 +1814,6 @@ export function ChallengeDetailScreen({
     iconId: m.iconId,
     stats: tagStatsById.get(m.userId) ?? { timesIt: 0, timesTagged: 0, tagsMade: 0 },
   }));
-
-  // It's own current total, for every non-It member's radar distance
-  // below — the actual target's ring uses the frozen snapshot instead
-  // (the real number tag_check_catch is comparing against), everyone
-  // else is just today's live gap, recomputed on every load like the
-  // rest of this board.
-  const tagItBoardRow = tagRound ? board.find((r) => r.userId === tagRound.itUserId) : undefined;
-  const tagItTotal = tagItBoardRow
-    ? challenge.distanceGoalUnit === 'steps'
-      ? tagItBoardRow.totalSteps
-      : tagItBoardRow.totalDistanceMi
-    : 0;
-  const tagRadarMembers: TagRadarMember[] = tagRound
-    ? tagMembers
-        .filter((m) => m.userId !== tagRound.itUserId)
-        .map((m) => {
-          const row = board.find((r) => r.userId === m.userId);
-          const theirTotal = row ? (challenge.distanceGoalUnit === 'steps' ? row.totalSteps : row.totalDistanceMi) : 0;
-          const isTarget = tagRound.targetUserId === m.userId;
-          const distance =
-            isTarget && tagRound.targetSnapshotMetric != null
-              ? Math.max(0, tagRound.targetSnapshotMetric - tagItTotal)
-              : Math.abs(theirTotal - tagItTotal);
-          return {
-            userId: m.userId,
-            initials: m.initials,
-            name: m.userId === user?.id ? 'You' : m.name,
-            distance,
-            isTarget,
-            isMe: m.userId === user?.id,
-            frameId: m.frameId,
-            backgroundId: m.backgroundId,
-            iconId: m.iconId,
-          };
-        })
-    : [];
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
@@ -2179,83 +2119,18 @@ export function ChallengeDetailScreen({
           )}
 
           {challenge.kind === 'tag' && tagRound && !finished && (
-            <Card style={{ gap: 12 }} elevated={false}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={text.h4}>Tag status</Text>
-                <Text style={[styles.footNote, { color: tagClockColor, fontFamily: font.heading }]}>
-                  {tagMinutesLeft > 0 ? `${tagMinutesLeft}m left` : 'time’s up'}
-                </Text>
-              </View>
-              <TagRadar
-                itInitials={tagItMember?.initials ?? '?'}
-                itName={tagItMember?.name ?? 'Someone'}
-                itFrameId={tagItMember?.frameId}
-                itBackgroundId={tagItMember?.backgroundId}
-                itIconId={tagItMember?.iconId}
-                isMeIt={iAmTagIt}
-                members={tagRadarMembers}
-                colors={colors}
-                formatDistance={formatMetric}
-                minutesLeft={tagMinutesLeft}
-                timeLimitMinutes={TAG_TIME_LIMIT_MINUTES}
-              />
-              {iAmTagIt && !tagRound.targetUserId ? (
-                <>
-                  <Text style={styles.footNote}>
-                    You&rsquo;re It — pick who to tag. {tagMinutesLeft > 0 ? `${tagMinutesLeft} min left to pick and catch them.` : 'Time’s almost up.'}
-                  </Text>
-                  {tagActionError && <Text style={styles.loadError}>{tagActionError}</Text>}
-                  {tagTargetableMembers.length === 0 ? (
-                    <Text style={styles.footNote}>
-                      {tagMembers.length <= 1
-                        ? 'Nobody eligible to tag yet — wait for more people to join.'
-                        : tagMinutesLeft > 0
-                          ? `Nobody’s ahead of you yet — you can only tag someone who’s logged more than you have. If nobody catches up, It passes to someone else automatically in ${tagMinutesLeft} min.`
-                          : 'Nobody’s ahead of you yet — It is about to pass to someone else automatically.'}
-                    </Text>
-                  ) : (
-                    tagTargetableMembers.map((m) => (
-                      <View key={m.userId} style={styles.inviteFriendRow}>
-                        <Avatar
-                          initials={m.initials}
-                          tint={TINT_N}
-                          size={30}
-                          fontSize={11}
-                          frameId={m.frameId}
-                          backgroundId={m.backgroundId}
-                          iconId={m.iconId}
-                        />
-                        <Text style={[styles.friendName, { flex: 1 }]}>{m.name}</Text>
-                        <Button
-                          label={selectingTargetId === m.userId ? 'Picking…' : 'Tag'}
-                          small
-                          disabled={selectingTargetId !== null}
-                          onPress={() => pickTagTarget(m.userId)}
-                        />
-                      </View>
-                    ))
-                  )}
-                </>
-              ) : iAmTagIt && tagRound.targetUserId ? (
-                <>
-                  <Text style={styles.footNote}>
-                    Chasing {tagTargetMember?.name ?? 'someone'} —{' '}
-                    {tagMinutesLeft > 0 ? `${tagMinutesLeft} min left to catch them.` : 'time’s almost up.'}
-                  </Text>
-                  <ProgressBar pct={tagCatchPct} fillColor={colors.accent} height={6} />
-                  <Text style={styles.footNote}>
-                    {formatMetric(myTagMetricValue)} of {formatMetric(tagRound.targetSnapshotMetric ?? 0)} needed to catch them.
-                  </Text>
-                </>
-              ) : (
-                <Text style={styles.footNote}>
-                  {tagItMember?.name ?? 'Someone'} is It
-                  {tagRound.targetUserId
-                    ? `, chasing ${tagTargetMember?.userId === user?.id ? 'you' : tagTargetMember?.name ?? 'someone'}.`
-                    : ' and hasn’t picked a target yet.'}
-                </Text>
-              )}
-            </Card>
+            <TagStatusCard
+              round={tagRound}
+              members={tagMembers}
+              myUserId={user?.id}
+              gainOf={tagGain}
+              formatMetric={formatMetric}
+              minutesLeft={tagMinutesLeft}
+              roundMinutes={tagRoundMinutes(challenge)}
+              actionError={tagActionError}
+              selectingTargetId={selectingTargetId}
+              onPick={pickTagTarget}
+            />
           )}
 
           {challenge.kind === 'tictacgo' && (
@@ -2985,12 +2860,13 @@ export function ChallengeDetailScreen({
             {challenge.kind === 'tag' ? (
               <>
                 <Text style={styles.footNote}>
-                  One player is "IT". IT picks a target who's currently ahead of them, and catches
-                  them by reaching that target's total. Whoever gets caught becomes the new IT — no
-                  tagging back the person who just tagged you.
+                  One player is "IT". Every round starts everyone at 0: IT picks anyone, and tags
+                  them by logging more than them from the moment of the pick. Whoever gets tagged becomes the new IT,
+                  and a new round starts — no tagging back the person who just tagged you, unless
+                  it&rsquo;s just the two of you.
                 </Text>
                 <Text style={styles.footNote}>
-                  IT has {TAG_TIME_LIMIT_MINUTES} minutes to pick and catch a target, or IT passes to
+                  IT has {formatTagTime(tagRoundMinutes(challenge))} to pick and catch a target, or IT passes to
                   someone else at random. There's no overall ranking or winner — the game ends once
                   the whole group's combined total hits the shared goal.
                 </Text>
