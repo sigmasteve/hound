@@ -303,3 +303,22 @@ end;
 $$;
 
 grant execute on function public.tag_settle_timeout(uuid) to authenticated;
+
+-- Every player's Kennel hound, for Tag's radar and lists: the same code
+-- as a hound avatar (kennel_avatar_code, 0106 and 0132), whether or not
+-- they've made it their avatar. Only for players in the game.
+create or replace function public.tag_hounds(p_challenge_id uuid)
+returns table (user_id uuid, hound text)
+language sql
+stable
+security definer set search_path = public
+as $$
+  select cp.user_id, public.kennel_avatar_code(cp.user_id)
+  from public.challenge_participants cp
+  where cp.challenge_id = p_challenge_id
+    and exists (select 1 from public.challenge_participants me
+                where me.challenge_id = p_challenge_id and me.user_id = auth.uid());
+$$;
+
+revoke execute on function public.tag_hounds(uuid) from public, anon;
+grant execute on function public.tag_hounds(uuid) to authenticated;

@@ -3,7 +3,7 @@
 -- baseline, a catch is out-stepping the target from the pick, and a catch
 -- or the end of the round (an hour unless the creator picked longer)
 -- starts the next round from everyone's totals then.
-select plan(28);
+select plan(30);
 
 select tests.new_user('Ann') as ann \gset
 select tests.new_user('Bob') as bob \gset
@@ -144,8 +144,16 @@ select is((select it_user_id from public.tag_rounds where challenge_id = '000000
 select is((select count(*)::int from public.tag_events where challenge_id = '00000000-0000-0000-0000-0000000000c2' and kind = 'timeout'), 1,
   'logged as a timeout');
 
+-- Every player's hound, for the players in the game.
+select tests.sign_in(:'ann');
+set local role authenticated;
+select is((select count(*)::int from public.tag_hounds('00000000-0000-0000-0000-0000000000c1') where hound like 'hound:%'), 3,
+  'Players see everyone''s hound');
+reset role;
 select tests.sign_in(:'dan');
 set local role authenticated;
+select is((select count(*)::int from public.tag_hounds('00000000-0000-0000-0000-0000000000c1')), 0,
+  'Someone outside the game sees none');
 select throws_ok($$select public.tag_round_gain('00000000-0000-0000-0000-0000000000c1', '$$ || :'ann' || $$')$$,
   '42501', null, 'The round helpers are internal');
 reset role;

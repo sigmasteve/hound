@@ -121,6 +121,12 @@ export async function listTagMembers(challengeId: string): Promise<TagMember[]> 
     )
     .eq('challenge_id', challengeId);
   if (error) throw new Error(error.message);
+  // Each player's Kennel hound (tag_hounds, 0168), drawn in place of
+  // their initials or icon. Without it, their usual avatar.
+  const { data: hounds } = await client.rpc('tag_hounds', { p_challenge_id: challengeId });
+  const houndOf = new Map<string, string>(
+    ((hounds as { user_id: string; hound: string }[] | null) ?? []).map((h) => [h.user_id, h.hound]),
+  );
   return (data ?? []).map((row) => {
     const profile = row.profiles as unknown as TagMemberProfileRow | null;
     return {
@@ -131,7 +137,7 @@ export async function listTagMembers(challengeId: string): Promise<TagMember[]> 
       tagsMade: row.tags_made,
       frameId: profile?.equipped_frame_id ?? null,
       backgroundId: profile?.equipped_background_id ?? null,
-      iconId: profile?.equipped_icon_id ?? null,
+      iconId: houndOf.get(row.user_id) ?? profile?.equipped_icon_id ?? null,
     };
   });
 }
