@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { Avatar } from './Avatar';
 import { Card } from './Card';
+import { DayCard } from './DayCard';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import type { Participant } from '../challenges/types';
@@ -245,6 +246,8 @@ export function CricketCard({
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  // The report shows the last three overs until asked for the rest.
+  const [allOvers, setAllOvers] = useState(false);
 
   if (!game) {
     return (
@@ -264,7 +267,7 @@ export function CricketCard({
   const ballsLeft = game.overs * 6 - chaseBalls;
   const iBat = !!onStrike && onStrike.batterId === userId;
   const iBowl = !!onStrike && onStrike.bowlerId === userId;
-  const mySteps = stepsToday == null ? 'your steps so far' : formatSteps(stepsToday);
+  const mySteps = stepsToday == null ? 'steps loading' : `${formatSteps(stepsToday)} today`;
 
   // Overs, newest first, each with its balls.
   const overs = Array.from(
@@ -308,55 +311,54 @@ export function CricketCard({
       )}
       <CricketGround game={game} onStrike={onStrike} people={participants} userId={userId} />
 
+      {/* Where things stand, in one line. */}
       {game.status === 'active' && onStrike && (
-        <View style={styles.today}>
-          <Text style={styles.todayTitle}>
-            Today · innings {onStrike.innings}, over {onStrike.overNo} of {game.overs}
-          </Text>
-          <Text style={styles.note}>
-            {iBat
-              ? `You're on strike against ${nameOf(onStrike.bowlerId)}. Every ball is your steps against theirs: out-walk them for boundaries, fall behind and wickets fall. You have ${mySteps}.`
-              : iBowl
-                ? `You're bowling to ${nameOf(onStrike.batterId)}. Out-walk them and the wickets come. You have ${mySteps}.`
-                : `${nameOf(onStrike.batterId)} bats against ${nameOf(onStrike.bowlerId)}'s bowling. The over is played tomorrow morning on today's steps.`}
-          </Text>
-        </View>
+        <Text style={styles.status}>
+          Today · {onStrike.innings === 1 ? '1st' : '2nd'} innings, over {onStrike.overNo} of {game.overs} ·{' '}
+          {iBat
+            ? `you bat against ${nameOf(onStrike.bowlerId)} · ${mySteps}`
+            : iBowl
+              ? `you bowl to ${nameOf(onStrike.batterId)} · ${mySteps}`
+              : `${nameOf(onStrike.batterId)} bats, ${nameOf(onStrike.bowlerId)} bowls`}
+          {' · played tomorrow morning'}
+        </Text>
       )}
       {game.status === 'final' && <Text style={styles.result}>{cricketResultLine(game, participants, userId)}</Text>}
 
       {overs.length > 0 && (
         <View style={{ gap: 6 }}>
           <Text style={styles.sectionTitle}>Over by over</Text>
-          {overs.map((o) => (
-            <View key={`${o.innings}-${o.overNo}`} style={styles.over}>
-              <View style={styles.overHead}>
-                <Text style={styles.overTitle}>
-                  {o.innings === 1 ? '1st' : '2nd'} innings · over {o.overNo}
-                </Text>
-                <Text style={styles.overRuns}>
-                  {o.balls.reduce((s, b) => s + b.runs, 0)} runs
-                  {o.balls.some((b) => b.outcome === 'W') ? ` · ${o.balls.filter((b) => b.outcome === 'W').length}W` : ''}
-                </Text>
-              </View>
-              <Text style={styles.overWho} numberOfLines={2}>
-                {nameOf(o.bowlerId)} to {Array.from(new Set(o.balls.map((b) => nameOf(b.batterId)))).join(', ')} · steps{' '}
-                {o.balls[0].bowlerSteps.toLocaleString()} vs {o.balls[0].batterSteps.toLocaleString()}
-              </Text>
-              <View style={styles.chips}>
-                {o.balls.map((b) => (
-                  <View key={b.ballNo} style={[styles.chip, chipStyle(b.outcome, styles)]}>
-                    <Text style={[styles.chipText, b.outcome === 'W' && styles.chipTextOut]}>{ballLabel(b.outcome)}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ))}
+          {overs.slice(0, allOvers ? undefined : 3).map((o, i) => {
+            const runs = o.balls.reduce((n, b) => n + b.runs, 0);
+            const wk = o.balls.filter((b) => b.outcome === 'W').length;
+            return (
+              <DayCard
+                key={`${o.innings}-${o.overNo}`}
+                title={`Day ${o.day} · over ${o.overNo}${o.innings === 2 ? ' of the chase' : ''}`}
+                score={`${runs}/${wk}`}
+                summary={`${nameOf(o.bowlerId)} to ${Array.from(new Set(o.balls.map((b) => nameOf(b.batterId)))).join(', ')} · steps ${o.balls[0].bowlerSteps.toLocaleString()} vs ${o.balls[0].batterSteps.toLocaleString()}`}
+                defaultOpen={i === 0}
+              >
+                <View style={styles.chips}>
+                  {o.balls.map((b) => (
+                    <View key={b.ballNo} style={[styles.chip, chipStyle(b.outcome, styles)]}>
+                      <Text style={[styles.chipText, b.outcome === 'W' && styles.chipTextOut]}>{ballLabel(b.outcome)}</Text>
+                    </View>
+                  ))}
+                </View>
+              </DayCard>
+            );
+          })}
+          {!allOvers && overs.length > 3 && (
+            <Pressable onPress={() => setAllOvers(true)} style={styles.earlier} accessibilityRole="button">
+              <Text style={styles.earlierText}>Earlier overs ({overs.length - 3})</Text>
+            </Pressable>
+          )}
         </View>
       )}
 
       {balls.length > 0 && (
-        <View style={{ gap: 6 }}>
-          <Text style={styles.sectionTitle}>Batting</Text>
+        <DayCard title="Batting card">
           {([1, 2] as const).map((inn) => {
             const rows = card(inn);
             if (rows.length === 0) return null;
@@ -377,7 +379,7 @@ export function CricketCard({
               </View>
             );
           })}
-        </View>
+        </DayCard>
       )}
     </Card>
   );
@@ -448,14 +450,10 @@ function makeStyles(colors: Palette) {
     scoreRunsCompact: { fontSize: 16 },
     scoreOvers: { fontSize: 13, color: withAlpha(colors.text, 0.55) },
     scoreYet: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
-    today: { gap: 4, padding: 12, borderRadius: 12, backgroundColor: withAlpha(colors.accent, 0.08) },
-    todayTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
+    status: { fontSize: 12.5, color: withAlpha(colors.text, 0.62), lineHeight: 18 },
+    earlier: { alignSelf: 'center', paddingVertical: 8 },
+    earlierText: { fontFamily: font.headingSemibold, fontSize: 13, color: colors.accent },
     sectionTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
-    over: { gap: 6, padding: 10, borderRadius: 10, backgroundColor: withAlpha(colors.text, 0.04) },
-    overHead: { flexDirection: 'row', justifyContent: 'space-between' },
-    overTitle: { fontFamily: font.heading, fontSize: 13, color: colors.text },
-    overRuns: { fontFamily: font.heading, fontSize: 13, color: colors.accentActive, fontVariant: ['tabular-nums'] },
-    overWho: { fontSize: 12, color: withAlpha(colors.text, 0.65) },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     chip: { minWidth: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: withAlpha(colors.text, 0.08), paddingHorizontal: 6 },
     chipDot: { backgroundColor: withAlpha(colors.text, 0.05) },

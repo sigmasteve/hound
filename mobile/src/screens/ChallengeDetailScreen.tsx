@@ -2168,6 +2168,7 @@ export function ChallengeDetailScreen({
               participants={[...participants, ...bots.map(botToParticipant)]}
               userId={user?.id}
               stepsToday={soccerSteps}
+              onShowField={showOnPage}
             />
           )}
 
