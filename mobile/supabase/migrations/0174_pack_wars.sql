@@ -44,14 +44,16 @@
 -- the send-packs-notification Edge Function deployed; without it the game
 -- plays, quietly.
 --
--- Global only: publish_global_challenge takes 'packs', 7 to 30 days.
+-- Global (publish_global_challenge takes 'packs') or invite-only, made
+-- from Create like any other challenge; either way 7 to 30 days
+-- (pack_check_length).
 --
 -- Run this once, after 0173 (as its own, separately committed
 -- transaction), in the SQL Editor.
 --
 -- Undo, if needed: unschedule hound-packs-advance, hound-packs-morning and
 -- hound-packs-evening; drop the six tables, the pack_* functions and the
--- pack_after_join trigger; re-run settle_challenge_score_core and
+-- pack_after_join and pack_check_length triggers; re-run settle_challenge_score_core and
 -- publish_global_challenge from 0172. The enum value stays.
 
 -- ── Settings ─────────────────────────────────────────────────────────
@@ -157,6 +159,25 @@ create policy "Players see what changed hands" on public.pack_moves for select t
 
 revoke all on public.pack_members, public.pack_territories, public.pack_votes, public.pack_days, public.pack_moves from anon;
 revoke insert, update, delete on public.pack_members, public.pack_territories, public.pack_votes, public.pack_days, public.pack_moves from authenticated;
+
+-- 7 to 30 days, however it's made.
+create or replace function public.pack_check_length()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.kind = 'packs' and (new.duration_days < 7 or new.duration_days > 30) then
+    raise exception 'Pack Wars runs 7 to 30 days.';
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function public.pack_check_length() from public, anon, authenticated;
+
+create trigger pack_check_length
+  before insert or update of kind, duration_days on public.challenges
+  for each row execute procedure public.pack_check_length();
 
 -- ── Pieces ───────────────────────────────────────────────────────────
 

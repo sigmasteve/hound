@@ -245,7 +245,7 @@ export const CHALLENGE_TYPES: {
 // appear in the picker at all.
 export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
   { label: 'Races', kinds: ['steps', 'distance', 'journey'] },
-  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'rally', 'soccer', 'cricket', 'baseball', 'bingo', 'houndopoly'] },
+  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'rally', 'soccer', 'cricket', 'baseball', 'bingo', 'houndopoly', 'packs'] },
   { label: 'Habits', kinds: ['streak', 'seventyfive', 'checklist'] },
 ];
 

@@ -2,17 +2,18 @@
 -- reachable ground, only today, only members); the night's marches (open
 -- ground, a Hold's full defence, half while marching); the phone's steps;
 -- settling with Admin's Bones; publishing; the admin overview.
-select plan(30);
+select plan(32);
 
 select tests.new_user('Ann', true) as ann \gset
 select (now() at time zone 'utc')::date as today \gset
 create temp table people as select tests.new_user('P' || g) as id, g from generate_series(1, 8) g;
 update public.profiles set time_zone = 'UTC' where id in (select id from people) or id = :'ann';
 
--- P: played day by day below. Q: today is day 1, for voting.
+-- P (global): played day by day below. Q (invite-only): today is day 1,
+-- for voting.
 insert into public.challenges (id, name, kind, created_by, duration_days, starts_at, ends_at, start_day, is_global, join_closes_at) values
   ('00000000-0000-0000-0000-0000000000a1', 'Pack Wars P', 'packs', :'ann', 7, (:'today'::date - 6)::timestamp at time zone 'utc', (:'today'::date + 1)::timestamp at time zone 'utc', :'today'::date - 6, true, now() + interval '1 day'),
-  ('00000000-0000-0000-0000-0000000000a2', 'Pack Wars Q', 'packs', :'ann', 7, :'today'::timestamp at time zone 'utc', (:'today'::date + 7)::timestamp at time zone 'utc', :'today'::date, true, now() + interval '1 day');
+  ('00000000-0000-0000-0000-0000000000a2', 'Pack Wars Q', 'packs', :'ann', 7, :'today'::timestamp at time zone 'utc', (:'today'::date + 7)::timestamp at time zone 'utc', :'today'::date, false, null);
 insert into public.challenge_participants (challenge_id, user_id)
 select '00000000-0000-0000-0000-0000000000a1', id from people order by g;
 insert into public.challenge_participants (challenge_id, user_id)
@@ -23,6 +24,10 @@ select is((select array_agg(n order by n) from (select count(*) as n from public
 select is((select array_agg(owner order by idx) from public.pack_territories where challenge_id = '00000000-0000-0000-0000-0000000000a1' and owner is not null),
   array['wolves', 'goldens', 'collies', 'beagles'], 'Each pack starts on its corner');
 select is((select count(*) from public.pack_territories where challenge_id = '00000000-0000-0000-0000-0000000000a1' and owner is null), 20::bigint, 'and the rest is open ground');
+select is((select count(distinct pack) from public.pack_members where challenge_id = '00000000-0000-0000-0000-0000000000a2'), 4::bigint,
+  'An invite-only game sorts its players into packs the same way');
+select throws_ok($$insert into public.challenges (name, kind, created_by, duration_days, starts_at, ends_at) values ('Too short', 'packs', '$$ || :'ann' || $$', 3, now(), now() + interval '3 days')$$,
+  'Pack Wars runs 7 to 30 days.', 'Invite-only or global, 7 to 30 days');
 select is(public.pack_neighbors(0), array[6, 1], 'The top-left corner touches two');
 select is(public.pack_neighbors(8), array[2, 14, 7, 9], 'A middle one touches four');
 
