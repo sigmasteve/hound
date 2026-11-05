@@ -186,8 +186,8 @@ export function DoorsCard({
       <DayCard title="How it works">
         <Text style={styles.note}>
           One door opens each morning, and only on its own day. Opening it is {DOOR_POINTS.open} point and shows today’s task. Do the task by midnight
-          for {DOOR_POINTS.done} more. From the {RUN_FROM}rd done door in a row, each one is worth {DOOR_POINTS.run} more. One missed day a week doesn’t
-          break your run. Tasks are checked from your Health data, water, goals and Kennel; nothing to tick. For a cheer door, tap 👏 beside someone in the standings.
+          for {DOOR_POINTS.done} more. From the {ordinal(RUN_FROM)} done door in a row, each one is worth {DOOR_POINTS.run} more. One missed day a week doesn’t
+          break your run. Tasks are checked from your Health data, water, goals and Kennel; nothing to tick. For a cheer door, tap 👏 beside someone in the standings. {game.bonusEvery === 1 ? 'Every door has' : `Every ${ordinal(game.bonusEvery)} door has`} Bones behind it, and when it’s over everyone in it gets {game.finishBones + 5} Bones for finishing.
         </Text>
       </DayCard>
     </Card>
@@ -364,6 +364,11 @@ function SmallDoor({ door, styles }: { door: Door; styles: Styles }) {
       <View style={styles.smallKnob} />
     </View>
   );
+}
+
+function ordinal(n: number): string {
+  const sfx = n % 100 >= 11 && n % 100 <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
+  return `${n}${sfx}`;
 }
 
 // "Monday, Dec 1" for a door's day.

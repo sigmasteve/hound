@@ -180,7 +180,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Do it by midnight for 2 more points. Hound checks it from your Health data, water, goals and Kennel, so there’s nothing to tick. A task you’d already done counts as soon as you open the door.',
         'The steps target is your own: a little over your average for the week before.',
         'Three done doors in a row and each one after is worth 1 more. One missed day a week doesn’t break your run.',
-        'Every third door has a few Bones behind it, and the last one a frame for your Locker you can’t buy. Most points at the end wins.',
+        'Some doors have Bones behind them (every third, unless it says otherwise), and the last one a frame for your Locker you can’t buy. Most points at the end wins, and everyone in it gets Bones for finishing.',
         'To cheer someone, tap 👏 beside them in the standings.',
       ],
     },

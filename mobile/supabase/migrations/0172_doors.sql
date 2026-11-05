@@ -24,8 +24,10 @@
 -- Points: 1 for opening a door, 2 more for doing its task that day, and 1
 -- more for each done door from the third in a row. One missed day a week
 -- (doors 1-7, 8-14, ...) doesn't break the run. Every third door also has
--- 5 to 10 Bones behind it, and the last one the Doorbell Ring for the
--- Locker, which can't be bought.
+-- Bones behind it, a random amount from 5 to 10, and the last one the
+-- Doorbell Ring for the Locker, which can't be bought. When it's over,
+-- everyone in it gets 25 Bones for finishing, on top of the usual 5. All
+-- of those numbers are Admin's (doors_settings).
 --
 -- Nothing is ticked by hand. Opening a door checks what's already done;
 -- triggers on the tables the tasks read mark it done the moment the
@@ -33,8 +35,12 @@
 -- sync or a water log); and a morning sweep catches anything missed.
 -- Highest points at the end wins, placed like a Step Race.
 --
---   door_opens   one row per member and door they opened: its task, the
---                steps target, what was behind it, and when it was done.
+--   doors_settings  the admin knobs: which doors have Bones (every Nth),
+--                   how many (a random amount from low to high), and the
+--                   Bones everyone gets when it's over (one row).
+--   door_opens      one row per member and door they opened: its task,
+--                   the steps target, what was behind it, and when it was
+--                   done.
 --
 -- Pushes: "Knock knock" in the morning (14:37 UTC) to everyone in a live
 -- one, and "Door N is still shut" in the early evening (23:37 UTC) to
@@ -47,7 +53,7 @@
 -- transaction), in the SQL Editor.
 --
 -- Undo, if needed: unschedule hound-doors-sweep, hound-doors-morning and
--- hound-doors-evening; drop door_opens, the doors_* functions and their
+-- hound-doors-evening; drop door_opens, doors_settings, the doors_* functions and their
 -- triggers; re-run settle_challenge_score_core from 0167 and
 -- publish_global_challenge from 0136. The enum value stays.
 
@@ -62,6 +68,37 @@ alter table public.cosmetic_items add constraint cosmetic_items_one_way_to_get
 
 insert into public.cosmetic_items (id, slot, name, door_prize) values ('frame_doorbell', 'frame', 'Doorbell Ring', true)
 on conflict (id) do nothing;
+
+-- ── Settings ─────────────────────────────────────────────────────────
+
+create table public.doors_settings (
+  id boolean primary key default true,
+  constraint doors_settings_singleton check (id),
+  -- Every Nth door has Bones behind it: a random amount, low to high.
+  bonus_every int not null default 3 check (bonus_every between 1 and 30),
+  bonus_min int not null default 5 check (bonus_min between 0 and 500),
+  bonus_max int not null default 10 check (bonus_max between 0 and 500),
+  constraint doors_settings_bonus_range check (bonus_min <= bonus_max),
+  -- Paid to everyone in it when it's over, whatever their place.
+  finish_bones int not null default 25 check (finish_bones between 0 and 1000),
+  updated_at timestamptz not null default now()
+);
+
+insert into public.doors_settings (id) values (true);
+
+alter table public.doors_settings enable row level security;
+
+create policy "Anyone signed in can read the Daily Doors settings"
+  on public.doors_settings for select to authenticated
+  using (true);
+
+create policy "Only admins can change the Daily Doors settings"
+  on public.doors_settings for update to authenticated
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin))
+  with check (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin));
+
+revoke all on public.doors_settings from anon;
+revoke insert, delete on public.doors_settings from authenticated;
 
 -- ── Doors opened ─────────────────────────────────────────────────────
 
@@ -440,7 +477,9 @@ begin
     'stepsToday', (select d.steps from public.daily_step_totals d where d.user_id = me and d.day = p_day),
     'waterMl', water_ml,
     'waterTargetMl', water_target,
-    'settled', c.score_settled_at is not null
+    'settled', c.score_settled_at is not null,
+    'bonusEvery', (select d.bonus_every from public.doors_settings d),
+    'finishBones', (select d.finish_bones from public.doors_settings d)
   );
 end;
 $$;
@@ -464,6 +503,7 @@ declare
   t text;
   target int;
   bonus int := 0;
+  cfg public.doors_settings;
   prize text;
   added int;
 begin
@@ -496,8 +536,9 @@ begin
 
   t := public.doors_task(p_challenge_id, no);
   target := case when t = 'steps' then public.doors_steps_target(me, p_day) end;
-  if no % 3 = 0 then
-    bonus := 5 + abs(hashtext(p_challenge_id::text || ':' || me::text || ':' || no)) % 6;
+  select * into cfg from public.doors_settings;
+  if no % cfg.bonus_every = 0 and cfg.bonus_max > 0 then
+    bonus := cfg.bonus_min + abs(hashtext(p_challenge_id::text || ':' || me::text || ':' || no)) % (cfg.bonus_max - cfg.bonus_min + 1);
   end if;
   if no = c.duration_days then
     prize := 'frame_doorbell';
@@ -677,6 +718,8 @@ begin
     'opens', (select count(*) from public.door_opens),
     'done', (select count(*) from public.door_opens o where o.done_at is not null),
     'prizes', (select count(*) from public.door_opens o where o.prize_id is not null),
+    'settings', (select jsonb_build_object('bonusEvery', d.bonus_every, 'bonusMin', d.bonus_min, 'bonusMax', d.bonus_max, 'finishBones', d.finish_bones)
+                 from public.doors_settings d),
     -- The last 14 days: doors opened and done each day.
     'days', coalesce((
       select jsonb_agg(jsonb_build_object('day', d.day, 'opened', d.opened, 'done', d.done) order by d.day desc)
@@ -1118,8 +1161,9 @@ begin
     from ranked;
 
   elsif c.kind = 'doors' then
-    -- Most points wins, placed like a Step Race. Every door's day is
-    -- past by now, so each is counted as done, opened or missed.
+    -- Most points wins, placed like a Step Race, and everyone gets the
+    -- Bones for finishing. Every door's day is past by now, so each is
+    -- counted as done, opened or missed.
     with ranked as (
       select b.user_id, rank() over (order by s.points desc, s.done desc) as rnk
       from public.challenge_participants b
@@ -1130,7 +1174,8 @@ begin
     select user_id, p_challenge_id, 'doors_result',
       case rnk when 1 then 50 when 2 then 25 when 3 then 15 else 5 end,
       25,
-      bones_trickle
+      -- Everyone gets Admin's Bones for finishing, on top of the trickle.
+      bones_trickle + coalesce((select d.finish_bones from public.doors_settings d), 25)
     from ranked;
 
   else

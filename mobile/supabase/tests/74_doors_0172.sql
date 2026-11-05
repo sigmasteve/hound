@@ -3,7 +3,7 @@
 -- tasks marked done as the evidence lands or already there, points and
 -- the run with its weekly free miss, the board, settling, publishing,
 -- and the admin overview.
-select plan(40);
+select plan(43);
 
 select tests.new_user('Ann', true) as ann \gset
 select tests.new_user('Bob') as bob \gset
@@ -109,6 +109,18 @@ select isnt((select done_at from public.door_opens where user_id = :'bob' and ch
 select is((select points from public.doors_points('00000000-0000-0000-0000-0000000000d1', :'bob', :'today')), 3, 'Opened and done: 3 points');
 select is((select place from public.doors_board('00000000-0000-0000-0000-0000000000d1') where user_id = :'bob'), 1::bigint, 'Bob leads the board');
 
+-- Admin's settings: only an admin changes them.
+select tests.sign_in(:'bob');
+set local role authenticated;
+update public.doors_settings set bonus_min = 500, bonus_max = 500 where id;
+reset role;
+select is((select bonus_max from public.doors_settings), 10, 'A member can''t change the Daily Doors settings');
+select tests.sign_in(:'ann');
+set local role authenticated;
+update public.doors_settings set bonus_min = 7, bonus_max = 7, finish_bones = 40 where id;
+reset role;
+select is((select row(bonus_every, bonus_min, bonus_max, finish_bones)::text from public.doors_settings), '(3,7,7,40)', 'An admin can');
+
 -- Already done before opening; every third door's Bones.
 select tests.do_task(:'bob', public.doors_task('00000000-0000-0000-0000-0000000000d2', 3), :'today', public.doors_steps_target(:'bob', :'today'));
 select bones_balance as before from public.profiles where id = :'bob' \gset
@@ -118,8 +130,8 @@ select lives_ok($$select public.doors_open('00000000-0000-0000-0000-0000000000d2
 reset role;
 select isnt((select done_at from public.door_opens where user_id = :'bob' and challenge_id = '00000000-0000-0000-0000-0000000000d2'), null,
   'A task already done counts straight away');
-select ok((select bonus_bones between 5 and 10 from public.door_opens where user_id = :'bob' and challenge_id = '00000000-0000-0000-0000-0000000000d2'),
-  'Door 3 has 5 to 10 Bones behind it');
+select is((select bonus_bones from public.door_opens where user_id = :'bob' and challenge_id = '00000000-0000-0000-0000-0000000000d2'), 7,
+  'Door 3 has Admin''s Bones behind it');
 select is((select bones_balance from public.profiles where id = :'bob'),
   :before + (select bonus_bones from public.door_opens where user_id = :'bob' and challenge_id = '00000000-0000-0000-0000-0000000000d2'),
   'paid on opening');
@@ -151,6 +163,8 @@ select is((select score_points from public.activity_events where challenge_id = 
   50, 'First place: 50');
 select is((select score_points from public.activity_events where challenge_id = '00000000-0000-0000-0000-0000000000d4' and user_id = :'bob' and kind = 'doors_result'),
   25, 'Second: 25');
+select is((select bones_points from public.activity_events where challenge_id = '00000000-0000-0000-0000-0000000000d4' and user_id = :'bob' and kind = 'doors_result'),
+  45, 'and everyone gets Admin''s Bones for finishing, on top of the usual 5');
 
 -- A steps door done on the phone's own count: d5 starts so today's door
 -- is its first steps door.

@@ -34,6 +34,10 @@ export interface DoorsGame {
   waterMl: number;
   waterTargetMl: number;
   settled: boolean;
+  // Admin's numbers (doors_settings): Bones behind every Nth door, and
+  // for everyone when it's over.
+  bonusEvery: number;
+  finishBones: number;
 }
 
 function fromServer(j: any): DoorsGame {
@@ -61,6 +65,8 @@ function fromServer(j: any): DoorsGame {
     waterMl: j.waterMl ?? 0,
     waterTargetMl: j.waterTargetMl ?? 1893,
     settled: !!j.settled,
+    bonusEvery: j.bonusEvery ?? 3,
+    finishBones: j.finishBones ?? 25,
   };
 }
 
@@ -104,6 +110,7 @@ export interface DoorsAdminOverview {
   opens: number;
   done: number;
   prizes: number;
+  settings: DoorsSettings;
   days: { day: string; opened: number; done: number }[];
   tasks: { task: DoorTaskKind; opened: number; done: number }[];
   games: { name: string; players: number; door: number; doors: number; openedToday: number; doneToday: number }[];
@@ -124,4 +131,30 @@ export function doorsHeadline(name: string, game: DoorsGame | null): string {
   if (d.state === 'ready') return `${name}: Door ${d.no} is open. Knock knock!`;
   if (d.state === 'done') return `${name}: Door ${d.no} done${standing}`;
   return `${name}: Door ${d.no}, ${d.task ? taskShort(d.task).toLowerCase() : 'its task'} by midnight${standing}`;
+}
+
+// Admin → Daily Doors: which doors have Bones behind them (every Nth, a
+// random amount from low to high) and the Bones everyone gets when it's
+// over. The table's own policy lets only admins change them.
+export interface DoorsSettings {
+  bonusEvery: number;
+  bonusMin: number;
+  bonusMax: number;
+  finishBones: number;
+}
+
+export async function setDoorsSettings(s: DoorsSettings): Promise<void> {
+  const { data, error } = await requireClient()
+    .from('doors_settings')
+    .update({
+      bonus_every: s.bonusEvery,
+      bonus_min: s.bonusMin,
+      bonus_max: s.bonusMax,
+      finish_bones: s.finishBones,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', true)
+    .select('id');
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error('Only an admin can change these.');
 }

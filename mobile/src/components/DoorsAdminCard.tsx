@@ -3,9 +3,11 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Text } from './Text';
 import { Card } from './Card';
+import { Button } from './Button';
+import { TextField } from './TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { getDoorsAdminOverview, type DoorsAdminOverview } from '../challenges/doorsApi';
+import { getDoorsAdminOverview, setDoorsSettings, type DoorsAdminOverview } from '../challenges/doorsApi';
 import type { DoorTaskKind } from '../challenges/doors';
 
 const TASK_NAMES: Record<DoorTaskKind, string> = {
@@ -29,6 +31,13 @@ export function DoorsAdminCard() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [data, setData] = useState<DoorsAdminOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The settings, as typed.
+  const [every, setEvery] = useState('');
+  const [low, setLow] = useState('');
+  const [high, setHigh] = useState('');
+  const [finish, setFinish] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveNote, setSaveNote] = useState<{ ok: boolean; text: string } | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,6 +45,10 @@ export function DoorsAdminCard() {
         .then((d) => {
           setData(d);
           setError(null);
+          setEvery(String(d.settings.bonusEvery));
+          setLow(String(d.settings.bonusMin));
+          setHigh(String(d.settings.bonusMax));
+          setFinish(String(d.settings.finishBones));
         })
         .catch((e) =>
           setError(
@@ -48,6 +61,37 @@ export function DoorsAdminCard() {
         );
     }, []),
   );
+
+  const save = async () => {
+    const n = [every, low, high, finish].map(Number);
+    const [e, lo, hi, fin] = n;
+    if (n.some((x) => !Number.isInteger(x) || x < 0)) {
+      setSaveNote({ ok: false, text: 'Whole numbers only.' });
+      return;
+    }
+    if (e < 1 || e > 30) {
+      setSaveNote({ ok: false, text: 'Bones go behind every 1st to every 30th door.' });
+      return;
+    }
+    if (lo > hi || hi > 500) {
+      setSaveNote({ ok: false, text: 'The low amount can’t be over the high one, and the high one is at most 500.' });
+      return;
+    }
+    if (fin > 1000) {
+      setSaveNote({ ok: false, text: 'Bones for finishing is at most 1,000.' });
+      return;
+    }
+    setSaving(true);
+    setSaveNote(null);
+    try {
+      await setDoorsSettings({ bonusEvery: e, bonusMin: lo, bonusMax: hi, finishBones: fin });
+      setSaveNote({ ok: true, text: 'Saved. Doors opened from now on use these.' });
+    } catch (err) {
+      setSaveNote({ ok: false, text: err instanceof Error ? err.message : 'Could not save.' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const rows: [string, string][] = data
     ? [
@@ -82,12 +126,35 @@ export function DoorsAdminCard() {
       ) : !data ? (
         <ActivityIndicator color={colors.accent} />
       ) : (
-        rows.map(([label, value]) => (
-          <View key={label} style={styles.row}>
-            <Text style={styles.label}>{label}</Text>
-            <Text style={styles.value}>{value}</Text>
+        <>
+          {rows.map(([label, value]) => (
+            <View key={label} style={styles.row}>
+              <Text style={styles.label}>{label}</Text>
+              <Text style={styles.value}>{value}</Text>
+            </View>
+          ))}
+          <View style={[styles.row, { gap: 10 }]}>
+            <Text style={text.h4}>Bones</Text>
+            <Text style={styles.footNote}>
+              Behind every Nth door, a random amount from low to high, paid when it&rsquo;s opened. Then Bones for everyone in it when it
+              ends, whatever their place (on top of the usual 5). Changes count from the next door opened.
+            </Text>
+            <View style={styles.fields}>
+              <View style={styles.field}>
+                <TextField label="Every Nth door" value={every} onChangeText={(v) => { setEvery(v); setSaveNote(null); }} keyboardType="number-pad" maxLength={2} />
+              </View>
+              <View style={styles.field}>
+                <TextField label="Low" value={low} onChangeText={(v) => { setLow(v); setSaveNote(null); }} keyboardType="number-pad" maxLength={3} />
+              </View>
+              <View style={styles.field}>
+                <TextField label="High" value={high} onChangeText={(v) => { setHigh(v); setSaveNote(null); }} keyboardType="number-pad" maxLength={3} />
+              </View>
+            </View>
+            <TextField label="Bones for finishing" value={finish} onChangeText={(v) => { setFinish(v); setSaveNote(null); }} keyboardType="number-pad" maxLength={4} />
+            {saveNote && <Text style={saveNote.ok ? styles.saved : styles.loadError}>{saveNote.text}</Text>}
+            <Button label={saving ? 'Saving…' : 'Save'} variant="primary" disabled={saving} onPress={save} />
           </View>
-        ))
+        </>
       )}
     </Card>
   );
@@ -105,5 +172,8 @@ function makeStyles(colors: Palette) {
     },
     label: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
     value: { fontFamily: font.heading, fontSize: 15, color: colors.text },
+    fields: { flexDirection: 'row', gap: 8 },
+    field: { flex: 1 },
+    saved: { fontSize: 12.5, color: colors.green },
   });
 }
