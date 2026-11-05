@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Expo inlines EXPO_PUBLIC_* env vars into the JS bundle at build time (see
@@ -34,6 +35,36 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
       global: { headers: { 'x-hound-features': 'hound-bingo' } },
     })
   : null;
+
+// Keep the sign-in fresh only while Hound is on screen, as Supabase asks
+// of phone apps: refreshing stops in the background and starts again on
+// the way back, so the token is renewed as soon as the app is open again
+// rather than on the first request after a long sleep.
+if (supabase) {
+  const client = supabase;
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active') client.auth.startAutoRefresh();
+    else client.auth.stopAutoRefresh();
+  });
+}
+
+// When the stored sign-in can't be refreshed (say, a weak signal as the
+// app wakes up), supabase-js sends the request as signed out, and the
+// server refuses it with a row-level security error even though Hound
+// still shows you as signed in. This runs a write, and on that error
+// refreshes the sign-in and tries once more; if there's still no
+// sign-in, it says so plainly.
+export async function withFreshSession<T extends { error: { code?: string; message: string } | null }>(
+  run: () => PromiseLike<T>,
+): Promise<T> {
+  const first = await run();
+  if (!supabase || first.error?.code !== '42501') return first;
+  const { data } = await supabase.auth.refreshSession();
+  if (!data.session) {
+    return { ...first, error: { ...first.error, message: 'Your sign-in has run out. Sign out and back in, then try again.' } };
+  }
+  return run();
+}
 
 // The signed-in user's id, from the session already stored on the phone.
 // auth.getUser() asks the server every time, and Today's load calls this
