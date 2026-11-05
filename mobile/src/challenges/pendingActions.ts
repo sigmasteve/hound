@@ -12,6 +12,7 @@ export type PendingActionKind =
   | 'checklistToday'
   | 'houndopolyDecide'
   | 'doorsKnock'
+  | 'packsVote'
   | 'logProgress';
 
 export interface PendingAction {
@@ -36,6 +37,7 @@ export function needsManualEntry(challenge: Challenge): boolean {
     challenge.kind !== 'checklist' &&
     challenge.kind !== 'houndopoly' &&
     challenge.kind !== 'doors' &&
+    challenge.kind !== 'packs' &&
     challenge.kind !== 'soccer' &&
     challenge.kind !== 'cricket' &&
     challenge.kind !== 'baseball'
@@ -72,6 +74,8 @@ export interface PendingActionsInput {
   houndopolyPending: Set<string>;
   // Daily Doors where today's door is still shut (0172).
   doorsShut?: Set<string>;
+  // Pack Wars where the caller hasn't voted today (0174).
+  packsUnvoted?: Set<string>;
   // Whether the caller has logged anything today — only meaningful for
   // challenges needsManualEntry() considers manual-entry kinds.
   loggedProgressToday: Map<string, boolean>;
@@ -94,6 +98,7 @@ export function computePendingActions({
   checklistTodayComplete,
   houndopolyPending,
   doorsShut = new Set(),
+  packsUnvoted = new Set(),
   loggedProgressToday,
 }: PendingActionsInput): PendingAction[] {
   const actions: PendingAction[] = [];
@@ -161,6 +166,15 @@ export function computePendingActions({
           challengeName: c.name,
           kind: 'houndopolyDecide',
           label: `Buy or pass on the square you landed on in ${c.name}`,
+        });
+      }
+    } else if (c.kind === 'packs') {
+      if (packsUnvoted.has(c.id)) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'packsVote',
+          label: `Vote your pack's march in ${c.name}`,
         });
       }
     } else if (c.kind === 'doors') {

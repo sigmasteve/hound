@@ -76,7 +76,8 @@ export type ChallengeKind =
   | 'soccer'
   | 'cricket'
   | 'baseball'
-  | 'doors';
+  | 'doors'
+  | 'packs';
 
 export interface ChallengeCard {
   id: string;
@@ -220,6 +221,14 @@ export const CHALLENGE_TYPES: {
     tint: '#6b2f2a',
     iconColor: '#f3d27a',
   },
+  // Global only (0174_pack_wars.sql), like Daily Doors.
+  {
+    id: 'packs',
+    name: 'Pack Wars',
+    desc: 'Four packs, one neighborhood map. Each day, vote where your pack marches; only members who vote add their steps. Overnight, the strongest pack takes the ground it marched on. Most ground at the end wins.',
+    tint: '#2f3f5a',
+    iconColor: '#c9d5e8',
+  },
   { id: 'journey', name: 'Journey', desc: 'Everyone walks the same famous course from the same start — Windy City 26.2, Route 66, the Appalachian Trail. Your walks, runs and hikes move you along the map. First to the end wins; if nobody gets there, furthest along does.', tint: '#2f5a3f', iconColor: '#cdebd6' },
 ];
 
@@ -236,7 +245,7 @@ export const CHALLENGE_TYPES: {
 // appear in the picker at all.
 export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
   { label: 'Races', kinds: ['steps', 'distance', 'journey'] },
-  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'rally', 'soccer', 'cricket', 'baseball', 'bingo', 'houndopoly'] },
+  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'rally', 'soccer', 'cricket', 'baseball', 'bingo', 'houndopoly', 'packs'] },
   { label: 'Habits', kinds: ['streak', 'seventyfive', 'checklist'] },
 ];
 

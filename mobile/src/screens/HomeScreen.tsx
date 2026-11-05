@@ -92,6 +92,7 @@ import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
 import { isMyChecklistTodayComplete } from '../challenges/checklistApi';
 import { advanceHoundopoly, getHoundopolyGame, listMyHoundopolyPending } from '../challenges/houndopolyApi';
 import { doorsHeadline, getDoors, todaysDoor, type DoorsGame } from '../challenges/doorsApi';
+import { getPackWars, packDayNo, packWarsHeadline, type PackWarsGame } from '../challenges/packWarsApi';
 import { diceFor, netWorth as houndopolyNetWorth, nextTurn as houndopolyNextTurn, squareAt, type HoundopolyGame } from '../challenges/houndopoly';
 import { challengeDayNumber, getChallengeDays, localDayKey } from '../challenges/challengeDays';
 import { computeStreakStatus, type StreakStatus } from '../challenges/streak';
@@ -430,6 +431,7 @@ function heroCopy(
   cricket: { game: CricketGame | null; onStrike: CricketOnStrike | null } = { game: null, onStrike: null },
   baseball: BaseballGame | null = null,
   doorsGame: DoorsGame | null = null,
+  packGame: PackWarsGame | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -482,6 +484,9 @@ function heroCopy(
   }
   if (challenge.kind === 'doors') {
     return { eyebrow, headline: doorsHeadline(challenge.name, doorsGame) };
+  }
+  if (challenge.kind === 'packs') {
+    return { eyebrow, headline: packWarsHeadline(challenge.name, packGame) };
   }
   if (challenge.kind === 'houndopoly') {
     return { eyebrow, headline: houndopolyHeadline(challenge.name, houndopolyGame, userId, isChallengeFinished(challenge, board)) };
@@ -1012,6 +1017,7 @@ export function HomeScreen({
   const [primaryHoundopoly, setPrimaryHoundopoly] = useState<HoundopolyGame | null>(null);
   // Every active Daily Doors, for Needs you and the pinned challenge's line.
   const [doorsGames, setDoorsGames] = useState<Map<string, DoorsGame>>(new Map());
+  const [packGames, setPackGames] = useState<Map<string, PackWarsGame>>(new Map());
   // Only populated when `primary` is a Cricket match.
   // Only populated when `primary` is a Baseball game.
   const [primaryBaseball, setPrimaryBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[] }>({ game: null, innings: [] });
@@ -1821,7 +1827,7 @@ export function HomeScreen({
       const activeResults = results.filter((r) => !r.finished);
       if (user?.id) {
         const myId = user.id;
-        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries] = await Promise.all([
+        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries] = await Promise.all([
           Promise.all(
             activeResults
               .filter((r) => r.challenge.kind === 'tag')
@@ -1893,7 +1899,14 @@ export function HomeScreen({
               .filter((r) => r.challenge.kind === 'doors')
               .map(async (r): Promise<readonly [string, DoorsGame | null]> => [r.challenge.id, await getDoors(r.challenge.id).catch(() => null)]),
           ),
+          // Pack Wars: each game (fails toward nothing waiting).
+          Promise.all(
+            activeResults
+              .filter((r) => r.challenge.kind === 'packs')
+              .map(async (r): Promise<readonly [string, PackWarsGame | null]> => [r.challenge.id, await getPackWars(r.challenge.id).catch(() => null)]),
+          ),
         ]);
+        const packMap = new Map(packEntries.filter((e): e is readonly [string, PackWarsGame] => e[1] !== null));
         const doorsMap = new Map(doorsEntries.filter((e): e is readonly [string, DoorsGame] => e[1] !== null));
         if (!cancelled) {
           const actions = computePendingActions({
@@ -1907,9 +1920,11 @@ export function HomeScreen({
             checklistTodayComplete: new Map(checklistEntries),
             houndopolyPending,
             doorsShut: new Set([...doorsMap].filter(([, g]) => todaysDoor(g)?.state === 'ready').map(([id]) => id)),
+            packsUnvoted: new Set([...packMap].filter(([, g]) => !g.settled && packDayNo(g) != null && g.myVote == null).map(([id]) => id)),
             loggedProgressToday: new Map(manualEntries),
           });
           setDoorsGames(doorsMap);
+          setPackGames(packMap);
           setPendingActions(actions);
           // Tonight's local "still on your list" reminder tracks this same
           // list — rescheduled (or cancelled once it's empty) on every
@@ -1974,6 +1989,7 @@ export function HomeScreen({
         primaryCricket,
         primaryBaseball.game,
         doorsGames.get(primary.challenge.id) ?? null,
+        packGames.get(primary.challenge.id) ?? null,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone

@@ -186,6 +186,8 @@ import { HoundopolySection } from '../components/HoundopolySection';
 import { DoorsCard } from '../components/DoorsCard';
 import { claimDoorSteps, getDoors, openDoor, todaysDoor, type DoorsGame } from '../challenges/doorsApi';
 import { getKennel } from '../kennel/kennelApi';
+import { PackWarsCard } from '../components/PackWarsCard';
+import { claimPackSteps, getPackWars, packDayNo, votePackMarch, type PackWarsGame } from '../challenges/packWarsApi';
 import {
   listSeventyFiveCheckins,
   listSeventyFiveJoinDates,
@@ -428,6 +430,9 @@ export function ChallengeDetailScreen({
   // Daily Doors (0172): the calendar, and the hound's name for its tasks.
   const [doors, setDoors] = useState<DoorsGame | null>(null);
   const [houndName, setHoundName] = useState('your hound');
+  // Pack Wars (0174): the map, and a vote on its way.
+  const [packWars, setPackWars] = useState<PackWarsGame | null>(null);
+  const [packVoting, setPackVoting] = useState(false);
   // Your own line, as being typed; null while not editing.
   const [personalDraft, setPersonalDraft] = useState<string | null>(null);
   const [savingPersonal, setSavingPersonal] = useState(false);
@@ -923,6 +928,37 @@ export function ChallengeDetailScreen({
       .then((marked) => (marked ? loadDoors() : undefined))
       .catch(() => {});
   }, [doors, houndopolySteps, challengeId, loadDoors]);
+  // Pack Wars: the map, and today's steps on today's vote.
+  const loadPackWars = useCallback(async () => {
+    try {
+      setPackWars(await getPackWars(challengeId));
+    } catch {
+      // Not joined yet, or offline: the card waits.
+    }
+  }, [challengeId]);
+  useEffect(() => {
+    if (challenge?.kind !== 'packs') return;
+    loadPackWars();
+    health
+      .getSnapshot()
+      .then((s) => setHoundopolySteps(s.stepsToday))
+      .catch(() => {});
+  }, [challenge?.kind, challenge?.id, loadPackWars, health]);
+  useEffect(() => {
+    if (!packWars || packWars.myVote == null || houndopolySteps == null || packDayNo(packWars) == null) return;
+    claimPackSteps(challengeId, houndopolySteps).catch(() => {});
+  }, [packWars, houndopolySteps, challengeId]);
+  const votePack = async (target: number) => {
+    setPackVoting(true);
+    try {
+      setPackWars(await votePackMarch(challengeId, target));
+    } catch (e) {
+      Alert.alert('Couldn’t vote', e instanceof Error ? e.message : 'Try again in a moment.');
+    } finally {
+      setPackVoting(false);
+    }
+  };
+
   const knockDoor = async (): Promise<boolean> => {
     try {
       setDoors(await openDoor(challengeId));
@@ -2479,6 +2515,10 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
+          {challenge.kind === 'packs' && packWars && (
+            <PackWarsCard name={challenge.name} game={packWars} voting={packVoting} onVote={votePack} />
+          )}
+
           {challenge.kind === 'doors' && doors && (
             <DoorsCard
               name={challenge.name}
@@ -2630,7 +2670,7 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
-          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && (
+          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && (
             <Card style={{ gap: 12 }} elevated={false}>
               <View style={styles.leaderboardHeader}>
                 <TrophyIcon size={16} color={colors.accent} />
@@ -2878,7 +2918,8 @@ export function ChallengeDetailScreen({
             challenge.kind !== 'seventyfive' &&
             challenge.kind !== 'checklist' &&
             challenge.kind !== 'houndopoly' &&
-            challenge.kind !== 'doors' && (
+            challenge.kind !== 'doors' &&
+            challenge.kind !== 'packs' && (
             <Card style={{ gap: 14 }} elevated={false}>
               <Text style={text.h4}>Log your progress</Text>
               <Text style={styles.footNote}>

@@ -169,6 +169,20 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'packs',
+      section: 'challenges',
+      title: 'Pack Wars: take the neighborhood',
+      summary: 'Your pack, the daily vote, and how ground changes hands.',
+      steps: [
+        'A Global Hound Challenge for 7 to 30 days. When you join, you’re put in one of four packs, Wolves, Golden Retrievers, Border Collies or Beagles, keeping them even.',
+        'Each pack starts on a corner of the neighborhood map. Each day, vote where your pack marches: tap a dashed territory next to your ground, or Hold to defend.',
+        'Only members who vote add their steps that day, and your pack’s strength is those steps shared over the whole pack. So every vote counts.',
+        'Overnight, your pack marches where most of you voted. It takes the territory if it’s the strongest pack there and beats the owner’s defence: all of the owner’s strength if they held, half if they marched elsewhere.',
+        'Steps count from your phone and Health, the same as everywhere in Hound.',
+        'Most ground at the end wins. Everyone in the winning pack gets Bones, and everyone else gets a few for taking part.',
+      ],
+    },
+    {
       id: 'doors',
       section: 'challenges',
       title: 'Daily Doors: a door a day',

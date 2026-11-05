@@ -161,6 +161,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   houndopoly: 'Buy the squares your steps land you on. Richest wins.',
   journey: 'Same course, same start. First to the end wins.',
   doors: 'A door a day: open it, then do what’s behind it.',
+  packs: 'Four packs, one map. Vote your march; take the most ground.',
 };
 
 // A Journey's default run: about two miles a day, at least three days,
@@ -464,6 +465,7 @@ export function CreateScreen({
     if (draftType === 'seventyfive') setLength('75');
     if (draftType === 'checklist') setLength(String(DEFAULT_CHECKLIST_DAYS));
     if (draftType === 'houndopoly') setLength(String(DEFAULT_HOUNDOPOLY_DAYS));
+    if (draftType === 'packs') setLength('14');
     if (draftType === 'rally') setLength(String(DEFAULT_RALLY_DAYS));
     if (draftType === 'soccer') setLength(String(DEFAULT_SOCCER_DAYS));
     if (draftType === 'cricket') setLength(String(DEFAULT_CRICKET_DAYS));
@@ -909,7 +911,8 @@ export function CreateScreen({
               draftType === 'tictacgo' ||
               draftType === 'seventyfive' ||
               draftType === 'checklist' ||
-              draftType === 'houndopoly'
+              draftType === 'houndopoly' ||
+              draftType === 'packs'
             ? []
             : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
       const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
@@ -1123,7 +1126,13 @@ export function CreateScreen({
             <View key={group.label || i} style={{ gap: 10 }}>
               {!!group.label && <Text style={styles.groupLabel}>{group.label}</Text>}
               <View style={{ gap: 10 }}>
-                {group.kinds.filter((k) => !crowd || GLOBAL_KINDS.includes(k)).map((kindId) => {
+                {group.kinds
+                  .filter((k) => !crowd || GLOBAL_KINDS.includes(k))
+                  // Pack Wars: invite-only games for admins while it's
+                  // tested (global ones come from the templates above);
+                  // never a community challenge.
+                  .filter((k) => k !== 'packs' || (!!user?.isAdmin && !community))
+                  .map((kindId) => {
                   const t = CHALLENGE_TYPES.find((ct) => ct.id === kindId);
                   if (!t) return null;
                   const unlockBones = unlockGates[t.id];
@@ -1292,13 +1301,21 @@ export function CreateScreen({
             />
             <Slider
               // A Hound'opoly game needs a week to go anywhere.
-              minimumValue={community ? (draftType === 'seventyfive' ? 75 : Math.max(3, draftType === 'houndopoly' ? 7 : 3)) : draftType === 'houndopoly' ? 7 : 1}
+              minimumValue={
+                community
+                  ? draftType === 'seventyfive'
+                    ? 75
+                    : Math.max(3, draftType === 'houndopoly' ? 7 : 3)
+                  : draftType === 'houndopoly' || draftType === 'packs'
+                    ? 7
+                    : 1
+              }
               // Every other kind keeps its existing 45-day ceiling
               // unchanged — only 75 Day Challenge needs to reach past it,
               // since its own default (seeded below) is 75.
               maximumValue={
                 // A community challenge runs 3 to 30 days (75 Day: 75).
-                community
+                community || draftType === 'packs'
                   ? draftType === 'seventyfive'
                     ? 75
                     : 30
@@ -2110,7 +2127,8 @@ export function CreateScreen({
             draftType !== 'baseball' &&
             draftType !== 'seventyfive' &&
             draftType !== 'checklist' &&
-            draftType !== 'houndopoly' && (
+            draftType !== 'houndopoly' &&
+            draftType !== 'packs' && (
             <>
               <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>
               <Text style={styles.footNote}>
