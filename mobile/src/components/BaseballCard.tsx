@@ -5,6 +5,8 @@ import { PauseIcon, PlayIcon } from 'phosphor-react-native';
 import { Text } from './Text';
 import { Avatar } from './Avatar';
 import { Card } from './Card';
+import { DayCard, groupLines } from './DayCard';
+import { PickRow } from './PickRow';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import type { Participant } from '../challenges/types';
@@ -340,6 +342,7 @@ export function BaseballCard({
   participants,
   userId,
   stepsToday,
+  onShowField,
 }: {
   game: BaseballGame | null;
   innings: BaseballInning[];
@@ -349,6 +352,8 @@ export function BaseballCard({
   participants: FieldPerson[];
   userId: string | undefined;
   stepsToday: number | null;
+  // A replay started from a card further down: bring the field into view.
+  onShowField?: (field: View | null) => void;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -356,27 +361,48 @@ export function BaseballCard({
   const [step, setStep] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // The report shows the last three innings until asked for the rest.
+  const [allInnings, setAllInnings] = useState(false);
 
-  // Last night's plays, for the replay and the report.
-  const lastDay = plays.length ? plays[plays.length - 1].day : null;
-  const night = useMemo(() => plays.filter((p) => p.day === lastDay), [plays, lastDay]);
+  // The inning being replayed: any inning, from its card in the report;
+  // the last one played until then.
+  const lastInning = plays.length ? plays[plays.length - 1].inning : null;
+  const [replayInning, setReplayInning] = useState<number | null>(null);
+  const showInning = replayInning ?? lastInning;
+  const night = useMemo(() => plays.filter((p) => p.inning === showInning), [plays, showInning]);
+  // Bumped to start a replay over, even of the same inning.
+  const [replayGo, setReplayGo] = useState(0);
+  const fieldRef = useRef<View>(null);
+  const startReplay = (inning: number) => {
+    setReplayInning(inning);
+    setStep(null);
+    setPlaying(true);
+    setReplayGo((g) => g + 1);
+    onShowField?.(fieldRef.current);
+  };
+  const stopReplay = () => {
+    setPlaying(false);
+    setStep(null);
+    setReplayInning(null);
+  };
 
   useEffect(() => {
     if (!playing) return;
-    timer.current = setInterval(() => {
+    const next = () =>
       setStep((s) => {
-        const next = (s ?? -1) + 1;
-        if (next >= night.length) {
+        const n = (s ?? -1) + 1;
+        if (n >= night.length) {
           setPlaying(false);
           return night.length - 1;
         }
-        return next;
+        return n;
       });
-    }, 1400);
+    next();
+    timer.current = setInterval(next, 1400);
     return () => {
       if (timer.current) clearInterval(timer.current);
     };
-  }, [playing, night.length]);
+  }, [playing, night.length, replayGo]);
 
   if (!game) {
     return (
@@ -391,10 +417,11 @@ export function BaseballCard({
     id === userId ? 'You' : (participants.find((p) => p.userId === id)?.name ?? (game.players.find((p) => p.playerId === id)?.botId ? 'Bot' : 'Someone'));
   const me = game.players.find((p) => p.playerId === userId);
   const myTeam = me?.team ?? null;
+  const ourTeam = myTeam ?? awayTeam(game);
   const iCatch = !!me?.positions.includes('c');
   const iPitch = !!me?.positions.includes('p');
-  const mySteps = stepsToday == null ? 'your steps so far' : formatSteps(stepsToday);
   const done = game.inning - 1;
+  const waiting = game.players.filter((p) => !p.joined).length;
   const showing = step != null ? night[step] : null;
   const moment: FieldMoment = showing
     ? {
@@ -423,6 +450,27 @@ export function BaseballCard({
     }
   };
 
+  // "The 4th inning · Pitcher, catcher · bats 3rd · 4,210 steps today"
+  const statusLine = () => {
+    if (!me) return '';
+    const where = done === 0 ? 'First pitch tomorrow morning' : `The ${inningLabel(game.inning, game.innings)} inning`;
+    const roles = me.positions.map((x) => POSITION_NAMES[x]).join(', ') || 'No position yet';
+    const steps = stepsToday == null ? 'steps loading' : `${formatSteps(stepsToday)} today`;
+    return `${where} · ${roles} · bats ${ordinal(me.seat)} · ${steps}`;
+  };
+  // Your picks, short, for the row: "Swinging left · shift right · stealing"
+  const anyPick = !!(picks.aim || (iCatch && picks.shift) || (iPitch && picks.approach) || picks.steal);
+  const shortPicks = () => {
+    if (!anyPick) return 'No picks yet';
+    const out: string[] = [];
+    if (picks.aim) out.push(`Swinging ${ZONE_NAMES[picks.aim].toLowerCase()}`);
+    if (iCatch && picks.shift) out.push(`shift ${ZONE_NAMES[picks.shift].toLowerCase()}`);
+    if (iPitch && picks.approach) out.push(picks.approach === 'power' ? 'pitching power' : 'pitching finesse');
+    if (picks.steal) out.push('stealing');
+    const line = out.join(' · ');
+    return line.charAt(0).toUpperCase() + line.slice(1);
+  };
+
   // The box score: each batter's line over the whole game.
   const box = new Map<string, { ab: number; h: number; hr: number; rbi: number; bb: number; k: number; team: BaseballTeam }>();
   for (const p of plays) {
@@ -437,6 +485,10 @@ export function BaseballCard({
     box.set(p.batterId, r);
   }
 
+  // The innings played, newest first, for the report.
+  const played = [...innings].filter((i) => plays.some((p) => p.inning === i.inning)).sort((a, b) => b.inning - a.inning);
+  const playerOf = (p: BaseballPlay) => (p.kind === 'out_at_home' || p.kind === 'stolen_base' || p.kind === 'caught_stealing' ? p.runnerId : p.batterId);
+
   return (
     <Card style={{ gap: 12 }} elevated={false}>
       <View style={{ gap: 2 }}>
@@ -448,143 +500,189 @@ export function BaseballCard({
 
       <BaseballLineScore game={game} innings={innings} people={participants} userId={userId} />
 
-      <BaseballField
-        game={game}
-        people={participants}
-        userId={userId}
-        moment={moment}
-        litZone={showing ? showing.aim : game.status === 'active' ? picks.aim : null}
-        onZone={game.status === 'active' && me?.joined && !showing ? (z) => pick('aim', picks.aim === z ? null : z) : undefined}
-      />
+      <View ref={fieldRef} collapsable={false}>
+        <BaseballField
+          game={game}
+          people={participants}
+          userId={userId}
+          moment={moment}
+          litZone={showing ? showing.aim : game.status === 'active' ? picks.aim : null}
+          onZone={game.status === 'active' && me?.joined && !showing ? (z) => pick('aim', picks.aim === z ? null : z) : undefined}
+        />
+      </View>
 
       {showing && (
         <View style={styles.playNow}>
           <Text style={styles.playNowHead}>
-            {showing.half === 'top' ? 'Top' : 'Bottom'} of the {inningLabel(showing.inning, game.innings)} · {showing.outs} out
+            {showing.half === 'top' ? 'Top' : 'Bottom'} of the {inningLabel(showing.inning, game.innings)} · {showing.outs} out · play {(step ?? 0) + 1} of {night.length}
           </Text>
           <Text style={styles.playNowText}>
-            {nameOf(showing.kind === 'out_at_home' || showing.kind === 'stolen_base' || showing.kind === 'caught_stealing' ? showing.runnerId : showing.batterId)}{' '}
-            {playWords(showing.kind, showing.fielderPos, showing.aim, showing.lateThrow, showing.runs, seedOf(showing.id))}
+            {nameOf(playerOf(showing))} {playWords(showing.kind, showing.fielderPos, showing.aim, showing.lateThrow, showing.runs, seedOf(showing.id))}
           </Text>
         </View>
       )}
 
-      {night.length > 0 && (
+      {step != null && (
         <View style={styles.replayRow}>
           <Pressable
             style={styles.replayBtn}
             onPress={() => {
               if (playing) setPlaying(false);
-              else {
-                if (step == null || step >= night.length - 1) setStep(-1);
-                setPlaying(true);
-              }
+              else if (showInning != null) startReplay(showInning);
             }}
             accessibilityRole="button"
           >
             {playing ? <PauseIcon size={14} color={colors.accent} weight="fill" /> : <PlayIcon size={14} color={colors.accent} weight="fill" />}
-            <Text style={styles.replayText}>{playing ? 'Pause' : step != null ? 'Replay again' : 'Replay last night'}</Text>
+            <Text style={styles.replayText}>{playing ? 'Pause' : 'Replay again'}</Text>
           </Pressable>
-          {step != null && (
-            <Pressable onPress={() => { setPlaying(false); setStep(null); }} hitSlop={8} accessibilityRole="button">
-              <Text style={styles.replayDone}>Back to today</Text>
-            </Pressable>
-          )}
+          <Pressable onPress={stopReplay} hitSlop={8} accessibilityRole="button">
+            <Text style={styles.replayDone}>Back to today</Text>
+          </Pressable>
         </View>
       )}
 
+      {/* Where things stand, in one line. */}
+      {me && game.status === 'active' && (
+        <Text style={styles.status}>
+          {statusLine()}
+          {waiting > 0 ? ` · ${waiting} haven’t joined` : ''}
+        </Text>
+      )}
+
       {game.status === 'active' && me?.joined && !showing && (
-        <View style={styles.today}>
-          <Text style={styles.todayTitle}>
-            Today · the {inningLabel(game.inning, game.innings)} inning, played tomorrow morning
-          </Text>
-          <Text style={styles.note}>
-            Your steps today count for every at-bat and play you're in. You have {mySteps}. Picks stay hidden from the other side until
-            it's played.
-          </Text>
-          <Text style={styles.pickLabel}>Aim your swing (or tap the field)</Text>
-          <View style={styles.pickRow}>
-            {ZONES.map((z) => (
-              <Pressable key={z} style={[styles.pickChip, picks.aim === z && styles.pickChipOn]} onPress={() => pick('aim', picks.aim === z ? null : z)} disabled={busy !== null}>
-                <Text style={[styles.pickText, picks.aim === z && styles.pickTextOn]}>{ZONE_NAMES[z]}</Text>
-              </Pressable>
-            ))}
-          </View>
-          {iCatch && (
+        <PickRow
+          title="Today’s picks"
+          value={shortPicks()}
+          picked={anyPick}
+          busy={busy !== null}
+          note={`For the ${inningLabel(game.inning, game.innings)}, played tomorrow morning`}
+          sheetTitle={`Picks for the ${inningLabel(game.inning, game.innings)}`}
+          sheetNote="Your steps today count for every at-bat and play you're in. Picks stay hidden from the other side until it's played."
+        >
+          {(close) => (
             <>
-              <Text style={styles.pickLabel}>Your call as catcher: shift the field</Text>
+              <Text style={styles.pickLabel}>Aim your swing (or tap the field)</Text>
               <View style={styles.pickRow}>
                 {ZONES.map((z) => (
-                  <Pressable key={z} style={[styles.pickChip, picks.shift === z && styles.pickChipOn]} onPress={() => pick('shift', picks.shift === z ? null : z)} disabled={busy !== null}>
-                    <Text style={[styles.pickText, picks.shift === z && styles.pickTextOn]}>{ZONE_NAMES[z]}</Text>
+                  <Pressable key={z} style={[styles.pickChip, picks.aim === z && styles.pickChipOn]} onPress={() => pick('aim', picks.aim === z ? null : z)} disabled={busy !== null}>
+                    <Text style={[styles.pickText, picks.aim === z && styles.pickTextOn]}>{ZONE_NAMES[z]}</Text>
                   </Pressable>
                 ))}
               </View>
-            </>
-          )}
-          {iPitch && (
-            <>
-              <Text style={styles.pickLabel}>How you pitch</Text>
-              <View style={styles.pickRow}>
-                {(['power', 'finesse'] as const).map((a) => (
-                  <Pressable key={a} style={[styles.pickChip, picks.approach === a && styles.pickChipOn]} onPress={() => pick('approach', picks.approach === a ? null : a)} disabled={busy !== null}>
-                    <Text style={[styles.pickText, picks.approach === a && styles.pickTextOn]}>{a === 'power' ? 'Power' : 'Finesse'}</Text>
-                  </Pressable>
-                ))}
+              {iCatch && (
+                <>
+                  <Text style={styles.pickLabel}>Your call as catcher: shift the field</Text>
+                  <View style={styles.pickRow}>
+                    {ZONES.map((z) => (
+                      <Pressable key={z} style={[styles.pickChip, picks.shift === z && styles.pickChipOn]} onPress={() => pick('shift', picks.shift === z ? null : z)} disabled={busy !== null}>
+                        <Text style={[styles.pickText, picks.shift === z && styles.pickTextOn]}>{ZONE_NAMES[z]}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              )}
+              {iPitch && (
+                <>
+                  <Text style={styles.pickLabel}>How you pitch</Text>
+                  <View style={styles.pickRow}>
+                    {(['power', 'finesse'] as const).map((a) => (
+                      <Pressable key={a} style={[styles.pickChip, picks.approach === a && styles.pickChipOn]} onPress={() => pick('approach', picks.approach === a ? null : a)} disabled={busy !== null}>
+                        <Text style={[styles.pickText, picks.approach === a && styles.pickTextOn]}>{a === 'power' ? 'Power' : 'Finesse'}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Text style={styles.meta}>Power: more strikeouts, harder contact. Finesse: softer contact, more walks.</Text>
+                </>
+              )}
+              <Pressable style={styles.stealRow} onPress={() => pick('steal', picks.steal ? 'off' : 'on')} disabled={busy !== null} accessibilityRole="switch" accessibilityState={{ checked: picks.steal }}>
+                <View style={[styles.toggle, picks.steal && styles.toggleOn]}>
+                  <View style={[styles.knob, picks.steal && styles.knobOn]} />
+                </View>
+                <Text style={styles.note}>Steal when you're on base (your steps against the catcher's)</Text>
+              </Pressable>
+              <View style={styles.doneRow}>
+                {busy ? <ActivityIndicator color={colors.accent} /> : <View />}
+                <Pressable onPress={close} style={styles.doneBtn} accessibilityRole="button">
+                  <Text style={styles.doneText}>Done</Text>
+                </Pressable>
               </View>
-              <Text style={styles.meta}>Power: more strikeouts, harder contact. Finesse: softer contact, more walks.</Text>
             </>
           )}
-          <Pressable style={[styles.stealRow]} onPress={() => pick('steal', picks.steal ? 'off' : 'on')} disabled={busy !== null} accessibilityRole="switch" accessibilityState={{ checked: picks.steal }}>
-            <View style={[styles.toggle, picks.steal && styles.toggleOn]}>
-              <View style={[styles.knob, picks.steal && styles.knobOn]} />
-            </View>
-            <Text style={styles.note}>Steal when you're on base (your steps against the catcher's)</Text>
-          </Pressable>
-          {busy && <ActivityIndicator color={colors.accent} />}
-        </View>
+        </PickRow>
       )}
 
       {game.status === 'final' && <Text style={styles.result}>{baseballResultLine(game, participants, userId)}</Text>}
       {game.status === 'active' && done === 0 && !me?.joined && <Text style={styles.note}>First pitch is tomorrow morning.</Text>}
 
-      {night.length > 0 && (
+      {played.length > 0 && (
         <View style={{ gap: 6 }}>
-          <Text style={styles.sectionTitle}>Last night · the {inningLabel(night[0].inning, game.innings)}</Text>
-          {(['top', 'bottom'] as const).map((half) => {
-            const rows = night.filter((p) => p.half === half);
-            if (rows.length === 0) return null;
+          <Text style={styles.sectionTitle}>Game report</Text>
+          {played.slice(0, allInnings ? undefined : 3).map((inn, i) => {
+            const rows = plays.filter((p) => p.inning === inn.inning);
+            const away = awayTeam(game);
+            const runsOf = (t: BaseballTeam) => (t === away ? inn.awayRuns : (inn.homeRuns ?? 0));
+            const hitsOf = (t: BaseballTeam) => (t === away ? inn.awayHits : (inn.homeHits ?? 0));
+            const them = otherTeam(ourTeam);
+            const side = (t: BaseballTeam) => `${runsOf(t)} run${runsOf(t) === 1 ? '' : 's'} on ${hitsOf(t)} hit${hitsOf(t) === 1 ? '' : 's'}`;
+            // Who brought runs in, and any home runs: the inning's headline.
+            const scored = (t: BaseballTeam) =>
+              groupLines(rows.filter((p) => p.battingTeam === t && p.runs > 0 && p.kind !== 'double_play').map((p) => `${nameOf(playerOf(p))} ${PLAY_SHORT[p.kind]}`)).join(', ');
+            const ours = scored(ourTeam);
+            const theirs = scored(them);
+            const summary = !ours && !theirs ? `No runs. Yours: ${hitsOf(ourTeam)} H · Theirs: ${hitsOf(them)} H` : `Yours: ${ours || 'none'} · Theirs: ${theirs || 'none'}`;
             return (
-              <View key={half} style={styles.half}>
-                <Text style={styles.halfHead}>
-                  {half === 'top' ? 'Top' : 'Bottom'} · {sideName(game, rows[0].battingTeam, participants, userId)} bat
+              <DayCard
+                key={inn.inning}
+                title={`The ${inningLabel(inn.inning, game.innings)}`}
+                score={`${runsOf(ourTeam)}–${runsOf(them)}`}
+                summary={summary}
+                defaultOpen={i === 0}
+                replaying={step != null && showInning === inn.inning}
+                onReplay={rows.length > 0 ? () => startReplay(inn.inning) : undefined}
+              >
+                <Text style={styles.playSteps}>
+                  Your side {side(ourTeam)} · theirs {side(them)}
                 </Text>
-                {rows.map((p) => (
-                  <View key={p.id} style={styles.playRow}>
-                    <View style={[styles.chip, chipStyle(p, styles)]}>
-                      <Text style={[styles.chipText, (p.kind === 'home_run' || p.runs > 0) && styles.chipTextBig]}>{PLAY_SHORT[p.kind]}</Text>
+                {(['top', 'bottom'] as const).map((half) => {
+                  const hr = rows.filter((p) => p.half === half);
+                  if (hr.length === 0) return null;
+                  return (
+                    <View key={half} style={styles.half}>
+                      <Text style={styles.halfHead}>
+                        {half === 'top' ? 'Top' : 'Bottom'} · {sideName(game, hr[0].battingTeam, participants, userId)} bat
+                      </Text>
+                      {hr.map((p) => (
+                        <View key={p.id} style={styles.playRow}>
+                          <View style={[styles.chip, chipStyle(p, styles)]}>
+                            <Text style={[styles.chipText, (p.kind === 'home_run' || p.runs > 0) && styles.chipTextBig]}>{PLAY_SHORT[p.kind]}</Text>
+                          </View>
+                          <Text style={styles.playText} numberOfLines={2}>
+                            {nameOf(playerOf(p))} {playWords(p.kind, p.fielderPos, p.aim, p.lateThrow, p.runs, seedOf(p.id))}
+                            {p.batterSteps != null && p.pitcherSteps != null && p.kind !== 'out_at_home' ? (
+                              <Text style={styles.playSteps}>
+                                {'  '}
+                                {p.batterSteps.toLocaleString()} vs {p.pitcherSteps.toLocaleString()}
+                              </Text>
+                            ) : null}
+                          </Text>
+                        </View>
+                      ))}
                     </View>
-                    <Text style={styles.playText} numberOfLines={2}>
-                      {nameOf(p.kind === 'out_at_home' || p.kind === 'stolen_base' || p.kind === 'caught_stealing' ? p.runnerId : p.batterId)}{' '}
-                      {playWords(p.kind, p.fielderPos, p.aim, p.lateThrow, p.runs, seedOf(p.id))}
-                      {p.batterSteps != null && p.pitcherSteps != null && p.kind !== 'out_at_home' ? (
-                        <Text style={styles.playSteps}>
-                          {'  '}
-                          {p.batterSteps.toLocaleString()} vs {p.pitcherSteps.toLocaleString()}
-                        </Text>
-                      ) : null}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+                  );
+                })}
+              </DayCard>
             );
           })}
+          {!allInnings && played.length > 3 && (
+            <Pressable onPress={() => setAllInnings(true)} style={styles.earlier} accessibilityRole="button">
+              <Text style={styles.earlierText}>Earlier innings ({played.length - 3})</Text>
+            </Pressable>
+          )}
         </View>
       )}
 
       {box.size > 0 && (
-        <View style={{ gap: 4 }}>
-          <Text style={styles.sectionTitle}>Box score</Text>
+        <DayCard title="Box score">
           <View style={styles.boxRow}>
             <Text style={[styles.boxName, styles.lineHead]}>Batting</Text>
             {['AB', 'H', 'HR', 'RBI', 'BB', 'K'].map((h) => (
@@ -603,8 +701,8 @@ export function BaseballCard({
                     <Text style={styles.boxName} numberOfLines={1}>
                       {nameOf(p.playerId)} <Text style={styles.boxPos}>{p.positions.map((x) => POSITION_SHORT[x]).join(' ')}</Text>
                     </Text>
-                    {[r.ab, r.h, r.hr, r.rbi, r.bb, r.k].map((v, i) => (
-                      <Text key={i} style={styles.boxNum}>
+                    {[r.ab, r.h, r.hr, r.rbi, r.bb, r.k].map((v, k) => (
+                      <Text key={k} style={styles.boxNum}>
                         {v}
                       </Text>
                     ))}
@@ -612,13 +710,7 @@ export function BaseballCard({
                 );
               }),
           )}
-        </View>
-      )}
-
-      {me && (
-        <Text style={styles.meta}>
-          You play {me.positions.map((x) => POSITION_NAMES[x].toLowerCase()).join(', ') || 'no position yet'} and bat {ordinal(me.seat)}.
-        </Text>
+        </DayCard>
       )}
     </Card>
   );
@@ -663,12 +755,16 @@ function makeStyles(colors: Palette) {
     playNow: { gap: 2, padding: 10, borderRadius: 10, backgroundColor: withAlpha(colors.accent, 0.1) },
     playNowHead: { fontSize: 11.5, color: withAlpha(colors.text, 0.6), fontFamily: font.headingSemibold },
     playNowText: { fontFamily: font.heading, fontSize: 15, color: colors.text },
+    status: { fontSize: 12.5, color: withAlpha(colors.text, 0.62) },
+    earlier: { alignSelf: 'center', paddingVertical: 8 },
+    earlierText: { fontFamily: font.headingSemibold, fontSize: 13, color: colors.accent },
+    doneRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+    doneBtn: { paddingVertical: 8, paddingHorizontal: 22, borderRadius: 999, backgroundColor: colors.accent },
+    doneText: { fontFamily: font.headingSemibold, fontSize: 14, color: '#ffffff' },
     replayRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     replayBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: withAlpha(colors.accent, 0.12) },
     replayText: { fontFamily: font.headingSemibold, fontSize: 13, color: colors.accent },
     replayDone: { fontFamily: font.heading, fontSize: 13, color: withAlpha(colors.text, 0.6) },
-    today: { gap: 8, padding: 12, borderRadius: 12, backgroundColor: withAlpha(colors.accent, 0.08) },
-    todayTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
     pickLabel: { fontFamily: font.headingSemibold, fontSize: 12.5, color: colors.text, marginTop: 2 },
     pickRow: { flexDirection: 'row', gap: 8 },
     pickChip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: withAlpha(colors.text, 0.15) },
@@ -681,7 +777,7 @@ function makeStyles(colors: Palette) {
     knob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#ffffff' },
     knobOn: { transform: [{ translateX: 16 }] },
     sectionTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
-    half: { gap: 6, padding: 10, borderRadius: 10, backgroundColor: withAlpha(colors.text, 0.04) },
+    half: { gap: 6, paddingTop: 4 },
     halfHead: { fontFamily: font.heading, fontSize: 13, color: colors.text },
     playRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     playText: { flex: 1, fontSize: 13, color: colors.text },

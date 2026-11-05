@@ -5,6 +5,7 @@ import { Text } from './Text';
 import { Avatar } from './Avatar';
 import { Button } from './Button';
 import { Card } from './Card';
+import { DayCard } from './DayCard';
 import { HoundopolyBoard, type BoardPlayer } from './HoundopolyBoard';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
@@ -28,6 +29,7 @@ import {
   squareAt,
   stepsToNextDie,
   turnTiers,
+  type HoundopolyEvent,
   type HoundopolyGame,
 } from '../challenges/houndopoly';
 import { localDayKey } from '../goals/goals';
@@ -59,6 +61,8 @@ export function HoundopolySection({
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [deedIdx, setDeedIdx] = useState<number | null>(null);
+  // The report shows the last three rolls until asked for the rest.
+  const [allTurns, setAllTurns] = useState(false);
 
   const byId = useMemo(() => new Map(participants.map((p) => [p.userId, p])), [participants]);
   const nameOf = (id: string) => byId.get(id)?.name ?? 'Someone';
@@ -110,6 +114,28 @@ export function HoundopolySection({
   const today = game.events.filter(
     (e) => e.day === todayKey && (e.kind === 'bought' || e.kind === 'passed') && !(lastTurn && e.day === lastTurn.day && e.slot === lastTurn.slot),
   );
+
+  const feedRow = (e: HoundopolyEvent) => {
+    const line = eventLine(e, nameOf, myUserId);
+    const who = byId.get(e.userId);
+    return (
+      <View key={e.id} style={styles.feedRow}>
+        <Avatar
+          initials={who?.initials ?? '?'}
+          tint={colorOf(e.userId)}
+          size={22}
+          fontSize={8}
+          frameId={who?.frameId}
+          backgroundId={who?.backgroundId}
+          iconId={who?.iconId}
+        />
+        <Text style={[styles.feedText, { flex: 1 }]}>{line.text}</Text>
+        {line.amount && (
+          <Text style={[styles.amount, line.tone === 'plus' && { color: colors.green }, line.tone === 'minus' && { color: colors.amber }]}>{line.amount}</Text>
+        )}
+      </View>
+    );
+  };
 
   const deed = deedIdx !== null ? squareAt(deedIdx) : null;
   const deedOwner = deed ? ownerOf(deed.idx, game.deeds) : null;
@@ -196,46 +222,49 @@ export function HoundopolySection({
                   : 'Top tier: three dice. '}
                 Rolls at about {rollsAt}
                 {upcoming.slot === 'night' ? ' tomorrow' : ''}.{counted > 0 ? ` Midday already counted ${counted.toLocaleString()}.` : ''}
+                {dice !== null && dice > 0 ? ` Lands between ${squareAt(me.position + dice).name} and ${squareAt(me.position + dice * 6).name}.` : ''}
               </Text>
             </View>
           </View>
-          {dice !== null && dice > 0 && me && (
-            <Text style={styles.footNote}>
-              You&rsquo;d land {dice} to {dice * 6} squares ahead: {squareAt(me.position + dice).name} through {squareAt(me.position + dice * 6).name}.
-            </Text>
-          )}
         </Card>
       )}
 
-      {(feed.length > 0 || today.length > 0) && (
-        <Card style={{ gap: 10 }} elevated={false}>
+      {(game.rolledTurns.length > 0 || today.length > 0) && (
+        <Card style={{ gap: 8 }} elevated={false}>
           <View style={styles.header}>
             <CalendarBlankIcon size={16} color={colors.accent} />
-            <Text style={text.h4}>{lastTurn ? `${describeSlot(lastTurn.slot)} · ${describeFeedDay(lastTurn.day)}` : 'Today'}</Text>
+            <Text style={text.h4}>Game report</Text>
           </View>
-          {[...today, ...feed].map((e) => {
-            const line = eventLine(e, nameOf, myUserId);
-            const who = byId.get(e.userId);
+          {today.length > 0 && (
+            <DayCard title="Today, since the last roll" defaultOpen>
+              {today.map(feedRow)}
+            </DayCard>
+          )}
+          {game.rolledTurns.slice(0, allTurns ? undefined : 3).map((t, i) => {
+            const rows = game.events.filter((e) => e.day === t.day && e.slot === t.slot);
+            const mine = rows.filter((e) => e.userId === myUserId);
+            // Your own move first, then how many others moved.
+            const myMove = mine.find((e) => e.kind === 'moved' || e.kind === 'stayed_in');
+            const others = new Set(rows.filter((e) => e.userId !== myUserId).map((e) => e.userId)).size;
+            const summary = [myMove ? eventLine(myMove, nameOf, myUserId).text : null, others > 0 ? `${others} other${others === 1 ? '' : 's'} rolled.` : null]
+              .filter(Boolean)
+              .join(' ');
             return (
-              <View key={e.id} style={styles.feedRow}>
-                <Avatar
-                  initials={who?.initials ?? '?'}
-                  tint={colorOf(e.userId)}
-                  size={24}
-                  fontSize={9}
-                  frameId={who?.frameId}
-                  backgroundId={who?.backgroundId}
-                  iconId={who?.iconId}
-                />
-                <Text style={[styles.body, { flex: 1 }]}>{line.text}</Text>
-                {line.amount && (
-                  <Text style={[styles.amount, line.tone === 'plus' && { color: colors.green }, line.tone === 'minus' && { color: colors.amber }]}>
-                    {line.amount}
-                  </Text>
-                )}
-              </View>
+              <DayCard
+                key={`${t.day}-${t.slot}`}
+                title={`${describeSlot(t.slot)} · ${describeFeedDay(t.day)}`}
+                summary={summary || (rows.length === 0 ? 'Nothing happened.' : undefined)}
+                defaultOpen={i === 0 && today.length === 0}
+              >
+                {[...rows].reverse().map(feedRow)}
+              </DayCard>
             );
           })}
+          {!allTurns && game.rolledTurns.length > 3 && (
+            <Pressable onPress={() => setAllTurns(true)} style={styles.earlier} accessibilityRole="button">
+              <Text style={styles.earlierText}>Earlier rolls ({game.rolledTurns.length - 3})</Text>
+            </Pressable>
+          )}
         </Card>
       )}
 
@@ -270,21 +299,20 @@ export function HoundopolySection({
           );
         })}
         <Text style={styles.footNote}>Cash plus what your squares are worth. Highest on the last day wins.</Text>
-      </Card>
-
-      <Card style={{ gap: 8 }} elevated={false}>
-        <Text style={styles.eyebrow}>Fetch! cards in this game</Text>
-        {CARD_ORDER.map((c) => (
-          <Text key={c} style={styles.body}>
-            · {CARD_TEXT[c]}
+        <DayCard title="How it works">
+          <Text style={styles.footNote}>
+            Two rolls a day: midday on the steps so far, overnight on the rest. Per roll, under {tiers[0].toLocaleString()} steps: no roll.{' '}
+            {tiers[0].toLocaleString()} to {(tiers[1] - 1).toLocaleString()}: one die. {tiers[1].toLocaleString()} to {(tiers[2] - 1).toLocaleString()}:
+            two. {tiers[2].toLocaleString()} and up: three. Passing Start pays {game.settings.passStartCash}; the Vet costs {game.settings.vetCost}.
+            Rent is a tenth of the price, doubled with a whole colour group.
           </Text>
-        ))}
-        <Text style={styles.footNote}>
-          Two rolls a day: midday on the steps so far, overnight on the rest. Per roll, under {tiers[0].toLocaleString()} steps: no roll.{' '}
-          {tiers[0].toLocaleString()} to {(tiers[1] - 1).toLocaleString()}: one die. {tiers[1].toLocaleString()} to {(tiers[2] - 1).toLocaleString()}:
-          two. {tiers[2].toLocaleString()} and up: three. Passing Start pays {game.settings.passStartCash}; the Vet costs {game.settings.vetCost}.
-          Rent is a tenth of the price, doubled with a whole colour group.
-        </Text>
+          <Text style={[styles.footNote, styles.bold]}>Fetch! cards</Text>
+          {CARD_ORDER.map((c) => (
+            <Text key={c} style={styles.footNote}>
+              · {CARD_TEXT[c]}
+            </Text>
+          ))}
+        </DayCard>
       </Card>
 
       <Modal visible={deed !== null} transparent animationType="fade" onRequestClose={() => setDeedIdx(null)}>
@@ -384,7 +412,10 @@ function makeStyles(colors: Palette) {
     centreCash: { fontFamily: font.headingSemibold, fontSize: 22, color: colors.amber, fontVariant: ['tabular-nums'] },
     dice: { width: 44, height: 44, borderRadius: 10, backgroundColor: colors.accentActive, alignItems: 'center', justifyContent: 'center' },
     diceText: { fontFamily: font.headingSemibold, fontSize: 18, color: colors.bg },
-    feedRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    feedRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+    feedText: { fontSize: 12.5, lineHeight: 17, color: colors.text },
+    earlier: { alignSelf: 'center', paddingVertical: 6 },
+    earlierText: { fontFamily: font.headingSemibold, fontSize: 13, color: colors.accent },
     amount: { fontFamily: font.heading, fontSize: 13, color: colors.text, fontVariant: ['tabular-nums'] },
     standRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     standName: { width: 92, fontSize: 13, color: colors.text },

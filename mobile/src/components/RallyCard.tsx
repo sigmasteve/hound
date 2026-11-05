@@ -275,12 +275,11 @@ export function RallyCard({
           {game.smashArmed ? (
             <Text style={styles.note}>Land this double and {otherTeamName}&rsquo;s next return doubles too.</Text>
           ) : smashesLeft > 0 && left > 0 ? (
-            <View style={{ gap: 6 }}>
-              <Button label="Smash" variant="ghost" small onPress={arm} disabled={arming} />
-              <Text style={styles.note}>
-                One per team per game. Your return needs double ({formatSteps(need * 2)}); land it and their next return
-                doubles too.
+            <View style={styles.smashRow}>
+              <Text style={[styles.note, { flex: 1 }]}>
+                Smash: walk {formatSteps(need * 2)} instead and their next return doubles too. One a game.
               </Text>
+              <Button label="Smash" variant="ghost" small onPress={arm} disabled={arming} />
             </View>
           ) : null}
           {error && <Text style={styles.error}>{error}</Text>}
@@ -365,6 +364,7 @@ function makeStyles(colors: Palette) {
     scoreNum: { width: 56, textAlign: 'center', fontFamily: font.heading, fontSize: 18, color: colors.text, fontVariant: ['tabular-nums'] },
     scorePoints: { color: colors.accentActive },
     scoreNumCompact: { fontSize: 15 },
+    smashRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     shot: { gap: 8, padding: 12, borderRadius: 12, backgroundColor: withAlpha(colors.accent, 0.08) },
     shotHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
     shotTitle: { fontFamily: font.heading, fontSize: 14, color: colors.text },
