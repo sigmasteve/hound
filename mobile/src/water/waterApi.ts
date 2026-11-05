@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase, withFreshSession } from '../lib/supabase';
 import type { WaterEntry, WaterGoal } from './water';
 
 // Water on the server (0153_water.sql). Every call throws its message on
@@ -24,22 +24,24 @@ export async function getWaterGoal(userId: string): Promise<WaterGoal | null> {
 }
 
 export async function saveWaterGoal(userId: string, goal: WaterGoal): Promise<void> {
-  const { error } = await client().from('water_goals').upsert(
-    {
-      user_id: userId,
-      target_ml: goal.targetMl,
-      glass_ml: goal.glassMl,
-      units: goal.units,
-      sip_reminders: goal.sipReminders,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id' },
+  const { error } = await withFreshSession(() =>
+    client().from('water_goals').upsert(
+      {
+        user_id: userId,
+        target_ml: goal.targetMl,
+        glass_ml: goal.glassMl,
+        units: goal.units,
+        sip_reminders: goal.sipReminders,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' },
+    ),
   );
   if (error) throw new Error(error.message);
 }
 
 export async function removeWaterGoal(userId: string): Promise<void> {
-  const { error } = await client().from('water_goals').delete().eq('user_id', userId);
+  const { error } = await withFreshSession(() => client().from('water_goals').delete().eq('user_id', userId));
   if (error) throw new Error(error.message);
 }
 
@@ -57,13 +59,13 @@ export async function listWaterLog(userId: string, sinceDay: string): Promise<Wa
 }
 
 export async function logWater(day: string, ml: number): Promise<string> {
-  const { data, error } = await client().rpc('log_water', { p_day: day, p_ml: Math.round(ml) });
+  const { data, error } = await withFreshSession(() => client().rpc('log_water', { p_day: day, p_ml: Math.round(ml) }));
   if (error) throw new Error(error.message);
   return data as string;
 }
 
 export async function removeWaterEntry(id: string): Promise<void> {
-  const { error } = await client().from('water_log').delete().eq('id', id);
+  const { error } = await withFreshSession(() => client().from('water_log').delete().eq('id', id));
   if (error) throw new Error(error.message);
 }
 
