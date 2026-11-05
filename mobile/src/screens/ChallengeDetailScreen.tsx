@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -301,6 +301,19 @@ export function ChallengeDetailScreen({
   // tagRound is null until load() resolves for a 'tag' challenge, or if
   // this isn't one at all.
   const [tagRound, setTagRound] = useState<TagRound | null>(null);
+  // The page, so a game card can bring part of itself into view (a
+  // replay starting from a day further down).
+  const pageRef = useRef<ScrollView>(null);
+  const showOnPage = useCallback((view: View | null) => {
+    const page = pageRef.current as any;
+    const inner = page?.getInnerViewRef?.() ?? page?.getInnerViewNode?.();
+    if (!view || !page || !inner) return;
+    (view as any).measureLayout(
+      inner,
+      (_x: number, y: number) => page.scrollTo({ y: Math.max(0, y - 12), animated: true }),
+      () => {},
+    );
+  }, []);
   const [tagMembers, setTagMembers] = useState<TagMember[]>([]);
   const [tagEvents, setTagEvents] = useState<TagEvent[]>([]);
   const [selectingTargetId, setSelectingTargetId] = useState<string | null>(null);
@@ -1841,6 +1854,7 @@ export function ChallengeDetailScreen({
         makes room for the keyboard and scrolls whatever field you're
         typing in back above it, instead of leaving it underneath. */}
     <ScrollView
+      ref={pageRef}
       contentContainerStyle={styles.container}
       automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
@@ -2184,6 +2198,7 @@ export function ChallengeDetailScreen({
               firstDay={challenge.startDay ?? dateKey(new Date(challenge.startsAt))}
               matchDays={soccerDays}
               shots={soccerShots}
+              onShowPitch={showOnPage}
             />
           )}
 

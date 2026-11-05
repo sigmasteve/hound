@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { PauseIcon, PlayIcon } from 'phosphor-react-native';
 import { Text } from './Text';
+import { DayCard, groupLines } from './DayCard';
+import { PickRow } from './PickRow';
 import { Avatar } from './Avatar';
 import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
@@ -144,7 +146,10 @@ export function SoccerCard({
   firstDay,
   matchDays,
   shots,
+  onShowPitch,
 }: {
+  // Scroll the page to the pitch, when a day's replay starts lower down.
+  onShowPitch?: (pitch: View | null) => void;
   game: SoccerGame | null;
   days: number;
   participants: PitchPerson[];
@@ -172,8 +177,11 @@ export function SoccerCard({
   // Replay last night: each of the day's shots in turn, the two sides'
   // taking turns.
   const lastDayNo = shots.length ? Math.max(...shots.map((s) => s.dayNo)) : null;
+  // The day being replayed: any day, from its card in the report.
+  const [replayDay, setReplayDay] = useState<number | null>(null);
+  const showDay = replayDay ?? lastDayNo;
   const night = useMemo(() => {
-    const day = shots.filter((s) => s.dayNo === lastDayNo);
+    const day = shots.filter((s) => s.dayNo === showDay);
     const a = day.filter((s) => s.team === 'a');
     const b = day.filter((s) => s.team === 'b');
     const out: SoccerShot[] = [];
@@ -182,10 +190,20 @@ export function SoccerCard({
       if (b[i]) out.push(b[i]);
     }
     return out;
-  }, [shots, lastDayNo]);
+  }, [shots, showDay]);
   const [step, setStep] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [replayN, setReplayN] = useState(0);
+  // Bumped to start a replay over, even of the same day.
+  const [replayGo, setReplayGo] = useState(0);
+  const pitchRef = useRef<View>(null);
+  const startReplay = (d: number) => {
+    setReplayDay(d);
+    setStep(null);
+    setPlaying(true);
+    setReplayGo((g) => g + 1);
+    onShowPitch?.(pitchRef.current);
+  };
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     if (!playing) return;
@@ -204,8 +222,10 @@ export function SoccerCard({
     return () => {
       if (timer.current) clearInterval(timer.current);
     };
-  }, [playing, night.length]);
+  }, [playing, night.length, replayGo]);
   const [picking, setPicking] = useState(false);
+  // The report shows the last three days until asked for the rest.
+  const [allDays, setAllDays] = useState(false);
   const [pickError, setPickError] = useState<string | null>(null);
   const challengeId = game?.challengeId ?? null;
   const active = game?.status === 'active';
@@ -280,6 +300,25 @@ export function SoccerCard({
     })
     .filter((l) => l.length > 0);
 
+  // "Day 5 · Defender · 764 steps today"
+  const statusLine = () => {
+    if (!me) return '';
+    if (dayNo == null) return 'Starts soon · your steps count from day 1';
+    const steps = stepsToday == null ? 'steps loading' : `${formatSteps(stepsToday)} today`;
+    const extra =
+      me.position === 'forward' && todaysShots != null
+        ? ` = ${todaysShots} shot${todaysShots === 1 ? '' : 's'} · next at ${formatSteps(game.shotSteps * (todaysShots + 1)).replace(' steps', '')}`
+        : '';
+    return `Day ${dayNo} · ${SOCCER_POSITION_NAME[me.position]} · ${steps}${extra}`;
+  };
+  // Your pick, short, for the row.
+  const shortPick = () => {
+    if (!myPick) return 'No pick yet';
+    if (myPick.aim) return `Shooting ${SOCCER_ZONE_NAME[myPick.aim]}`;
+    if (myPick.dive) return `Diving ${SOCCER_ZONE_NAME[myPick.dive]}`;
+    if (myPick.markId) return `Marking ${nameOf(myPick.markId)}`;
+    return 'No pick yet';
+  };
   const roleLine = () => {
     if (!me) return null;
     if (game.status === 'final') return null;
@@ -305,17 +344,19 @@ export function SoccerCard({
       </View>
 
       <SoccerScore game={game} people={participants} userId={userId} days={days} />
-      <SoccerPitch
-        game={game}
-        people={participants}
-        userId={userId}
-        shot={step != null && night[step] ? { shot: night[step], n: replayN } : null}
-      />
+      <View ref={pitchRef} collapsable={false}>
+        <SoccerPitch
+          game={game}
+          people={participants}
+          userId={userId}
+          shot={step != null && night[step] ? { shot: night[step], n: replayN } : null}
+        />
+      </View>
 
       {step != null && night[step] && (() => {
         const s = night[step];
         const result = shotResult(s);
-        const before = matchDays.filter((d) => d.dayNo < (lastDayNo ?? 0));
+        const before = matchDays.filter((d) => d.dayNo < (showDay ?? 0));
         const goalsBy = (t: SoccerTeam) =>
           before.reduce((n, d) => n + (t === 'a' ? d.goalsA : d.goalsB), 0) +
           night.slice(0, step + 1).filter((x) => x.team === t && x.outcome === 'goal').length;
@@ -369,115 +410,123 @@ export function SoccerCard({
         );
       })()}
 
-      {night.length > 0 && (
+      {step != null && (
         <View style={styles.replayRow}>
           <Pressable
             style={styles.replayBtn}
             onPress={() => {
               if (playing) setPlaying(false);
-              else {
-                if (step == null || step >= night.length - 1) setStep(null);
-                setPlaying(true);
-              }
+              else if (showDay != null) startReplay(showDay);
             }}
             accessibilityRole="button"
           >
             {playing ? <PauseIcon size={14} color={colors.accent} weight="fill" /> : <PlayIcon size={14} color={colors.accent} weight="fill" />}
-            <Text style={styles.replayText}>{playing ? 'Pause' : step != null ? 'Replay again' : 'Replay last night'}</Text>
+            <Text style={styles.replayText}>{playing ? 'Pause' : 'Replay again'}</Text>
           </Pressable>
-          {step != null && (
-            <Pressable
-              onPress={() => {
-                setPlaying(false);
-                setStep(null);
-              }}
-              hitSlop={8}
-              accessibilityRole="button"
-            >
-              <Text style={styles.replayDone}>Back to today</Text>
-            </Pressable>
-          )}
+          <Pressable
+            onPress={() => {
+              setPlaying(false);
+              setStep(null);
+              setReplayDay(null);
+            }}
+            hitSlop={8}
+            accessibilityRole="button"
+          >
+            <Text style={styles.replayDone}>Back to today</Text>
+          </Pressable>
         </View>
       )}
 
-      {waiting > 0 && game.status === 'active' && (
-        <Text style={styles.note}>
-          {waiting === 1 ? 'One player hasn’t' : `${waiting} players haven’t`} accepted yet. The match plays on; they count from the day they join.
+      {/* Where things stand, in one line. */}
+      {me && game.status !== 'final' && (
+        <Text style={styles.status}>
+          {statusLine()}
+          {waiting > 0 && game.status === 'active' ? ` · ${waiting} haven’t joined` : ''}
         </Text>
       )}
-      {me && <Text style={styles.note}>You play {SOCCER_POSITION_NAME[me.position]}. {roleLine()}</Text>}
 
       {me && me.joined && game.status === 'active' && dayNo != null && (
-        <View style={styles.tactics}>
-          <View style={styles.tacticsHead}>
-            <Text style={styles.reportTitle}>Today&rsquo;s play</Text>
-            {tactics === null || picking ? <ActivityIndicator size="small" color={colors.accent} /> : null}
-          </View>
-          <Text style={styles.note}>{SOCCER_PICK_PROMPT[me.position]} Hidden from the other side until tomorrow&rsquo;s report.</Text>
-          {(me.position === 'forward' || me.position === 'keeper') && (
-            <GoalMouth
-              mode={me.position === 'forward' ? 'aim' : 'dive'}
-              picked={(me.position === 'forward' ? myPick?.aim : myPick?.dive) ?? null}
-              disabled={picking || tactics === null}
-              onPick={(z) => pick(z)}
-            />
-          )}
-          {me.position === 'defender' && (
-            <View style={styles.markRow}>
-              {theirForwards.length === 0 ? (
-                <Text style={styles.note}>The other side has no forwards to mark.</Text>
-              ) : (
-                theirForwards.map((f) => {
-                  const on = myPick?.markId === f.playerId;
-                  const person = participants.find((x) => x.userId === f.playerId);
-                  return (
-                    <Pressable
-                      key={f.playerId}
-                      onPress={() => pick(f.playerId)}
-                      disabled={picking || tactics === null}
-                      style={({ pressed }) => [styles.markChip, on && styles.markChipOn, pressed && styles.zonePressed]}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: on }}
-                      accessibilityLabel={`Mark ${person?.name ?? 'this forward'}`}
-                    >
-                      <Avatar
-                        initials={person?.initials ?? '?'}
-                        tint={f.botId ? colors.neutral800 : TINT_N}
-                        size={30}
-                        fontSize={11}
-                        frameId={person?.frameId}
-                        backgroundId={person?.backgroundId}
-                        iconId={person?.iconId}
-                      />
-                      <Text style={[styles.markName, on && styles.markNameOn]} numberOfLines={1}>
-                        {on ? '🛡 ' : ''}
-                        {person?.name ?? (f.joined ? 'Forward' : 'Invited')}
-                      </Text>
-                    </Pressable>
-                  );
-                })
+        <PickRow
+          value={shortPick()}
+          picked={!!myPick}
+          busy={tactics === null || picking}
+          note={teamPicks.length > 0 ? `Your side: ${teamPicks.join(' · ')}` : null}
+          sheetTitle={me.position === 'forward' ? 'Where to shoot' : me.position === 'keeper' ? 'Where to dive' : 'Who to mark'}
+          sheetNote={`${SOCCER_PICK_PROMPT[me.position]} Hidden from the other side until tomorrow’s report.`}
+        >
+          {(close) => (
+            <>
+              {(me.position === 'forward' || me.position === 'keeper') && (
+                <GoalMouth
+                  mode={me.position === 'forward' ? 'aim' : 'dive'}
+                  picked={(me.position === 'forward' ? myPick?.aim : myPick?.dive) ?? null}
+                  disabled={picking || tactics === null}
+                  onPick={(z) => {
+                    pick(z);
+                    close();
+                  }}
+                />
               )}
-            </View>
+              {me.position === 'defender' && (
+                <View style={styles.markRow}>
+                  {theirForwards.filter((f) => f.joined).length === 0 ? (
+                    <Text style={styles.note}>The other side has no forwards to mark.</Text>
+                  ) : (
+                    theirForwards
+                      .filter((f) => f.joined)
+                      .map((f) => {
+                        const on = myPick?.markId === f.playerId;
+                        const person = participants.find((x) => x.userId === f.playerId);
+                        return (
+                          <Pressable
+                            key={f.playerId}
+                            onPress={() => {
+                              pick(f.playerId);
+                              close();
+                            }}
+                            disabled={picking || tactics === null}
+                            style={({ pressed }) => [styles.markChip, on && styles.markChipOn, pressed && styles.zonePressed]}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: on }}
+                            accessibilityLabel={`Mark ${person?.name ?? 'this forward'}`}
+                          >
+                            <Avatar
+                              initials={person?.initials ?? '?'}
+                              tint={f.botId ? colors.neutral800 : TINT_N}
+                              size={30}
+                              fontSize={11}
+                              frameId={person?.frameId}
+                              backgroundId={person?.backgroundId}
+                              iconId={person?.iconId}
+                            />
+                            <Text style={[styles.markName, on && styles.markNameOn]} numberOfLines={1}>
+                              {on ? '🛡 ' : ''}
+                              {person?.name ?? 'Forward'}
+                            </Text>
+                          </Pressable>
+                        );
+                      })
+                  )}
+                </View>
+              )}
+              <Text style={styles.note}>{myPickLine()}</Text>
+              {myPick && (
+                <Pressable
+                  onPress={() => {
+                    pick(null);
+                    close();
+                  }}
+                  disabled={picking}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.clear}>Clear my pick</Text>
+                </Pressable>
+              )}
+            </>
           )}
-          <Text style={styles.note}>{myPickLine()}</Text>
-          {myPick && (
-            <Pressable onPress={() => pick(null)} disabled={picking} accessibilityRole="button">
-              <Text style={styles.clear}>Clear my pick</Text>
-            </Pressable>
-          )}
-          {teamPicks.length > 0 && (
-            <View style={{ gap: 2 }}>
-              <Text style={styles.teamTitle}>Your side today</Text>
-              {teamPicks.map((line) => (
-                <Text key={line} style={styles.reportLine}>
-                  {line}
-                </Text>
-              ))}
-            </View>
-          )}
-          {pickError && <Text style={styles.error}>{pickError}</Text>}
-        </View>
+        </PickRow>
       )}
+      {pickError && <Text style={styles.error}>{pickError}</Text>}
       {game.status === 'final' && (
         <Text style={styles.note}>
           Full time, {us}–{them}. {game.winnerTeam == null ? 'A draw.' : game.winnerTeam === myTeam ? 'Your side won!' : 'Their side won.'}
@@ -487,61 +536,80 @@ export function SoccerCard({
       {matchDays.length > 0 && (
         <View style={{ gap: 6 }}>
           <Text style={styles.reportTitle}>Match report</Text>
-          {[...matchDays].reverse().map((d) => {
-            const dayShots = shots.filter((s) => s.dayNo === d.dayNo);
-            const goals = dayShots.filter((s) => s.outcome === 'goal');
-            const saves = dayShots.filter((s) => s.outcome === 'saved');
-            // One line per marked forward: who marked them and how it went.
-            const marks = Array.from(
-              dayShots
-                .filter((s) => s.markerIds && s.markerIds.length > 0)
-                .reduce((acc, s) => {
-                  const m = acc.get(s.shooterId) ?? { shooterId: s.shooterId, markers: s.markerIds ?? [], taken: 0, on: 0 };
-                  m.taken += 1;
-                  if (s.outcome !== 'miss') m.on += 1;
-                  return acc.set(s.shooterId, m);
-                }, new Map<string, { shooterId: string; markers: string[]; taken: number; on: number }>())
-                .values(),
-            );
-            const usDay = myTeam === 'a' ? d.goalsA : d.goalsB;
-            const themDay = myTeam === 'a' ? d.goalsB : d.goalsA;
-            const ourShots = myTeam === 'a' ? d.shotsA : d.shotsB;
-            const ourOn = myTeam === 'a' ? d.onTargetA : d.onTargetB;
-            const theirShots = myTeam === 'a' ? d.shotsB : d.shotsA;
-            const theirOn = myTeam === 'a' ? d.onTargetB : d.onTargetA;
-            return (
-              <View key={d.dayNo} style={styles.report}>
-                <View style={styles.reportHead}>
-                  <Text style={styles.reportDay}>Day {d.dayNo}</Text>
-                  <Text style={styles.reportScore}>
-                    {usDay}–{themDay}
+          {[...matchDays]
+            .reverse()
+            .slice(0, allDays ? undefined : 3)
+            .map((d, i) => {
+              const dayShots = shots.filter((s) => s.dayNo === d.dayNo);
+              const goals = dayShots.filter((s) => s.outcome === 'goal');
+              const saves = dayShots.filter((s) => s.outcome === 'saved');
+              // One line per marked forward: who marked them and how it went.
+              const marks = Array.from(
+                dayShots
+                  .filter((s) => s.markerIds && s.markerIds.length > 0)
+                  .reduce((acc, s) => {
+                    const m = acc.get(s.shooterId) ?? { shooterId: s.shooterId, markers: s.markerIds ?? [], taken: 0, on: 0 };
+                    m.taken += 1;
+                    if (s.outcome !== 'miss') m.on += 1;
+                    return acc.set(s.shooterId, m);
+                  }, new Map<string, { shooterId: string; markers: string[]; taken: number; on: number }>())
+                  .values(),
+              );
+              const usDay = myTeam === 'a' ? d.goalsA : d.goalsB;
+              const themDay = myTeam === 'a' ? d.goalsB : d.goalsA;
+              const ourShots = myTeam === 'a' ? d.shotsA : d.shotsB;
+              const ourOn = myTeam === 'a' ? d.onTargetA : d.onTargetB;
+              const theirShots = myTeam === 'a' ? d.shotsB : d.shotsA;
+              const theirOn = myTeam === 'a' ? d.onTargetB : d.onTargetA;
+              const scorers = (mine: boolean) =>
+                groupLines(goals.filter((g) => (g.team === myTeam) === mine).map((g) => nameOf(g.shooterId))).join(', ');
+              const ours = scorers(true);
+              const theirs = scorers(false);
+              const summary = !ours && !theirs ? 'No goals.' : `Yours: ${ours || 'none'} · Theirs: ${theirs || 'none'}`;
+              const lines = [
+                ...marks.map((m) => `🛡 ${m.markers.map((id) => nameOf(id)).join(' & ')} marked ${nameOf(m.shooterId)}: ${m.on} of ${m.taken} on target.`),
+                ...groupLines(
+                  goals.map(
+                    (g) =>
+                      `⚽ ${nameOf(g.shooterId)} scored${g.aim ? ` ${SOCCER_ZONE_NAME[g.aim]}` : ''} on ${formatSteps(g.shooterSteps)}${
+                        g.keeperId ? (g.dive ? `, ${nameOf(g.keeperId)} dove ${SOCCER_ZONE_NAME[g.dive]}` : ` past ${nameOf(g.keeperId)}`) : ''
+                      }.`,
+                  ),
+                ),
+                ...groupLines(
+                  saves.map((sv) =>
+                    sv.aim && sv.dive && sv.aim === sv.dive
+                      ? `🧤 ${nameOf(sv.keeperId)} guessed ${nameOf(sv.shooterId)}’s shot to ${SOCCER_ZONE_NAME[sv.aim]} and saved it.`
+                      : `🧤 ${nameOf(sv.keeperId)} saved ${nameOf(sv.shooterId)}’s shot${sv.aim ? ` to ${SOCCER_ZONE_NAME[sv.aim]}` : ''}.`,
+                  ),
+                ),
+              ];
+              return (
+                <DayCard
+                  key={d.dayNo}
+                  title={`Day ${d.dayNo}`}
+                  score={`${usDay}–${themDay}`}
+                  summary={summary}
+                  defaultOpen={i === 0}
+                  replaying={step != null && showDay === d.dayNo}
+                  onReplay={dayShots.length > 0 ? () => startReplay(d.dayNo) : undefined}
+                >
+                  <Text style={styles.reportLine}>
+                    Your side {ourShots} shot{ourShots === 1 ? '' : 's'}, {ourOn} on target · theirs {theirShots}, {theirOn} on target.
                   </Text>
-                </View>
-                <Text style={styles.reportLine}>
-                  Your side {ourShots} shot{ourShots === 1 ? '' : 's'}, {ourOn} on target · theirs {theirShots}, {theirOn} on target.
-                </Text>
-                {marks.map((m) => (
-                  <Text key={`m${m.shooterId}`} style={styles.reportLine}>
-                    🛡 {m.markers.map((id) => nameOf(id)).join(' & ')} marked {nameOf(m.shooterId)}: {m.on} of {m.taken} on target.
-                  </Text>
-                ))}
-                {goals.map((g, i) => (
-                  <Text key={`g${i}`} style={styles.reportLine}>
-                    ⚽ {nameOf(g.shooterId)} scored{g.aim ? ` ${SOCCER_ZONE_NAME[g.aim]}` : ''} on {formatSteps(g.shooterSteps)}
-                    {g.keeperId ? (g.dive ? `, ${nameOf(g.keeperId)} dove ${SOCCER_ZONE_NAME[g.dive]}` : ` past ${nameOf(g.keeperId)}`) : ''}.
-                  </Text>
-                ))}
-                {saves.map((s, i) => (
-                  <Text key={`s${i}`} style={styles.reportLine}>
-                    🧤{' '}
-                    {s.aim && s.dive && s.aim === s.dive
-                      ? `${nameOf(s.shooterId)} shot ${SOCCER_ZONE_NAME[s.aim]}, ${nameOf(s.keeperId)} dove ${SOCCER_ZONE_NAME[s.dive]}. Saved.`
-                      : `${nameOf(s.keeperId)} saved ${nameOf(s.shooterId)}’s shot${s.aim ? ` to ${SOCCER_ZONE_NAME[s.aim]}` : ''}.`}
-                  </Text>
-                ))}
-              </View>
-            );
-          })}
+                  {lines.map((l, k) => (
+                    <Text key={k} style={styles.reportLine}>
+                      {l}
+                    </Text>
+                  ))}
+                </DayCard>
+              );
+            })}
+          {!allDays && matchDays.length > 3 && (
+            <Pressable onPress={() => setAllDays(true)} style={styles.earlier} accessibilityRole="button">
+              <Text style={styles.clear}>Earlier days ({matchDays.length - 3})</Text>
+            </Pressable>
+          )}
         </View>
       )}
     </Card>
@@ -550,6 +618,8 @@ export function SoccerCard({
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    status: { fontSize: 12.5, color: withAlpha(colors.text, 0.62) },
+    earlier: { alignSelf: 'center', paddingVertical: 8 },
     header: { gap: 2 },
     meta: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
     note: { fontSize: 12.5, color: withAlpha(colors.text, 0.7), lineHeight: 18 },
