@@ -93,7 +93,7 @@ export function CricketGround({
           />
         ) : (
           <View style={[styles.ghost, { width: size, height: size, borderRadius: size / 2 }]}>
-            <Text style={styles.ghostText}>?</Text>
+            <View style={styles.ghostDot} />
           </View>
         )}
       </View>
@@ -431,8 +431,9 @@ function makeStyles(colors: Palette) {
     fielder: { position: 'absolute' },
     ring: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
     ringOn: { borderColor: colors.amber },
-    ghost: { borderWidth: 2, borderStyle: 'dashed', borderColor: CHALK, alignItems: 'center', justifyContent: 'center' },
-    ghostText: { color: CHALK, fontFamily: font.heading, fontSize: 13 },
+    // Someone who hasn't accepted yet: a small dot, not a big '?'.
+    ghost: { alignItems: 'center', justifyContent: 'center' },
+    ghostDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.4)' },
     restWrap: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
     rest: { color: '#ffffff', fontFamily: font.heading, fontSize: 16, backgroundColor: 'rgba(0,0,0,0.25)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 },
     pavilion: { gap: 4 },

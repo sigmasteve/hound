@@ -75,7 +75,7 @@ export function RallyCourt({
                     />
                   ) : (
                     <View style={[styles.ghost, { width: size, height: size, borderRadius: size / 2 }]}>
-                      <Text style={styles.ghostText}>?</Text>
+                      <View style={styles.ghostDot} />
                     </View>
                   )}
                   {hasShuttle && <Text style={[styles.shuttle, far ? styles.shuttleFar : styles.shuttleNear]}>🏸</Text>}
@@ -343,8 +343,9 @@ function makeStyles(colors: Palette) {
     player: { alignItems: 'center', gap: 3, minWidth: 64, maxWidth: 120 },
     avatarRing: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
     avatarRingOn: { borderColor: colors.amber, backgroundColor: 'rgba(255,255,255,0.18)' },
-    ghost: { borderWidth: 2, borderStyle: 'dashed', borderColor: LINE, alignItems: 'center', justifyContent: 'center' },
-    ghostText: { color: LINE, fontFamily: font.heading, fontSize: 16 },
+    // Someone who hasn't accepted yet: a small dot, not a big '?'.
+    ghost: { alignItems: 'center', justifyContent: 'center' },
+    ghostDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.4)' },
     shuttle: { position: 'absolute', fontSize: 16, right: -14 },
     shuttleFar: { bottom: -8 },
     shuttleNear: { top: -8 },

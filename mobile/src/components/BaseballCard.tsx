@@ -142,7 +142,7 @@ export function BaseballField({
           />
         ) : (
           <View style={[styles.ghost, { width: s, height: s, borderRadius: s / 2 }]}>
-            <Text style={styles.ghostText}>?</Text>
+            <View style={styles.ghostDot} />
           </View>
         )}
       </View>
@@ -638,8 +638,9 @@ function makeStyles(colors: Palette) {
     spot: { position: 'absolute', alignItems: 'center' },
     ring: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
     ringOn: { borderColor: colors.amber },
-    ghost: { borderWidth: 2, borderStyle: 'dashed', borderColor: CHALK, alignItems: 'center', justifyContent: 'center' },
-    ghostText: { color: CHALK, fontFamily: font.heading, fontSize: 11 },
+    // Someone who hasn't accepted yet: a small dot, not a big '?'.
+    ghost: { alignItems: 'center', justifyContent: 'center' },
+    ghostDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.4)' },
     empty: { borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)', borderStyle: 'dashed' },
     posTag: {
       marginTop: 1,
