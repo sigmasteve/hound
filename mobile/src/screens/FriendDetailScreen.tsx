@@ -72,6 +72,8 @@ export function FriendDetailScreen({
   const [yardWidth, setYardWidth] = useState(0);
   // While a finger is throwing the toy, the page holds still.
   const [throwing, setThrowing] = useState(false);
+  // Their Yard, Porch and room, swiped between (one scene at a time).
+  const [zone, setZone] = useState(0);
   // Your own hound, which tags along when you visit (0150).
   const [myHound, setMyHound] = useState<Kennel | null>(null);
   const [yardBusy, setYardBusy] = useState<'pawprint' | 'treat' | null>(null);
@@ -234,11 +236,29 @@ export function FriendDetailScreen({
 
         {loadError && <Text style={styles.errorNote}>{loadError}</Text>}
 
-        {hound && yard && (
+        {hound && yard && (() => {
+          // Which scenes they have: the Yard, the Porch once unlocked, the
+          // room once there's something in it.
+          const zones = ['Yard', ...(yard.porch ? ['Porch'] : []), ...(yard.room.length > 0 ? ['Room'] : [])];
+          return (
           <Card style={styles.yardCard} elevated={false}>
             <View onLayout={(e) => setYardWidth(Math.floor(e.nativeEvent.layout.width))}>
               {yardWidth > 0 && (
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  scrollEnabled={!throwing}
+                  showsHorizontalScrollIndicator={false}
+                  scrollEventThrottle={64}
+                  onScroll={(e) => {
+                    const z = Math.round(e.nativeEvent.contentOffset.x / yardWidth);
+                    if (z !== zone) setZone(z);
+                  }}
+                  style={{ width: yardWidth, borderRadius: 14 }}
+                >
+                <View style={{ width: yardWidth }}>
                 <YardScene
+                  animate={zone === 0}
                   onGesture={setThrowing}
                   stage={growth?.stage}
                   fitness={growth?.fitness}
@@ -285,11 +305,11 @@ export function FriendDetailScreen({
                     markings: hound.markings,
                   }}
                 />
-              )}
+                </View>
               {/* Their Porch (0157), once they've unlocked it. */}
-              {yardWidth > 0 && yard.porch && (
-                <View style={{ marginTop: 8 }}>
-                  <PorchScene items={yard.porch} width={yardWidth} hound={{
+              {yard.porch && (
+                <View style={{ width: yardWidth }}>
+                  <PorchScene items={yard.porch} width={yardWidth} animate={zone === 1} hound={{
                     name: hound.name,
                     rank: rankForLevel(levelProgressForXp(hound.xpTotal).level).id,
                     mood: hound.mood,
@@ -307,9 +327,9 @@ export function FriendDetailScreen({
                 </View>
               )}
               {/* Their room inside (0169), once there's something in it. */}
-              {yardWidth > 0 && yard.room.length > 0 && (
-                <View style={{ marginTop: 8 }}>
-                  <RoomScene items={yard.room} width={yardWidth} hound={{
+              {yard.room.length > 0 && (
+                <View style={{ width: yardWidth }}>
+                  <RoomScene items={yard.room} width={yardWidth} animate={zone === zones.length - 1} hound={{
                     name: hound.name,
                     rank: rankForLevel(levelProgressForXp(hound.xpTotal).level).id,
                     mood: hound.mood,
@@ -324,6 +344,20 @@ export function FriendDetailScreen({
                     tail: hound.tail,
                     markings: hound.markings,
                   }} />
+                </View>
+              )}
+                </ScrollView>
+              )}
+              {zones.length > 1 && (
+                <View style={styles.zoneRow}>
+                  <View style={styles.zoneDots}>
+                    {zones.map((z, i) => (
+                      <View key={z} style={[styles.zoneDot, zone === i && styles.zoneDotOn]} />
+                    ))}
+                  </View>
+                  <Text style={styles.zoneLabel}>
+                    {zones[zone] ?? 'Yard'} · swipe for the {zones.filter((_, i) => i !== zone).join(' and the ').toLowerCase()}
+                  </Text>
                 </View>
               )}
             </View>
@@ -378,7 +412,8 @@ export function FriendDetailScreen({
               )}
             </View>
           </Card>
-        )}
+          );
+        })()}
 
         {growth && <AboutCard profile={growth} today={localDayKey()} />}
 
@@ -542,6 +577,11 @@ function makeStyles(colors: Palette) {
   return StyleSheet.create({
     houndCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14 },
     yardCard: { gap: 10, padding: 12 },
+    zoneRow: { alignItems: 'center', gap: 4, marginTop: 8 },
+    zoneDots: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
+    zoneDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: withAlpha(colors.text, 0.2) },
+    zoneDotOn: { backgroundColor: colors.accent },
+    zoneLabel: { fontSize: 11.5, color: withAlpha(colors.text, 0.5) },
     yardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
     houndArt: {
       width: 92,
