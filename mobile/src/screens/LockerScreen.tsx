@@ -164,8 +164,9 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   const renderItem = (item: FrameStyle | BackgroundStyle | IconStyle, slot: CosmeticSlot) => {
     const isShopItem = item.costBones !== null;
     const isDigItem = item.digPieces != null;
+    const isDoorPrize = !!item.doorPrize;
     const owned =
-      isShopItem || isDigItem
+      isShopItem || isDigItem || isDoorPrize
         ? !!purchasedIds?.has(item.id)
         : xpTotal !== null && item.unlockXp !== null && xpTotal >= item.unlockXp;
     const isEquipped =
@@ -189,6 +190,8 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
     let noteText: string;
     if (owned) {
       noteText = isEquipped ? 'Equipped — tap to remove' : 'Tap to equip';
+    } else if (isDoorPrize) {
+      noteText = 'Behind the last door of a Daily Doors challenge';
     } else if (isDigItem) {
       noteText = `Dig up ${item.digPieces} pieces in Bone Dig${digPieces !== null ? ` · you have ${digPieces}` : ''}`;
     } else if (isShopItem) {

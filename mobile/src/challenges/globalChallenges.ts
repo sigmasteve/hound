@@ -10,7 +10,7 @@ import type { BingoCardType, ChallengeKind, DistanceGoalUnit, DistanceSource } f
 // The kinds that work with an open-ended crowd — the same list
 // publish_global_challenge enforces server-side. Chase, Tag, and
 // Tic-Tac-Go all depend on a small, known group.
-export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly'];
+export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly', 'doors'];
 
 // How long after the start people can still join. 'start' closes
 // joining the moment it begins (only offered for a future start); 'end'
@@ -111,6 +111,14 @@ export const GLOBAL_TEMPLATES: GlobalTemplate[] = [
     joinWindow: '3',
   },
   {
+    id: 'daily-doors',
+    name: 'Daily Doors',
+    kind: 'doors',
+    durationDays: 14,
+    blurb: 'A door a day for two weeks. Open it to see the day’s task, do it by midnight. Most points wins.',
+    joinWindow: '3',
+  },
+  {
     id: 'windy-city-journey',
     name: 'Windy City 26.2, Together',
     kind: 'journey',
@@ -204,6 +212,15 @@ export const GLOBAL_TEMPLATES: GlobalTemplate[] = [
     blurb: '10,000 steps a day for the 12 days before Christmas. Start it Dec 13.',
     joinWindow: '1',
     dailyGoalSteps: 10_000,
+    seasonal: true,
+  },
+  {
+    id: 'knock-knock-hound',
+    name: 'Knock Knock, Hound',
+    kind: 'doors',
+    durationDays: 24,
+    blurb: 'A door a day from Dec 1 to Dec 24, with Bones behind every third and a prize behind the last. Start it Dec 1.',
+    joinWindow: '7',
     seasonal: true,
   },
   {

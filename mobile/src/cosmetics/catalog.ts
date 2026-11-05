@@ -30,6 +30,10 @@ export interface CosmeticItem {
   // this many pieces in all, never bought or leveled into. Such an item
   // has neither unlockXp nor costBones.
   digPieces?: number;
+  // Set only on the Daily Doors prize (0172_doors.sql): owned by opening
+  // the last door of a Daily Doors challenge, never bought or leveled
+  // into. Neither unlockXp nor costBones.
+  doorPrize?: boolean;
 }
 
 export type SeasonalCollectionId = 'halloween_2026' | 'thanksgiving_2026';
@@ -109,6 +113,8 @@ export const FRAMES: FrameStyle[] = [
   { id: 'frame_harvest_gold', slot: 'frame', name: 'Harvest Gold Ring', unlockXp: null, costBones: 450, ringColor: '#d4a017', collection: 'thanksgiving_2026' },
   // Bone Dig — see 0103_bone_dig.sql.
   { id: 'frame_fossil', slot: 'frame', name: 'Fossil Ring', unlockXp: null, costBones: null, digPieces: 5, ringColor: '#d9c7a3' },
+  // Daily Doors — behind the last door, see 0172_doors.sql.
+  { id: 'frame_doorbell', slot: 'frame', name: 'Doorbell Ring', unlockXp: null, costBones: null, doorPrize: true, ringColor: '#c8463d' },
 ];
 
 export const BACKGROUNDS: BackgroundStyle[] = [
