@@ -1,55 +1,58 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text as NativeText, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, G, Path, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 import { Text } from './Text';
 import { Card } from './Card';
 import { DayCard } from './DayCard';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { MAP_COLS, MAP_ROWS, PACKS, marchable, packOf, type PackId, type Territory } from '../challenges/packWars';
+import { MAP_COLS, MAP_ROWS, PACKS, marchable, packOf } from '../challenges/packWars';
+import { heldBy, packDayNo, type PackWarsGame } from '../challenges/packWarsApi';
+import { localDayKey } from '../goals/goals';
 
-export type MapStyle = 'grid' | 'hood';
-
-export interface PackWarsView {
-  day: number;
-  days: number;
-  map: Territory[];
-  myPack: PackId;
-  members: Record<PackId, number>;
-  // Today: where you voted (null for none, -1 for Hold), and your pack's
-  // votes so far by territory (-1 Hold).
-  myVote: number | null;
-  packVotes: { idx: number; votes: number }[];
-  votedToday: number;
-  // Last night: territories that changed hands.
-  lastNight: { idx: number; to: PackId; from: PackId | null; avg: number; vsAvg: number | null }[];
-}
-
-export function PackWarsCard({ view, mapStyle, onVote }: { view: PackWarsView; mapStyle: MapStyle; onVote: (idx: number) => void }) {
+export function PackWarsCard({
+  name,
+  game,
+  voting,
+  onVote,
+}: {
+  name: string;
+  game: PackWarsGame;
+  // A vote on its way to the server.
+  voting: boolean;
+  // A territory to march on, or -1 to hold.
+  onVote: (idx: number) => void;
+}) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const me = packOf(view.myPack);
-  const counts = PACKS.map((p) => ({ pack: p, n: view.map.filter((t) => t.owner === p.id).length }));
-  const can = marchable(view.map, view.myPack);
-  const taken = new Set(view.lastNight.map((l) => l.idx));
-  const nameOf = (idx: number) => (idx === -1 ? 'Hold' : view.map[idx].name);
-  const target = view.myVote;
+  const me = packOf(game.myPack);
+  const day = packDayNo(game);
+  const counts = PACKS.map((p) => ({ pack: p, n: heldBy(game, p.id) }));
+  const lead = Math.max(...counts.map((c) => c.n));
+  const can = day != null && !game.settled ? marchable(game.map, game.myPack) : new Set<number>();
+  const taken = new Set(game.lastNight.map((l) => l.idx));
+  const nameOf = (idx: number) => (idx === -1 ? 'Hold' : (game.map[idx]?.name ?? 'somewhere'));
+  const target = game.myVote;
+  const today = localDayKey(new Date());
+  const before = day == null && today < game.firstDay;
+  const over = day == null && !before;
+  const leaders = counts.filter((c) => c.n === lead).map((c) => c.pack);
 
   return (
     <Card style={{ gap: 14 }} elevated={false}>
       <View style={{ gap: 2 }}>
-        <Text style={text.h4}>Pack Wars</Text>
+        <Text style={text.h4}>{name}</Text>
         <Text style={styles.meta}>
-          Four packs, one map · Day {view.day} of {view.days} · most ground at the end wins
+          Four packs, one map{day != null ? ` · Day ${day} of ${game.days}` : ` · ${game.days} days`} · most ground at the end wins
         </Text>
       </View>
 
       <View style={[styles.myPack, { borderColor: me.color, backgroundColor: withAlpha(me.color, 0.1) }]}>
         <View style={[styles.flag, { backgroundColor: me.color }]} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.myPackName}>You’re a {me.name.replace(/s$/, '')}</Text>
+          <Text style={styles.myPackName}>You’re a {me.one}</Text>
           <Text style={styles.meta}>
-            {view.members[view.myPack]} in your pack · {view.votedToday} voted today
+            {game.members[game.myPack]} in your pack{day != null ? ` · ${game.votedToday} voted today` : ''}
           </Text>
         </View>
       </View>
@@ -60,13 +63,13 @@ export function PackWarsCard({ view, mapStyle, onVote }: { view: PackWarsView; m
           {counts.map(({ pack, n }) => (
             <View key={pack.id} style={{ flex: Math.max(n, 0.0001), backgroundColor: pack.color }} />
           ))}
-          <View style={{ flex: Math.max(view.map.filter((t) => !t.owner).length, 0.0001), backgroundColor: withAlpha(colors.text, 0.12) }} />
+          <View style={{ flex: Math.max(game.map.filter((t) => !t.owner).length, 0.0001), backgroundColor: withAlpha(colors.text, 0.12) }} />
         </View>
         <View style={styles.legend}>
           {counts.map(({ pack, n }) => (
             <View key={pack.id} style={styles.legendItem}>
               <View style={[styles.dot, { backgroundColor: pack.color }]} />
-              <Text style={[styles.legendText, pack.id === view.myPack && styles.legendMine]}>
+              <Text style={[styles.legendText, pack.id === game.myPack && styles.legendMine]}>
                 {pack.name.split(' ')[0]} {n}
               </Text>
             </View>
@@ -74,110 +77,101 @@ export function PackWarsCard({ view, mapStyle, onVote }: { view: PackWarsView; m
         </View>
       </View>
 
-      {mapStyle === 'grid' ? (
-        <GridMap view={view} can={can} taken={taken} onVote={onVote} />
-      ) : (
-        <HoodMap view={view} can={can} taken={taken} onVote={onVote} />
+      <HoodMap game={game} can={can} taken={taken} onVote={voting ? () => {} : onVote} />
+
+      {day != null && !game.settled && (
+        <>
+          <View style={styles.vote}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.voteTitle}>TODAY’S MARCH</Text>
+              <Text style={styles.voteValue}>
+                {target == null ? 'No vote yet' : target === -1 ? 'Holding our ground' : `Marching on ${nameOf(target)}`}
+              </Text>
+              {game.packVotes.length > 0 && (
+                <Text style={styles.meta} numberOfLines={2}>
+                  Your pack: {game.packVotes.map((v) => `${nameOf(v.idx)} ${v.votes}`).join(' · ')}
+                </Text>
+              )}
+            </View>
+            {voting ? (
+              <ActivityIndicator color={me.color} />
+            ) : (
+              <Pressable
+                onPress={() => onVote(-1)}
+                style={[styles.hold, target === -1 && { backgroundColor: me.color, borderColor: me.color }]}
+                accessibilityRole="button"
+                accessibilityLabel="Hold our ground"
+              >
+                <Text style={[styles.holdText, target === -1 && { color: '#fff' }]}>Hold</Text>
+              </Pressable>
+            )}
+          </View>
+          <Text style={styles.note}>
+            Tap a dashed territory to march on it, or Hold. Only members who vote add their steps today, and your pack goes where most
+            of you voted. The march is overnight.
+          </Text>
+        </>
+      )}
+      {before && <Text style={styles.note}>The first march is on {formatDay(game.firstDay)}. Come back that day and vote.</Text>}
+      {over && (
+        <Text style={styles.result}>
+          {leaders.length === 1 ? `The ${leaders[0].name} took the most ground.` : `${leaders.map((p) => p.name).join(' and ')} finished level.`}{' '}
+          {leaders.some((p) => p.id === game.myPack) ? 'Your pack won!' : ''}
+        </Text>
       )}
 
-      <View style={styles.vote}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={styles.voteTitle}>TODAY’S MARCH</Text>
-          <Text style={styles.voteValue}>{target == null ? 'No vote yet' : target === -1 ? 'Holding our ground' : `Marching on ${nameOf(target)}`}</Text>
-          <Text style={styles.meta} numberOfLines={2}>
-            Your pack: {view.packVotes.map((v) => `${nameOf(v.idx)} ${v.votes}`).join(' · ')}
-          </Text>
-        </View>
-        <Pressable onPress={() => onVote(-1)} style={[styles.hold, target === -1 && { backgroundColor: me.color, borderColor: me.color }]} accessibilityRole="button">
-          <Text style={[styles.holdText, target === -1 && { color: '#fff' }]}>Hold</Text>
-        </Pressable>
-      </View>
-      <Text style={styles.note}>
-        Tap a dashed territory next to your ground to vote. Only members who vote add their steps today; the pack goes where most of you voted.
-      </Text>
+      {game.lastDay && (
+        <DayCard
+          title={game.lastDay === yesterday(today) ? 'Last night' : `The night of ${formatDay(game.lastDay)}`}
+          summary={game.lastNight.length ? `${game.lastNight.length} ${game.lastNight.length === 1 ? 'territory' : 'territories'} changed hands` : 'Nothing changed hands'}
+          defaultOpen
+        >
+          {game.lastNight.map((l) => {
+            const to = packOf(l.to);
+            return (
+              <View key={l.idx} style={styles.nightRow}>
+                <View style={[styles.dot, { backgroundColor: to.color }]} />
+                <Text style={styles.nightText}>
+                  {l.to === game.myPack ? 'Your pack' : `The ${to.name}`} took {nameOf(l.idx)}
+                  {l.from ? ` from ${l.from === game.myPack ? 'you' : `the ${packOf(l.from).name}`}` : ''}: {l.avg.toLocaleString()} steps a member
+                  {l.vsAvg != null ? ` against ${l.vsAvg.toLocaleString()}` : ''}
+                </Text>
+              </View>
+            );
+          })}
+        </DayCard>
+      )}
 
-      <DayCard
-        title="Last night"
-        summary={view.lastNight.length ? `${view.lastNight.length} territories changed hands` : 'Nothing changed hands'}
-        defaultOpen
-      >
-        {view.lastNight.map((l) => {
-          const to = packOf(l.to);
-          return (
-            <View key={l.idx} style={styles.nightRow}>
-              <View style={[styles.dot, { backgroundColor: to.color }]} />
-              <Text style={styles.nightText}>
-                {l.to === view.myPack ? 'You' : to.name} took {nameOf(l.idx)}
-                {l.from ? ` from ${l.from === view.myPack ? 'you' : packOf(l.from).name}` : ''}: {l.avg.toLocaleString()} a member
-                {l.vsAvg != null ? ` against ${l.vsAvg.toLocaleString()}` : ''}
-              </Text>
-            </View>
-          );
-        })}
+      <DayCard title="How it works">
+        <Text style={styles.note}>
+          Everyone’s in one of four packs, kept even. Each day, vote where your pack marches: a territory next to your ground, or Hold.
+          Your pack’s strength is the steps of the members who voted, shared over the whole pack, so every vote counts. Overnight, a
+          territory goes to the strongest pack on it if it beats the owner’s defence: all of its strength on a Hold, half while it
+          marches elsewhere. Most ground at the end wins: everyone in the winning pack gets {game.winBones + 5} Bones, everyone else{' '}
+          {game.finishBones + 5}.
+        </Text>
       </DayCard>
     </Card>
   );
 }
 
-// A grid of parks, 6 by 4.
-function GridMap({ view, can, taken, onVote }: { view: PackWarsView; can: Set<number>; taken: Set<number>; onVote: (idx: number) => void }) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { width } = useWindowDimensions();
-  const gap = 4;
-  const cell = (Math.min(width, 500) - 32 - 24 - gap * (MAP_COLS - 1)) / MAP_COLS;
-  const label = Math.max(8, Math.min(11, cell * 0.19));
-  const me = packOf(view.myPack);
-  return (
-    <View style={[styles.gridWrap, { gap }]}>
-      {Array.from({ length: MAP_ROWS }, (_, r) => (
-        <View key={r} style={{ flexDirection: 'row', gap }}>
-          {view.map.slice(r * MAP_COLS, (r + 1) * MAP_COLS).map((t) => {
-            const owner = t.owner ? packOf(t.owner) : null;
-            const target = view.myVote === t.idx;
-            const open = can.has(t.idx);
-            return (
-              <Pressable
-                key={t.idx}
-                disabled={!open}
-                onPress={() => onVote(t.idx)}
-                style={[
-                  styles.tile,
-                  { width: cell, height: cell * 1.05, backgroundColor: owner ? owner.wash : '#ece6d6' },
-                  open && { borderColor: me.color, borderStyle: 'dashed', borderWidth: 1.5 },
-                  target && { borderColor: me.color, borderStyle: 'solid', borderWidth: 3 },
-                ]}
-              >
-                {owner && <View style={[styles.tileBand, { backgroundColor: owner.color }]} />}
-                {!owner && <NativeText style={styles.tree}>🌳</NativeText>}
-                {taken.has(t.idx) && <NativeText style={styles.spark}>✦</NativeText>}
-                <View style={{ paddingHorizontal: 3, paddingBottom: 3 }}>
-                  {t.name.split(' ').map((w) => (
-                    <NativeText key={w} allowFontScaling={false} numberOfLines={1} style={[styles.tileName, { fontSize: label, lineHeight: label * 1.15 }]}>
-                      {w}
-                    </NativeText>
-                  ))}
-                </View>
-                {target && (
-                  <View style={[styles.paw, { backgroundColor: me.color }]}>
-                    <NativeText style={styles.pawText}>🐾</NativeText>
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-      ))}
-    </View>
-  );
+function yesterday(day: string): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return localDayKey(new Date(y, m - 1, d - 1));
+}
+
+// "Monday, Dec 1".
+function formatDay(day: string): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
 // A neighborhood: the same 24 territories as blocks between streets,
 // with a river, trees and houses.
-function HoodMap({ view, can, taken, onVote }: { view: PackWarsView; can: Set<number>; taken: Set<number>; onVote: (idx: number) => void }) {
+function HoodMap({ game, can, taken, onVote }: { game: PackWarsGame; can: Set<number>; taken: Set<number>; onVote: (idx: number) => void }) {
   const W = 600;
   const H = 440;
-  const me = packOf(view.myPack);
+  const me = packOf(game.myPack);
   // A lattice of corners, nudged so the blocks aren't square. Edges stay put.
   const pts = useMemo(() => {
     const out: [number, number][][] = [];
@@ -186,8 +180,8 @@ function HoodMap({ view, can, taken, onVote }: { view: PackWarsView; can: Set<nu
       for (let c = 0; c <= MAP_COLS; c++) {
         const edgeX = c === 0 || c === MAP_COLS;
         const edgeY = r === 0 || r === MAP_ROWS;
-        const jx = edgeX ? 0 : Math.sin(r * 7.1 + c * 3.3) * 22;
-        const jy = edgeY ? 0 : Math.cos(r * 5.3 + c * 2.7) * 18;
+        const jx = edgeX ? 0 : Math.sin(r * 7.1 + c * 3.3) * 13;
+        const jy = edgeY ? 0 : Math.cos(r * 5.3 + c * 2.7) * 10;
         row.push([(c / MAP_COLS) * W + jx, (r / MAP_ROWS) * H + jy]);
       }
       out.push(row);
@@ -211,11 +205,11 @@ function HoodMap({ view, can, taken, onVote }: { view: PackWarsView; can: Set<nu
       <Svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ aspectRatio: W / H }}>
         {/* Streets underneath everything. */}
         <Rect x={0} y={0} width={W} height={H} fill="#d9d3c3" />
-        {view.map.map((t) => {
+        {game.map.map((t) => {
           const { corners, cx, cy } = block(t.idx);
           const owner = t.owner ? packOf(t.owner) : null;
           const open = can.has(t.idx);
-          const target = view.myVote === t.idx;
+          const target = game.myVote === t.idx;
           const words = t.name.split(' ');
           return (
             <G key={t.idx} onPress={open ? () => onVote(t.idx) : undefined}>
@@ -253,8 +247,8 @@ function HoodMap({ view, can, taken, onVote }: { view: PackWarsView; can: Set<nu
               )}
               {target && (
                 <>
-                  <Circle cx={cx} cy={cy + 42} r={13} fill={me.color} />
-                  <SvgText x={cx} y={cy + 47} fontSize={14} textAnchor="middle">
+                  <Circle cx={cx} cy={cy - 38} r={13} fill={me.color} />
+                  <SvgText x={cx} y={cy - 33} fontSize={14} textAnchor="middle">
                     🐾
                   </SvgText>
                 </>
@@ -262,15 +256,24 @@ function HoodMap({ view, can, taken, onVote }: { view: PackWarsView; can: Set<nu
             </G>
           );
         })}
-        {/* The river, along one street, with a bridge. */}
+        {/* The river, down the street between the second and third rows,
+            with a bridge. */}
         <Path
-          d={`M 0 ${H * 0.5 + 6} C ${W * 0.12} ${H * 0.44}, ${W * 0.22} ${H * 0.58}, ${W * 0.34} ${H * 0.5} S ${W * 0.48} ${H * 0.47}, ${W * 0.52} ${H * 0.52}`}
+          d={`M ${pts[2][0][0]} ${pts[2][0][1]} ${[1, 2, 3].map((c) => `L ${pts[2][c][0]} ${pts[2][c][1]}`).join(' ')}`}
           stroke="#7fb3d9"
           strokeWidth={12}
           fill="none"
           strokeLinecap="round"
+          strokeLinejoin="round"
         />
-        <Rect x={W * 0.22 - 10} y={H * 0.5 - 14} width={20} height={30} rx={3} fill="#b9ad94" />
+        <Rect
+          x={(pts[2][1][0] + pts[2][2][0]) / 2 - 9}
+          y={(pts[2][1][1] + pts[2][2][1]) / 2 - 14}
+          width={18}
+          height={28}
+          rx={3}
+          fill="#b9ad94"
+        />
       </Svg>
     </View>
   );
@@ -280,6 +283,7 @@ function makeStyles(colors: Palette) {
   return StyleSheet.create({
     meta: { fontSize: 12, color: withAlpha(colors.text, 0.58) },
     note: { fontSize: 12, color: withAlpha(colors.text, 0.6), lineHeight: 17 },
+    result: { fontFamily: font.heading, fontSize: 15, color: colors.text },
     myPack: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 12, borderWidth: 1.5 },
     flag: { width: 22, height: 22, borderRadius: 6 },
     myPackName: { fontFamily: font.headingSemibold, fontSize: 15, color: colors.text },
@@ -289,14 +293,6 @@ function makeStyles(colors: Palette) {
     legendText: { fontSize: 12, color: withAlpha(colors.text, 0.65), fontVariant: ['tabular-nums'] },
     legendMine: { fontFamily: font.headingSemibold, color: colors.text },
     dot: { width: 10, height: 10, borderRadius: 5 },
-    gridWrap: { alignItems: 'center' },
-    tile: { borderRadius: 8, overflow: 'hidden', justifyContent: 'flex-end', borderWidth: 1, borderColor: 'transparent' },
-    tileBand: { position: 'absolute', top: 0, left: 0, right: 0, height: 6 },
-    tileName: { fontFamily: font.body, color: '#2b2620' },
-    tree: { position: 'absolute', top: 6, right: 4, fontSize: 11 },
-    spark: { position: 'absolute', top: 8, left: 4, fontSize: 11, color: '#2b2620' },
-    paw: { position: 'absolute', top: 8, right: 3, width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-    pawText: { fontSize: 10 },
     vote: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, backgroundColor: withAlpha(colors.accent, 0.08) },
     voteTitle: { fontSize: 11, letterSpacing: 0.6, color: withAlpha(colors.text, 0.55), fontFamily: font.headingSemibold },
     voteValue: { fontFamily: font.heading, fontSize: 15, color: colors.text },

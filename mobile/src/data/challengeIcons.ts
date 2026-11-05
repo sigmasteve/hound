@@ -6,6 +6,7 @@ import {
   ClipboardTextIcon,
   DoorIcon,
   FlagIcon,
+  FlagBannerIcon,
   FlagCheckeredIcon,
   FlameIcon,
   FootprintsIcon,
@@ -37,6 +38,7 @@ export const CHALLENGE_KIND_ICON: Record<ChallengeKind, React.ComponentType<any>
   cricket: BaseballIcon,
   baseball: BaseballCapIcon,
   doors: DoorIcon,
+  packs: FlagBannerIcon,
 };
 
 // A build only ever ships knowing the challenge kinds that existed when

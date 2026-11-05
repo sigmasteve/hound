@@ -43,6 +43,8 @@ import { getCareOverview, getRoomOverview } from '../care/care';
 import { GrowthAdminCard } from '../components/GrowthAdminCard';
 import { BaseballAdminCard } from '../components/BaseballAdminCard';
 import { DoorsAdminCard } from '../components/DoorsAdminCard';
+import { PacksAdminCard } from '../components/PacksAdminCard';
+import { getPacksAdminOverview } from '../challenges/packWarsApi';
 import { getDoorsAdminOverview } from '../challenges/doorsApi';
 import { getBaseballOverview } from '../challenges/baseballApi';
 import { getGrowthOverview } from '../growth/growth';
@@ -151,6 +153,7 @@ export function AdminScreen({
   // The Baseball fold's line: games on and played (0167).
   const [baseballSummary, setBaseballSummary] = useState<string | null>(null);
   const [doorsSummary, setDoorsSummary] = useState<string | null>(null);
+  const [packsSummary, setPacksSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
   const [shopSummary, setShopSummary] = useState<string | null>(null);
   // Where the App versions fold sits, so "Versions" in Needs you can
@@ -183,6 +186,9 @@ export function AdminScreen({
         .catch(() => {});
       getGrowthOverview()
         .then((g) => setGrowthSummary(`${g.withTrait} with a trait · ${g.byStage.puppy} ${g.byStage.puppy === 1 ? 'puppy' : 'puppies'}`))
+        .catch(() => {});
+      getPacksAdminOverview()
+        .then((d) => setPacksSummary(`${d.joined} in a pack · ${d.votedToday} voted today`))
         .catch(() => {});
       getDoorsAdminOverview()
         .then((d) => setDoorsSummary(`${d.joined} joined · ${d.openedToday} opened a door today`))
@@ -729,6 +735,9 @@ export function AdminScreen({
                 <AdminFold title="Together" summary={togetherSummary ?? 'Playdates, walks together, the dog park'}>
                   <TogetherAdminCard />
                 </AdminFold>
+                <AdminFold title="Pack Wars" summary={packsSummary ?? 'Packs, votes and the map'}>
+                  <PacksAdminCard />
+                </AdminFold>
                 <AdminFold title="Daily Doors" summary={doorsSummary ?? 'Doors opened and done'}>
                   <DoorsAdminCard />
                 </AdminFold>
@@ -1088,7 +1097,7 @@ export function AdminScreen({
                       more="New players meet the core loop first and unlock the rest by sticking around. Bought Bones never count toward this. Leave a kind off to keep it always available."
                     />
                     <View style={{ gap: 12 }}>
-                      {CHALLENGE_TYPES.filter((t) => t.id !== 'doors').map((t) => {
+                      {CHALLENGE_TYPES.filter((t) => t.id !== 'doors' && t.id !== 'packs').map((t) => {
                         const gated = gatedKinds.has(t.id);
                         return (
                           <View key={t.id} style={{ gap: 8 }}>

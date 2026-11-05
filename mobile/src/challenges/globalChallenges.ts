@@ -10,7 +10,7 @@ import type { BingoCardType, ChallengeKind, DistanceGoalUnit, DistanceSource } f
 // The kinds that work with an open-ended crowd — the same list
 // publish_global_challenge enforces server-side. Chase, Tag, and
 // Tic-Tac-Go all depend on a small, known group.
-export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly', 'doors'];
+export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly', 'doors', 'packs'];
 
 // How long after the start people can still join. 'start' closes
 // joining the moment it begins (only offered for a future start); 'end'
@@ -116,6 +116,14 @@ export const GLOBAL_TEMPLATES: GlobalTemplate[] = [
     kind: 'doors',
     durationDays: 14,
     blurb: 'A door a day for two weeks. Open it to see the day’s task, do it by midnight. Most points wins.',
+    joinWindow: '3',
+  },
+  {
+    id: 'pack-wars',
+    name: 'Pack Wars',
+    kind: 'packs',
+    durationDays: 14,
+    blurb: 'Four packs fight over one neighborhood map. Vote your pack’s march each day; most ground at the end wins. 7 to 30 days.',
     joinWindow: '3',
   },
   {

@@ -161,6 +161,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   houndopoly: 'Buy the squares your steps land you on. Richest wins.',
   journey: 'Same course, same start. First to the end wins.',
   doors: 'A door a day: open it, then do what’s behind it.',
+  packs: 'Four packs, one map. Vote your march; take the most ground.',
 };
 
 // A Journey's default run: about two miles a day, at least three days,
