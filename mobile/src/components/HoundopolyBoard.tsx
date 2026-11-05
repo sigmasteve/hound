@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text as NativeText, View } from 'react-native';
 import { Text } from './Text';
 import { Avatar } from './Avatar';
 import { useTheme } from '../theme/ThemeContext';
@@ -27,6 +27,33 @@ for (let r = 1; r <= 5; r++) RING.push([r, 6]);
 
 const GAP = 3;
 
+// What each square says on the board: a word or two, one per line, so a
+// name never breaks mid-word. The deed sheet has the full name.
+const BOARD_LABEL: Record<string, string[]> = {
+  Start: ['Start'],
+  'Elm Street Walk': ['Elm', 'Street'],
+  'Birch Lane': ['Birch', 'Lane'],
+  'Fetch!': ['Fetch!'],
+  'Riverside Trail': ['River', 'Trail'],
+  'Creekside Loop': ['Creek', 'Loop'],
+  'Dog House': ['Dog', 'House'],
+  'Oak Hollow': ['Oak', 'Hollow'],
+  'Lakeshore Path': ['Lake', 'Path'],
+  'Harbor Walk': ['Harbor', 'Walk'],
+  'Meadow Run': ['Meadow', 'Run'],
+  'Dog Park': ['Dog', 'Park'],
+  'Orchard Way': ['Orchard', 'Way'],
+  'Summit Ridge': ['Summit', 'Ridge'],
+  'Canyon Trail': ['Canyon', 'Trail'],
+  'Skyline Drive': ['Skyline', 'Drive'],
+  'Vet Visit': ['Vet', 'Visit'],
+  'Boardwalk Pier': ['Board-', 'walk'],
+  'Water Bowl': ['Water', 'Bowl'],
+  'Lighthouse Point': ['Light-', 'house'],
+  'Sunset Bluff': ['Sunset', 'Bluff'],
+  'Grand Avenue': ['Grand', 'Ave'],
+};
+
 // The 24-square loop. Each square shows its colour band, its name, a
 // dot for its owner and the avatars standing on it. The middle is
 // whatever the caller puts there (cash and worth). Laid out by hand
@@ -50,6 +77,11 @@ export function HoundopolyBoard({
   const colorOf = useMemo(() => new Map(players.map((p) => [p.userId, p.color])), [players]);
   const [size, setSize] = useState(0);
   const cell = size > 0 ? (size - GAP * 6) / 7 : 0;
+  // Square labels are part of the drawing, sized to the square like the
+  // sports fields' labels, so the longest word ("Orchard", "Skyline")
+  // fits on one line. The phone's and the app's text size settings would
+  // only break words in two here; the deed sheet has the name at full size.
+  const labelSize = Math.max(8, Math.min(12, cell * 0.21));
 
   return (
     <View style={styles.board} onLayout={(e) => setSize(e.nativeEvent.layout.width)}>
@@ -69,6 +101,8 @@ export function HoundopolyBoard({
           { left: c * (cell + GAP), top: r * (cell + GAP), width: cell, height: cell },
           corner && styles.corner,
           event && styles.event,
+          // Someone standing here: the label drops below their piece.
+          here.length > 0 && { justifyContent: 'flex-end' },
           pressed && { opacity: 0.7 },
         ]}
         accessibilityRole="button"
@@ -76,9 +110,20 @@ export function HoundopolyBoard({
       >
         {sq.group && <View style={[styles.band, { backgroundColor: GROUP_COLORS[sq.group] }]} />}
         {owner && <View style={[styles.ownerDot, { backgroundColor: colorOf.get(owner) ?? colors.accent }]} />}
-        <Text style={[styles.name, corner && styles.cornerName, event && styles.eventName]} numberOfLines={2}>
-          {corner || event ? sq.name.toUpperCase() : sq.name}
-        </Text>
+        <View>
+          {(BOARD_LABEL[sq.name] ?? [sq.name]).map((word) => (
+            <NativeText
+              key={word}
+              style={[styles.name, { fontSize: labelSize, lineHeight: labelSize * 1.15 }, (corner || event) && styles.cornerName]}
+              numberOfLines={1}
+              allowFontScaling={false}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {word}
+            </NativeText>
+          ))}
+        </View>
         {here.length > 0 && (
           <View style={styles.pieces}>
             {here.slice(0, 3).map((p, i) => (
@@ -116,7 +161,8 @@ function makeStyles(colors: Palette) {
       position: 'absolute',
       borderRadius: 6,
       backgroundColor: withAlpha(colors.text, 0.08),
-      padding: 3,
+      paddingHorizontal: 3,
+      paddingBottom: 3,
       justifyContent: 'flex-end',
       overflow: 'hidden',
     },
@@ -124,9 +170,8 @@ function makeStyles(colors: Palette) {
     event: { backgroundColor: withAlpha(colors.accent, 0.16), justifyContent: 'center' },
     band: { position: 'absolute', left: 0, right: 0, top: 0, height: 5 },
     ownerDot: { position: 'absolute', right: 2, top: 7, width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: colors.surface },
-    name: { fontSize: 7, lineHeight: 8.5, color: withAlpha(colors.text, 0.8) },
-    cornerName: { fontFamily: font.heading, fontSize: 7, textAlign: 'center', color: colors.accentActive },
-    eventName: { fontFamily: font.heading, textAlign: 'center', color: colors.accentActive },
+    name: { fontFamily: font.body, color: withAlpha(colors.text, 0.85) },
+    cornerName: { fontFamily: font.heading, textAlign: 'center', color: colors.accentActive },
     pieces: { position: 'absolute', left: 2, top: 7, flexDirection: 'row', alignItems: 'center' },
     piece: { borderRadius: 10, borderWidth: 1.5, borderColor: colors.surface },
     me: { borderColor: colors.amber },
