@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
-import { BookOpenIcon, FootprintsIcon, ShareNetworkIcon, XIcon } from 'phosphor-react-native';
+import { BookOpenIcon, CaretDownIcon, FootprintsIcon, ShareNetworkIcon, XIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
@@ -13,9 +13,8 @@ import { RARITY_NAMES, SEASON_NAMES, walkName, walkStats, type FindKind, type Ho
 import { logWalkEvent } from './walksApi';
 import type { HoundWalksState } from './useHoundWalks';
 import type { HoundProfileState } from '../growth/useHoundProfile';
-import { AboutCard } from '../growth/AboutCard';
 import { traitInfo } from '../growth/growth';
-import { DogParkScene, PARK_ROOM } from '../together/ParkArt';
+import { PARK_ROOM } from '../together/ParkArt';
 import { togetherNames, type ParkHound, type WalkTogether } from '../together/together';
 import type { TogetherState } from '../together/useTogether';
 import type { YardHound } from '../kennel/YardArt';
@@ -38,6 +37,10 @@ interface Props {
   // Your hound, for the park once you've walked.
   myHound?: YardHound;
   onOpenFriend?: (h: ParkHound) => void;
+  // The kitchen, next to the finds, and care (bath, pantry) after them,
+  // from the Kennel (0169).
+  kitchen?: React.ReactNode;
+  care?: React.ReactNode;
 }
 
 export function WalksTab({
@@ -50,7 +53,8 @@ export function WalksTab({
   waterByDay,
   together,
   myHound,
-  onOpenFriend,
+  kitchen,
+  care,
 }: Props) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -71,12 +75,9 @@ export function WalksTab({
     for (const t of together?.data?.together ?? []) m.set(t.walkId, [...(m.get(t.walkId) ?? []), t]);
     return m;
   }, [together?.data]);
-  const park = together?.available ? together.data : null;
-  const [parkWidth, setParkWidth] = useState(0);
-  // A look at the park, once a day per person (for Admin).
-  useEffect(() => {
-    if (park) logWalkEvent('park_open');
-  }, [!!park]);
+  const playdate = together?.available ? (together.data?.playdate ?? null) : null;
+  // The diary waits behind More, so Today opens on what's new.
+  const [more, setMore] = useState(false);
 
   // A line a day, newest first, for days there's something to go on.
   const diary = useMemo(() => {
@@ -135,8 +136,13 @@ export function WalksTab({
 
   return (
     <>
-      {growth?.profile && (
-        <AboutCard profile={growth.profile} today={today} onSetBirthday={growth.setBirthday} busy={growth.busy} />
+      {playdate && (
+        <View style={styles.playdate}>
+          <Text style={styles.playdateText}>
+            <Text style={styles.playdateTitle}>Playdate! </Text>
+            You and {playdate.owner} both finished your goals, so {playdate.houndName} is over to play in your yard.
+          </Text>
+        </View>
       )}
       <Card style={{ gap: 10 }} elevated={false}>
         <View style={styles.header}>
@@ -167,83 +173,10 @@ export function WalksTab({
         )}
       </Card>
 
-      {park && (
-        <Card style={{ gap: 10 }} elevated={false}>
-          <View style={styles.header}>
-            <Text style={text.h4}>Dog park</Text>
-            {park.park.length > 0 && (
-              <Text style={styles.headerNote}>
-                {park.park.length} {park.park.length === 1 ? 'friend' : 'friends'}
-              </Text>
-            )}
-          </View>
-          {park.playdate && (
-            <Text style={styles.note}>
-              Playdate! You and {park.playdate.owner} both finished your goals, so {park.playdate.houndName} is over to play in your
-              yard.
-            </Text>
-          )}
-          <View onLayout={(e) => setParkWidth(Math.floor(e.nativeEvent.layout.width))}>
-            {parkWidth > 0 && (
-              <DogParkScene
-                hounds={park.park}
-                me={park.meWalked && myHound ? myHound : null}
-                width={parkWidth}
-                onOpen={onOpenFriend}
-              />
-            )}
-          </View>
-          {park.park.length > 0 && (
-            <View style={styles.parkChips}>
-              {park.park.map((h) => (
-                <Pressable
-                  key={h.userId}
-                  onPress={() => onOpenFriend?.(h)}
-                  style={styles.parkChip}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${h.hound.name}, ${h.owner}'s hound, out ${h.minutes} minutes${h.withMe ? ', walked with you' : ''}. Visit ${h.owner}`}
-                >
-                  <Text style={styles.parkChipText} numberOfLines={1}>
-                    {h.withMe ? '♥ ' : ''}
-                    <Text style={styles.parkChipName}>{h.hound.name}</Text> · {h.owner} · {h.minutes} min
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-          <Text style={styles.note}>
-            {park.park.length === 0
-              ? `No friends’ hounds out yet. When friends go for a walk, their hounds turn up here${park.meWalked ? '' : `, and so does ${houndName} after yours`}.`
-              : `Friends’ hounds out walking in the last day${park.park.length > PARK_ROOM ? ` (the ${PARK_ROOM} most recent)` : ''}. Tap one to visit.${
-                  park.meWalked ? '' : ` ${houndName} joins them after your next walk.`
-                }`}
-          </Text>
-        </Card>
-      )}
-
-      {diary.length > 0 && (
-        <Card style={{ gap: 10 }} elevated={false}>
-          <View style={styles.header}>
-            <Text style={text.h4}>{houndName}&rsquo;s diary</Text>
-            <Pressable onPress={share} hitSlop={10} style={styles.shareBtn} accessibilityRole="button" accessibilityLabel="Share the week">
-              <ShareNetworkIcon size={15} color={colors.accent} />
-              <Text style={styles.shareText}>Share the week</Text>
-            </Pressable>
-          </View>
-          {diary.map((d, i) => (
-            <View key={d.day} style={[styles.diaryRow, i > 0 && styles.rowRule]}>
-              <Text style={styles.diaryDay}>{d.label}</Text>
-              <Text style={[styles.diaryLine, i === 0 && styles.diaryToday]}>{d.line}</Text>
-            </View>
-          ))}
-          <Text style={styles.footNote}>Only you see this, unless you share it.</Text>
-        </Card>
-      )}
-
       {data && (
         <Card style={{ gap: 10 }} elevated={false}>
           <View style={styles.header}>
-            <Text style={text.h4}>Collection</Text>
+            <Text style={text.h4}>Finds</Text>
             <Text style={styles.headerNote}>
               {foundKinds.length} of {data.kinds.length} found
             </Text>
@@ -272,6 +205,37 @@ export function WalksTab({
         </Card>
       )}
 
+      {kitchen}
+      {care}
+
+      {more ? (
+        <>
+      {diary.length > 0 && (
+        <Card style={{ gap: 10 }} elevated={false}>
+          <View style={styles.header}>
+            <Text style={text.h4}>{houndName}&rsquo;s diary</Text>
+            <Pressable onPress={share} hitSlop={10} style={styles.shareBtn} accessibilityRole="button" accessibilityLabel="Share the week">
+              <ShareNetworkIcon size={15} color={colors.accent} />
+              <Text style={styles.shareText}>Share the week</Text>
+            </Pressable>
+          </View>
+          {diary.map((d, i) => (
+            <View key={d.day} style={[styles.diaryRow, i > 0 && styles.rowRule]}>
+              <Text style={styles.diaryDay}>{d.label}</Text>
+              <Text style={[styles.diaryLine, i === 0 && styles.diaryToday]}>{d.line}</Text>
+            </View>
+          ))}
+          <Text style={styles.footNote}>Only you see this, unless you share it.</Text>
+        </Card>
+      )}
+        </>
+      ) : (
+        <Pressable onPress={() => setMore(true)} style={styles.moreRow} accessibilityRole="button">
+          <Text style={styles.moreText}>More: {houndName}&rsquo;s diary</Text>
+          <CaretDownIcon size={14} color={colors.accentActive} weight="bold" />
+        </Pressable>
+      )}
+
       {bookOpen && data && (
         <CollectionSheet
           kinds={data.kinds}
@@ -282,6 +246,64 @@ export function WalksTab({
         />
       )}
     </>
+  );
+}
+
+// Kennel → Home on the Park (0170): the friends whose hounds are at the
+// dog park, to tap and visit, under the park scene.
+export function ParkList({
+  together,
+  houndName,
+  onOpenFriend,
+}: {
+  together: TogetherState;
+  houndName: string;
+  onOpenFriend?: (h: ParkHound) => void;
+}) {
+  const { colors, text } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const park = together.available ? together.data : null;
+  // A look at the park, once a day per person (for Admin).
+  useEffect(() => {
+    if (park) logWalkEvent('park_open');
+  }, [!!park]);
+  if (!park) return null;
+  return (
+    <Card style={{ gap: 10 }} elevated={false}>
+      <View style={styles.header}>
+        <Text style={text.h4}>At the park</Text>
+        {park.park.length > 0 && (
+          <Text style={styles.headerNote}>
+            {park.park.length} {park.park.length === 1 ? 'friend' : 'friends'}
+          </Text>
+        )}
+      </View>
+      <Text style={styles.note}>
+        {park.park.length === 0
+          ? `No friends’ hounds out yet. When friends go for a walk, their hounds turn up here${park.meWalked ? '' : `, and so does ${houndName} after yours`}.`
+          : `Friends’ hounds out walking in the last day${park.park.length > PARK_ROOM ? ` (the ${PARK_ROOM} most recent are in the park)` : ''}. Tap one to visit.${
+              park.meWalked ? '' : ` ${houndName} joins them after your next walk.`
+            }`}
+      </Text>
+      {park.park.length > 0 && (
+        <View style={styles.parkChips}>
+          {park.park.map((h) => (
+            <Pressable
+              key={h.userId}
+              onPress={() => onOpenFriend?.(h)}
+              style={styles.parkChip}
+              accessibilityRole="button"
+              accessibilityLabel={`${h.hound.name}, ${h.owner}'s hound, out ${h.minutes} minutes${h.withMe ? ', walked with you' : ''}. Visit ${h.owner}`}
+            >
+              <Text style={styles.parkChipText} numberOfLines={1}>
+                {h.withMe ? '♥ ' : ''}
+                <Text style={styles.parkChipName}>{h.hound.name}</Text> · {h.owner} · {h.minutes} min
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </Card>
   );
 }
 
@@ -355,8 +377,10 @@ function CollectionSheet({
   const groups = [GROUPS[0], ...GROUPS.slice(1).filter((g) => g.season === season), ...GROUPS.slice(1).filter((g) => g.season !== season)];
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close">
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <View style={styles.backdrop}>
+        {/* Behind the sheet, so a tap outside closes it without stealing the sheet's scrolling. */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
+        <View style={styles.sheet}>
           <View style={styles.header}>
             <BookOpenIcon size={20} color={colors.accent} weight="fill" />
             <Text style={[text.h4, { flex: 1 }]}>Collection book</Text>
@@ -398,8 +422,8 @@ function CollectionSheet({
               );
             })}
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -408,6 +432,11 @@ type Styles = ReturnType<typeof makeStyles>;
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    playdate: { padding: 12, borderRadius: 14, backgroundColor: withAlpha(colors.accent, 0.12) },
+    playdateText: { fontSize: 13.5, lineHeight: 19, color: withAlpha(colors.text, 0.8) },
+    playdateTitle: { fontFamily: font.heading, color: colors.text },
+    moreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
+    moreText: { fontFamily: font.heading, fontSize: 14, color: colors.accentActive },
     parkChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     parkChip: {
       paddingHorizontal: 10,

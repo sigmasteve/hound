@@ -40,8 +40,10 @@ export function BonesSheet({
 
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close">
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <View style={styles.backdrop}>
+        {/* Behind the sheet, so a tap outside closes it without stealing the sheet's scrolling. */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
+        <View style={styles.sheet}>
           <View style={styles.header}>
             <BoneIcon size={22} color={colors.accent} weight="fill" />
             <Text style={styles.title}>
@@ -74,8 +76,8 @@ export function BonesSheet({
               <Button label="Your look" variant="primary" block onPress={onOpenLook} />
             </View>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

@@ -150,8 +150,10 @@ function Sheet({ title, onClose, children, styles }: { title: string; onClose():
   const { colors, text } = useTheme();
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close">
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <View style={styles.backdrop}>
+        {/* Behind the sheet, so a tap outside closes it without stealing the sheet's scrolling. */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
+        <View style={styles.sheet}>
           <View style={styles.header}>
             <Text style={[text.h4, { flex: 1 }]}>{title}</Text>
             <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
@@ -159,8 +161,8 @@ function Sheet({ title, onClose, children, styles }: { title: string; onClose():
             </Pressable>
           </View>
           {children}
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

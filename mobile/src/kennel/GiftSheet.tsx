@@ -135,9 +135,11 @@ export function GiftSheet({
 
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close">
+      <View style={styles.backdrop}>
+        {/* Behind the sheet, so a tap outside closes it without stealing the sheet's scrolling. */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+          <View style={styles.sheet}>
             <View style={styles.header}>
               <GiftIcon size={20} color={colors.accent} weight="fill" />
               <Text style={[text.h4, { flex: 1 }]}>A gift for {houndName}</Text>
@@ -228,9 +230,9 @@ export function GiftSheet({
               onPress={send}
               icon={sending ? <ActivityIndicator size="small" color="#161826" /> : undefined}
             />
-          </Pressable>
+          </View>
         </KeyboardAvoidingView>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
