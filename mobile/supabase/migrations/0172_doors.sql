@@ -8,7 +8,8 @@
 --
 --   steps     walk a target: a tenth over your own average for the seven
 --             days before, to the nearest 500, 3,000 to 15,000 (5,000
---             with no steps on record)
+--             with no steps on record); counted from the synced day's
+--             total, or the phone's own count (doors_claim_steps)
 --   workout   any workout logged that day
 --   water     your water goal met (water_days)
 --   goal_day  every daily goal closed (a goal_day claim)
@@ -527,6 +528,38 @@ $$;
 
 revoke execute on function public.doors_open(uuid, date) from public, anon;
 grant execute on function public.doors_open(uuid, date) to authenticated;
+
+-- A steps door done on the phone's own count. daily_step_totals is kept
+-- by UTC day (0027), so late in a US evening today's steps land on
+-- tomorrow's row; the phone knows its own day's total, and is trusted for
+-- it the way it is for a water day (0153) or a goal day (0099).
+create or replace function public.doors_claim_steps(p_challenge_id uuid, p_day date, p_steps int)
+returns boolean
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  me uuid := auth.uid();
+  utc_today date := (now() at time zone 'utc')::date;
+  n int;
+begin
+  if me is null then
+    raise exception 'Sign in to do that.';
+  end if;
+  if p_day is null or p_day < utc_today - 1 or p_day > utc_today + 1 or p_steps is null or p_steps < 0 or p_steps > 150000 then
+    raise exception 'Invalid steps.';
+  end if;
+  update public.door_opens o
+    set done_at = now()
+    where o.challenge_id = p_challenge_id and o.user_id = me and o.day = p_day
+      and o.task = 'steps' and o.done_at is null and p_steps >= o.steps_target;
+  get diagnostics n = row_count;
+  return n > 0;
+end;
+$$;
+
+revoke execute on function public.doors_claim_steps(uuid, date, int) from public, anon;
+grant execute on function public.doors_claim_steps(uuid, date, int) to authenticated;
 
 -- ── Jobs ─────────────────────────────────────────────────────────────
 

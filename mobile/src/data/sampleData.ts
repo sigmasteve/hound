@@ -75,7 +75,8 @@ export type ChallengeKind =
   | 'rally'
   | 'soccer'
   | 'cricket'
-  | 'baseball';
+  | 'baseball'
+  | 'doors';
 
 export interface ChallengeCard {
   id: string;
@@ -209,6 +210,15 @@ export const CHALLENGE_TYPES: {
     desc: 'A game on everyone’s steps, one inning a day. Each at-bat is the batter’s steps against the pitcher’s, then the fielder’s and the catcher’s. Aim left, center or right, and big step days clear the fence. Teams of one to nine, friends or bots.',
     tint: '#1f3f6b',
     iconColor: '#d6e6fb',
+  },
+  // Global only (0172_doors.sql): published from Admin, never in "Pick
+  // the game", so it's in no group below.
+  {
+    id: 'doors',
+    name: 'Daily Doors',
+    desc: 'A calendar of doors, one a day. Open today’s door to see today’s task: steps, a workout, water, your goals, a treat for your hound, a walk or a cheer. Do it by midnight for more points. Miss a day and the door stays shut.',
+    tint: '#6b2f2a',
+    iconColor: '#f3d27a',
   },
   { id: 'journey', name: 'Journey', desc: 'Everyone walks the same famous course from the same start — Windy City 26.2, Route 66, the Appalachian Trail. Your walks, runs and hikes move you along the map. First to the end wins; if nobody gets there, furthest along does.', tint: '#2f5a3f', iconColor: '#cdebd6' },
 ];

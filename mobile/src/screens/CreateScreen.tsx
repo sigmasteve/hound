@@ -160,6 +160,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   checklist: 'Your own daily list. Tick it all, every day.',
   houndopoly: 'Buy the squares your steps land you on. Richest wins.',
   journey: 'Same course, same start. First to the end wins.',
+  doors: 'A door a day: open it, then do what’s behind it.',
 };
 
 // A Journey's default run: about two miles a day, at least three days,

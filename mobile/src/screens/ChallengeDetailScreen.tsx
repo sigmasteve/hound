@@ -183,6 +183,9 @@ import {
 import { advanceHoundopoly, decideHoundopoly, getHoundopolyGame } from '../challenges/houndopolyApi';
 import { netWorth as houndopolyNetWorth, type HoundopolyGame } from '../challenges/houndopoly';
 import { HoundopolySection } from '../components/HoundopolySection';
+import { DoorsCard } from '../components/DoorsCard';
+import { claimDoorSteps, getDoors, openDoor, todaysDoor, type DoorsGame } from '../challenges/doorsApi';
+import { getKennel } from '../kennel/kennelApi';
 import {
   listSeventyFiveCheckins,
   listSeventyFiveJoinDates,
@@ -422,6 +425,9 @@ export function ChallengeDetailScreen({
   const [houndopoly, setHoundopoly] = useState<HoundopolyGame | null>(null);
   const [houndopolySteps, setHoundopolySteps] = useState<number | null>(null);
   const [houndopolyDeciding, setHoundopolyDeciding] = useState(false);
+  // Daily Doors (0172): the calendar, and the hound's name for its tasks.
+  const [doors, setDoors] = useState<DoorsGame | null>(null);
+  const [houndName, setHoundName] = useState('your hound');
   // Your own line, as being typed; null while not editing.
   const [personalDraft, setPersonalDraft] = useState<string | null>(null);
   const [savingPersonal, setSavingPersonal] = useState(false);
@@ -887,6 +893,45 @@ export function ChallengeDetailScreen({
       cancelled = true;
     };
   }, [challenge?.kind, health]);
+
+  // Daily Doors: the calendar, today's steps (the same count Hound'opoly
+  // uses) and the hound's name.
+  const loadDoors = useCallback(async () => {
+    try {
+      setDoors(await getDoors(challengeId));
+    } catch {
+      // Not joined yet, or offline: the card waits.
+    }
+  }, [challengeId]);
+  useEffect(() => {
+    if (challenge?.kind !== 'doors') return;
+    loadDoors();
+    getKennel()
+      .then((k) => setHoundName(k.name))
+      .catch(() => {});
+    health
+      .getSnapshot()
+      .then((s) => setHoundopolySteps(s.stepsToday))
+      .catch(() => {});
+  }, [challenge?.kind, challenge?.id, loadDoors, health]);
+  // A steps door done on the phone's own count.
+  useEffect(() => {
+    if (!doors || houndopolySteps == null) return;
+    const d = todaysDoor(doors);
+    if (d?.state !== 'opened' || d.task?.kind !== 'steps' || !d.task.steps || houndopolySteps < d.task.steps) return;
+    claimDoorSteps(challengeId, houndopolySteps)
+      .then((marked) => (marked ? loadDoors() : undefined))
+      .catch(() => {});
+  }, [doors, houndopolySteps, challengeId, loadDoors]);
+  const knockDoor = async (): Promise<boolean> => {
+    try {
+      setDoors(await openDoor(challengeId));
+      return true;
+    } catch (e) {
+      Alert.alert('The door won’t open', e instanceof Error ? e.message : 'Try again in a moment.');
+      return false;
+    }
+  };
 
   const decideHoundopolySquare = async (buy: boolean) => {
     setHoundopolyDeciding(true);
@@ -2434,6 +2479,22 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
+          {challenge.kind === 'doors' && doors && (
+            <DoorsCard
+              name={challenge.name}
+              game={doors}
+              houndName={houndName}
+              people={participants}
+              userId={user?.id ?? null}
+              stepsToday={houndopolySteps}
+              onOpen={knockDoor}
+              onCheer={async (to) => {
+                await toggleReaction(challengeId, to, '👏');
+                loadDoors();
+              }}
+            />
+          )}
+
           {challenge.kind === 'houndopoly' && houndopoly && (
             <HoundopolySection
               challenge={challenge}
@@ -2569,7 +2630,7 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
-          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && (
+          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && (
             <Card style={{ gap: 12 }} elevated={false}>
               <View style={styles.leaderboardHeader}>
                 <TrophyIcon size={16} color={colors.accent} />
@@ -2816,7 +2877,8 @@ export function ChallengeDetailScreen({
             challenge.kind !== 'bingo' &&
             challenge.kind !== 'seventyfive' &&
             challenge.kind !== 'checklist' &&
-            challenge.kind !== 'houndopoly' && (
+            challenge.kind !== 'houndopoly' &&
+            challenge.kind !== 'doors' && (
             <Card style={{ gap: 14 }} elevated={false}>
               <Text style={text.h4}>Log your progress</Text>
               <Text style={styles.footNote}>

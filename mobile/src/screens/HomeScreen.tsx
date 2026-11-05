@@ -91,6 +91,7 @@ import { computePendingActions, needsManualEntry, type PendingAction } from '../
 import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
 import { isMyChecklistTodayComplete } from '../challenges/checklistApi';
 import { advanceHoundopoly, getHoundopolyGame, listMyHoundopolyPending } from '../challenges/houndopolyApi';
+import { doorsHeadline, getDoors, todaysDoor, type DoorsGame } from '../challenges/doorsApi';
 import { diceFor, netWorth as houndopolyNetWorth, nextTurn as houndopolyNextTurn, squareAt, type HoundopolyGame } from '../challenges/houndopoly';
 import { challengeDayNumber, getChallengeDays, localDayKey } from '../challenges/challengeDays';
 import { computeStreakStatus, type StreakStatus } from '../challenges/streak';
@@ -428,6 +429,7 @@ function heroCopy(
   houndopolyGame: HoundopolyGame | null = null,
   cricket: { game: CricketGame | null; onStrike: CricketOnStrike | null } = { game: null, onStrike: null },
   baseball: BaseballGame | null = null,
+  doorsGame: DoorsGame | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -477,6 +479,9 @@ function heroCopy(
   }
   if (challenge.kind === 'baseball') {
     return { eyebrow, headline: baseballHeadline(challenge.name, baseball, userId) };
+  }
+  if (challenge.kind === 'doors') {
+    return { eyebrow, headline: doorsHeadline(challenge.name, doorsGame) };
   }
   if (challenge.kind === 'houndopoly') {
     return { eyebrow, headline: houndopolyHeadline(challenge.name, houndopolyGame, userId, isChallengeFinished(challenge, board)) };
@@ -1005,6 +1010,8 @@ export function HomeScreen({
   const [primarySoccerGame, setPrimarySoccerGame] = useState<SoccerGame | null>(null);
   // Only populated when `primary` is a Hound'opoly game.
   const [primaryHoundopoly, setPrimaryHoundopoly] = useState<HoundopolyGame | null>(null);
+  // Every active Daily Doors, for Needs you and the pinned challenge's line.
+  const [doorsGames, setDoorsGames] = useState<Map<string, DoorsGame>>(new Map());
   // Only populated when `primary` is a Cricket match.
   // Only populated when `primary` is a Baseball game.
   const [primaryBaseball, setPrimaryBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[] }>({ game: null, innings: [] });
@@ -1814,7 +1821,7 @@ export function HomeScreen({
       const activeResults = results.filter((r) => !r.finished);
       if (user?.id) {
         const myId = user.id;
-        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots] = await Promise.all([
+        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries] = await Promise.all([
           Promise.all(
             activeResults
               .filter((r) => r.challenge.kind === 'tag')
@@ -1880,7 +1887,14 @@ export function HomeScreen({
                 .then(() => listMyRallyShots())
                 .catch(() => new Map<string, MyRallyShot>())
             : Promise.resolve(new Map<string, MyRallyShot>()),
+          // Daily Doors: each calendar (fails toward nothing waiting).
+          Promise.all(
+            activeResults
+              .filter((r) => r.challenge.kind === 'doors')
+              .map(async (r): Promise<readonly [string, DoorsGame | null]> => [r.challenge.id, await getDoors(r.challenge.id).catch(() => null)]),
+          ),
         ]);
+        const doorsMap = new Map(doorsEntries.filter((e): e is readonly [string, DoorsGame] => e[1] !== null));
         if (!cancelled) {
           const actions = computePendingActions({
             myUserId: myId,
@@ -1892,8 +1906,10 @@ export function HomeScreen({
             seventyfiveTodayComplete: new Map(seventyfiveEntries),
             checklistTodayComplete: new Map(checklistEntries),
             houndopolyPending,
+            doorsShut: new Set([...doorsMap].filter(([, g]) => todaysDoor(g)?.state === 'ready').map(([id]) => id)),
             loggedProgressToday: new Map(manualEntries),
           });
+          setDoorsGames(doorsMap);
           setPendingActions(actions);
           // Tonight's local "still on your list" reminder tracks this same
           // list — rescheduled (or cancelled once it's empty) on every
@@ -1957,6 +1973,7 @@ export function HomeScreen({
         primaryHoundopoly,
         primaryCricket,
         primaryBaseball.game,
+        doorsGames.get(primary.challenge.id) ?? null,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone

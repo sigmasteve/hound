@@ -3,7 +3,7 @@
 -- tasks marked done as the evidence lands or already there, points and
 -- the run with its weekly free miss, the board, settling, publishing,
 -- and the admin overview.
-select plan(37);
+select plan(40);
 
 select tests.new_user('Ann', true) as ann \gset
 select tests.new_user('Bob') as bob \gset
@@ -152,6 +152,25 @@ select is((select score_points from public.activity_events where challenge_id = 
 select is((select score_points from public.activity_events where challenge_id = '00000000-0000-0000-0000-0000000000d4' and user_id = :'bob' and kind = 'doors_result'),
   25, 'Second: 25');
 
+-- A steps door done on the phone's own count: d5 starts so today's door
+-- is its first steps door.
+select n - 1 as back from generate_series(1, 7) n
+where public.doors_task('00000000-0000-0000-0000-0000000000d5', n) = 'steps' limit 1 \gset
+insert into public.challenges (id, name, kind, created_by, duration_days, starts_at, ends_at, start_day, is_global, join_closes_at) values
+  ('00000000-0000-0000-0000-0000000000d5', 'Doors Five', 'doors', :'ann', 10, (:'today'::date - :back)::timestamp at time zone 'utc',
+   (:'today'::date + 10 - :back)::timestamp at time zone 'utc', :'today'::date - :back, true, now() + interval '1 day');
+insert into public.challenge_participants (challenge_id, user_id) values ('00000000-0000-0000-0000-0000000000d5', :'cat');
+select tests.sign_in(:'cat');
+set local role authenticated;
+select public.doors_open('00000000-0000-0000-0000-0000000000d5', (now() at time zone 'utc')::date) is not null as opened \gset
+select is(public.doors_claim_steps('00000000-0000-0000-0000-0000000000d5', (now() at time zone 'utc')::date, 100), false,
+  'Fewer steps than the target don''t count');
+select is(public.doors_claim_steps('00000000-0000-0000-0000-0000000000d5', (now() at time zone 'utc')::date, 20000), true,
+  'The phone''s own count reaching it does');
+reset role;
+select isnt((select done_at from public.door_opens where user_id = :'cat' and challenge_id = '00000000-0000-0000-0000-0000000000d5'), null,
+  'and the door is done');
+
 -- Publishing and the overview.
 select tests.sign_in(:'ann');
 set local role authenticated;
@@ -159,7 +178,7 @@ select lives_ok($$select public.publish_global_challenge('Knock Knock, Hound', '
   'An admin publishes a Daily Doors');
 select throws_ok($$select public.publish_global_challenge('Too short', 'doors', 2, now() + interval '1 day', now() + interval '2 days')$$,
   'Daily Doors runs 3 to 60 days, a door a day.', 'At least three doors');
-select is((public.admin_doors_overview() ->> 'opens')::int, 11, 'The overview counts every door opened');
+select is((public.admin_doors_overview() ->> 'opens')::int, 12, 'The overview counts every door opened');
 reset role;
 select tests.sign_in(:'bob');
 set local role authenticated;

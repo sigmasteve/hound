@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import {
   BarbellIcon,
   BoneIcon,
@@ -13,11 +13,14 @@ import {
   TargetIcon,
 } from 'phosphor-react-native';
 import { Text } from './Text';
+import { Avatar } from './Avatar';
 import { Card } from './Card';
 import { DayCard } from './DayCard';
 import { useTheme } from '../theme/ThemeContext';
-import { font, withAlpha, type Palette } from '../theme/tokens';
+import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { DOOR_POINTS, RUN_FROM, taskHint, taskShort, taskTitle, type Door, type DoorTaskKind } from '../challenges/doors';
+import { todaysDoor, type DoorsGame } from '../challenges/doorsApi';
+import type { Participant } from '../challenges/types';
 
 // Door colours are fixed, not themed, like the Hound'opoly board's: a
 // row of painted doors reads the same in both themes.
@@ -37,35 +40,47 @@ const TASK_ICON: Record<DoorTaskKind, React.ComponentType<{ size: number; color:
 
 const doorColor = (no: number) => DOOR_COLORS[(no * 3) % DOOR_COLORS.length];
 
+export type DoorsPerson = Pick<Participant, 'userId' | 'name' | 'initials'> &
+  Partial<Pick<Participant, 'frameId' | 'backgroundId' | 'iconId' | 'level'>>;
+
 export function DoorsCard({
   name,
-  dayNo,
-  doors,
-  points,
-  rank,
-  players,
-  run,
+  game,
   houndName,
-  progress,
+  people,
+  userId,
+  stepsToday,
   onOpen,
+  onCheer,
 }: {
   name: string;
-  // Today's door number; null before the first or after the last.
-  dayNo: number | null;
-  doors: Door[];
-  points: number;
-  rank: number | null;
-  players: number;
-  // Done doors in a row going into today.
-  run: number;
+  game: DoorsGame;
   houndName: string;
-  // How far today's task has got, when it has a measure: 5 of 8 cups.
-  progress?: { now: number; of: number; unit: string } | null;
-  onOpen: (no: number) => void;
+  people: DoorsPerson[];
+  userId: string | null;
+  // The phone's own count today; null while loading.
+  stepsToday: number | null;
+  // Opens today's door; true once it's open.
+  onOpen: (no: number) => Promise<boolean>;
+  // A cheer for someone on the board (counts for a cheer door).
+  onCheer?: (userId: string) => Promise<void>;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const today = dayNo != null ? (doors.find((d) => d.no === dayNo) ?? null) : null;
+  const doors = game.doors;
+  const today = todaysDoor(game);
+  const dayNo = today?.no ?? null;
+  const [cheered, setCheered] = useState<Set<string>>(new Set());
+
+  // How far today's task has got, where it has a measure.
+  const t = today?.task;
+  const progress =
+    t?.kind === 'steps' && t.steps
+      ? { now: Math.max(stepsToday ?? 0, game.stepsToday ?? 0), of: t.steps, unit: 'steps' }
+      : t?.kind === 'water'
+        ? { now: Math.round(game.waterMl / 236.6), of: Math.max(1, Math.round(game.waterTargetMl / 236.6)), unit: 'cups' }
+        : null;
+  const before = !today && doors.length > 0 && doors[0].state === 'locked';
 
   return (
     <Card style={{ gap: 14 }} elevated={false}>
@@ -77,18 +92,25 @@ export function DoorsCard({
       </View>
 
       <View style={styles.stats}>
-        <Stat label="Points" value={String(points)} styles={styles} />
-        <Stat label="Place" value={rank != null ? `#${rank}` : '—'} sub={`of ${players.toLocaleString()}`} styles={styles} />
+        <Stat label="Points" value={String(game.points)} styles={styles} />
+        <Stat label="Place" value={game.place != null ? `#${game.place}` : '—'} sub={`of ${game.players.toLocaleString()}`} styles={styles} />
         <Stat
           label="Run"
-          value={String(run)}
-          sub={run >= RUN_FROM ? '+1 a day' : `${RUN_FROM - run} to +1`}
-          icon={<FlameIcon size={14} color={run >= RUN_FROM ? '#e0782a' : withAlpha(colors.text, 0.35)} weight="fill" />}
+          value={String(game.run)}
+          sub={game.run >= RUN_FROM ? '+1 a day' : `${RUN_FROM - game.run} to +1`}
+          icon={<FlameIcon size={14} color={game.run >= RUN_FROM ? '#e0782a' : withAlpha(colors.text, 0.35)} weight="fill" />}
           styles={styles}
         />
       </View>
 
       {today && <TodayDoor door={today} houndName={houndName} progress={progress} onOpen={onOpen} styles={styles} />}
+      {before && <Text style={styles.note}>Door 1 opens on {formatDay(doors[0].day)}. Come back that morning and knock.</Text>}
+      {!today && !before && (
+        <Text style={styles.note}>
+          Every door’s been and gone. You opened {game.opened} and did {game.done}, for {game.points} points
+          {game.place != null ? `: #${game.place} of ${game.players.toLocaleString()}` : ''}.
+        </Text>
+      )}
 
       <View style={{ gap: 8 }}>
         <Text style={styles.sectionTitle}>The calendar</Text>
@@ -104,11 +126,68 @@ export function DoorsCard({
         </View>
       </View>
 
+      {game.board.length > 0 && (
+        <View style={{ gap: 6 }}>
+          <Text style={styles.sectionTitle}>Standings</Text>
+          {game.board.map((r) => {
+            const who = people.find((p) => p.userId === r.userId);
+            const me = r.userId === userId;
+            const done = cheered.has(r.userId);
+            return (
+              <View key={r.userId} style={[styles.standRow, me && styles.standMe]}>
+                <Text style={styles.standPlace}>{r.place}</Text>
+                <Avatar
+                  initials={who?.initials ?? '?'}
+                  tint={me ? TINT_A : TINT_N}
+                  size={28}
+                  fontSize={10}
+                  frameId={who?.frameId}
+                  backgroundId={who?.backgroundId}
+                  iconId={who?.iconId}
+                />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.standName} numberOfLines={1}>
+                    {me ? 'You' : (who?.name ?? 'Someone')}
+                  </Text>
+                  <Text style={styles.statSub}>
+                    {r.done} done{r.run >= RUN_FROM ? ` · ${r.run} in a row` : ''}
+                  </Text>
+                </View>
+                <Text style={styles.standPoints}>{r.points}</Text>
+                {!me && onCheer && (
+                  <Pressable
+                    onPress={async () => {
+                      if (done) return;
+                      setCheered((c) => new Set(c).add(r.userId));
+                      try {
+                        await onCheer(r.userId);
+                      } catch {
+                        setCheered((c) => {
+                          const n = new Set(c);
+                          n.delete(r.userId);
+                          return n;
+                        });
+                      }
+                    }}
+                    style={[styles.cheer, done && styles.cheerDone]}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Cheer ${who?.name ?? 'them'}`}
+                  >
+                    <Text style={styles.cheerText}>👏</Text>
+                  </Pressable>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      )}
+
       <DayCard title="How it works">
         <Text style={styles.note}>
           One door opens each morning, and only on its own day. Opening it is {DOOR_POINTS.open} point and shows today’s task. Do the task by midnight
           for {DOOR_POINTS.done} more. From the {RUN_FROM}rd done door in a row, each one is worth {DOOR_POINTS.run} more. One missed day a week doesn’t
-          break your run. Tasks are checked from your Health data, water, goals and Kennel; nothing to tick.
+          break your run. Tasks are checked from your Health data, water, goals and Kennel; nothing to tick. For a cheer door, tap 👏 beside someone in the standings.
         </Text>
       </DayCard>
     </Card>
@@ -148,14 +227,17 @@ function TodayDoor({
   door: Door;
   houndName: string;
   progress?: { now: number; of: number; unit: string } | null;
-  onOpen: (no: number) => void;
+  onOpen: (no: number) => Promise<boolean>;
   styles: Styles;
 }) {
   const { colors } = useTheme();
-  const swing = useRef(new Animated.Value(door.state === 'ready' ? 0 : 1)).current;
+  const swing = useRef(new Animated.Value(0)).current;
   const glow = useRef(new Animated.Value(0)).current;
-  const [swinging, setSwinging] = useState(false);
-  const closed = door.state === 'ready' && !swinging;
+  // Knocking: waiting on the server for what's behind it. Swinging: the
+  // door's on its way open, still drawn over the task.
+  const [phase, setPhase] = useState<'idle' | 'knocking' | 'swinging'>('idle');
+  const showDoor = door.state === 'ready' || phase !== 'idle';
+  const swinging = phase === 'swinging';
 
   useEffect(() => {
     if (door.state !== 'ready') return;
@@ -169,9 +251,17 @@ function TodayDoor({
     return () => loop.stop();
   }, [door.state, glow]);
 
-  const open = () => {
-    setSwinging(true);
-    Animated.timing(swing, { toValue: 1, duration: 900, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }).start(() => onOpen(door.no));
+  const open = async () => {
+    if (phase !== 'idle') return;
+    setPhase('knocking');
+    const ok = await onOpen(door.no);
+    if (!ok) {
+      setPhase('idle');
+      return;
+    }
+    swing.setValue(0);
+    setPhase('swinging');
+    Animated.timing(swing, { toValue: 1, duration: 900, easing: Easing.out(Easing.back(1.2)), useNativeDriver: true }).start(() => setPhase('idle'));
   };
 
   const t = door.task;
@@ -210,7 +300,7 @@ function TodayDoor({
           ) : null}
         </View>
         {/* The door itself, hinged on the left. */}
-        {(closed || swinging) && (
+        {showDoor && (
           <Animated.View
             style={[
               styles.bigDoor,
@@ -227,7 +317,7 @@ function TodayDoor({
               <Text style={styles.bigNo}>{door.no}</Text>
               <View style={styles.knob} />
               <Animated.View style={[styles.openPill, { opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1] }) }]}>
-                <Text style={styles.openText}>Tap to open</Text>
+                {phase === 'knocking' ? <ActivityIndicator size="small" color="#4a2f12" /> : <Text style={styles.openText}>Tap to open</Text>}
               </Animated.View>
               <View style={styles.panelBottom} />
             </Pressable>
@@ -274,6 +364,12 @@ function SmallDoor({ door, styles }: { door: Door; styles: Styles }) {
       <View style={styles.smallKnob} />
     </View>
   );
+}
+
+// "Monday, Dec 1" for a door's day.
+function formatDay(day: string): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
 type Styles = ReturnType<typeof makeStyles>;
@@ -363,6 +459,14 @@ function makeStyles(colors: Palette) {
     tick: { position: 'absolute', bottom: 3, right: 3, width: 14, height: 14, borderRadius: 7, backgroundColor: '#2f7a52', alignItems: 'center', justifyContent: 'center' },
     smallMissed: { backgroundColor: withAlpha(colors.text, 0.1), gap: 2 },
     smallNoMissed: { fontSize: 11, fontFamily: font.heading, color: withAlpha(colors.text, 0.4) },
+    standRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4, paddingHorizontal: 6, borderRadius: 10 },
+    standMe: { backgroundColor: withAlpha(colors.accent, 0.1) },
+    standPlace: { width: 22, textAlign: 'center', fontFamily: font.heading, fontSize: 13, color: withAlpha(colors.text, 0.6), fontVariant: ['tabular-nums'] },
+    standName: { fontFamily: font.heading, fontSize: 13.5, color: colors.text },
+    standPoints: { fontFamily: font.headingSemibold, fontSize: 15, color: colors.text, fontVariant: ['tabular-nums'] },
+    cheer: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: withAlpha(colors.accent, 0.12) },
+    cheerDone: { backgroundColor: withAlpha(colors.green, 0.3) },
+    cheerText: { fontSize: 15 },
     legend: { flexDirection: 'row', gap: 14, justifyContent: 'center' },
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     legendDot: { width: 10, height: 10, borderRadius: 3 },
