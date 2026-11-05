@@ -300,8 +300,10 @@ function KindSheet({ info, onClose, onStart }: { info: KindInfo; onClose: () => 
   ];
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <View style={styles.backdrop}>
+        {/* Behind the sheet, so a tap outside closes it without stealing the sheet's scrolling. */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.sheet}>
           <ScrollView contentContainerStyle={{ gap: 12 }}>
             <View style={styles.nameRow}>
               <KindIcon kind={info.kind} size={52} />
@@ -323,8 +325,8 @@ function KindSheet({ info, onClose, onStart }: { info: KindInfo; onClose: () => 
             <Button label="Close" variant="ghost" onPress={onClose} />
             <Button label={`Start ${kindName(info.kind)}`} variant="primary" onPress={onStart} />
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

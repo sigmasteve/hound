@@ -5,6 +5,7 @@ import {
   Animated,
   Easing,
   Keyboard,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,7 +17,7 @@ import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon,
-  LeafIcon, SnowflakeIcon, HeartIcon, PawPrintIcon, PencilSimpleIcon, PlusIcon, CheckIcon, XIcon, LockSimpleIcon } from 'phosphor-react-native';
+  LeafIcon, SnowflakeIcon, HeartIcon, CaretRightIcon, PawPrintIcon, PencilSimpleIcon, PlusIcon, CheckIcon, XIcon, LockSimpleIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -57,7 +58,9 @@ import type { ParkHound } from '../together/together';
 import { TRICKS, isTrick, type TrickId } from '../kennel/tricks';
 import { useWater } from '../water/WaterContext';
 import { useHoundWalks } from '../walks/useHoundWalks';
-import { WalksTab } from '../walks/WalksTab';
+import { ParkList, WalksTab } from '../walks/WalksTab';
+import { DogParkScene } from '../together/ParkArt';
+import { AboutCard } from '../growth/AboutCard';
 import { useGarden } from '../garden/useGarden';
 import { GardenCard } from '../garden/GardenCard';
 import { plantStage } from '../garden/garden';
@@ -107,17 +110,20 @@ const CARE_MODES: { id: CareMode; name: string; detail: string }[] = [
 
 // Your hound (0104_kennel.sql): how they're doing, a treat or meal, their
 // accessories and how you look after them. Grows with your rank.
-type KennelTab = 'walks' | 'care' | 'wardrobe' | 'look' | 'yard' | 'more';
+// Three tabs: the day (walks, finds and the kitchen, care, the diary),
+// the place on screen (its shop, the garden, visitors, the park), and the
+// hound's style. Who the hound is (about, tricks, settings) is the sheet
+// behind its name.
+type KennelTab = 'today' | 'home' | 'style';
 const KENNEL_TABS: { id: KennelTab; label: string }[] = [
-  { id: 'walks', label: 'Walks' },
-  // Bath day, the kitchen and the pantry (0169).
-  { id: 'care', label: 'Care' },
-  { id: 'wardrobe', label: 'Wardrobe' },
-  { id: 'look', label: 'Look' },
-  { id: 'yard', label: 'Yard' },
-  { id: 'more', label: 'More' },
+  { id: 'today', label: 'Today' },
+  { id: 'home', label: 'Home' },
+  { id: 'style', label: 'Style' },
 ];
-type WardrobeChip = 'holiday' | 'head' | 'neck' | 'face' | 'body' | 'feet';
+// The places on the scene, in swipe order (0157, 0169, 0170).
+const PLACES = ['Yard', 'Porch', 'Room', 'Park'];
+const MOOD_WORD: Record<Kennel['mood'], string> = { happy: 'Happy', okay: 'Okay', hungry: 'Hungry', sleepy: 'Sleepy' };
+type WardrobeChip = 'holiday' | 'head' | 'neck' | 'face' | 'body' | 'feet' | 'coat' | 'breed' | 'look';
 const WARDROBE_CHIPS: { id: WardrobeChip; label: string }[] = [
   { id: 'holiday', label: 'Holiday' },
   { id: 'head', label: 'Hats' },
@@ -125,6 +131,9 @@ const WARDROBE_CHIPS: { id: WardrobeChip; label: string }[] = [
   { id: 'face', label: 'Glasses' },
   { id: 'body', label: 'Outfits' },
   { id: 'feet', label: 'Shoes' },
+  { id: 'coat', label: 'Coat' },
+  { id: 'breed', label: 'Breed' },
+  { id: 'look', label: 'Ears & tail' },
 ];
 // Something being tried on: an item to wear (or null, for the plain
 // hound or tan coat), a yard item in a spot, a porch item or a room item.
@@ -167,7 +176,11 @@ export function KennelScreen({
   // The fitting room: which tab, which wardrobe chip, and what's being
   // tried on (shown on the hound or in the yard before it's bought).
   // Walks first (lifestyle phase 1, 0161): what today's walks found.
-  const [tab, setTab] = useState<KennelTab>('walks');
+  const [tab, setTab] = useState<KennelTab>('today');
+  // The Hound sheet, and the mood's reason on the scene.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [moodOpen, setMoodOpen] = useState(false);
+  const pageRef = useRef<ScrollView>(null);
   const [wardrobe, setWardrobe] = useState<WardrobeChip>('holiday');
   const [trying, setTrying] = useState<Trying | null>(null);
   const pagerRef = useRef<ScrollView>(null);
@@ -484,6 +497,8 @@ export function KennelScreen({
   };
   const tryOn = (t: Trying) => {
     setTrying(t);
+    // Back up to the scene, to see it there.
+    pageRef.current?.scrollTo({ y: 0, animated: true });
     if (t.kind === 'yard') showZone(0);
     if (t.kind === 'porch') showZone(1);
     if (t.kind === 'room') showZone(2);
@@ -514,6 +529,15 @@ export function KennelScreen({
     yard && trying?.kind === 'yard' && trying.spot ? { ...yard, spots: { ...yard.spots, [trying.spot]: trying.item.id } } : yard;
   const shownPorch = [...(yard?.porch ?? []), ...(trying?.kind === 'porch' && trying.item ? [trying.item.id as string] : [])];
   const shownRoom = [...(yard?.room ?? []), ...(trying?.kind === 'room' && trying.item ? [trying.item.id as string] : [])];
+  // The bath happens in the Yard: show it there, at the top.
+  const careState = {
+    ...care,
+    bath: () => {
+      showZone(0);
+      pageRef.current?.scrollTo({ y: 0, animated: true });
+      return care.bath();
+    },
+  };
   // Bath day on the hound: muddy after a long walk, fresh after a bath.
   const bath = care.care?.bath;
   const houndCare = { mud: !!bath?.muddy, fresh: !!bath?.bathed && !bath?.muddy };
@@ -738,33 +762,39 @@ export function KennelScreen({
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      {/* The fitting room: the hound and its yard stay at the top while
-          everything to change sits in tabs below. Tap an item to try it
-          on (or put it in the yard) here first; the bar under the scene
-          buys it, puts it on, or puts it back. */}
-      <View style={styles.top}>
+      {/* One page: the header and the scene scroll away, the tabs stay at
+          the top. Tap something to try it on and the page goes back up to
+          the scene, where the bar under it buys it, puts it on, or puts it
+          back. */}
+      <ScrollView
+        ref={pageRef}
+        scrollEnabled={!throwing}
+        stickyHeaderIndices={[2]}
+        contentContainerStyle={{ paddingBottom: 48 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <View style={styles.topRow}>
           <Pressable onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
             <ArrowLeftIcon size={20} color={colors.accentActive} />
           </Pressable>
-          {editingName !== null ? (
-            <TextInput
-              maxFontSizeMultiplier={1.3}
-              value={editingName}
-              onChangeText={setEditingName}
-              onBlur={saveName}
-              autoFocus
-              maxLength={20}
-              returnKeyType="done"
-              style={styles.nameInput}
-            />
-          ) : (
-            <Pressable style={styles.nameRowSmall} onPress={() => setEditingName(kennel.name)} hitSlop={8}>
-              <Text style={styles.nameSmall}>{kennel.name}</Text>
-              <PencilSimpleIcon size={15} color={withAlpha(colors.text, 0.5)} />
-            </Pressable>
-          )}
-
+          {/* The hound's name opens the Hound sheet: who they are, tricks,
+              settings. */}
+          <Pressable
+            style={styles.nameButton}
+            onPress={() => setSheetOpen(true)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={`About ${kennel.name}`}
+          >
+            <View style={styles.nameAvatar}>
+              <HoundArt {...shownHound} rank={rank.id} mood="happy" variant="avatar" size={30} animate={false} />
+            </View>
+            <Text style={styles.nameSmall} numberOfLines={1}>
+              {kennel.name}
+            </Text>
+            <CaretRightIcon size={14} color={withAlpha(colors.text, 0.5)} weight="bold" />
+          </Pressable>
           <View style={[styles.rankChip, { backgroundColor: withAlpha(rank.color, 0.18) }]}>
             <Text style={[styles.rankText, { color: rank.color }]}>{rank.name}</Text>
           </View>
@@ -774,6 +804,8 @@ export function KennelScreen({
             <PlusIcon size={11} color={colors.accentActive} weight="bold" />
           </Pressable>
         </View>
+
+        <View style={styles.sceneWrap}>
           {yard ? (
             <View style={styles.yardFloor} onLayout={(e) => setSceneWidth(Math.floor(e.nativeEvent.layout.width))}>
               {sceneWidth > 0 && (
@@ -891,8 +923,96 @@ export function KennelScreen({
                   <View style={{ width: sceneWidth }}>
                     <RoomScene items={shownRoom} width={sceneWidth} animate={focused && zone === 2} hound={shownHound} houndProps={houndCare} />
                   </View>
+                  {/* The dog park (0170): friends' hounds out walking today. */}
+                  <View style={{ width: sceneWidth }}>
+                    <DogParkScene
+                      hounds={together.data?.park ?? []}
+                      me={together.data?.meWalked ? shownHound : null}
+                      width={sceneWidth}
+                      animate={focused && zone === 3}
+                      onOpen={onOpenFriend}
+                    />
+                  </View>
                 </ScrollView>
                 </Animated.View>
+
+                {/* On the scene: where to go, how the hound is, and its treat. */}
+                {!trying && (
+                  <>
+                    <View style={styles.placesBar} pointerEvents="box-none">
+                      <View style={styles.places} accessibilityRole="tablist">
+                        {PLACES.map((name, i) => (
+                          <Pressable
+                            key={name}
+                            onPress={() => showZone(i)}
+                            style={[styles.place, zone === i && styles.placeOn]}
+                            accessibilityRole="tab"
+                            accessibilityState={{ selected: zone === i }}
+                            hitSlop={4}
+                          >
+                            <Text style={[styles.placeText, zone === i && styles.placeTextOn]}>{name}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                    {moodOpen && (
+                      <Pressable style={styles.moodBubble} onPress={() => setMoodOpen(false)} accessibilityRole="button">
+                        <Text style={styles.moodBubbleText}>
+                          {moodLine(kennel)}
+                          {kennel.treatedToday ? (classic ? ' Fed today.' : ' Had a treat today.') : ''}
+                        </Text>
+                      </Pressable>
+                    )}
+                    <Pressable
+                      style={styles.moodChip}
+                      onPress={() => setMoodOpen((o) => !o)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${kennel.name} is ${MOOD_WORD[kennel.mood].toLowerCase()}. ${moodLine(kennel)}`}
+                    >
+                      <Text style={styles.moodText}>{MOOD_WORD[kennel.mood]}</Text>
+                      {classic && kennel.hearts !== null && (
+                        <View style={styles.hearts}>
+                          {[0, 1, 2].map((i) => (
+                            <HeartIcon key={i} size={13} color="#e04f6a" weight={i < (kennel.hearts ?? 0) ? 'fill' : 'regular'} />
+                          ))}
+                        </View>
+                      )}
+                    </Pressable>
+                    <Pressable
+                      style={[styles.treatButton, kennel.treatedToday && styles.treatButtonDone]}
+                      disabled={busyId !== null}
+                      onPress={() =>
+                        kennel.treatedToday
+                          ? setMoodOpen(true)
+                          : shortOf(TREAT_BONES)
+                            ? offerMore(TREAT_BONES)
+                            : run('treat', giveTreat, classic ? "Couldn't feed them" : "Couldn't give a treat")
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        kennel.treatedToday
+                          ? classic
+                            ? 'Fed today'
+                            : 'Had a treat today'
+                          : `${classic ? 'Feed a meal' : 'Give a treat'} for ${TREAT_BONES} ${currencyName}`
+                      }
+                    >
+                      {busyId === 'treat' ? (
+                        <ActivityIndicator color={colors.accent} />
+                      ) : kennel.treatedToday ? (
+                        <>
+                          <CheckIcon size={16} color="#3f9a5a" weight="bold" />
+                          <Text style={[styles.treatButtonText, { color: '#3f9a5a' }]}>{classic ? 'FED' : 'TREAT'}</Text>
+                        </>
+                      ) : (
+                        <>
+                          <BoneIcon size={16} color={colors.amber} weight="fill" />
+                          <Text style={styles.treatButtonText}>{TREAT_BONES}</Text>
+                        </>
+                      )}
+                    </Pressable>
+                  </>
+                )}
 
                 {/* Picking in place: the choices along the bottom, ✗ to put
                     it back, ✓ to keep it (with the price when it buys). */}
@@ -973,11 +1093,6 @@ export function KennelScreen({
                 )}
                 </View>
               )}
-              <View style={styles.zoneDots}>
-                {[0, 1, 2].map((i) => (
-                  <View key={i} style={[styles.zoneDot, zone === i && styles.zoneDotOn]} />
-                ))}
-              </View>
             </View>
           ) : (
             <View style={styles.kennelFloor}>
@@ -998,74 +1113,42 @@ export function KennelScreen({
               />
             </View>
           )}
-
-
-        {trying ? (
-          <View style={styles.statusRow}>
-            <Text style={styles.itemName} numberOfLines={1}>
-              {tryName}
-            </Text>
-            <Text style={[styles.itemNote, { flex: 1 }]} numberOfLines={1}>
-              {tryShort ? `${tryNote} · you have ${kennel.bonesBalance}` : tryNote}
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.statusRow}>
-            <Text style={[styles.note, { flex: 1 }]} numberOfLines={2}>
-              {moodLine(kennel)}
-            </Text>
-          {classic && kennel.hearts !== null && (
-            <View style={styles.hearts}>
-              {[0, 1, 2].map((i) => (
-                <HeartIcon key={i} size={16} color="#e04f6a" weight={i < (kennel.hearts ?? 0) ? 'fill' : 'regular'} />
-              ))}
+          {trying && (
+            <View style={styles.statusRow}>
+              <Text style={styles.itemName} numberOfLines={1}>
+                {tryName}
+              </Text>
+              <Text style={[styles.itemNote, { flex: 1 }]} numberOfLines={1}>
+                {tryShort ? `${tryNote} · you have ${kennel.bonesBalance}` : tryNote}
+              </Text>
             </View>
           )}
-
-          <View style={styles.treatRow}>
-            {kennel.treatedToday ? (
-              <Text style={styles.note}>{classic ? 'Fed today. Back tomorrow.' : 'Had a treat today. Back tomorrow.'}</Text>
-            ) : (
-              <Button
-                label={busyId === 'treat' ? '…' : `${classic ? 'Feed a meal' : 'Give a treat'} · ${TREAT_BONES} ${currencyName}`}
-                variant="primary"
-                small
-                icon={<BoneIcon size={14} color={colors.accent} weight="fill" />}
-                disabled={busyId !== null}
-                onPress={() =>
-                  shortOf(TREAT_BONES)
-                    ? offerMore(TREAT_BONES)
-                    : run('treat', giveTreat, classic ? "Couldn't feed them" : "Couldn't give a treat")
-                }
-              />
-            )}
-          </View>
-          </View>
-        )}
-
-        <View style={styles.tabs} accessibilityRole="tablist">
-          {KENNEL_TABS.map((t) => {
-            const on = tab === t.id;
-            return (
-              <Pressable
-                key={t.id}
-                onPress={() => setTab(t.id)}
-                style={[styles.tab, on && styles.tabOn]}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: on }}
-              >
-                <Text style={[styles.tabLabel, on && styles.tabLabelOn]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-                  {t.label}
-                </Text>
-                {t.id === 'wardrobe' && seasonItems.length > 0 && <View style={styles.tabDot} />}
-              </Pressable>
-            );
-          })}
         </View>
-      </View>
 
-      <ScrollView scrollEnabled={!throwing} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-        {tab === 'walks' && (
+        <View style={styles.tabsWrap}>
+          <View style={styles.tabs} accessibilityRole="tablist">
+            {KENNEL_TABS.map((t) => {
+              const on = tab === t.id;
+              return (
+                <Pressable
+                  key={t.id}
+                  onPress={() => setTab(t.id)}
+                  style={[styles.tab, on && styles.tabOn]}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                >
+                  <Text style={[styles.tabLabel, on && styles.tabLabelOn]} numberOfLines={1}>
+                    {t.label}
+                  </Text>
+                  {t.id === 'style' && seasonItems.length > 0 && <View style={styles.tabDot} />}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.container}>
+        {tab === 'today' && (
           <WalksTab
             houndName={kennel.name}
             growth={growth}
@@ -1077,205 +1160,19 @@ export function KennelScreen({
             together={together}
             myHound={shownHound}
             onOpenFriend={onOpenFriend}
-          />
-        )}
-
-        {tab === 'care' && (
-          <CareTab
-            state={{
-              ...care,
-              // The bath happens in the Yard: show it there.
-              bath: () => {
-                showZone(0);
-                return care.bath();
-              },
-            }}
-            houndName={kennel.name}
-            balance={kennel.bonesBalance}
-            currencyName={currencyName}
-            onShort={offerMore}
-          />
-        )}
-
-        {tab === 'wardrobe' && (
-          <>
-            <View style={styles.chips}>
-              {wardrobeChips.map((c) => (
-                <Pressable
-                  key={c.id}
-                  style={[styles.chip, wardrobe === c.id && styles.chipOn]}
-                  onPress={() => setWardrobe(c.id)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: wardrobe === c.id }}
-                >
-                  <Text style={[styles.chipText, wardrobe === c.id && styles.chipTextOn]}>{c.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-            {wardrobe === 'holiday' && seasons.length > 0 && (
-              <Text style={styles.itemNote}>
-                {seasons.join(' and ')}: only around for a little while. Anything you get, you keep.
-              </Text>
-            )}
-            <View style={styles.tileGrid}>{wardrobeItems.map(itemTile)}</View>
-          </>
-        )}
-
-        {tab === 'look' && (
-          <>
-          <Card style={{ gap: 10 }} elevated={false}>
-            <Text style={text.h4}>Look</Text>
-            {/* Breeds (0132): the hound, or a different dog for Bones. Coats
-                below still apply; ears, tail and markings come with it. */}
-            <Text style={styles.label}>Breed</Text>
-            <View style={styles.swatches}>
-              {[null, ...KENNEL_ITEMS.filter((i) => i.slot === 'breed')].map((item) => {
-                const on = kennel.breedId === (item?.id ?? null);
-                const tryingThis = trying?.slot === 'breed' && (trying.item?.id ?? null) === (item?.id ?? null);
-                const owned = !item || kennel.owned.includes(item.id);
-                return (
-                  <Pressable
-                    key={item?.id ?? 'hound'}
-                    style={styles.swatchCell}
-                    disabled={on || busyId !== null}
-                    onPress={() => tryOn({ kind: 'wear', item, slot: 'breed' })}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item?.name ?? 'Hound'}${owned ? '' : `, ${item!.costBones} ${currencyName}`}`}
-                  >
-                    <View style={[styles.breedSwatch, (on || tryingThis) && styles.swatchOn]}>
-                      <HoundArt
-                        rank={rank.id}
-                        mood="okay"
-                        coatId={kennel.coatId}
-                        breedId={item?.id ?? null}
-                        ears={kennel.ears}
-                        tail={kennel.tail}
-                        markings={kennel.markings}
-                        size={34}
-                        animate={false}
-                        variant="avatar"
-                      />
-                    </View>
-                    <Text style={styles.swatchName} numberOfLines={2}>
-                      {item?.name ?? 'Hound'}
-                    </Text>
-                    {!owned && <Text style={styles.swatchPrice}>{item!.costBones}</Text>}
-                  </Pressable>
-                );
-              })}
-            </View>
-            <Text style={styles.label}>Coat</Text>
-            <View style={styles.swatches}>
-              {[null, ...KENNEL_ITEMS.filter((i) => i.slot === 'coat' && inShop(i))].map((item) => {
-                const on = kennel.coatId === (item?.id ?? null);
-                const tryingThis = trying?.slot === 'coat' && (trying.item?.id ?? null) === (item?.id ?? null);
-                const owned = !item || item.costBones === 0 || kennel.owned.includes(item.id);
-                return (
-                  <Pressable
-                    key={item?.id ?? 'tan'}
-                    style={styles.swatchCell}
-                    disabled={on || busyId !== null}
-                    onPress={() => tryOn({ kind: 'wear', item, slot: 'coat' })}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item?.name ?? 'Tan'} coat${owned ? '' : `, ${item!.costBones} ${currencyName}`}`}
-                  >
-                    <View style={[styles.swatch, { backgroundColor: item?.color ?? TAN_SWATCH }, (on || tryingThis) && styles.swatchOn]} />
-                    <Text style={styles.swatchName} numberOfLines={2}>
-                      {item?.name ?? 'Tan'}
-                    </Text>
-                    {!owned && <Text style={styles.swatchPrice}>{item!.costBones}</Text>}
-                  </Pressable>
-                );
-              })}
-            </View>
-            {kennel.breedId ? (
-              <Text style={styles.itemNote}>Ears, tail and markings come with the breed.</Text>
-            ) : (
-              (
-              [
-                ['Ears', EAR_OPTIONS, kennel.ears, (v: string) => ({ ears: v as Kennel['ears'] })],
-                ['Tail', TAIL_OPTIONS, kennel.tail, (v: string) => ({ tail: v as Kennel['tail'] })],
-                ['Markings', MARKING_OPTIONS, kennel.markings, (v: string) => ({ markings: v as Kennel['markings'] })],
-              ] as const
-            ).map(([label, options, current, toLook]) => (
-              <View key={label} style={{ gap: 6 }}>
-                <Text style={styles.label}>{label}</Text>
-                <View style={styles.chips}>
-                  {options.map((o) => (
-                    <Pressable
-                      key={o.id}
-                      style={[styles.chip, current === o.id && styles.chipOn]}
-                      disabled={current === o.id || busyId !== null}
-                      onPress={() => run(`look-${o.id}`, () => setKennelLook(toLook(o.id)), "Couldn't change the look")}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: current === o.id }}
-                    >
-                      <Text style={[styles.chipText, current === o.id && styles.chipTextOn]}>{o.name}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            ))
-            )}
-          </Card>
-
-          </>
-        )}
-
-        {tab === 'yard' && (
-          <>
-            <SegmentedControl
-              options={[
-                { value: 'yard', label: 'Yard' },
-                { value: 'porch', label: 'Porch' },
-                { value: 'room', label: 'Room' },
-              ]}
-              value={zone === 2 ? 'room' : zone === 1 ? 'porch' : 'yard'}
-              onChange={(v) => showZone(v === 'room' ? 2 : v === 'porch' ? 1 : 0)}
-            />
-            {zone === 2 ? (
-              // The room inside the house (0169): open to everyone, each
-              // thing in its own place.
-              <Card style={{ gap: 10 }} elevated={false}>
-                <View style={styles.seasonHeader}>
-                  <Text style={text.h4}>Your room</Text>
-                  <Text style={styles.yardSize}>
-                    {ROOM_ITEMS.filter((i) => kennel.owned.includes(i.id)).length} of {ROOM_ITEMS.length}
-                  </Text>
-                </View>
-                <Text style={styles.itemNote}>Inside the house. Tap something to see it in the room first.</Text>
-                <View style={styles.yardItems}>
-                  {ROOM_ITEMS.map((item) => {
-                    const owned = kennel.owned.includes(item.id);
-                    return (
-                      <Pressable
-                        key={item.id}
-                        style={[styles.yardItem, (owned || trying?.item?.id === item.id) && styles.yardItemOn]}
-                        disabled={owned || busyId !== null}
-                        onPress={() => tryOn({ kind: 'room', item })}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${item.name}${owned ? ', in your room' : `, ${item.costBones} ${currencyName}`}`}
-                      >
-                        <View style={[styles.yardThumb, { backgroundColor: '#efe2cf' }]}>
-                          <RoomThumb id={item.id} size={52} />
-                        </View>
-                        <Text style={styles.swatchName} numberOfLines={1}>
-                          {item.name}
-                        </Text>
-                        {busyId === `room-${item.id}` ? (
-                          <ActivityIndicator size="small" color={colors.accent} />
-                        ) : (
-                          <Text style={[styles.yardItemNote, owned && { color: colors.accent }]}>
-                            {owned ? 'In your room' : `${item.costBones.toLocaleString()} ${currencyName}`}
-                          </Text>
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </Card>
-            ) : zone === 0 ? (
+            kitchen={<CareTab only="kitchen" state={careState} houndName={kennel.name} balance={kennel.bonesBalance} currencyName={currencyName} onShort={offerMore} />}
+            care={
               <>
+                <CareTab only="bath" state={careState} houndName={kennel.name} balance={kennel.bonesBalance} currencyName={currencyName} onShort={offerMore} />
+                <CareTab only="pantry" state={careState} houndName={kennel.name} balance={kennel.bonesBalance} currencyName={currencyName} onShort={offerMore} />
+              </>
+            }
+          />
+        )}
+
+        {/* Home follows the place on screen. */}
+        {tab === 'home' && zone === 0 && (
+          <>
             <GardenCard state={garden} currencyName={currencyName} onShort={offerMore} />
             {/* The Yard (0148): a fixed spot for everything, more spots as the
                 hound ranks up, and trophies that can only be won. */}
@@ -1348,100 +1245,6 @@ export function KennelScreen({
               </Card>
             )}
 
-              </>
-            ) : yard?.porch ? (
-              <>
-            {/* The Porch's shop (0157), once it's unlocked. */}
-            {yard?.porch && (
-              <Card style={{ gap: 10 }} elevated={false}>
-                <View style={styles.seasonHeader}>
-                  <Text style={text.h4}>Your porch</Text>
-                </View>
-                <View style={styles.yardItems}>
-                  {PORCH_ITEMS.map((item) => {
-                    const owned = kennel.owned.includes(item.id);
-                    return (
-                      <Pressable
-                        key={item.id}
-                        style={[styles.yardItem, (owned || trying?.item?.id === item.id) && styles.yardItemOn]}
-                        disabled={owned || busyId !== null}
-                        onPress={() => tryOn({ kind: 'porch', item })}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${item.name}${owned ? ', on your porch' : `, ${item.costBones} ${currencyName}`}`}
-                      >
-                        <Text style={styles.swatchName} numberOfLines={1}>
-                          {item.name}
-                        </Text>
-                        <Text style={styles.itemNote} numberOfLines={2}>
-                          {item.note}
-                        </Text>
-                        {busyId === `porch-${item.id}` ? (
-                          <ActivityIndicator size="small" color={colors.accent} />
-                        ) : (
-                          <Text style={[styles.yardItemNote, owned && { color: colors.accent }]}>
-                            {owned ? 'On your porch' : `${item.costBones.toLocaleString()} ${currencyName}`}
-                          </Text>
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </Card>
-            )}
-
-              </>
-            ) : (
-              <Card style={{ gap: 8 }} elevated={false}>
-                <Text style={text.h4}>The Porch</Text>
-                <Text style={styles.itemNote}>A hot tub, a swing, a fire pit and more, round the back of the house. Unlock it on the Porch above.</Text>
-              </Card>
-            )}
-          </>
-        )}
-
-        {tab === 'more' && (
-          <>
-            {/* Tricks (0158): tap one to see it; double-tap the hound in the
-                yard for the ones you have. */}
-            <Card style={{ gap: 10 }} elevated={false}>
-              <View style={styles.seasonHeader}>
-                <Text style={text.h4}>Tricks</Text>
-                <Text style={styles.yardSize}>Double-tap {kennel.name}</Text>
-              </View>
-              <View style={styles.tileGrid}>
-                {TRICKS.map((t) => {
-                  const owned = kennel.owned.includes(t.id);
-                  const on = trying?.kind === 'trick' && trying.item?.id === t.id;
-                  return (
-                    <Pressable
-                      key={t.id}
-                      style={[styles.trickTile, owned && styles.tileWearing, on && styles.tileOn]}
-                      onPress={() => tryOn({ kind: 'trick', item: t })}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${t.name}${owned ? ', yours' : `, ${t.costBones} ${currencyName}`}. Watch it`}
-                    >
-                      <Text style={styles.tileName}>{t.name}</Text>
-                      <Text style={[styles.tileNote, owned && { color: colors.accentActive }]}>
-                        {owned ? 'Yours' : `${t.costBones} ${currencyName}`}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </Card>
-            {nextStep && (
-              <Card style={{ gap: 6, alignItems: 'center' }} elevated={false}>
-              {nextStep && (
-                <View style={styles.whatsNext}>
-                  <Text style={styles.note}>
-                    Next: level {nextStep.level}, {stepLabel(nextStep)} · {(nextStep.xp - kennel.xpTotal).toLocaleString('en-US')} XP to go
-                  </Text>
-                  <Button label="See the whole ladder" variant="ghost" small onPress={() => setLadderOpen(true)} />
-                </View>
-              )}
-
-              </Card>
-            )}
         {/* Visits (0150): who stopped by in the last day, and a friend's
             hound over to play. */}
         {yard && (yard.visitors.length > 0 || yard.guest) && (
@@ -1523,6 +1326,312 @@ export function KennelScreen({
           </Card>
         )}
 
+          </>
+        )}
+        {tab === 'home' && zone === 1 && (yard?.porch ? (
+          <>
+            {/* The Porch's shop (0157), once it's unlocked. */}
+            {yard?.porch && (
+              <Card style={{ gap: 10 }} elevated={false}>
+                <View style={styles.seasonHeader}>
+                  <Text style={text.h4}>Your porch</Text>
+                </View>
+                <View style={styles.yardItems}>
+                  {PORCH_ITEMS.map((item) => {
+                    const owned = kennel.owned.includes(item.id);
+                    return (
+                      <Pressable
+                        key={item.id}
+                        style={[styles.yardItem, (owned || trying?.item?.id === item.id) && styles.yardItemOn]}
+                        disabled={owned || busyId !== null}
+                        onPress={() => tryOn({ kind: 'porch', item })}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${item.name}${owned ? ', on your porch' : `, ${item.costBones} ${currencyName}`}`}
+                      >
+                        <Text style={styles.swatchName} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        <Text style={styles.itemNote} numberOfLines={2}>
+                          {item.note}
+                        </Text>
+                        {busyId === `porch-${item.id}` ? (
+                          <ActivityIndicator size="small" color={colors.accent} />
+                        ) : (
+                          <Text style={[styles.yardItemNote, owned && { color: colors.accent }]}>
+                            {owned ? 'On your porch' : `${item.costBones.toLocaleString()} ${currencyName}`}
+                          </Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </Card>
+            )}
+
+          </>
+        ) : (
+              <Card style={{ gap: 8 }} elevated={false}>
+                <Text style={text.h4}>The Porch</Text>
+                <Text style={styles.itemNote}>A hot tub, a swing, a fire pit and more, round the back of the house. Unlock it on the Porch above.</Text>
+              </Card>
+        ))}
+        {tab === 'home' && zone === 2 && (
+              <Card style={{ gap: 10 }} elevated={false}>
+                <View style={styles.seasonHeader}>
+                  <Text style={text.h4}>Your room</Text>
+                  <Text style={styles.yardSize}>
+                    {ROOM_ITEMS.filter((i) => kennel.owned.includes(i.id)).length} of {ROOM_ITEMS.length}
+                  </Text>
+                </View>
+                <Text style={styles.itemNote}>Inside the house. Tap something to see it in the room first.</Text>
+                <View style={styles.yardItems}>
+                  {ROOM_ITEMS.map((item) => {
+                    const owned = kennel.owned.includes(item.id);
+                    return (
+                      <Pressable
+                        key={item.id}
+                        style={[styles.yardItem, (owned || trying?.item?.id === item.id) && styles.yardItemOn]}
+                        disabled={owned || busyId !== null}
+                        onPress={() => tryOn({ kind: 'room', item })}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${item.name}${owned ? ', in your room' : `, ${item.costBones} ${currencyName}`}`}
+                      >
+                        <View style={[styles.yardThumb, { backgroundColor: '#efe2cf' }]}>
+                          <RoomThumb id={item.id} size={52} />
+                        </View>
+                        <Text style={styles.swatchName} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        {busyId === `room-${item.id}` ? (
+                          <ActivityIndicator size="small" color={colors.accent} />
+                        ) : (
+                          <Text style={[styles.yardItemNote, owned && { color: colors.accent }]}>
+                            {owned ? 'In your room' : `${item.costBones.toLocaleString()} ${currencyName}`}
+                          </Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </Card>
+        )}
+        {tab === 'home' && zone === 3 && <ParkList together={together} houndName={kennel.name} onOpenFriend={onOpenFriend} />}
+
+        {/* Style: the wardrobe, then the coat, breed, ears and tail. */}
+        {tab === 'style' && (
+          <>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+              {wardrobeChips.map((c) => (
+                <Pressable
+                  key={c.id}
+                  style={[styles.chip, wardrobe === c.id && styles.chipOn]}
+                  onPress={() => setWardrobe(c.id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: wardrobe === c.id }}
+                >
+                  <Text style={[styles.chipText, wardrobe === c.id && styles.chipTextOn]}>{c.label}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            {wardrobe === 'holiday' && seasons.length > 0 && (
+              <Text style={styles.itemNote}>
+                {seasons.join(' and ')}: only around for a little while. Anything you get, you keep.
+              </Text>
+            )}
+            {chip === 'coat' ? (
+              <Card style={{ gap: 10 }} elevated={false}>
+            <Text style={styles.label}>Coat</Text>
+            <View style={styles.swatches}>
+              {[null, ...KENNEL_ITEMS.filter((i) => i.slot === 'coat' && inShop(i))].map((item) => {
+                const on = kennel.coatId === (item?.id ?? null);
+                const tryingThis = trying?.slot === 'coat' && (trying.item?.id ?? null) === (item?.id ?? null);
+                const owned = !item || item.costBones === 0 || kennel.owned.includes(item.id);
+                return (
+                  <Pressable
+                    key={item?.id ?? 'tan'}
+                    style={styles.swatchCell}
+                    disabled={on || busyId !== null}
+                    onPress={() => tryOn({ kind: 'wear', item, slot: 'coat' })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item?.name ?? 'Tan'} coat${owned ? '' : `, ${item!.costBones} ${currencyName}`}`}
+                  >
+                    <View style={[styles.swatch, { backgroundColor: item?.color ?? TAN_SWATCH }, (on || tryingThis) && styles.swatchOn]} />
+                    <Text style={styles.swatchName} numberOfLines={2}>
+                      {item?.name ?? 'Tan'}
+                    </Text>
+                    {!owned && <Text style={styles.swatchPrice}>{item!.costBones}</Text>}
+                  </Pressable>
+                );
+              })}
+            </View>
+              </Card>
+            ) : chip === 'breed' ? (
+              <Card style={{ gap: 10 }} elevated={false}>
+            <Text style={styles.label}>Breed</Text>
+            <View style={styles.swatches}>
+              {[null, ...KENNEL_ITEMS.filter((i) => i.slot === 'breed')].map((item) => {
+                const on = kennel.breedId === (item?.id ?? null);
+                const tryingThis = trying?.slot === 'breed' && (trying.item?.id ?? null) === (item?.id ?? null);
+                const owned = !item || kennel.owned.includes(item.id);
+                return (
+                  <Pressable
+                    key={item?.id ?? 'hound'}
+                    style={styles.swatchCell}
+                    disabled={on || busyId !== null}
+                    onPress={() => tryOn({ kind: 'wear', item, slot: 'breed' })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item?.name ?? 'Hound'}${owned ? '' : `, ${item!.costBones} ${currencyName}`}`}
+                  >
+                    <View style={[styles.breedSwatch, (on || tryingThis) && styles.swatchOn]}>
+                      <HoundArt
+                        rank={rank.id}
+                        mood="okay"
+                        coatId={kennel.coatId}
+                        breedId={item?.id ?? null}
+                        ears={kennel.ears}
+                        tail={kennel.tail}
+                        markings={kennel.markings}
+                        size={34}
+                        animate={false}
+                        variant="avatar"
+                      />
+                    </View>
+                    <Text style={styles.swatchName} numberOfLines={2}>
+                      {item?.name ?? 'Hound'}
+                    </Text>
+                    {!owned && <Text style={styles.swatchPrice}>{item!.costBones}</Text>}
+                  </Pressable>
+                );
+              })}
+            </View>
+              </Card>
+            ) : chip === 'look' ? (
+              <Card style={{ gap: 10 }} elevated={false}>
+            {kennel.breedId ? (
+              <Text style={styles.itemNote}>Ears, tail and markings come with the breed.</Text>
+            ) : (
+              (
+              [
+                ['Ears', EAR_OPTIONS, kennel.ears, (v: string) => ({ ears: v as Kennel['ears'] })],
+                ['Tail', TAIL_OPTIONS, kennel.tail, (v: string) => ({ tail: v as Kennel['tail'] })],
+                ['Markings', MARKING_OPTIONS, kennel.markings, (v: string) => ({ markings: v as Kennel['markings'] })],
+              ] as const
+            ).map(([label, options, current, toLook]) => (
+              <View key={label} style={{ gap: 6 }}>
+                <Text style={styles.label}>{label}</Text>
+                <View style={styles.chips}>
+                  {options.map((o) => (
+                    <Pressable
+                      key={o.id}
+                      style={[styles.chip, current === o.id && styles.chipOn]}
+                      disabled={current === o.id || busyId !== null}
+                      onPress={() => run(`look-${o.id}`, () => setKennelLook(toLook(o.id)), "Couldn't change the look")}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: current === o.id }}
+                    >
+                      <Text style={[styles.chipText, current === o.id && styles.chipTextOn]}>{o.name}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            ))
+            )}
+              </Card>
+            ) : (
+              <View style={styles.tileGrid}>{wardrobeItems.map(itemTile)}</View>
+            )}
+          </>
+        )}
+        </View>
+      </ScrollView>
+
+      {/* The Hound sheet: who they are, tricks and settings. */}
+      {sheetOpen && (
+        <Modal transparent animationType="slide" visible onRequestClose={() => setSheetOpen(false)}>
+          <View style={styles.sheetBackdrop}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setSheetOpen(false)} accessibilityLabel="Close" />
+            <View style={styles.sheet}>
+              <View style={styles.sheetHead}>
+                <View style={styles.sheetAvatar}>
+                  <HoundArt {...shownHound} rank={rank.id} mood="happy" variant="avatar" size={44} animate={false} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  {editingName !== null ? (
+                    <TextInput
+                      maxFontSizeMultiplier={1.3}
+                      value={editingName}
+                      onChangeText={setEditingName}
+                      onBlur={saveName}
+                      autoFocus
+                      maxLength={20}
+                      returnKeyType="done"
+                      style={styles.nameInput}
+                    />
+                  ) : (
+                    <Pressable style={styles.nameRowSmall} onPress={() => setEditingName(kennel.name)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Rename ${kennel.name}`}>
+                      <Text style={styles.nameSmall}>{kennel.name}</Text>
+                      <PencilSimpleIcon size={15} color={withAlpha(colors.text, 0.5)} />
+                    </Pressable>
+                  )}
+                  <Text style={styles.itemNote}>
+                    {rank.name} · level {level}
+                  </Text>
+                </View>
+                <Pressable onPress={() => setSheetOpen(false)} hitSlop={10} style={styles.sheetClose} accessibilityRole="button" accessibilityLabel="Close">
+                  <XIcon size={16} color={colors.text} weight="bold" />
+                </Pressable>
+              </View>
+              <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+                {growth.profile && (
+                  <AboutCard profile={growth.profile} today={localDayKey(new Date())} onSetBirthday={growth.setBirthday} busy={growth.busy} />
+                )}
+            {/* Tricks (0158): tap one to see it; double-tap the hound in the
+                yard for the ones you have. */}
+            <Card style={{ gap: 10 }} elevated={false}>
+              <View style={styles.seasonHeader}>
+                <Text style={text.h4}>Tricks</Text>
+                <Text style={styles.yardSize}>Double-tap {kennel.name}</Text>
+              </View>
+              <View style={styles.tileGrid}>
+                {TRICKS.map((t) => {
+                  const owned = kennel.owned.includes(t.id);
+                  const on = trying?.kind === 'trick' && trying.item?.id === t.id;
+                  return (
+                    <Pressable
+                      key={t.id}
+                      style={[styles.trickTile, owned && styles.tileWearing, on && styles.tileOn]}
+                      onPress={() => {
+                        setSheetOpen(false);
+                        tryOn({ kind: 'trick', item: t });
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${t.name}${owned ? ', yours' : `, ${t.costBones} ${currencyName}`}. Watch it`}
+                    >
+                      <Text style={styles.tileName}>{t.name}</Text>
+                      <Text style={[styles.tileNote, owned && { color: colors.accentActive }]}>
+                        {owned ? 'Yours' : `${t.costBones} ${currencyName}`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Card>
+            {nextStep && (
+              <Card style={{ gap: 6, alignItems: 'center' }} elevated={false}>
+              {nextStep && (
+                <View style={styles.whatsNext}>
+                  <Text style={styles.note}>
+                    Next: level {nextStep.level}, {stepLabel(nextStep)} · {(nextStep.xp - kennel.xpTotal).toLocaleString('en-US')} XP to go
+                  </Text>
+                  <Button label="See the whole ladder" variant="ghost" small onPress={() => {
+                      setSheetOpen(false);
+                      setLadderOpen(true);
+                    }} />
+                </View>
+              )}
+
+              </Card>
+            )}
         {/* Your hound in your avatar's place on leaderboards, friends,
             chats and Today. Your frame and background stay. */}
         <Card style={styles.avatarCard} elevated={false}>
@@ -1559,10 +1668,11 @@ export function KennelScreen({
             accessibilityLabel={`Use ${kennel.name} as my avatar`}
           />
         </Card>
-
-          </>
-        )}
-      </ScrollView>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
       {ladderOpen && <HoundLadderSheet kennel={kennel} onClose={() => setLadderOpen(false)} />}
     </SafeAreaView>
   );
@@ -1570,9 +1680,63 @@ export function KennelScreen({
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    chipRow: { flexDirection: 'row', gap: 8, paddingRight: 16 },
+    nameButton: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },
+    nameAvatar: { width: 30, height: 30, borderRadius: 15, overflow: 'hidden', backgroundColor: withAlpha(colors.accent, 0.15) },
+    sceneWrap: { paddingHorizontal: 16, gap: 6 },
+    tabsWrap: { backgroundColor: colors.bg, paddingHorizontal: 16, paddingTop: 8 },
+    placesBar: { position: 'absolute', top: 8, left: 0, right: 0, alignItems: 'center' },
+    places: { flexDirection: 'row', gap: 2, padding: 3, borderRadius: 18, backgroundColor: 'rgba(22,24,38,0.55)' },
+    place: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 15, minHeight: 30, justifyContent: 'center' },
+    placeOn: { backgroundColor: '#ffffff' },
+    placeText: { fontFamily: font.headingSemibold, fontSize: 13, color: '#ffffff' },
+    placeTextOn: { color: '#1d1e2c' },
+    moodChip: {
+      position: 'absolute',
+      left: 8,
+      bottom: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 14,
+      backgroundColor: 'rgba(255,255,255,0.92)',
+    },
+    moodText: { fontFamily: font.headingSemibold, fontSize: 13, color: '#1d1e2c' },
+    moodBubble: {
+      position: 'absolute',
+      left: 8,
+      bottom: 48,
+      maxWidth: 230,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255,255,255,0.96)',
+    },
+    moodBubbleText: { fontSize: 12.5, lineHeight: 17, color: '#3a3c4d' },
+    treatButton: {
+      position: 'absolute',
+      right: 8,
+      bottom: 8,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255,255,255,0.92)',
+    },
+    treatButtonDone: { backgroundColor: 'rgba(255,255,255,0.85)' },
+    treatButtonText: { fontFamily: font.headingSemibold, fontSize: 10, color: '#8a5a22', marginTop: 1 },
+    sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    sheet: { maxHeight: '86%', backgroundColor: colors.bg, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingTop: 16 },
+    sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 10 },
+    sheetAvatar: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden', backgroundColor: withAlpha(colors.accent, 0.15) },
+    sheetClose: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: withAlpha(colors.text, 0.08) },
+    sheetBody: { paddingHorizontal: 16, paddingBottom: 36, gap: 12 },
     container: { padding: 16, gap: 14, paddingBottom: 48 },
     top: { paddingHorizontal: 16, paddingTop: 6, gap: 8 },
-    topRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    topRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
     nameRowSmall: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
     nameSmall: { fontFamily: font.headingSemibold, fontSize: 22, color: colors.text },
     bonesPill: {

@@ -19,7 +19,10 @@ export function CareTab({
   balance,
   currencyName,
   onShort,
+  only,
 }: {
+  // One card on its own (the Kennel's Today places them apart).
+  only?: 'bath' | 'kitchen' | 'pantry';
   state: CareState;
   houndName: string;
   balance: number;
@@ -37,6 +40,7 @@ export function CareTab({
 
   return (
     <>
+      {(!only || only === 'bath') && (
       <Card style={{ gap: 10 }} elevated={false}>
         <View style={styles.header}>
           <BathtubIcon size={18} color={colors.accent} weight="fill" />
@@ -56,7 +60,9 @@ export function CareTab({
           />
         )}
       </Card>
+      )}
 
+      {(!only || only === 'kitchen') && (
       <Card style={{ gap: 12 }} elevated={false}>
         <View style={styles.header}>
           <CookingPotIcon size={18} color={colors.accent} weight="fill" />
@@ -97,7 +103,9 @@ export function CareTab({
           );
         })}
       </Card>
+      )}
 
+      {(!only || only === 'pantry') && (
       <Card style={{ gap: 10 }} elevated={false}>
         <View style={styles.header}>
           <GiftIcon size={18} color={colors.accent} weight="fill" />
@@ -138,6 +146,7 @@ export function CareTab({
           </Text>
         )}
       </Card>
+      )}
     </>
   );
 }

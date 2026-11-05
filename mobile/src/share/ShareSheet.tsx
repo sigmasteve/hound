@@ -55,8 +55,10 @@ export function ShareSheet({ content, onClose }: { content: ShareContent; onClos
 
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <View style={styles.backdrop}>
+        {/* Behind the sheet, so a tap outside closes it without stealing the sheet's scrolling. */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.sheet}>
           <View
             style={[styles.preview, { width: CARD_WIDTH * scale, height: CARD_HEIGHT * scale }]}
             accessible
@@ -84,8 +86,8 @@ export function ShareSheet({ content, onClose }: { content: ShareContent; onClos
               onPress={share}
             />
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

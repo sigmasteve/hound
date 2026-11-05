@@ -200,8 +200,10 @@ function SeedSheet({
 
   return (
     <Modal transparent animationType="slide" visible onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close">
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <View style={styles.backdrop}>
+        {/* Behind the sheet, so a tap outside closes it without stealing the sheet's scrolling. */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
+        <View style={styles.sheet}>
           <View style={styles.header}>
             <PlantIcon size={20} color={colors.accent} weight="fill" />
             <Text style={[text.h4, { flex: 1 }]}>{plot !== null ? 'Plant a seed' : 'Seeds'}</Text>
@@ -274,8 +276,8 @@ function SeedSheet({
               )}
             </View>
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

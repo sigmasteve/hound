@@ -288,8 +288,10 @@ export function HoundopolySection({
       </Card>
 
       <Modal visible={deed !== null} transparent animationType="fade" onRequestClose={() => setDeedIdx(null)}>
-        <Pressable style={styles.dim} onPress={() => setDeedIdx(null)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+        <View style={styles.dim}>
+          {/* Behind the sheet, so a tap outside closes it without stealing the sheet's scrolling. */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setDeedIdx(null)} />
+          <View style={styles.sheet}>
             {deed && (
               <ScrollView contentContainerStyle={{ gap: 12 }}>
                 <View style={[styles.deedTop, { backgroundColor: deed.group ? GROUP_COLORS[deed.group] : withAlpha(colors.text, 0.12) }]}>
@@ -354,8 +356,8 @@ export function HoundopolySection({
                 )}
               </ScrollView>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </>
   );
