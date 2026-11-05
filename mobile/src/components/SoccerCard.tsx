@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { PauseIcon, PlayIcon } from 'phosphor-react-native';
 import { Text } from './Text';
 import { Avatar } from './Avatar';
 import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
-import type { Participant } from '../challenges/types';
 import {
   formatSteps,
   shotsFor,
@@ -30,94 +30,12 @@ import {
   type SoccerTeam,
 } from '../challenges/soccerApi';
 
-// Whoever's on the pitch: the fields Participant and BoardEntry both
-// carry, so the detail screen and Home can each hand over what they have.
-export type PitchPerson = Pick<Participant, 'userId' | 'name' | 'initials'> &
-  Partial<Pick<Participant, 'frameId' | 'backgroundId' | 'iconId' | 'level'>>;
+// The pitch lives in SoccerField.tsx (players placed so they can move in
+// a replay); re-exported here for the screens that import it from here.
+export { SoccerPitch, type PitchPerson } from './SoccerField';
+import { SoccerPitch, shotResult, type PitchPerson } from './SoccerField';
 
 const PITCH = '#2f7a4f';
-const PITCH_STRIPE = '#2b7049';
-const LINE = 'rgba(255,255,255,0.85)';
-
-// The pitch seen from above, the viewer's team at the near end: keeper in
-// goal, defenders in front of the box, forwards near the halfway line.
-export function SoccerPitch({
-  game,
-  people,
-  userId,
-  compact,
-}: {
-  game: SoccerGame;
-  people: PitchPerson[];
-  userId: string | null | undefined;
-  compact?: boolean;
-}) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const myTeam = soccerTeamOf(game, userId) ?? 'a';
-  const farTeam: SoccerTeam = myTeam === 'a' ? 'b' : 'a';
-  const size = compact ? 26 : 36;
-
-  const row = (players: SoccerPlayer[], key: string) => (
-    <View key={key} style={styles.row}>
-      {players.map((p) => {
-        const person = people.find((x) => x.userId === p.playerId);
-        const isMe = p.playerId === userId;
-        return (
-          <View key={p.playerId} style={styles.slot}>
-            <View style={[styles.ring, isMe && styles.ringMe, { width: size + 6, height: size + 6, borderRadius: (size + 6) / 2 }]}>
-              {p.joined && person ? (
-                <Avatar
-                  initials={person.initials}
-                  tint={isMe ? TINT_A : p.botId ? colors.neutral800 : TINT_N}
-                  size={size}
-                  fontSize={compact ? 10 : 13}
-                  frameId={person.frameId}
-                  backgroundId={person.backgroundId}
-                  iconId={person.iconId}
-                />
-              ) : (
-                <View style={[styles.ghost, { width: size, height: size, borderRadius: size / 2 }]}>
-                  <Text style={styles.ghostText}>?</Text>
-                </View>
-              )}
-            </View>
-            {!compact && (
-              <Text style={[styles.slotName, isMe && styles.slotNameMe]} numberOfLines={1}>
-                {!p.joined ? 'Invited' : isMe ? 'You' : (person?.name ?? 'Player')}
-              </Text>
-            )}
-            <Text style={styles.slotPos}>{SOCCER_POSITION_SHORT[p.position]}</Text>
-          </View>
-        );
-      })}
-    </View>
-  );
-
-  const half = (team: SoccerTeam, far: boolean) => {
-    const members = soccerTeamMembers(game, team);
-    const by = (pos: SoccerPosition) => members.filter((m) => m.position === pos);
-    const lines = far
-      ? [by('keeper'), by('defender'), by('forward')]
-      : [by('forward'), by('defender'), by('keeper')];
-    return (
-      <View style={[styles.half, far ? styles.halfFar : styles.halfNear]}>
-        <View style={[styles.goal, far ? styles.goalFar : styles.goalNear]} />
-        <View style={[styles.box, far ? styles.boxFar : styles.boxNear]} />
-        {lines.map((l, i) => (l.length > 0 ? row(l, `${team}-${i}`) : <View key={`${team}-${i}`} style={styles.rowEmpty} />))}
-      </View>
-    );
-  };
-
-  return (
-    <View style={[styles.pitch, compact && styles.pitchCompact]}>
-      {half(farTeam, true)}
-      <View style={styles.halfway} />
-      <View style={styles.centreCircle} pointerEvents="none" />
-      {half(myTeam, false)}
-    </View>
-  );
-}
 
 // The score as the viewer reads it: their side first, with the clock.
 export function SoccerScore({
@@ -251,6 +169,42 @@ export function SoccerCard({
     return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
   }, [firstDay, dayNo]);
   const [tactics, setTactics] = useState<SoccerTactic[] | null>(null);
+  // Replay last night: each of the day's shots in turn, the two sides'
+  // taking turns.
+  const lastDayNo = shots.length ? Math.max(...shots.map((s) => s.dayNo)) : null;
+  const night = useMemo(() => {
+    const day = shots.filter((s) => s.dayNo === lastDayNo);
+    const a = day.filter((s) => s.team === 'a');
+    const b = day.filter((s) => s.team === 'b');
+    const out: SoccerShot[] = [];
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+      if (a[i]) out.push(a[i]);
+      if (b[i]) out.push(b[i]);
+    }
+    return out;
+  }, [shots, lastDayNo]);
+  const [step, setStep] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [replayN, setReplayN] = useState(0);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!playing) return;
+    const next = () =>
+      setStep((st) => {
+        const n = (st ?? -1) + 1;
+        if (n >= night.length) {
+          setPlaying(false);
+          return night.length - 1;
+        }
+        setReplayN((r) => r + 1);
+        return n;
+      });
+    next();
+    timer.current = setInterval(next, 3200);
+    return () => {
+      if (timer.current) clearInterval(timer.current);
+    };
+  }, [playing, night.length]);
   const [picking, setPicking] = useState(false);
   const [pickError, setPickError] = useState<string | null>(null);
   const challengeId = game?.challengeId ?? null;
@@ -351,7 +305,100 @@ export function SoccerCard({
       </View>
 
       <SoccerScore game={game} people={participants} userId={userId} days={days} />
-      <SoccerPitch game={game} people={participants} userId={userId} />
+      <SoccerPitch
+        game={game}
+        people={participants}
+        userId={userId}
+        shot={step != null && night[step] ? { shot: night[step], n: replayN } : null}
+      />
+
+      {step != null && night[step] && (() => {
+        const s = night[step];
+        const result = shotResult(s);
+        const before = matchDays.filter((d) => d.dayNo < (lastDayNo ?? 0));
+        const goalsBy = (t: SoccerTeam) =>
+          before.reduce((n, d) => n + (t === 'a' ? d.goalsA : d.goalsB), 0) +
+          night.slice(0, step + 1).filter((x) => x.team === t && x.outcome === 'goal').length;
+        const face = (id: string | null) => {
+          const person = participants.find((x) => x.userId === id);
+          const bot = game.players.find((x) => x.playerId === id)?.botId;
+          return id ? (
+            <Avatar
+              key={id}
+              initials={person?.initials ?? '?'}
+              tint={id === userId ? TINT_A : bot ? colors.neutral800 : TINT_N}
+              size={30}
+              fontSize={11}
+              frameId={person?.frameId}
+              backgroundId={person?.backgroundId}
+              iconId={person?.iconId}
+            />
+          ) : null;
+        };
+        const markers = s.markerIds ?? [];
+        const aimWords = s.aim ? ` ${SOCCER_ZONE_NAME[s.aim]}` : '';
+        const line =
+          result === 'goal'
+            ? `⚽ Goal! ${nameOf(s.shooterId)} scored${aimWords}${s.keeperId ? `${s.dive && s.dive !== s.aim ? `, ${nameOf(s.keeperId)} dove the other way` : ` past ${nameOf(s.keeperId)}`}` : ', into an empty net'}.`
+            : result === 'saved'
+              ? `🧤 ${nameOf(s.keeperId)} saved ${nameOf(s.shooterId)}’s shot${aimWords ? ` to${aimWords}` : ''}${s.dive && s.dive === s.aim ? ', guessing right' : ''}.`
+              : result === 'blocked'
+                ? `🛡 ${markers.map((id) => nameOf(id)).join(' & ')} closed down ${nameOf(s.shooterId)} and blocked it.`
+                : `${nameOf(s.shooterId)}’s shot went wide.`;
+        return (
+          <View style={styles.playNow}>
+            <View style={styles.playNowHead}>
+              <Text style={styles.playNowTitle}>
+                Day {s.dayNo} · shot {step + 1} of {night.length}
+              </Text>
+              <Text style={styles.playNowScore}>
+                {goalsBy(myTeam)}–{goalsBy(myTeam === 'a' ? 'b' : 'a')}
+              </Text>
+            </View>
+            <View style={styles.playNowRow}>
+              <View style={styles.faces}>
+                {face(s.shooterId)}
+                {result !== 'wide' && result !== 'goal' && <Text style={styles.vs}>vs</Text>}
+                {result === 'saved' && face(s.keeperId)}
+                {result === 'blocked' && markers.map((id) => face(id))}
+              </View>
+              <Text style={[styles.playNowText, result === 'goal' && styles.playNowGoal]}>{line}</Text>
+            </View>
+            <Text style={styles.reportLine}>{nameOf(s.shooterId)} walked {formatSteps(s.shooterSteps)} that day</Text>
+          </View>
+        );
+      })()}
+
+      {night.length > 0 && (
+        <View style={styles.replayRow}>
+          <Pressable
+            style={styles.replayBtn}
+            onPress={() => {
+              if (playing) setPlaying(false);
+              else {
+                if (step == null || step >= night.length - 1) setStep(null);
+                setPlaying(true);
+              }
+            }}
+            accessibilityRole="button"
+          >
+            {playing ? <PauseIcon size={14} color={colors.accent} weight="fill" /> : <PlayIcon size={14} color={colors.accent} weight="fill" />}
+            <Text style={styles.replayText}>{playing ? 'Pause' : step != null ? 'Replay again' : 'Replay last night'}</Text>
+          </Pressable>
+          {step != null && (
+            <Pressable
+              onPress={() => {
+                setPlaying(false);
+                setStep(null);
+              }}
+              hitSlop={8}
+              accessibilityRole="button"
+            >
+              <Text style={styles.replayDone}>Back to today</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
 
       {waiting > 0 && game.status === 'active' && (
         <Text style={styles.note}>
@@ -506,29 +553,6 @@ function makeStyles(colors: Palette) {
     header: { gap: 2 },
     meta: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
     note: { fontSize: 12.5, color: withAlpha(colors.text, 0.7), lineHeight: 18 },
-    pitch: { borderRadius: 12, overflow: 'hidden', backgroundColor: PITCH, borderWidth: 2, borderColor: LINE },
-    pitchCompact: { borderRadius: 10 },
-    half: { paddingVertical: 8, paddingHorizontal: 12, gap: 4 },
-    halfFar: { backgroundColor: PITCH_STRIPE },
-    halfNear: {},
-    halfway: { height: 1.5, backgroundColor: LINE },
-    centreCircle: { position: 'absolute', alignSelf: 'center', top: '50%', marginTop: -18, width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: LINE, opacity: 0.8 },
-    goal: { position: 'absolute', alignSelf: 'center', width: '28%', height: 6, backgroundColor: 'rgba(255,255,255,0.35)', borderWidth: 1.5, borderColor: LINE },
-    goalFar: { top: 0 },
-    goalNear: { bottom: 0 },
-    box: { position: 'absolute', alignSelf: 'center', width: '60%', height: 22, borderWidth: 1.5, borderColor: LINE, opacity: 0.7 },
-    boxFar: { top: -2, borderTopWidth: 0 },
-    boxNear: { bottom: -2, borderBottomWidth: 0 },
-    row: { flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'flex-start', gap: 6, minHeight: 36 },
-    rowEmpty: { height: 10 },
-    slot: { alignItems: 'center', gap: 1, minWidth: 48, maxWidth: 90 },
-    ring: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
-    ringMe: { borderColor: colors.amber },
-    ghost: { borderWidth: 2, borderStyle: 'dashed', borderColor: LINE, alignItems: 'center', justifyContent: 'center' },
-    ghostText: { color: LINE, fontFamily: font.heading, fontSize: 14 },
-    slotName: { color: '#ffffff', fontSize: 11, fontFamily: font.heading, maxWidth: 88 },
-    slotNameMe: { color: '#ffe3a3' },
-    slotPos: { color: 'rgba(255,255,255,0.75)', fontSize: 9, letterSpacing: 0.5 },
     score: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     scoreSide: { flex: 1, minWidth: 0 },
     scoreMid: { alignItems: 'center' },
@@ -575,5 +599,18 @@ function makeStyles(colors: Palette) {
     reportDay: { fontFamily: font.heading, fontSize: 13, color: colors.text },
     reportScore: { fontFamily: font.heading, fontSize: 13, color: colors.accentActive, fontVariant: ['tabular-nums'] },
     reportLine: { fontSize: 12, color: withAlpha(colors.text, 0.75), lineHeight: 17 },
+    replayRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    replayBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999, backgroundColor: withAlpha(colors.accent, 0.12) },
+    replayText: { fontFamily: font.headingSemibold, fontSize: 13, color: colors.accent },
+    replayDone: { fontFamily: font.heading, fontSize: 13, color: withAlpha(colors.text, 0.6) },
+    playNow: { gap: 6, padding: 10, borderRadius: 10, backgroundColor: withAlpha(colors.accent, 0.08) },
+    playNowHead: { flexDirection: 'row', justifyContent: 'space-between' },
+    playNowTitle: { fontFamily: font.heading, fontSize: 12.5, color: withAlpha(colors.text, 0.65) },
+    playNowScore: { fontFamily: font.heading, fontSize: 13, color: colors.accentActive, fontVariant: ['tabular-nums'] },
+    playNowRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    faces: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    vs: { fontSize: 11, color: withAlpha(colors.text, 0.5) },
+    playNowText: { flex: 1, fontFamily: font.heading, fontSize: 14, color: colors.text, lineHeight: 19 },
+    playNowGoal: { color: colors.accentActive },
   });
 }
