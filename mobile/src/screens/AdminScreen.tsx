@@ -659,7 +659,15 @@ export function AdminScreen({
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
+      {/* Lifts the fields above the keyboard (the Find people links sat
+          under it), and lets a drag put the keyboard away. */}
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.container}
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <Button label="Back" variant="ghost" small icon={<ArrowLeftIcon size={13} color={colors.accent} />} onPress={onBack} />
         <Text style={text.h2}>Admin</Text>
 

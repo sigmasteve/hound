@@ -90,7 +90,7 @@ What each sheet holds:
   seven days (tap one to see that day's numbers in the card); "Earlier"
   swaps the card for the four-week grid (GoalHistoryCard). All of it is
   scored on the phone from Health data (`src/home/GoalsSheet.tsx`).
-- Your hound: the Kennel card.
+- Your hound: no sheet; the tile opens the Kennel straight away.
 - Needs you: invites and friend requests, then Bone Dig, nudges and
   bounties. The tile's "N waiting" counts all of them.
 - Your challenges: the pinned (highlighted) challenge's headline and
