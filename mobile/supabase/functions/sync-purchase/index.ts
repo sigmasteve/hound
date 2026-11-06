@@ -21,15 +21,40 @@
 // Requires the REVENUECAT_SECRET_API_KEY function secret (RevenueCat
 // dashboard: Project Settings > API Keys > Secret API key — never the
 // public SDK key, which has no access to the subscriber-verification
-// endpoint used below). Optional: REVENUECAT_IGNORE_SANDBOX, below.
+// endpoint used below). Optional: REVENUECAT_IGNORE_SANDBOX and
+// REVENUECAT_SANDBOX_ALLOW, at skipSandbox below.
 //
-// REVENUECAT_IGNORE_SANDBOX: sandbox purchases (TestFlight, and Google
-// Play license testers, who aren't charged) credit Bones while it's unset,
-// which is what the beta wants. Set it to 'true' when the app goes public
-// and sandbox purchases stop crediting. revenuecat-webhook reads the same
-// secret, so set it once for both.
+// Sandbox purchases (TestFlight, App Review, and Google Play license
+// testers, none of whom are charged) credit Bones unless skipSandbox says
+// otherwise.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+
+// Whether a sandbox purchase from this store, by this user, should be left
+// uncredited. Two function secrets, shared with revenuecat-webhook:
+//
+//   REVENUECAT_IGNORE_SANDBOX  which stores' sandbox purchases stop
+//                              crediting: unset for none (the beta),
+//                              'app_store' or 'play_store' for that store
+//                              only, 'app_store,play_store' or 'true' for
+//                              both. App Store live with Android still in
+//                              testing is 'app_store'.
+//   REVENUECAT_SANDBOX_ALLOW   user ids, comma-separated, whose sandbox
+//                              purchases always credit: the demo account
+//                              App Review signs in with, so a reviewer who
+//                              buys Bones sees them arrive.
+function skipSandbox(store: 'app_store' | 'play_store', userId: string): boolean {
+  const ignore = (Deno.env.get('REVENUECAT_IGNORE_SANDBOX') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!ignore.includes('true') && !ignore.includes(store)) return false;
+  const allow = (Deno.env.get('REVENUECAT_SANDBOX_ALLOW') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return !allow.includes(userId);
+}
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -128,10 +153,10 @@ Deno.serve(async (req) => {
       return jsonError('That purchase could not be verified for this account.', 403);
     }
 
-    // See REVENUECAT_IGNORE_SANDBOX above. A 200, not an error: the
-    // purchase is real and verified, there's nothing to retry, and the
-    // app tells the tester it was a test purchase.
-    if (Deno.env.get('REVENUECAT_IGNORE_SANDBOX') === 'true' && isSandbox) {
+    // See skipSandbox above. A 200, not an error: the purchase is real and
+    // verified, there's nothing to retry, and the app tells the tester it
+    // was a test purchase.
+    if (isSandbox && skipSandbox(verifiedStore, caller.id)) {
       return new Response(JSON.stringify({ credited: false, reason: 'sandbox' }), {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
