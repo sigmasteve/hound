@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  // /get: the iPhone beta (TestFlight) and the Android APK.
+  // /get: Hound on the App Store, and the Android beta.
 
   var ua = navigator.userAgent || '';
   var isAndroid = /android/i.test(ua);
@@ -12,7 +12,7 @@
     platforms.insertBefore(document.getElementById('android'), document.getElementById('iphone'));
   }
 
-  // The TestFlight button's link is written into download.html. If Admin →
+  // The App Store button's link is written into download.html. If Admin →
   // Find people has a different one (beta_download_links,
   // 0080_friend_discovery.sql, the same place the friend invite page f.js
   // reads it), use that instead.
