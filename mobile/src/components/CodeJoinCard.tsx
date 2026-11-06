@@ -208,6 +208,9 @@ export function CodeJoinCard({
 
       <ScanCodeModal
         visible={scanning}
+        title="Scan a challenge code"
+        hint="Point the camera at the challenge’s QR code."
+        askText="Hound needs the camera to scan the challenge’s QR code. It’s only used while this screen is open."
         onScanned={(data) => {
           setScanning(false);
           lookUp(data);
