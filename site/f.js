@@ -66,9 +66,9 @@
       showLookupError((e && e.message) || 'Something went wrong loading this invite — try again in a moment.');
     });
 
-  // Hound is in beta, so most people opening this link don't have the
-  // app yet: step 1 gets it (the TestFlight public link / Android
-  // download from Admin → Find people, via beta_download_links in
+  // Most people opening this link don't have the app yet: step 1 gets it
+  // (the App Store link / Android download from Admin → Find people, via
+  // beta_download_links in
   // 0080_friend_discovery.sql), step 2 is the code to enter once it's
   // installed. A link can't survive the install, which is why the code
   // is spelled out here to copy.
@@ -152,22 +152,22 @@
           var ios = safeUrl(row && row.ios_url);
           var android = safeUrl(row && row.android_url);
           if (res.error || (!ios && !android)) {
-            box.innerHTML = '<p>Ask ' + name + ' to send you the beta invite for your phone.</p>';
+            box.innerHTML = '<p>Ask ' + name + ' how to get Hound on your phone.</p>';
             return;
           }
           // The button for the visitor's own phone first, and primary.
           var buttons = [];
-          if (ios) buttons.push({ href: ios, label: 'iPhone: get it on TestFlight', mine: isApple });
+          if (ios) buttons.push({ href: ios, label: 'iPhone: get it on the App Store', mine: isApple });
           if (android) buttons.push({ href: android, label: 'Android: download the app', mine: isAndroid });
           buttons.sort(function (a, b) { return (b.mine ? 1 : 0) - (a.mine ? 1 : 0); });
           box.innerHTML = buttons.map(function (b, i) {
             var cls = (b.mine || (i === 0 && !buttons.some(function (x) { return x.mine; }))) ? 'btn btn-primary btn-block' : 'btn btn-secondary btn-block';
             return '<p><a class="' + cls + '" href="' + b.href + '" target="_blank" rel="noopener">' + escapeHtml(b.label) + '</a></p>';
           }).join('') +
-          (ios ? '<p class="sub">On iPhone, TestFlight (Apple\'s free beta app) installs first, then Hound.</p>' : '');
+          (ios ? '<p class="sub">Free on the App Store as Hound: Fitness with Friends.</p>' : '');
         })
         .catch(function () {
-          box.innerHTML = '<p>Ask ' + name + ' to send you the beta invite for your phone.</p>';
+          box.innerHTML = '<p>Ask ' + name + ' how to get Hound on your phone.</p>';
         });
     }
   }

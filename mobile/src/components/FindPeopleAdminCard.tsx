@@ -80,14 +80,14 @@ export function FindPeopleAdminCard() {
             onChange={(v) => update({ suggestionsEnabled: v })}
           />
           <Text style={styles.footNote}>
-            Beta download links — shown on the invite page a friend link opens, so someone without Hound can get it
-            first. Leave one blank to hide that button.
+            Download links — shown on the invite page a friend link opens and on houndchallenge.net/get, so someone
+            without Hound can get it first. Leave one blank to hide that button.
           </Text>
           <TextField
-            label="iPhone — TestFlight public link"
+            label="iPhone — App Store link"
             value={config.iosBetaUrl ?? ''}
             onChangeText={(v) => update({ iosBetaUrl: v })}
-            placeholder="https://testflight.apple.com/join/…"
+            placeholder="https://apps.apple.com/app/id…"
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
