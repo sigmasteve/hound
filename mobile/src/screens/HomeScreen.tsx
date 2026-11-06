@@ -167,7 +167,6 @@ import { GoalsSheet } from '../home/GoalsSheet';
 import { WaterRow, WaterSheet } from '../water/WaterCards';
 import { useWater } from '../water/WaterContext';
 import { amountNumber, amountText, glassName, type WaterEntry } from '../water/water';
-import { KennelCard } from '../components/KennelCard';
 import { getKennel, getNewGifts, type Kennel } from '../kennel/kennelApi';
 import { BoneDigCard } from '../components/BoneDigCard';
 import { BoneDigModal } from '../components/BoneDigModal';
@@ -935,7 +934,7 @@ export function HomeScreen({
   const [nudgesDismissedAt, setNudgesDismissedAt] = useState<string | null>(null);
   // Which tile's sheet is open (TodayTiles.tsx), and how the goals tile
   // looks (Settings → Today).
-  const [openTile, setOpenTile] = useState<'goals' | 'water' | 'hound' | 'needs' | 'challenges' | 'week' | null>(null);
+  const [openTile, setOpenTile] = useState<'goals' | 'water' | 'needs' | 'challenges' | 'week' | null>(null);
   const goalsTileStyle = useGoalsTileStyle();
   // Your rank among everyone on Hound today (0027_daily_step_totals.sql),
   // in Week in review's spot Thursday to Sunday.
@@ -2088,7 +2087,9 @@ export function HomeScreen({
 
   // The small tiles, two to a row; an odd last one spans the row.
   const smallTiles: { key: string; render: (wide: boolean) => React.ReactNode }[] = [
-    ...(kennel ? [{ key: 'hound', render: () => <HoundTile kennel={kennel} onPress={() => setOpenTile('hound')} /> }] : []),
+    // Straight to the Kennel: the sheet in between only held a card that
+    // linked there.
+    ...(kennel ? [{ key: 'hound', render: () => <HoundTile kennel={kennel} onPress={() => onGoTab('kennel')} /> }] : []),
     {
       key: 'needs',
       render: (wide: boolean) => (
@@ -2322,11 +2323,6 @@ export function HomeScreen({
     {openTile === 'water' && water.goal && (
       <TileSheet title="Water" onClose={closeTile}>
         <WaterSheet onAdded={waterAdded} onEdit={() => sheetGoTab('goals')} />
-      </TileSheet>
-    )}
-    {openTile === 'hound' && kennel && (
-      <TileSheet title={kennel.name} onClose={closeTile}>
-        <KennelCard kennel={kennel} currencyName={currencyName} onOpen={() => sheetGoTab('kennel')} onChanged={reloadKennel} />
       </TileSheet>
     )}
     {openTile === 'needs' && (

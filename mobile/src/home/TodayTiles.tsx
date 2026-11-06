@@ -112,7 +112,7 @@ export function HoundTile({ kennel, onPress }: { kennel: Kennel; onPress: () => 
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const rank = rankForLevel(levelProgressForXp(kennel.xpTotal).level);
   return (
-    <Tile label={kennel.name} onPress={onPress} accessibilityLabel={`${kennel.name}, ${MOOD_WORD[kennel.mood]}. Open`}>
+    <Tile label={kennel.name} onPress={onPress} accessibilityLabel={`${kennel.name}, ${MOOD_WORD[kennel.mood]}. Open the Kennel`}>
       <TileValue value={MOOD_WORD[kennel.mood]} lines={[kennel.treatedToday ? 'Treated today' : 'Treat ready', 'Kennel ›']} />
       <View style={styles.hound} pointerEvents="none">
         <HoundArt
