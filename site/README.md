@@ -3,7 +3,7 @@
 A small, static (no build step) site. The home page (`index.html`, styled
 by `home.css` on top of `styles.css`) shows what Hound does, with the
 promo tour and screenshots in `media/`, sends people to `/get` for the
-beta (TestFlight on iPhone, the APK on Android), and keeps real sign-up/
+app (the App Store on iPhone, the beta APK on Android), and keeps real sign-up/
 log-in against the same Supabase project the mobile app uses. Not a preview of the app — an account created here
 is a real account, the same one the app signs in with once it's
 installed.
