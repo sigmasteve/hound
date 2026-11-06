@@ -67,7 +67,8 @@ In staging's **Edge Functions → Secrets**:
 
 - `RESEND_API_KEY`: leave it unset if staging shouldn't send real email.
 - `REVENUECAT_WEBHOOK_SECRET`: any value of 32 or more characters (`openssl rand -hex 32`). It's only used if a RevenueCat sandbox webhook points at staging.
-- `REVENUECAT_IGNORE_SANDBOX`: leave it unset on staging, where every purchase is a sandbox one. It's for production, set to `true` when the app goes public, and stops both `sync-purchase` and `revenuecat-webhook` from crediting sandbox purchases.
+- `REVENUECAT_IGNORE_SANDBOX`: leave it unset on staging, where every purchase is a sandbox one. It's for production, and says whose sandbox purchases stop crediting in both `sync-purchase` and `revenuecat-webhook`: `app_store` (iPhone live, Android still testing), `play_store`, or `true` for both.
+- `REVENUECAT_SANDBOX_ALLOW`: production only. User ids, comma-separated, whose sandbox purchases always credit, such as the demo account App Review signs in with.
 
 ### 4. Sign-in on staging
 

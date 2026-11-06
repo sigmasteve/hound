@@ -19,7 +19,8 @@
 // Deploy with the Supabase CLI:
 //   supabase functions deploy revenuecat-webhook
 // Requires the REVENUECAT_WEBHOOK_SECRET function secret. Optional:
-// REVENUECAT_IGNORE_SANDBOX (see the comment where it's read below).
+// REVENUECAT_IGNORE_SANDBOX and REVENUECAT_SANDBOX_ALLOW (see skipSandbox
+// below).
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -43,6 +44,32 @@ async function safeEqual(a: string, b: string): Promise<boolean> {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Whether a sandbox purchase from this store, by this user, should be left
+// uncredited. Two function secrets, shared with sync-purchase:
+//
+//   REVENUECAT_IGNORE_SANDBOX  which stores' sandbox purchases stop
+//                              crediting: unset for none (the beta),
+//                              'app_store' or 'play_store' for that store
+//                              only, 'app_store,play_store' or 'true' for
+//                              both. App Store live with Android still in
+//                              testing is 'app_store'.
+//   REVENUECAT_SANDBOX_ALLOW   user ids, comma-separated, whose sandbox
+//                              purchases always credit: the demo account
+//                              App Review signs in with, so a reviewer who
+//                              buys Bones sees them arrive.
+function skipSandbox(store: 'app_store' | 'play_store', userId: string): boolean {
+  const ignore = (Deno.env.get('REVENUECAT_IGNORE_SANDBOX') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!ignore.includes('true') && !ignore.includes(store)) return false;
+  const allow = (Deno.env.get('REVENUECAT_SANDBOX_ALLOW') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return !allow.includes(userId);
+}
 
 function normalizeStore(store: unknown): 'app_store' | 'play_store' | null {
   switch (store) {
@@ -105,13 +132,10 @@ Deno.serve(async (req) => {
   // Answering 500 would make RevenueCat retry them forever, so answer 200.
   if (!UUID_RE.test(appUserId)) return ignored('Not a Hound user id');
 
-  // REVENUECAT_IGNORE_SANDBOX: sandbox purchases (TestFlight, and Google
-  // Play license testers, who aren't charged) arrive with environment
-  // SANDBOX and credit Bones while it's unset, which is what the beta
-  // wants. Set it to 'true' when the app goes public and sandbox purchases
-  // stop crediting. sync-purchase reads the same secret, so set it once
-  // for both.
-  if (Deno.env.get('REVENUECAT_IGNORE_SANDBOX') === 'true' && event?.environment === 'SANDBOX') {
+  // Sandbox purchases (TestFlight, App Review, Google Play license
+  // testers) arrive with environment SANDBOX; skipSandbox says which of
+  // them credit.
+  if (event?.environment === 'SANDBOX' && skipSandbox(store, appUserId)) {
     return ignored('Sandbox purchase');
   }
 
