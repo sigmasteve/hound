@@ -149,7 +149,10 @@
           var safeUrl = function (u) {
             return u && /^https:\/\//i.test(u) ? u.replace(/"/g, '%22').replace(/</g, '%3C').replace(/>/g, '%3E') : null;
           };
+          // A TestFlight link left in Admin → Find people from the beta
+          // means the App Store now.
           var ios = safeUrl(row && row.ios_url);
+          if (ios && /testflight\.apple\.com/i.test(ios)) ios = 'https://apps.apple.com/app/id6816764199';
           var android = safeUrl(row && row.android_url);
           if (res.error || (!ios && !android)) {
             box.innerHTML = '<p>Ask ' + name + ' how to get Hound on your phone.</p>';
