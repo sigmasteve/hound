@@ -17,6 +17,13 @@ function requireClient() {
   return supabase;
 }
 
+// Health is connected on this phone (0176): ticks "Connect your health
+// data" before any steps have synced.
+export async function markHealthConnected(): Promise<void> {
+  const { error } = await requireClient().rpc('mark_health_connected');
+  if (error) throw new Error(error.message);
+}
+
 export async function getOnboardingStatus(): Promise<OnboardingStatus | null> {
   const { data, error } = await requireClient().rpc('onboarding_status');
   if (error) throw new Error(error.message);

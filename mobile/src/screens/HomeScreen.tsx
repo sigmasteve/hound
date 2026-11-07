@@ -137,7 +137,7 @@ import { NewRecordModal } from '../components/NewRecordModal';
 import { RECORD_TITLE, syncPersonalRecords, takePendingNewRecords, type NewRecord } from '../records/personalRecords';
 import { nudgesReceived, type ReceivedNudge } from '../social/social';
 import { shouldOfferPush } from '../notifications/pushPermission';
-import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from '../onboarding/onboardingApi';
+import { claimOnboardingReward, getOnboardingStatus, markHealthConnected, type OnboardingStatus } from '../onboarding/onboardingApi';
 import { checkAchievements, listAchievements, type NewlyEarnedAchievement } from '../achievements/achievementsApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
@@ -1158,6 +1158,15 @@ export function HomeScreen({
         })
         .catch(() => {})
         .then(() => getOnboardingStatus())
+        .then(async (st) => {
+          // Health connected but no steps synced yet (first thing in the
+          // morning, or an iPad): tell the server, so the tick shows.
+          if (st && !st.healthConnected && (await health.getAuthorizationStatus().catch(() => null)) === 'authorized') {
+            await markHealthConnected();
+            return (await getOnboardingStatus()) ?? st;
+          }
+          return st;
+        })
         .then(setOnboarding)
         .catch(() => {});
     }
