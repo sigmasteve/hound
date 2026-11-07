@@ -12,15 +12,18 @@ export const APP_VERSION = Constants.expoConfig?.version ?? 'unknown';
 // which database (PR = production, STG = staging), which update channel,
 // and which update. Added after a production update went out with
 // staging's database address (17 Oct 2026), so a mix-up shows at a glance.
-// Bare project ids only: scripts/publish-update.sh checks the code for the
-// full https://<id>.supabase.co address, so never write that out here.
+// Bare project ids and hosts only: scripts/publish-update.sh checks the
+// code for the full https:// addresses, so never write one out here.
 const DATABASES: Record<string, string> = {
   vaypjksgpuuopqvurcus: 'PR',
   quglaamzzhebqrlhvfuc: 'STG',
+  // Production's own domain (Supabase custom domain).
+  'auth.houndchallenge.net': 'PR',
 };
 
 export function runningOnLabel(): string {
-  const ref = process.env.EXPO_PUBLIC_SUPABASE_URL?.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+  const ref = url.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1] ?? url.match(/^https:\/\/([^/]+)/)?.[1];
   const parts = [ref ? (DATABASES[ref] ?? ref) : 'no database'];
   // Not in development or on web.
   if (Updates.isEnabled) {

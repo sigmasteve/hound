@@ -15,16 +15,24 @@ cd "$(dirname "$0")/.."
 
 PRODUCTION_REF=vaypjksgpuuopqvurcus
 STAGING_REF=quglaamzzhebqrlhvfuc
+# Production's own domain (Supabase custom domain, November 2026): the
+# same database at an address people can read, which iOS shows when
+# signing in with Facebook or Apple. Either address counts as production.
+PRODUCTION_DOMAIN=auth.houndchallenge.net
 
 target=${1:-}
 shift || true
 case "$target" in
   production)
-    branch=production environment=production expect=$PRODUCTION_REF reject=$STAGING_REF
+    branch=production environment=production
+    expect_urls="https://$PRODUCTION_REF.supabase.co https://$PRODUCTION_DOMAIN"
+    reject_urls="https://$STAGING_REF.supabase.co"
     unset APP_VARIANT
     ;;
   staging)
-    branch=staging environment=preview expect=$STAGING_REF reject=$PRODUCTION_REF
+    branch=staging environment=preview
+    expect_urls="https://$STAGING_REF.supabase.co"
+    reject_urls="https://$PRODUCTION_REF.supabase.co https://$PRODUCTION_DOMAIN"
     export APP_VARIANT=staging
     ;;
   *)
@@ -40,19 +48,24 @@ npx eas-cli env:exec "$environment" \
   "npx expo export --output-dir $out --dump-assetmap --dump-sourcemap --platform ios --platform android --clear"
 
 # The full address, as EXPO_PUBLIC_SUPABASE_URL puts it in the code. The
-# bare project ids also appear in the app on purpose (Settings shows PR or
-# STG, src/lib/appVersion.ts), so they can't be what's checked. Source
-# maps are skipped: they hold the app's source text, not its settings.
-expect_url="https://$expect.supabase.co"
-reject_url="https://$reject.supabase.co"
+# bare project ids and the domain also appear in the app on purpose
+# (Settings shows PR or STG, src/lib/appVersion.ts), so they can't be what's
+# checked. Source maps are skipped: they hold the app's source text, not its
+# settings.
 for platform in ios android; do
   bundle_dir="$out/_expo/static/js/$platform"
-  if grep -rqsF --exclude='*.map' "$reject_url" "$bundle_dir"; then
-    echo "STOPPED: the $platform code points at the wrong database ($reject_url). Nothing was published."
-    exit 1
-  fi
-  if ! grep -rqsF --exclude='*.map' "$expect_url" "$bundle_dir"; then
-    echo "STOPPED: the $platform code doesn't point at the $target database ($expect_url). Nothing was published."
+  for url in $reject_urls; do
+    if grep -rqsF --exclude='*.map' "$url" "$bundle_dir"; then
+      echo "STOPPED: the $platform code points at the wrong database ($url). Nothing was published."
+      exit 1
+    fi
+  done
+  found=
+  for url in $expect_urls; do
+    if grep -rqsF --exclude='*.map' "$url" "$bundle_dir"; then found=$url; fi
+  done
+  if [ -z "$found" ]; then
+    echo "STOPPED: the $platform code doesn't point at the $target database ($expect_urls). Nothing was published."
     exit 1
   fi
 done
