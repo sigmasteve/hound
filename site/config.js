@@ -12,6 +12,6 @@
 // account the mobile app signs in with — same project, same `profiles`
 // row.
 window.HOUND_CONFIG = {
-  supabaseUrl: 'https://vaypjksgpuuopqvurcus.supabase.co',
+  supabaseUrl: 'https://auth.houndchallenge.net',
   supabasePublishableKey: 'sb_publishable_Mzw-0rWnaOPJQ5AlTHwRVQ_F2VhnmBQ',
 };

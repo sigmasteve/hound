@@ -118,6 +118,10 @@ Hound Staging is a second app on the same phone. It has its own name, its own bu
 
 None of this touches the real Hound: its bundle ID, channel (`production`) and environment are unchanged. Hound Staging never receives production updates, and production never receives staging updates.
 
+## Production's own domain
+
+Production also answers at **auth.houndchallenge.net** (Supabase custom domain), the address iOS shows when someone signs in with Facebook or Apple. The app and website use it (`EXPO_PUBLIC_SUPABASE_URL` in EAS production, `site/config.js`); the old `https://vaypjksgpuuopqvurcus.supabase.co` keeps working for anything not yet moved. Keep the `auth` CNAME pointing at `vaypjksgpuuopqvurcus.supabase.co`, and keep both callback addresses (`…/auth/v1/callback` on each host) in Facebook and Apple. `npm run update:production` accepts either address.
+
 ## Releasing to production
 
 Until production's migration history is recorded (below), it stays manual, in this order:
