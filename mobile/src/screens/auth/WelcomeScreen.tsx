@@ -11,6 +11,11 @@ import type { AuthProviderId } from '../../auth/types';
 
 type Busy = Exclude<AuthProviderId, 'email'> | null;
 
+// Off until the Meta app is published: while it's unpublished, Facebook
+// Login only works for people with a role on it, so everyone else got an
+// error. Set back to true once Meta shows it as Live.
+const FACEBOOK_LOGIN_ON = false;
+
 export function WelcomeScreen({
   onContinueWithEmail,
   onCreateAccount,
@@ -74,14 +79,16 @@ export function WelcomeScreen({
           onPress={() => runProvider('google', signInWithGoogle)}
           textColor={colors.text}
         />
-        <ProviderButton
-          label="Continue with Facebook"
-          icon={<FacebookLogoIcon size={18} color={colors.text} weight="fill" />}
-          busy={busy === 'facebook'}
-          disabled={busy !== null}
-          onPress={() => runProvider('facebook', signInWithFacebook)}
-          textColor={colors.text}
-        />
+        {FACEBOOK_LOGIN_ON && (
+          <ProviderButton
+            label="Continue with Facebook"
+            icon={<FacebookLogoIcon size={18} color={colors.text} weight="fill" />}
+            busy={busy === 'facebook'}
+            disabled={busy !== null}
+            onPress={() => runProvider('facebook', signInWithFacebook)}
+            textColor={colors.text}
+          />
+        )}
       </View>
 
       <View style={styles.dividerRow}>
