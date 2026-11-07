@@ -82,6 +82,17 @@ select is((select count(*)::int from public.baseball_picks where challenge_id = 
   'The other side''s picks stay hidden until the day''s played');
 reset role;
 
+-- Played on fixed days, not days counted back from today: every roll is
+-- seeded by the game and the day, so on today's days the game changed
+-- daily (and at 11:00 UTC), and about one day in 70 it stood 0-0 after
+-- three and went to extra innings that can't be played yet. On these
+-- days the 8-to-1 walker wins in three, every run. Today's picks above
+-- are for today, not a played day, so moving the game doesn't touch them.
+update public.challenges set start_day = date '2026-11-01',
+  starts_at = timestamp '2026-11-01' at time zone 'utc', ends_at = timestamp '2026-11-04' at time zone 'utc'
+  where id = '00000000-0000-0000-0000-0000000000b1';
+select date '2026-11-03' as cutoff \gset
+
 -- Ann walks big every day; Bob and Cat barely walk.
 insert into public.progress_snapshots (challenge_id, user_id, day, steps)
   select '00000000-0000-0000-0000-0000000000b1', u, :'cutoff'::date - g, s
