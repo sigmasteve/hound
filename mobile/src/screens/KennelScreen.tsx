@@ -1699,7 +1699,7 @@ export function KennelScreen({
         goldenBones={care.care?.bath.goldenBones}
         currencyName={currencyName}
         onQuick={quickBath}
-        onFinish={(popped, golden) => {
+        onFinish={(popped, golden, _hairdo) => {
           setBathOpen(false);
           void care.finishBath(popped, golden);
         }}
