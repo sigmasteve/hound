@@ -5,11 +5,12 @@ import type { FindRarity } from '../walks/walks';
 //
 // Bath day is only the happy side: a long walk today (30 minutes or
 // 3,000 steps) brings the hound home muddy, and a good active day (that
-// walk, 8,000 steps or your goals done) earns a bath with bubbles, once a
-// day. Treats are baked from spare walk finds plus Bones, then fed as
+// walk, 6,000 steps, your goals done, or a Bones pack bought today) earns
+// a bath, once a day. Since 0177 the bath is a game you play (BathScene):
+// popped bubbles pay Bones, capped by the server. Treats are baked from spare walk finds plus Bones, then fed as
 // today's treat or sent to a friend's hound.
 
-export type BathEarned = 'walk' | 'steps' | 'goal';
+export type BathEarned = 'walk' | 'steps' | 'goal' | 'pack';
 
 export interface BathState {
   bathed: boolean;
@@ -20,6 +21,12 @@ export interface BathState {
   canBath: boolean;
   walkSteps: number | null;
   walkMinutes: number | null;
+  // Today's bath (0177): played or quick, and the Bones it paid.
+  bathKind: 'play' | 'quick' | null;
+  bathBones: number;
+  // The bath game's settings (0177): bubbles a bath, and the golden one.
+  bubbles: number;
+  goldenBones: number;
 }
 
 export interface TreatRecipe {
@@ -81,7 +88,11 @@ export function recipeNeeds(r: TreatRecipe): string {
 }
 
 export function bathLine(b: BathState, houndName: string): string {
-  if (b.bathed && !b.muddy) return `${houndName} had a bath today. Fresh and fluffy.`;
+  if (b.bathed && !b.muddy) {
+    return b.bathKind === 'play' && b.bathBones > 0
+      ? `${houndName} had a bath today: fresh, fluffy and ${b.bathBones} Bones from the bubbles.`
+      : `${houndName} had a bath today. Fresh and fluffy.`;
+  }
   if (b.muddy) {
     const walk = b.walkMinutes ? `${b.walkMinutes} minutes out` : 'A long walk';
     return `${walk}, and ${houndName} came home muddy. ${b.bathed ? 'One bath a day: tomorrow, then.' : 'Bath time!'}`;
@@ -89,9 +100,11 @@ export function bathLine(b: BathState, houndName: string): string {
   if (b.canBath) {
     return b.earned === 'goal'
       ? `Goals done today: ${houndName} has earned a bath.`
-      : `A busy day: ${houndName} has earned a bath.`;
+      : b.earned === 'pack'
+        ? `Thanks for the Bones! ${houndName} has earned a bath.`
+        : `A busy day: ${houndName} has earned a bath.`;
   }
-  return `A long walk (30 minutes), 8,000 steps or your goals done earns ${houndName} a bath.`;
+  return `One bath a day, earned by a long walk (30 minutes), 6,000 steps, your goals done or a Bones pack.`;
 }
 
 function parse(data: unknown): Care {
@@ -106,6 +119,10 @@ function parse(data: unknown): Care {
       canBath: !!b.can_bath,
       walkSteps: b.walk_steps == null ? null : Number(b.walk_steps),
       walkMinutes: b.walk_minutes == null ? null : Number(b.walk_minutes),
+      bathKind: (b.bath_kind ?? null) as 'play' | 'quick' | null,
+      bathBones: Number(b.bath_bones ?? 0),
+      bubbles: b.bubbles == null ? 10 : Number(b.bubbles),
+      goldenBones: b.golden_bones == null ? 5 : Number(b.golden_bones),
     },
     recipes: ((d.recipes ?? []) as any[]).map((r) => ({
       id: r.id,
@@ -137,6 +154,8 @@ async function call(fn: string, args: Record<string, unknown>): Promise<Care> {
 
 export const getCare = (day: string) => call('my_care', { p_day: day });
 export const giveBath = (day: string) => call('give_bath', { p_day: day });
+export const finishBath = (day: string, bubbles: number, golden: boolean) =>
+  call('finish_bath', { p_day: day, p_bubbles: bubbles, p_golden: golden });
 export const makeTreat = (day: string, recipe: string) => call('make_treat', { p_day: day, p_recipe: recipe });
 export const feedTreat = (day: string, treat: string) => call('feed_homemade_treat', { p_day: day, p_treat: treat });
 export const giftTreat = (day: string, friend: string, treat: string, note: string | null) =>
@@ -210,4 +229,55 @@ export async function getRoomOverview(): Promise<RoomOverview> {
     gifted: n(d.gifted),
     byItem: ((d.by_item ?? []) as any[]).map((r) => ({ id: r.id, name: r.name, owned: n(r.owned) })),
   };
+}
+
+// Admin → Bath time (0177): who plays the bath, how, and the settings.
+export interface BathOverview {
+  bubbles: number;
+  goldenBones: number;
+  played7d: number;
+  players7d: number;
+  quick7d: number;
+  bubbles7d: number;
+  golden7d: number;
+  bones7d: number;
+  allBubbles7d: number;
+  playedAll: number;
+  playersAll: number;
+  bonesAll: number;
+  byEarned7d: Partial<Record<BathEarned, number>>;
+}
+
+export async function getBathOverview(): Promise<BathOverview> {
+  if (!supabase) throw new Error('Not connected to Hound.');
+  const { data, error } = await supabase.rpc('admin_bath_overview');
+  if (error) throw new Error(error.message);
+  const d = (data ?? {}) as any;
+  const n = (v: unknown) => Number(v ?? 0);
+  const by: Partial<Record<BathEarned, number>> = {};
+  for (const [k, v] of Object.entries(d.by_earned_7d ?? {})) by[k as BathEarned] = n(v);
+  return {
+    bubbles: n(d.bubbles),
+    goldenBones: n(d.golden_bones),
+    played7d: n(d.played_7d),
+    players7d: n(d.players_7d),
+    quick7d: n(d.quick_7d),
+    bubbles7d: n(d.bubbles_7d),
+    golden7d: n(d.golden_7d),
+    bones7d: n(d.bones_7d),
+    allBubbles7d: n(d.all_bubbles_7d),
+    playedAll: n(d.played_all),
+    playersAll: n(d.players_all),
+    bonesAll: n(d.bones_all),
+    byEarned7d: by,
+  };
+}
+
+export async function saveBathSettings(bubbles: number, goldenBones: number): Promise<void> {
+  if (!supabase) throw new Error('Not connected to Hound.');
+  const { error } = await supabase
+    .from('bath_settings')
+    .update({ bubbles, golden_bones: goldenBones, updated_at: new Date().toISOString() })
+    .eq('id', true);
+  if (error) throw new Error(error.message);
 }

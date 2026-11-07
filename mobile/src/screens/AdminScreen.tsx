@@ -36,10 +36,11 @@ import { WaterAdminCard } from '../components/WaterAdminCard';
 import { WalksAdminCard } from '../components/WalksAdminCard';
 import { GardenAdminCard } from '../components/GardenAdminCard';
 import { CareAdminCard } from '../components/CareAdminCard';
+import { BathAdminCard } from '../components/BathAdminCard';
 import { RoomAdminCard } from '../components/RoomAdminCard';
 import { TogetherAdminCard } from '../components/TogetherAdminCard';
 import { getTogetherOverview } from '../together/together';
-import { getCareOverview, getRoomOverview } from '../care/care';
+import { getBathOverview, getCareOverview, getRoomOverview } from '../care/care';
 import { GrowthAdminCard } from '../components/GrowthAdminCard';
 import { BaseballAdminCard } from '../components/BaseballAdminCard';
 import { DoorsAdminCard } from '../components/DoorsAdminCard';
@@ -145,6 +146,8 @@ export function AdminScreen({
   const [gardenSummary, setGardenSummary] = useState<string | null>(null);
   // The Bath and treats fold's line, and Inside the house's (0169).
   const [careSummary, setCareSummary] = useState<string | null>(null);
+  // The Bath time fold's line: baths played this week (0177).
+  const [bathSummary, setBathSummary] = useState<string | null>(null);
   const [roomSummary, setRoomSummary] = useState<string | null>(null);
   // The Together fold's line (0170).
   const [togetherSummary, setTogetherSummary] = useState<string | null>(null);
@@ -174,6 +177,9 @@ export function AdminScreen({
         .catch(() => {});
       getGardenOverview()
         .then((g) => setGardenSummary(`${g.growingNow} ${g.growingNow === 1 ? 'garden' : 'gardens'} growing`))
+        .catch(() => {});
+      getBathOverview()
+        .then((b) => setBathSummary(`${b.played7d} ${b.played7d === 1 ? 'bath' : 'baths'} played this week · ${b.bones7d} Bones paid`))
         .catch(() => {});
       getCareOverview()
         .then((c) => setCareSummary(`${c.baths7d} ${c.baths7d === 1 ? 'bath' : 'baths'} this week · ${c.made7d} treats baked`))
@@ -733,6 +739,9 @@ export function AdminScreen({
                 </AdminFold>
                 <AdminFold title="Growth" summary={growthSummary ?? 'Fitness, traits and birthdays'}>
                   <GrowthAdminCard />
+                </AdminFold>
+                <AdminFold title="Bath time" summary={bathSummary ?? 'Baths played, bubbles and Bones'}>
+                  <BathAdminCard />
                 </AdminFold>
                 <AdminFold title="Bath and treats" summary={careSummary ?? 'Baths, and treats baked'}>
                   <CareAdminCard />

@@ -82,10 +82,12 @@ select is((select count(*)::int from public.baseball_picks where challenge_id = 
   'The other side''s picks stay hidden until the day''s played');
 reset role;
 
--- Ann walks big every day; Bob and Cat barely walk.
+-- Ann walks big every day; Bob and Cat barely walk. The rolls are seeded
+-- by the date, so the gap is wide: a 0-0 tie in regulation would go to
+-- extra innings and leave the game unfinished.
 insert into public.progress_snapshots (challenge_id, user_id, day, steps)
   select '00000000-0000-0000-0000-0000000000b1', u, :'cutoff'::date - g, s
-  from (values (:'ann'::uuid, 20000), (:'bob'::uuid, 2500), (:'cat'::uuid, 2500)) v(u, s), generate_series(0, 2) g;
+  from (values (:'ann'::uuid, 40000), (:'bob'::uuid, 1000), (:'cat'::uuid, 1000)) v(u, s), generate_series(0, 2) g;
 
 select tests.sign_in(:'dan');
 set local role authenticated;
@@ -108,7 +110,7 @@ select is((select (sum(away_runs) + coalesce(sum(home_runs), 0))::int from publi
   (select sum(runs)::int from public.baseball_plays where challenge_id = '00000000-0000-0000-0000-0000000000b1'),
   'and every run is in the plays');
 select ok((select status = 'final' and winner_team = 'a' from public.baseball_games where challenge_id = '00000000-0000-0000-0000-0000000000b1'),
-  'Out-walked 8 to 1, Ann''s side wins');
+  'Out-walked 40 to 1, Ann''s side wins');
 
 select public.settle_challenge_score('00000000-0000-0000-0000-0000000000b1');
 select is((select score_points from public.activity_events where challenge_id = '00000000-0000-0000-0000-0000000000b1' and user_id = :'ann' and kind = 'baseball_result'),

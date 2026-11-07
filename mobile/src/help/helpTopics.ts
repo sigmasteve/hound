@@ -427,7 +427,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'A bath after a busy day, treats from your finds, and a room inside.',
       steps: [
         'A long walk (30 minutes or 3,000 steps) brings your hound home muddy. Nothing bad comes of it: it just looks the part.',
-        'A busy day earns a bath: that long walk, 8,000 steps or your goals done. Kennel → Care → Give a bath, and watch the bubbles in the Yard. One a day, and they stay fresh until the next long walk.',
+        `One bath a day, earned by that long walk, 6,000 steps, your goals done or a ${currency} pack bought that day. Kennel → Care → Give a bath: scrub your hound with a finger, pop the bubbles (+1 ${currency} each, and more for the golden one), rinse with the shower and watch them shake dry. Quick bath skips the game, with no ${currency}. They stay fresh until the next long walk.`,
         `Kennel → Care → Kitchen bakes treats from the things your walks find, plus a few ${currency}: Pumpkin biscuits, a Peanut butter pupcake, Frosty paws and a Birthday cake. Your collection book still counts every find.`,
         'Treats wait in the pantry. Feed one as today’s treat, with nothing to pay, or send one to a friend’s hound: open them in Friends and tap Send a gift.',
         `The room is inside the house, a swipe on from the Porch, and open to everyone. Kennel → Yard → Room has a Fireplace, Sofa, Bookshelf, Photo Wall (with your hound’s portrait), Fireside Cushion, Cozy Rug, Floor Lamp and Potted Fern, from 150 to 900 ${currency}.`,
