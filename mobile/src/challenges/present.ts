@@ -139,7 +139,7 @@ export function toChallengeCard(
     // bingo challenge shown, which isn't worth it just for this compact
     // card — the real per-square state lives on the detail screen.
     if (isHoundCard(challenge)) {
-      const size = cardSizeForDays(challenge.durationDays);
+      const size = challenge.bingoSize ?? cardSizeForDays(challenge.durationDays);
       stat = `${size}×${size}`;
       statLabel = 'bingo card';
     } else {

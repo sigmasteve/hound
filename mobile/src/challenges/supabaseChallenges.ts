@@ -101,7 +101,7 @@ function challengeRowToInviteWindowInput(row: {
 }
 
 const CHALLENGE_COLUMNS =
-  'id, name, kind, created_by, duration_days, starts_at, start_day, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit, tag_round_minutes, distance_source, bingo_card_type, course_id, organization_id';
+  'id, name, kind, created_by, duration_days, starts_at, start_day, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit, tag_round_minutes, distance_source, bingo_card_type, bingo_size, course_id, organization_id';
 
 interface ChallengeRow {
   id: string;
@@ -121,6 +121,7 @@ interface ChallengeRow {
   distance_goal_unit: Challenge['distanceGoalUnit'];
   tag_round_minutes?: number | null;
   bingo_card_type: Challenge['bingoCardType'];
+  bingo_size: number | null;
   distance_source?: string | null;
   course_id: string | null;
   organization_id: string | null;
@@ -163,6 +164,7 @@ function rowToChallenge(row: ChallengeRow): Challenge {
     distanceGoalUnit: row.distance_goal_unit ?? (row.distance_goal_mi != null ? 'miles' : null),
     tagRoundMinutes: row.tag_round_minutes ?? null,
     bingoCardType: row.bingo_card_type,
+    bingoSize: row.bingo_size === 3 || row.bingo_size === 4 || row.bingo_size === 5 ? row.bingo_size : null,
     distanceSource: (row.distance_source as Challenge['distanceSource'] | undefined) ?? null,
     courseId: row.course_id ?? null,
     organizationId: row.organization_id,
@@ -304,6 +306,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     tagRoundMinutes,
     distanceSource,
     bingoCardType,
+    bingoSize,
     courseId,
     checklistItems,
     startsAt: startsAtInput,
@@ -332,6 +335,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         ...(kind === 'tag' ? { tag_round_minutes: tagRoundMinutes ?? 60 } : {}),
         distance_source: distanceSource ?? null,
         bingo_card_type: bingoCardType ?? null,
+        ...(kind === 'bingo' && bingoSize ? { bingo_size: bingoSize } : {}),
         course_id: courseId ?? null,
         organization_id: organizationId ?? null,
       })

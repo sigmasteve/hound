@@ -6,6 +6,8 @@ import Slider from '@react-native-community/slider';
 import {
   ArrowLeftIcon,
   ArrowsClockwiseIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
   ArrowRightIcon,
   CheckCircleIcon,
   CircleIcon,
@@ -37,7 +39,9 @@ import { getOrganization } from '../organizations/supabaseOrganizations';
 import type { Organization } from '../organizations/types';
 import { BOT_FITNESS_LEVELS, BOT_PRESETS, botInitials } from '../challenges/botSimulation';
 import type { BingoCardType } from '../challenges/bingo';
-import { CARD_COLUMNS, cardSizeForDays } from '../challenges/houndBingo';
+import { CARD_COLUMNS, cardSizeForDays, type CardCell, type CardSize } from '../challenges/houndBingo';
+import { dealCardPreview } from '../challenges/bingoApi';
+import { BingoCardPreview } from '../components/BingoCardPreview';
 import {
   DEFAULT_TICTACGO_WINDOW_HOURS,
   drawBoard,
@@ -245,6 +249,14 @@ export function CreateScreen({
   // A miles pool: the course map to show the group's miles along, if any.
   const [poolCourseId, setPoolCourseId] = useState<string | null>(rematch?.kind === 'distance' ? (rematch.courseId ?? null) : null);
   const [length, setLength] = useState(rematch ? String(rematch.durationDays) : '7');
+  // Bingo (0179): the card's size, picked or (until it's picked) by
+  // length, and the creator's own card, dealt by the server to look at
+  // and shuffle; it's theirs when the challenge is made.
+  const [pickedBingoSize, setPickedBingoSize] = useState<CardSize | null>(rematch?.bingoSize ?? null);
+  const bingoSize: CardSize = pickedBingoSize ?? cardSizeForDays(Number(length) || 7);
+  const [cardPreview, setCardPreview] = useState<CardCell[] | null>(null);
+  const [cardDealing, setCardDealing] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
   // K-04: "Anyone with the code", a community challenge (0152). The same
   // start date, join window and review as a global challenge; only the
   // crowd-safe kinds; a description; optionally just your organization.
@@ -260,8 +272,28 @@ export function CreateScreen({
     // Once, when the wizard opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const dealCard = () => {
+    setCardDealing(true);
+    setCardError(null);
+    dealCardPreview(bingoSize)
+      .then(setCardPreview)
+      .catch(() => {
+        setCardPreview(null);
+        setCardError('Couldn’t deal a card to show. Yours is dealt when the challenge is made.');
+      })
+      .finally(() => setCardDealing(false));
+  };
+  useEffect(() => {
+    if (draftType !== 'bingo') return;
+    dealCard();
+    // A new card when the size changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftType, bingoSize]);
   // Published to a crowd rather than started with invites.
   const crowd = global || community;
+  // How far ahead it can start: a community challenge within two weeks
+  // (0152's limit), a global one any day in the next year.
+  const maxStartDays = community ? 14 : 365;
   // Accountability only: the shared list as drafted (src/challenges/
   // checklist.ts), the steps item's daily count, and the admin cap.
   const [checklistItems, setChecklistItems] = useState<{ key: string; label: string; kind: ChecklistItemKind }[]>(() =>
@@ -723,6 +755,7 @@ export function CreateScreen({
           distanceGoalMi: isDistance && distanceGoalUnit === 'miles' ? distanceGoalMi : isJourney ? course.miles : undefined,
           distanceGoalSteps: isDistance && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
           bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
+          bingoSize: draftType === 'bingo' ? bingoSize : undefined,
           courseId: isJourney ? course.id : isDistance && distanceGoalUnit === 'miles' ? (poolCourseId ?? undefined) : undefined,
           distanceSource: isDistance && distanceGoalUnit === 'miles' ? distanceSource : undefined,
         });
@@ -765,6 +798,7 @@ export function CreateScreen({
           distanceGoalMi: isDistance && distanceGoalUnit === 'miles' ? distanceGoalMi : isJourney ? course.miles : undefined,
           distanceGoalSteps: isDistance && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
           bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
+          bingoSize: draftType === 'bingo' ? bingoSize : undefined,
           courseId: isJourney ? course.id : isDistance && distanceGoalUnit === 'miles' ? (poolCourseId ?? undefined) : undefined,
           distanceSource: isDistance && distanceGoalUnit === 'miles' ? distanceSource : undefined,
         });
@@ -945,6 +979,7 @@ export function CreateScreen({
         dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
         distanceSource: draftType === 'distance' && distanceGoalUnit === 'miles' ? distanceSource : undefined,
         bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
+        bingoSize: draftType === 'bingo' ? bingoSize : undefined,
         checklistItems: draftType === 'checklist' ? checklistToSave : undefined,
         startsAt: startsAtFor(startOption).toISOString(),
         organizationId: challengeScope === 'org' && myOrgId ? myOrgId : undefined,
@@ -1221,11 +1256,33 @@ export function CreateScreen({
               <View style={{ gap: 5 }}>
                 <View style={styles.huntBlockHeader}>
                   <Text style={styles.fieldLabel}>Starts</Text>
-                  <Text style={styles.huntBlockValue}>{startsLabel(startInDays)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Pressable
+                      onPress={() => setStartInDays((d) => Math.max(0, d - 1))}
+                      disabled={startInDays === 0}
+                      hitSlop={6}
+                      accessibilityRole="button"
+                      accessibilityLabel="A day earlier"
+                      style={[styles.dayNudge, startInDays === 0 && { opacity: 0.3 }]}
+                    >
+                      <CaretLeftIcon size={18} color={colors.accentActive} />
+                    </Pressable>
+                    <Text style={styles.huntBlockValue}>{startsLabel(startInDays)}</Text>
+                    <Pressable
+                      onPress={() => setStartInDays((d) => Math.min(maxStartDays, d + 1))}
+                      disabled={startInDays >= maxStartDays}
+                      hitSlop={6}
+                      accessibilityRole="button"
+                      accessibilityLabel="A day later"
+                      style={[styles.dayNudge, startInDays >= maxStartDays && { opacity: 0.3 }]}
+                    >
+                      <CaretRightIcon size={18} color={colors.accentActive} />
+                    </Pressable>
+                  </View>
                 </View>
                 <Slider
                   minimumValue={0}
-                  maximumValue={community ? 14 : 30}
+                  maximumValue={maxStartDays}
                   step={1}
                   value={startInDays}
                   onValueChange={(v) => setStartInDays(Math.round(v))}
@@ -1515,13 +1572,41 @@ export function CreateScreen({
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
                 <Text style={styles.huntBlockLabel}>Card</Text>
-                <Text style={styles.huntBlockValue}>{bingoCardLabel(Number(length))}</Text>
+                <Text style={styles.huntBlockValue}>{bingoCardLabel(bingoSize)}</Text>
               </View>
+              <SegmentedControl
+                options={[
+                  { value: '3', label: '3×3' },
+                  { value: '4', label: '4×4' },
+                  { value: '5', label: '5×5' },
+                ]}
+                value={String(bingoSize)}
+                onChange={(v) => setPickedBingoSize(Number(v) as CardSize)}
+              />
               <Text style={styles.huntBlockNote}>
-                Everyone gets the same squares, shuffled. Mark them by getting your steps in and working out. First to
-                finish a row, column or diagonal wins; 2nd and 3rd go to the next BINGOs. The card grows with the
-                challenge: 3×3 for a week, 4×4 up to 20 days, 5×5 after that.
+                Everyone gets the same squares, shuffled, so each card is different. Mark them by getting your steps in
+                and working out. First to finish a row, column or diagonal wins; 2nd and 3rd go to the next BINGOs.
+                {pickedBingoSize === null ? ' Sized for the length until you pick: 3×3 for a week, 4×4 up to 20 days, 5×5 after.' : ''}
               </Text>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Your card</Text>
+                <Pressable onPress={dealCard} disabled={cardDealing} hitSlop={8} accessibilityRole="button" style={styles.shuffle}>
+                  <ArrowsClockwiseIcon size={14} color={colors.accentActive} />
+                  <Text style={styles.shuffleText}>{cardDealing ? 'Shuffling…' : 'Shuffle'}</Text>
+                </Pressable>
+              </View>
+              {cardPreview && cardPreview.length === bingoSize * bingoSize ? (
+                <BingoCardPreview card={cardPreview} />
+              ) : cardError ? (
+                <Text style={styles.huntBlockNote}>{cardError}</Text>
+              ) : (
+                <ActivityIndicator color={colors.accent} />
+              )}
+              {cardPreview && (
+                <Text style={styles.huntBlockNote}>
+                  This is the card you&rsquo;ll play with. Everyone who joins gets their own shuffle.
+                </Text>
+              )}
             </View>
           )}
 
@@ -1843,7 +1928,7 @@ export function CreateScreen({
                 rows.push(['Counts', distanceSource === 'all' ? 'Every mile' : 'Logged workouts']);
               if (draftType === 'distance' && distanceGoalUnit === 'miles' && poolCourseId)
                 rows.push(['Map', courseById(poolCourseId)?.name ?? poolCourseId]);
-              if (draftType === 'bingo') rows.push(['Card', bingoCardLabel(Number(length))]);
+              if (draftType === 'bingo') rows.push(['Card', bingoCardLabel(bingoSize)]);
               if (draftType === 'journey') rows.push(['Course', `${course.name} · ${formatMiles(course.miles)} mi`]);
               if (draftType === 'checklist') rows.push(['List', `${checklistItems.length} item${checklistItems.length === 1 ? '' : 's'} a day`]);
               if (canHavePrizes)
@@ -2348,6 +2433,9 @@ function makeStyles(colors: Palette) {
     // way (see tokens.ts), so one color works in both places.
     huntBlockValue: { fontFamily: font.heading, fontSize: 20, color: colors.accentActive },
     huntBlockNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    shuffle: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    shuffleText: { fontFamily: font.heading, fontSize: 14, color: colors.accentActive },
+    dayNudge: { padding: 4 },
     tttGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     tttCell: {
       width: '31.5%',
@@ -2412,8 +2500,7 @@ function makeStyles(colors: Palette) {
   });
 }
 
-// "5×5 · H-O-U-N-D", for a Bingo that runs this many days.
-function bingoCardLabel(days: number): string {
-  const size = cardSizeForDays(days || 7);
+// "5×5 · H-O-U-N-D", for a card this size.
+function bingoCardLabel(size: CardSize): string {
   return size === 3 ? '3×3' : `${size}×${size} · ${CARD_COLUMNS[size].map((c) => c.letter).join('-')}`;
 }

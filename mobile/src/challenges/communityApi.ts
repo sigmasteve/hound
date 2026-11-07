@@ -82,6 +82,8 @@ export interface PublishCommunityInput {
   distanceGoalMi?: number;
   distanceGoalSteps?: number;
   bingoCardType?: string;
+  // A hound card's size (0179).
+  bingoSize?: 3 | 4 | 5;
   courseId?: string;
   distanceSource?: string;
 }
@@ -110,6 +112,7 @@ export async function publishCommunityChallenge(input: PublishCommunityInput): P
       p_bingo_card_type: input.bingoCardType ?? null,
       p_course_id: input.courseId ?? null,
       p_distance_source: input.distanceSource ?? null,
+      ...(input.bingoSize ? { p_bingo_size: input.bingoSize } : {}),
     })
     .single();
   if (error) throw new Error(error.message);

@@ -487,6 +487,8 @@ export interface PublishGlobalInput {
   distanceGoalMi?: number;
   distanceGoalSteps?: number;
   bingoCardType?: BingoCardType;
+  // A hound card's size (0179).
+  bingoSize?: 3 | 4 | 5;
   courseId?: string;
   distanceSource?: DistanceSource;
 }
@@ -505,6 +507,8 @@ export async function publishGlobalChallenge(input: PublishGlobalInput): Promise
     p_bingo_card_type: input.bingoCardType ?? null,
     p_course_id: input.courseId ?? null,
     p_distance_source: input.distanceSource ?? null,
+    // 0179; only sent when picked.
+    ...(input.bingoSize ? { p_bingo_size: input.bingoSize } : {}),
   });
   if (error) throw new Error(error.message);
   return data as string;

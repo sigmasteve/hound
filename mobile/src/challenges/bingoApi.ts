@@ -153,6 +153,17 @@ export async function getMyBingoCard(challengeId: string): Promise<CardCell[]> {
   return (data ?? []) as CardCell[];
 }
 
+// The card the creator sees while setting up a Bingo (0179): dealt and
+// kept by the server, so it's the card they get when the challenge is
+// made. Each call deals a new one (Shuffle).
+export async function dealCardPreview(size: 3 | 4 | 5): Promise<CardCell[]> {
+  const preview = (globalThis as any).__previewDealCard as ((n: number) => CardCell[]) | undefined;
+  if (preview) return preview(size);
+  const { data, error } = await requireClient().rpc('deal_bingo_card_draft', { p_size: size });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as CardCell[];
+}
+
 // Moves a day's step mark up to a bigger step square, once the day's
 // steps reach it.
 export async function moveStepMark(challengeId: string, key: string, to: BingoCategory, name: string): Promise<void> {

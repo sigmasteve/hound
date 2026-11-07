@@ -101,6 +101,9 @@ export interface Challenge {
   // Null means 'variety', the only type that existed before the picker
   // did.
   bingoCardType: BingoCardType | null;
+  // A hound card's size picked when it was made (0179): 3, 4 or 5. Null
+  // sizes it by length (cardSizeForDays).
+  bingoSize: 3 | 4 | 5 | null;
   // Kind 'journey': the course everyone walks (src/journeys/courses.ts),
   // with distanceGoalMi holding its length and distanceGoalUnit 'miles'
   // — see 0122_journey_challenges.sql. A miles Distance pool: the course
@@ -236,6 +239,8 @@ export interface CreateChallengeInput {
   distanceSource?: DistanceSource;
   // Only meaningful for kind 'bingo' — see Challenge.bingoCardType.
   bingoCardType?: BingoCardType;
+  // A hound card's size (0179); leave out to size it by length.
+  bingoSize?: 3 | 4 | 5;
   // Only meaningful for kind 'journey' — see Challenge.courseId. Set
   // distanceGoalMi to the course's length and distanceGoalUnit to
   // 'miles' with it.
