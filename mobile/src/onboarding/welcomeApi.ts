@@ -10,7 +10,7 @@ import type { GoalDraft } from '../goals/goals';
 // doesn't come back. Device-wide, not per account.
 export const CONNECT_PROMPT_SEEN_KEY = 'hound:connect-prompt-seen';
 
-export type HoundUse = 'steps' | 'workouts' | 'strength' | 'cardio' | 'friends' | 'habits';
+export type HoundUse = 'steps' | 'workouts' | 'strength' | 'cardio' | 'friends' | 'habits' | 'other';
 
 export const HOUND_USES: { id: HoundUse; name: string; detail: string }[] = [
   { id: 'steps', name: 'Step & mile challenges', detail: 'Races and chases on your daily steps' },
@@ -19,6 +19,8 @@ export const HOUND_USES: { id: HoundUse; name: string; detail: string }[] = [
   { id: 'cardio', name: 'Running, cycling & cardio', detail: 'Miles and minutes' },
   { id: 'friends', name: 'Working out with friends', detail: 'Compete with people you know' },
   { id: 'habits', name: 'Building daily habits', detail: 'Streaks you don’t want to break' },
+  // 0175_hound_uses_other.sql.
+  { id: 'other', name: 'Other', detail: 'Something else' },
 ];
 
 export interface WelcomeState {

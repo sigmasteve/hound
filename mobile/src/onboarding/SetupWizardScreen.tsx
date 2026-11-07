@@ -1,30 +1,23 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
 import {
-  AtIcon,
   BarbellIcon,
-  BellRingingIcon,
   CalendarCheckIcon,
   CheckCircleIcon,
   CheckIcon,
   CircleIcon,
+  DotsThreeIcon,
   FootprintsIcon,
-  GlobeIcon,
   HeartbeatIcon,
   PersonSimpleRunIcon,
-  ShareNetworkIcon,
   TrophyIcon,
-  UserIcon,
-  UserPlusIcon,
   UsersThreeIcon,
 } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { GoalSetupCard } from '../components/GoalSetupCard';
 import { ProgressBar } from '../components/ProgressBar';
 import { SponsorLine } from '../components/SponsorLine';
 import { TextField } from '../components/TextField';
@@ -34,9 +27,6 @@ import { useAuth } from '../auth/AuthContext';
 import { useHealthProvider } from '../health/HealthContext';
 import { useGoals } from '../goals/GoalsContext';
 import { MAX_GOALS } from '../goals/goals';
-import { askForPush, dismissPushOffer, getPushPermission } from '../notifications/pushPermission';
-import { supabaseFriendsProvider } from '../friends/supabaseFriends';
-import { inviteMessage } from '../friends/discovery';
 import { canJoin, globalTimingLine, joinDeadlineLine, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
 import { huntKindName } from '../challenges/present';
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
@@ -45,10 +35,8 @@ import { EAR_OPTIONS, KENNEL_ITEMS, TAN_SWATCH, type HoundEars } from '../kennel
 import { buyKennelItem, equipKennelItem, getKennel, setHoundAvatar, setKennel, setKennelLook, type Kennel } from '../kennel/kennelApi';
 import { notifyBonesChanged } from '../bones/bonesChanged';
 import { useCurrencyName } from '../organizations/useCurrencyName';
-import { getMyInterests, saveMyInterests, type Interest } from './interests';
-import { InterestsPicker } from './InterestsPicker';
-import { claimOnboardingReward, getOnboardingStatus, type OnboardingStatus } from './onboardingApi';
-import { markAskedForUsername, useUsernameForm, usernameBody, UsernameFields } from '../profiles/UsernameForm';
+import { claimOnboardingReward, getOnboardingStatus } from './onboardingApi';
+import { markAskedForUsername, useUsernameForm, UsernameFields } from '../profiles/UsernameForm';
 import { setMyName } from '../profiles/supabaseProfile';
 import {
   CONNECT_PROMPT_SEEN_KEY,
@@ -57,11 +45,14 @@ import {
   getWelcome,
   HOUND_USES,
   saveHoundUses,
-  suggestedKind,
   type HoundUse,
 } from './welcomeApi';
 
-type StepId = 'health' | 'name' | 'uses' | 'interests' | 'goals' | 'push' | 'friend' | 'globals' | 'challenge' | 'hound' | 'done';
+// Four pages at most (November 2026: ten was too many). Daily goals,
+// notifications and adding a friend moved to Today, which already asks
+// for each at a better moment (GoalSetupCard, PushAskCard, Finish setting
+// up).
+type StepId = 'health' | 'about' | 'jump' | 'hound';
 
 const USE_ICONS: Record<HoundUse, typeof FootprintsIcon> = {
   steps: FootprintsIcon,
@@ -70,6 +61,7 @@ const USE_ICONS: Record<HoundUse, typeof FootprintsIcon> = {
   cardio: PersonSimpleRunIcon,
   friends: UsersThreeIcon,
   habits: CheckCircleIcon,
+  other: DotsThreeIcon,
 };
 
 // The welcome wizard (0109_welcome_wizard.sql): one thing at a time
@@ -78,20 +70,19 @@ const USE_ICONS: Record<HoundUse, typeof FootprintsIcon> = {
 // setting up" (resume) it only shows the steps still left.
 export function SetupWizardScreen({
   resume = false,
-  onOpenGoals,
-  onCreateChallenge,
   onFinish,
 }: {
   resume?: boolean;
-  onOpenGoals: () => void;
-  onCreateChallenge: (kind: ChallengeKind) => void;
+  // Unused since daily goals moved to Today; kept so callers needn't change.
+  onOpenGoals?: () => void;
+  // Unused since Jump in only offers challenges open to everyone.
+  onCreateChallenge?: (kind: ChallengeKind) => void;
   onFinish: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const health = useHealthProvider();
   const { user } = useAuth();
-  const { goalsSet } = useGoals();
   const [plan, setPlan] = useState<StepId[] | null>(null);
   const [index, setIndex] = useState(0);
   const [uses, setUses] = useState<HoundUse[]>([]);
@@ -101,13 +92,11 @@ export function SetupWizardScreen({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [auth, push, status, welcome, globals, interests] = await Promise.all([
+      const [auth, status, welcome, globals] = await Promise.all([
         health.getAuthorizationStatus().catch(() => null),
-        getPushPermission(),
         getOnboardingStatus().catch(() => null),
         getWelcome(),
         listGlobalChallenges().catch(() => [] as GlobalChallenge[]),
-        getMyInterests().catch(() => null),
       ]);
       if (cancelled) return;
       const saved = welcome?.uses ?? [];
@@ -116,22 +105,12 @@ export function SetupWizardScreen({
       setOpenGlobals(joinable);
       const steps: StepId[] = [];
       if (auth !== 'authorized') steps.push('health');
-      // Anyone without a username yet, new or finishing setup, and anyone
-      // sign-up didn't give a name (NameStep asks for one first).
-      if (!user?.username || user?.needsName) steps.push('name');
-      if (!resume || saved.length === 0) steps.push('uses');
-      // K-08: what they're working toward. Skipped when it can't be read
-      // (before 0151 has run) or, finishing setup, already answered.
-      if (interests !== null && (!resume || interests.length === 0)) steps.push('interests');
-      if (!resume || !goalsSet) steps.push('goals');
-      if (push === 'undetermined') steps.push('push');
-      if (!status?.hasFriend) steps.push('friend');
-      // Every global challenge still taking players, however many, and
-      // whether or not they already have a challenge of their own.
-      if (joinable.length > 0) steps.push('globals');
-      if (!status?.joinedChallenge) steps.push('challenge');
+      // A name, a username, and what they're here for, on one page.
+      // Finishing setup, only when something there is still missing.
+      if (!resume || !user?.username || user?.needsName || saved.length === 0) steps.push('about');
+      // Join a challenge open to everyone, when any are taking players.
+      if (joinable.length > 0) steps.push('jump');
       if (!resume) steps.push('hound');
-      steps.push('done');
       setPlan(steps);
     })();
     return () => {
@@ -141,7 +120,28 @@ export function SetupWizardScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!plan) {
+  // Done: the welcome's finished, the getting-started Bones paid if
+  // they've earned them (Today's "Finish setting up" covers the rest), and
+  // on to Today.
+  const finish = useCallback(() => {
+    finishWelcome().catch(() => {});
+    getOnboardingStatus()
+      .then(async (s) => {
+        if (s && s.healthConnected && s.hasFriend && s.joinedChallenge && !s.rewardClaimed) {
+          await claimOnboardingReward();
+          notifyBonesChanged();
+        }
+      })
+      .catch(() => {});
+    onFinish();
+  }, [onFinish]);
+
+  // Nothing left to set up (finishing setup with everything done).
+  useEffect(() => {
+    if (plan && plan.length === 0) finish();
+  }, [plan, finish]);
+
+  if (!plan || plan.length === 0) {
     return (
       <SafeAreaView style={[styles.root, { alignItems: 'center', justifyContent: 'center' }]}>
         <ActivityIndicator color={colors.accent} />
@@ -150,48 +150,48 @@ export function SetupWizardScreen({
   }
 
   const step = plan[index];
-  const next = () => setIndex((i) => Math.min(i + 1, plan.length - 1));
+  const last = index >= plan.length - 1;
+  const next = () => (last ? finish() : setIndex((i) => i + 1));
   // Health can't be skipped from the top, only after trying it, and a
   // missing name can't be skipped at all.
-  const canSkip = step !== 'health' && step !== 'done' && !(step === 'name' && user?.needsName);
-  const counted = plan.length - 1;
+  const canSkip = step !== 'health' && !(step === 'about' && user?.needsName);
 
   const skip = () => {
-    if (step === 'push') dismissPushOffer();
-    if (step === 'name' && user?.id) markAskedForUsername(user.id);
+    if (step === 'about' && user?.id) markAskedForUsername(user.id);
     next();
   };
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.root}>
-      {step !== 'done' && (
-        <View style={styles.header}>
-          <View style={{ flex: 1, gap: 6 }}>
-            <Text style={styles.stepCount}>
-              Step {index + 1} of {counted}
-            </Text>
-            <ProgressBar pct={((index + 1) / counted) * 100} height={4} />
-          </View>
-          {canSkip ? (
-            <Pressable onPress={skip} hitSlop={10} accessibilityRole="button">
-              <Text style={styles.skip}>Skip</Text>
-            </Pressable>
-          ) : (
-            <View style={{ width: 32 }} />
-          )}
+      <View style={styles.header}>
+        <View style={{ flex: 1, gap: 6 }}>
+          <Text style={styles.stepCount}>
+            Step {index + 1} of {plan.length}
+          </Text>
+          <ProgressBar pct={((index + 1) / plan.length) * 100} height={4} />
         </View>
-      )}
+        {canSkip ? (
+          <Pressable onPress={skip} hitSlop={10} accessibilityRole="button">
+            <Text style={styles.skip}>Skip</Text>
+          </Pressable>
+        ) : (
+          <View style={{ width: 32 }} />
+        )}
+      </View>
+
       {step === 'health' && <HealthStep styles={styles} onNext={next} />}
-      {step === 'name' && <NameStep styles={styles} onNext={next} />}
-      {step === 'uses' && <UsesStep styles={styles} initial={uses} onNext={(u) => (setUses(u), next())} />}
-      {step === 'interests' && <InterestsStep styles={styles} onNext={next} />}
-      {step === 'goals' && <GoalsStep styles={styles} uses={uses} onOpenGoals={onOpenGoals} onNext={next} />}
-      {step === 'push' && <PushStep styles={styles} onNext={next} />}
-      {step === 'friend' && <FriendStep styles={styles} onNext={next} />}
-      {step === 'globals' && <GlobalsStep styles={styles} initial={openGlobals} onNext={next} />}
-      {step === 'challenge' && <ChallengeStep styles={styles} uses={uses} onCreate={onCreateChallenge} onNext={next} />}
-      {step === 'hound' && <HoundStep styles={styles} onNext={next} />}
-      {step === 'done' && <DoneStep styles={styles} onFinish={onFinish} />}
+      {step === 'about' && (
+        <AboutStep
+          styles={styles}
+          initialUses={uses}
+          onNext={(u) => {
+            setUses(u);
+            next();
+          }}
+        />
+      )}
+      {step === 'jump' && <JumpInStep styles={styles} initialGlobals={openGlobals} onNext={next} />}
+      {step === 'hound' && <HoundStep styles={styles} last={last} onNext={next} />}
     </SafeAreaView>
   );
 }
@@ -269,323 +269,145 @@ function HealthStep({ styles, onNext }: { styles: Styles; onNext: () => void }) 
   );
 }
 
-// A username for leaderboards and challenges instead of the name from
-// sign-up (0030_username.sql). Choosing one turns it on there right away;
-// friends still see the real name. "Keep my name" moves on without one.
-// The form is shared with Today's ask (profiles/UsernameForm.tsx).
-//
-// When sign-up didn't bring a name (user.needsName: Sign in with Apple
-// only shares one the first time), this asks "What should we call you?"
-// above the username, and either button saves the name first.
-function NameStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
+// Page 2: what to call you, and what you're into. A name when sign-up
+// didn't bring one (Sign in with Apple only shares it the first time), an
+// optional username for leaderboards (0030_username.sql; friends still see
+// the name), and their interests (hound_uses, 0109; 'other' from 0175).
+// The interests also add the daily goals that fit, which Today's goal
+// setup card then asks them to set. (What they're working toward, K-08,
+// is in Settings.)
+function AboutStep({
+  styles,
+  initialUses,
+  onNext,
+}: {
+  styles: Styles;
+  initialUses: HoundUse[];
+  onNext: (uses: HoundUse[]) => void;
+}) {
   const { colors } = useTheme();
   const { user, updateUser } = useAuth();
+  const { goals, addGoal } = useGoals();
   const askName = !!user?.needsName;
   const [name, setName] = useState('');
-  const [nameProblem, setNameProblem] = useState<string | null>(null);
-  const [savingName, setSavingName] = useState(false);
+  const [uses, setUses] = useState<HoundUse[]>(initialUses);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const form = useUsernameForm(askName ? name : undefined);
-  const nameOk = !askName || name.trim().length > 0;
-  const busy = form.saving || savingName;
+  const hasUsername = !!user?.username;
+  const toggleUse = (id: HoundUse) => setUses((cur) => (cur.includes(id) ? cur.filter((u) => u !== id) : [...cur, id]));
+  const ready = (!askName || name.trim().length > 0) && uses.length > 0 && (!form.trimmed || form.valid);
 
-  // True once there's a name to go on with (or none was needed).
-  const saveName = async (): Promise<boolean> => {
-    if (!askName) return true;
-    setSavingName(true);
-    setNameProblem(null);
+  const save = async () => {
+    setSaving(true);
+    setProblem(null);
     try {
-      const saved = await setMyName(name);
-      updateUser({ name: saved.name, initials: saved.initials, needsName: false });
-      return true;
+      if (askName) {
+        const saved = await setMyName(name);
+        updateUser({ name: saved.name, initials: saved.initials, needsName: false });
+      }
+      // A username is optional: none typed keeps their name.
+      if (!hasUsername) {
+        if (form.trimmed) {
+          if (!(await form.save())) return;
+        } else {
+          form.keepName();
+        }
+      }
+      saveHoundUses(uses).catch(() => {});
+      let room = MAX_GOALS - goals.length;
+      for (const draft of extraGoalsFor(uses)) {
+        const have = goals.some((g) => g.metric === draft.metric && g.period === draft.period && g.activity === draft.activity);
+        if (have || room <= 0) continue;
+        room -= 1;
+        addGoal(draft).catch(() => {});
+      }
+      onNext(uses);
     } catch (e) {
-      setNameProblem(e instanceof Error ? e.message : 'Could not save your name. Try again.');
-      return false;
+      setProblem(e instanceof Error ? e.message : 'Could not save that. Try again.');
     } finally {
-      setSavingName(false);
+      setSaving(false);
     }
   };
 
   return (
     <StepPage
       styles={styles}
-      icon={
-        askName ? (
-          <UserIcon size={28} color={colors.accent} weight="bold" />
-        ) : (
-          <AtIcon size={28} color={colors.accent} weight="bold" />
-        )
-      }
-      title={askName ? 'What should we call you?' : 'Pick a username'}
-      body={
-        askName
-          ? 'Your name is what friends see. Then pick a username for leaderboards and challenges, if you like.'
-          : usernameBody(form.name)
-      }
+      title="About you"
+      body="What to call you, and what you’re into. Hound suggests goals and challenges to match."
       footer={
         <>
-          {(nameProblem ?? form.problem) && <Text style={styles.problem}>{nameProblem ?? form.problem}</Text>}
-          <Button
-            label={busy ? 'Saving…' : 'Use this username'}
-            variant="primary"
-            block
-            disabled={!nameOk || !form.valid || busy}
-            onPress={async () => {
-              if ((await saveName()) && (await form.save())) onNext();
-            }}
-          />
-          <Button
-            label={askName ? 'Just my name' : 'Keep my name'}
-            variant="ghost"
-            block
-            disabled={!nameOk || busy}
-            onPress={async () => {
-              if (!(await saveName())) return;
-              form.keepName();
-              onNext();
-            }}
-          />
+          {(problem ?? form.problem) && <Text style={styles.problem}>{problem ?? form.problem}</Text>}
+          <Button label={saving || form.saving ? 'Saving…' : 'Next'} variant="primary" block disabled={!ready || saving || form.saving} onPress={save} />
         </>
       }
     >
-      <View style={{ gap: 18, alignSelf: 'stretch' }}>
+      <View style={styles.section}>
         {askName && (
           <TextField
             label="Your name"
             value={name}
             onChangeText={(v: string) => {
               setName(v);
-              setNameProblem(null);
+              setProblem(null);
             }}
             placeholder="Jordan Lee"
             maxLength={40}
             autoCapitalize="words"
             autoComplete="name"
             textContentType="name"
-            autoFocus
           />
         )}
-        <UsernameFields form={form} autoFocus={!askName} />
+        {!hasUsername && (
+          <>
+            <Text style={styles.sectionLabel}>A USERNAME, IF YOU LIKE</Text>
+            <Text style={styles.optionDetail}>Shown on leaderboards and in challenges instead of your name. Friends still see your name.</Text>
+            <UsernameFields form={form} autoFocus={false} />
+          </>
+        )}
       </View>
-    </StepPage>
-  );
-}
 
-function UsesStep({ styles, initial, onNext }: { styles: Styles; initial: HoundUse[]; onNext: (uses: HoundUse[]) => void }) {
-  const { colors } = useTheme();
-  const [picked, setPicked] = useState<HoundUse[]>(initial);
-  const toggle = (id: HoundUse) => setPicked((cur) => (cur.includes(id) ? cur.filter((u) => u !== id) : [...cur, id]));
-
-  const save = () => {
-    saveHoundUses(picked).catch(() => {});
-    onNext(picked);
-  };
-
-  return (
-    <StepPage
-      styles={styles}
-      title="How will you use Hound?"
-      body="Pick any. Hound suggests goals and challenges to match."
-      footer={<Button label="Next" variant="primary" block disabled={picked.length === 0} onPress={save} />}
-    >
-      <View style={{ gap: 10, alignSelf: 'stretch' }}>
-        {HOUND_USES.map((u) => {
-          const on = picked.includes(u.id);
-          const Icon = USE_ICONS[u.id];
-          return (
-            <Pressable
-              key={u.id}
-              onPress={() => toggle(u.id)}
-              style={on ? [styles.option, styles.optionOn] : styles.option}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: on }}
-            >
-              <Icon size={22} color={on ? colors.accent : withAlpha(colors.text, 0.6)} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.optionName}>{u.name}</Text>
-                <Text style={styles.optionDetail}>{u.detail}</Text>
-              </View>
-              {on ? (
-                <CheckCircleIcon size={22} color={colors.accent} weight="fill" />
-              ) : (
-                <CircleIcon size={22} color={withAlpha(colors.text, 0.3)} />
-              )}
-            </Pressable>
-          );
-        })}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>WHAT ARE YOUR INTERESTS?</Text>
+        <View style={styles.chips}>
+          {HOUND_USES.map((u) => {
+            const on = uses.includes(u.id);
+            const Icon = USE_ICONS[u.id];
+            return (
+              <Pressable
+                key={u.id}
+                onPress={() => toggleUse(u.id)}
+                style={on ? [styles.chip, styles.chipOn] : styles.chip}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: on }}
+              >
+                <Icon size={16} color={on ? colors.accentActive : withAlpha(colors.text, 0.6)} weight={on ? 'fill' : 'regular'} />
+                <Text style={on ? [styles.chipText, styles.chipTextOn] : styles.chipText}>{u.name}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
+
     </StepPage>
   );
 }
 
-// K-08: what they're working toward, kept private, so Hound can suggest
-// challenges that fit.
-function InterestsStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
-  const [picked, setPicked] = useState<Interest[]>([]);
-  const toggle = (id: Interest) => setPicked((cur) => (cur.includes(id) ? cur.filter((i) => i !== id) : [...cur, id]));
-  const save = () => {
-    saveMyInterests(picked).catch(() => {});
-    onNext();
-  };
-  return (
-    <StepPage
-      styles={styles}
-      title="What are you working toward?"
-      body="Pick any. Only you see this: Hound uses it to suggest challenges that fit you."
-      footer={<Button label="Next" variant="primary" block disabled={picked.length === 0} onPress={save} />}
-    >
-      <InterestsPicker picked={picked} onToggle={toggle} />
-    </StepPage>
-  );
-}
-
-function GoalsStep({
+// Page 3: the challenges open to everyone, each with its own Join, as many
+// as they like. Or none: they're on Today too, and starting their own is
+// one tap from there.
+function JumpInStep({
   styles,
-  uses,
-  onOpenGoals,
+  initialGlobals,
   onNext,
 }: {
   styles: Styles;
-  uses: HoundUse[];
-  onOpenGoals: () => void;
+  initialGlobals: GlobalChallenge[];
   onNext: () => void;
 }) {
-  const { goals, loaded, addGoal } = useGoals();
-  // Adds the goals that fit what they picked, once, before they set targets.
-  const added = useRef(false);
-  useEffect(() => {
-    if (!loaded || added.current) return;
-    added.current = true;
-    let room = MAX_GOALS - goals.length;
-    for (const draft of extraGoalsFor(uses)) {
-      const have = goals.some((g) => g.metric === draft.metric && g.period === draft.period && g.activity === draft.activity);
-      if (have || room <= 0) continue;
-      room -= 1;
-      addGoal(draft).catch(() => {});
-    }
-  }, [loaded, goals, uses, addGoal]);
-
-  return (
-    <ScrollView contentContainerStyle={styles.page}>
-      <GoalSetupCard canDismiss={false} onDone={onNext} onMoreOptions={onOpenGoals} />
-    </ScrollView>
-  );
-}
-
-function PushStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
-  const { colors } = useTheme();
-  const { user } = useAuth();
-  const [asking, setAsking] = useState(false);
-
-  const turnOn = async () => {
-    if (!user?.id) return onNext();
-    setAsking(true);
-    await askForPush(user.id);
-    setAsking(false);
-    onNext();
-  };
-
-  return (
-    <StepPage
-      styles={styles}
-      icon={<BellRingingIcon size={28} color={colors.accent} weight="fill" />}
-      title="Turn on notifications"
-      body="Hound nudges you when a goal’s still open, a friend adds you, or it’s your move in a challenge. You choose what you get in Settings."
-      footer={<Button label={asking ? 'Turning on…' : 'Turn on'} variant="primary" block disabled={asking} onPress={turnOn} />}
-    />
-  );
-}
-
-function FriendStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
-  const { colors } = useTheme();
-  const [myCode, setMyCode] = useState<string | null>(null);
-  const [code, setCode] = useState('');
-  const [adding, setAdding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    supabaseFriendsProvider
-      .getMyFriendCode()
-      .then(setMyCode)
-      .catch(() => {});
-  }, []);
-
-  const invite = () => {
-    if (!myCode) return;
-    Share.share({ message: inviteMessage(myCode) })
-      .then(() => setDone(true))
-      .catch(() => {});
-  };
-
-  const add = async () => {
-    setAdding(true);
-    setError(null);
-    try {
-      // A bare code or a whole houndchallenge.net/f/… link.
-      await supabaseFriendsProvider.addFriendByCode(code);
-      setDone(true);
-      setCode('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not add that. Try again.');
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  return (
-    <StepPage
-      styles={styles}
-      icon={<UserPlusIcon size={28} color={colors.accent} weight="fill" />}
-      title="Add a friend"
-      body="Hound is better with someone to chase. Send them your code, or enter theirs."
-      footer={done ? <Button label="Next" variant="primary" block onPress={onNext} /> : undefined}
-    >
-      <Card style={styles.panel} elevated={false}>
-        <Text style={styles.panelLabel}>Your code</Text>
-        <Text style={styles.code} selectable>
-          {myCode ?? '…'}
-        </Text>
-        <Button
-          label="Send an invite"
-          variant="primary"
-          small
-          icon={<ShareNetworkIcon size={14} color={colors.accent} />}
-          disabled={!myCode}
-          onPress={invite}
-        />
-      </Card>
-      <Card style={styles.panel} elevated={false}>
-        <View style={styles.codeRow}>
-          <TextField
-            label="Got their code or link?"
-            value={code}
-            onChangeText={(v) => {
-              setCode(v);
-              if (error) setError(null);
-            }}
-            placeholder="e.g. Ab3xK9pQ"
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={{ flex: 1 }}
-          />
-          <View style={{ paddingBottom: 2 }}>
-            <Button label={adding ? 'Adding…' : 'Add'} variant="primary" small disabled={adding || !code.trim()} onPress={add} />
-          </View>
-        </View>
-        {error && <Text style={styles.problem}>{error}</Text>}
-      </Card>
-      {done && <Text style={styles.success}>Nice. Your friends show up under Friends.</Text>}
-    </StepPage>
-  );
-}
-
-// Every global challenge still taking players, each with its own Join.
-// Joining one doesn't close the others: a new player can take two or
-// three at once, and each opens on Today straight away.
-function GlobalsStep({ styles, initial, onNext }: { styles: Styles; initial: GlobalChallenge[]; onNext: () => void }) {
   const { colors } = useTheme();
   const currencyName = useCurrencyName();
-  const [globals, setGlobals] = useState<GlobalChallenge[]>(initial);
+  const [globals, setGlobals] = useState<GlobalChallenge[]>(initialGlobals);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
 
@@ -593,9 +415,8 @@ function GlobalsStep({ styles, initial, onNext }: { styles: Styles; initial: Glo
   // planned, and a window may have closed since.
   useEffect(() => {
     listGlobalChallenges()
-      .then((all) => setGlobals(all.filter((c) => canJoin(c) || joinedIds.has(c.id))))
+      .then((all) => setGlobals(all.filter((c) => canJoin(c))))
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const join = async (c: GlobalChallenge) => {
@@ -610,101 +431,54 @@ function GlobalsStep({ styles, initial, onNext }: { styles: Styles; initial: Glo
     }
   };
 
-  const joinedCount = joinedIds.size;
-  return (
-    <StepPage
-      styles={styles}
-      icon={<GlobeIcon size={28} color={colors.accent} weight="fill" />}
-      title={globals.length === 1 ? 'A challenge is open to everyone' : `${globals.length} challenges are open to everyone`}
-      body="Anyone on Hound can join these while they’re still taking players. Join as many as you like; each one shows up on Today."
-      footer={
-        <Button
-          label={joinedCount > 0 ? `Next · ${joinedCount} joined` : 'Next'}
-          variant={joinedCount > 0 ? 'primary' : 'secondary'}
-          block
-          onPress={onNext}
-        />
-      }
-    >
-      {globals.map((c) => {
-        const typeName = c.kind === 'hunt' ? huntKindName() : (CHALLENGE_TYPES.find((t) => t.id === c.kind)?.name ?? 'Challenge');
-        const isJoined = joinedIds.has(c.id) || c.joined;
-        const deadline = joinDeadlineLine(c);
-        return (
-          <Card key={c.id} style={styles.panel} elevated={false}>
-            <View style={styles.rowCenter}>
-              <GlobeIcon size={18} color={colors.accent} />
-              <Text style={styles.optionName}>{c.name}</Text>
-            </View>
-            <Text style={styles.optionDetail}>
-              {typeName} · {globalTimingLine(c)} · {c.participantCount} {c.participantCount === 1 ? 'player' : 'players'}
-              {c.prizes ? ` · 1st wins ${c.prizes[0]} ${currencyName}` : ''}
-            </Text>
-            {deadline && <Text style={styles.optionDetail}>{deadline}</Text>}
-            {c.sponsor && <SponsorLine challengeId={c.id} sponsor={c.sponsor} />}
-            <Button
-              label={isJoined ? 'Joined' : joiningId === c.id ? 'Joining…' : 'Join'}
-              variant={isJoined ? 'secondary' : 'primary'}
-              small
-              disabled={isJoined || joiningId !== null}
-              onPress={() => join(c)}
-            />
-          </Card>
-        );
-      })}
-      {joinedCount > 0 && <Text style={styles.success}>You’re in. {joinedCount === 1 ? 'It’s' : 'They’re'} on Today from now on.</Text>}
-    </StepPage>
-  );
-}
-
-function ChallengeStep({
-  styles,
-  uses,
-  onCreate,
-  onNext,
-}: {
-  styles: Styles;
-  uses: HoundUse[];
-  onCreate: (kind: ChallengeKind) => void;
-  onNext: () => void;
-}) {
-  const { colors } = useTheme();
-  const [started, setStarted] = useState(false);
-
-  // Back from Create: did they start one?
-  useFocusEffect(
-    useCallback(() => {
-      getOnboardingStatus()
-        .then((s) => s?.joinedChallenge && setStarted(true))
-        .catch(() => {});
-    }, []),
-  );
-
-  const kind = suggestedKind(uses);
-  const type = CHALLENGE_TYPES.find((t) => t.id === kind)!;
-  const kindName = kind === 'hunt' ? huntKindName() : type.name;
+  const inOne = joinedIds.size > 0;
 
   return (
     <StepPage
       styles={styles}
       icon={<TrophyIcon size={28} color={colors.accent} weight="fill" />}
-      title="Start a challenge"
-      body="Challenges with friends are where Hound gets fun. Here’s one that fits what you picked."
-      footer={started ? <Button label="Next" variant="primary" block onPress={onNext} /> : undefined}
+      title="Jump in"
+      body="Challenges are where Hound gets fun. These are open to everyone: join as many as you like, and each one shows up on Today."
+      footer={<Button label="Next" variant={inOne ? 'primary' : 'secondary'} block onPress={onNext} />}
     >
-      <Card style={styles.panel} elevated={false}>
-        <Text style={styles.optionName}>{kindName}</Text>
-        <Text style={styles.optionDetail}>{type.desc}</Text>
-        <Button label={`Start a ${kindName}`} variant="primary" small onPress={() => onCreate(kind)} />
-      </Card>
-      {started && <Text style={styles.success}>You’re in. It’s on Today from now on.</Text>}
+      {globals.length > 0 && (
+        <View style={styles.section}>
+          {globals.map((c) => {
+            const typeName = c.kind === 'hunt' ? huntKindName() : (CHALLENGE_TYPES.find((t) => t.id === c.kind)?.name ?? 'Challenge');
+            const isJoined = joinedIds.has(c.id) || c.joined;
+            const deadline = joinDeadlineLine(c);
+            return (
+              <Card key={c.id} style={styles.panelRow} elevated={false}>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={styles.optionName}>{c.name}</Text>
+                  <Text style={styles.optionDetail}>
+                    {typeName} · {globalTimingLine(c)} · {c.participantCount} {c.participantCount === 1 ? 'player' : 'players'}
+                    {c.prizes ? ` · 1st wins ${c.prizes[0]} ${currencyName}` : ''}
+                  </Text>
+                  {deadline && <Text style={styles.optionDetail}>{deadline}</Text>}
+                  {c.sponsor && <SponsorLine challengeId={c.id} sponsor={c.sponsor} />}
+                </View>
+                <Button
+                  label={isJoined ? 'Joined' : joiningId === c.id ? 'Joining…' : 'Join'}
+                  variant={isJoined ? 'secondary' : 'primary'}
+                  small
+                  disabled={isJoined || joiningId !== null}
+                  onPress={() => join(c)}
+                />
+              </Card>
+            );
+          })}
+        </View>
+      )}
+
+      {inOne && <Text style={styles.success}>You’re in. {joinedIds.size === 1 ? 'It’s' : 'They’re'} on Today from now on.</Text>}
     </StepPage>
   );
 }
 
 const FREE_COATS = KENNEL_ITEMS.filter((i) => i.slot === 'coat' && i.costBones === 0);
 
-function HoundStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
+function HoundStep({ styles, last, onNext }: { styles: Styles; last: boolean; onNext: () => void }) {
   const { colors } = useTheme();
   const [kennel, setKennelState] = useState<Kennel | null>(null);
   const [name, setName] = useState('');
@@ -748,7 +522,7 @@ function HoundStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
       styles={styles}
       title="Meet your hound"
       body="They’re happy when you hit your goals, and grow as you level up. Name them and pick a look."
-      footer={<Button label={saving ? 'Saving…' : 'Done'} variant="primary" block disabled={saving || !kennel} onPress={save} />}
+      footer={<Button label={saving ? 'Saving…' : last ? 'Go to Today' : 'Next'} variant="primary" block disabled={saving || !kennel} onPress={save} />}
     >
       <View style={styles.houndArt}>
         <HoundArt rank="pup" mood="happy" coatId={coatId} ears={ears} size={130} />
@@ -816,66 +590,6 @@ function HoundStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
   );
 }
 
-function DoneStep({ styles, onFinish }: { styles: Styles; onFinish: () => void }) {
-  const { colors } = useTheme();
-  const currencyName = useCurrencyName();
-  const [status, setStatus] = useState<OnboardingStatus | null>(null);
-  const [rewarded, setRewarded] = useState<number | null>(null);
-
-  useEffect(() => {
-    finishWelcome().catch(() => {});
-    getOnboardingStatus()
-      .then(async (s) => {
-        setStatus(s);
-        if (s && s.healthConnected && s.hasFriend && s.joinedChallenge && !s.rewardClaimed) {
-          const bones = await claimOnboardingReward();
-          setRewarded(bones);
-          notifyBonesChanged();
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const rows: { label: string; done: boolean }[] = status
-    ? [
-        { label: 'Health connected', done: status.healthConnected },
-        { label: 'A friend added', done: status.hasFriend },
-        { label: 'In a challenge', done: status.joinedChallenge },
-      ]
-    : [];
-
-  return (
-    <StepPage
-      styles={styles}
-      icon={<CheckCircleIcon size={28} color={colors.accent} weight="fill" />}
-      title={!status || (status.healthConnected && status.hasFriend && status.joinedChallenge) ? 'You’re all set' : 'Nice start'}
-      body={
-        rewarded !== null
-          ? `+${rewarded} ${currencyName} for getting started.`
-          : status && !status.rewardClaimed
-            ? `Finish the rest from Today to earn ${status.rewardBones} ${currencyName}.`
-            : 'Today shows your goals and challenges from here on.'
-      }
-      footer={<Button label="Go to Today" variant="primary" block onPress={onFinish} />}
-    >
-      {rows.length > 0 && (
-        <Card style={styles.panel} elevated={false}>
-          {rows.map((r) => (
-            <View key={r.label} style={styles.rowCenter}>
-              {r.done ? (
-                <CheckCircleIcon size={20} color={colors.accent} weight="fill" />
-              ) : (
-                <CircleIcon size={20} color={withAlpha(colors.text, 0.3)} />
-              )}
-              <Text style={r.done ? styles.optionName : styles.optionDetail}>{r.label}</Text>
-            </View>
-          ))}
-        </Card>
-      )}
-    </StepPage>
-  );
-}
-
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
@@ -911,6 +625,24 @@ function makeStyles(colors: Palette) {
     optionName: { fontFamily: font.heading, fontSize: 15, color: colors.text },
     optionDetail: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
     panel: { gap: 10, alignSelf: 'stretch' },
+    panelRow: { flexDirection: 'row', alignItems: 'center', gap: 12, alignSelf: 'stretch' },
+    section: { gap: 10, alignSelf: 'stretch', marginTop: 4 },
+    sectionLabel: { fontFamily: font.headingSemibold, fontSize: 11.5, letterSpacing: 0.8, color: withAlpha(colors.text, 0.55) },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.text, 0.15),
+      backgroundColor: colors.surface,
+    },
+    chipOn: { borderColor: colors.accent, borderWidth: 1.5, backgroundColor: withAlpha(colors.accent, 0.12) },
+    chipText: { fontSize: 13.5, color: withAlpha(colors.text, 0.75) },
+    chipTextOn: { fontFamily: font.heading, color: colors.accentActive },
     panelLabel: { fontSize: 12, letterSpacing: 0.4, color: withAlpha(colors.text, 0.55) },
     code: { fontFamily: font.headingSemibold, fontSize: 28, letterSpacing: 2, color: colors.text },
     codeRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
