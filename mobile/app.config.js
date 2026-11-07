@@ -29,7 +29,9 @@ module.exports = ({ config }) => {
     ...config,
     name: 'Hound Staging',
     scheme: 'hound-staging',
-    ios: { ...config.ios, bundleIdentifier: STAGING_ID },
+    // houndchallenge.net's invite links open the real Hound only
+    // (site/.well-known/apple-app-site-association).
+    ios: { ...config.ios, bundleIdentifier: STAGING_ID, associatedDomains: [] },
     android: { ...config.android, package: STAGING_ID },
     plugins,
   };

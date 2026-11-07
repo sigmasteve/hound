@@ -11,6 +11,7 @@
     "ios": {
       "bundleIdentifier": "app.hound.mobile",
       "supportsTablet": true,
+      "associatedDomains": ["applinks:houndchallenge.net"],
       "infoPlist": {
         "NSHealthShareUsageDescription": "Hound reads your steps, distance, workouts, heart rate and weight to score challenges and goals with friends.",
         "NSHealthUpdateUsageDescription": "Hound does not write to Health, but iOS requires this description to be present.",
