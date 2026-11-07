@@ -3,23 +3,24 @@
 ## New app builds
 
 Whenever a new native build is planned or made (a version bump in
-`mobile/app.json`, or any `eas build` for TestFlight or the Android APK),
+`mobile/app.json`, or any `eas build` for the App Store or the Android APK),
 remind Steve to set the **Home banner** (Admin → Home banner) so people on
 older versions see where to get the new one. Template, with the new
 version in place of `X.Y.Z`:
 
 ```
-{if version=X.Y.Z}{else}Hound X.Y.Z is here. iPhone: update in TestFlight at https://testflight.apple.com/join/1UAWscQs · Android: download it at https://houndchallenge.net/get{/if}
+{if version=X.Y.Z}{else}Hound X.Y.Z is here. iPhone: update in the App Store at https://apps.apple.com/app/id6816764199 · Android: download it at https://houndchallenge.net/get{/if}
 ```
 
 - The banner matches versions exactly, so this shows to every version
   except the new one.
-- Turn it on only once the builds are installable: available in
-  TestFlight, and the new APK live behind the website's download link
+- Turn it on only once the builds are installable: released on the
+  App Store (approved by Apple and released, not just uploaded), and the
+  new APK live behind the website's download link
   (`/downloads/hound.apk` in `site/vercel.json` points at the Google
   Drive file; update its id if the APK is a new Drive file, and the
   version on `site/download.html`'s button).
-- Remove it once most testers have moved (Admin → App versions), or when
+- Remove it once most people have moved (Admin → App versions), or when
   the next version comes out.
 
 The rest of the release steps are in `mobile/supabase/STAGING.md` (build
