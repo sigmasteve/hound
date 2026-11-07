@@ -527,6 +527,8 @@ export function KennelScreen({
     ears: kennel.ears,
     tail: kennel.tail,
     markings: kennel.markings,
+    // The 'do from bath time (0178), until the next long walk.
+    hairdo: care.care?.bath.hairdo ?? null,
   };
   const shownYard =
     yard && trying?.kind === 'yard' && trying.spot ? { ...yard, spots: { ...yard.spots, [trying.spot]: trying.item.id } } : yard;
@@ -1699,9 +1701,9 @@ export function KennelScreen({
         goldenBones={care.care?.bath.goldenBones}
         currencyName={currencyName}
         onQuick={quickBath}
-        onFinish={(popped, golden, _hairdo) => {
+        onFinish={(popped, golden, hairdo) => {
           setBathOpen(false);
-          void care.finishBath(popped, golden);
+          void care.finishBath(popped, golden, hairdo);
         }}
         onClose={() => setBathOpen(false)}
       />

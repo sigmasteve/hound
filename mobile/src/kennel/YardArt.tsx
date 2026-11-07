@@ -3,7 +3,7 @@ import { AppState, Animated, Easing, PanResponder, Pressable, StyleSheet, View }
 import Svg, { Circle, Defs, Ellipse, G, Line, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { Text } from '../components/Text';
 import type { Rank } from '../challenges/ranks';
-import { HoundArt, type HoundMood } from './HoundArt';
+import { HoundArt, type Hairdo, type HoundMood } from './HoundArt';
 import type { HoundEars, HoundMarkings, HoundTail } from './kennelItems';
 import { GardenBedArt } from '../garden/PlantArt';
 import type { PlantStage } from '../garden/garden';
@@ -112,6 +112,8 @@ export interface YardHound {
   ears?: HoundEars;
   tail?: HoundTail;
   markings?: HoundMarkings;
+  // The 'do from its last bath (0178), until the next long walk.
+  hairdo?: Hairdo | null;
 }
 
 // Where something is in a scene this wide, in pixels: a spot's item, or
@@ -735,6 +737,7 @@ export function YardScene({
             ears={hound.ears}
             tail={hound.tail}
             markings={hound.markings}
+            hairdo={bathing ? null : hound.hairdo}
             size={houndW}
             animate={moving}
           />

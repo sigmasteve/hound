@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { localDayKey } from '../water/water';
 import { feedTreat, finishBath, getCare, giftTreat, giveBath, makeTreat, type Care } from './care';
+import type { Hairdo } from '../kennel/HoundArt';
 
 // The Kennel's bath and kitchen (0169): loaded when the Kennel comes into
 // view, and again when the day's walks change (a long walk muddies the
@@ -19,7 +20,8 @@ export interface CareState {
   // The quick bath (no game, no Bones), shown happening in the Yard.
   bath(): Promise<boolean>;
   // The bath played in BathScene (0177): its bubbles pay Bones.
-  finishBath(bubbles: number, golden: boolean): Promise<boolean>;
+  // With the 'do picked after it (0178), or null.
+  finishBath(bubbles: number, golden: boolean, hairdo: Hairdo | null): Promise<boolean>;
   make(recipe: string): Promise<boolean>;
   feed(treat: string): Promise<boolean>;
   gift(friend: string, treat: string, note: string | null): Promise<boolean>;
@@ -78,7 +80,7 @@ export function useCare(walksVersion: unknown, onChanged?: () => void): CareStat
     bathN,
     reload,
     bath: () => run("Couldn't give a bath", giveBath, () => setBathN((n) => n + 1))(),
-    finishBath: (bubbles, golden) => run("Couldn't finish the bath", (d) => finishBath(d, bubbles, golden))(),
+    finishBath: (bubbles, golden, hairdo) => run("Couldn't finish the bath", (d) => finishBath(d, bubbles, golden, hairdo))(),
     make: (recipe) => run("Couldn't make it", (d) => makeTreat(d, recipe))(),
     feed: (treat) => run("Couldn't give the treat", (d) => feedTreat(d, treat))(),
     gift: (friend, treat, note) => run("Couldn't send it", (d) => giftTreat(d, friend, treat, note))(),

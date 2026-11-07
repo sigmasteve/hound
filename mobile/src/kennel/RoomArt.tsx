@@ -257,6 +257,7 @@ export function RoomScene({
             ears={hound.ears}
             tail={hound.tail}
             markings={hound.markings}
+            hairdo={hound.hairdo}
             size={houndW}
             animate={moving}
             mud={houndProps?.mud}

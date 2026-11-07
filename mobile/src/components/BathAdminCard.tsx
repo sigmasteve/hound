@@ -8,6 +8,7 @@ import { TextField } from './TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { getBathOverview, saveBathSettings, type BathEarned, type BathOverview } from '../care/care';
+import { HAIRDOS } from '../kennel/HoundArt';
 
 const EARNED_NAMES: Record<BathEarned, string> = {
   walk: 'Long walk',
@@ -81,6 +82,13 @@ export function BathAdminCard() {
           `${data.bubbles7d} popped · ${data.golden7d} golden found · ${data.allBubbles7d} ${data.allBubbles7d === 1 ? 'bath' : 'baths'} with every bubble`,
         ],
         ['Bones paid', `${data.bones7d} this week · ${data.bonesAll} in all`],
+        [
+          'Styled this week',
+          data.styled7d
+            ? `${data.styled7d} of ${data.played7d} played · ` +
+              HAIRDOS.map((h) => `${h.name} ${data.hairdos7d[h.id] ?? 0}`).join(' · ')
+            : 'No ’dos picked yet this week',
+        ],
         ['All time', `${data.playedAll} played by ${data.playersAll} ${data.playersAll === 1 ? 'person' : 'people'}`],
         [
           'Earned by (this week)',
@@ -96,7 +104,7 @@ export function BathAdminCard() {
       <Text style={text.h4}>Bath time</Text>
       <Text style={styles.footNote}>
         One bath a day, earned by a long walk, 6,000 steps, goals done or a Bones pack that day. Played: scrub, pop the bubbles
-        for Bones, rinse, dry. Quick: no game, no Bones.
+        for Bones, rinse, dry, then pick a ’do (kept until the next long walk). Quick: no game, no Bones.
       </Text>
       {error ? (
         <Text style={styles.loadError}>{error}</Text>

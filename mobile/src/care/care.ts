@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { FindRarity } from '../walks/walks';
+import type { Hairdo } from '../kennel/HoundArt';
 
 // Bath day and homemade treats (0169, lifestyle phase 4).
 //
@@ -27,6 +28,8 @@ export interface BathState {
   // The bath game's settings (0177): bubbles a bath, and the golden one.
   bubbles: number;
   goldenBones: number;
+  // The 'do from the last bath (0178), until the next long walk.
+  hairdo: Hairdo | null;
 }
 
 export interface TreatRecipe {
@@ -123,6 +126,7 @@ function parse(data: unknown): Care {
       bathBones: Number(b.bath_bones ?? 0),
       bubbles: b.bubbles == null ? 10 : Number(b.bubbles),
       goldenBones: b.golden_bones == null ? 5 : Number(b.golden_bones),
+      hairdo: (b.hairdo ?? null) as Hairdo | null,
     },
     recipes: ((d.recipes ?? []) as any[]).map((r) => ({
       id: r.id,
@@ -154,8 +158,10 @@ async function call(fn: string, args: Record<string, unknown>): Promise<Care> {
 
 export const getCare = (day: string) => call('my_care', { p_day: day });
 export const giveBath = (day: string) => call('give_bath', { p_day: day });
-export const finishBath = (day: string, bubbles: number, golden: boolean) =>
-  call('finish_bath', { p_day: day, p_bubbles: bubbles, p_golden: golden });
+// The 'do is only sent when there is one, so a server still on 0177 takes
+// the call too.
+export const finishBath = (day: string, bubbles: number, golden: boolean, hairdo: Hairdo | null) =>
+  call('finish_bath', { p_day: day, p_bubbles: bubbles, p_golden: golden, ...(hairdo ? { p_hairdo: hairdo } : {}) });
 export const makeTreat = (day: string, recipe: string) => call('make_treat', { p_day: day, p_recipe: recipe });
 export const feedTreat = (day: string, treat: string) => call('feed_homemade_treat', { p_day: day, p_treat: treat });
 export const giftTreat = (day: string, friend: string, treat: string, note: string | null) =>
@@ -246,6 +252,9 @@ export interface BathOverview {
   playersAll: number;
   bonesAll: number;
   byEarned7d: Partial<Record<BathEarned, number>>;
+  // 0178: baths styled this week, and which 'dos.
+  styled7d: number;
+  hairdos7d: Partial<Record<Exclude<Hairdo, 'messy'>, number>>;
 }
 
 export async function getBathOverview(): Promise<BathOverview> {
@@ -256,6 +265,8 @@ export async function getBathOverview(): Promise<BathOverview> {
   const n = (v: unknown) => Number(v ?? 0);
   const by: Partial<Record<BathEarned, number>> = {};
   for (const [k, v] of Object.entries(d.by_earned_7d ?? {})) by[k as BathEarned] = n(v);
+  const dos: Partial<Record<Exclude<Hairdo, 'messy'>, number>> = {};
+  for (const [k, v] of Object.entries(d.hairdos_7d ?? {})) dos[k as Exclude<Hairdo, 'messy'>] = n(v);
   return {
     bubbles: n(d.bubbles),
     goldenBones: n(d.golden_bones),
@@ -270,6 +281,8 @@ export async function getBathOverview(): Promise<BathOverview> {
     playersAll: n(d.players_all),
     bonesAll: n(d.bones_all),
     byEarned7d: by,
+    styled7d: n(d.styled_7d),
+    hairdos7d: dos,
   };
 }
 
