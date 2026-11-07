@@ -1,3 +1,4 @@
+import type { Hairdo } from './HoundArt';
 import { supabase } from '../lib/supabase';
 import { localDayKey } from '../goals/goals';
 import type { HoundMood } from './HoundArt';
@@ -102,6 +103,8 @@ export interface FriendKennel {
   bodyId: string | null;
   feetId: string | null;
   xpTotal: number;
+  // Their hound's 'do (0178), or null.
+  hairdo: Hairdo | null;
 }
 
 export async function getFriendKennel(friendUserId: string): Promise<FriendKennel> {
@@ -122,6 +125,7 @@ export async function getFriendKennel(friendUserId: string): Promise<FriendKenne
     bodyId: r.body_id ?? null,
     feetId: r.feet_id ?? null,
     xpTotal: r.xp_total ?? 0,
+    hairdo: (r.hairdo ?? null) as Hairdo | null,
   };
 }
 

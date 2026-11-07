@@ -23,6 +23,16 @@ import {
 
 export type HoundMood = 'happy' | 'okay' | 'sleepy' | 'hungry';
 
+// A 'do from bath time (0178): styled after the bath, kept until the next
+// long walk. 'messy' is towel-dried, before it's styled. A hat covers it.
+export type Hairdo = 'fluffy' | 'curl' | 'spiky' | 'bow' | 'messy';
+export const HAIRDOS: { id: Exclude<Hairdo, 'messy'>; name: string }[] = [
+  { id: 'fluffy', name: 'Fluffy' },
+  { id: 'curl', name: 'Curl' },
+  { id: 'spiky', name: 'Spiky' },
+  { id: 'bow', name: 'Bow' },
+];
+
 const NOSE = '#2b1d14';
 // How a lying hound's body is squashed: wider and much lower.
 const LIE_SX = 1.18;
@@ -59,6 +69,7 @@ export function HoundArt({
   variant = 'full',
   mud = false,
   fresh = false,
+  hairdo = null,
 }: {
   rank: Rank['id'];
   mood: HoundMood;
@@ -87,6 +98,7 @@ export function HoundArt({
   // sparkles and a few bubbles, fresh from a bath.
   mud?: boolean;
   fresh?: boolean;
+  hairdo?: Hairdo | null;
 }) {
   const asAvatar = variant === 'avatar';
   const motion = useRef(new Animated.Value(0)).current;
@@ -242,7 +254,7 @@ export function HoundArt({
 
   return (
     <Animated.View style={{ width: size, height: asAvatar ? size : size * 1.2, transform }}>
-      <Svg width={size} height={asAvatar ? size : size * 1.2} viewBox={asAvatar ? `38 ${headCy - 52} 124 124` : '0 -30 200 240'}>
+      <Svg width={size} height={asAvatar ? size : size * 1.2} viewBox={asAvatar ? `38 ${headCy - (hairdo && !head ? 62 : 52)} 124 124` : '0 -30 200 240'}>
         <Defs>
           <RadialGradient id="aura" cx="50%" cy="50%" r="50%">
             <Stop offset="0" stopColor="#e0b84f" stopOpacity="0.55" />
@@ -285,6 +297,7 @@ export function HoundArt({
 
             <Face mood={mood} headCy={headCy + g.faceDy} eyeY={eyeY} />
             {face && <FaceItem item={face} eyeY={eyeY} />}
+            {hairdo && !head && <HairdoArt kind={hairdo} headCy={headCy} headR={headR} coat={COAT} dark={COAT_DARK} light={LIGHT} />}
             {head && <HeadItem item={head} headCy={headCy} headR={headR} />}
 
             {mud && !asAvatar && <Ellipse cx={118} cy={headCy - 12} rx={6} ry={4} fill={MUD} opacity={0.85} />}
@@ -331,6 +344,111 @@ function Mud({ bodyCy, bodyRx, bodyRy, lying }: { bodyCy: number; bodyRx: number
 }
 
 // Fresh from a bath: sparkles, and a bubble or two.
+// The 'do, on top of the head (see Hairdo).
+function HairdoArt({
+  kind,
+  headCy,
+  headR,
+  coat,
+  dark,
+  light,
+}: {
+  kind: Hairdo;
+  headCy: number;
+  headR: number;
+  coat: string;
+  dark: string;
+  light: string;
+}) {
+  const top = headCy - headR;
+  if (kind === 'fluffy') {
+    // A soft puff of fur on top.
+    return (
+      <G>
+        {[
+          [-0.3, 0.14, 0.24],
+          [0.3, 0.14, 0.24],
+          [-0.14, -0.04, 0.27],
+          [0.14, -0.04, 0.27],
+          [0, -0.16, 0.25],
+        ].map(([dx, dy, r], i) => (
+          <Circle key={i} cx={100 + dx * headR} cy={top + dy * headR + 6} r={r * headR} fill={coat} stroke="rgba(255,255,255,0.55)" strokeWidth={2} />
+        ))}
+        <Ellipse cx={100 - headR * 0.1} cy={top - headR * 0.12} rx={headR * 0.12} ry={headR * 0.06} fill={light} opacity={0.7} />
+      </G>
+    );
+  }
+  if (kind === 'curl') {
+    // One neat curl at the front.
+    const x = 100;
+    const y = top + 4;
+    return (
+      <Path
+        d={`M ${x - 8} ${y + 8} C ${x - 10} ${y - 14}, ${x + 18} ${y - 20}, ${x + 14} ${y - 4} C ${x + 11} ${y + 6}, ${x - 2} ${y + 2}, ${x + 3} ${y - 6}`}
+        stroke={dark}
+        strokeWidth={5}
+        strokeLinecap="round"
+        fill="none"
+      />
+    );
+  }
+  if (kind === 'spiky') {
+    // A little mohawk, five spikes down the middle.
+    const spikes = [-2, -1, 0, 1, 2];
+    return (
+      <G>
+        {spikes.map((k) => {
+          const x = 100 + k * headR * 0.15;
+          const base = top + Math.abs(k) * 3 + 8;
+          const h = headR * (0.42 - Math.abs(k) * 0.07);
+          return <Path key={k} d={`M ${x - 7} ${base} L ${x + k * 2} ${base - h} L ${x + 7} ${base} Z`} fill={dark} strokeLinejoin="round" />;
+        })}
+      </G>
+    );
+  }
+  if (kind === 'bow') {
+    // A small tuft tied up with a pink ribbon.
+    const x = 100 + headR * 0.32;
+    const y = top + 4;
+    return (
+      <G>
+        <Ellipse cx={x} cy={y - 6} rx={headR * 0.16} ry={headR * 0.22} fill={coat} stroke={dark} strokeWidth={1.6} />
+        <Path d={`M ${x} ${y} L ${x - 16} ${y - 9} L ${x - 16} ${y + 9} Z`} fill="#f06aa0" strokeLinejoin="round" />
+        <Path d={`M ${x} ${y} L ${x + 16} ${y - 9} L ${x + 16} ${y + 9} Z`} fill="#f06aa0" strokeLinejoin="round" />
+        <Circle cx={x} cy={y} r={5} fill="#d94a85" />
+      </G>
+    );
+  }
+  // Messy: towel-dried tufts sticking out every which way.
+  return (
+    <G>
+      {[
+        [-0.45, -40],
+        [-0.25, -15],
+        [-0.05, 8],
+        [0.15, -20],
+        [0.35, 25],
+        [0.55, 45],
+      ].map(([dx, angle], i) => {
+        const x = 100 + dx * headR;
+        const y = top + Math.abs(dx) * headR * 0.4 + 4;
+        const len = 14 + (i % 3) * 4;
+        const rad = ((angle - 90) * Math.PI) / 180;
+        return (
+          <Path
+            key={i}
+            d={`M ${x} ${y} Q ${x + Math.cos(rad) * len * 0.6 + 4} ${y + Math.sin(rad) * len * 0.6} ${x + Math.cos(rad) * len} ${y + Math.sin(rad) * len}`}
+            stroke={dark}
+            strokeWidth={4}
+            strokeLinecap="round"
+            fill="none"
+          />
+        );
+      })}
+    </G>
+  );
+}
+
 function Sparkles() {
   const star = (x: number, y: number, r: number, c: string) => (
     <Path

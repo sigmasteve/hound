@@ -303,6 +303,7 @@ export function FriendDetailScreen({
                     ears: hound.ears,
                     tail: hound.tail,
                     markings: hound.markings,
+                    hairdo: hound.hairdo,
                   }}
                 />
                 </View>
@@ -323,6 +324,7 @@ export function FriendDetailScreen({
                     ears: hound.ears,
                     tail: hound.tail,
                     markings: hound.markings,
+                    hairdo: hound.hairdo,
                   }} />
                 </View>
               )}
@@ -343,6 +345,7 @@ export function FriendDetailScreen({
                     ears: hound.ears,
                     tail: hound.tail,
                     markings: hound.markings,
+                    hairdo: hound.hairdo,
                   }} />
                 </View>
               )}

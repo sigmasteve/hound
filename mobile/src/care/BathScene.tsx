@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { ShowerIcon, XIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
-import { HoundArt } from '../kennel/HoundArt';
+import { HAIRDOS, HoundArt, type Hairdo } from '../kennel/HoundArt';
 import type { HoundEars, HoundMarkings, HoundTail } from '../kennel/kennelItems';
 import { font } from '../theme/tokens';
 
@@ -14,7 +14,9 @@ import { font } from '../theme/tokens';
 //   bubbles  bubbles float up from the tub; tap to pop, +1 Bone each, and
 //            now and then a golden one, +5
 //   rinse    drag the shower over the hound to wash the foam away
-//   dry      the hound shakes off and sparkles
+//   dry      the hound shakes off and sparkles, towel-dried and messy
+//   style    pick a 'do (Fluffy, Curl, Spiky, Bow); it stays on until
+//            the next long walk
 //
 // The Bones are counted here and paid by the server when the bath ends,
 // capped there (0177's bath_settings). "Quick bath" skips it all, no Bones.
@@ -34,12 +36,13 @@ const GOLD = '#f3c74f';
 export const BUBBLES_PER_BATH = 10;
 export const GOLDEN_BONES = 5;
 
-type Stage = 'scrub' | 'bubbles' | 'rinse' | 'dry';
+type Stage = 'scrub' | 'bubbles' | 'rinse' | 'dry' | 'style';
 const STAGES: { id: Stage; label: string }[] = [
   { id: 'scrub', label: 'Scrub' },
   { id: 'bubbles', label: 'Bubbles' },
   { id: 'rinse', label: 'Rinse' },
   { id: 'dry', label: 'Dry' },
+  { id: 'style', label: 'Style' },
 ];
 
 export interface BathHound {
@@ -69,8 +72,9 @@ export function BathScene({
   bubbleCount?: number;
   goldenBones?: number;
   currencyName?: string;
-  // The bath's done: bubbles popped and whether the golden one was.
-  onFinish: (popped: number, golden: boolean) => void;
+  // The bath's done: bubbles popped, whether the golden one was, and the
+  // 'do picked (null: none).
+  onFinish: (popped: number, golden: boolean, hairdo: Hairdo | null) => void;
   onQuick: () => void;
   onClose: () => void;
 }) {
@@ -114,7 +118,7 @@ export function BathPlay({
   bubbleCount?: number;
   goldenBones?: number;
   currencyName?: string;
-  onFinish: (popped: number, golden: boolean) => void;
+  onFinish: (popped: number, golden: boolean, hairdo: Hairdo | null) => void;
   onQuick: () => void;
   onClose: () => void;
   // For previews: start part-way through.
@@ -295,7 +299,16 @@ export function BathPlay({
       ),
     ]).start();
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    // Shaken off and towel-dried: on to the 'do.
+    const t = setTimeout(() => setStage('style'), 1700);
+    return () => clearTimeout(t);
   }, [stage, shake]);
+
+  const [hairdo, setHairdo] = useState<Exclude<Hairdo, 'messy'> | null>(null);
+  const pickHairdo = (h: Exclude<Hairdo, 'messy'>) => {
+    setHairdo(h);
+    if (Platform.OS !== 'web') Haptics.selectionAsync().catch(() => {});
+  };
 
   const bones = popped + (golden ? goldenBones : 0);
   const stageIdx = STAGES.findIndex((s) => s.id === stage);
@@ -312,7 +325,11 @@ export function BathPlay({
             : 'Pop the bubbles! +1 each.'
         : stage === 'rinse'
           ? 'Drag the shower over the foam to rinse it off.'
-          : `${hound.name} is squeaky clean!`;
+          : stage === 'dry'
+            ? `${hound.name} is squeaky clean!`
+            : hairdo
+              ? `Looking sharp! ${hound.name} keeps it until the next long walk.`
+              : `Towel-dried and fluffy everywhere. Pick a 'do for ${hound.name}.`;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }]}>
@@ -327,7 +344,7 @@ export function BathPlay({
             <Text style={styles.bonesText}>🦴 +{bones}</Text>
           </View>
         )}
-        {stage !== 'dry' && (
+        {stage !== 'dry' && stage !== 'style' && (
           <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
             <XIcon size={20} color="rgba(255,255,255,0.8)" />
           </Pressable>
@@ -375,7 +392,8 @@ export function BathPlay({
             tail={hound.tail}
             markings={hound.markings}
             size={houndSize}
-            fresh={stage === 'dry'}
+            fresh={stage === 'dry' || stage === 'style'}
+            hairdo={stage === 'style' ? (hairdo ?? 'messy') : stage === 'dry' ? 'messy' : null}
           />
         </Animated.View>
 
@@ -410,7 +428,7 @@ export function BathPlay({
 
         {stage === 'rinse' && <ShowerHead at={shower ?? { x: W * 0.78, y: bodyTop - 70 }} />}
 
-        {stage === 'dry' && <Sparkles W={W} hy={bodyTop - houndSize * 0.1} size={houndSize} />}
+        {(stage === 'dry' || stage === 'style') && <Sparkles W={W} hy={bodyTop - houndSize * 0.1} size={houndSize} />}
       </View>
 
       <View style={styles.footer}>
@@ -430,10 +448,40 @@ export function BathPlay({
             <Text style={styles.link}>Rinse it all</Text>
           </Pressable>
         )}
-        {stage === 'dry' && (
-          <Pressable style={styles.cta} onPress={() => onFinish(popped, golden)} accessibilityRole="button">
-            <Text style={styles.ctaText}>{bones > 0 ? `All done · +${bones} ${currencyName}` : 'All done'}</Text>
-          </Pressable>
+        {stage === 'style' && (
+          <View style={styles.styleBox}>
+            <View style={styles.chips}>
+              {HAIRDOS.map((h) => (
+                <Pressable
+                  key={h.id}
+                  onPress={() => pickHairdo(h.id)}
+                  style={[styles.chip, hairdo === h.id && styles.chipOn]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: hairdo === h.id }}
+                >
+                  <View style={styles.chipArt}>
+                    <HoundArt
+                      rank="alpha"
+                      mood="happy"
+                      coatId={hound.coatId}
+                      breedId={hound.breedId}
+                      ears={hound.ears}
+                      tail={hound.tail}
+                      markings={hound.markings}
+                      variant="avatar"
+                      size={52}
+                      animate={false}
+                      hairdo={h.id}
+                    />
+                  </View>
+                  <Text style={[styles.chipText, hairdo === h.id && styles.chipTextOn]}>{h.name}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable style={styles.cta} onPress={() => onFinish(popped, golden, hairdo)} accessibilityRole="button">
+              <Text style={styles.ctaText}>{bones > 0 ? `All done · +${bones} ${currencyName}` : 'All done'}</Text>
+            </Pressable>
+          </View>
         )}
       </View>
     </View>
@@ -595,5 +643,23 @@ const styles = StyleSheet.create({
   meterFill: { height: 10, borderRadius: 5, backgroundColor: WATER },
   cta: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: 28, borderRadius: 999, backgroundColor: WATER },
   ctaText: { fontFamily: font.headingSemibold, fontSize: 16, color: '#1b2b3d' },
+  styleBox: { alignSelf: 'stretch', alignItems: 'center', gap: 14 },
+  chips: { flexDirection: 'row', gap: 8, alignSelf: 'stretch', justifyContent: 'center' },
+  chip: {
+    flex: 1,
+    maxWidth: 88,
+    alignItems: 'center',
+    gap: 4,
+    paddingTop: 8,
+    paddingBottom: 8,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  chipOn: { borderColor: WATER, backgroundColor: 'rgba(159,211,240,0.18)' },
+  chipArt: { width: 52, height: 52, borderRadius: 26, overflow: 'hidden', backgroundColor: TILE },
+  chipText: { fontFamily: font.heading, fontSize: 13, color: 'rgba(255,255,255,0.75)' },
+  chipTextOn: { color: '#ffffff' },
   link: { fontFamily: font.heading, fontSize: 14, color: 'rgba(255,255,255,0.75)' },
 });
