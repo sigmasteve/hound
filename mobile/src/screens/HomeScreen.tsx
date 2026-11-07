@@ -2288,7 +2288,9 @@ export function HomeScreen({
           status={onboarding}
           currencyName={currencyName}
           claiming={claimingOnboarding}
-          onContinue={() => onGoTab('setup')}
+          onConnectHealth={() => onGoTab('healthData')}
+          onAddFriend={() => onGoTab('friends')}
+          onFindChallenge={() => onGoTab('challenges')}
           onClaim={claimGetStarted}
           onDismiss={dismissGetStarted}
         />
