@@ -3,18 +3,16 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } fro
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
 import {
   BarbellIcon,
   CalendarCheckIcon,
   CheckCircleIcon,
   CheckIcon,
   CircleIcon,
+  DotsThreeIcon,
   FootprintsIcon,
   HeartbeatIcon,
   PersonSimpleRunIcon,
-  ScalesIcon,
-  SoccerBallIcon,
   TrophyIcon,
   UsersThreeIcon,
 } from 'phosphor-react-native';
@@ -37,7 +35,6 @@ import { EAR_OPTIONS, KENNEL_ITEMS, TAN_SWATCH, type HoundEars } from '../kennel
 import { buyKennelItem, equipKennelItem, getKennel, setHoundAvatar, setKennel, setKennelLook, type Kennel } from '../kennel/kennelApi';
 import { notifyBonesChanged } from '../bones/bonesChanged';
 import { useCurrencyName } from '../organizations/useCurrencyName';
-import { getMyInterests, INTERESTS, saveMyInterests, type Interest } from './interests';
 import { claimOnboardingReward, getOnboardingStatus } from './onboardingApi';
 import { markAskedForUsername, useUsernameForm, UsernameFields } from '../profiles/UsernameForm';
 import { setMyName } from '../profiles/supabaseProfile';
@@ -48,7 +45,6 @@ import {
   getWelcome,
   HOUND_USES,
   saveHoundUses,
-  suggestedKind,
   type HoundUse,
 } from './welcomeApi';
 
@@ -65,14 +61,7 @@ const USE_ICONS: Record<HoundUse, typeof FootprintsIcon> = {
   cardio: PersonSimpleRunIcon,
   friends: UsersThreeIcon,
   habits: CheckCircleIcon,
-};
-
-const INTEREST_ICONS: Record<Interest, typeof FootprintsIcon> = {
-  athlete: PersonSimpleRunIcon,
-  sports: SoccerBallIcon,
-  gym: BarbellIcon,
-  weight_loss: ScalesIcon,
-  general: HeartbeatIcon,
+  other: DotsThreeIcon,
 };
 
 // The welcome wizard (0109_welcome_wizard.sql): one thing at a time
@@ -81,13 +70,13 @@ const INTEREST_ICONS: Record<Interest, typeof FootprintsIcon> = {
 // setting up" (resume) it only shows the steps still left.
 export function SetupWizardScreen({
   resume = false,
-  onCreateChallenge,
   onFinish,
 }: {
   resume?: boolean;
   // Unused since daily goals moved to Today; kept so callers needn't change.
   onOpenGoals?: () => void;
-  onCreateChallenge: (kind: ChallengeKind) => void;
+  // Unused since Jump in only offers challenges open to everyone.
+  onCreateChallenge?: (kind: ChallengeKind) => void;
   onFinish: () => void;
 }) {
   const { colors } = useTheme();
@@ -97,24 +86,21 @@ export function SetupWizardScreen({
   const [plan, setPlan] = useState<StepId[] | null>(null);
   const [index, setIndex] = useState(0);
   const [uses, setUses] = useState<HoundUse[]>([]);
-  const [interests, setInterests] = useState<Interest[]>([]);
   // Global challenges still open to join when the wizard opened.
   const [openGlobals, setOpenGlobals] = useState<GlobalChallenge[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [auth, status, welcome, globals, mine] = await Promise.all([
+      const [auth, status, welcome, globals] = await Promise.all([
         health.getAuthorizationStatus().catch(() => null),
         getOnboardingStatus().catch(() => null),
         getWelcome(),
         listGlobalChallenges().catch(() => [] as GlobalChallenge[]),
-        getMyInterests().catch(() => null),
       ]);
       if (cancelled) return;
       const saved = welcome?.uses ?? [];
       setUses(saved);
-      setInterests(mine ?? []);
       const joinable = globals.filter((c) => canJoin(c));
       setOpenGlobals(joinable);
       const steps: StepId[] = [];
@@ -122,8 +108,8 @@ export function SetupWizardScreen({
       // A name, a username, and what they're here for, on one page.
       // Finishing setup, only when something there is still missing.
       if (!resume || !user?.username || user?.needsName || saved.length === 0) steps.push('about');
-      // Join a challenge open to everyone, or start one.
-      if (joinable.length > 0 || !status?.joinedChallenge) steps.push('jump');
+      // Join a challenge open to everyone, when any are taking players.
+      if (joinable.length > 0) steps.push('jump');
       if (!resume) steps.push('hound');
       setPlan(steps);
     })();
@@ -198,14 +184,13 @@ export function SetupWizardScreen({
         <AboutStep
           styles={styles}
           initialUses={uses}
-          initialInterests={interests}
           onNext={(u) => {
             setUses(u);
             next();
           }}
         />
       )}
-      {step === 'jump' && <JumpInStep styles={styles} uses={uses} initialGlobals={openGlobals} onCreate={onCreateChallenge} onNext={next} />}
+      {step === 'jump' && <JumpInStep styles={styles} initialGlobals={openGlobals} onNext={next} />}
       {step === 'hound' && <HoundStep styles={styles} last={last} onNext={next} />}
     </SafeAreaView>
   );
@@ -284,21 +269,20 @@ function HealthStep({ styles, onNext }: { styles: Styles; onNext: () => void }) 
   );
 }
 
-// Page 2: what to call you, and what you're here for. A name when sign-up
+// Page 2: what to call you, and what you're into. A name when sign-up
 // didn't bring one (Sign in with Apple only shares it the first time), an
 // optional username for leaderboards (0030_username.sql; friends still see
-// the name), how they'll use Hound (0109) and what they're working toward
-// (K-08, private). The uses also add the daily goals that fit, which
-// Today's goal setup card then asks them to set.
+// the name), and their interests (hound_uses, 0109; 'other' from 0175).
+// The interests also add the daily goals that fit, which Today's goal
+// setup card then asks them to set. (What they're working toward, K-08,
+// is in Settings.)
 function AboutStep({
   styles,
   initialUses,
-  initialInterests,
   onNext,
 }: {
   styles: Styles;
   initialUses: HoundUse[];
-  initialInterests: Interest[];
   onNext: (uses: HoundUse[]) => void;
 }) {
   const { colors } = useTheme();
@@ -307,13 +291,11 @@ function AboutStep({
   const askName = !!user?.needsName;
   const [name, setName] = useState('');
   const [uses, setUses] = useState<HoundUse[]>(initialUses);
-  const [interests, setInterests] = useState<Interest[]>(initialInterests);
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const form = useUsernameForm(askName ? name : undefined);
   const hasUsername = !!user?.username;
   const toggleUse = (id: HoundUse) => setUses((cur) => (cur.includes(id) ? cur.filter((u) => u !== id) : [...cur, id]));
-  const toggleInterest = (id: Interest) => setInterests((cur) => (cur.includes(id) ? cur.filter((i) => i !== id) : [...cur, id]));
   const ready = (!askName || name.trim().length > 0) && uses.length > 0 && (!form.trimmed || form.valid);
 
   const save = async () => {
@@ -333,7 +315,6 @@ function AboutStep({
         }
       }
       saveHoundUses(uses).catch(() => {});
-      if (interests.length > 0) saveMyInterests(interests).catch(() => {});
       let room = MAX_GOALS - goals.length;
       for (const draft of extraGoalsFor(uses)) {
         const have = goals.some((g) => g.metric === draft.metric && g.period === draft.period && g.activity === draft.activity);
@@ -353,7 +334,7 @@ function AboutStep({
     <StepPage
       styles={styles}
       title="About you"
-      body="What to call you, and what you’re here for. Hound suggests goals and challenges to match."
+      body="What to call you, and what you’re into. Hound suggests goals and challenges to match."
       footer={
         <>
           {(problem ?? form.problem) && <Text style={styles.problem}>{problem ?? form.problem}</Text>}
@@ -387,7 +368,7 @@ function AboutStep({
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>HOW WILL YOU USE HOUND?</Text>
+        <Text style={styles.sectionLabel}>WHAT ARE YOUR INTERESTS?</Text>
         <View style={styles.chips}>
           {HOUND_USES.map((u) => {
             const on = uses.includes(u.id);
@@ -408,46 +389,20 @@ function AboutStep({
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>WHAT ARE YOU WORKING TOWARD?</Text>
-        <Text style={styles.optionDetail}>Optional, and only you see it.</Text>
-        <View style={styles.chips}>
-          {INTERESTS.map((it) => {
-            const on = interests.includes(it.id);
-            const Icon = INTEREST_ICONS[it.id];
-            return (
-              <Pressable
-                key={it.id}
-                onPress={() => toggleInterest(it.id)}
-                style={on ? [styles.chip, styles.chipOn] : styles.chip}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: on }}
-              >
-                <Icon size={16} color={on ? colors.accentActive : withAlpha(colors.text, 0.6)} weight={on ? 'fill' : 'regular'} />
-                <Text style={on ? [styles.chipText, styles.chipTextOn] : styles.chipText}>{it.name}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
     </StepPage>
   );
 }
 
-// Page 3: join a challenge open to everyone (each with its own Join, as
-// many as they like), or start one of their own, suggested from what they
-// picked. Or neither: Today has both.
+// Page 3: the challenges open to everyone, each with its own Join, as many
+// as they like. Or none: they're on Today too, and starting their own is
+// one tap from there.
 function JumpInStep({
   styles,
-  uses,
   initialGlobals,
-  onCreate,
   onNext,
 }: {
   styles: Styles;
-  uses: HoundUse[];
   initialGlobals: GlobalChallenge[];
-  onCreate: (kind: ChallengeKind) => void;
   onNext: () => void;
 }) {
   const { colors } = useTheme();
@@ -455,7 +410,6 @@ function JumpInStep({
   const [globals, setGlobals] = useState<GlobalChallenge[]>(initialGlobals);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
-  const [started, setStarted] = useState(false);
 
   // Refresh once on open: the list was fetched when the wizard was
   // planned, and a window may have closed since.
@@ -464,15 +418,6 @@ function JumpInStep({
       .then((all) => setGlobals(all.filter((c) => canJoin(c))))
       .catch(() => {});
   }, []);
-
-  // Back from Create: did they start one?
-  useFocusEffect(
-    useCallback(() => {
-      getOnboardingStatus()
-        .then((s) => s?.joinedChallenge && setStarted(true))
-        .catch(() => {});
-    }, []),
-  );
 
   const join = async (c: GlobalChallenge) => {
     setJoiningId(c.id);
@@ -486,22 +431,18 @@ function JumpInStep({
     }
   };
 
-  const kind = suggestedKind(uses);
-  const type = CHALLENGE_TYPES.find((t) => t.id === kind)!;
-  const kindName = kind === 'hunt' ? huntKindName() : type.name;
-  const inOne = joinedIds.size > 0 || started;
+  const inOne = joinedIds.size > 0;
 
   return (
     <StepPage
       styles={styles}
       icon={<TrophyIcon size={28} color={colors.accent} weight="fill" />}
       title="Jump in"
-      body="Challenges are where Hound gets fun. Join one that’s open to everyone, or start your own with friends."
+      body="Challenges are where Hound gets fun. These are open to everyone: join as many as you like, and each one shows up on Today."
       footer={<Button label="Next" variant={inOne ? 'primary' : 'secondary'} block onPress={onNext} />}
     >
       {globals.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>OPEN TO EVERYONE</Text>
           {globals.map((c) => {
             const typeName = c.kind === 'hunt' ? huntKindName() : (CHALLENGE_TYPES.find((t) => t.id === c.kind)?.name ?? 'Challenge');
             const isJoined = joinedIds.has(c.id) || c.joined;
@@ -530,18 +471,7 @@ function JumpInStep({
         </View>
       )}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>START YOUR OWN</Text>
-        <Card style={styles.panel} elevated={false}>
-          <View style={styles.rowCenter}>
-            <TrophyIcon size={18} color={colors.accent} weight="fill" />
-            <Text style={styles.optionName}>{kindName}</Text>
-          </View>
-          <Text style={styles.optionDetail}>{type.desc}</Text>
-          <Button label={started ? 'Started' : `Start a ${kindName}`} variant={started ? 'secondary' : 'primary'} small disabled={started} onPress={() => onCreate(kind)} />
-        </Card>
-      </View>
-      {inOne && <Text style={styles.success}>You’re in. It’s on Today from now on.</Text>}
+      {inOne && <Text style={styles.success}>You’re in. {joinedIds.size === 1 ? 'It’s' : 'They’re'} on Today from now on.</Text>}
     </StepPage>
   );
 }
