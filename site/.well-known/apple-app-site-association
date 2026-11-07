@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "CL3XC87U77.app.hound.mobile",
+        "appIDs": ["CL3XC87U77.app.hound.mobile"],
+        "paths": ["/f/*", "/c/*"],
+        "components": [
+          { "/": "/f/*", "comment": "A friend's invite: opens Hound to add them" },
+          { "/": "/c/*", "comment": "A community challenge: opens Hound on its Join card" }
+        ]
+      }
+    ]
+  }
+}

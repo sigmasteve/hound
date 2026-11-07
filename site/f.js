@@ -56,14 +56,20 @@
   client.rpc('friend_code_owner_name', { code: code })
     .then(function (res) {
       var row = res.data && res.data[0];
-      if (res.error || !row) {
+      if (res.error) {
+        showInvite(null);
+        return;
+      }
+      if (!row) {
         showLookupError('It may have been mistyped, or the account it belonged to no longer exists.');
         return;
       }
       showInvite(row.name);
     })
-    .catch(function (e) {
-      showLookupError((e && e.message) || 'Something went wrong loading this invite — try again in a moment.');
+    // Couldn't ask (a network hiccup): the code may still be fine, so
+    // show the invite anyway, with Open in Hound and the code to enter.
+    .catch(function () {
+      showInvite(null);
     });
 
   // Most people opening this link don't have the app yet: step 1 gets it
@@ -72,12 +78,17 @@
   // 0080_friend_discovery.sql), step 2 is the code to enter once it's
   // installed. A link can't survive the install, which is why the code
   // is spelled out here to copy.
+  // inviterName is null when their name couldn't be looked up.
   function showInvite(inviterName) {
-    var name = escapeHtml(inviterName);
+    var name = inviterName ? escapeHtml(inviterName) : 'your friend';
     var safeCode = escapeHtml(code);
     render(
-      '<h2 class="section-title">' + name + ' invited you to Hound</h2>' +
-      '<p class="section-sub">Hound is in beta — two quick steps and you\'re connected.</p>' +
+      '<h2 class="section-title">' + (inviterName ? name + ' invited you to Hound' : 'You’re invited to Hound') + '</h2>' +
+      // Already have Hound: this opens it and adds them, on iPhone and
+      // Android alike. (Once a build claims houndchallenge.net links, an
+      // iPhone opens Hound from the QR code without this page at all.)
+      '<p><a class="btn btn-primary btn-block" id="open-app" href="hound://f/' + encodeURIComponent(code) + '">Open in Hound</a></p>' +
+      '<p class="section-sub">Have Hound? That adds ' + name + ' as a friend. New to Hound? Two quick steps:</p>' +
       '<ol class="steps">' +
         '<li class="step"><div class="step-num">1</div><div>' +
           '<div class="step-title"><h3>Get the app</h3></div>' +
@@ -85,7 +96,7 @@
           '<p class="sub">Already have Hound? Skip to step 2.</p>' +
         '</div></li>' +
         '<li class="step"><div class="step-num">2</div><div>' +
-          '<div class="step-title"><h3>Add ' + name + '</h3></div>' +
+          '<div class="step-title"><h3>Add ' + (inviterName ? name : 'them') + '</h3></div>' +
           '<p>Open Hound, go to <b>Friends</b> → <b>Enter a code</b> (or the “Got an invite code?” card on Today), and enter:</p>' +
           '<div class="linkbox"><span id="invite-code" style="flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:16px;letter-spacing:0.04em;user-select:all">' + safeCode + '</span>' +
             '<button class="copy-btn" id="copy-code">Copy</button></div>' +
@@ -155,7 +166,8 @@
           if (ios && /testflight\.apple\.com/i.test(ios)) ios = 'https://apps.apple.com/app/id6816764199';
           var android = safeUrl(row && row.android_url);
           if (res.error || (!ios && !android)) {
-            box.innerHTML = '<p>Ask ' + name + ' how to get Hound on your phone.</p>';
+            box.innerHTML = '<p><a class="btn btn-primary btn-block" href="' + (isAndroid ? '/get' : 'https://apps.apple.com/app/id6816764199') + '" target="_blank" rel="noopener">' + (isAndroid ? 'Android: download the app' : 'iPhone: get it on the App Store') + '</a></p>' +
+            '<p><a class="btn btn-secondary btn-block" href="' + (isAndroid ? 'https://apps.apple.com/app/id6816764199' : '/get') + '" target="_blank" rel="noopener">' + (isAndroid ? 'iPhone: get it on the App Store' : 'Android: download the app') + '</a></p>';
             return;
           }
           // The button for the visitor's own phone first, and primary.
@@ -170,7 +182,8 @@
           (ios ? '<p class="sub">Free on the App Store as Hound: Fitness with Friends.</p>' : '');
         })
         .catch(function () {
-          box.innerHTML = '<p>Ask ' + name + ' how to get Hound on your phone.</p>';
+          box.innerHTML = '<p><a class="btn btn-primary btn-block" href="' + (isAndroid ? '/get' : 'https://apps.apple.com/app/id6816764199') + '" target="_blank" rel="noopener">' + (isAndroid ? 'Android: download the app' : 'iPhone: get it on the App Store') + '</a></p>' +
+            '<p><a class="btn btn-secondary btn-block" href="' + (isAndroid ? 'https://apps.apple.com/app/id6816764199' : '/get') + '" target="_blank" rel="noopener">' + (isAndroid ? 'iPhone: get it on the App Store' : 'Android: download the app') + '</a></p>';
         });
     }
   }
