@@ -17,7 +17,7 @@ import { font } from '../theme/tokens';
 //   dry      the hound shakes off and sparkles
 //
 // The Bones are counted here and paid by the server when the bath ends,
-// capped there (bath_bubble_cap). "Quick bath" skips it all, no Bones.
+// capped there (0177's bath_settings). "Quick bath" skips it all, no Bones.
 // Colours are fixed, not themed: a bathroom reads the same either way.
 
 const TILE = '#2b4a6b';
@@ -56,12 +56,19 @@ export interface BathHound {
 export function BathScene({
   visible,
   hound,
+  bubbleCount,
+  goldenBones,
+  currencyName,
   onFinish,
   onQuick,
   onClose,
 }: {
   visible: boolean;
   hound: BathHound;
+  // From the server's bath_settings (0177).
+  bubbleCount?: number;
+  goldenBones?: number;
+  currencyName?: string;
   // The bath's done: bubbles popped and whether the golden one was.
   onFinish: (popped: number, golden: boolean) => void;
   onQuick: () => void;
@@ -72,7 +79,18 @@ export function BathScene({
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      {visible && <BathPlay hound={hound} insets={insets} onFinish={onFinish} onQuick={onQuick} onClose={onClose} />}
+      {visible && (
+        <BathPlay
+          hound={hound}
+          insets={insets}
+          bubbleCount={bubbleCount}
+          goldenBones={goldenBones}
+          currencyName={currencyName}
+          onFinish={onFinish}
+          onQuick={onQuick}
+          onClose={onClose}
+        />
+      )}
     </Modal>
   );
 }
@@ -86,10 +104,16 @@ export function BathPlay({
   onFinish,
   onQuick,
   onClose,
+  bubbleCount = BUBBLES_PER_BATH,
+  goldenBones = GOLDEN_BONES,
+  currencyName = 'Bones',
   startStage = 'scrub',
 }: {
   hound: BathHound;
   insets: { top: number; bottom: number };
+  bubbleCount?: number;
+  goldenBones?: number;
+  currencyName?: string;
   onFinish: (popped: number, golden: boolean) => void;
   onQuick: () => void;
   onClose: () => void;
@@ -230,16 +254,19 @@ export function BathPlay({
     return () => clearTimeout(t);
   }, [stage, coverage, bodyX0, bodyX1, bodyTop, tubTop]);
 
-  // The bubbles: ten, and a golden one somewhere among them.
+  // The bubbles (ten, unless Admin says otherwise), and a golden one
+  // somewhere among them when it's worth something.
   const bubbles = useMemo<Bubble[]>(() => {
-    const goldAt = 3 + Math.floor(Math.random() * 6);
     const out: Bubble[] = [];
-    for (let i = 0; i < BUBBLES_PER_BATH; i++) {
+    for (let i = 0; i < bubbleCount; i++) {
       out.push({ id: i, x: W * (0.18 + Math.random() * 0.64), golden: false, delay: i * 650 });
-      if (i === goldAt) out.push({ id: 100, x: W * (0.25 + Math.random() * 0.5), golden: true, delay: i * 650 + 320 });
+    }
+    if (goldenBones > 0) {
+      const at = Math.floor(bubbleCount * (0.3 + Math.random() * 0.5));
+      out.push({ id: 1000, x: W * (0.25 + Math.random() * 0.5), golden: true, delay: at * 650 + 320 });
     }
     return out;
-  }, [W]);
+  }, [W, bubbleCount, goldenBones]);
 
   // Rinsed: on to the shake.
   useEffect(() => {
@@ -270,7 +297,7 @@ export function BathPlay({
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   }, [stage, shake]);
 
-  const bones = popped + (golden ? GOLDEN_BONES : 0);
+  const bones = popped + (golden ? goldenBones : 0);
   const stageIdx = STAGES.findIndex((s) => s.id === stage);
   const hint =
     stage === 'scrub'
@@ -280,7 +307,9 @@ export function BathPlay({
       : stage === 'bubbles'
         ? bubblesDone
           ? 'That’s all the bubbles. Time to rinse.'
-          : 'Pop the bubbles! +1 Bone each, +5 for gold.'
+          : goldenBones > 0
+            ? `Pop the bubbles! +1 each, +${goldenBones} for gold.`
+            : 'Pop the bubbles! +1 each.'
         : stage === 'rinse'
           ? 'Drag the shower over the foam to rinse it off.'
           : `${hound.name} is squeaky clean!`;
@@ -368,10 +397,11 @@ export function BathPlay({
         {stage === 'bubbles' && (
           <BubbleField
             bubbles={bubbles}
+            goldenBones={goldenBones}
             fromY={tubTop}
             onPop={(b) => {
               if (b.golden) setGolden(true);
-              else setPopped((p) => Math.min(BUBBLES_PER_BATH, p + 1));
+              else setPopped((p) => Math.min(bubbleCount, p + 1));
               if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
             }}
             onAllGone={() => setBubblesDone(true)}
@@ -402,7 +432,7 @@ export function BathPlay({
         )}
         {stage === 'dry' && (
           <Pressable style={styles.cta} onPress={() => onFinish(popped, golden)} accessibilityRole="button">
-            <Text style={styles.ctaText}>{bones > 0 ? `All done · +${bones} Bones` : 'All done'}</Text>
+            <Text style={styles.ctaText}>{bones > 0 ? `All done · +${bones} ${currencyName}` : 'All done'}</Text>
           </Pressable>
         )}
       </View>
@@ -418,7 +448,9 @@ function BubbleField({
   fromY,
   onPop,
   onAllGone,
+  goldenBones,
 }: {
+  goldenBones: number;
   bubbles: Bubble[];
   fromY: number;
   onPop: (b: Bubble) => void;
@@ -457,7 +489,7 @@ function BubbleField({
               key={b.id}
               style={[styles.plus, { position: 'absolute', left: b.x - 14, top: y - age * 0.06, opacity: 1 - age / 700 }, b.golden && { color: GOLD }]}
             >
-              +{b.golden ? GOLDEN_BONES : 1}
+              +{b.golden ? goldenBones : 1}
             </Text>
           );
         }

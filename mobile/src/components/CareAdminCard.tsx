@@ -49,8 +49,8 @@ export function CareAdminCard() {
     <Card style={{ gap: 12 }} elevated={false}>
       <Text style={text.h4}>Bath and treats</Text>
       <Text style={styles.footNote}>
-        A long walk (30 minutes or 3,000 steps) makes the hound muddy; a bath is earned by that walk, 8,000 steps or goals
-        done, once a day. Treats are baked from spare walk finds plus Bones (not counted in the Shop fold).
+        A long walk (30 minutes or 3,000 steps) makes the hound muddy; a bath is earned by that walk, 6,000 steps, goals
+        done or a Bones pack that day, once a day (the bath game's numbers are in Bath time). Treats are baked from spare walk finds plus Bones (not counted in the Shop fold).
       </Text>
       {error ? (
         <Text style={styles.loadError}>{error}</Text>

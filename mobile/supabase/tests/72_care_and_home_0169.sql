@@ -22,7 +22,7 @@ select tests.sign_in(:'ann');
 set local role authenticated;
 select is(public.my_care(:'today') -> 'bath' ->> 'can_bath', 'false', 'No bath without an active day');
 select throws_ok(format('select public.give_bath(%L)', :'today'),
-  'A bath comes after an active day: a long walk, 8,000 steps or your goals done.', 'and asking says why');
+  'A bath comes after an active day: a long walk, 6,000 steps, your goals done or a Bones pack.', 'and asking says why');
 reset role;
 
 -- A short walk isn't enough; a 40-minute one brings the hound home muddy.
@@ -47,7 +47,7 @@ reset role;
 insert into public.daily_step_totals (user_id, day, steps) values (:'bob', :'today', 9000);
 select tests.sign_in(:'bob');
 set local role authenticated;
-select is(public.my_care(:'today') -> 'bath' ->> 'earned', 'steps', '8,000 steps earn a bath too');
+select is(public.my_care(:'today') -> 'bath' ->> 'earned', 'steps', 'Enough steps earn a bath too');
 select is(public.my_care(:'today') -> 'bath' ->> 'muddy', 'false', 'without any mud');
 reset role;
 

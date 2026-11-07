@@ -52,6 +52,7 @@ import { PorchScene, porchFocusPoint } from '../kennel/PorchArt';
 import { RoomScene, RoomThumb, roomFocusPoint } from '../kennel/RoomArt';
 import { ROOM_ITEMS } from '../kennel/roomItems';
 import { CareTab } from '../care/CareTab';
+import { BathScene } from '../care/BathScene';
 import { useCare } from '../care/useCare';
 import { useTogether } from '../together/useTogether';
 import type { ParkHound } from '../together/together';
@@ -169,6 +170,8 @@ export function KennelScreen({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [ladderOpen, setLadderOpen] = useState(false);
+  // Bath time (0177): the bath you play, full screen.
+  const [bathOpen, setBathOpen] = useState(false);
   // The Yard (0148_yard.sql). Null until it loads, and if it can't (before
   // 0148 has run) the hound stands on its own as before.
   const [yard, setYard] = useState<Yard | null>(null);
@@ -529,13 +532,19 @@ export function KennelScreen({
     yard && trying?.kind === 'yard' && trying.spot ? { ...yard, spots: { ...yard.spots, [trying.spot]: trying.item.id } } : yard;
   const shownPorch = [...(yard?.porch ?? []), ...(trying?.kind === 'porch' && trying.item ? [trying.item.id as string] : [])];
   const shownRoom = [...(yard?.room ?? []), ...(trying?.kind === 'room' && trying.item ? [trying.item.id as string] : [])];
-  // The bath happens in the Yard: show it there, at the top.
+  // "Give a bath" opens bath time (0177). Its Quick bath is the old one,
+  // which happens in the Yard: show it there, at the top.
+  const quickBath = () => {
+    setBathOpen(false);
+    showZone(0);
+    pageRef.current?.scrollTo({ y: 0, animated: true });
+    return care.bath();
+  };
   const careState = {
     ...care,
-    bath: () => {
-      showZone(0);
-      pageRef.current?.scrollTo({ y: 0, animated: true });
-      return care.bath();
+    bath: async () => {
+      setBathOpen(true);
+      return true;
     },
   };
   // Bath day on the hound: muddy after a long walk, fresh after a bath.
@@ -1674,6 +1683,28 @@ export function KennelScreen({
         </Modal>
       )}
       {ladderOpen && <HoundLadderSheet kennel={kennel} onClose={() => setLadderOpen(false)} />}
+      <BathScene
+        visible={bathOpen}
+        hound={{
+          name: kennel.name,
+          rank: rank.id,
+          coatId: kennel.coatId,
+          breedId: kennel.breedId,
+          ears: kennel.ears,
+          tail: kennel.tail,
+          markings: kennel.markings,
+          muddy: !!care.care?.bath.muddy,
+        }}
+        bubbleCount={care.care?.bath.bubbles}
+        goldenBones={care.care?.bath.goldenBones}
+        currencyName={currencyName}
+        onQuick={quickBath}
+        onFinish={(popped, golden) => {
+          setBathOpen(false);
+          void care.finishBath(popped, golden);
+        }}
+        onClose={() => setBathOpen(false)}
+      />
     </SafeAreaView>
   );
 }
