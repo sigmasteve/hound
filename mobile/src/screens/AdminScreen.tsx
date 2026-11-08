@@ -37,6 +37,8 @@ import { WalksAdminCard } from '../components/WalksAdminCard';
 import { GardenAdminCard } from '../components/GardenAdminCard';
 import { CareAdminCard } from '../components/CareAdminCard';
 import { BathAdminCard } from '../components/BathAdminCard';
+import { ChallengesAdminCard } from '../components/ChallengesAdminCard';
+import { getChallengesOverview } from '../admin/challengesOverview';
 import { RoomAdminCard } from '../components/RoomAdminCard';
 import { TogetherAdminCard } from '../components/TogetherAdminCard';
 import { getTogetherOverview } from '../together/together';
@@ -148,6 +150,8 @@ export function AdminScreen({
   const [careSummary, setCareSummary] = useState<string | null>(null);
   // The Bath time fold's line: baths played this week (0177).
   const [bathSummary, setBathSummary] = useState<string | null>(null);
+  // The Challenges fold's line: running now and made this week (0180).
+  const [challengesSummary, setChallengesSummary] = useState<string | null>(null);
   const [roomSummary, setRoomSummary] = useState<string | null>(null);
   // The Together fold's line (0170).
   const [togetherSummary, setTogetherSummary] = useState<string | null>(null);
@@ -177,6 +181,9 @@ export function AdminScreen({
         .catch(() => {});
       getGardenOverview()
         .then((g) => setGardenSummary(`${g.growingNow} ${g.growingNow === 1 ? 'garden' : 'gardens'} growing`))
+        .catch(() => {});
+      getChallengesOverview()
+        .then((c) => setChallengesSummary(`${c.running} running now · ${c.created7d} new this week`))
         .catch(() => {});
       getBathOverview()
         .then((b) => setBathSummary(`${b.played7d} ${b.played7d === 1 ? 'bath' : 'baths'} played this week · ${b.bones7d} Bones paid`))
@@ -725,6 +732,9 @@ export function AdminScreen({
                   <AppVersionsCard />
                 </AdminFold>
                 </View>
+                <AdminFold title="Challenges" summary={challengesSummary ?? 'What’s running, by game'}>
+                  <ChallengesAdminCard />
+                </AdminFold>
                 <AdminFold title="Goals" summary="Who sets goals and hits them">
                   <GoalsAdminCard />
                 </AdminFold>
