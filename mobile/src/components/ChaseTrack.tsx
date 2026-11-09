@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text as NativeText, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Line, Path, Rect } from 'react-native-svg';
 import { PlayIcon } from 'phosphor-react-native';
 import { Text } from './Text';
@@ -229,19 +229,34 @@ export function RunnerMarker({
       <View style={[styles.face, { borderRadius: size / 2, borderColor: ring, opacity: tagged && !justTagged ? 0.75 : 1 }]}>
         <HoundArt {...r.hound} mood="happy" variant="avatar" size={size - 4} animate={false} />
       </View>
+      {/* The tags are part of the drawing, so they keep one size whatever
+          the text size setting (grown, they wrapped a letter or two to a
+          line over the face), and sit in a wide box so they never wrap. */}
       {r.it && tagging && (
-        <View style={styles.itBadge}>
-          <Text style={styles.itText}>{chaserLabel}</Text>
+        <View style={[styles.itBox, { left: size * 0.55 }]}>
+          <View style={styles.itBadge}>
+            <NativeText allowFontScaling={false} numberOfLines={1} style={styles.itText}>
+              {chaserLabel}
+            </NativeText>
+          </View>
         </View>
       )}
       {r.me && (
-        <View style={styles.meTag}>
-          <Text style={styles.meText}>You</Text>
+        <View style={styles.meBox}>
+          <View style={styles.meTag}>
+            <NativeText allowFontScaling={false} numberOfLines={1} style={styles.meText}>
+              You
+            </NativeText>
+          </View>
         </View>
       )}
       {justTagged && (
-        <View style={styles.tagPop}>
-          <Text style={styles.tagPopText}>{catchWord}</Text>
+        <View style={styles.popBox}>
+          <View style={styles.tagPop}>
+            <NativeText allowFontScaling={false} numberOfLines={1} style={styles.tagPopText}>
+              {catchWord}
+            </NativeText>
+          </View>
         </View>
       )}
     </View>
@@ -289,11 +304,14 @@ function pointOn(cx: number, cy: number, L: number, r: number, s: number): { x: 
 const styles = StyleSheet.create({
   runner: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   face: { width: '100%', height: '100%', borderWidth: 2.5, overflow: 'hidden', backgroundColor: '#fff6e8', alignItems: 'center', justifyContent: 'center' },
-  itBadge: { position: 'absolute', top: -9, right: -10, backgroundColor: IT_RED, borderRadius: 7, paddingHorizontal: 4, paddingVertical: 1 },
-  itText: { fontFamily: font.headingSemibold, fontSize: 9, color: '#ffffff', letterSpacing: 0.5 },
-  meTag: { position: 'absolute', bottom: -13, backgroundColor: '#ffd23f', borderRadius: 6, paddingHorizontal: 4 },
-  meText: { fontFamily: font.headingSemibold, fontSize: 9, color: '#3a2a00' },
-  tagPop: { position: 'absolute', top: -22, backgroundColor: '#ffd23f', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1.5 },
+  itBox: { position: 'absolute', top: -10, width: 120, alignItems: 'flex-start' },
+  itBadge: { backgroundColor: IT_RED, borderRadius: 7, paddingHorizontal: 4, paddingVertical: 1 },
+  itText: { fontFamily: font.headingSemibold, fontSize: 9.5, color: '#ffffff', letterSpacing: 0.5 },
+  meBox: { position: 'absolute', bottom: -14, left: -45, right: -45, alignItems: 'center' },
+  meTag: { backgroundColor: '#ffd23f', borderRadius: 6, paddingHorizontal: 4 },
+  meText: { fontFamily: font.headingSemibold, fontSize: 9.5, color: '#3a2a00' },
+  popBox: { position: 'absolute', top: -22, left: -60, right: -60, alignItems: 'center' },
+  tagPop: { backgroundColor: '#ffd23f', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 1.5 },
   tagPopText: { fontFamily: font.headingSemibold, fontSize: 11, color: '#3a2a00' },
   replay: {
     position: 'absolute',
