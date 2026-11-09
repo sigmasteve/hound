@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useId, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Circle, ClipPath, Defs, G, LinearGradient, Path, Polygon, Rect, Stop } from 'react-native-svg';
 import { Text } from './Text';
+import { crowdDots, perspective, project, sizeAt, type Perspective } from './perspective';
 import { Avatar } from './Avatar';
 import { Card } from './Card';
 import { DayCard } from './DayCard';
@@ -27,22 +29,22 @@ export type GroundPerson = Pick<Participant, 'userId' | 'name' | 'initials'> &
 
 const GRASS = '#3b7f4a';
 const GRASS_RING = '#357443';
+const GRASS_OUT = '#2c6238';
 const PITCH = '#d9c08a';
 const CHALK = 'rgba(255,255,255,0.88)';
 
 // Where the fielders stand, as a share of the ground from its centre:
 // round the ring, leaving the two ends of the pitch clear.
 const FIELD_SPOTS: [number, number][] = [
-  [-0.36, -0.2],
-  [0.36, -0.2],
-  [-0.4, 0.12],
-  [0.4, 0.12],
-  [-0.22, 0.38],
-  [0.22, 0.38],
-  [-0.18, -0.4],
-  [0.18, -0.4],
+  [-0.3, -0.3],
+  [0.3, -0.3],
+  [-0.4, -0.02],
+  [0.4, -0.02],
+  [-0.32, 0.26],
+  [0.32, 0.26],
+  [-0.12, 0.41],
+  [0.13, 0.43],
 ];
-
 function sideName(game: CricketGame, team: CricketTeam, people: GroundPerson[], userId: string | null | undefined): string {
   const members = cricketSide(game, team);
   const mine = cricketTeamOf(game, userId) === team;
@@ -51,9 +53,24 @@ function sideName(game: CricketGame, team: CricketTeam, people: GroundPerson[], 
   return names.length <= 2 ? names.join(' & ') : `${names[0]} +${names.length - 1}`;
 }
 
-// The ground from above: the pitch down the middle, the batter on strike
-// at the near end, the bowler at the far end, the rest of the fielding
-// side round the ring. The batting side's others wait in the pavilion.
+// The ground in perspective (perspective.ts) like every sport: seen from
+// behind the batter, the far end narrower, a stand with the sight screen
+// behind the bowler. The pitch runs up the middle with the stumps
+// standing at each end; the batter on strike at the near end, the bowler
+// at the far end, the rest of the fielding side round the ring, each
+// with a shadow. The batting side's others wait in the pavilion.
+//
+// Every spot is a share of the ground's width (x) and length (y, 0 at
+// the far boundary), put through project() so the art and the players
+// line up.
+// The pitch sits toward the near end, so the slips have room behind the
+// batter; the batter stands beside the stumps (so they show), and the
+// bowler's name goes above them so the pitch stays clear.
+const PITCH_Y: [number, number] = [0.36, 0.8];
+const STUMPS_Y: [number, number] = [0.38, 0.78];
+const BOWLER_AT = { x: 0.54, y: 0.33 };
+const BATTER_AT = { x: 0.455, y: 0.765 };
+
 export function CricketGround({
   game,
   onStrike,
@@ -69,31 +86,34 @@ export function CricketGround({
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const size = compact ? 28 : 38;
+  const [w, setW] = useState(0);
+  const h = Math.round(w * (compact ? 0.72 : 1.02));
+  const view = useMemo(() => perspective(w, h, { stand: h * (compact ? 0.12 : 0.13), botW: w * 1.02, near: h * 0.02, a: 0.74, b: 0.86 }), [w, h, compact]);
+  const size = compact ? 24 : 36;
   const bt = onStrike?.battingTeam ?? battingNow(game);
   const ft = otherSide(bt);
   const fielders = cricketSide(game, ft).filter((p) => p.playerId !== onStrike?.bowlerId);
   const batters = cricketSide(game, bt);
   const waiting = batters.filter((p) => p.playerId !== onStrike?.batterId);
 
-  const avatar = (p: CricketPlayer | undefined, ring?: 'bat' | 'bowl') => {
+  const avatar = (p: CricketPlayer | undefined, sz: number, ring?: 'bat' | 'bowl') => {
     if (!p) return null;
     const person = people.find((x) => x.userId === p.playerId);
     const isMe = p.playerId === userId;
     return (
-      <View style={[styles.ring, ring && styles.ringOn, { width: size + 6, height: size + 6, borderRadius: (size + 6) / 2 }]}>
+      <View style={[styles.ring, ring && styles.ringOn, { width: sz + 6, height: sz + 6, borderRadius: (sz + 6) / 2 }]}>
         {p.joined && person ? (
           <Avatar
             initials={person.initials}
             tint={isMe ? TINT_A : p.botId ? colors.neutral800 : TINT_N}
-            size={size}
+            size={sz}
             fontSize={compact ? 10 : 13}
             frameId={person.frameId}
             backgroundId={person.backgroundId}
             iconId={person.iconId}
           />
         ) : (
-          <View style={[styles.ghost, { width: size, height: size, borderRadius: size / 2 }]}>
+          <View style={[styles.ghost, { width: sz, height: sz, borderRadius: sz / 2 }]}>
             <View style={styles.ghostDot} />
           </View>
         )}
@@ -110,43 +130,53 @@ export function CricketGround({
       </Text>
     );
   };
+  // A player on the ground: centred on their spot, smaller further off,
+  // with a shadow, and their name under them at the ends of the pitch.
+  const onGround = (key: string, p: CricketPlayer | undefined, x: number, y: number, ring?: 'bat' | 'bowl', role?: string, labelAbove = false) => {
+    if (!p) return null;
+    const at = project(view, x, y);
+    const sz = sizeAt(view, at.s, size);
+    const boxW = role && !compact ? 170 : sz + 6;
+    return (
+      <View
+        key={key}
+        pointerEvents="none"
+        style={[
+          styles.player,
+          labelAbove && role && !compact ? { bottom: view.h - at.y - (sz + 6) / 2, flexDirection: 'column-reverse' } : { top: at.y - (sz + 6) / 2 },
+          { left: at.x - boxW / 2, width: boxW, zIndex: Math.round(y * 10) },
+        ]}
+      >
+        <View style={[styles.shadow, { width: sz * 0.8, height: sz * 0.2, borderRadius: sz, left: (boxW - sz * 0.8) / 2 }, labelAbove && role && !compact ? { bottom: -sz * 0.08 } : { top: sz + 1 }]} />
+        {avatar(p, sz, ring)}
+        {role && label(p, role)}
+      </View>
+    );
+  };
   const batter = game.players.find((p) => p.playerId === onStrike?.batterId);
   const bowler = game.players.find((p) => p.playerId === onStrike?.bowlerId);
 
   return (
     <View style={{ gap: 6 }}>
-      <View style={[styles.ground, compact && styles.groundCompact]}>
-        <View style={styles.innerRing} />
-        <View style={styles.pitch}>
-          <View style={[styles.crease, { top: '12%' }]} />
-          <View style={[styles.crease, { bottom: '12%' }]} />
-        </View>
-        <View style={[styles.end, styles.endFar]}>
-          {avatar(bowler, 'bowl')}
-          {label(bowler, 'bowling')}
-        </View>
-        <View style={[styles.end, styles.endNear]}>
-          {label(batter, 'batting')}
-          {avatar(batter, 'bat')}
-        </View>
-        {fielders.slice(0, FIELD_SPOTS.length).map((p, i) => {
-          const [x, y] = FIELD_SPOTS[i];
-          return (
-            <View
-              key={p.playerId}
-              style={[
-                styles.fielder,
-                { left: `${50 + x * 100}%`, top: `${50 + y * 100}%`, marginLeft: -(size + 6) / 2, marginTop: -(size + 6) / 2 },
-              ]}
-            >
-              {avatar(p)}
-            </View>
-          );
-        })}
-        {!onStrike && (
-          <View style={styles.restWrap} pointerEvents="none">
-            <Text style={styles.rest}>{game.status === 'final' ? 'Stumps' : 'Waiting for players'}</Text>
-          </View>
+      <View
+        onLayout={(e) => setW(Math.floor(e.nativeEvent.layout.width))}
+        style={[styles.ground, compact && styles.groundCompact, { height: h || undefined, aspectRatio: w ? undefined : compact ? 1.39 : 0.98 }]}
+      >
+        {w > 0 && (
+          <>
+            <GroundArt view={view} compact={!!compact} />
+            {fielders.slice(0, FIELD_SPOTS.length).map((p, i) => {
+              const [x, y] = FIELD_SPOTS[i];
+              return onGround(p.playerId, p, 0.5 + x, 0.5 + y);
+            })}
+            {onGround('bowler', bowler, BOWLER_AT.x, BOWLER_AT.y, 'bowl', 'bowling', true)}
+            {onGround('batter', batter, BATTER_AT.x, BATTER_AT.y, 'bat', 'batting')}
+            {!onStrike && (
+              <View style={[styles.restWrap, { zIndex: 20 }]} pointerEvents="none">
+                <Text style={styles.rest}>{game.status === 'final' ? 'Stumps' : 'Waiting for players'}</Text>
+              </View>
+            )}
+          </>
         )}
       </View>
       {!compact && waiting.length > 0 && onStrike && (
@@ -155,13 +185,94 @@ export function CricketGround({
           <View style={styles.pavilionRow}>
             {waiting.map((p) => (
               <View key={p.playerId} style={{ opacity: 0.85 }}>
-                {avatar(p)}
+                {avatar(p, size)}
               </View>
             ))}
           </View>
         </View>
       )}
     </View>
+  );
+}
+
+// The stand and the sight screen, the outfield inside the rope, mown in
+// stripes, the inner ring, and the pitch with its creases and stumps.
+function GroundArt({ view: v, compact }: { view: Perspective; compact: boolean }) {
+  const P = (x: number, y: number) => project(v, x, y);
+  const pts = (list: { x: number; y: number }[]) => list.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const quad = (x0: number, y0: number, x1: number, y1: number) => pts([P(x0, y0), P(x1, y0), P(x1, y1), P(x0, y1)]);
+  // An oval on the ground round the middle, rx and ry as shares.
+  const oval = (rx: number, ry: number, n = 64) =>
+    Array.from({ length: n }, (_, i) => {
+      const t = (i / n) * Math.PI * 2;
+      return P(0.5 + Math.cos(t) * rx, 0.5 + Math.sin(t) * ry);
+    });
+  const lw = compact ? 1 : 1.5;
+  const crowd = useMemo(() => crowdDots(v.w, v.stand, compact), [v.w, v.stand, compact]);
+  const id = `ground${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const rope = oval(0.53, 0.5);
+  const stripes = 10;
+  // The stumps at one end: three standing up from the crease, bails on top.
+  const stumps = (y: number, key: string) => {
+    const c = P(0.5, y);
+    const gap = 3 * c.s * (compact ? 0.8 : 1);
+    const hgt = (compact ? 10 : 20) * c.s;
+    return (
+      <G key={key}>
+        {[-1, 0, 1].map((k) => (
+          <Rect key={k} x={c.x + k * gap - 0.8} y={c.y - hgt} width={compact ? 1.6 : 2.2} height={hgt} fill="#f4ead2" stroke="rgba(0,0,0,0.25)" strokeWidth={0.4} />
+        ))}
+        <Rect x={c.x - gap - 1} y={c.y - hgt - 1.2} width={gap * 2 + 2} height={1.4} fill="#c8913f" />
+      </G>
+    );
+  };
+  return (
+    <Svg width={v.w} height={v.h} style={StyleSheet.absoluteFill}>
+      <Defs>
+        <ClipPath id={id}>
+          <Polygon points={pts(rope)} />
+        </ClipPath>
+        <LinearGradient id={`${id}l`} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#000000" stopOpacity="0.18" />
+          <Stop offset="0.5" stopColor="#000000" stopOpacity="0" />
+          <Stop offset="1" stopColor="#ffffff" stopOpacity="0.06" />
+        </LinearGradient>
+      </Defs>
+      {/* The stand behind the far boundary, its fans, and the white sight
+          screen behind the bowler's arm. */}
+      <Rect x={0} y={0} width={v.w} height={v.stand} fill="#2a2f45" />
+      <Rect x={0} y={0} width={v.w} height={v.stand * 0.22} fill="#1d2133" />
+      {crowd.map((c, i) => (
+        <Circle key={i} cx={c.x} cy={c.y} r={compact ? 1.8 : 2.4} fill={c.c} opacity={0.85} />
+      ))}
+      <Rect x={v.w * 0.42} y={v.stand * 0.25} width={v.w * 0.16} height={v.y0 - v.stand * 0.25} fill="#f3f1ea" />
+      <Rect x={0} y={v.stand} width={v.w * 0.42} height={v.y0 - v.stand} fill="#3fb37f" />
+      <Rect x={v.w * 0.58} y={v.stand} width={v.w * 0.42} height={v.y0 - v.stand} fill="#3fb37f" />
+      {/* Beyond the rope, then the outfield inside it, mown in stripes. */}
+      <Rect x={0} y={v.y0} width={v.w} height={v.h - v.y0} fill={GRASS_OUT} />
+      <G clipPath={`url(#${id})`}>
+        {Array.from({ length: stripes }, (_, i) => (
+          <Polygon key={i} points={quad(-0.1, i / stripes - 0.01, 1.1, (i + 1) / stripes + 0.01)} fill={i % 2 ? GRASS : GRASS_RING} />
+        ))}
+      </G>
+      <Polygon points={pts(rope)} fill="none" stroke={CHALK} strokeWidth={compact ? 1.5 : 2.2} />
+      <Polygon points={pts(oval(0.32, 0.3))} fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth={lw} strokeDasharray="4 4" />
+      {/* The pitch, its creases, and the stumps. */}
+      <Polygon points={quad(0.465, PITCH_Y[0], 0.535, PITCH_Y[1])} fill={PITCH} />
+      {[STUMPS_Y[0] + 0.035, STUMPS_Y[1] - 0.035].map((y, i) => {
+        const a = P(0.44, y);
+        const b = P(0.56, y);
+        return <Path key={`p${i}`} d={`M ${a.x} ${a.y} L ${b.x} ${b.y}`} stroke={CHALK} strokeWidth={lw} />;
+      })}
+      {STUMPS_Y.map((y, i) => {
+        const a = P(0.47, y);
+        const b = P(0.53, y);
+        return <Path key={`b${i}`} d={`M ${a.x} ${a.y} L ${b.x} ${b.y}`} stroke={CHALK} strokeWidth={lw} />;
+      })}
+      <Rect x={0} y={v.y0} width={v.w} height={v.h - v.y0} fill={`url(#${id}l)`} />
+      {stumps(STUMPS_Y[0], 'far')}
+      {stumps(STUMPS_Y[1], 'near')}
+    </Svg>
   );
 }
 
@@ -398,26 +509,11 @@ function makeStyles(colors: Palette) {
     note: { fontSize: 12.5, color: withAlpha(colors.text, 0.7), lineHeight: 18 },
     chase: { fontFamily: font.heading, fontSize: 14, color: colors.accentActive },
     result: { fontFamily: font.heading, fontSize: 15, color: colors.text },
-    ground: {
-      width: '100%',
-      aspectRatio: 1.15,
-      maxWidth: '100%',
-      borderRadius: 999,
-      backgroundColor: GRASS,
-      borderWidth: 3,
-      borderColor: CHALK,
-      overflow: 'hidden',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    groundCompact: { aspectRatio: 1.6 },
-    innerRing: { position: 'absolute', width: '62%', height: '62%', borderRadius: 999, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)', borderStyle: 'dashed', backgroundColor: GRASS_RING },
-    pitch: { position: 'absolute', width: '13%', height: '46%', backgroundColor: PITCH, borderRadius: 3 },
-    crease: { position: 'absolute', left: -6, right: -6, height: 2, backgroundColor: CHALK },
-    end: { position: 'absolute', alignItems: 'center', gap: 2, left: 0, right: 0 },
-    endFar: { top: '10%' },
-    endNear: { bottom: '10%' },
-    // A dark pill, so the name reads over the tan pitch and its creases.
+    ground: { width: '100%', borderRadius: 12, overflow: 'hidden', backgroundColor: GRASS_OUT },
+    groundCompact: { borderRadius: 10 },
+    player: { position: 'absolute', alignItems: 'center', gap: 2 },
+    shadow: { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.22)' },
+    // A dark pill, so the name reads over the grass and the pitch.
     endLabel: {
       color: '#ffffff',
       fontSize: 11,
@@ -430,7 +526,6 @@ function makeStyles(colors: Palette) {
       overflow: 'hidden',
     },
     endLabelMe: { color: '#ffe3a3' },
-    fielder: { position: 'absolute' },
     ring: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
     ringOn: { borderColor: colors.amber },
     // Someone who hasn't accepted yet: a small dot, not a big '?'.
