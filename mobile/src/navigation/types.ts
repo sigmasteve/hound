@@ -1,7 +1,7 @@
 import type { RematchDraft } from '../challenges/rematch';
 import type { ChallengeKind } from '../data/sampleData';
 
-export type MainTab = 'home' | 'challenges' | 'friends' | 'you';
+export type MainTab = 'home' | 'challenges' | 'clubs' | 'friends' | 'you';
 
 // The challenge screen's three tabs.
 export type ChallengeTab = 'board' | 'talk' | 'details';
@@ -19,7 +19,7 @@ export type RootStackParamList = {
   // inviteUserIds: friends already picked on step 3 (a friend's page's
   // "Start a challenge").
   Create:
-    | { rematch?: RematchDraft; global?: boolean; kind?: ChallengeKind; fromSetup?: boolean; inviteUserIds?: string[] }
+    | { rematch?: RematchDraft; global?: boolean; kind?: ChallengeKind; fromSetup?: boolean; inviteUserIds?: string[]; clubId?: string }
     | undefined;
   // tab: which part of the challenge to open on (Board by default).
   ChallengeDetail: { challengeId: string; tab?: ChallengeTab };
@@ -55,8 +55,12 @@ export type RootStackParamList = {
   Achievements: undefined;
   // K-01: search and filter challenges to join or start.
   Discover: undefined;
-  // K-04: a community challenge's Join card, from its link.
+  // K-04: a community challenge's Join card, from its link (or a club's,
+  // 0185, for a 6-character code).
   JoinCode: { code: string };
+  // 0185: a club's page, and starting (or editing) one.
+  Club: { clubId: string };
+  StartClub: { clubId?: string } | undefined;
   // Opened from the You tab (they used to be tabs or the top bar).
   Stats: undefined;
   Settings: undefined;

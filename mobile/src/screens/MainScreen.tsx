@@ -9,6 +9,7 @@ import type { MainTab, RootStackParamList } from '../navigation/types';
 import { HomeScreen, type HomeDestination } from './HomeScreen';
 import { ChallengesScreen } from './ChallengesScreen';
 import { FriendsScreen } from './FriendsScreen';
+import { ClubsScreen } from './ClubsScreen';
 import { YouScreen } from './YouScreen';
 import { startBackgroundSync } from '../background';
 
@@ -76,6 +77,16 @@ export function MainScreen({ route, navigation }: Props) {
             onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
             onCreate={() => navigation.navigate('Create')}
             onStart={(kind) => navigation.navigate('Create', { kind })}
+            onPickUsername={() => navigation.navigate('Settings')}
+          />
+        )}
+        {tab === 'clubs' && (
+          <ClubsScreen
+            onOpenClub={(clubId) => navigation.navigate('Club', { clubId })}
+            onStartClub={() => navigation.navigate('StartClub')}
+            onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
+            onJoinCode={(code) => navigation.navigate('JoinCode', { code })}
+            onPublish={() => navigation.navigate('Create')}
             onPickUsername={() => navigation.navigate('Settings')}
           />
         )}

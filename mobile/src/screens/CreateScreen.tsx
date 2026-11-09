@@ -101,6 +101,8 @@ import { useAuth } from '../auth/AuthContext';
 import { getMyHoundScore } from '../challenges/scoreApi';
 import { listChallengeUnlockGates, type ChallengeUnlockGates } from '../challenges/unlockGatesApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
+import { ShareWithClubs } from '../clubs/ShareWithClubs';
+import { CLUB_KINDS, postToClubs } from '../clubs/clubsApi';
 import {
   GLOBAL_KINDS,
   GLOBAL_TEMPLATES,
@@ -181,8 +183,12 @@ export function CreateScreen({
   global = false,
   kind,
   inviteUserIds,
+  clubId,
   onOpenChallenge,
 }: {
+  // 0185: opened from a club's "Post a challenge": that club starts
+  // ticked under Share with your clubs.
+  clubId?: string;
   onCancel: () => void;
   onFinish: () => void;
   // Opens a challenge just published as a community challenge, where its
@@ -216,6 +222,8 @@ export function CreateScreen({
   // A Step Race to start with: four fields, the simplest kind, so a
   // first challenge doesn't open on the chase's six controls.
   const [draftType, setDraftType] = useState<ChallengeKind>(rematch?.kind ?? kind ?? 'steps');
+  // 0185: the clubs it's posted to once it's made.
+  const [clubIds, setClubIds] = useState<string[]>(clubId ? [clubId] : []);
   const [draftName, setDraftName] = useState(rematch?.name ?? '');
   const [headStart, setHeadStart] = useState(rematch?.headStartDays ?? 2);
   const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>(rematch?.distanceGoalUnit ?? 'miles');
@@ -1084,6 +1092,11 @@ export function CreateScreen({
             supabaseChallengesProvider.inviteFriendToChallenge(created.id, friendUserId, roleFor(friendUserId)),
           ),
       );
+      // 0185: onto the clubs picked, best-effort like the invites (it can
+      // be posted again from the challenge's Details).
+      if (clubIds.length > 0 && CLUB_KINDS.includes(draftType)) {
+        await postToClubs(created.id, clubIds).catch(() => {});
+      }
       onFinish();
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : 'Could not save that challenge — try again.');
@@ -2359,6 +2372,8 @@ export function CreateScreen({
               )}
             </View>
           )}
+          {/* 0185: club members see it and join, alongside anyone invited. */}
+          <ShareWithClubs kind={draftType} value={clubIds} onChange={setClubIds} />
         </View>
       )}
 

@@ -23,6 +23,8 @@ import { HelpScreen } from '../screens/HelpScreen';
 import { AchievementsScreen } from '../screens/AchievementsScreen';
 import { DiscoverScreen } from '../screens/DiscoverScreen';
 import { JoinCodeScreen } from '../screens/JoinCodeScreen';
+import { ClubScreen } from '../screens/ClubScreen';
+import { StartClubScreen } from '../screens/StartClubScreen';
 import { useChallengeCodeLinks } from '../challenges/codeLinks';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { MetricsScreen } from '../screens/MetricsScreen';
@@ -231,6 +233,7 @@ export function RootNavigator() {
                   rematch={route.params?.rematch}
                   global={route.params?.global}
                   inviteUserIds={route.params?.inviteUserIds}
+                  clubId={route.params?.clubId}
                   // Always lands on the Challenges tab, regardless of
                   // whether Create was opened from Home or Challenges —
                   // same "land somewhere fixed and meaningful" reasoning
@@ -451,7 +454,29 @@ export function RootNavigator() {
                   code={route.params.code}
                   onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { tab: 'challenges' }))}
                   onJoined={(challengeId) => navigation.replace('ChallengeDetail', { challengeId })}
+                  onJoinedClub={(clubId) => navigation.replace('Club', { clubId })}
                   onPickUsername={() => navigation.navigate('Settings')}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Club" options={{ animation: 'slide_from_right' }}>
+              {({ navigation, route }) => (
+                <ClubScreen
+                  clubId={route.params.clubId}
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { tab: 'clubs' }))}
+                  onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
+                  onPostChallenge={() => navigation.navigate('Create', { clubId: route.params.clubId })}
+                  onEdit={() => navigation.navigate('StartClub', { clubId: route.params.clubId })}
+                  onPickUsername={() => navigation.navigate('Settings')}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="StartClub" options={{ animation: 'slide_from_bottom' }}>
+              {({ navigation, route }) => (
+                <StartClubScreen
+                  clubId={route.params?.clubId}
+                  onBack={() => navigation.goBack()}
+                  onDone={(clubId) => (route.params?.clubId ? navigation.goBack() : navigation.replace('Club', { clubId }))}
                 />
               )}
             </Stack.Screen>

@@ -1,9 +1,10 @@
 (function () {
   'use strict';
 
-  // /c/<code>: a community challenge's invite (K-04, 0152). Shows what the
-  // challenge is, opens Hound right on it (hound://c/<code>), and for
-  // someone without Hound yet, how to get it and the code to enter.
+  // /c/<code>: a community challenge's invite (K-04, 0152), or a club's
+  // (0185: club codes are 6 characters, challenge codes 7). Shows what
+  // it is, opens Hound right on it (hound://c/<code>), and for someone
+  // without Hound yet, how to get it and the code to enter.
 
   var cfg = window.HOUND_CONFIG || {};
   var isConfigured =
@@ -46,6 +47,10 @@
   }
 
   var code = codeFromPath();
+  if (code.length === 6) {
+    showClub();
+    return;
+  }
   if (code.length !== 7) {
     render('<h2 class="section-title">This challenge link doesn’t look right</h2>');
     return;
@@ -102,5 +107,41 @@
         }).catch(function () {});
       }
     });
+  }
+  // A club's invite: its name, sport, city and members, signed out
+  // (club_code_public, 0185).
+  function showClub() {
+    // Inside: the page returns before reaching anything set below it.
+    var SPORTS = { running: 'Running', cycling: 'Cycling', walking: 'Walking', hiking: 'Hiking', swimming: 'Swimming', mixed: 'Mixed' };
+    function clubNotFound() {
+      render(
+        '<h2 class="section-title">This club link doesn’t work</h2>' +
+        '<p class="section-sub">The code may have been mistyped or changed. Ask whoever sent it for a new one.</p>'
+      );
+    }
+    client.rpc('club_code_public', { p_code: code })
+      .then(function (res) {
+        var row = res.data && res.data[0];
+        if (res.error || !row) {
+          clubNotFound();
+          return;
+        }
+        var what = (SPORTS[row.sport] || 'Club') + (row.city ? ' · ' + row.city : '');
+        var members = row.members === 1 ? '1 member' : row.members + ' members';
+        render(
+          '<p class="section-sub" style="margin:0;text-transform:uppercase;letter-spacing:.06em;font-size:12px">' +
+            escapeHtml(what) + '</p>' +
+          '<h2 class="section-title">' + escapeHtml(row.name) + '</h2>' +
+          '<p class="section-sub">' + escapeHtml(members) + '. Join the club on Hound to see its challenges.</p>' +
+          '<p><a class="btn btn-primary btn-block" href="hound://c/' + encodeURIComponent(code) + '">Open in Hound</a></p>' +
+          '<div class="notes">' +
+            '<p class="section-sub" style="margin:0 0 8px">No Hound yet? Get it, then go to <b>Clubs</b> → <b>Have a club code?</b> and enter:</p>' +
+            '<div class="linkbox"><span style="flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:18px;letter-spacing:0.08em;user-select:all">' +
+              escapeHtml(pretty(code)) + '</span></div>' +
+            '<p><a class="btn btn-secondary btn-block" href="/get">Get Hound</a></p>' +
+          '</div>'
+        );
+      })
+      .catch(clubNotFound);
   }
 })();

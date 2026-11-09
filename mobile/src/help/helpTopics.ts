@@ -37,10 +37,11 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       id: 'navigating',
       section: 'basics',
       title: 'Getting around',
-      summary: 'The four tabs at the bottom of the screen.',
+      summary: 'The five tabs at the bottom of the screen.',
       steps: [
         'Today: your challenges and anything that needs you right now.',
         'Challenges: everything you’re in, invites waiting on you, and your medals.',
+        'Clubs: your run club, cycling group or walkers, and community challenges anyone can join. A number on it means new club challenges.',
         'Friends: your friends, requests, and ways to add someone.',
         `You (your picture): your level, Hound Score and ${currency}, then Your progress (Goals, Stats & records, Achievements), Spend your ${currency} (Your look, Kennel) and App (Health data, Settings and this Help guide). Tap ${currency} to see how to earn and spend them.`,
       ],
@@ -126,6 +127,19 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Spot someone on its leaderboard you’d like to keep up with? Tap Add next to their name.',
         `Some have prizes for the top 3, shown on the card. Hound pays them in ${currency} when it ends, and ties share a place.`,
         'Some are sponsored by a brand, shown as “Sponsored by” on the card. Tap it to visit their site. Any real prize they offer comes from the sponsor, and Hound never shares your details with them.',
+      ],
+    },
+    {
+      id: 'clubs',
+      section: 'challenges',
+      title: 'Clubs',
+      summary: 'Run clubs, cycling groups and walkers, with challenges to join.',
+      steps: [
+        'Open the Clubs tab. Find a public club by name, city or sport, or enter, paste or scan a club’s code.',
+        'In a club, its page shows the challenges members have posted, with a Join button, how the club did this week, and who’s in it.',
+        'Making a challenge? Tick your clubs under Share with your clubs, or share it later from its Details. Club members get a push, and anyone else can still join with your invite.',
+        'Start your own from Clubs → Start a club, once you reach the level it asks for. Public clubs can be found; private ones are joined with their code, link or QR (Invite on its page).',
+        'Too many pushes? Tap the bell on a club’s page to mute it. Clubs show usernames, so you’ll need one to join.',
       ],
     },
     {
