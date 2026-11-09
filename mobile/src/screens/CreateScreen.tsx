@@ -156,7 +156,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   cricket: 'An over a day: your steps against the bowler’s. Then chase.',
   baseball: 'An inning a day: aim, swing and run on your steps.',
   steps: 'Most steps wins.',
-  tag: 'Each round starts at 0. Out-step who you pick, or stay It.',
+  tag: 'One hound is IT each day. Stay ahead, or be IT tomorrow.',
   distance: 'The group chases one shared target.',
   streak: 'Hit your goal every day.',
   bingo: 'Real bingo with steps and workouts; first line wins.',
