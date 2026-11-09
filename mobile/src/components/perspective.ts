@@ -53,3 +53,19 @@ export function groundPath(v: Perspective, pts: [number, number][], close = fals
       .join(' ') + (close ? ' Z' : '')
   );
 }
+
+// The fans in a stand: rows of coloured dots across its width, the same
+// for the same size every time.
+export function crowdDots(w: number, stand: number, compact: boolean): { x: number; y: number; c: string }[] {
+  const out: { x: number; y: number; c: string }[] = [];
+  const colors = ['#e5484d', '#ffd23f', '#4f7ae5', '#ffffff', '#f08a24', '#8b6fd6', '#3fb37f'];
+  const rows = compact ? 3 : 4;
+  for (let r = 0; r < rows; r++) {
+    const y = stand * (0.3 + (0.62 * r) / rows);
+    const n = Math.round(w / (compact ? 7 : 8));
+    for (let i = 0; i < n; i++) {
+      out.push({ x: (i + (r % 2) * 0.5) * (w / n), y: y + ((i * 31) % 5) * 0.4, c: colors[(i * 7 + r * 13) % colors.length] });
+    }
+  }
+  return out;
+}
