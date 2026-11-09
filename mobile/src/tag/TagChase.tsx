@@ -95,8 +95,11 @@ export function TagReplayCard({
   itId,
   headStart,
   steps,
+  last = false,
 }: {
   day: number;
+  // The game's last day: nobody's IT next.
+  last?: boolean;
   players: TagPlayer[];
   itId: string;
   headStart: number;
@@ -130,7 +133,7 @@ export function TagReplayCard({
   return (
     <Card style={{ gap: 12 }} elevated={false}>
       <View style={styles.rowBetween}>
-        <Text style={text.h4}>Last night&rsquo;s chase</Text>
+        <Text style={text.h4}>{last ? 'The last chase' : 'Last night’s chase'}</Text>
         <Text style={styles.kicker}>DAY {day}</Text>
       </View>
       <ChaseTrack runners={runners} width={trackW} />
@@ -154,14 +157,14 @@ export function TagReplayCard({
           <Text style={styles.points}>{tagged.length ? `+${tagged.length * 3}` : ''}</Text>
         </View>
       </View>
-      <View style={styles.nextIt}>
+      {!last && <View style={styles.nextIt}>
         <HoundArt {...nextIt.hound} neckId="bandana_red" mood="happy" variant="avatar" size={34} animate={false} />
         <Text style={styles.nextItText}>
           {nextIt.id === it.id
             ? `Nobody tagged, so ${it.name} stays IT today.`
             : `${nextIt.me ? 'You were' : `${nextIt.name} was`} the slowest tagged: ${nextIt.me ? 'you’re' : 'they’re'} IT today.`}
         </Text>
-      </View>
+      </View>}
     </Card>
   );
 }
