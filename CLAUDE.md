@@ -56,6 +56,17 @@ Steve merges fast, often before the next message. So, every time:
   Connect keys live in `ASC_ISSUER_ID`, `ASC_KEY_ID`, `ASC_PRIVATE_KEY`;
   the Play service account in `GPLAY_SERVICE_ACCOUNT_JSON`.
 
+## Sports fields are 2.5D
+
+Every sport's field is drawn in perspective, like Soccer's pitch and
+Baseball's ballpark: seen from behind the near end, the far end narrower,
+a stand of fans behind it, players with shadows that shrink with
+distance, and the real ball (SoccerBall, not a dot). Use
+`mobile/src/components/perspective.ts`: draw on the ground in shares of
+its width and length and put every point (lines, players, the ball,
+replays) through `project()`, so they all line up. New sports start this
+way; mock it up first.
+
 ## Today screen layout
 
 Steve's agreed layout for Today (`mobile/src/screens/HomeScreen.tsx`,

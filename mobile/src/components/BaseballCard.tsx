@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, G, Line, LinearGradient as SvgLinearGradient, Path, Polygon, Rect, Stop, Text as SvgText } from 'react-native-svg';
+import { groundPath, perspective, project, sizeAt } from './perspective';
 import { PauseIcon, PlayIcon } from 'phosphor-react-native';
 import { Text } from './Text';
 import { Avatar } from './Avatar';
@@ -120,7 +121,6 @@ export function BaseballField({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [width, setWidth] = useState(0);
-  const k = width / W;
   const size = compact ? 20 : 26;
   const ft = otherTeam(moment.battingTeam);
   const fielding = baseballSide(game, ft);
@@ -152,11 +152,57 @@ export function BaseballField({
   };
   const runner = (id: string | null) => game.players.find((p) => p.playerId === id);
 
-  const zonePath: Record<BaseballZone, string> = {
-    left: 'M160 252 L68 160 A300 300 0 0 1 202 82 L236 208 A170 170 0 0 0 160 252 Z',
-    center: 'M236 208 L202 82 A300 300 0 0 1 358 82 L324 208 A170 170 0 0 0 236 208 Z',
-    right: 'M324 208 L358 82 A300 300 0 0 1 492 160 L400 252 A170 170 0 0 0 324 208 Z',
+  // The ballpark in 2.5D (perspective.ts), from behind home plate: the
+  // same 560 x 400 ground as before (AT, BASE, ZONE_SPOT), every point
+  // put through project(), so tapping a zone, the fielders, runners and
+  // the ball all line up with the drawing.
+  const hgt = width * (compact ? 0.82 : 0.9);
+  const v = useMemo(() => perspective(width, hgt, { stand: hgt * 0.14, near: hgt * 0.1, botW: width * 1.02, a: 0.7, b: 0.82 }), [width, hgt]);
+  const G2 = (x: number, y: number): [number, number] => [x / W, y / H];
+  const P = (x: number, y: number) => project(v, x / W, y / H);
+  const path = (pts: [number, number][], close = true) => groundPath(v, pts.map(([x, y]) => G2(x, y)), close);
+  const arc = (r: number, from: { x: number; y: number }, to: { x: number; y: number }, n = 28): [number, number][] => {
+    const a0 = Math.atan2(from.y - HOME.y, from.x - HOME.x);
+    const a1 = Math.atan2(to.y - HOME.y, to.x - HOME.x);
+    return Array.from({ length: n + 1 }, (_, i) => {
+      const a = a0 + ((a1 - a0) * i) / n;
+      return [HOME.x + Math.cos(a) * r, HOME.y + Math.sin(a) * r];
+    });
   };
+  const FL = { x: 68, y: 160 };
+  const FR = { x: 492, y: 160 };
+  const fence = arc(300, FL, FR, 48);
+  const zonePts: Record<BaseballZone, [number, number][]> = {
+    left: [[160, 252], [68, 160], ...arc(300, FL, { x: 202, y: 82 }), [236, 208], ...arc(170, { x: 236, y: 208 }, { x: 160, y: 252 }, 10)],
+    center: [[236, 208], [202, 82], ...arc(300, { x: 202, y: 82 }, { x: 358, y: 82 }), [324, 208], ...arc(170, { x: 324, y: 208 }, { x: 236, y: 208 }, 10)],
+    right: [[324, 208], [358, 82], ...arc(300, { x: 358, y: 82 }, FR), [400, 252], ...arc(170, { x: 400, y: 252 }, { x: 324, y: 208 }, 10)],
+  };
+  const wallH = compact ? 8 : 13;
+  const wallTop = fence.map(([x, y]) => {
+    const q = P(x, y);
+    return `${q.x.toFixed(1)},${(q.y - wallH * q.s).toFixed(1)}`;
+  });
+  const wallBase = fence.map(([x, y]) => {
+    const q = P(x, y);
+    return `${q.x.toFixed(1)},${q.y.toFixed(1)}`;
+  });
+  // Fans in the bleachers beyond the wall.
+  const crowd = useMemo(() => {
+    const out: { x: number; y: number; c: string; r: number }[] = [];
+    if (!width) return out;
+    const colors = ['#e5484d', '#ffd23f', '#4f7ae5', '#ffffff', '#f08a24', '#8b6fd6', '#3fb37f'];
+    for (let gy = 6; gy < 150; gy += compact ? 13 : 10) {
+      for (let gx = 4; gx < W; gx += compact ? 15 : 11) {
+        const dy = gx - HOME.x;
+        const fenceY = HOME.y - Math.sqrt(Math.max(0, 300 * 300 - dy * dy));
+        if (gy > fenceY - 16) continue;
+        const q = project(v, (gx + ((gy * 7) % 5)) / W, gy / H);
+        out.push({ x: q.x, y: q.y, c: colors[(gx * 3 + gy) % colors.length], r: 2.6 * q.s });
+      }
+    }
+    return out;
+  }, [v, width, compact]);
+  const stripes = Array.from({ length: 12 }, (_, i) => 72 + i * 26);
 
   const ball = moment.ball;
   const ballEnd = ball
@@ -166,58 +212,100 @@ export function BaseballField({
         ? AT[ball.to]
         : null
     : null;
+  const home = P(HOME.x, HOME.y);
+  const end = ballEnd ? P(ballEnd.x, ballEnd.y) : null;
 
   return (
-    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ width: '100%', aspectRatio: W / H }}>
+    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ width: '100%', aspectRatio: 1 / (compact ? 0.82 : 0.9) }}>
       {width > 0 && (
         <>
-          <Svg width={width} height={width * (H / W)} viewBox={`0 0 ${W} ${H}`}>
-            <Rect x={0} y={0} width={W} height={H} rx={16} fill={GRASS_DARK} />
-            <Path d={`M${HOME.x} ${HOME.y} L68 160 A300 300 0 0 1 492 160 Z`} fill={GRASS} stroke={CHALK} strokeWidth={2} />
+          <Svg width={width} height={hgt}>
+            <Defs>
+              <ClipPath id="fair">
+                <Path d={path([[HOME.x, HOME.y], ...fence])} />
+              </ClipPath>
+              <SvgLinearGradient id="dusk" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#000000" stopOpacity="0.16" />
+                <Stop offset="0.55" stopColor="#000000" stopOpacity="0" />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect x={0} y={0} width={width} height={hgt} rx={16} fill="#2a2f45" />
+            <Rect x={0} y={0} width={width} height={v.stand * 0.45} fill="#1d2133" />
+            {/* The bleachers: the ground beyond the wall, full of fans. */}
+            <Path d={path([[0, 0], [W, 0], [W, 140], ...[...fence].reverse(), [0, 140]])} fill="#3a4060" />
+            {crowd.map((c, i) => (
+              <Circle key={i} cx={c.x} cy={c.y} r={c.r} fill={c.c} opacity={0.85} />
+            ))}
+            {/* Foul ground, then fair ground mown in stripes. */}
+            <Path d={path([[0, 140], ...fence, [W, 140], [W, H], [0, H]])} fill={GRASS_DARK} />
+            <Rect x={0} y={v.y1 - 1} width={width} height={hgt - v.y1 + 1} fill={GRASS_DARK} />
+            <Path d={path([[HOME.x, HOME.y], ...fence])} fill={GRASS} />
+            <G clipPath="url(#fair)">
+              {stripes.map((y, i) =>
+                i % 2 ? <Path key={y} d={path([[0, y], [W, y], [W, y + 26], [0, y + 26]])} fill={GRASS_DARK} opacity={0.55} /> : null,
+              )}
+            </G>
             {(['left', 'center', 'right'] as BaseballZone[]).map((z) => (
               <Path
                 key={z}
-                d={zonePath[z]}
-                fill={litZone === z ? ZONE_ON : 'transparent'}
+                d={path(zonePts[z])}
+                fill={litZone === z ? ZONE_ON : 'rgba(0,0,0,0.001)'}
                 stroke="rgba(255,255,255,0.35)"
-                strokeWidth={1.5}
+                strokeWidth={1.2}
                 onPress={onZone ? () => onZone(z) : undefined}
               />
             ))}
-            <Path d={`M${HOME.x} ${HOME.y} L160 252 A170 170 0 0 1 400 252 Z`} fill={DIRT} opacity={0.55} />
-            <Path d={`M${HOME.x} ${HOME.y} L351 301 L280 231 L209 301 Z`} fill={GRASS} stroke={CHALK} strokeWidth={2} />
-            <Circle cx={AT.p.x} cy={AT.p.y + 4} r={11} fill={DIRT} />
-            {[BASE.first, BASE.second, BASE.third].map((b, i) => (
-              <Rect key={i} x={b.x - 6} y={b.y - 6} width={12} height={12} fill="#ffffff" transform={`rotate(45 ${b.x} ${b.y})`} />
+            {/* The infield: dirt, the grass diamond, chalk lines to the poles. */}
+            <Path d={path([[HOME.x, HOME.y], [160, 252], ...arc(170, { x: 160, y: 252 }, { x: 400, y: 252 }, 24)])} fill={DIRT} />
+            <Path d={path([[HOME.x, HOME.y], [BASE.first.x, BASE.first.y], [BASE.second.x, BASE.second.y], [BASE.third.x, BASE.third.y]])} fill={GRASS} />
+            <Path d={path([[HOME.x, HOME.y], [FL.x, FL.y]], false)} stroke={CHALK} strokeWidth={1.6} />
+            <Path d={path([[HOME.x, HOME.y], [FR.x, FR.y]], false)} stroke={CHALK} strokeWidth={1.6} />
+            <Path d={path(Array.from({ length: 21 }, (_, i): [number, number] => [AT.p.x + Math.cos((i / 20) * Math.PI * 2) * 13, AT.p.y + 4 + Math.sin((i / 20) * Math.PI * 2) * 11]))} fill={DIRT} />
+            <Path d={path(Array.from({ length: 21 }, (_, i): [number, number] => [HOME.x + Math.cos((i / 20) * Math.PI * 2) * 26, HOME.y - 2 + Math.sin((i / 20) * Math.PI * 2) * 20]))} fill={DIRT} />
+            {[-1, 1].map((side) => (
+              <Path key={side} d={path([[HOME.x + side * 9, HOME.y - 12], [HOME.x + side * 22, HOME.y - 12], [HOME.x + side * 22, HOME.y + 10], [HOME.x + side * 9, HOME.y + 10]])} fill="none" stroke={CHALK} strokeWidth={1.2} />
             ))}
-            <Path d={`M${HOME.x - 7} ${HOME.y - 4} L${HOME.x + 7} ${HOME.y - 4} L${HOME.x + 7} ${HOME.y + 2} L${HOME.x} ${HOME.y + 8} L${HOME.x - 7} ${HOME.y + 2} Z`} fill="#ffffff" />
+            {[BASE.first, BASE.second, BASE.third].map((b, i) => (
+              <Path key={i} d={path([[b.x, b.y - 7], [b.x + 7, b.y], [b.x, b.y + 7], [b.x - 7, b.y]])} fill="#ffffff" />
+            ))}
+            <Path d={path([[HOME.x - 7, HOME.y - 4], [HOME.x + 7, HOME.y - 4], [HOME.x + 7, HOME.y + 2], [HOME.x, HOME.y + 8], [HOME.x - 7, HOME.y + 2]])} fill="#ffffff" />
+            {/* The outfield wall, standing up, and the foul poles. */}
+            <Polygon points={[...wallBase, ...[...wallTop].reverse()].join(' ')} fill="#1f4e35" />
+            <Path d={`M ${wallTop.join(' L ')}`} fill="none" stroke="#ffd23f" strokeWidth={compact ? 1.5 : 2.2} />
+            {[FL, FR].map((f, i) => {
+              const q = P(f.x, f.y);
+              return <Line key={i} x1={q.x} y1={q.y} x2={q.x} y2={q.y - 46 * q.s} stroke="#ffd23f" strokeWidth={compact ? 2 : 3} />;
+            })}
+            <Rect x={0} y={v.y0} width={width} height={hgt - v.y0} fill="url(#dusk)" />
             {!compact &&
-              (['left', 'center', 'right'] as BaseballZone[]).map((z) => (
-                <SvgText
-                  key={z}
-                  x={z === 'left' ? 128 : z === 'center' ? 280 : 432}
-                  y={z === 'center' ? 106 : 150}
-                  fontSize={15}
-                  fontWeight="bold"
-                  fill="rgba(255,255,255,0.85)"
-                  textAnchor="middle"
-                >
-                  {ZONE_NAMES[z]}
-                </SvgText>
-              ))}
-            {ball && ballEnd && (
+              (['left', 'center', 'right'] as BaseballZone[]).map((z) => {
+                const q = P(z === 'left' ? 128 : z === 'center' ? 280 : 432, z === 'center' ? 112 : 150);
+                return (
+                  <SvgText key={z} x={q.x} y={q.y} fontSize={14 * q.s + 2} fontWeight="bold" fill="rgba(255,255,255,0.9)" textAnchor="middle">
+                    {ZONE_NAMES[z]}
+                  </SvgText>
+                );
+              })}
+            {ball && end && (
               <G>
-                <Line x1={HOME.x} y1={HOME.y - 6} x2={ballEnd.x} y2={ballEnd.y} stroke="#ffffff" strokeWidth={2.5} strokeDasharray="6 5" />
-                <Circle cx={ballEnd.x} cy={ballEnd.y} r={6} fill="#ffffff" stroke="#c0392b" strokeWidth={1.5} />
+                <Path
+                  d={`M ${home.x} ${home.y - 6} Q ${(home.x + end.x) / 2} ${Math.min(home.y, end.y) - (ball.kind === 'home_run' ? 70 : 24) * end.s} ${end.x} ${end.y}`}
+                  stroke="#ffffff"
+                  strokeWidth={2.5}
+                  strokeDasharray="6 5"
+                  fill="none"
+                />
+                <Circle cx={end.x} cy={end.y} r={6 * end.s} fill="#ffffff" stroke="#c0392b" strokeWidth={1.5} />
               </G>
             )}
           </Svg>
           {(Object.keys(AT) as BaseballPos[]).map((pos) => {
             const p = playerAt(pos);
-            const at = AT[pos];
-            const s = size;
+            const q = P(AT[pos].x, AT[pos].y);
+            const s = sizeAt(v, q.s, size);
             return (
-              <View key={pos} pointerEvents="none" style={[styles.spot, { left: at.x * k - (s + 4) / 2, top: at.y * k - (s + 4) / 2 }]}>
+              <View key={pos} pointerEvents="none" style={[styles.spot, { left: q.x - (s + 4) / 2, top: q.y - (s + 4) / 2 }]}>
+                <View style={[styles.shadow, { width: s * 0.8, height: s * 0.2, borderRadius: s, top: s + 2 }]} />
                 {p ? avatar(p, s, moment.ball?.to === pos) : <View style={[styles.empty, { width: s, height: s, borderRadius: s / 2 }]} />}
                 {!compact && <Text style={styles.posTag}>{POSITION_SHORT[pos]}</Text>}
               </View>
@@ -229,13 +317,16 @@ export function BaseballField({
               [moment.onSecond, BASE.second],
               [moment.onThird, BASE.third],
             ] as [string | null, { x: number; y: number }][]
-          ).map(([id, at], i) =>
-            id ? (
-              <View key={i} pointerEvents="none" style={[styles.spot, { left: at.x * k - 13, top: at.y * k - 30 }]}>
-                {avatar(runner(id), compact ? 16 : 22, true)}
+          ).map(([id, at], i) => {
+            if (!id) return null;
+            const q = P(at.x, at.y);
+            const s = sizeAt(v, q.s, compact ? 16 : 22);
+            return (
+              <View key={i} pointerEvents="none" style={[styles.spot, { left: q.x - (s + 4) / 2, top: q.y - s - 8 }]}>
+                {avatar(runner(id), s, true)}
               </View>
-            ) : null,
-          )}
+            );
+          })}
         </>
       )}
     </View>
@@ -728,6 +819,7 @@ function makeStyles(colors: Palette) {
     note: { fontSize: 12.5, color: withAlpha(colors.text, 0.7), lineHeight: 18, flexShrink: 1 },
     result: { fontFamily: font.heading, fontSize: 15, color: colors.text },
     spot: { position: 'absolute', alignItems: 'center' },
+    shadow: { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.2)' },
     ring: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
     ringOn: { borderColor: colors.amber },
     // Someone who hasn't accepted yet: a small dot, not a big '?'.
