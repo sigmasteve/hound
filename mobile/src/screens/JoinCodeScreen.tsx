@@ -18,13 +18,11 @@ export function JoinCodeScreen({
   onBack,
   onJoined,
   onJoinedClub,
-  onPickUsername,
 }: {
   code: string;
   onBack: () => void;
   onJoined: (challengeId: string) => void;
   onJoinedClub: (clubId: string) => void;
-  onPickUsername: () => void;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -36,13 +34,13 @@ export function JoinCodeScreen({
           <>
             <Text style={text.h2}>Join a club</Text>
             <Text style={styles.note}>Someone shared their club with you.</Text>
-            <ClubJoinCard initialCode={code} onJoined={onJoinedClub} onPickUsername={onPickUsername} />
+            <ClubJoinCard initialCode={code} onJoined={onJoinedClub} />
           </>
         ) : (
           <>
             <Text style={text.h2}>Join a challenge</Text>
             <Text style={styles.note}>Someone shared this community challenge with you.</Text>
-            <CodeJoinCard initialCode={code} onJoined={onJoined} onPickUsername={onPickUsername} onCancel={onBack} />
+            <CodeJoinCard initialCode={code} onJoined={onJoined} onCancel={onBack} />
           </>
         )}
       </ScrollView>

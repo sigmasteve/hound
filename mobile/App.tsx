@@ -22,6 +22,7 @@ import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { applyLatestUpdateOnLaunch } from './src/updates/startupUpdate';
 import { useForegroundUpdateCheck } from './src/updates/updateReady';
+import { UsernameAskProvider } from './src/profiles/UsernameAsk';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -62,7 +63,11 @@ function AppContent() {
                       status bar icons would disappear into it — dark icons only
                       make sense against Dark's own near-black bg. */}
                   <StatusBar style={mode === 'light' ? 'dark' : 'light'} />
-                  <RootNavigator />
+                  {/* Asks for a username in place (joining a club or a
+                      community challenge), not via Settings. */}
+                  <UsernameAskProvider>
+                    <RootNavigator />
+                  </UsernameAskProvider>
                 </WaterProvider>
               </GoalsProvider>
             </LabelsProvider>

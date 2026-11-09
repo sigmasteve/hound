@@ -455,7 +455,6 @@ export function RootNavigator() {
                   onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { tab: 'challenges' }))}
                   onJoined={(challengeId) => navigation.replace('ChallengeDetail', { challengeId })}
                   onJoinedClub={(clubId) => navigation.replace('Club', { clubId })}
-                  onPickUsername={() => navigation.navigate('Settings')}
                 />
               )}
             </Stack.Screen>
@@ -467,7 +466,6 @@ export function RootNavigator() {
                   onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
                   onPostChallenge={() => navigation.navigate('Create', { clubId: route.params.clubId })}
                   onEdit={() => navigation.navigate('StartClub', { clubId: route.params.clubId })}
-                  onPickUsername={() => navigation.navigate('Settings')}
                 />
               )}
             </Stack.Screen>

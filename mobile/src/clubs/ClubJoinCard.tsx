@@ -4,6 +4,7 @@ import { HashIcon, QrCodeIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
 import { Button } from '../components/Button';
 import { ScanCodeModal } from '../components/ScanCodeModal';
+import { CLUB_USERNAME_WHY, useUsernameAsk } from '../profiles/UsernameAsk';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { confirmCommunityAge, normCode } from '../challenges/communityApi';
@@ -30,11 +31,9 @@ export function formatClubCode(code: string): string {
 export function ClubJoinCard({
   initialCode,
   onJoined,
-  onPickUsername,
 }: {
   initialCode?: string;
   onJoined: (clubId: string) => void;
-  onPickUsername: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -44,6 +43,7 @@ export function ClubJoinCard({
   const [joining, setJoining] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const askUsername = useUsernameAsk();
 
   const lookUp = async (raw: string) => {
     const c = clubCodeFrom(raw);
@@ -92,12 +92,14 @@ export function ClubJoinCard({
       return;
     }
     if (preview.problem === 'username') {
-      Alert.alert('Pick a username first', 'Clubs show usernames, not names.', [
-        { text: 'Not now', style: 'cancel' },
-        { text: 'Pick one', onPress: onPickUsername },
-      ]);
+      // Picked right here, then straight on into the club.
+      askUsername(CLUB_USERNAME_WHY, () => void doJoin());
       return;
     }
+    await doJoin();
+  };
+
+  const doJoin = async () => {
     setJoining(true);
     try {
       const id = await joinClubByCode(normCode(code));
