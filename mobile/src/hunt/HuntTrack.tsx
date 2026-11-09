@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
 import { type TrackRunner } from '../components/ChaseTrack';
 import { RaceCourse, type RaceScene } from '../components/RaceCourse';
+import { SegmentedControl } from '../components/SegmentedControl';
 import { HoundArt } from '../kennel/HoundArt';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
@@ -24,12 +25,20 @@ export interface HuntRunner {
   headStart: number;
   // Their last few days, for the pace line.
   pace: number;
+  // Where they were when today began, for the Today view (null when
+  // yesterday's totals aren't known).
+  todayStart?: number | null;
   // Caught: Out (the day, when it's known).
   out?: boolean;
   outDay?: number;
 }
 
 const CHASER_RED = '#e5484d';
+
+// "Foxes", "Roadrunners": the labels are the org's own words.
+export function plural(word: string): string {
+  return /(s|x|z|ch|sh)$/i.test(word) ? `${word}es` : `${word}s`;
+}
 
 const fmt = (v: number, unit: 'mi' | 'steps') =>
   unit === 'mi' ? `${v.toFixed(1)} mi` : `${Math.round(v).toLocaleString()} steps`;
@@ -60,7 +69,7 @@ export function HuntStatusCard({
           DAY {day} OF {days}
         </Text>
         <Text style={styles.kicker}>
-          {left.length} {left.length === 1 ? labels.hunted : `${labels.hunted}es`} left
+          {left.length} {left.length === 1 ? labels.hunted : plural(labels.hunted)} left
         </Text>
       </View>
       <View style={styles.heroRow}>
@@ -117,43 +126,79 @@ export function HuntStatusCard({
 // "Close" is a few of these: a mile, or 2,000 steps.
 const unitStep = (unit: 'mi' | 'steps') => (unit === 'mi' ? 1 : 2000);
 
-// The whole chase so far, played back on the game's scene (0182).
+// The chase on the game's scene (0182): the whole thing so far, or just
+// today (everyone from where they were at midnight). Before it starts,
+// or before anyone else joins, the trail is there with the chaser at the
+// start, waiting.
 export function HuntReplayCard({
   labels,
   chaser,
   foxes,
   day,
   scene = 'woods',
+  startsAt,
+  headStartDays,
 }: {
   labels: HuntLabels;
   chaser: HuntRunner;
   foxes: HuntRunner[];
   day: number;
   scene?: RaceScene;
+  // Set while it hasn't started.
+  startsAt?: Date | null;
+  headStartDays?: number | null;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
-  const runners: TrackRunner[] = [
-    { id: chaser.id, name: chaser.name, hound: chaser.hound, startSteps: 0, daySteps: chaser.total, it: true, me: chaser.me },
-    ...foxes.map((f) => ({ id: f.id, name: f.name, hound: f.hound, startSteps: f.headStart, daySteps: f.total - f.headStart, me: f.me })),
-  ];
+  const canToday = !startsAt && day > 1 && [chaser, ...foxes].every((r) => r.todayStart != null);
+  const [view, setView] = useState<'all' | 'today'>('all');
+  const today = canToday && view === 'today';
+  // Today: just today's stretch of the trail, from whoever was furthest
+  // back at midnight, so the gaps between everyone show.
+  const base = today ? Math.min(...[chaser, ...foxes].map((r) => r.todayStart ?? 0)) : 0;
+  const runner = (r: HuntRunner, isChaser: boolean): TrackRunner => {
+    const from = today ? (r.todayStart ?? 0) : isChaser ? 0 : r.headStart;
+    return { id: r.id, name: r.name, hound: r.hound, startSteps: from - base, daySteps: Math.max(0, r.total - from), it: isChaser, me: r.me };
+  };
+  const runners: TrackRunner[] = [runner(chaser, true), ...foxes.map((f) => runner(f, false))];
+  const start = scene === 'track' ? 'the line' : 'the trailhead';
+  const waiting = !!startsAt || foxes.length === 0;
   return (
     <Card style={{ gap: 10 }} elevated={false}>
       <View style={styles.rowBetween}>
-        <Text style={text.h4}>The chase so far</Text>
-        <Text style={styles.kicker}>DAYS 1–{day}</Text>
+        <Text style={text.h4}>{startsAt ? 'The trail' : today ? 'Today so far' : 'The chase so far'}</Text>
+        <Text style={styles.kicker}>{startsAt ? 'STARTS SOON' : today ? 'LIVE' : day > 1 ? `DAYS 1–${day}` : 'DAY 1'}</Text>
       </View>
+      {canToday && (
+        <SegmentedControl
+          options={[
+            { value: 'all', label: 'So far' },
+            { value: 'today', label: 'Today' },
+          ]}
+          value={view}
+          onChange={(v) => setView(v as 'all' | 'today')}
+        />
+      )}
       <RaceCourse
+        key={view}
         scene={scene}
         runners={runners}
         width={Math.min(width, 520) - 64}
         chaserLabel={labels.hunter}
         catchWord={`${labels.zombie.toUpperCase()}!`}
+        autoPlay={!waiting}
       />
       <Text style={styles.note}>
-        The {labels.hunted}es start where their head start left them; the {labels.hunter} starts at the
-        {scene === 'track' ? ' line' : ' trailhead'}. Tap Replay to watch it again.
+        {startsAt
+          ? `It starts ${startsAt.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}. ${
+              headStartDays ? `The ${plural(labels.hunted)} get a ${headStartDays}-day head start, then the ${labels.hunter} sets off from ${start}.` : `The ${labels.hunter} sets off from ${start}.`
+            }${foxes.length === 0 ? ` The ${plural(labels.hunted)} show up here once they join.` : ''}`
+          : foxes.length === 0
+            ? `The ${plural(labels.hunted)} show up here once they join.`
+            : today
+              ? `Everyone from where they were at midnight, on today’s synced steps.`
+              : `The ${plural(labels.hunted)} start where their head start left them; the ${labels.hunter} starts at ${start}. Tap Replay to watch it again.`}
       </Text>
     </Card>
   );

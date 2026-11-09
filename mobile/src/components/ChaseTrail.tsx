@@ -78,7 +78,7 @@ export function ChaseTrail({
           />
         );
       })}
-      {!playing && runners.length > 0 && <ReplayButton onPress={replay} />}
+      {!playing && runners.some((r) => r.daySteps > 0) && <ReplayButton onPress={replay} />}
     </View>
   );
 }
