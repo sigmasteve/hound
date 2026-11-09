@@ -208,6 +208,7 @@ import { CommunityCard } from '../components/CommunityCard';
 import { getCommunityInfo, type CommunityInfo } from '../challenges/communityApi';
 import { friendEligible } from '../friends/eligibility';
 import { useAuth } from '../auth/AuthContext';
+import { ShareWithClubs } from '../clubs/ShareWithClubs';
 import {
   applyToggle,
   myRecentNudges,
@@ -3247,6 +3248,12 @@ export function ChallengeDetailScreen({
                 />
               );
             })()}
+
+          {/* 0185: its creator posts it to their clubs, while it still takes
+              new players. */}
+          {challenge.createdBy === user?.id && !finished && !community && !inviteLocked && (
+            <ShareWithClubs kind={challenge.kind} challengeId={challenge.id} />
+          )}
 
           {challenge.createdBy === user?.id && !finished && started && challengeDayNumber(challenge) < challenge.durationDays && (
             <Pressable onPress={confirmEndEarly} disabled={ending} style={styles.deleteRow}>

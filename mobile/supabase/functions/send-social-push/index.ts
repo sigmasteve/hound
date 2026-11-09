@@ -18,6 +18,9 @@
 //   'yard_treat'  "Jordan tossed Scout a treat 🦴" (toss_yard_treat)
 //   'gift'        "Jordan sent Scout a Santa Hat 🎁" (gift_kennel_item,
 //                 0157_shop_phase2.sql)
+//   'club_post'   "Eastside Runners: annruns posted 5K a Day. Tap to
+//                 join." — to the club's members in to_users (post_to_clubs,
+//                 0185_clubs.sql, applied mutes)
 // The RPC has already checked who can do what, and that each recipient
 // has these pushes on; a failure here never undoes the nudge, reaction
 // or message — the calling side swallows it.
@@ -39,7 +42,8 @@ type Kind =
   | 'journey_finished'
   | 'yard_pawprint'
   | 'yard_treat'
-  | 'gift';
+  | 'gift'
+  | 'club_post';
 
 interface RequestBody {
   kind: Kind;
@@ -61,6 +65,10 @@ interface RequestBody {
   hound_name?: string;
   // gift: what was sent
   item_name?: string;
+  // club_post
+  club_id?: string;
+  club_name?: string;
+  challenge_name?: string;
 }
 
 interface ProfileRow {
@@ -96,6 +104,7 @@ Deno.serve(async (req) => {
   if (body?.kind === 'trash_talk') return trashTalk(supabase, body);
   if (body?.kind === 'bounty_posted') return bountyPosted(supabase, body);
   if (body?.kind === 'journey_finished') return journeyFinished(supabase, body);
+  if (body?.kind === 'club_post') return clubPost(supabase, body);
   if (
     !body?.from_user ||
     !body?.to_user ||
@@ -246,11 +255,26 @@ async function journeyFinished(supabase: SupabaseClient, body: RequestBody): Pro
   return toFriends(supabase, body, (name) => `${name} finished the ${course} 🏅`);
 }
 
+// A challenge posted to a club, to its members. Clubs show usernames.
+async function clubPost(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
+  const club = (body.club_name ?? '').trim();
+  const challenge = (body.challenge_name ?? '').trim();
+  if (!club || !challenge || !body.club_id) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
+  }
+  return toFriends(supabase, body, (name) => `${name} posted ${challenge}. Tap to join.`, {
+    title: club,
+    data: { type: 'club_post', clubId: body.club_id, challengeId: body.challenge_id },
+    username: true,
+  });
+}
+
 // One message to everyone in to_users who still has these pushes on.
 async function toFriends(
   supabase: SupabaseClient,
   body: RequestBody,
   text: (senderName: string) => string,
+  opts: { title?: string; data?: Record<string, unknown>; username?: boolean } = {},
 ): Promise<Response> {
   const toUsers = (body.to_users ?? []).filter((id) => typeof id === 'string');
   if (!body.from_user || toUsers.length === 0) {
@@ -276,10 +300,10 @@ async function toFriends(
     return new Response(JSON.stringify({ sent: false, reason: 'No registered device' }));
   }
 
-  const name = displayName(sender);
+  const name = opts.username && sender.username ? sender.username : displayName(sender);
   const message = text(name);
-  const data = { type: body.kind, fromUserId: body.from_user, fromName: name };
-  const messages = tokens.map((to) => ({ to, title: 'Hound', body: message, sound: 'default', data }));
+  const data = opts.data ?? { type: body.kind, fromUserId: body.from_user, fromName: name };
+  const messages = tokens.map((to) => ({ to, title: opts.title ?? 'Hound', body: message, sound: 'default', data }));
   for (let i = 0; i < messages.length; i += 100) {
     await fetch(EXPO_PUSH_URL, {
       method: 'POST',

@@ -3,6 +3,7 @@ import { Alert, Linking } from 'react-native';
 import type { NavigationContainerRefWithCurrent } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/types';
 import { codeFrom } from './communityApi';
+import { clubCodeFrom } from '../clubs/ClubJoinCard';
 import { supabase } from '../lib/supabase';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 
@@ -40,7 +41,8 @@ export function useChallengeCodeLinks(
       return;
     }
     if (!/(^hound(-staging)?:\/\/c\/|houndchallenge\.net\/c\/)/i.test(url)) return;
-    const code = codeFrom(url);
+    // A club's code is 6 characters (0185), a challenge's 7.
+    const code = codeFrom(url) ?? clubCodeFrom(url);
     if (code) navigationRef.navigate('JoinCode', { code });
   }, [url, signedIn, navReady, navigationRef]);
 }

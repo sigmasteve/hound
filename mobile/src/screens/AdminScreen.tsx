@@ -39,6 +39,8 @@ import { CareAdminCard } from '../components/CareAdminCard';
 import { BathAdminCard } from '../components/BathAdminCard';
 import { ChallengesAdminCard } from '../components/ChallengesAdminCard';
 import { HolidayAdminCard, holidaySummary } from '../components/HolidayAdminCard';
+import { ClubsAdminCard, clubsSummary } from '../components/ClubsAdminCard';
+import { getClubsOverview } from '../clubs/clubsApi';
 import { getHolidayOverview } from '../holiday/holidayApi';
 import { localDayKey } from '../water/water';
 import { TagAdminCard } from '../components/TagAdminCard';
@@ -159,6 +161,8 @@ export function AdminScreen({
   const [challengesSummary, setChallengesSummary] = useState<string | null>(null);
   // The Holiday themes fold's line (0184).
   const [holidaySummaryLine, setHolidaySummaryLine] = useState<string | null>(null);
+  // The Clubs fold's line (0185).
+  const [clubsSummaryLine, setClubsSummaryLine] = useState<string | null>(null);
   // The Tag fold's line (0181).
   const [tagSummary, setTagSummary] = useState<string | null>(null);
   const [roomSummary, setRoomSummary] = useState<string | null>(null);
@@ -199,6 +203,9 @@ export function AdminScreen({
         .catch(() => {});
       getHolidayOverview(localDayKey())
         .then((o) => setHolidaySummaryLine(holidaySummary(o)))
+        .catch(() => {});
+      getClubsOverview()
+        .then((o) => setClubsSummaryLine(clubsSummary(o)))
         .catch(() => {});
       getBathOverview()
         .then((b) => setBathSummary(`${b.played7d} ${b.played7d === 1 ? 'bath' : 'baths'} played this week · ${b.bones7d} Bones paid`))
@@ -749,6 +756,9 @@ export function AdminScreen({
                 </View>
                 <AdminFold title="Holiday themes" summary={holidaySummaryLine ?? 'Decorations on Today'}>
                   <HolidayAdminCard onChanged={(o) => setHolidaySummaryLine(holidaySummary(o))} />
+                </AdminFold>
+                <AdminFold title="Clubs" summary={clubsSummaryLine ?? 'Run clubs, cycling clubs and who’s in them'}>
+                  <ClubsAdminCard onChanged={(o) => setClubsSummaryLine(clubsSummary(o))} />
                 </AdminFold>
                 <AdminFold title="Challenges" summary={challengesSummary ?? 'What’s running, by game'}>
                   <ChallengesAdminCard />
