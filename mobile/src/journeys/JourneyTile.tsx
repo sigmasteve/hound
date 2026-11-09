@@ -7,6 +7,7 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { JourneyMap } from './JourneyMap';
 import { courseById, formatMiles, nextStop } from './courses';
 import type { MyJourney } from './journeyApi';
+import { HolidayTileCap } from '../holiday/HolidayDecor';
 
 // Today's Journey, under the two-by-two: one slim row, so it still fits
 // above the tab bar on a phone without scrolling — a small map with you
@@ -43,6 +44,7 @@ export function JourneyTile({ journey, onOpen }: { journey: MyJourney; onOpen: (
       accessibilityRole="button"
       accessibilityLabel={`Your Journey, ${journey.courseName}, ${formatMiles(miles)} of ${formatMiles(journey.courseMiles)} miles. Open`}
     >
+      <HolidayTileCap />
       <View style={styles.map}>
         <JourneyMap course={course} width={mapWidth} height={MAP_HEIGHT} miles={miles} labels="none" compact />
       </View>

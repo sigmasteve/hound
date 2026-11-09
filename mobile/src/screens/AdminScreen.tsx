@@ -38,6 +38,9 @@ import { GardenAdminCard } from '../components/GardenAdminCard';
 import { CareAdminCard } from '../components/CareAdminCard';
 import { BathAdminCard } from '../components/BathAdminCard';
 import { ChallengesAdminCard } from '../components/ChallengesAdminCard';
+import { HolidayAdminCard, holidaySummary } from '../components/HolidayAdminCard';
+import { getHolidayOverview } from '../holiday/holidayApi';
+import { localDayKey } from '../water/water';
 import { TagAdminCard } from '../components/TagAdminCard';
 import { getTagOverview } from '../tag/tagChaseApi';
 import { getChallengesOverview } from '../admin/challengesOverview';
@@ -154,6 +157,8 @@ export function AdminScreen({
   const [bathSummary, setBathSummary] = useState<string | null>(null);
   // The Challenges fold's line: running now and made this week (0180).
   const [challengesSummary, setChallengesSummary] = useState<string | null>(null);
+  // The Holiday themes fold's line (0184).
+  const [holidaySummaryLine, setHolidaySummaryLine] = useState<string | null>(null);
   // The Tag fold's line (0181).
   const [tagSummary, setTagSummary] = useState<string | null>(null);
   const [roomSummary, setRoomSummary] = useState<string | null>(null);
@@ -191,6 +196,9 @@ export function AdminScreen({
         .catch(() => {});
       getChallengesOverview()
         .then((c) => setChallengesSummary(`${c.running} running now · ${c.created7d} new this week`))
+        .catch(() => {});
+      getHolidayOverview(localDayKey())
+        .then((o) => setHolidaySummaryLine(holidaySummary(o)))
         .catch(() => {});
       getBathOverview()
         .then((b) => setBathSummary(`${b.played7d} ${b.played7d === 1 ? 'bath' : 'baths'} played this week · ${b.bones7d} Bones paid`))
@@ -739,6 +747,9 @@ export function AdminScreen({
                   <AppVersionsCard />
                 </AdminFold>
                 </View>
+                <AdminFold title="Holiday themes" summary={holidaySummaryLine ?? 'Decorations on Today'}>
+                  <HolidayAdminCard onChanged={(o) => setHolidaySummaryLine(holidaySummary(o))} />
+                </AdminFold>
                 <AdminFold title="Challenges" summary={challengesSummary ?? 'What’s running, by game'}>
                   <ChallengesAdminCard />
                 </AdminFold>
