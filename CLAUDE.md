@@ -80,6 +80,11 @@ ready" (UpdateReadyBanner), then the announcement banner.
 
 Inside the scroll, in order:
 
+0. A holiday theme's countdown pill and garland, only while one is
+   scheduled (Admin → Holiday themes, 0184). Decoration only: the tiles
+   get a trim (snow, marigolds) and the Goals tile a corner piece, and
+   snow / leaves / confetti drift over Today (off in Settings → Today,
+   still with Reduce Motion).
 1. Global Hound Challenges you can still join (GlobalChallengesCard).
    **Fixed: above the tiles, so it's seen without opening anything.**
 2. Goal setup, while it's open (GoalSetupCard); it takes the goals

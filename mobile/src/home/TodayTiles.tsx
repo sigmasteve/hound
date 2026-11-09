@@ -13,6 +13,8 @@ import { formatAmount, goalTitle, pacePct, progressLine, type GoalMetric, type G
 import type { GoalStreak } from '../goals/goalStreakApi';
 import type { Kennel } from '../kennel/kennelApi';
 import type { GoalsTileStyle } from './todayPrefs';
+import { HOLIDAY_CORNER, HolidayCorner, HolidayTileCap } from '../holiday/HolidayDecor';
+import { useHoliday } from '../holiday/HolidayContext';
 
 // Today as tiles: a wide goals tile, then small tiles for your hound,
 // what needs you, your challenges and last week. Each tile is a summary;
@@ -34,6 +36,7 @@ export function Tile({
   badge,
   accessory,
   wide,
+  corner,
   onPress,
   accessibilityLabel,
   children,
@@ -43,12 +46,15 @@ export function Tile({
   // On the right of the label row (the goals tile's streak).
   accessory?: React.ReactNode;
   wide?: boolean;
+  // The holiday theme's piece in the corner (the Goals tile's).
+  corner?: boolean;
   onPress: () => void;
   accessibilityLabel: string;
   children: React.ReactNode;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const holidayCorner = !!useHoliday() && corner;
   return (
     <Pressable
       onPress={onPress}
@@ -56,7 +62,10 @@ export function Tile({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
     >
-      <View style={styles.labelRow}>
+      {/* A holiday theme's trim (0184): snow or marigolds along the top. */}
+      <HolidayTileCap />
+      {holidayCorner && <HolidayCorner />}
+      <View style={[styles.labelRow, holidayCorner && { paddingRight: HOLIDAY_CORNER - 4 }]}>
         {/* Shrinks a little rather than cutting off at a larger text size. */}
         <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
           {label}
@@ -175,6 +184,7 @@ export function GoalsTile({
     <Tile
       label={`${heading} · ${done} of ${counted.length}`}
       wide
+      corner
       onPress={onOpen}
       accessibilityLabel={`Goals. ${heading}, ${done} of ${counted.length} done. Open`}
       accessory={

@@ -36,6 +36,8 @@ import { useHealthProvider } from '../health/HealthContext';
 import { syncJourney } from '../journeys/journeySync';
 import { friendsOnCourse, getMyJourney, type MyJourney } from '../journeys/journeyApi';
 import { JourneyTile } from '../journeys/JourneyTile';
+import { HolidayProvider } from '../holiday/HolidayContext';
+import { HolidayHeader, HolidayParticles } from '../holiday/HolidayDecor';
 import { StopReachedModal } from '../journeys/StopReachedModal';
 import { courseById, type Course, type CourseStop } from '../journeys/courses';
 import { markStopMomentShown, pendingStopMoment } from '../journeys/stopCelebrations';
@@ -2217,12 +2219,16 @@ export function HomeScreen({
   );
 
   return (
+    <HolidayProvider>
     <View style={{ flex: 1 }}>
       {sharing && <ShareSheet content={sharing} onClose={() => setSharing(null)} />}
       {kennel && <WidgetHound kennel={kennel} />}
       <UpdateReadyBanner />
       {announcementBar}
       <ScrollView contentContainerStyle={styles.container}>
+      {/* A holiday theme (0184), when one's on: its countdown and garland
+          across the top. Decoration only; nothing moves. */}
+      <HolidayHeader />
       {/* Global challenges you can still join stand apart, above the
           tiles, so they're seen without opening anything. */}
       {(upcomingGlobals.length > 0 || joinableGlobals.length > 0) && (
@@ -2311,6 +2317,9 @@ export function HomeScreen({
       )}
 
     </ScrollView>
+    {/* The theme's snow, leaves or confetti, over Today but under the
+        sheets, letting every tap through. */}
+    <HolidayParticles />
     {openTile === 'goals' && goalProgress && (
       <TileSheet title="Goals" onClose={closeTile}>
         <GoalsSheet
@@ -2712,6 +2721,7 @@ export function HomeScreen({
       <Toast key={toasts[0].id} message={toasts[0]} brief={toasts.length > 1} onDone={() => setToasts((cur) => cur.slice(1))} />
     )}
     </View>
+    </HolidayProvider>
   );
 }
 

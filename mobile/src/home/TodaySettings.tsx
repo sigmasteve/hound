@@ -7,6 +7,7 @@ import { SegmentedControl } from '../components/SegmentedControl';
 import { useTheme } from '../theme/ThemeContext';
 import { withAlpha, type Palette } from '../theme/tokens';
 import { setGoalsTileStyle, useGoalsTileStyle, type GoalsTileStyle } from './todayPrefs';
+import { useHolidayEffectsPref } from '../holiday/HolidayContext';
 
 // Settings → Today: how the goals tile shows your goals, and whether
 // your newest challenge is featured when none is pinned (the toggle's
@@ -21,6 +22,7 @@ export function TodaySettings({
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const tileStyle = useGoalsTileStyle();
+  const [holidayEffects, setHolidayEffects] = useHolidayEffectsPref();
   if (!tileStyle && featureNewest === null) return null;
 
   return (
@@ -52,6 +54,14 @@ export function TodaySettings({
         </Text>
       </View>
       )}
+      {/* 0184: a holiday theme's falling snow, leaves or confetti. The
+          rest of the decorations stay. */}
+      <ToggleRow
+        label="Holiday snow and confetti"
+        note={holidayEffects ? 'Falling on Today during a holiday' : 'Off: just the decorations'}
+        value={holidayEffects}
+        onChange={setHolidayEffects}
+      />
     </Card>
   );
 }
