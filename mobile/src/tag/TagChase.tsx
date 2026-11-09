@@ -61,7 +61,7 @@ export function TagTodayCard({
           <HoundArt {...it.hound} neckId="bandana_red" mood="happy" size={92} animate />
         </View>
         <View style={{ flex: 1, gap: 4 }}>
-          <Text style={text.h2}>{meIsIt ? 'You’re IT' : `${it.name} is IT`}</Text>
+          <Text style={[text.h2, styles.heroTitle]}>{meIsIt ? 'You’re IT' : `${it.name} is IT`}</Text>
           <Text style={styles.note}>
             {meIsIt
               ? `Out-walk anyone by more than their ${headStart.toLocaleString()}-step head start today and they’re tagged.`
@@ -71,20 +71,67 @@ export function TagTodayCard({
       </View>
       {!meIsIt && (
         <View style={{ gap: 6 }}>
-          <View style={styles.rowBetween}>
-            <Text style={[styles.status, { color: safe ? colors.green : IT_RED }]}>
-              {safe ? `${lead.toLocaleString()} steps clear` : `${(-lead).toLocaleString()} steps behind: you’d be tagged`}
-            </Text>
-            <Text style={styles.note}>
-              You {mySteps.toLocaleString()} · {it.name} {itSteps.toLocaleString()}
-            </Text>
-          </View>
+          <Text style={[styles.status, { color: safe ? colors.green : IT_RED }]}>
+            {safe ? `${lead.toLocaleString()} steps clear` : `${(-lead).toLocaleString()} steps behind: you’d be tagged`}
+          </Text>
+          <Text style={styles.note}>
+            You {mySteps.toLocaleString()} today · {it.name} {itSteps.toLocaleString()}
+          </Text>
           <View style={styles.meter}>
             <View style={[styles.meterFill, { width: `${fill * 100}%`, backgroundColor: safe ? colors.accent : IT_RED }]} />
           </View>
           <Text style={styles.note}>The bar is how close {it.name} is to catching you, counting your head start.</Text>
         </View>
       )}
+    </Card>
+  );
+}
+
+// Today so far, live: everyone where their synced steps put them, IT
+// from the line and everyone else from their head start, and who IT
+// would tag if the day ended now. It's settled for real in the morning.
+export function TagLiveCard({
+  players,
+  itId,
+  headStart,
+  steps,
+  scene = 'track',
+}: {
+  players: TagPlayer[];
+  itId: string;
+  headStart: number;
+  steps: Record<string, number>;
+  scene?: RaceScene;
+}) {
+  const { colors, text } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { width } = useWindowDimensions();
+  const it = players.find((p) => p.id === itId);
+  if (!it) return null;
+  const itSteps = steps[itId] ?? 0;
+  const runners: TrackRunner[] = [it, ...players.filter((p) => p.id !== itId)].map((p) => ({
+    id: p.id,
+    name: p.name,
+    hound: p.hound,
+    startSteps: p.id === itId ? 0 : headStart,
+    daySteps: steps[p.id] ?? 0,
+    it: p.id === itId,
+    me: p.me,
+  }));
+  const caught = players.filter((p) => p.id !== itId && (steps[p.id] ?? 0) + headStart < itSteps);
+  return (
+    <Card style={{ gap: 10 }} elevated={false}>
+      <View style={styles.rowBetween}>
+        <Text style={text.h4}>Today so far</Text>
+        <Text style={styles.kicker}>LIVE</Text>
+      </View>
+      <RaceCourse scene={scene} runners={runners} width={Math.min(width, 520) - 64} catchWord="TAG!" />
+      <Text style={styles.note}>
+        {caught.length
+          ? `If the day ended now, ${it.name} would tag ${caught.map((p) => (p.me ? 'you' : p.name)).join(', ')}.`
+          : `If the day ended now, everyone would get away from ${it.name}.`}{' '}
+        From everyone&rsquo;s synced steps; it&rsquo;s settled for real at 6am.
+      </Text>
     </Card>
   );
 }
@@ -251,6 +298,7 @@ function makeStyles(colors: Palette) {
     kicker: { fontSize: 11.5, letterSpacing: 0.8, color: withAlpha(colors.text, 0.55), fontFamily: font.heading },
     heroRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     heroHound: { width: 92, alignItems: 'center' },
+    heroTitle: { fontSize: 26, lineHeight: 31 },
     note: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
     status: { fontFamily: font.headingSemibold, fontSize: 15 },
     meter: { height: 10, borderRadius: 5, backgroundColor: withAlpha(colors.text, 0.08), overflow: 'hidden' },

@@ -14,8 +14,8 @@ import { font } from '../theme/tokens';
 // Positions are in steps. A lap is lapSteps; a runner at startSteps +
 // daySteps * t is that far round at time t of the replay (0 to 1). The
 // day is played back evenly, since only the day's total is known. With
-// no lapSteps, the lap fits the day: whoever goes furthest ends just
-// short of the line, so nobody laps anybody and the order reads round
+// no lapSteps, the lap fits the day: whoever goes furthest ends about
+// four-fifths round, so nobody laps anybody and the order reads round
 // the track.
 
 export interface TrackRunner {
@@ -76,7 +76,7 @@ export function ChaseTrack({
   }, [W, H, lanes]);
 
   const { t, playing, replay } = useReplay(durationMs, autoPlay, onDone);
-  const lap = lapSteps ?? Math.max(1, ...runners.map((r) => r.startSteps + r.daySteps)) / 0.92;
+  const lap = lapSteps ?? Math.max(1, ...runners.map((r) => r.startSteps + r.daySteps)) / 0.8;
   const caughtAt = useMemo(() => catchTimes(runners, tagging), [runners, tagging]);
 
   const avatar = Math.round(Math.min(34, Math.max(24, geo.laneW * 2)));
