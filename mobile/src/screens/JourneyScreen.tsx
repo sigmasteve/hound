@@ -110,6 +110,23 @@ export function JourneyScreen({ onBack, onPick }: { onBack: () => void; onPick: 
       });
   };
 
+  // A finished Journey off Today (0183): the medal and the count of
+  // courses finished stay.
+  const confirmDone = () =>
+    Alert.alert('Take it off Today?', `Your ${course.name} medal stays. Start another Journey any time from You.`, [
+      { text: 'Keep it', style: 'cancel' },
+      {
+        text: 'Done for now',
+        onPress: () => {
+          setBusy(true);
+          endJourney()
+            .then(onBack)
+            .catch((e) => Alert.alert('Couldn’t do that', e instanceof Error ? e.message : String(e)))
+            .finally(() => setBusy(false));
+        },
+      },
+    ]);
+
   const confirmEnd = () =>
     Alert.alert('End this Journey?', `Your ${formatMiles(miles)} miles on the ${course.name} won’t carry over.`, [
       { text: 'Keep going', style: 'cancel' },
@@ -162,6 +179,7 @@ export function JourneyScreen({ onBack, onPick }: { onBack: () => void; onPick: 
                 : `${formatMiles(journey.courseMiles - miles)} mi to the finish.`}
           </Text>
           {finished && <Button label="Pick your next course" variant="primary" onPress={onPick} />}
+          {finished && <Button label="Done for now" variant="ghost" onPress={confirmDone} disabled={busy} />}
         </Card>
 
         {friends.length > 0 && (
