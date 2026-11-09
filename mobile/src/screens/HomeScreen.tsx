@@ -58,6 +58,7 @@ import { Confetti } from '../celebrate/Confetti';
 import { CelebrationModal } from '../celebrate/CelebrationModal';
 import { useCelebrations } from '../celebrate/useCelebrations';
 import { UsernamePrompt } from '../profiles/UsernamePrompt';
+import { COMMUNITY_USERNAME_WHY, useUsernameAsk } from '../profiles/UsernameAsk';
 import { wasAskedForUsername } from '../profiles/UsernameForm';
 import { updateWidgets } from '../widgets/widgetData';
 import { houndFields, numbersFromProgress } from '../widgets/widgetModel';
@@ -1486,12 +1487,17 @@ export function HomeScreen({
   // Joining opens the challenge straight away; coming back to Today
   // refreshes everything (see the focus effect below), so the row flips
   // to Joined and the challenge counts include it.
+  const askUsernameHere = useUsernameAsk();
   const joinGlobal = (c: GlobalChallenge) => {
     setJoiningGlobalId(c.id);
     joinGlobalChallenge(c.id)
       .then(() => onOpenChallenge(c.id))
       .catch((e) => {
-        Alert.alert('Couldn’t join', e instanceof Error ? e.message : 'Try again in a moment.');
+        const msg = e instanceof Error ? e.message : 'Try again in a moment.';
+        // A featured community challenge needs a username: pick one
+        // here, then join, rather than a trip to Settings.
+        if (/username/i.test(msg)) askUsernameHere(COMMUNITY_USERNAME_WHY, () => joinGlobal(c));
+        else Alert.alert('Couldn’t join', msg);
         loadGlobalChallenges();
       })
       .finally(() => setJoiningGlobalId(null));

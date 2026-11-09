@@ -24,6 +24,7 @@ import {
 import { CLUB_SPORTS, ClubBadge, clubMeta } from '../clubs/clubLook';
 import { ClubJoinCard } from '../clubs/ClubJoinCard';
 import { confirmCommunityAge } from '../challenges/communityApi';
+import { CLUB_USERNAME_WHY, useUsernameAsk } from '../profiles/UsernameAsk';
 
 // The Clubs tab (0185): your clubs and finding one, and community
 // challenges (0152), which had no home of their own before.
@@ -33,7 +34,6 @@ export function ClubsScreen({
   onOpenChallenge,
   onJoinCode,
   onPublish,
-  onPickUsername,
 }: {
   onOpenClub: (clubId: string) => void;
   onStartClub: () => void;
@@ -41,7 +41,6 @@ export function ClubsScreen({
   // A community challenge's Join card, by its code.
   onJoinCode: (code: string) => void;
   onPublish: () => void;
-  onPickUsername: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -54,6 +53,7 @@ export function ClubsScreen({
   const [found, setFound] = useState<Club[] | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [community, setCommunity] = useState<{ featured: CommunityListing[]; popular: CommunityListing[] } | null>(null);
+  const askUsername = useUsernameAsk();
 
   const load = useCallback(() => {
     if (!isSupabaseConfigured) return;
@@ -89,6 +89,14 @@ export function ClubsScreen({
   }, [query, sport, status?.searchOn]);
 
   const startClub = () => {
+    // No username yet: pick one here, then on to Start a club.
+    if (status?.createProblem && /username/i.test(status.createProblem)) {
+      askUsername('Clubs show usernames, not names. Pick one to start your club; friends still see your name.', () => {
+        setStatus((s) => (s ? { ...s, createProblem: null } : s));
+        onStartClub();
+      });
+      return;
+    }
     if (status?.createProblem) {
       Alert.alert('Not yet', status.createProblem);
       return;
@@ -113,10 +121,7 @@ export function ClubsScreen({
           { text: 'I’m 13 or older', onPress: () => confirmCommunityAge().then(() => join(c)).catch(() => {}) },
         ]);
       } else if (/username/.test(msg)) {
-        Alert.alert('Pick a username first', 'Clubs show usernames, not names.', [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Pick one', onPress: onPickUsername },
-        ]);
+        askUsername(CLUB_USERNAME_WHY, () => void join(c));
       } else {
         Alert.alert('Couldn’t join', msg);
       }
@@ -270,7 +275,7 @@ export function ClubsScreen({
             </Card>
           )}
 
-          <ClubJoinCard onJoined={onOpenClub} onPickUsername={onPickUsername} />
+          <ClubJoinCard onJoined={onOpenClub} />
           <View style={styles.hintRow}>
             <BellSlashIcon size={13} color={withAlpha(colors.text, 0.5)} />
             <Text style={styles.hint}>Each club&rsquo;s pushes can be turned off on its page.</Text>
@@ -308,7 +313,7 @@ export function ClubsScreen({
               )}
             </>
           )}
-          <CodeJoinCard onJoined={onOpenChallenge} onPickUsername={onPickUsername} />
+          <CodeJoinCard onJoined={onOpenChallenge} />
           <Pressable onPress={onPublish} style={({ pressed }) => [styles.publish, pressed && { opacity: 0.8 }]} accessibilityRole="button">
             <MegaphoneIcon size={22} color={colors.accent} />
             <View style={{ flex: 1 }}>

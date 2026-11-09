@@ -77,7 +77,6 @@ export function MainScreen({ route, navigation }: Props) {
             onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
             onCreate={() => navigation.navigate('Create')}
             onStart={(kind) => navigation.navigate('Create', { kind })}
-            onPickUsername={() => navigation.navigate('Settings')}
           />
         )}
         {tab === 'clubs' && (
@@ -87,7 +86,6 @@ export function MainScreen({ route, navigation }: Props) {
             onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
             onJoinCode={(code) => navigation.navigate('JoinCode', { code })}
             onPublish={() => navigation.navigate('Create')}
-            onPickUsername={() => navigation.navigate('Settings')}
           />
         )}
         {tab === 'friends' && (

@@ -99,14 +99,11 @@ export function ChallengesScreen({
   onOpenChallenge,
   onCreate,
   onStart,
-  onPickUsername,
 }: {
   onOpenChallenge: (challengeId: string) => void;
   onCreate: () => void;
   // Join tab (K-01's Discover): start a challenge of this kind.
   onStart: (kind: ChallengeKind) => void;
-  // K-04: the code field sends people without a username to pick one.
-  onPickUsername?: () => void;
 }) {
   // K-04: the "Have a code?" field shows once 0152 is in and it's on.
   const [codesOn, setCodesOn] = useState(false);
@@ -548,7 +545,7 @@ export function ChallengesScreen({
           onOpenChallenge={onOpenChallenge}
           onStart={onStart}
           onOpenCount={setOpenToJoin}
-          top={codesOn ? <CodeJoinCard onJoined={onOpenChallenge} onPickUsername={() => onPickUsername?.()} /> : null}
+          top={codesOn ? <CodeJoinCard onJoined={onOpenChallenge} /> : null}
         />
       )}
 

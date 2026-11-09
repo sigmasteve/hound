@@ -4,6 +4,7 @@ import { Text } from './Text';
 import { HashIcon, QrCodeIcon } from 'phosphor-react-native';
 import { Button } from './Button';
 import { ScanCodeModal } from './ScanCodeModal';
+import { COMMUNITY_USERNAME_WHY, useUsernameAsk } from '../profiles/UsernameAsk';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
@@ -28,13 +29,11 @@ function day(iso: string): string {
 export function CodeJoinCard({
   initialCode,
   onJoined,
-  onPickUsername,
   onCancel,
 }: {
   // From a link: shown and looked up straight away.
   initialCode?: string;
   onJoined: (challengeId: string) => void;
-  onPickUsername: () => void;
   // Shown as Cancel beside Join; without it the preview just clears.
   onCancel?: () => void;
 }) {
@@ -46,6 +45,7 @@ export function CodeJoinCard({
   const [joining, setJoining] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const askUsername = useUsernameAsk();
 
   const lookUp = async (raw: string) => {
     const c = codeFrom(raw);
@@ -105,12 +105,14 @@ export function CodeJoinCard({
       return;
     }
     if (preview.problem === 'username') {
-      Alert.alert('Pick a username first', 'Community leaderboards show usernames, not names.', [
-        { text: 'Not now', style: 'cancel' },
-        { text: 'Pick one', onPress: onPickUsername },
-      ]);
+      // Picked right here, then straight on with the join.
+      askUsername(COMMUNITY_USERNAME_WHY, () => void doJoin());
       return;
     }
+    await doJoin();
+  };
+
+  const doJoin = async () => {
     setJoining(true);
     try {
       const id = await joinByCode(normCode(code));

@@ -30,6 +30,7 @@ import {
 } from '../clubs/clubsApi';
 import { CLUB_COLORS, ClubBadge, sportName } from '../clubs/clubLook';
 import { formatClubCode } from '../clubs/ClubJoinCard';
+import { CLUB_USERNAME_WHY, useUsernameAsk } from '../profiles/UsernameAsk';
 
 // This week's Monday, on the phone.
 function weekStart(): string {
@@ -49,14 +50,12 @@ export function ClubScreen({
   onOpenChallenge,
   onPostChallenge,
   onEdit,
-  onPickUsername,
 }: {
   clubId: string;
   onBack: () => void;
   onOpenChallenge: (challengeId: string) => void;
   onPostChallenge: () => void;
   onEdit: () => void;
-  onPickUsername: () => void;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -64,6 +63,7 @@ export function ClubScreen({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const askUsername = useUsernameAsk();
 
   const load = useCallback(() => {
     getClubPage(clubId, weekStart())
@@ -90,10 +90,7 @@ export function ClubScreen({
         { text: 'I’m 13 or older', onPress: () => confirmCommunityAge().then(retry).catch(() => {}) },
       ]);
     } else if (/username/.test(msg)) {
-      Alert.alert('Pick a username first', 'Clubs show usernames, not names.', [
-        { text: 'Not now', style: 'cancel' },
-        { text: 'Pick one', onPress: onPickUsername },
-      ]);
+      askUsername(CLUB_USERNAME_WHY, retry);
     } else {
       Alert.alert('Couldn’t do that', msg);
     }

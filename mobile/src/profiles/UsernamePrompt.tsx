@@ -10,13 +10,31 @@ import { useUsernameForm, usernameBody, UsernameFields } from './UsernameForm';
 // Today's one-time ask for members who set up before the wizard had a
 // username step: the same form, as a card. Either button closes it for
 // good (UsernameForm's markAskedForUsername).
-export function UsernamePrompt({ onClose }: { onClose: () => void }) {
+//
+// Also the in-place ask when something needs a username (joining a club
+// or a community challenge, starting a club: UsernameAsk.tsx). Then it
+// says why, "Not now" just closes it, and onSaved carries on with what
+// was being done, so nobody is sent off to Settings.
+export function UsernamePrompt({
+  onClose,
+  body,
+  dismissLabel = 'Keep my name',
+  onSaved,
+  ask = false,
+}: {
+  onClose: () => void;
+  body?: string;
+  dismissLabel?: string;
+  onSaved?: () => void;
+  // The in-place ask: dismissing it doesn't count as Today's ask.
+  ask?: boolean;
+}) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const form = useUsernameForm();
 
   const keepName = () => {
-    form.keepName();
+    if (!ask) form.keepName();
     onClose();
   };
 
@@ -28,7 +46,7 @@ export function UsernamePrompt({ onClose }: { onClose: () => void }) {
             <AtIcon size={26} color={colors.accent} weight="bold" />
           </View>
           <Text style={styles.title}>Pick a username</Text>
-          <Text style={styles.body}>{usernameBody(form.name)}</Text>
+          <Text style={styles.body}>{body ?? usernameBody(form.name)}</Text>
           <UsernameFields form={form} autoFocus={false} />
           {form.problem && <Text style={styles.problem}>{form.problem}</Text>}
           <View style={styles.buttons}>
@@ -38,10 +56,13 @@ export function UsernamePrompt({ onClose }: { onClose: () => void }) {
               block
               disabled={!form.valid || form.saving}
               onPress={async () => {
-                if (await form.save()) onClose();
+                if (await form.save()) {
+                  onClose();
+                  onSaved?.();
+                }
               }}
             />
-            <Button label="Keep my name" variant="ghost" block disabled={form.saving} onPress={keepName} />
+            <Button label={dismissLabel} variant="ghost" block disabled={form.saving} onPress={keepName} />
           </View>
         </View>
       </KeyboardAvoidingView>
