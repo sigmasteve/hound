@@ -1667,6 +1667,23 @@ export function ChallengeDetailScreen({
     const since = Math.max(0.5, elapsed - hs);
     const metric = (r: (typeof board)[number]) => (scoredByDistance ? r.totalDistanceMi : r.totalSteps);
     const chaserTotal = huntEffectiveMetric(hunterRow, sortBy);
+    // Where everyone was when today began: the board rebuilt from
+    // yesterday's totals, like the movement arrows above.
+    let prevById: Map<string, number> | null = null;
+    if (yesterdayLeaderboard) {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const prev = buildBoard(
+        participants,
+        yesterdayLeaderboard,
+        bots,
+        daysElapsedFraction(challenge, startOfToday),
+        sortBy,
+        challenge,
+        headStartLeaderboard,
+      );
+      prevById = new Map(prev.map((r) => [r.userId, r.role === 'hunter' ? huntEffectiveMetric(r, sortBy) : metric(r)]));
+    }
     const chaser: HuntRunner = {
       id: hunterRow.userId,
       name: hunterRow.name,
@@ -1675,6 +1692,7 @@ export function ChallengeDetailScreen({
       total: chaserTotal,
       headStart: 0,
       pace: chaserTotal / since,
+      todayStart: prevById ? Math.min(chaserTotal, prevById.get(hunterRow.userId) ?? 0) : null,
     };
     const foxes: HuntRunner[] = board
       .filter((r) => r.role === 'hunted' || r.role === 'zombie')
@@ -1689,6 +1707,7 @@ export function ChallengeDetailScreen({
           total,
           headStart: early,
           pace: (total - early) / since,
+          todayStart: prevById ? Math.min(total, prevById.get(r.userId) ?? 0) : null,
           out: r.role === 'zombie',
         };
       });
@@ -2933,7 +2952,7 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
-          {huntRace && huntRace.foxes.length > 0 && (
+          {huntRace && (
             <>
               <HuntReplayCard
                 labels={labels}
@@ -2941,7 +2960,10 @@ export function ChallengeDetailScreen({
                 foxes={huntRace.foxes}
                 day={huntRace.day}
                 scene={raceSceneFor(challenge)}
+                startsAt={new Date(challenge.startsAt) > new Date() ? new Date(challenge.startsAt) : null}
+                headStartDays={challenge.headStartDays}
               />
+              {huntRace.foxes.length > 0 && new Date(challenge.startsAt) <= new Date() && (
               <HuntStatusCard
                 labels={labels}
                 day={huntRace.day}
@@ -2950,6 +2972,7 @@ export function ChallengeDetailScreen({
                 foxes={huntRace.foxes}
                 unit={huntRace.unit}
               />
+              )}
             </>
           )}
 
