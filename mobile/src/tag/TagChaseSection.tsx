@@ -9,7 +9,7 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { localDayKey } from '../water/water';
 import { getTagChase, type TagChase } from './tagChaseApi';
 import type { RaceScene } from '../components/RaceCourse';
-import { ItTimeline, TagReplayCard, TagStandingsCard, TagTodayCard, type TagPlayer } from './TagChase';
+import { ItTimeline, TagLiveCard, TagReplayCard, TagStandingsCard, TagTodayCard, type TagPlayer } from './TagChase';
 
 // A Tag chase (0181) on its challenge screen: today's IT, last night's
 // chase on the track, the standings and who's been IT. Loaded each time
@@ -50,7 +50,8 @@ export function TagChaseSection({
   }
   if (!game) return <ActivityIndicator color={colors.accent} />;
 
-  const players: TagPlayer[] = game.players.map((p) => ({ ...p, me: p.id === myUserId }));
+  // First names keep the cards to a line or two ("Sharisse is IT").
+  const players: TagPlayer[] = game.players.map((p) => ({ ...p, name: p.name.split(' ')[0] || p.name, me: p.id === myUserId }));
   const byId = new Map(players.map((p) => [p.id, p]));
   const last = game.history[game.history.length - 1];
   const over = game.history.length >= game.days;
@@ -104,6 +105,8 @@ export function TagChaseSection({
           meIsIt={it.id === myUserId}
         />
       ) : null}
+
+      {it && !over && <TagLiveCard players={players} itId={it.id} headStart={game.headStart} steps={game.today} scene={scene} />}
 
       {last && (
         <TagReplayCard
