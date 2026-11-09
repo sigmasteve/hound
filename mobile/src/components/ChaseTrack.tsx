@@ -146,7 +146,7 @@ export function ChaseTrack({
         );
       })}
 
-      {!playing && <ReplayButton onPress={replay} />}
+      {!playing && runners.length > 0 && <ReplayButton onPress={replay} />}
     </View>
   );
 }

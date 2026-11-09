@@ -1,18 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
 import { type TrackRunner } from '../components/ChaseTrack';
-import { ChaseTrail, TRAIL_SCENES, type TrailScene } from '../components/ChaseTrail';
-import { SegmentedControl } from '../components/SegmentedControl';
+import { RaceCourse, type RaceScene } from '../components/RaceCourse';
 import { HoundArt } from '../kennel/HoundArt';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import type { HuntLabels } from '../labels/types';
 
-// Chase (kind 'hunt') on the track (mockup): the Foxes run ahead with
-// their head start, the Chaser closes in on logged miles (or steps), and
-// a Fox is Out once the Chaser's total reaches theirs.
+// Chase (kind 'hunt') on its scene (0182, the track or a trail): the
+// Foxes run ahead with their head start, the Chaser closes in on logged
+// miles (or steps), and a Fox is Out once the Chaser's total reaches
+// theirs.
 
 export interface HuntRunner {
   id: string;
@@ -24,7 +24,8 @@ export interface HuntRunner {
   headStart: number;
   // Their last few days, for the pace line.
   pace: number;
-  // The day they went Out, if they have.
+  // Caught: Out (the day, when it's known).
+  out?: boolean;
   outDay?: number;
 }
 
@@ -51,7 +52,7 @@ export function HuntStatusCard({
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const left = foxes.filter((f) => f.outDay === undefined);
+  const left = foxes.filter((f) => !f.out && f.outDay === undefined);
   return (
     <Card style={{ gap: 12 }} elevated={false}>
       <View style={styles.rowBetween}>
@@ -72,7 +73,7 @@ export function HuntStatusCard({
         </View>
       </View>
       {foxes.map((f) => {
-        const out = f.outDay !== undefined;
+        const out = !!f.out || f.outDay !== undefined;
         const gap = f.total - chaser.total;
         const closing = chaser.pace - f.pace;
         const daysToCatch = closing > 0 ? Math.ceil(gap / closing) : null;
@@ -85,7 +86,7 @@ export function HuntStatusCard({
               <View style={styles.rowBetween}>
                 <Text style={styles.foxName}>{f.me ? 'You' : f.name}</Text>
                 <Text style={[styles.gap, { color: out ? withAlpha(colors.text, 0.5) : gap < unitStep(unit) * 3 ? CHASER_RED : colors.green }]}>
-                  {out ? `${labels.zombie} on day ${f.outDay}` : `${fmt(gap, unit)} ahead`}
+                  {out ? (f.outDay !== undefined ? `${labels.zombie} on day ${f.outDay}` : labels.zombie) : `${fmt(gap, unit)} ahead`}
                 </Text>
               </View>
               {!out && (
@@ -100,7 +101,7 @@ export function HuntStatusCard({
                   </View>
                   <Text style={styles.note}>
                     {daysToCatch !== null
-                      ? `At this week’s pace the ${labels.hunter} catches ${f.me ? 'you' : 'them'} in about ${daysToCatch} ${daysToCatch === 1 ? 'day' : 'days'}${daysToCatch > days - day ? ', after it ends' : ''}.`
+                      ? `At this pace the ${labels.hunter} catches ${f.me ? 'you' : 'them'} in about ${daysToCatch} ${daysToCatch === 1 ? 'day' : 'days'}${daysToCatch > days - day ? ', after it ends' : ''}.`
                       : `${f.me ? 'You’re' : 'They’re'} pulling away: ${fmt(f.pace, unit)} a day to the ${labels.hunter}’s ${fmt(chaser.pace, unit)}.`}
                   </Text>
                 </>
@@ -116,24 +117,20 @@ export function HuntStatusCard({
 // "Close" is a few of these: a mile, or 2,000 steps.
 const unitStep = (unit: 'mi' | 'steps') => (unit === 'mi' ? 1 : 2000);
 
-// The whole chase so far, played back on the trail (woods or mountains).
+// The whole chase so far, played back on the game's scene (0182).
 export function HuntReplayCard({
   labels,
   chaser,
   foxes,
   day,
-  scene: initialScene = 'woods',
-  pickScene = false,
+  scene = 'woods',
 }: {
   labels: HuntLabels;
   chaser: HuntRunner;
   foxes: HuntRunner[];
   day: number;
-  scene?: TrailScene;
-  // The mockup: switch scenes on the card.
-  pickScene?: boolean;
+  scene?: RaceScene;
 }) {
-  const [scene, setScene] = useState<TrailScene>(initialScene);
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { width } = useWindowDimensions();
@@ -147,11 +144,7 @@ export function HuntReplayCard({
         <Text style={text.h4}>The chase so far</Text>
         <Text style={styles.kicker}>DAYS 1–{day}</Text>
       </View>
-      {pickScene && (
-        <SegmentedControl options={TRAIL_SCENES.map((x) => ({ value: x.id, label: x.name }))} value={scene} onChange={(v) => setScene(v as TrailScene)} />
-      )}
-      <ChaseTrail
-        key={scene}
+      <RaceCourse
         scene={scene}
         runners={runners}
         width={Math.min(width, 520) - 64}
@@ -159,8 +152,8 @@ export function HuntReplayCard({
         catchWord={`${labels.zombie.toUpperCase()}!`}
       />
       <Text style={styles.note}>
-        The {labels.hunted}es start up the trail where their head start left them; the {labels.hunter} starts at the
-        trailhead. Tap Replay to watch it again.
+        The {labels.hunted}es start where their head start left them; the {labels.hunter} starts at the
+        {scene === 'track' ? ' line' : ' trailhead'}. Tap Replay to watch it again.
       </Text>
     </Card>
   );

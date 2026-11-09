@@ -8,12 +8,23 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { localDayKey } from '../water/water';
 import { getTagChase, type TagChase } from './tagChaseApi';
+import type { RaceScene } from '../components/RaceCourse';
 import { ItTimeline, TagReplayCard, TagStandingsCard, TagTodayCard, type TagPlayer } from './TagChase';
 
 // A Tag chase (0181) on its challenge screen: today's IT, last night's
 // chase on the track, the standings and who's been IT. Loaded each time
 // the screen comes into view; loading also settles any day that's over.
-export function TagChaseSection({ challengeId, myUserId, startsAt }: { challengeId: string; myUserId?: string; startsAt: Date }) {
+export function TagChaseSection({
+  challengeId,
+  myUserId,
+  startsAt,
+  scene = 'track',
+}: {
+  challengeId: string;
+  myUserId?: string;
+  startsAt: Date;
+  scene?: RaceScene;
+}) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [game, setGame] = useState<TagChase | null>(null);
@@ -99,6 +110,7 @@ export function TagChaseSection({ challengeId, myUserId, startsAt }: { challenge
           key={last.dayNo}
           day={last.dayNo}
           last={over}
+          scene={scene}
           players={players.filter((p) => p.id in last.steps || p.id === last.it)}
           itId={last.it}
           headStart={last.headStart}

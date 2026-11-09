@@ -29,6 +29,10 @@ import { LoadingView } from '../components/LoadingView';
 import { ProgressBar } from '../components/ProgressBar';
 import { Tag } from '../components/Tag';
 import { TagChaseSection } from '../tag/TagChaseSection';
+import { raceSceneFor } from '../components/RaceCourse';
+import { HuntReplayCard, HuntStatusCard, type HuntRunner } from '../hunt/HuntTrack';
+import { getChallengeHounds } from '../hunt/huntApi';
+import { houndFromCode } from '../tag/tagChaseApi';
 import { TagStatusCard } from '../components/TagStatusCard';
 import { TicTacGoCard } from '../components/TicTacGoCard';
 import { TextField } from '../components/TextField';
@@ -331,6 +335,18 @@ export function ChallengeDetailScreen({
   // false so it never flashes on for a returning player while the
   // AsyncStorage check below is still in flight.
   const TAG_EXPLAINER_SEEN_KEY = 'tagExplainerSeen';
+  // Chase (0182): each player's hound, to draw them on the scene.
+  const [raceHounds, setRaceHounds] = useState<Map<string, string | null>>(new Map());
+  useEffect(() => {
+    if (challenge?.kind !== 'hunt') return;
+    let cancelled = false;
+    getChallengeHounds(challenge.id).then((m) => {
+      if (!cancelled) setRaceHounds(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [challenge?.kind, challenge?.id]);
   const [showTagExplainer, setShowTagExplainer] = useState(false);
 
   useEffect(() => {
@@ -1639,23 +1655,50 @@ export function ChallengeDetailScreen({
     challenge.kind === 'hunt' && !!challenge.headStartDays && headStartDaysLeft === 0 && hunterRow
       ? `Head start credit applied — steps the ${labels.hunter} logged before it ended don't count toward catching up.`
       : null;
-  // One progress bar per Hunted/Zombie participant, showing how much of
-  // the *gap* the Hunter's effective progress (huntEffectiveMetric, not
-  // their raw total — same reasoning as the leaderboard's own sort order
-  // above) has actually closed. A Zombie always reads as fully caught
-  // (100%), matching withHuntCatches' own catch condition exactly rather
-  // than recomputing something that could drift from it.
-  const chaseRows =
-    challenge.kind === 'hunt' && hunterRow
-      ? board
-          .filter((r) => r.role === 'hunted' || r.role === 'zombie')
-          .map((r) => {
-            const theirTotal = scoredByDistance ? r.totalDistanceMi : r.totalSteps;
-            const hunterMetric = huntEffectiveMetric(hunterRow, sortBy);
-            const pct = r.role === 'zombie' ? 100 : theirTotal > 0 ? Math.min(100, (hunterMetric / theirTotal) * 100) : 0;
-            return { row: r, pct, hunterMetric, theirTotal };
-          })
-      : [];
+  // Chase on its scene (0182): the Chaser's effective total
+  // (huntEffectiveMetric, the same number catches use) against each Fox's.
+  // A Fox's progress in the head start isn't stored, so it's estimated
+  // from their pace; pace is per day since the head start ended. Caught
+  // is withHuntCatches' 'zombie', so the cards never disagree with it.
+  const huntRace = (() => {
+    if (challenge.kind !== 'hunt' || !hunterRow) return null;
+    const elapsed = Math.max(0, daysElapsedFraction(challenge));
+    const hs = challenge.headStartDays ?? 0;
+    const since = Math.max(0.5, elapsed - hs);
+    const metric = (r: (typeof board)[number]) => (scoredByDistance ? r.totalDistanceMi : r.totalSteps);
+    const chaserTotal = huntEffectiveMetric(hunterRow, sortBy);
+    const chaser: HuntRunner = {
+      id: hunterRow.userId,
+      name: hunterRow.name,
+      hound: houndFromCode(raceHounds.get(hunterRow.userId)),
+      me: hunterRow.userId === user?.id,
+      total: chaserTotal,
+      headStart: 0,
+      pace: chaserTotal / since,
+    };
+    const foxes: HuntRunner[] = board
+      .filter((r) => r.role === 'hunted' || r.role === 'zombie')
+      .map((r) => {
+        const total = metric(r);
+        const early = elapsed > 0 ? total * Math.min(1, hs / elapsed) : 0;
+        return {
+          id: r.userId,
+          name: r.name,
+          hound: houndFromCode(raceHounds.get(r.userId)),
+          me: r.userId === user?.id,
+          total,
+          headStart: early,
+          pace: (total - early) / since,
+          out: r.role === 'zombie',
+        };
+      });
+    return {
+      chaser,
+      foxes,
+      unit: (scoredByDistance ? 'mi' : 'steps') as 'mi' | 'steps',
+      day: Math.min(challenge.durationDays, Math.floor(elapsed) + 1),
+    };
+  })();
 
   // Same org-vs-global partition CreateScreen's own friend picker
   // applies at creation time (see friends/eligibility.ts) — an org
@@ -2216,7 +2259,12 @@ export function ChallengeDetailScreen({
           )}
 
           {challenge.kind === 'tag' && challenge.tagMode === 'chase' && (
-            <TagChaseSection challengeId={challenge.id} myUserId={user?.id} startsAt={new Date(challenge.startsAt)} />
+            <TagChaseSection
+              challengeId={challenge.id}
+              myUserId={user?.id}
+              startsAt={new Date(challenge.startsAt)}
+              scene={raceSceneFor(challenge)}
+            />
           )}
 
           {challenge.kind === 'tag' && challenge.tagMode !== 'chase' && tagRound && !finished && (
@@ -2885,28 +2933,24 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
-          {chaseRows.length > 0 && (
-            <Card style={{ gap: 12 }} elevated={false}>
-              <Text style={text.h4}>Chase progress</Text>
-              <Text style={styles.footNote}>
-                How much of each gap the {labels.hunter} has closed since the head start ended.
-              </Text>
-              {chaseRows.map(({ row, pct, hunterMetric, theirTotal }) => (
-                <View key={row.userId} style={{ gap: 4 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <Text style={styles.friendName}>{row.name}</Text>
-                    <Text style={styles.footNote}>
-                      {row.role === 'zombie' ? 'Caught' : `${formatMetric(hunterMetric)} of ${formatMetric(theirTotal)}`}
-                    </Text>
-                  </View>
-                  <ProgressBar
-                    pct={pct}
-                    fillColor={row.role === 'zombie' ? colors.amber : colors.accent}
-                    height={6}
-                  />
-                </View>
-              ))}
-            </Card>
+          {huntRace && huntRace.foxes.length > 0 && (
+            <>
+              <HuntReplayCard
+                labels={labels}
+                chaser={huntRace.chaser}
+                foxes={huntRace.foxes}
+                day={huntRace.day}
+                scene={raceSceneFor(challenge)}
+              />
+              <HuntStatusCard
+                labels={labels}
+                day={huntRace.day}
+                days={challenge.durationDays}
+                chaser={huntRace.chaser}
+                foxes={huntRace.foxes}
+                unit={huntRace.unit}
+              />
+            </>
           )}
 
           {/* A device-synced challenge (usesDeviceSteps/usesWorkoutDistance)
