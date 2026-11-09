@@ -20,6 +20,8 @@ export interface ChallengesOverview {
   byKind: { kind: ChallengeKind; running: number; upcoming: number; created30d: number; allTime: number; peopleRunning: number }[];
   // The last 8 weeks, oldest first.
   weekly: { week: string; created: number }[];
+  // 0182: Tag and Chase games by scene, all time.
+  scenes: Record<string, Record<string, number>>;
 }
 
 export async function getChallengesOverview(): Promise<ChallengesOverview> {
@@ -49,5 +51,11 @@ export async function getChallengesOverview(): Promise<ChallengesOverview> {
       peopleRunning: n(k.people_running),
     })),
     weekly: ((d.weekly ?? []) as any[]).map((w) => ({ week: String(w.week), created: n(w.created) })),
+    scenes: Object.fromEntries(
+      Object.entries((d.scenes ?? {}) as Record<string, Record<string, unknown>>).map(([kind, m]) => [
+        kind,
+        Object.fromEntries(Object.entries(m ?? {}).map(([k, v]) => [k, n(v)])),
+      ]),
+    ),
   };
 }

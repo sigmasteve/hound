@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, View, useWindowDimensions } from 'react-native';
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
@@ -42,6 +42,7 @@ import type { BingoCardType } from '../challenges/bingo';
 import { CARD_COLUMNS, cardSizeForDays, type CardCell, type CardSize } from '../challenges/houndBingo';
 import { dealCardPreview } from '../challenges/bingoApi';
 import { BingoCardPreview } from '../components/BingoCardPreview';
+import { RACE_SCENES, RaceCourse, type RaceScene } from '../components/RaceCourse';
 import {
   DEFAULT_TICTACGO_WINDOW_HOURS,
   drawBoard,
@@ -221,6 +222,11 @@ export function CreateScreen({
   // Game of Tag: how long It has to pick and catch someone (0168).
   // Game of Tag, the daily chase (0181): everyone's head start on IT.
   const [tagHeadStart, setTagHeadStart] = useState<string>(String(rematch?.tagHeadStart ?? 2000));
+  // Tag and Chase (0182): the scene the race is drawn on; until picked,
+  // the game's default (the track for Tag, the woods for Chase).
+  const { width: screenWidth } = useWindowDimensions();
+  const [pickedScene, setPickedScene] = useState<RaceScene | null>(rematch?.raceScene ?? null);
+  const raceScene: RaceScene = pickedScene ?? (draftType === 'tag' ? 'track' : 'woods');
   // A miles pool: logged workouts' distance, or every mile the phone
   // counts (Challenge.distanceSource).
   const [distanceSource, setDistanceSource] = useState<DistanceSource>(rematch?.distanceSource ?? 'workouts');
@@ -979,6 +985,7 @@ export function CreateScreen({
         distanceGoalSteps: draftType === 'distance' && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
         tagMode: draftType === 'tag' ? 'chase' : undefined,
         tagHeadStart: draftType === 'tag' ? Number(tagHeadStart) : undefined,
+        raceScene: draftType === 'tag' || draftType === 'hunt' ? raceScene : undefined,
         dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
         distanceSource: draftType === 'distance' && distanceGoalUnit === 'miles' ? distanceSource : undefined,
         bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
@@ -1536,6 +1543,27 @@ export function CreateScreen({
                 One hound is IT each day, a random one on day 1. Everyone else starts the day this many steps ahead.
                 Whoever IT out-walks by the end of the day is tagged, and the slowest of them is IT tomorrow. +3 for each
                 tag, +1 for each day you get away. Most points wins.
+              </Text>
+            </View>
+          )}
+
+          {(draftType === 'tag' || draftType === 'hunt') && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Scene</Text>
+                <Text style={styles.huntBlockValue}>{RACE_SCENES.find((x) => x.id === raceScene)?.name}</Text>
+              </View>
+              <SegmentedControl
+                options={RACE_SCENES.map((x) => ({ value: x.id, label: x.name }))}
+                value={raceScene}
+                onChange={(v) => setPickedScene(v as RaceScene)}
+              />
+              <View style={{ alignItems: 'center' }}>
+                <RaceCourse key={raceScene} scene={raceScene} runners={[]} width={Math.min(screenWidth, 520) - 82} autoPlay={false} />
+              </View>
+              <Text style={styles.huntBlockNote}>
+                Where everyone&rsquo;s hounds race when the {draftType === 'tag' ? 'days are played back' : 'chase is played back'}.
+                Just the look: the rules are the same on every scene.
               </Text>
             </View>
           )}

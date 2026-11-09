@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
-import { ChaseTrack, type TrackRunner } from '../components/ChaseTrack';
+import { type TrackRunner } from '../components/ChaseTrack';
+import { RaceCourse, type RaceScene } from '../components/RaceCourse';
 import { HoundArt } from '../kennel/HoundArt';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
@@ -96,8 +97,11 @@ export function TagReplayCard({
   headStart,
   steps,
   last = false,
+  scene = 'track',
 }: {
   day: number;
+  // Where it's drawn (0182): the track or a trail.
+  scene?: RaceScene;
   // The game's last day: nobody's IT next.
   last?: boolean;
   players: TagPlayer[];
@@ -136,7 +140,7 @@ export function TagReplayCard({
         <Text style={text.h4}>{last ? 'The last chase' : 'Last night’s chase'}</Text>
         <Text style={styles.kicker}>DAY {day}</Text>
       </View>
-      <ChaseTrack runners={runners} width={trackW} />
+      <RaceCourse scene={scene} runners={runners} width={trackW} catchWord="TAG!" />
       <View style={{ gap: 6 }}>
         {results.map(({ p, margin }) => (
           <View key={p.id} style={styles.resultRow}>

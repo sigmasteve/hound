@@ -165,6 +165,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'The slowest hound tagged is IT the next day. If nobody’s tagged, IT stays IT.',
         'Each day is settled the next morning, once it’s over everywhere. Watch it back on the track: IT closes in, and TAG!',
         '+3 for each tag, +1 for each day you get away. Most points when it ends wins. A game runs 3 to 14 days.',
+        'Whoever makes the game picks where it’s raced: the park track, or a trail through the woods, up a mountain or along the beach. Chase games get the same choice, with the Foxes up the trail and the Chaser closing in.',
       ],
     },
     {

@@ -101,7 +101,7 @@ function challengeRowToInviteWindowInput(row: {
 }
 
 const CHALLENGE_COLUMNS =
-  'id, name, kind, created_by, duration_days, starts_at, start_day, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit, tag_round_minutes, tag_mode, tag_head_start, distance_source, bingo_card_type, bingo_size, course_id, organization_id';
+  'id, name, kind, created_by, duration_days, starts_at, start_day, created_at, ends_at, daily_goal_steps, scoring_method, head_start_days, distance_goal_mi, distance_goal_steps, distance_goal_unit, tag_round_minutes, tag_mode, tag_head_start, race_scene, distance_source, bingo_card_type, bingo_size, course_id, organization_id';
 
 interface ChallengeRow {
   id: string;
@@ -122,6 +122,7 @@ interface ChallengeRow {
   tag_round_minutes?: number | null;
   tag_mode?: 'chase' | 'rounds' | null;
   tag_head_start?: number | null;
+  race_scene?: 'track' | 'woods' | 'mountains' | 'beach' | null;
   bingo_card_type: Challenge['bingoCardType'];
   bingo_size: number | null;
   distance_source?: string | null;
@@ -167,6 +168,7 @@ function rowToChallenge(row: ChallengeRow): Challenge {
     tagRoundMinutes: row.tag_round_minutes ?? null,
     tagMode: row.tag_mode ?? null,
     tagHeadStart: row.tag_head_start ?? null,
+    raceScene: row.race_scene ?? null,
     bingoCardType: row.bingo_card_type,
     bingoSize: row.bingo_size === 3 || row.bingo_size === 4 || row.bingo_size === 5 ? row.bingo_size : null,
     distanceSource: (row.distance_source as Challenge['distanceSource'] | undefined) ?? null,
@@ -310,6 +312,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     tagRoundMinutes,
     tagMode,
     tagHeadStart,
+    raceScene,
     distanceSource,
     bingoCardType,
     bingoSize,
@@ -338,6 +341,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         distance_goal_mi: distanceGoalMi ?? null,
         distance_goal_steps: distanceGoalSteps ?? null,
         distance_goal_unit: distanceGoalUnit ?? null,
+        ...((kind === 'tag' || kind === 'hunt') && raceScene ? { race_scene: raceScene } : {}),
         ...(kind === 'tag'
           ? tagMode === 'chase'
             ? { tag_mode: 'chase', tag_head_start: tagHeadStart ?? 2000 }

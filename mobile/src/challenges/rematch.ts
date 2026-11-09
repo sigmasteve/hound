@@ -24,6 +24,7 @@ export interface RematchDraft {
   distanceGoalUnit: DistanceGoalUnit | null;
   tagRoundMinutes?: number | null;
   tagHeadStart?: number | null;
+  raceScene?: 'track' | 'woods' | 'mountains' | 'beach' | null;
   distanceSource: DistanceSource | null;
   distanceGoalMi: number | null;
   distanceGoalSteps: number | null;
@@ -94,6 +95,7 @@ export function buildRematchDraft({
     distanceGoalUnit: challenge.distanceGoalUnit,
     tagRoundMinutes: challenge.tagRoundMinutes ?? null,
     tagHeadStart: challenge.tagHeadStart ?? null,
+    raceScene: challenge.raceScene ?? null,
     distanceSource: challenge.distanceSource,
     distanceGoalMi: challenge.distanceGoalMi,
     distanceGoalSteps: challenge.distanceGoalSteps,

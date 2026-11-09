@@ -99,6 +99,9 @@ export interface Challenge {
   // (rounds), which games made before it keep.
   tagMode?: 'chase' | 'rounds' | null;
   tagHeadStart?: number | null;
+  // Tag and Chase: the scene the race is drawn on (0182); null is the
+  // game's default (raceSceneFor).
+  raceScene?: 'track' | 'woods' | 'mountains' | 'beach' | null;
   // Only meaningful for a miles Distance pool — see DistanceSource.
   distanceSource: DistanceSource | null;
   // Only meaningful for kind 'bingo' — see BingoCardType's own comment.
@@ -242,6 +245,8 @@ export interface CreateChallengeInput {
   // Kind 'tag': the daily chase and its head start (0181).
   tagMode?: 'chase';
   tagHeadStart?: number;
+  // Tag and Chase: the scene (0182).
+  raceScene?: 'track' | 'woods' | 'mountains' | 'beach';
   // Only meaningful for a miles Distance pool — see Challenge.distanceSource.
   distanceSource?: DistanceSource;
   // Only meaningful for kind 'bingo' — see Challenge.bingoCardType.

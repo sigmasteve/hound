@@ -59,6 +59,10 @@ export function ChallengesAdminCard() {
             `Global ${s!.global.running} · ${s!.global.created30d} · ${s!.global.all}`,
         ],
         ['Finished', `${data.finished30d} in the last 30 days · ${data.all} challenges in all`],
+        ...(['tag', 'hunt'] as const).map((k): [string, string] => [
+          `${kindName(k)} scenes (all time)`,
+          ['track', 'woods', 'mountains', 'beach'].map((sc) => `${sc[0].toUpperCase()}${sc.slice(1)} ${data.scenes[k]?.[sc] ?? 0}`).join(' · '),
+        ]),
       ]
     : [];
 
