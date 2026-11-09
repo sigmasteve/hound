@@ -63,7 +63,6 @@ import {
   rallyWindowNote,
 } from '../challenges/rally';
 import { setupRally } from '../challenges/rallyApi';
-import { DEFAULT_TAG_ROUND_MINUTES, formatTagTime, TAG_ROUND_OPTIONS } from '../challenges/tagApi';
 import {
   DEFAULT_SOCCER_DAYS,
   DEFAULT_SOCCER_SHOT_STEPS,
@@ -220,7 +219,8 @@ export function CreateScreen({
   const [headStart, setHeadStart] = useState(rematch?.headStartDays ?? 2);
   const [distanceGoalUnit, setDistanceGoalUnit] = useState<DistanceGoalUnit>(rematch?.distanceGoalUnit ?? 'miles');
   // Game of Tag: how long It has to pick and catch someone (0168).
-  const [tagRoundMins, setTagRoundMins] = useState<string>(String(rematch?.tagRoundMinutes ?? DEFAULT_TAG_ROUND_MINUTES));
+  // Game of Tag, the daily chase (0181): everyone's head start on IT.
+  const [tagHeadStart, setTagHeadStart] = useState<string>(String(rematch?.tagHeadStart ?? 2000));
   // A miles pool: logged workouts' distance, or every mile the phone
   // counts (Challenge.distanceSource).
   const [distanceSource, setDistanceSource] = useState<DistanceSource>(rematch?.distanceSource ?? 'workouts');
@@ -498,6 +498,7 @@ export function CreateScreen({
     if (draftType === 'checklist') setLength(String(DEFAULT_CHECKLIST_DAYS));
     if (draftType === 'houndopoly') setLength(String(DEFAULT_HOUNDOPOLY_DAYS));
     if (draftType === 'packs') setLength('14');
+    if (draftType === 'tag') setLength('7');
     if (draftType === 'rally') setLength(String(DEFAULT_RALLY_DAYS));
     if (draftType === 'soccer') setLength(String(DEFAULT_SOCCER_DAYS));
     if (draftType === 'cricket') setLength(String(DEFAULT_CRICKET_DAYS));
@@ -712,7 +713,8 @@ export function CreateScreen({
     draftType === 'steps' ||
     draftType === 'streak' ||
     (draftType === 'hunt' && scoringMethod === 'device_steps') ||
-    ((draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps');
+    draftType === 'tag' ||
+    (draftType === 'distance' && distanceGoalUnit === 'steps');
 
   const start = async (allowDuplicate = false) => {
     // The Hunt screen still reads static sample data unconditionally —
@@ -964,18 +966,19 @@ export function CreateScreen({
         headStartDays: isHunt ? headStart : undefined,
         // A Journey is scored in miles along its course, so it carries the
         // course's length the way a miles Distance challenge carries its target.
-        distanceGoalUnit: draftType === 'distance' || draftType === 'tag' ? distanceGoalUnit : draftType === 'journey' ? 'miles' : undefined,
+        // A Tag chase is played in steps, with no group target (0181).
+        distanceGoalUnit: draftType === 'distance' ? distanceGoalUnit : draftType === 'tag' ? 'steps' : draftType === 'journey' ? 'miles' : undefined,
         distanceGoalMi:
-          (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'miles'
+          draftType === 'distance' && distanceGoalUnit === 'miles'
             ? distanceGoalMi
             : draftType === 'journey'
               ? course.miles
               : undefined,
         courseId:
           draftType === 'journey' ? course.id : draftType === 'distance' && distanceGoalUnit === 'miles' ? (poolCourseId ?? undefined) : undefined,
-        distanceGoalSteps:
-          (draftType === 'distance' || draftType === 'tag') && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
-        tagRoundMinutes: draftType === 'tag' ? Number(tagRoundMins) : undefined,
+        distanceGoalSteps: draftType === 'distance' && distanceGoalUnit === 'steps' ? distanceGoalSteps : undefined,
+        tagMode: draftType === 'tag' ? 'chase' : undefined,
+        tagHeadStart: draftType === 'tag' ? Number(tagHeadStart) : undefined,
         dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
         distanceSource: draftType === 'distance' && distanceGoalUnit === 'miles' ? distanceSource : undefined,
         bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
@@ -1349,17 +1352,26 @@ export function CreateScreen({
               <Text style={styles.huntBlockValue}>{customLengthLabel}</Text>
             </View>
             <SegmentedControl
-              options={[
-                { value: '7', label: '7 days' },
-                { value: '30', label: '30 days' },
-              ]}
+              options={
+                draftType === 'tag'
+                  ? [
+                      { value: '7', label: '7 days' },
+                      { value: '14', label: '14 days' },
+                    ]
+                  : [
+                      { value: '7', label: '7 days' },
+                      { value: '30', label: '30 days' },
+                    ]
+              }
               value={length}
               onChange={setLength}
             />
             <Slider
               // A Hound'opoly game needs a week to go anywhere.
               minimumValue={
-                community
+                draftType === 'tag'
+                  ? 3
+                  : community
                   ? draftType === 'seventyfive'
                     ? 75
                     : Math.max(3, draftType === 'houndopoly' ? 7 : 3)
@@ -1371,8 +1383,11 @@ export function CreateScreen({
               // unchanged — only 75 Day Challenge needs to reach past it,
               // since its own default (seeded below) is 75.
               maximumValue={
-                // A community challenge runs 3 to 30 days (75 Day: 75).
-                community || draftType === 'packs'
+                // A Tag chase runs 3 to 14 days (0181).
+                draftType === 'tag'
+                  ? 14
+                  : // A community challenge runs 3 to 30 days (75 Day: 75).
+                    community || draftType === 'packs'
                   ? draftType === 'seventyfive'
                     ? 75
                     : 30
@@ -1419,7 +1434,7 @@ export function CreateScreen({
             </View>
           )}
 
-          {(draftType === 'distance' || draftType === 'tag') && (
+          {draftType === 'distance' && (
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
                 <Text style={styles.huntBlockLabel}>Group target</Text>
@@ -1499,11 +1514,9 @@ export function CreateScreen({
                 </View>
               )}
               <Text style={styles.huntBlockNote}>
-                {draftType === 'tag'
-                  ? `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — once the group reaches it, the game ends right there, whoever’s It at the time.`
-                  : distanceGoalUnit === 'miles' && distanceSource === 'all'
-                    ? 'Every mile anyone’s phone counts adds up toward this one shared target, the same miles as on Today — it’s the whole group against the goal, not against each other.'
-                    : `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — it’s the whole group against the goal, not against each other.`}
+                {distanceGoalUnit === 'miles' && distanceSource === 'all'
+                  ? 'Every mile anyone’s phone counts adds up toward this one shared target, the same miles as on Today — it’s the whole group against the goal, not against each other.'
+                  : `Everyone’s logged ${distanceGoalUnit === 'miles' ? 'miles' : 'steps'} add up toward this one shared target — it’s the whole group against the goal, not against each other.`}
               </Text>
             </View>
           )}
@@ -1511,16 +1524,18 @@ export function CreateScreen({
           {draftType === 'tag' && (
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
-                <Text style={styles.huntBlockLabel}>Each round</Text>
-                <Text style={styles.huntBlockValue}>{formatTagTime(Number(tagRoundMins))}</Text>
+                <Text style={styles.huntBlockLabel}>Head start</Text>
+                <Text style={styles.huntBlockValue}>{Number(tagHeadStart).toLocaleString()} steps</Text>
               </View>
               <SegmentedControl
-                options={TAG_ROUND_OPTIONS.map((m) => ({ value: String(m), label: formatTagTime(m) }))}
-                value={tagRoundMins}
-                onChange={setTagRoundMins}
+                options={[1000, 2000, 3000].map((n) => ({ value: String(n), label: n.toLocaleString() }))}
+                value={tagHeadStart}
+                onChange={setTagHeadStart}
               />
               <Text style={styles.huntBlockNote}>
-                How long It has to pick someone and out-step them. If time runs out, It passes to someone else and a new round starts.
+                One hound is IT each day, a random one on day 1. Everyone else starts the day this many steps ahead.
+                Whoever IT out-walks by the end of the day is tagged, and the slowest of them is IT tomorrow. +3 for each
+                tag, +1 for each day you get away. Most points wins.
               </Text>
             </View>
           )}

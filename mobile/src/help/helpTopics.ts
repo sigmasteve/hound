@@ -84,7 +84,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Your goals come first: the Hound’s on you card shows each goal, where you are on it, and what’s left. Tap Edit to change them.',
         `New here? A short setup walks you through it one step at a time: connect your health app, say how you’ll use Hound, set goals, turn on notifications, add a friend, join a challenge and meet your hound. Connect health, add a friend and join a challenge for a ${currency} reward. Skipped something? Today’s “Finish setting up” picks up where you left off.`,
         'Below your challenges list is one featured challenge: the one you’ve pinned with Pin to Today, or otherwise your newest active one. To only feature one you pin, turn off Newest challenge on Today in Settings.',
-        'Needs you lists anything waiting on you: challenge invites, friend requests, your move in Tic-Tac-Go, picking a target when you’re It in Tag, today’s 75 Day checklist, or progress to log.',
+        'Needs you lists anything waiting on you: challenge invites, friend requests, your move in Tic-Tac-Go, picking a target when you’re It in an older game of Tag, today’s 75 Day checklist, or progress to log.',
         `Your Hound Score, level and ${currency} balance are on the You tab.`,
         `Early in each week (Monday to Wednesday), a recap card shows last week’s steps, challenges finished, Hound Score, and ${currency} earned. Tap the X to hide it until next week.`,
       ],
@@ -152,6 +152,20 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
             : t.desc;
         return `${t.name} — ${desc}`;
       }),
+    },
+    {
+      id: 'tag',
+      section: 'challenges',
+      title: 'Game of Tag: the daily chase',
+      summary: 'Stay ahead of IT, or be IT tomorrow.',
+      steps: [
+        'One hound is IT each day, wearing a red bandana. A random hound is IT on day 1.',
+        'Everyone else starts the day with a head start (1,000, 2,000 or 3,000 steps, picked when the game is made).',
+        'By the end of the day, whoever IT out-walked is tagged: IT’s steps beat theirs plus the head start. Everyone else got away.',
+        'The slowest hound tagged is IT the next day. If nobody’s tagged, IT stays IT.',
+        'Each day is settled the next morning, once it’s over everywhere. Watch it back on the track: IT closes in, and TAG!',
+        '+3 for each tag, +1 for each day you get away. Most points when it ends wins. A game runs 3 to 14 days.',
+      ],
     },
     {
       id: 'baseball',

@@ -28,6 +28,7 @@ import { Card } from '../components/Card';
 import { LoadingView } from '../components/LoadingView';
 import { ProgressBar } from '../components/ProgressBar';
 import { Tag } from '../components/Tag';
+import { TagChaseSection } from '../tag/TagChaseSection';
 import { TagStatusCard } from '../components/TagStatusCard';
 import { TicTacGoCard } from '../components/TicTacGoCard';
 import { TextField } from '../components/TextField';
@@ -695,7 +696,8 @@ export function ChallengeDetailScreen({
       // challenge has actually concluded.
       settleChallengeScore(challengeId).catch(() => {});
       const needsHeadStart = c.kind === 'hunt' && !!c.headStartDays;
-      const needsTag = c.kind === 'tag';
+      // The daily chase (0181) has no rounds to load.
+      const needsTag = c.kind === 'tag' && c.tagMode !== 'chase';
       const needsStreak = c.kind === 'streak';
       const needsBingo = c.kind === 'bingo';
       const needsTicTacGo = c.kind === 'tictacgo';
@@ -1038,7 +1040,7 @@ export function ChallengeDetailScreen({
   // re-fetches a round where this user is no longer IT, and this
   // effect's own guard below stops doing anything further.
   useEffect(() => {
-    if (!challenge || challenge.kind !== 'tag' || !user?.id) return;
+    if (!challenge || challenge.kind !== 'tag' || challenge.tagMode === 'chase' || !user?.id) return;
     if (!tagRound || tagRound.itUserId !== user.id || !tagRound.targetUserId) return;
     checkTagCatch(challenge.id)
       .then((caught) => {
@@ -2183,7 +2185,7 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
-          {challenge.kind === 'tag' && finished && (
+          {challenge.kind === 'tag' && challenge.tagMode !== 'chase' && finished && (
             <Card style={{ gap: 12 }} elevated={false}>
               <Text style={text.h4}>Tag recap</Text>
               <Text style={styles.footNote}>
@@ -2213,7 +2215,11 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
-          {challenge.kind === 'tag' && tagRound && !finished && (
+          {challenge.kind === 'tag' && challenge.tagMode === 'chase' && (
+            <TagChaseSection challengeId={challenge.id} myUserId={user?.id} startsAt={new Date(challenge.startsAt)} />
+          )}
+
+          {challenge.kind === 'tag' && challenge.tagMode !== 'chase' && tagRound && !finished && (
             <TagStatusCard
               round={tagRound}
               members={tagMembers}
@@ -2976,7 +2982,20 @@ export function ChallengeDetailScreen({
                 How {challenge.kind === 'hunt' ? huntKindName() : (typeDef?.name ?? 'this challenge')} works
               </Text>
             </View>
-            {challenge.kind === 'tag' ? (
+            {challenge.kind === 'tag' && challenge.tagMode === 'chase' ? (
+              <>
+                <Text style={styles.footNote}>
+                  One hound is IT each day, a random one on day 1. Everyone else starts the day{' '}
+                  {(challenge.tagHeadStart ?? 2000).toLocaleString()} steps ahead. Whoever IT out-walks by the end of the
+                  day is tagged; the rest got away.
+                </Text>
+                <Text style={styles.footNote}>
+                  The slowest hound tagged is IT the next day, and if nobody&rsquo;s tagged, IT stays IT. Each day is
+                  settled once it&rsquo;s over everywhere, and you can watch it back on the track. +3 for each tag, +1
+                  for each day you get away. Most points when it ends wins.
+                </Text>
+              </>
+            ) : challenge.kind === 'tag' ? (
               <>
                 <Text style={styles.footNote}>
                   One player is "IT". Every round starts everyone at 0: IT picks anyone, and tags

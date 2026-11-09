@@ -38,6 +38,8 @@ import { GardenAdminCard } from '../components/GardenAdminCard';
 import { CareAdminCard } from '../components/CareAdminCard';
 import { BathAdminCard } from '../components/BathAdminCard';
 import { ChallengesAdminCard } from '../components/ChallengesAdminCard';
+import { TagAdminCard } from '../components/TagAdminCard';
+import { getTagOverview } from '../tag/tagChaseApi';
 import { getChallengesOverview } from '../admin/challengesOverview';
 import { RoomAdminCard } from '../components/RoomAdminCard';
 import { TogetherAdminCard } from '../components/TogetherAdminCard';
@@ -152,6 +154,8 @@ export function AdminScreen({
   const [bathSummary, setBathSummary] = useState<string | null>(null);
   // The Challenges fold's line: running now and made this week (0180).
   const [challengesSummary, setChallengesSummary] = useState<string | null>(null);
+  // The Tag fold's line (0181).
+  const [tagSummary, setTagSummary] = useState<string | null>(null);
   const [roomSummary, setRoomSummary] = useState<string | null>(null);
   // The Together fold's line (0170).
   const [togetherSummary, setTogetherSummary] = useState<string | null>(null);
@@ -181,6 +185,9 @@ export function AdminScreen({
         .catch(() => {});
       getGardenOverview()
         .then((g) => setGardenSummary(`${g.growingNow} ${g.growingNow === 1 ? 'garden' : 'gardens'} growing`))
+        .catch(() => {});
+      getTagOverview()
+        .then((t) => setTagSummary(`${t.running} ${t.running === 1 ? 'chase' : 'chases'} running · ${t.tags7d} tags this week`))
         .catch(() => {});
       getChallengesOverview()
         .then((c) => setChallengesSummary(`${c.running} running now · ${c.created7d} new this week`))
@@ -764,6 +771,9 @@ export function AdminScreen({
                 </AdminFold>
                 <AdminFold title="Pack Wars" summary={packsSummary ?? 'Packs, votes and the map'}>
                   <PacksAdminCard />
+                </AdminFold>
+                <AdminFold title="Game of Tag" summary={tagSummary ?? 'Daily chases, tags and head starts'}>
+                  <TagAdminCard />
                 </AdminFold>
                 <AdminFold title="Daily Doors" summary={doorsSummary ?? 'Doors opened and done'}>
                   <DoorsAdminCard />

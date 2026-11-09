@@ -95,6 +95,10 @@ export interface Challenge {
   // Kind 'tag': how long It has to pick and catch someone before It
   // passes on, in minutes (60, 90 or 120; empty means 60). 0168.
   tagRoundMinutes?: number | null;
+  // Game of Tag (0181): 'chase' is the daily chase; null is the old game
+  // (rounds), which games made before it keep.
+  tagMode?: 'chase' | 'rounds' | null;
+  tagHeadStart?: number | null;
   // Only meaningful for a miles Distance pool — see DistanceSource.
   distanceSource: DistanceSource | null;
   // Only meaningful for kind 'bingo' — see BingoCardType's own comment.
@@ -235,6 +239,9 @@ export interface CreateChallengeInput {
   distanceGoalUnit?: DistanceGoalUnit;
   // Only meaningful for kind 'tag' — see Challenge.tagRoundMinutes.
   tagRoundMinutes?: number;
+  // Kind 'tag': the daily chase and its head start (0181).
+  tagMode?: 'chase';
+  tagHeadStart?: number;
   // Only meaningful for a miles Distance pool — see Challenge.distanceSource.
   distanceSource?: DistanceSource;
   // Only meaningful for kind 'bingo' — see Challenge.bingoCardType.

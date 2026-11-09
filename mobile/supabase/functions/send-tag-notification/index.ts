@@ -13,6 +13,11 @@
 // exception handler on the calling side — a failure to notify must
 // never roll back the actual game state change.
 //
+// The daily chase (0181) sends two more, the morning a day settles
+// (tag_chase_advance): kind 'chase_it' to whoever is IT today, and kind
+// 'chase_tagged' to each hound IT caught (tagger_id is IT, margin how
+// many steps short they were). new_it_user_id is who it goes to.
+//
 // Deploy with the Supabase CLI:
 //   supabase functions deploy send-tag-notification
 
@@ -28,12 +33,17 @@ function formatRound(minutes: number): string {
 }
 
 interface RequestBody {
-  kind: 'caught' | 'timeout';
+  kind: 'caught' | 'timeout' | 'chase_it' | 'chase_tagged';
   challenge_id: string;
   new_it_user_id: string;
   // Only meaningful for kind: 'caught' — who actually did the tagging.
   tagger_id?: string;
+  // The chase: how many steps short a tagged hound was, and the head start.
+  margin?: number;
+  head_start?: number;
 }
+
+const KINDS = ['caught', 'timeout', 'chase_it', 'chase_tagged'];
 
 interface ProfileRow {
   name: string;
@@ -76,7 +86,7 @@ Deno.serve(async (req) => {
   }
 
   const body = (await req.json()) as RequestBody;
-  if (!body?.challenge_id || !body?.new_it_user_id || (body.kind !== 'caught' && body.kind !== 'timeout')) {
+  if (!body?.challenge_id || !body?.new_it_user_id || !KINDS.includes(body.kind)) {
     return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
   }
 
@@ -100,10 +110,16 @@ Deno.serve(async (req) => {
   }
 
   const roundLength = formatRound(challenge.tag_round_minutes ?? 60);
+  const tagger = taggerProfile ? displayName(taggerProfile) : 'IT';
+  const headStart = (body.head_start ?? 2000).toLocaleString('en-US');
   const messageBody =
-    body.kind === 'caught'
-      ? `${taggerProfile ? displayName(taggerProfile) : 'Someone'} tagged you in "${challenge.name}"! You're It — pick who to tag within ${roundLength}.`
-      : `Time ran out in "${challenge.name}" — you're It now! You have ${roundLength} to pick who to tag.`;
+    body.kind === 'chase_it'
+      ? `You're IT today in "${challenge.name}" 🏃 Out-walk anyone by more than their ${headStart}-step head start to tag them.`
+      : body.kind === 'chase_tagged'
+        ? `${tagger} tagged you in "${challenge.name}"${body.margin ? ` by ${body.margin.toLocaleString('en-US')} steps` : ''}. Watch last night's chase.`
+        : body.kind === 'caught'
+          ? `${tagger === 'IT' ? 'Someone' : tagger} tagged you in "${challenge.name}"! You're It — pick who to tag within ${roundLength}.`
+          : `Time ran out in "${challenge.name}" — you're It now! You have ${roundLength} to pick who to tag.`;
 
   const { data: tokenRows } = await supabase
     .from('device_push_tokens')

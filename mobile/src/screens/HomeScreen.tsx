@@ -555,6 +555,11 @@ function heroCopy(
   // board rank. The recap of who was It, who got tagged, and who tagged
   // someone lives on the challenge's own detail screen instead (see
   // ChallengeDetailScreen's "Tag recap" card).
+  // The daily chase (0181) has a winner, on points the board here
+  // doesn't have: point to the challenge, where the standings are.
+  if (challenge.kind === 'tag' && finished && challenge.tagMode === 'chase') {
+    return { eyebrow, headline: `The chase is over in ${challenge.name}. See who won.` };
+  }
   if (challenge.kind === 'tag' && finished) {
     return { eyebrow, headline: `${challenge.name} wrapped up — no winner, just a recap of how the chase went.` };
   }
@@ -1675,7 +1680,7 @@ export function HomeScreen({
       // ever relevant when the primary challenge itself is a Tag game,
       // so this stays null (and skips the extra fetch) for every other
       // kind, same as ChallengeDetailScreen's own needsTag guard.
-      if (primaryResult?.challenge.kind === 'tag') {
+      if (primaryResult?.challenge.kind === 'tag' && primaryResult.challenge.tagMode !== 'chase') {
         getTagRound(primaryResult.challenge.id)
           .then((round) => {
             if (!cancelled) setPrimaryTagRound(round);
@@ -1838,7 +1843,7 @@ export function HomeScreen({
         const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries] = await Promise.all([
           Promise.all(
             activeResults
-              .filter((r) => r.challenge.kind === 'tag')
+              .filter((r) => r.challenge.kind === 'tag' && r.challenge.tagMode !== 'chase')
               .map(async (r): Promise<readonly [string, TagRound | null]> => [
                 r.challenge.id,
                 await getTagRound(r.challenge.id).catch(() => null),

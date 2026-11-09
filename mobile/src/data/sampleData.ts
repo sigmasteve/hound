@@ -169,7 +169,7 @@ export const CHALLENGE_TYPES: {
   iconColor: string;
 }[] = [
   { id: 'hunt', name: 'Chase', desc: 'One runner gets a head start. The other has to catch them on logged miles before time runs out.', tint: TINT_A, iconColor: '#f5f4ff' },
-  { id: 'tag', name: 'Game of Tag', desc: 'One person is "IT" and has to catch someone before time runs out. No ranking — just don’t get caught.', tint: '#6b4f1f', iconColor: '#fbe8c9' },
+  { id: 'tag', name: 'Game of Tag', desc: 'One hound is IT each day. Stay ahead of IT by your head start or get tagged. Tags score, getting away scores, being IT doesn’t.', tint: '#6b4f1f', iconColor: '#fbe8c9' },
   { id: 'steps', name: 'Step Race', desc: 'Most steps during the challenge. Everyone against everyone.', tint: TINT_N, iconColor: '#e9e9ed' },
   { id: 'distance', name: 'Group Distance Target', desc: 'Add every mile the group covers toward one shared target.', tint: TINT_N, iconColor: '#e9e9ed' },
   { id: 'streak', name: 'Daily Streak', desc: 'Hit a daily goal every day. One miss and you are out.', tint: TINT_N, iconColor: '#e9e9ed' },
