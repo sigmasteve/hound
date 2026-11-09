@@ -2743,6 +2743,32 @@ export function ChallengeDetailScreen({
             </Card>
           )}
 
+          {/* Chase: the trail and where everyone stands go above the
+              Leaderboard, so the race is the first thing you see. */}
+          {huntRace && (
+            <>
+              <HuntReplayCard
+                labels={labels}
+                chaser={huntRace.chaser}
+                foxes={huntRace.foxes}
+                day={huntRace.day}
+                scene={raceSceneFor(challenge)}
+                startsAt={new Date(challenge.startsAt) > new Date() ? new Date(challenge.startsAt) : null}
+                headStartDays={challenge.headStartDays}
+              />
+              {huntRace.foxes.length > 0 && new Date(challenge.startsAt) <= new Date() && (
+              <HuntStatusCard
+                labels={labels}
+                day={huntRace.day}
+                days={challenge.durationDays}
+                chaser={huntRace.chaser}
+                foxes={huntRace.foxes}
+                unit={huntRace.unit}
+              />
+              )}
+            </>
+          )}
+
           {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && (
             <Card style={{ gap: 12 }} elevated={false}>
               <View style={styles.leaderboardHeader}>
@@ -2950,30 +2976,6 @@ export function ChallengeDetailScreen({
                   })}
               {board.length === 0 && <Text style={styles.footNote}>No participants found.</Text>}
             </Card>
-          )}
-
-          {huntRace && (
-            <>
-              <HuntReplayCard
-                labels={labels}
-                chaser={huntRace.chaser}
-                foxes={huntRace.foxes}
-                day={huntRace.day}
-                scene={raceSceneFor(challenge)}
-                startsAt={new Date(challenge.startsAt) > new Date() ? new Date(challenge.startsAt) : null}
-                headStartDays={challenge.headStartDays}
-              />
-              {huntRace.foxes.length > 0 && new Date(challenge.startsAt) <= new Date() && (
-              <HuntStatusCard
-                labels={labels}
-                day={huntRace.day}
-                days={challenge.durationDays}
-                chaser={huntRace.chaser}
-                foxes={huntRace.foxes}
-                unit={huntRace.unit}
-              />
-              )}
-            </>
           )}
 
           {/* A device-synced challenge (usesDeviceSteps/usesWorkoutDistance)
