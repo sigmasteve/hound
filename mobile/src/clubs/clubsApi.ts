@@ -313,6 +313,9 @@ export interface ClubsOverview {
   active30d: number;
   posts30d: number;
   clubJoins30d: number;
+  // 0187
+  invites30d: number;
+  invitesAccepted30d: number;
   bySport: Partial<Record<ClubSport, number>>;
   newest: { id: string; name: string; sport: ClubSport; city: string | null; isPublic: boolean; createdAt: string; members: number; posts: number; owner: string | null }[];
 }
@@ -342,6 +345,8 @@ export async function getClubsOverview(): Promise<ClubsOverview> {
     active30d: n(d.active_30d),
     posts30d: n(d.posts_30d),
     clubJoins30d: n(d.club_joins_30d),
+    invites30d: n(d.invites_30d),
+    invitesAccepted30d: n(d.invites_accepted_30d),
     bySport: d.by_sport ?? {},
     newest: ((d.newest ?? []) as any[]).map((r) => ({
       id: r.id,
@@ -363,4 +368,49 @@ export async function setClubConfig(patch: Partial<{ enabled: boolean; min_level
 
 export async function adminRemoveClub(id: string, reason: string): Promise<void> {
   await rpc('admin_remove_club', { p_club_id: id, p_reason: reason });
+}
+
+// ── Invites (0187) ──
+
+export interface ClubFriend {
+  userId: string;
+  name: string;
+  initials: string;
+  frameId: string | null;
+  backgroundId: string | null;
+  iconId: string | null;
+  member: boolean;
+  invited: boolean;
+}
+
+export async function friendsForClub(clubId: string): Promise<ClubFriend[]> {
+  const rows = (await rpc<any[]>('friends_for_club', { p_club_id: clubId })) ?? [];
+  return rows.map((r) => ({
+    userId: r.user_id,
+    name: r.name,
+    initials: r.initials,
+    frameId: r.frame ?? null,
+    backgroundId: r.background ?? null,
+    iconId: r.icon ?? null,
+    member: !!r.member,
+    invited: !!r.invited,
+  }));
+}
+
+export async function inviteToClub(clubId: string, userIds: string[]): Promise<number> {
+  return Number(await rpc('invite_to_club', { p_club_id: clubId, p_user_ids: userIds }));
+}
+
+export type ClubInvite = Club & { invitedBy: string | null };
+
+export async function getMyClubInvites(): Promise<ClubInvite[]> {
+  return ((await rpc<any[]>('my_club_invites')) ?? []).map((d) => ({ ...toClub(d), invitedBy: d.invited_by ?? null }));
+}
+
+export async function acceptClubInvite(clubId: string): Promise<void> {
+  await rpc('accept_club_invite', { p_club_id: clubId });
+}
+
+export async function declineClubInvite(clubId: string): Promise<void> {
+  await rpc('decline_club_invite', { p_club_id: clubId });
 }

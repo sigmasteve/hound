@@ -13,10 +13,14 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import {
   getClubStatus,
   getMyClubs,
+  getMyClubInvites,
+  acceptClubInvite,
+  declineClubInvite,
   joinClub,
   listCommunityChallenges,
   searchClubs,
   type Club,
+  type ClubInvite,
   type ClubSport,
   type ClubStatus,
   type CommunityListing,
@@ -47,6 +51,9 @@ export function ClubsScreen({
   const [part, setPart] = useState<'clubs' | 'community'>('clubs');
   const [status, setStatus] = useState<ClubStatus | null>(null);
   const [mine, setMine] = useState<Club[] | null>(null);
+  // 0187: clubs your friends invited you to.
+  const [invites, setInvites] = useState<ClubInvite[]>([]);
+  const [answering, setAnswering] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [sport, setSport] = useState<ClubSport | null>(null);
@@ -66,6 +73,9 @@ export function ClubsScreen({
       .catch((e) =>
         setError(e instanceof Error && /my_club_status|my_clubs/.test(e.message) ? 'Clubs aren’t switched on yet.' : e instanceof Error ? e.message : 'Could not load your clubs.'),
       );
+    getMyClubInvites()
+      .then(setInvites)
+      .catch(() => setInvites([]));
     listCommunityChallenges()
       .then(setCommunity)
       .catch(() => setCommunity({ featured: [], popular: [] }));
@@ -130,6 +140,35 @@ export function ClubsScreen({
     }
   };
 
+  // Join from an invite, asking for a username or the 13+ check in place.
+  const acceptInvite = async (c: ClubInvite) => {
+    setAnswering(c.id);
+    try {
+      await acceptClubInvite(c.id);
+      setInvites((list) => list.filter((x) => x.id !== c.id));
+      onOpenClub(c.id);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Try again in a moment.';
+      if (/13 or older/.test(msg)) {
+        Alert.alert('Are you 13 or older?', 'Clubs are open to people you don’t know, so they’re for ages 13 and up.', [
+          { text: 'No', style: 'cancel' },
+          { text: 'I’m 13 or older', onPress: () => confirmCommunityAge().then(() => acceptInvite(c)).catch(() => {}) },
+        ]);
+      } else if (/username/.test(msg)) {
+        askUsername(CLUB_USERNAME_WHY, () => void acceptInvite(c));
+      } else {
+        Alert.alert('Couldn’t join', msg);
+      }
+    } finally {
+      setAnswering(null);
+    }
+  };
+
+  const declineInvite = (c: ClubInvite) => {
+    setInvites((list) => list.filter((x) => x.id !== c.id));
+    declineClubInvite(c.id).catch(() => {});
+  };
+
   const joinButton = (label: string, onPress: () => void, busy = false) => (
     <Pressable onPress={onPress} disabled={busy} style={({ pressed }) => [styles.join, pressed && { opacity: 0.8 }]} accessibilityRole="button">
       {busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.joinText}>{label}</Text>}
@@ -175,6 +214,29 @@ export function ClubsScreen({
 
       {part === 'clubs' && (
         <>
+          {invites.length > 0 && (
+            <Card style={[{ gap: 0 }, styles.featured]} elevated={false}>
+              <Text style={[styles.kicker, { color: colors.accentActive }]}>CLUB INVITES</Text>
+              {invites.map((c) => (
+                <View key={c.id} style={styles.row}>
+                  <ClubBadge sport={c.sport} color={c.color} size={40} />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={styles.rowName}>{c.name}</Text>
+                    <Text style={styles.rowMeta}>
+                      {c.invitedBy ? `${c.invitedBy} invited you · ` : ''}
+                      {clubMeta(c)}
+                    </Text>
+                    <View style={styles.inviteButtons}>
+                      {joinButton('Join', () => acceptInvite(c), answering === c.id)}
+                      <Pressable onPress={() => declineInvite(c)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`No thanks to ${c.name}`}>
+                        <Text style={styles.decline}>No thanks</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </Card>
+          )}
           {error ? (
             <Card elevated={false}>
               <Text style={styles.note}>{error}</Text>
@@ -361,6 +423,8 @@ function makeStyles(colors: Palette) {
     hintRow: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' },
     hint: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
     featured: { borderWidth: 1, borderColor: withAlpha(colors.accent, 0.35) },
+    inviteButtons: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 6 },
+    decline: { fontFamily: font.headingSemibold, fontSize: 13, color: withAlpha(colors.text, 0.55) },
     publish: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 16, backgroundColor: colors.surface },
   });
 }

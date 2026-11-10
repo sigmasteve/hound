@@ -21,6 +21,8 @@
 //   'club_post'   "Eastside Runners: annruns posted 5K a Day. Tap to
 //                 join." — to the club's members in to_users (post_to_clubs,
 //                 0185_clubs.sql, applied mutes)
+//   'club_invite' "annruns invited you to Waffle House Crew. Tap to
+//                 join." — to the friends picked (invite_to_club, 0187)
 // The RPC has already checked who can do what, and that each recipient
 // has these pushes on; a failure here never undoes the nudge, reaction
 // or message — the calling side swallows it.
@@ -43,7 +45,8 @@ type Kind =
   | 'yard_pawprint'
   | 'yard_treat'
   | 'gift'
-  | 'club_post';
+  | 'club_post'
+  | 'club_invite';
 
 interface RequestBody {
   kind: Kind;
@@ -105,6 +108,7 @@ Deno.serve(async (req) => {
   if (body?.kind === 'bounty_posted') return bountyPosted(supabase, body);
   if (body?.kind === 'journey_finished') return journeyFinished(supabase, body);
   if (body?.kind === 'club_post') return clubPost(supabase, body);
+  if (body?.kind === 'club_invite') return clubInvite(supabase, body);
   if (
     !body?.from_user ||
     !body?.to_user ||
@@ -266,6 +270,18 @@ async function clubPost(supabase: SupabaseClient, body: RequestBody): Promise<Re
     title: club,
     data: { type: 'club_post', clubId: body.club_id, challengeId: body.challenge_id },
     username: true,
+  });
+}
+
+// Friends invited to a club. Opens the Clubs tab, where the invite is.
+async function clubInvite(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
+  const club = (body.club_name ?? '').trim();
+  if (!club || !body.club_id) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
+  }
+  return toFriends(supabase, body, (name) => `${name} invited you to ${club}. Tap to join.`, {
+    title: 'Club invite',
+    data: { type: 'club_invite', clubId: body.club_id },
   });
 }
 

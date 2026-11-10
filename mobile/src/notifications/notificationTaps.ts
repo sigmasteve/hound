@@ -19,6 +19,7 @@ import type { RootStackParamList } from '../navigation/types';
 //   yard_treat           → the Kennel, whose Yard lists visitors
 //   gift                 → the Kennel, where the gift is waiting
 //   club_post            → the club's page (0185), with its Join button
+//   club_invite          → the Clubs tab, where the invite waits (0187)
 function routeFor(data: Record<string, unknown> | undefined): (() => [keyof RootStackParamList, any]) | null {
   if (!data) return null;
   if (data.type === 'admin_signup' && typeof data.userId === 'string') {
@@ -59,6 +60,7 @@ function routeFor(data: Record<string, unknown> | undefined): (() => [keyof Root
   if (data.type === 'bounty_posted' || data.type === 'bounty_claimed') return () => ['Main', { tab: 'home' }];
   if (data.type === 'yard_pawprint' || data.type === 'yard_treat' || data.type === 'gift') return () => ['Kennel', undefined];
   if (data.type === 'club_post' && typeof data.clubId === 'string') return () => ['Club', { clubId: data.clubId }];
+  if (data.type === 'club_invite') return () => ['Main', { tab: 'clubs' }];
   if (data.type === 'nudge' || data.type === 'reaction') {
     if (typeof data.challengeId === 'string') return () => ['ChallengeDetail', { challengeId: data.challengeId }];
     return () => ['Main', { tab: 'home' }];

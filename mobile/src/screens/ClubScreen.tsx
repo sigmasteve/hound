@@ -30,6 +30,7 @@ import {
 } from '../clubs/clubsApi';
 import { CLUB_COLORS, ClubBadge, sportName } from '../clubs/clubLook';
 import { formatClubCode } from '../clubs/ClubJoinCard';
+import { ClubInviteFriends } from '../clubs/ClubInviteFriends';
 import { CLUB_USERNAME_WHY, useUsernameAsk } from '../profiles/UsernameAsk';
 
 // This week's Monday, on the phone.
@@ -283,6 +284,8 @@ export function ClubScreen({
               </View>
             </Card>
           )}
+          {/* 0187: straight from your friends list, private clubs too. */}
+          {member && inviteOpen && <ClubInviteFriends clubId={club.id} clubName={club.name} />}
 
           <Card style={{ gap: 8 }} elevated={false}>
             <View style={styles.head}>
