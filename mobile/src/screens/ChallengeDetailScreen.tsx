@@ -3062,8 +3062,8 @@ export function ChallengeDetailScreen({
                 <Text style={styles.footNote}>
                   The slowest hound tagged is IT the next day, and if nobody&rsquo;s tagged, IT stays IT. Nobody who walked
                   under 1,000 steps that day is made IT: an IT under 1,000 passes it to whoever got away by the least. Each day is
-                  settled once it&rsquo;s over everywhere, and you can watch it back on the track. +3 for each tag, +1
-                  for each day you get away. Most points when it ends wins.
+                  settled once it&rsquo;s over everywhere, and you can watch it back on the track. +3 for each tag (not on
+                  someone under 1,000 steps that day), +1 for each day you get away. Most points when it ends wins.
                 </Text>
               </>
             ) : challenge.kind === 'tag' ? (

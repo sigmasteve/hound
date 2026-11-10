@@ -13,6 +13,11 @@
 -- Day 1's random IT is picked from players who've walked 1,000 steps on
 -- a day in the last three, where there are any.
 --
+-- A tag only scores when the hound tagged walked 1,000 steps or more
+-- that day (Steve: "A tag on a player who is not syncing should not earn
+-- the points"). They're still tagged on the replay, for no points, and
+-- standings count it from now on, past days included.
+--
 -- tag_chase_days.passed marks a day the next IT isn't who the old rule
 -- would have picked, for the replay's line ("Dad walked under 1,000
 -- steps, so IT passes to Sky").
@@ -24,8 +29,8 @@
 -- Run this once, after 0185, in the SQL Editor, before publishing the
 -- app update that goes with it.
 --
--- Undo, if needed: re-run tag_chase_it, tag_chase_advance and
--- tag_chase_view from 0181.
+-- Undo, if needed: re-run tag_chase_it, tag_chase_advance,
+-- tag_chase_standings and tag_chase_view from 0181.
 
 alter table public.tag_chase_days add column if not exists passed boolean not null default false;
 
@@ -157,6 +162,40 @@ end;
 $$;
 
 revoke execute on function public.tag_chase_advance(uuid) from public, anon, authenticated;
+
+-- Points so far: +3 a tag on a hound who walked 1,000 steps or more that
+-- day (0186), +1 a day got away; and days as IT.
+create or replace function public.tag_chase_standings(p_challenge_id uuid)
+returns table (user_id uuid, tags int, escapes int, days_it int, points int)
+language sql
+stable
+security definer set search_path = public
+as $$
+  with scored as (
+    select d.it_user, count(*)::int as n
+    from public.tag_chase_days d, jsonb_array_elements(d.tagged) t
+    where d.challenge_id = p_challenge_id
+      and coalesce((d.steps ->> (t ->> 'user'))::int, 0) >= 1000
+    group by d.it_user
+  ),
+  got_away as (
+    select (e ->> 'user')::uuid as user_id, count(*)::int as n
+    from public.tag_chase_days d, jsonb_array_elements(d.escaped) e
+    where d.challenge_id = p_challenge_id
+    group by 1
+  )
+  select cp.user_id,
+    coalesce(s.n, 0),
+    coalesce(g.n, 0),
+    (select count(*) from public.tag_chase_days d where d.challenge_id = p_challenge_id and d.it_user = cp.user_id)::int,
+    coalesce(s.n, 0) * 3 + coalesce(g.n, 0)
+  from public.challenge_participants cp
+  left join scored s on s.it_user = cp.user_id
+  left join got_away g on g.user_id = cp.user_id
+  where cp.challenge_id = p_challenge_id;
+$$;
+
+revoke execute on function public.tag_chase_standings(uuid) from public, anon, authenticated;
 
 create or replace function public.tag_chase_view(p_challenge_id uuid, p_day date)
 returns jsonb

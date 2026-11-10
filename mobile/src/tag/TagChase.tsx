@@ -185,6 +185,9 @@ export function TagReplayCard({
     .map((p) => ({ p, margin: (steps[p.id] ?? 0) + headStart - itSteps }))
     .sort((a, b) => a.margin - b.margin);
   const tagged = results.filter((r) => r.margin < 0);
+  // 0186: a tag only scores on a hound who walked 1,000 steps or more.
+  const scores = (id: string) => (steps[id] ?? 0) >= 1000;
+  const scoredTags = tagged.filter((r) => scores(r.p.id)).length;
   const nextIt =
     (nextItId ? players.find((p) => p.id === nextItId) : undefined) ??
     (tagged.length ? tagged.reduce((a, b) => ((steps[a.p.id] ?? 0) <= (steps[b.p.id] ?? 0) ? a : b)).p : it);
@@ -214,7 +217,7 @@ export function TagReplayCard({
             <View style={[styles.dot, { backgroundColor: margin < 0 ? IT_RED : colors.green }]} />
             <Text style={styles.resultText}>
               {margin < 0
-                ? `${it.name} tagged ${p.me ? 'you' : p.name} by ${(-margin).toLocaleString()}`
+                ? `${it.name} tagged ${p.me ? 'you' : p.name} by ${(-margin).toLocaleString()}${scores(p.id) ? '' : ' (under 1,000 steps: no points)'}`
                 : `${p.me ? 'You' : p.name} got away by ${margin.toLocaleString()}`}
             </Text>
             <Text style={styles.points}>{margin < 0 ? '' : '+1'}</Text>
@@ -224,8 +227,9 @@ export function TagReplayCard({
           <View style={[styles.dot, { backgroundColor: colors.gold }]} />
           <Text style={styles.resultText}>
             {it.name} {tagged.length ? `made ${tagged.length} ${tagged.length === 1 ? 'tag' : 'tags'}` : 'tagged nobody'}
+            {tagged.length > scoredTags ? ` (${scoredTags} ${scoredTags === 1 ? 'counts' : 'count'})` : ''}
           </Text>
-          <Text style={styles.points}>{tagged.length ? `+${tagged.length * 3}` : ''}</Text>
+          <Text style={styles.points}>{scoredTags ? `+${scoredTags * 3}` : ''}</Text>
         </View>
       </View>
       {!last && <View style={styles.nextIt}>

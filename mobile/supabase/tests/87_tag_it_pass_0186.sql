@@ -1,7 +1,7 @@
 -- 0186: nobody under 1,000 steps that day is made IT. The slowest
 -- tagged who walked 1,000+; else IT stays if IT did; else the closest
 -- call who did; else (nobody did) IT stays.
-select plan(8);
+select plan(10);
 
 select tests.new_user('Dad') as dad \gset
 select tests.new_user('Sky') as sky \gset
@@ -50,6 +50,13 @@ select is(public.tag_chase_next_it(:'sky', 5000, jsonb_build_object(:'sky', 5000
   'The slowest tagged with 1,000+ is IT, as before when they all walked');
 select is(public.tag_chase_next_it(:'dad', 4000, jsonb_build_object(:'dad', 4000, :'sky', 3000), '[]'::jsonb), :'dad'::uuid,
   'IT on 1,000+ who tags nobody stays IT, as before');
+
+-- Points: Sky's day-2 tags were Mom (500, not syncing: no points) and
+-- Dad (2,000: +3); Sky got away on day 1 (+1) and day 3 (+1).
+select is((select tags from public.tag_chase_standings('00000000-0000-0000-0000-0000000000f1') where user_id = :'sky'), 1,
+  'A tag on a hound under 1,000 steps doesn''t count');
+select is((select points from public.tag_chase_standings('00000000-0000-0000-0000-0000000000f1') where user_id = :'sky'), 5,
+  'so Sky has 3 for Dad and 1 for each day away');
 
 -- tag_chase_view hands the app the pass.
 select tests.sign_in(:'sky');
