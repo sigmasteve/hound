@@ -431,3 +431,7 @@ body.guide .card, body.guide .spotlight { scroll-margin-top: 16px; }
   body.guide .types { grid-template-columns: 1fr 1fr; }
   body.guide .group-title { break-after: avoid; }
 }
+
+/* An iPhone app's browser (Messenger and the like) can't open Hound:
+   the way out to Safari, above Open in Hound (open-app.js). */
+.inapp { margin: 0 0 14px; padding: 14px; border-radius: 14px; background: rgba(145, 132, 217, 0.14); border: 1px solid rgba(145, 132, 217, 0.35); }

@@ -87,7 +87,11 @@
       // Already have Hound: this opens it and adds them, on iPhone and
       // Android alike. (Once a build claims houndchallenge.net links, an
       // iPhone opens Hound from the QR code without this page at all.)
-      '<p><a class="btn btn-primary btn-block" id="open-app" href="hound://f/' + encodeURIComponent(code) + '">Open in Hound</a></p>' +
+      // Inside an iPhone app's browser (Messenger and the like), Open in
+      // Safari comes first: those can't open apps (open-app.js).
+      (window.HoundOpen ? window.HoundOpen.iosInAppHtml() : '') +
+      '<p><a class="btn ' + (window.HoundOpen && window.HoundOpen.stuck ? 'btn-secondary' : 'btn-primary') + ' btn-block" id="open-app" href="' +
+        (window.HoundOpen ? window.HoundOpen.appHref('f/' + encodeURIComponent(code)) : 'hound://f/' + encodeURIComponent(code)) + '">Open in Hound</a></p>' +
       '<p class="section-sub">Have Hound? That adds ' + name + ' as a friend. New to Hound? Two quick steps:</p>' +
       '<ol class="steps">' +
         '<li class="step"><div class="step-num">1</div><div>' +
@@ -106,6 +110,7 @@
       '<div class="ctas" id="invite-ctas"><p class="section-sub">Checking your account…</p></div></div>',
     );
 
+    if (window.HoundOpen) window.HoundOpen.wireCopyLink();
     document.getElementById('copy-code').addEventListener('click', function () {
       var btn = this;
       var done = function () { btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = 'Copy'; }, 2000); };

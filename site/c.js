@@ -37,6 +37,28 @@
     return (parts[parts.length - 1] || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
   }
 
+  // Open in Hound, or, inside an iPhone app's browser (Messenger and the
+  // like) that can't open apps, Open in Safari first (open-app.js).
+  function openApp() {
+    var o = window.HoundOpen;
+    var href = o ? o.appHref('c/' + encodeURIComponent(code)) : 'hound://c/' + encodeURIComponent(code);
+    var button = '<p><a class="btn ' + (o && o.stuck ? 'btn-secondary' : 'btn-primary') + ' btn-block" id="open-app" href="' + href + '">Open in Hound</a></p>';
+    return (o ? o.iosInAppHtml() : '') + button;
+  }
+
+  function wireCopyCode() {
+    var btn = document.getElementById('copy-code');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(pretty(code)).then(function () {
+          btn.textContent = 'Copied!';
+          setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
+        }).catch(function () {});
+      }
+    });
+  }
+
   function pretty(code) {
     return code.length > 3 ? code.slice(0, 3) + '-' + code.slice(3) : code;
   }
@@ -90,7 +112,7 @@
         escapeHtml(kind) + ' · ' + escapeHtml(startsWord) + '</p>' +
       '<h2 class="section-title">' + escapeHtml(row.name) + '</h2>' +
       '<p class="section-sub">' + escapeHtml(joined) + '. Join with Hound.</p>' +
-      '<p><a class="btn btn-primary btn-block" id="open-app" href="hound://c/' + encodeURIComponent(code) + '">Open in Hound</a></p>' +
+      openApp() +
       '<div class="notes">' +
         '<p class="section-sub" style="margin:0 0 8px">No Hound yet? Get it, then go to <b>Challenges</b> → <b>Have a code?</b> and enter:</p>' +
         '<div class="linkbox"><span style="flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:18px;letter-spacing:0.08em;user-select:all">' +
@@ -98,6 +120,7 @@
         '<p><a class="btn btn-secondary btn-block" href="/get">Get Hound</a></p>' +
       '</div>'
     );
+    window.HoundOpen && window.HoundOpen.wireCopyLink();
     document.getElementById('copy-code').addEventListener('click', function () {
       var btn = this;
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -133,14 +156,16 @@
             escapeHtml(what) + '</p>' +
           '<h2 class="section-title">' + escapeHtml(row.name) + '</h2>' +
           '<p class="section-sub">' + escapeHtml(members) + '. Join the club on Hound to see its challenges.</p>' +
-          '<p><a class="btn btn-primary btn-block" href="hound://c/' + encodeURIComponent(code) + '">Open in Hound</a></p>' +
+          openApp() +
           '<div class="notes">' +
             '<p class="section-sub" style="margin:0 0 8px">No Hound yet? Get it, then go to <b>Clubs</b> → <b>Have a club code?</b> and enter:</p>' +
             '<div class="linkbox"><span style="flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:18px;letter-spacing:0.08em;user-select:all">' +
-              escapeHtml(pretty(code)) + '</span></div>' +
+              escapeHtml(pretty(code)) + '</span><button class="copy-btn" id="copy-code">Copy</button></div>' +
             '<p><a class="btn btn-secondary btn-block" href="/get">Get Hound</a></p>' +
           '</div>'
         );
+        wireCopyCode();
+        window.HoundOpen.wireCopyLink();
       })
       .catch(clubNotFound);
   }
