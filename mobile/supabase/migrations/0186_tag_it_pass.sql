@@ -1,37 +1,45 @@
 -- Hound: Tag chase, IT can't sit out (Steve: "No one should be IT for
--- multiple days when they have less than 1000 steps"). A player whose
--- steps aren't syncing stayed IT day after day: nobody's tagged by
--- someone at 0 steps, and nobody tagged meant IT stays.
+-- multiple days when they have less than 1000 steps"; "No one else will
+-- get tagged and it's no longer a game"). A player whose steps weren't
+-- syncing was the easiest to tag, so as the slowest hound tagged they
+-- became IT, then tagged nobody, and stayed IT.
 --
--- Now, when nobody's tagged and IT walked under 1,000 steps that day,
--- IT passes to whoever got away by the least among those who walked
--- 1,000 or more (the closest call). If nobody did, IT stays: nobody's
--- steps are coming in. A tag still decides it as before (the slowest
--- hound tagged).
+-- Now a hound who walked under 1,000 steps that day is never made IT:
+--   - IT tomorrow is the slowest hound tagged who walked 1,000 or more.
+--   - Nobody like that tagged: IT stays IT if IT walked 1,000 or more.
+--   - IT under 1,000 too: IT passes to whoever got away by the least
+--     among those who walked 1,000 or more (the closest call).
+--   - Nobody walked 1,000: IT stays (nobody's steps are coming in).
+-- Day 1's random IT is picked from players who've walked 1,000 steps on
+-- a day in the last three, where there are any.
 --
--- tag_chase_days.passed marks a day IT passed this way, for the replay's
--- line ("Dad walked under 1,000 steps, so IT passes to Sky").
+-- tag_chase_days.passed marks a day the next IT isn't who the old rule
+-- would have picked, for the replay's line ("Dad walked under 1,000
+-- steps, so IT passes to Sky").
 --
 -- Games stuck right now are fixed when this runs: where the last
--- settled day kept a sub-1,000 IT, today's IT passes the same way, and
--- the new IT gets the "You're IT" push.
+-- settled day made someone under 1,000 steps IT, today's IT is picked
+-- again by the new rule, and the new IT gets the "You're IT" push.
 --
 -- Run this once, after 0185, in the SQL Editor, before publishing the
 -- app update that goes with it.
 --
--- Undo, if needed: re-run tag_chase_advance and tag_chase_view from 0181.
+-- Undo, if needed: re-run tag_chase_it, tag_chase_advance and
+-- tag_chase_view from 0181.
 
 alter table public.tag_chase_days add column if not exists passed boolean not null default false;
 
 -- Who's IT tomorrow. steps: {user_id: steps} for everyone that day;
--- tagged: [{user, margin}], slowest first.
+-- tagged: [{user, margin}], slowest first. Nobody under 1,000 steps.
 create or replace function public.tag_chase_next_it(p_it uuid, p_it_steps int, p_steps jsonb, p_tagged jsonb)
 returns uuid
 language sql
 immutable
 as $$
   select coalesce(
-    (p_tagged -> 0 ->> 'user')::uuid,
+    (select (t ->> 'user')::uuid from jsonb_array_elements(p_tagged) with ordinality x(t, i)
+      where coalesce((p_steps ->> (t ->> 'user'))::int, 0) >= 1000
+      order by x.i limit 1),
     case when p_it_steps >= 1000 then p_it end,
     (select e.k::uuid from jsonb_each_text(p_steps) e(k, v)
       where e.k <> p_it::text and e.v::int >= 1000
@@ -40,6 +48,40 @@ as $$
   );
 $$;
 revoke execute on function public.tag_chase_next_it(uuid, int, jsonb, jsonb) from public, anon, authenticated;
+
+-- Who's IT now: on a new game, a random player, from those who've
+-- walked 1,000 steps on a day in the last three where there are any
+-- (0186; 0181 picked from everyone).
+create or replace function public.tag_chase_it(p_challenge_id uuid)
+returns uuid
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  it uuid;
+begin
+  select s.it_user into it from public.tag_chase_state s where s.challenge_id = p_challenge_id;
+  if it is not null then
+    return it;
+  end if;
+  select cp.user_id into it from public.challenge_participants cp
+    where cp.challenge_id = p_challenge_id
+    order by exists (
+      select 1 from public.progress_snapshots ps
+      where ps.user_id = cp.user_id and ps.steps >= 1000 and ps.day >= current_date - 3
+    ) desc, random()
+    limit 1;
+  if it is null then
+    return null;
+  end if;
+  insert into public.tag_chase_state (challenge_id, it_user) values (p_challenge_id, it)
+    on conflict (challenge_id) do update set it_user = coalesce(public.tag_chase_state.it_user, excluded.it_user), updated_at = now();
+  select s.it_user into it from public.tag_chase_state s where s.challenge_id = p_challenge_id;
+  return it;
+end;
+$$;
+
+revoke execute on function public.tag_chase_it(uuid) from public, anon, authenticated;
 
 create or replace function public.tag_chase_advance(p_challenge_id uuid)
 returns int
@@ -88,11 +130,11 @@ begin
       into tagged, escaped
       from jsonb_each_text(steps) e(k, v)
       where k <> it::text;
-    -- The slowest tagged hound is IT next; nobody tagged, IT stays,
-    -- unless IT walked under 1,000 steps (0186).
+    -- The slowest tagged hound is IT next; nobody tagged, IT stays.
+    -- Never anyone under 1,000 steps that day (0186).
     nxt := public.tag_chase_next_it(it, it_steps, steps, tagged);
     insert into public.tag_chase_days (challenge_id, day_no, day, it_user, head_start, steps, tagged, escaped, next_it, passed)
-      values (p_challenge_id, d - first_day + 1, d, it, head, steps, tagged, escaped, nxt, jsonb_array_length(tagged) = 0 and nxt is distinct from it);
+      values (p_challenge_id, d - first_day + 1, d, it, head, steps, tagged, escaped, nxt, nxt is distinct from coalesce((tagged -> 0 ->> 'user')::uuid, it));
     update public.tag_chase_state set it_user = nxt, updated_at = now() where challenge_id = p_challenge_id;
     n := n + 1;
   end loop;
@@ -174,27 +216,26 @@ $$;
 revoke execute on function public.tag_chase_view(uuid, date) from public, anon;
 grant execute on function public.tag_chase_view(uuid, date) to authenticated;
 
--- Games stuck now: the last settled day kept an IT under 1,000 steps.
+-- Games stuck now: the last settled day made someone under 1,000 steps
+-- IT (they were tagged, or they were IT and stayed).
 do $$
 declare
   r record;
   nxt uuid;
 begin
   for r in
-    select d.challenge_id, d.day_no, d.it_user, d.steps, d.tagged, d.head_start
+    select d.challenge_id, d.day_no, d.it_user, d.next_it, d.steps, d.tagged, d.head_start
     from public.tag_chase_days d
     join public.challenges c on c.id = d.challenge_id
     join public.tag_chase_state s on s.challenge_id = d.challenge_id
     where c.score_settled_at is null
       and d.day_no = (select max(x.day_no) from public.tag_chase_days x where x.challenge_id = d.challenge_id)
       and d.day_no < c.duration_days
-      and jsonb_array_length(d.tagged) = 0
-      and d.next_it = d.it_user
-      and s.it_user = d.it_user
-      and coalesce((d.steps ->> d.it_user::text)::int, 0) < 1000
+      and s.it_user = d.next_it
+      and coalesce((d.steps ->> d.next_it::text)::int, 0) < 1000
   loop
     nxt := public.tag_chase_next_it(r.it_user, coalesce((r.steps ->> r.it_user::text)::int, 0), r.steps, r.tagged);
-    continue when nxt = r.it_user;
+    continue when nxt = r.next_it;
     update public.tag_chase_days set next_it = nxt, passed = true where challenge_id = r.challenge_id and day_no = r.day_no;
     update public.tag_chase_state set it_user = nxt, updated_at = now() where challenge_id = r.challenge_id;
     perform public.tag_chase_notify('chase_it', r.challenge_id, nxt, jsonb_build_object('head_start', r.head_start));

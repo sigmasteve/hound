@@ -11,9 +11,9 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 // Game of Tag, the daily chase (the mockup for the redo): one hound is
 // IT each day, in a red bandana. Everyone else starts the day with a
 // head start; whoever IT out-walks by the end of the day is tagged. The
-// slowest tagged hound is IT tomorrow; if nobody's tagged, IT stays IT,
-// unless IT walked under 1,000 steps (0186): then IT passes to the
-// closest call among those who walked 1,000 or more.
+// slowest tagged hound is IT tomorrow; if nobody's tagged, IT stays IT.
+// Nobody under 1,000 steps that day is made IT (0186): an IT under 1,000
+// passes to the closest call among those who walked 1,000 or more.
 // Points: +3 a tag, +1 a day you get away, and nothing for a day as IT.
 
 export type TagHound = TrackRunner['hound'];
@@ -188,6 +188,19 @@ export function TagReplayCard({
   const nextIt =
     (nextItId ? players.find((p) => p.id === nextItId) : undefined) ??
     (tagged.length ? tagged.reduce((a, b) => ((steps[a.p.id] ?? 0) <= (steps[b.p.id] ?? 0) ? a : b)).p : it);
+  // Who's IT today, and why. 0186: nobody under 1,000 steps that day is
+  // made IT (passed: the old rule would have picked someone else).
+  const who = (p: TagPlayer, cap = true) => (p.me ? (cap ? 'You' : 'you') : p.name);
+  const nextTagged = tagged.some((r) => r.p.id === nextIt.id);
+  const nextItLine = !passed
+    ? nextIt.id === it.id
+      ? `Nobody tagged, so ${it.me ? 'you stay' : `${it.name} stays`} IT today.`
+      : `${nextIt.me ? 'You were' : `${nextIt.name} was`} the slowest tagged: ${nextIt.me ? 'you’re' : 'they’re'} IT today.`
+    : nextIt.id === it.id
+      ? `Only hounds under 1,000 steps were tagged, so ${it.me ? 'you stay' : `${it.name} stays`} IT today.`
+      : nextTagged
+        ? `${who(nextIt)} ${nextIt.me ? 'are' : 'is'} IT today: the slowest tagged who walked 1,000 steps or more.`
+        : `${who(it)} walked under 1,000 steps, so IT passes to ${who(nextIt, false)}, the closest call today.`;
   return (
     <Card style={{ gap: 12 }} elevated={false}>
       <View style={styles.rowBetween}>
@@ -218,11 +231,7 @@ export function TagReplayCard({
       {!last && <View style={styles.nextIt}>
         <HoundArt {...nextIt.hound} neckId="bandana_red" mood="happy" variant="avatar" size={34} animate={false} />
         <Text style={styles.nextItText}>
-          {passed && nextIt.id !== it.id
-            ? `${it.me ? 'You' : it.name} walked under 1,000 steps, so IT passes to ${nextIt.me ? 'you' : nextIt.name}, the closest call today.`
-            : nextIt.id === it.id
-              ? `Nobody tagged, so ${it.me ? 'you stay' : `${it.name} stays`} IT today.`
-              : `${nextIt.me ? 'You were' : `${nextIt.name} was`} the slowest tagged: ${nextIt.me ? 'you’re' : 'they’re'} IT today.`}
+          {nextItLine}
         </Text>
       </View>}
     </Card>
