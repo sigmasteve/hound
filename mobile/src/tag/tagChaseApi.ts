@@ -20,6 +20,9 @@ export interface ChaseDay {
   tagged: { user: string; margin: number }[];
   escaped: { user: string; margin: number }[];
   nextIt: string;
+  // 0186: nobody was tagged and IT walked under 1,000 steps, so IT
+  // passed to the closest call.
+  passed: boolean;
 }
 
 export interface ChaseStanding {
@@ -84,6 +87,7 @@ export async function getTagChase(challengeId: string, day: string): Promise<Tag
       tagged: ((h.tagged ?? []) as any[]).map((t) => ({ user: t.user, margin: Number(t.margin) })),
       escaped: ((h.escaped ?? []) as any[]).map((t) => ({ user: t.user, margin: Number(t.margin) })),
       nextIt: h.next_it,
+      passed: !!h.passed,
     })),
     standings: ((d.standings ?? []) as any[]).map((s) => ({
       user: s.user,

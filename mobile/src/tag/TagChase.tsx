@@ -12,6 +12,8 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 // IT each day, in a red bandana. Everyone else starts the day with a
 // head start; whoever IT out-walks by the end of the day is tagged. The
 // slowest tagged hound is IT tomorrow; if nobody's tagged, IT stays IT.
+// Nobody under 1,000 steps that day is made IT (0186): an IT under 1,000
+// passes to the closest call among those who walked 1,000 or more.
 // Points: +3 a tag, +1 a day you get away, and nothing for a day as IT.
 
 export type TagHound = TrackRunner['hound'];
@@ -129,7 +131,7 @@ export function TagLiveCard({
       <Text style={styles.note}>
         {caught.length
           ? `If the day ended now, ${it.name} would tag ${caught.map((p) => (p.me ? 'you' : p.name)).join(', ')}.`
-          : `If the day ended now, everyone would get away from ${it.name}.`}{' '}
+          : `If the day ended now, everyone would get away from ${it.name}${itSteps < 1000 ? `, and with under 1,000 steps, IT would pass to the closest call` : ''}.`}{' '}
         From everyone&rsquo;s synced steps; it&rsquo;s settled for real at 6am.
       </Text>
     </Card>
@@ -145,8 +147,13 @@ export function TagReplayCard({
   steps,
   last = false,
   scene = 'track',
+  nextItId,
+  passed = false,
 }: {
   day: number;
+  // Who the server made IT next, and whether IT passed (0186).
+  nextItId?: string;
+  passed?: boolean;
   // Where it's drawn (0182): the track or a trail.
   scene?: RaceScene;
   // The game's last day: nobody's IT next.
@@ -178,9 +185,25 @@ export function TagReplayCard({
     .map((p) => ({ p, margin: (steps[p.id] ?? 0) + headStart - itSteps }))
     .sort((a, b) => a.margin - b.margin);
   const tagged = results.filter((r) => r.margin < 0);
-  const nextIt = tagged.length
-    ? tagged.reduce((a, b) => ((steps[a.p.id] ?? 0) <= (steps[b.p.id] ?? 0) ? a : b)).p
-    : it;
+  // 0186: a tag only scores on a hound who walked 1,000 steps or more.
+  const scores = (id: string) => (steps[id] ?? 0) >= 1000;
+  const scoredTags = tagged.filter((r) => scores(r.p.id)).length;
+  const nextIt =
+    (nextItId ? players.find((p) => p.id === nextItId) : undefined) ??
+    (tagged.length ? tagged.reduce((a, b) => ((steps[a.p.id] ?? 0) <= (steps[b.p.id] ?? 0) ? a : b)).p : it);
+  // Who's IT today, and why. 0186: nobody under 1,000 steps that day is
+  // made IT (passed: the old rule would have picked someone else).
+  const who = (p: TagPlayer, cap = true) => (p.me ? (cap ? 'You' : 'you') : p.name);
+  const nextTagged = tagged.some((r) => r.p.id === nextIt.id);
+  const nextItLine = !passed
+    ? nextIt.id === it.id
+      ? `Nobody tagged, so ${it.me ? 'you stay' : `${it.name} stays`} IT today.`
+      : `${nextIt.me ? 'You were' : `${nextIt.name} was`} the slowest tagged: ${nextIt.me ? 'you’re' : 'they’re'} IT today.`
+    : nextIt.id === it.id
+      ? `Only hounds under 1,000 steps were tagged, so ${it.me ? 'you stay' : `${it.name} stays`} IT today.`
+      : nextTagged
+        ? `${who(nextIt)} ${nextIt.me ? 'are' : 'is'} IT today: the slowest tagged who walked 1,000 steps or more.`
+        : `${who(it)} walked under 1,000 steps, so IT passes to ${who(nextIt, false)}, the closest call today.`;
   return (
     <Card style={{ gap: 12 }} elevated={false}>
       <View style={styles.rowBetween}>
@@ -194,7 +217,7 @@ export function TagReplayCard({
             <View style={[styles.dot, { backgroundColor: margin < 0 ? IT_RED : colors.green }]} />
             <Text style={styles.resultText}>
               {margin < 0
-                ? `${it.name} tagged ${p.me ? 'you' : p.name} by ${(-margin).toLocaleString()}`
+                ? `${it.name} tagged ${p.me ? 'you' : p.name} by ${(-margin).toLocaleString()}${scores(p.id) ? '' : ' (under 1,000 steps: no points)'}`
                 : `${p.me ? 'You' : p.name} got away by ${margin.toLocaleString()}`}
             </Text>
             <Text style={styles.points}>{margin < 0 ? '' : '+1'}</Text>
@@ -204,16 +227,15 @@ export function TagReplayCard({
           <View style={[styles.dot, { backgroundColor: colors.gold }]} />
           <Text style={styles.resultText}>
             {it.name} {tagged.length ? `made ${tagged.length} ${tagged.length === 1 ? 'tag' : 'tags'}` : 'tagged nobody'}
+            {tagged.length > scoredTags ? ` (${scoredTags} ${scoredTags === 1 ? 'counts' : 'count'})` : ''}
           </Text>
-          <Text style={styles.points}>{tagged.length ? `+${tagged.length * 3}` : ''}</Text>
+          <Text style={styles.points}>{scoredTags ? `+${scoredTags * 3}` : ''}</Text>
         </View>
       </View>
       {!last && <View style={styles.nextIt}>
         <HoundArt {...nextIt.hound} neckId="bandana_red" mood="happy" variant="avatar" size={34} animate={false} />
         <Text style={styles.nextItText}>
-          {nextIt.id === it.id
-            ? `Nobody tagged, so ${it.name} stays IT today.`
-            : `${nextIt.me ? 'You were' : `${nextIt.name} was`} the slowest tagged: ${nextIt.me ? 'you’re' : 'they’re'} IT today.`}
+          {nextItLine}
         </Text>
       </View>}
     </Card>

@@ -83,8 +83,18 @@ select is((select count(*)::int from public.baseball_picks where challenge_id = 
 reset role;
 
 -- Ann walks big every day; Bob and Cat barely walk. The rolls are seeded
--- by the date, so the gap is wide: a 0-0 tie in regulation would go to
--- extra innings and leave the game unfinished.
+-- by the game and the day, so the innings are played on a fixed week in
+-- the past: with dates that moved with the calendar, some days' rolls
+-- gave a 0-0 tie (extra innings, no winner) and failed this test. The
+-- picks above needed today to be a game day; they're cleared, so every
+-- pick is the automatic one.
+select '2026-03-10'::date as cutoff \gset
+update public.challenges set
+  starts_at = (:'cutoff'::date - 2)::timestamp at time zone 'utc',
+  ends_at = (:'cutoff'::date + 1)::timestamp at time zone 'utc',
+  start_day = :'cutoff'::date - 2
+where id = '00000000-0000-0000-0000-0000000000b1';
+delete from public.baseball_picks where challenge_id = '00000000-0000-0000-0000-0000000000b1';
 insert into public.progress_snapshots (challenge_id, user_id, day, steps)
   select '00000000-0000-0000-0000-0000000000b1', u, :'cutoff'::date - g, s
   from (values (:'ann'::uuid, 40000), (:'bob'::uuid, 1000), (:'cat'::uuid, 1000)) v(u, s), generate_series(0, 2) g;

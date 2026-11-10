@@ -118,6 +118,8 @@ export function TagChaseSection({
           itId={last.it}
           headStart={last.headStart}
           steps={last.steps}
+          nextItId={last.nextIt}
+          passed={last.passed}
         />
       )}
 
