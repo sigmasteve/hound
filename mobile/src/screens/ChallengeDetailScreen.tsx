@@ -3060,7 +3060,8 @@ export function ChallengeDetailScreen({
                   day is tagged; the rest got away.
                 </Text>
                 <Text style={styles.footNote}>
-                  The slowest hound tagged is IT the next day, and if nobody&rsquo;s tagged, IT stays IT. Each day is
+                  The slowest hound tagged is IT the next day. If nobody&rsquo;s tagged, IT stays IT, unless IT walked
+                  under 1,000 steps: then IT passes to whoever got away by the least (with 1,000 or more). Each day is
                   settled once it&rsquo;s over everywhere, and you can watch it back on the track. +3 for each tag, +1
                   for each day you get away. Most points when it ends wins.
                 </Text>

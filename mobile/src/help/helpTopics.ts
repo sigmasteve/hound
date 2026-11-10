@@ -176,7 +176,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'One hound is IT each day, wearing a red bandana. A random hound is IT on day 1.',
         'Everyone else starts the day with a head start (1,000, 2,000 or 3,000 steps, picked when the game is made).',
         'By the end of the day, whoever IT out-walked is tagged: IT’s steps beat theirs plus the head start. Everyone else got away.',
-        'The slowest hound tagged is IT the next day. If nobody’s tagged, IT stays IT.',
+        'The slowest hound tagged is IT the next day. If nobody’s tagged, IT stays IT, unless IT walked under 1,000 steps (say, their steps aren’t syncing): then IT passes to whoever got away by the least among those who walked 1,000 or more.',
         'Each day is settled the next morning, once it’s over everywhere. Watch it back on the track: IT closes in, and TAG!',
         '+3 for each tag, +1 for each day you get away. Most points when it ends wins. A game runs 3 to 14 days.',
         'Whoever makes the game picks where it’s raced: the park track, or a trail through the woods, up a mountain or along the beach. Chase games get the same choice, with the Foxes up the trail and the Chaser closing in.',
