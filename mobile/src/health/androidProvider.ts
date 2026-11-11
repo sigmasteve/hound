@@ -19,6 +19,8 @@ import type {
   WorkoutSample,
 } from './types';
 import { pickNonOverlapping } from './dedupeWorkouts';
+import { nightsFromPieces, type SleepNight } from './sleep';
+import { HAS_HEALTH_0_12 } from './nativeBuild';
 import { appName, SAMSUNG_HEALTH_PACKAGES, type DataSourcesReport, type DataSourceSummary } from './dataSources';
 
 // Real Health Connect integration. Requires a custom dev client or a
@@ -323,9 +325,70 @@ export const androidHealthProvider: HealthProvider = {
   },
 
   // Water (0153): read only once Health Connect has allowed it, which
-  // needs READ_HYDRATION in the app's manifest. This build doesn't have
-  // it, so nothing is asked and nothing is read until the next native
-  // build adds it (and requestWaterAccess asks for it).
+  // needs READ_HYDRATION in the app's manifest: from the 0.12.0 build.
+  // Asked for when a water goal is first set (WaterContext), and once
+  // after updating for anyone who already had one.
+  async requestWaterAccess(): Promise<boolean> {
+    if (!HAS_HEALTH_0_12) return false;
+    try {
+      if (!(await ensureInitialized())) return false;
+      const granted = await requestPermission([{ accessType: 'read', recordType: 'Hydration' }]);
+      return granted.some((g) => 'recordType' in g && g.recordType === 'Hydration' && g.accessType === 'read');
+    } catch {
+      return false;
+    }
+  },
+
+  // Sleep (#494): READ_SLEEP, also from the 0.12.0 build. Nothing asks
+  // yet; the Hound's bedtime will.
+  async requestSleepAccess(): Promise<boolean> {
+    if (!HAS_HEALTH_0_12) return false;
+    try {
+      if (!(await ensureInitialized())) return false;
+      const granted = await requestPermission([{ accessType: 'read', recordType: 'SleepSession' }]);
+      return granted.some((g) => 'recordType' in g && g.recordType === 'SleepSession' && g.accessType === 'read');
+    } catch {
+      return false;
+    }
+  },
+
+  // Asleep time is the sessions' sleeping stages (light, deep, REM or
+  // plain sleeping); a session with no stages counts whole.
+  async getSleepSince(since: Date): Promise<SleepNight[]> {
+    const pieces: { start: Date; end: Date }[] = [];
+    try {
+      if (!HAS_HEALTH_0_12 || !(await ensureInitialized())) return [];
+      const granted = await getGrantedPermissions();
+      if (!granted.some((g) => 'recordType' in g && g.recordType === 'SleepSession' && g.accessType === 'read')) return [];
+      const from = dateOnly(since);
+      const start = new Date(from.getTime() - 12 * 60 * 60 * 1000);
+      let pageToken: string | undefined;
+      for (let page = 0; page < 20; page++) {
+        const result = await readRecords('SleepSession', {
+          timeRangeFilter: { operator: 'between', startTime: start.toISOString(), endTime: new Date().toISOString() },
+          pageToken,
+        });
+        for (const r of result.records) {
+          const stages = r.stages ?? [];
+          if (stages.length === 0) {
+            pieces.push({ start: new Date(r.startTime), end: new Date(r.endTime) });
+          } else {
+            for (const st of stages) {
+              if (st.stage === 2 || st.stage === 4 || st.stage === 5 || st.stage === 6) {
+                pieces.push({ start: new Date(st.startTime), end: new Date(st.endTime) });
+              }
+            }
+          }
+        }
+        pageToken = result.pageToken || undefined;
+        if (!pageToken) break;
+      }
+      return nightsFromPieces(pieces).filter((n) => n.end.getTime() >= from.getTime());
+    } catch {
+      return [];
+    }
+  },
+
   async getDailyWaterSince(since: Date): Promise<Map<string, number>> {
     const out = new Map<string, number>();
     try {

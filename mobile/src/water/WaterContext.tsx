@@ -1,8 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState } from 'react-native';
+import { Alert, AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../auth/AuthContext';
 import { useHealthProvider } from '../health/HealthContext';
+import { HAS_HEALTH_0_12 } from '../health/nativeBuild';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { updateHound } from '../goals/hound';
 import { setWaterSnapshot } from './waterSnapshot';
@@ -151,6 +152,29 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, [refresh]);
 
+  // Android, from the 0.12.0 build: someone who set a water goal before
+  // Health Connect's water could be asked for is asked once now, so
+  // water from other apps counts for them too (iPhone asked at the time).
+  const hasGoal = goal !== null;
+  const waterAsked = useRef(false);
+  useEffect(() => {
+    if (waterAsked.current || !loaded || !hasGoal || Platform.OS !== 'android' || !HAS_HEALTH_0_12 || !health.requestWaterAccess) return;
+    const key = 'water:health-connect-asked';
+    let cancelled = false;
+    AsyncStorage.getItem(key)
+      .then(async (asked) => {
+        if (asked || cancelled || waterAsked.current) return;
+        waterAsked.current = true;
+        await AsyncStorage.setItem(key, '1');
+        await health.requestWaterAccess!().catch(() => false);
+        if (!cancelled) readHealth();
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [loaded, hasGoal, health, readHealth]);
+
   const saveLocalLog = (entries: WaterEntry[]) => {
     AsyncStorage.setItem(LOCAL_LOG_KEY, JSON.stringify(entries)).catch(() => {});
   };
@@ -221,6 +245,8 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
     async (next: WaterGoal) => {
       const first = goalRef.current === null;
       const before = goalRef.current;
+      // Asked below, so the one-time ask above stays quiet.
+      if (first) waterAsked.current = true;
       setGoalState(next);
       try {
         if (remote) await saveWaterGoal(userId!, next);
@@ -232,6 +258,7 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
       // Asked once, when the goal is first set, so water from other apps
       // counts too.
       if (first && health.requestWaterAccess) {
+        if (HAS_HEALTH_0_12) AsyncStorage.setItem('water:health-connect-asked', '1').catch(() => {});
         await health.requestWaterAccess().catch(() => false);
         readHealth();
       }

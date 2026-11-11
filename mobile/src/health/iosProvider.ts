@@ -3,6 +3,7 @@ import {
   AuthorizationStatus,
   getMostRecentQuantitySample,
   isHealthDataAvailableAsync,
+  queryCategorySamples,
   queryQuantitySamples,
   queryStatisticsCollectionForQuantity,
   queryWorkoutSamples,
@@ -19,6 +20,7 @@ import type {
   WorkoutSample,
 } from './types';
 import { pickNonOverlapping } from './dedupeWorkouts';
+import { nightsFromPieces, type SleepNight } from './sleep';
 
 // Real HealthKit integration via @kingstinct/react-native-healthkit (a Nitro
 // Module — React Native's New Architecture only). Requires a custom dev
@@ -49,6 +51,10 @@ const READ_TYPES = [
 
 // Not in READ_TYPES: asked for only once someone sets a water goal.
 const WATER_TYPE = 'HKQuantityTypeIdentifierDietaryWater' as const;
+// Not in READ_TYPES either: asked for by the Hound's bedtime (#494).
+const SLEEP_TYPE = 'HKCategoryTypeIdentifierSleepAnalysis' as const;
+// Asleep values (unspecified, core, deep, REM); not in bed (0) or awake (2).
+const ASLEEP_VALUES = new Set<number>([1, 3, 4, 5]);
 
 function startOfDay(d: Date): Date {
   const copy = new Date(d);
@@ -160,6 +166,29 @@ export const iosHealthProvider: HealthProvider = {
     } catch {
       return false;
     }
+  },
+
+  async requestSleepAccess(): Promise<boolean> {
+    try {
+      await requestAuthorization({ toRead: [SLEEP_TYPE], toShare: [] });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  // From the evening before `since`, so its first night is whole.
+  async getSleepSince(since: Date): Promise<SleepNight[]> {
+    const start = new Date(startOfDay(since).getTime() - 12 * 60 * 60 * 1000);
+    const samples = await orDefault(
+      queryCategorySamples(SLEEP_TYPE, { filter: { date: { startDate: start, endDate: new Date() } }, limit: -1, ascending: true }),
+      [],
+    );
+    const pieces = samples
+      .filter((s) => ASLEEP_VALUES.has(Number(s.value)))
+      .map((s) => ({ start: new Date(s.startDate), end: new Date(s.endDate) }));
+    const from = startOfDay(since).getTime();
+    return nightsFromPieces(pieces).filter((n) => n.end.getTime() >= from);
   },
 
   async getDailyWaterSince(since: Date): Promise<Map<string, number>> {
