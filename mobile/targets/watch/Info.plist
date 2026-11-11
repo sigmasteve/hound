@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>WKApplication</key>
+  <true/>
+  <key>WKRunsIndependentlyOfCompanionApp</key>
+  <false/>
+  <key>NSHealthShareUsageDescription</key>
+  <string>Hound reads your steps, distance and workouts on your watch to show your goals.</string>
+  <key>NSHealthUpdateUsageDescription</key>
+  <string>Hound does not write to Health, but watchOS requires this description to be present.</string>
+</dict>
+</plist>

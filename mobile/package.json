@@ -3,6 +3,7 @@
   "version": "0.10.0",
   "main": "index.ts",
   "dependencies": {
+    "@bacons/apple-targets": "^5.0.0",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo/ui": "~57.0.18",
     "@kingstinct/react-native-healthkit": "^15.1.0",

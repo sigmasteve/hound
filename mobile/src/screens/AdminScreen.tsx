@@ -39,6 +39,7 @@ import { CareAdminCard } from '../components/CareAdminCard';
 import { BathAdminCard } from '../components/BathAdminCard';
 import { ChallengesAdminCard } from '../components/ChallengesAdminCard';
 import { HolidayAdminCard, holidaySummary } from '../components/HolidayAdminCard';
+import { WatchAdminCard, getWatchOverview, watchSummary } from '../components/WatchAdminCard';
 import { ClubsAdminCard, clubsSummary } from '../components/ClubsAdminCard';
 import { getClubsOverview } from '../clubs/clubsApi';
 import { getHolidayOverview } from '../holiday/holidayApi';
@@ -161,6 +162,8 @@ export function AdminScreen({
   const [challengesSummary, setChallengesSummary] = useState<string | null>(null);
   // The Holiday themes fold's line (0184).
   const [holidaySummaryLine, setHolidaySummaryLine] = useState<string | null>(null);
+  // The Apple Watch fold's line (0189).
+  const [watchSummaryLine, setWatchSummaryLine] = useState<string | null>(null);
   // The Clubs fold's line (0185).
   const [clubsSummaryLine, setClubsSummaryLine] = useState<string | null>(null);
   // The Tag fold's line (0181).
@@ -203,6 +206,9 @@ export function AdminScreen({
         .catch(() => {});
       getHolidayOverview(localDayKey())
         .then((o) => setHolidaySummaryLine(holidaySummary(o)))
+        .catch(() => {});
+      getWatchOverview()
+        .then((o) => setWatchSummaryLine(watchSummary(o)))
         .catch(() => {});
       getClubsOverview()
         .then((o) => setClubsSummaryLine(clubsSummary(o)))
@@ -754,6 +760,9 @@ export function AdminScreen({
                   <AppVersionsCard />
                 </AdminFold>
                 </View>
+                <AdminFold title="Apple Watch" summary={watchSummaryLine ?? 'Hound on the wrist'}>
+                  <WatchAdminCard />
+                </AdminFold>
                 <AdminFold title="Holiday themes" summary={holidaySummaryLine ?? 'Decorations on Today'}>
                   <HolidayAdminCard onChanged={(o) => setHolidaySummaryLine(holidaySummary(o))} />
                 </AdminFold>
