@@ -493,7 +493,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'Several ways to connect — pick whichever’s easiest.',
       steps: [
         'Find people: on the Friends tab, search by name or username, or pick from People you may know (people in your challenges, friends of friends, and new members). Tap Add to send a request.',
-        'Share my code: show your QR code, or share your link. The link helps friends who don’t have Hound yet get the beta first, then shows them your code.',
+        'Share my code: show your QR code, or share your link. The link helps friends who don’t have Hound yet get the app first, then shows them your code.',
         'Enter a code: paste a friend’s code or link, or tap Scan their QR code and point your camera at theirs, to connect instantly. New members can also enter one during setup.',
         'Invite by email: if they’re not on Hound yet, they’ll get an invite and you’ll be connected when they sign up.',
         'From a leaderboard: tap Add next to anyone in a challenge with you.',

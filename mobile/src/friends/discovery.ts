@@ -104,8 +104,8 @@ export async function setDiscoverable(userId: string, discoverable: boolean): Pr
 }
 
 // What "Share" sends: the invite link (which walks someone without the
-// app through getting the beta — site/f.js), plus the code on its own
+// app through getting the app — site/f.js), plus the code on its own
 // for anyone who already has Hound.
 export function inviteMessage(code: string): string {
-  return `Join me on Hound — it's in beta! Get the app and add me: ${friendCodeUrl(code)}\nAlready have Hound? Friends → Enter a code: ${code}`;
+  return `Join me on Hound! Get the app and add me: ${friendCodeUrl(code)}\nAlready have Hound? Friends → Enter a code: ${code}`;
 }

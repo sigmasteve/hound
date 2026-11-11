@@ -397,7 +397,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
               <Text style={[styles.inviteLink, { textAlign: 'center' }]}>{myCode ? friendCodeUrl(myCode) : '—'}</Text>
               {myCode && (
                 <Text style={[styles.footNote, { textAlign: 'center' }]}>
-                  Friends with Hound can enter the code. The link helps friends without Hound get the beta first, then
+                  Friends with Hound can enter the code. The link helps friends without Hound get the app first, then
                   add you.
                 </Text>
               )}
