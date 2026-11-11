@@ -72,6 +72,7 @@ export function ClubsAdminCard({ onChanged }: { onChanged?: (o: ClubsOverview) =
         ['People in clubs', `${data.people} · ${data.memberships} memberships · ${data.joined7d} joined this week`],
         ['Posting (30 days)', `${data.posts30d} challenges posted · ${data.active30d} ${data.active30d === 1 ? 'club' : 'clubs'} posting`],
         ['Joined through a club (30 days)', `${data.clubJoins30d}`],
+        ['Friends invited (30 days)', `${data.invites30d} invited · ${data.invitesAccepted30d} joined`],
         [
           'By sport',
           CLUB_SPORTS.filter((s) => data.bySport[s.id])
