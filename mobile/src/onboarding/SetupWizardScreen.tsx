@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   BarbellIcon,
+  BellRingingIcon,
   CalendarCheckIcon,
   CheckCircleIcon,
   CheckIcon,
@@ -38,6 +39,7 @@ import { useCurrencyName } from '../organizations/useCurrencyName';
 import { claimOnboardingReward, getOnboardingStatus } from './onboardingApi';
 import { markAskedForUsername, useUsernameForm, UsernameFields } from '../profiles/UsernameForm';
 import { setMyName } from '../profiles/supabaseProfile';
+import { askForPush, dismissPushOffer, getPushPermission } from '../notifications/pushPermission';
 import {
   CONNECT_PROMPT_SEEN_KEY,
   extraGoalsFor,
@@ -48,11 +50,14 @@ import {
   type HoundUse,
 } from './welcomeApi';
 
-// Four pages at most (November 2026: ten was too many). Daily goals,
-// notifications and adding a friend moved to Today, which already asks
-// for each at a better moment (GoalSetupCard, PushAskCard, Finish setting
-// up).
-type StepId = 'health' | 'about' | 'jump' | 'hound';
+// Five pages at most (November 2026: ten was too many). Daily goals and
+// adding a friend moved to Today, which asks for each at a better moment
+// (GoalSetupCard, Finish setting up). Notifications came back as a page
+// (Steve: new people weren't turning them on from Today's PushAskCard
+// alone): only while the phone hasn't been asked, after Jump in, so it
+// follows joining something. Skipping it leaves Today's card to ask again
+// in a few days.
+type StepId = 'health' | 'about' | 'jump' | 'push' | 'hound';
 
 const USE_ICONS: Record<HoundUse, typeof FootprintsIcon> = {
   steps: FootprintsIcon,
@@ -92,11 +97,12 @@ export function SetupWizardScreen({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [auth, status, welcome, globals] = await Promise.all([
+      const [auth, status, welcome, globals, push] = await Promise.all([
         health.getAuthorizationStatus().catch(() => null),
         getOnboardingStatus().catch(() => null),
         getWelcome(),
         listGlobalChallenges().catch(() => [] as GlobalChallenge[]),
+        getPushPermission().catch(() => null),
       ]);
       if (cancelled) return;
       const saved = welcome?.uses ?? [];
@@ -110,6 +116,8 @@ export function SetupWizardScreen({
       if (!resume || !user?.username || user?.needsName || saved.length === 0) steps.push('about');
       // Join a challenge open to everyone, when any are taking players.
       if (joinable.length > 0) steps.push('jump');
+      // Notifications, while the phone hasn't been asked (not on web).
+      if (push === 'undetermined') steps.push('push');
       if (!resume) steps.push('hound');
       setPlan(steps);
     })();
@@ -158,6 +166,8 @@ export function SetupWizardScreen({
 
   const skip = () => {
     if (step === 'about' && user?.id) markAskedForUsername(user.id);
+    // Counts as one of Today's offers, which asks again in a few days.
+    if (step === 'push') dismissPushOffer().catch(() => {});
     next();
   };
 
@@ -191,6 +201,7 @@ export function SetupWizardScreen({
         />
       )}
       {step === 'jump' && <JumpInStep styles={styles} initialGlobals={openGlobals} onNext={next} />}
+      {step === 'push' && <PushStep styles={styles} onNext={next} />}
       {step === 'hound' && <HoundStep styles={styles} last={last} onNext={next} />}
     </SafeAreaView>
   );
@@ -266,6 +277,68 @@ function HealthStep({ styles, onNext }: { styles: Styles; onNext: () => void }) 
         </>
       }
     />
+  );
+}
+
+// Notifications: what they're for, then the phone's own prompt (iOS
+// shows it only once, so the reasons come first). Allowed or not, on to
+// the next page.
+function PushStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
+  const { colors } = useTheme();
+  const { user } = useAuth();
+  const [asking, setAsking] = useState(false);
+  const [refused, setRefused] = useState(false);
+
+  const turnOn = async () => {
+    if (!user?.id) {
+      onNext();
+      return;
+    }
+    setAsking(true);
+    const result = await askForPush(user.id).catch(() => null);
+    setAsking(false);
+    if (result === 'granted' || result === null) onNext();
+    else setRefused(true);
+  };
+
+  const reasons = [
+    'A friend nudges you, cheers you on or sends you a challenge',
+    'You’re tagged, caught or it’s your turn in a game',
+    'A challenge you’re in starts, and how you placed',
+    'Your club posts a challenge to join',
+  ];
+
+  return (
+    <StepPage
+      styles={styles}
+      icon={<BellRingingIcon size={28} color={colors.accent} weight="fill" />}
+      title="Turn on notifications"
+      body="Hound’s games happen while you’re out walking. Notifications tell you when it’s your move, so nothing passes you by."
+      footer={
+        <>
+          {refused && (
+            <Text style={styles.problem}>No problem. You can turn them on any time in your phone&rsquo;s Settings → Hound → Notifications.</Text>
+          )}
+          {refused ? (
+            <Button label="Continue" variant="primary" block onPress={onNext} />
+          ) : (
+            <Button label={asking ? 'Asking…' : 'Turn on notifications'} variant="primary" block disabled={asking} onPress={turnOn} />
+          )}
+        </>
+      }
+    >
+      <Card style={{ gap: 10 }} elevated={false}>
+        {reasons.map((r) => (
+          <View key={r} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+            <CheckIcon size={16} color={colors.green} weight="bold" style={{ marginTop: 2 }} />
+            <Text style={[styles.body, { flex: 1, textAlign: 'left', marginTop: 0 }]}>{r}</Text>
+          </View>
+        ))}
+        <Text style={[styles.body, { textAlign: 'left', marginTop: 0, fontSize: 13 }]}>
+          No marketing. Change what you get any time in Settings.
+        </Text>
+      </Card>
+    </StepPage>
   );
 }
 
