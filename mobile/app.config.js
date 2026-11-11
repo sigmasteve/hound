@@ -15,7 +15,12 @@
 
 const STAGING_ID = 'app.hound.mobile.staging';
 
-module.exports = ({ config }) => {
+// HOUND_PUBLISH_VERSION, set only by scripts/publish-update.sh while an
+// update also goes out to an older version's phones (also-publish.txt):
+// the version, and so the runtime version (policy appVersion), this one
+// publish is stamped with. Never set it for a build.
+module.exports = ({ config: base }) => {
+  const config = process.env.HOUND_PUBLISH_VERSION ? { ...base, version: process.env.HOUND_PUBLISH_VERSION } : base;
   if (process.env.APP_VARIANT !== 'staging') return config;
 
   const googleScheme = process.env.GOOGLE_IOS_URL_SCHEME_STAGING;

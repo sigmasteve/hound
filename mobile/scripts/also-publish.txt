@@ -1,0 +1,7 @@
+# Versions that also get each `npm run update:production` (and staging),
+# besides app.json's own version. One per line, like 0.11.0.
+#
+# Use it while a new build is on its way: after bumping app.json's
+# version for the new build, list the old version here so phones still
+# on it keep getting updates. Remove it once Admin → App versions'
+# minimum version is raised to the new one. See publish-update.sh.

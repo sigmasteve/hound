@@ -1,5 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { Button } from './Button';
+import { TextField } from './TextField';
+import { getMinAppVersion, isBelow, setMinAppVersion } from '../updates/versionGate';
 import { Text } from './Text';
 import { useFocusEffect } from '@react-navigation/native';
 import { CheckCircleIcon, ClockCounterClockwiseIcon } from 'phosphor-react-native';
@@ -24,6 +27,10 @@ export function AppVersionsCard() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [apps, setApps] = useState<ReportedApp[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 0188: the minimum version, and the one being typed.
+  const [min, setMin] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -33,8 +40,40 @@ export function AppVersionsCard() {
           setError(null);
         })
         .catch((e) => setError(e instanceof Error ? e.message : 'Could not load app versions.'));
+      getMinAppVersion()
+        .then((m) => {
+          setMin(m);
+          setDraft(m ?? '');
+        })
+        .catch(() => {});
     }, []),
   );
+
+  // Who a minimum would send to "Update Hound": anyone whose installed
+  // version is below it (unknown versions never are).
+  const blockedBy = (v: string) => (apps ?? []).filter((a) => isBelow(a.appVersion, v));
+  const draftOk = /^\d+\.\d+\.\d+$/.test(draft.trim());
+  const saveMin = (next: string | null) => {
+    const blocked = next ? blockedBy(next) : [];
+    const go = () => {
+      setSaving(true);
+      setMinAppVersion(next)
+        .then(() => setMin(next))
+        .catch((e) => Alert.alert('Couldn’t save it', e instanceof Error ? e.message : 'Try again.'))
+        .finally(() => setSaving(false));
+    };
+    if (!next) return go();
+    Alert.alert(
+      `Require ${next}?`,
+      blocked.length
+        ? `${blocked.length} ${blocked.length === 1 ? 'person' : 'people'} active in the last ${ACTIVE_DAYS} days will see “Time to update Hound” until they install ${next}: ${namesLine(blocked.map((a) => a.name))}.`
+        : `Nobody active in the last ${ACTIVE_DAYS} days is below ${next}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Require it', style: 'destructive', onPress: go },
+      ],
+    );
+  };
 
   const summary = useMemo(() => (apps ? groupApps(apps) : null), [apps]);
   // Android phones by where the app came from (0163).
@@ -106,6 +145,39 @@ export function AppVersionsCard() {
             </View>
           )}
           {apps!.length === 0 && <Text style={styles.footNote}>Nobody has opened the app in that time.</Text>}
+
+          <View style={[styles.row, { flexDirection: 'column', alignItems: 'stretch', gap: 8 }]}>
+            <Text style={styles.build}>Minimum version</Text>
+            <Text style={styles.footNote}>
+              {min
+                ? `Anyone below ${min} sees “Time to update Hound” with the App Store or download link instead of the app (${blockedBy(min).length} right now). Admins can continue past it.`
+                : 'Off: every version can use Hound. Set it once a new build is released on the App Store and the new APK is on the website, to move everyone onto it.'}
+            </Text>
+            <TextField
+              label="Require at least"
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="0.12.0"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="numbers-and-punctuation"
+            />
+            {draftOk && draft.trim() !== (min ?? '') && (
+              <Text style={styles.footNote}>
+                Would block {blockedBy(draft.trim()).length} of {apps!.length} active in the last {ACTIVE_DAYS} days.
+              </Text>
+            )}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Button label={saving ? 'Saving…' : 'Save'} variant="primary" small disabled={saving || !draftOk || draft.trim() === (min ?? '')} onPress={() => saveMin(draft.trim())} />
+              </View>
+              {min && (
+                <View style={{ flex: 1 }}>
+                  <Button label="Turn off" variant="secondary" small disabled={saving} onPress={() => saveMin(null)} />
+                </View>
+              )}
+            </View>
+          </View>
         </>
       )}
     </Card>

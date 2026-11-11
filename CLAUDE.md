@@ -23,6 +23,12 @@ version in place of `X.Y.Z`:
 - Remove it once most people have moved (Admin → App versions), or when
   the next version comes out.
 
+While a new version is on its way, list the old one in
+`mobile/scripts/also-publish.txt` so `npm run update:production` keeps
+reaching it, and once the new one is out, Admin → App versions →
+Minimum version moves everyone onto it ("A new native build, and moving
+everyone onto it" in STAGING.md).
+
 The rest of the release steps are in `mobile/supabase/STAGING.md` (build
 profiles: Android testers get `npm run build:android:apk`, not
 `--profile preview`) and issue #288.
