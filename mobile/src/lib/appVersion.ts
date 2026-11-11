@@ -5,7 +5,7 @@ import * as Updates from 'expo-updates';
 // app.json's "version" as the running code was published with it. The
 // installed one comes first: while an update goes out to two versions at
 // once (scripts/publish-update.sh), the code a 0.11 phone runs may have
-// been published from 0.12's app.json, and the Home banner's
+// been published from a newer app.json, and the Home banner's
 // {if version=...} has to see 0.11. Bump app.json's version alongside
 // every APK cut on the download page (see site/download.html).
 let nativeVersion: string | null = null;

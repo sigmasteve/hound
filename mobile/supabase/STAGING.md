@@ -136,20 +136,21 @@ Until production's migration history is recorded (below), it stays manual, in th
 
 A native build (a new version in `mobile/app.json`) needs Apple's review,
 and over-the-air updates only reach phones whose build has the same
-version (`runtimeVersion` follows the app version). So, for 0.11.0 → 0.12.0:
+version (`runtimeVersion` follows the app version). So, for 0.11.0 → 1.1.0 (the App Store's
+listing already says 1.0, so versions carry on from there):
 
-1. Bump `mobile/app.json`'s `version` to `0.12.0`, and add `0.11.0` to
+1. Bump `mobile/app.json`'s `version` to `1.1.0`, and add `0.11.0` to
    `mobile/scripts/also-publish.txt`. From then on, `npm run update:production`
-   publishes each update twice: for 0.12.0 and for 0.11.0 (stamped 0.11.0,
+   publishes each update twice: for 1.1.0 and for 0.11.0 (stamped 0.11.0,
    so the Home banner's `{if version=...}` still sees 0.11.0). Keep the code
-   safe for 0.11.0 while it's listed: anything needing 0.12.0's new native
+   safe for 0.11.0 while it's listed: anything needing 1.1.0's new native
    code checks that it's there first.
 2. Build iPhone (`eas build --profile production --platform ios`) and the
-   Android APK (`npm run build:android:apk`), both 0.12.0. Submit to Apple.
+   Android APK (`npm run build:android:apk`), both 1.1.0. Submit to Apple.
 3. Once Apple has released it and the APK is behind the website's download
    link: turn on the Home banner (template in `CLAUDE.md`).
 4. When most people have moved (Admin → App versions shows who's where), set
-   **Admin → App versions → Minimum version** to `0.12.0` (it says how many
+   **Admin → App versions → Minimum version** to `1.1.0` (it says how many
    it would block first). Anyone below sees "Time to update Hound" with the
    App Store or download link instead of the app; admins can continue past it.
 5. Remove `0.11.0` from `also-publish.txt`, and the banner.

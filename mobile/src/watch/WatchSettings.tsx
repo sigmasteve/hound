@@ -14,7 +14,7 @@ import { compareVersions } from '../updates/versionGate';
 // Settings → Apple Watch (0189): enter the code Hound shows on the watch
 // to link it, and see or unlink linked watches. Plain app code, so it
 // reaches every version by update; the watch app itself comes with the
-// 0.12.0 build.
+// 1.1.0 build.
 
 interface LinkedWatch {
   id: string;
@@ -59,9 +59,9 @@ export function WatchSettings() {
   useEffect(load, [load]);
 
   // iPhone only, and only once 0189 has run (the list loads).
-  // The watch app comes with the 0.12.0 build: older phones get this
+  // The watch app comes with the 1.1.0 build: older phones get this
   // screen by update but have no watch app to link yet.
-  const hasWatchApp = APP_VERSION === 'unknown' || compareVersions(APP_VERSION, '0.12.0') >= 0;
+  const hasWatchApp = APP_VERSION === 'unknown' || compareVersions(APP_VERSION, '1.1.0') >= 0;
   if (Platform.OS !== 'ios' || watches === null || (!hasWatchApp && watches.length === 0)) return null;
 
   const clean = code.replace(/[^A-Za-z0-9]/g, '').toUpperCase();

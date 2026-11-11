@@ -112,7 +112,7 @@ export interface HealthProvider {
   // Water (0153): millilitres logged in Health by other apps, per local
   // day ('YYYY-MM-DD') from `since` through today. Hound never writes
   // water to Health, so all of it is someone else's. Empty when it can't
-  // be read (no permission, or, on Android before 0.12.0, a build that
+  // be read (no permission, or, on Android before 1.1.0, a build that
   // can't ask for it).
   getDailyWaterSince?(since: Date): Promise<Map<string, number>>;
   // Asks to read water, the first time someone sets a water goal. False

@@ -3,7 +3,7 @@ import { Alert, AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../auth/AuthContext';
 import { useHealthProvider } from '../health/HealthContext';
-import { HAS_HEALTH_0_12 } from '../health/nativeBuild';
+import { HAS_HEALTH_1_1 } from '../health/nativeBuild';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { updateHound } from '../goals/hound';
 import { setWaterSnapshot } from './waterSnapshot';
@@ -152,13 +152,13 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, [refresh]);
 
-  // Android, from the 0.12.0 build: someone who set a water goal before
+  // Android, from the 1.1.0 build: someone who set a water goal before
   // Health Connect's water could be asked for is asked once now, so
   // water from other apps counts for them too (iPhone asked at the time).
   const hasGoal = goal !== null;
   const waterAsked = useRef(false);
   useEffect(() => {
-    if (waterAsked.current || !loaded || !hasGoal || Platform.OS !== 'android' || !HAS_HEALTH_0_12 || !health.requestWaterAccess) return;
+    if (waterAsked.current || !loaded || !hasGoal || Platform.OS !== 'android' || !HAS_HEALTH_1_1 || !health.requestWaterAccess) return;
     const key = 'water:health-connect-asked';
     let cancelled = false;
     AsyncStorage.getItem(key)
@@ -258,7 +258,7 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
       // Asked once, when the goal is first set, so water from other apps
       // counts too.
       if (first && health.requestWaterAccess) {
-        if (HAS_HEALTH_0_12) AsyncStorage.setItem('water:health-connect-asked', '1').catch(() => {});
+        if (HAS_HEALTH_1_1) AsyncStorage.setItem('water:health-connect-asked', '1').catch(() => {});
         await health.requestWaterAccess().catch(() => false);
         readHealth();
       }

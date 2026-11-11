@@ -1,4 +1,4 @@
-// Hound's Apple Watch app (0.12.0): goals, water and the streak on the
+// Hound's Apple Watch app (1.1.0): goals, water and the streak on the
 // wrist. It links to an account with a code (0189_apple_watch.sql) and
 // talks to Hound's server itself, so the phone app needn't be running.
 //
