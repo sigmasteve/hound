@@ -72,5 +72,10 @@
     "build:android:apk": "npx eas-cli build --platform android --profile production-apk",
     "submit:ios": "npx eas-cli submit --platform ios --profile production"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "@bacons/apple-targets": {
+      "@expo/require-utils": "57.0.6"
+    }
+  }
 }
