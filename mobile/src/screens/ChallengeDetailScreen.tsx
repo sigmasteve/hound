@@ -48,6 +48,7 @@ import {
   buildBoard,
   headStartDaysLeft as computeHeadStartDaysLeft,
   headStartBaselineDayKey,
+  headStartEndsAt,
   huntEffectiveMetric,
   inviteWindowClosed,
   isChallengeFinished,
@@ -2765,6 +2766,7 @@ export function ChallengeDetailScreen({
                 chaser={huntRace.chaser}
                 foxes={huntRace.foxes}
                 unit={huntRace.unit}
+                setsOffAt={headStartEndsAt(challenge)}
               />
               )}
             </>

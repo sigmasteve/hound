@@ -133,6 +133,15 @@ export function hasHeadStartElapsed(challenge: Challenge): boolean {
   return daysElapsedFraction(challenge) >= (challenge.headStartDays ?? 0);
 }
 
+// When a hunt's head start ends and the Chaser sets off: the same moment
+// hasHeadStartElapsed turns true (UTC midnight of the start day, plus the
+// head start's days). Null without a head start.
+export function headStartEndsAt(challenge: Challenge): Date | null {
+  if (challenge.kind !== 'hunt' || !challenge.headStartDays) return null;
+  const start = new Date(challenge.startsAt);
+  return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()) + challenge.headStartDays * 86_400_000);
+}
+
 // How long after a challenge starts someone can still be invited into it
 // (or accept a pending invite) — past this, ChallengeDetailScreen hides
 // "Invite a friend" and acceptChallengeInvite/inviteFriendToChallenge

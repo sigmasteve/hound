@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
@@ -51,6 +51,7 @@ export function HuntStatusCard({
   chaser,
   foxes,
   unit,
+  setsOffAt,
 }: {
   labels: HuntLabels;
   day: number;
@@ -58,10 +59,15 @@ export function HuntStatusCard({
   chaser: HuntRunner;
   foxes: HuntRunner[];
   unit: 'mi' | 'steps';
+  // When the head start ends and the Chaser sets off (board.ts's
+  // headStartEndsAt); a countdown shows until then.
+  setsOffAt?: Date | null;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const left = foxes.filter((f) => !f.out && f.outDay === undefined);
+  const now = useNow(setsOffAt);
+  const waiting = !!setsOffAt && setsOffAt.getTime() > now;
   return (
     <Card style={{ gap: 12 }} elevated={false}>
       <View style={styles.rowBetween}>
@@ -77,10 +83,21 @@ export function HuntStatusCard({
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={text.h2}>{chaser.me ? `You’re the ${labels.hunter}` : `${chaser.name} is the ${labels.hunter}`}</Text>
           <Text style={styles.note}>
-            {fmt(chaser.total, unit)} since the head start ended. Reach a {labels.hunted}&rsquo;s total and they&rsquo;re {labels.zombie}.
+            {waiting
+              ? `The ${plural(labels.hunted)} are taking their head start. ${chaser.me ? 'You set' : `The ${labels.hunter} sets`} off when it ends; reach a ${labels.hunted}’s total after that and they’re ${labels.zombie}.`
+              : `${fmt(chaser.total, unit)} since the head start ended. Reach a ${labels.hunted}’s total and they’re ${labels.zombie}.`}
           </Text>
         </View>
       </View>
+      {waiting && setsOffAt && (
+        <View style={styles.countdown}>
+          <Text style={styles.countdownKicker}>{`THE ${labels.hunter.toUpperCase()} SETS OFF IN`}</Text>
+          <Text style={styles.countdownTime}>{countdown(setsOffAt.getTime() - now)}</Text>
+          <Text style={styles.note}>
+            {setsOffAt.toLocaleString(undefined, { weekday: 'long', hour: 'numeric', minute: '2-digit' })}
+          </Text>
+        </View>
+      )}
       {foxes.map((f) => {
         const out = !!f.out || f.outDay !== undefined;
         const gap = f.total - chaser.total;
@@ -109,7 +126,9 @@ export function HuntStatusCard({
                     />
                   </View>
                   <Text style={styles.note}>
-                    {daysToCatch !== null
+                    {waiting
+                      ? `${f.me ? 'Your' : 'Their'} head start so far, before the ${labels.hunter} sets off.`
+                      : daysToCatch !== null
                       ? `At this pace the ${labels.hunter} catches ${f.me ? 'you' : 'them'} in about ${daysToCatch} ${daysToCatch === 1 ? 'day' : 'days'}${daysToCatch > days - day ? ', after it ends' : ''}.`
                       : `${f.me ? 'You’re' : 'They’re'} pulling away: ${fmt(f.pace, unit)} a day to the ${labels.hunter}’s ${fmt(chaser.pace, unit)}.`}
                   </Text>
@@ -121,6 +140,31 @@ export function HuntStatusCard({
       })}
     </Card>
   );
+}
+
+// The time now, ticking while a countdown is on screen: every second in
+// the last hour, every minute before that.
+function useNow(until?: Date | null): number {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!until) return;
+    const left = until.getTime() - now;
+    if (left <= 0) return;
+    const t = setTimeout(() => setNow(Date.now()), left < 3_600_000 ? 1000 : 60_000 - (now % 60_000));
+    return () => clearTimeout(t);
+  }, [until, now]);
+  return now;
+}
+
+// "1d 4h", "3h 12m", "12m 30s".
+function countdown(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(s / 86_400);
+  const h = Math.floor((s % 86_400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${s % 60}s`;
 }
 
 // "Close" is a few of these: a mile, or 2,000 steps.
@@ -209,6 +253,9 @@ function makeStyles(colors: Palette) {
     rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     kicker: { fontSize: 11.5, letterSpacing: 0.8, color: withAlpha(colors.text, 0.55), fontFamily: font.heading },
     heroRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    countdown: { alignItems: 'center', gap: 2, paddingVertical: 10, borderRadius: 14, backgroundColor: withAlpha(CHASER_RED, 0.1) },
+    countdownKicker: { fontSize: 11.5, letterSpacing: 0.8, color: CHASER_RED, fontFamily: font.heading },
+    countdownTime: { fontSize: 30, color: colors.text, fontFamily: font.heading, fontVariant: ['tabular-nums'] },
     note: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
     foxRow: {
       flexDirection: 'row',
