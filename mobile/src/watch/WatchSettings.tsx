@@ -8,6 +8,8 @@ import { TextField } from '../components/TextField';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { supabase } from '../lib/supabase';
+import { APP_VERSION } from '../lib/appVersion';
+import { compareVersions } from '../updates/versionGate';
 
 // Settings → Apple Watch (0189): enter the code Hound shows on the watch
 // to link it, and see or unlink linked watches. Plain app code, so it
@@ -57,7 +59,10 @@ export function WatchSettings() {
   useEffect(load, [load]);
 
   // iPhone only, and only once 0189 has run (the list loads).
-  if (Platform.OS !== 'ios' || watches === null) return null;
+  // The watch app comes with the 0.12.0 build: older phones get this
+  // screen by update but have no watch app to link yet.
+  const hasWatchApp = APP_VERSION === 'unknown' || compareVersions(APP_VERSION, '0.12.0') >= 0;
+  if (Platform.OS !== 'ios' || watches === null || (!hasWatchApp && watches.length === 0)) return null;
 
   const clean = code.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
   const link = async () => {
