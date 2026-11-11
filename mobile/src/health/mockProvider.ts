@@ -1,5 +1,6 @@
 import type { DataSourcesReport } from './dataSources';
 import type { DailySteps, DailyStepsWithDate, HealthAuthStatus, HealthProvider, HealthSnapshot, StepBucket, WorkoutSample } from './types';
+import { nightsFromPieces, type SleepNight, type SleepPiece } from './sleep';
 
 // Sample-data provider — used automatically whenever the platform module
 // isn't linked (Expo Go, this dev sandbox, or web), so every screen has
@@ -113,6 +114,23 @@ export const mockProvider: HealthProvider = {
   },
 
   async requestWaterAccess(): Promise<boolean> {
+    return true;
+  },
+
+  // Sample nights: about 11pm to 6:45am, a little different each night.
+  async getSleepSince(since: Date): Promise<SleepNight[]> {
+    const pieces: SleepPiece[] = [];
+    const day = new Date(since);
+    day.setHours(0, 0, 0, 0);
+    for (let i = 0; day.getTime() <= Date.now(); i++, day.setDate(day.getDate() + 1)) {
+      const start = new Date(day.getTime() - (60 + (i % 3) * 20) * 60000);
+      const end = new Date(day.getTime() + (6 * 60 + 45 - (i % 4) * 15) * 60000);
+      if (end.getTime() <= Date.now()) pieces.push({ start, end });
+    }
+    return nightsFromPieces(pieces);
+  },
+
+  async requestSleepAccess(): Promise<boolean> {
     return true;
   },
 

@@ -174,7 +174,8 @@ No, and none.
 
 ### Health apps (Health Connect declaration)
 
-Hound requests five Health Connect read permissions. Declare each with
+Hound requests seven Health Connect read permissions (hydration and sleep
+from the 0.12.0 build). Declare each with
 its use, under *Fitness and wellness* → *Fitness coaching / social fitness*:
 
 | Permission | Why |
@@ -184,6 +185,8 @@ its use, under *Fitness and wellness* → *Fitness coaching / social fitness*:
 | READ_EXERCISE | Workout goals, Bingo squares, Chase and Tag scoring, the 75 Day and Accountability checklists. |
 | READ_HEART_RATE | A workout's average heart rate is kept with the member's workout history, for challenge kinds in development; not shown or scored yet. |
 | READ_WEIGHT | Read for weight-based goals in development; not shown or scored yet. |
+| READ_HYDRATION | Water goals: water other apps log in Health Connect counts toward the member's daily water goal, with Hound's own taps. |
+| READ_SLEEP | Read for the hound's bedtime in development: the hound sleeps when the member does. Not shown or scored yet. |
 
 Confirm: the data is used only for the features above, never for
 advertising, never sold, never shared with third parties; the privacy

@@ -1,3 +1,4 @@
+import type { SleepNight } from './sleep';
 import type { DataSourcesReport } from './dataSources';
 
 // The shape every screen reads from — platform-agnostic. Screens never
@@ -111,9 +112,15 @@ export interface HealthProvider {
   // Water (0153): millilitres logged in Health by other apps, per local
   // day ('YYYY-MM-DD') from `since` through today. Hound never writes
   // water to Health, so all of it is someone else's. Empty when it can't
-  // be read (no permission, or this build can't ask for it).
+  // be read (no permission, or, on Android before 0.12.0, a build that
+  // can't ask for it).
   getDailyWaterSince?(since: Date): Promise<Map<string, number>>;
   // Asks to read water, the first time someone sets a water goal. False
   // when it can't be asked on this phone yet.
   requestWaterAccess?(): Promise<boolean>;
+  // Sleep (#494): each night's asleep time from `since` on (sleep.ts).
+  // Empty without permission. Nothing asks for it yet: the Hound's
+  // bedtime will, with requestSleepAccess.
+  getSleepSince?(since: Date): Promise<SleepNight[]>;
+  requestSleepAccess?(): Promise<boolean>;
 }
