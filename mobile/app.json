@@ -3,13 +3,14 @@
     "name": "Hound",
     "slug": "hound",
     "scheme": "hound",
-    "version": "0.11.0",
+    "version": "0.12.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#161826",
     "ios": {
       "bundleIdentifier": "app.hound.mobile",
+      "appleTeamId": "CL3XC87U77",
       "supportsTablet": true,
       "associatedDomains": ["applinks:houndchallenge.net"],
       "infoPlist": {
@@ -54,6 +55,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "@bacons/apple-targets",
       [
         "@kingstinct/react-native-healthkit",
         {

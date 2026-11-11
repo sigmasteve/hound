@@ -80,8 +80,9 @@ select is(
      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.prokind = 'f'
        and has_function_privilege('anon', p.oid, 'EXECUTE')),
-  array['beta_download_links', 'club_code_public', 'community_code_public', 'friend_code_owner_name'],
-  'M1: signed-out visitors can run only the four functions the website uses (club_code_public: 0185)');
+  array['beta_download_links', 'club_code_public', 'community_code_public', 'friend_code_owner_name',
+        'watch_log_water', 'watch_pair_start', 'watch_pair_status', 'watch_today', 'watch_undo_water'],
+  'M1: signed-out callers can run only what the website (and, 0189, the Apple Watch, with its secret) uses');
 
 -- The daily reward cap: a sixth paid result in 24 hours pays nothing.
 insert into public.activity_events (user_id, challenge_id, kind, score_points, xp_points, bones_points)

@@ -5,3 +5,4 @@
 # version for the new build, list the old version here so phones still
 # on it keep getting updates. Remove it once Admin → App versions'
 # minimum version is raised to the new one. See publish-update.sh.
+0.11.0
