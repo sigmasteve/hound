@@ -1,12 +1,21 @@
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 
-// app.json's own "version" — bump that alongside every APK cut on the
-// download page (see site/download.html) to keep the two in sync;
-// nothing enforces that automatically. Never null in a real build (only
-// Constants.expoConfig itself can be, e.g. some bare/dev-client setups),
-// but falls back rather than showing "undefined" anywhere this is shown.
-export const APP_VERSION = Constants.expoConfig?.version ?? 'unknown';
+// The installed build's version (expo-application), falling back to
+// app.json's "version" as the running code was published with it. The
+// installed one comes first: while an update goes out to two versions at
+// once (scripts/publish-update.sh), the code a 0.11 phone runs may have
+// been published from 0.12's app.json, and the Home banner's
+// {if version=...} has to see 0.11. Bump app.json's version alongside
+// every APK cut on the download page (see site/download.html).
+let nativeVersion: string | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  nativeVersion = require('expo-application').nativeApplicationVersion ?? null;
+} catch {
+  nativeVersion = null;
+}
+export const APP_VERSION = nativeVersion ?? Constants.expoConfig?.version ?? 'unknown';
 
 // What this copy of the app is running, for the bottom of Settings:
 // which database (PR = production, STG = staging), which update channel,

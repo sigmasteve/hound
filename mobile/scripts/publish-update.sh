@@ -5,6 +5,16 @@
 #   npm run update:production -- --message "What changed"
 #   npm run update:staging -- --message "What changed"
 #
+# An update only reaches phones whose build has the same runtime version,
+# which is app.json's "version" (runtimeVersion policy appVersion). While
+# a new build (say 0.12.0) is waiting on Apple, or people are still moving
+# onto it, list the version they're moving from (0.11.0) in
+# scripts/also-publish.txt: the same update then also goes out to those
+# phones, stamped with their version. Empty the file once Admin's
+# minimum version is raised and the old version is left behind.
+#
+# Keep the code safe for the older build while it's listed: anything that
+# needs the new build's native code has to check it's there first.
 # Each app builds into its own folder (dist-production, dist-staging).
 # Both used to build into dist/, so a staging and a production publish
 # running at the same time from two Terminal windows could upload each
@@ -72,3 +82,20 @@ done
 echo "Checked: iPhone and Android code both point at the $target database."
 
 npx eas-cli update --branch "$branch" --environment "$environment" --skip-bundler --input-dir "$out" "$@"
+
+# The same update for older versions' phones (also-publish.txt).
+also_file="scripts/also-publish.txt"
+if [ -f "$also_file" ]; then
+  current=$(node -p "require('./app.json').expo.version")
+  for v in $(grep -v '^[[:space:]]*#' "$also_file" | tr ',' ' '); do
+    v=$(echo "$v" | tr -d '[:space:]')
+    [ -z "$v" ] && continue
+    if ! echo "$v" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+      echo "Skipped \"$v\" in $also_file: a version looks like 0.11.0."
+      continue
+    fi
+    [ "$v" = "$current" ] && continue
+    echo "Also publishing this update for phones on $v..."
+    HOUND_PUBLISH_VERSION="$v" npx eas-cli update --branch "$branch" --environment "$environment" --skip-bundler --input-dir "$out" "$@"
+  done
+fi

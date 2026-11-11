@@ -23,6 +23,7 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { applyLatestUpdateOnLaunch } from './src/updates/startupUpdate';
 import { useForegroundUpdateCheck } from './src/updates/updateReady';
 import { UsernameAskProvider } from './src/profiles/UsernameAsk';
+import { VersionGate } from './src/updates/versionGate';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -66,7 +67,11 @@ function AppContent() {
                   {/* Asks for a username in place (joining a club or a
                       community challenge), not via Settings. */}
                   <UsernameAskProvider>
-                    <RootNavigator />
+                    {/* Below Admin's minimum version (0188): "Update
+                        Hound" instead of the app. */}
+                    <VersionGate>
+                      <RootNavigator />
+                    </VersionGate>
                   </UsernameAskProvider>
                 </WaterProvider>
               </GoalsProvider>
