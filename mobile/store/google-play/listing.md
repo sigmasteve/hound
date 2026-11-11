@@ -175,7 +175,7 @@ No, and none.
 ### Health apps (Health Connect declaration)
 
 Hound requests seven Health Connect read permissions (hydration and sleep
-from the 0.12.0 build). Declare each with
+from the 1.1.0 build). Declare each with
 its use, under *Fitness and wellness* → *Fitness coaching / social fitness*:
 
 | Permission | Why |

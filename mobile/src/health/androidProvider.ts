@@ -20,7 +20,7 @@ import type {
 } from './types';
 import { pickNonOverlapping } from './dedupeWorkouts';
 import { nightsFromPieces, type SleepNight } from './sleep';
-import { HAS_HEALTH_0_12 } from './nativeBuild';
+import { HAS_HEALTH_1_1 } from './nativeBuild';
 import { appName, SAMSUNG_HEALTH_PACKAGES, type DataSourcesReport, type DataSourceSummary } from './dataSources';
 
 // Real Health Connect integration. Requires a custom dev client or a
@@ -325,11 +325,11 @@ export const androidHealthProvider: HealthProvider = {
   },
 
   // Water (0153): read only once Health Connect has allowed it, which
-  // needs READ_HYDRATION in the app's manifest: from the 0.12.0 build.
+  // needs READ_HYDRATION in the app's manifest: from the 1.1.0 build.
   // Asked for when a water goal is first set (WaterContext), and once
   // after updating for anyone who already had one.
   async requestWaterAccess(): Promise<boolean> {
-    if (!HAS_HEALTH_0_12) return false;
+    if (!HAS_HEALTH_1_1) return false;
     try {
       if (!(await ensureInitialized())) return false;
       const granted = await requestPermission([{ accessType: 'read', recordType: 'Hydration' }]);
@@ -339,10 +339,10 @@ export const androidHealthProvider: HealthProvider = {
     }
   },
 
-  // Sleep (#494): READ_SLEEP, also from the 0.12.0 build. Nothing asks
+  // Sleep (#494): READ_SLEEP, also from the 1.1.0 build. Nothing asks
   // yet; the Hound's bedtime will.
   async requestSleepAccess(): Promise<boolean> {
-    if (!HAS_HEALTH_0_12) return false;
+    if (!HAS_HEALTH_1_1) return false;
     try {
       if (!(await ensureInitialized())) return false;
       const granted = await requestPermission([{ accessType: 'read', recordType: 'SleepSession' }]);
@@ -357,7 +357,7 @@ export const androidHealthProvider: HealthProvider = {
   async getSleepSince(since: Date): Promise<SleepNight[]> {
     const pieces: { start: Date; end: Date }[] = [];
     try {
-      if (!HAS_HEALTH_0_12 || !(await ensureInitialized())) return [];
+      if (!HAS_HEALTH_1_1 || !(await ensureInitialized())) return [];
       const granted = await getGrantedPermissions();
       if (!granted.some((g) => 'recordType' in g && g.recordType === 'SleepSession' && g.accessType === 'read')) return [];
       const from = dateOnly(since);

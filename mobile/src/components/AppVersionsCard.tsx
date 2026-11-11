@@ -157,7 +157,7 @@ export function AppVersionsCard() {
               label="Require at least"
               value={draft}
               onChangeText={setDraft}
-              placeholder="0.12.0"
+              placeholder="1.1.0"
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="numbers-and-punctuation"
