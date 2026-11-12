@@ -40,6 +40,8 @@ import { BathAdminCard } from '../components/BathAdminCard';
 import { ChallengesAdminCard } from '../components/ChallengesAdminCard';
 import { HolidayAdminCard, holidaySummary } from '../components/HolidayAdminCard';
 import { WatchAdminCard, getWatchOverview, watchSummary } from '../components/WatchAdminCard';
+import { MaintenanceAdminCard, maintenanceSummary } from '../components/MaintenanceAdminCard';
+import { getMaintenanceOverview } from '../maintenance/maintenance';
 import { ClubsAdminCard, clubsSummary } from '../components/ClubsAdminCard';
 import { getClubsOverview } from '../clubs/clubsApi';
 import { getHolidayOverview } from '../holiday/holidayApi';
@@ -164,6 +166,8 @@ export function AdminScreen({
   const [holidaySummaryLine, setHolidaySummaryLine] = useState<string | null>(null);
   // The Apple Watch fold's line (0189).
   const [watchSummaryLine, setWatchSummaryLine] = useState<string | null>(null);
+  // The Maintenance fold's line (0190).
+  const [maintenanceLine, setMaintenanceLine] = useState<string | null>(null);
   // The Clubs fold's line (0185).
   const [clubsSummaryLine, setClubsSummaryLine] = useState<string | null>(null);
   // The Tag fold's line (0181).
@@ -209,6 +213,9 @@ export function AdminScreen({
         .catch(() => {});
       getWatchOverview()
         .then((o) => setWatchSummaryLine(watchSummary(o)))
+        .catch(() => {});
+      getMaintenanceOverview()
+        .then((o) => setMaintenanceLine(maintenanceSummary(o)))
         .catch(() => {});
       getClubsOverview()
         .then((o) => setClubsSummaryLine(clubsSummary(o)))
@@ -760,6 +767,9 @@ export function AdminScreen({
                   <AppVersionsCard />
                 </AdminFold>
                 </View>
+                <AdminFold title="Maintenance" summary={maintenanceLine ?? 'Before changing the server'}>
+                  <MaintenanceAdminCard onChanged={(o) => setMaintenanceLine(maintenanceSummary(o))} />
+                </AdminFold>
                 <AdminFold title="Apple Watch" summary={watchSummaryLine ?? 'Hound on the wrist'}>
                   <WatchAdminCard />
                 </AdminFold>

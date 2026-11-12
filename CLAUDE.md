@@ -46,6 +46,15 @@ now, and how. Build it in the same PR as the feature:
   opening it (e.g. "12 with a water goal"), and a card inside with the
   detail, like `GoalsAdminCard` and `WaterAdminCard`.
 
+## Maintenance
+
+Before Steve changes the server (a compute upgrade, a restart): Admin →
+Maintenance schedules the window (0190), and when he asks for
+"maintenance on", open a PR setting `site/status.json` to
+`{"maintenance": true, "message": "...", "until": "<UTC time it should be back>"}`,
+then another setting it back to `{"maintenance": false}` afterwards. See
+`site/README.md`.
+
 ## Pull requests
 
 Steve merges fast, often before the next message. So, every time:

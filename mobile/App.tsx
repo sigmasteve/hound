@@ -24,6 +24,7 @@ import { applyLatestUpdateOnLaunch } from './src/updates/startupUpdate';
 import { useForegroundUpdateCheck } from './src/updates/updateReady';
 import { UsernameAskProvider } from './src/profiles/UsernameAsk';
 import { VersionGate } from './src/updates/versionGate';
+import { MaintenanceGate } from './src/maintenance/MaintenanceGate';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -69,9 +70,14 @@ function AppContent() {
                   <UsernameAskProvider>
                     {/* Below Admin's minimum version (0188): "Update
                         Hound" instead of the app. */}
-                    <VersionGate>
-                      <RootNavigator />
-                    </VersionGate>
+                    {/* Hound's server down, or Admin's maintenance (0190):
+                        a screen that says so and retries, instead of a
+                        "Loading" that never ends. */}
+                    <MaintenanceGate>
+                      <VersionGate>
+                        <RootNavigator />
+                      </VersionGate>
+                    </MaintenanceGate>
                   </UsernameAskProvider>
                 </WaterProvider>
               </GoalsProvider>

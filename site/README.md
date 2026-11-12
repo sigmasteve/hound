@@ -157,3 +157,28 @@ page, print it again: serve this folder (`python3 -m http.server 8780`),
 then in Chrome open `http://localhost:8780/guide.html`, Print → Save as PDF,
 Letter, background graphics on, scale 85%. The print styles in
 `styles.css` turn it black on white and keep each item on one page.
+
+## Maintenance: `status.json`
+
+`status.json` says whether Hound's server is down for maintenance. It's
+on this site (Vercel) because it has to stay up when Supabase doesn't.
+The app reads it only when it can't reach the server
+(`mobile/src/maintenance/maintenance.ts`), and `status.js` shows the same
+notice across the top of the home page. Served with no caching
+(`vercel.json`).
+
+Normal:
+
+```json
+{ "maintenance": false }
+```
+
+During maintenance (the time is when it should be back, in UTC):
+
+```json
+{ "maintenance": true, "message": "Making Hound faster.", "until": "2026-11-13T02:10:00Z" }
+```
+
+Turn it on with a PR before the work, and off with another after.
+Admin → Maintenance in the app covers phones that opened Hound since the
+window was scheduled; this file covers everyone else.

@@ -52,6 +52,7 @@ import { supabaseChallengesProvider, hasLoggedProgressToday, loadBoardInputs } f
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { UpdateReadyBanner } from '../components/UpdateReadyBanner';
+import { MaintenanceHeadsUp } from '../maintenance/MaintenanceHeadsUp';
 import { ShareSheet } from '../share/ShareSheet';
 import { WidgetHound } from '../widgets/WidgetHound';
 import { Confetti } from '../celebrate/Confetti';
@@ -2230,6 +2231,9 @@ export function HomeScreen({
       {sharing && <ShareSheet content={sharing} onClose={() => setSharing(null)} />}
       {kennel && <WidgetHound kennel={kennel} />}
       <UpdateReadyBanner />
+      {/* Admin's maintenance window (0190), from a few hours before:
+          above the announcement banner. */}
+      <MaintenanceHeadsUp />
       {announcementBar}
       <ScrollView contentContainerStyle={styles.container}>
       {/* A holiday theme (0184), when one's on: its countdown and garland
