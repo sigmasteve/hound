@@ -12,6 +12,7 @@ import {
   HeartbeatIcon,
   QuestionIcon,
   TargetIcon,
+  UsersThreeIcon,
   TrophyIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
@@ -36,6 +37,7 @@ import { BonesSheet } from '../components/BonesSheet';
 import type { HealthAuthStatus } from '../health/types';
 import { JourneyCard } from '../journeys/JourneyCard';
 import { getMyJourney, type MyJourney } from '../journeys/journeyApi';
+import { isLive, myPackFuns } from '../packFun/packFunApi';
 
 // The You tab: who you are and how you're doing (level, Hound Score,
 // Bones), then the places that are about you, in three groups: your
@@ -51,6 +53,7 @@ export function YouScreen({
   onOpenKennel,
   onOpenJourney,
   onPickJourney,
+  onOpenPackFun,
   onOpenHealthData,
   onOpenSettings,
   onOpenHelp,
@@ -62,6 +65,7 @@ export function YouScreen({
   onOpenKennel: () => void;
   onOpenJourney: () => void;
   onPickJourney: () => void;
+  onOpenPackFun: () => void;
   onOpenHealthData: () => void;
   onOpenSettings: () => void;
   onOpenHelp: () => void;
@@ -84,6 +88,8 @@ export function YouScreen({
   const [avatarOpen, setAvatarOpen] = useState(false);
   // undefined until loaded, so the card doesn't flash "Start a Journey".
   const [journey, setJourney] = useState<MyJourney | null | undefined>(undefined);
+  // Pack Fun's row says when one is live or coming up.
+  const [packFunDetail, setPackFunDetail] = useState<string | null>(null);
   useFocusEffect(
     useCallback(() => {
       health
@@ -104,6 +110,14 @@ export function YouScreen({
       getMyJourney()
         .then(setJourney)
         .catch(() => setJourney(null));
+      myPackFuns()
+        .then((l) => {
+          const now = Date.now();
+          const live = l.filter((p) => isLive(p, now)).length;
+          const soon = l.filter((p) => !p.settled && new Date(p.startsAt).getTime() > now).length;
+          setPackFunDetail(live ? `${live} live now` : soon ? `${soon} coming up` : 'Walk, run or hike together');
+        })
+        .catch(() => setPackFunDetail(null));
     }, [user?.id, health]),
   );
 
@@ -147,6 +161,13 @@ export function YouScreen({
           Icon: TrophyIcon,
           detail: achievementCounts ? `${achievementCounts.earned} of ${achievementCounts.total}` : null,
           onPress: onOpenAchievements,
+        },
+        {
+          label: 'Pack Fun',
+          Icon: UsersThreeIcon,
+          detail: packFunDetail ?? 'Walk, run or hike together',
+          tone: packFunDetail?.endsWith('live now') ? 'good' : undefined,
+          onPress: onOpenPackFun,
         },
       ],
     },

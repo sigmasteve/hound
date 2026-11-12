@@ -23,6 +23,10 @@
 //                 0185_clubs.sql, applied mutes)
 //   'club_invite' "annruns invited you to Waffle House Crew. Tap to
 //                 join." — to the friends picked (invite_to_club, 0187)
+//   'pack_fun'    a Pack Fun's own message (0192_pack_fun.sql): an
+//                 invite, a scent trail opening, a flash challenge, "wait
+//                 up!" — to the pack members in to_users, titled with the
+//                 Pack Fun's name; {name} is the sender's name
 // The RPC has already checked who can do what, and that each recipient
 // has these pushes on; a failure here never undoes the nudge, reaction
 // or message — the calling side swallows it.
@@ -46,7 +50,8 @@ type Kind =
   | 'yard_treat'
   | 'gift'
   | 'club_post'
-  | 'club_invite';
+  | 'club_invite'
+  | 'pack_fun';
 
 interface RequestBody {
   kind: Kind;
@@ -72,6 +77,9 @@ interface RequestBody {
   club_id?: string;
   club_name?: string;
   challenge_name?: string;
+  // pack_fun
+  pack_id?: string;
+  pack_name?: string;
 }
 
 interface ProfileRow {
@@ -109,6 +117,7 @@ Deno.serve(async (req) => {
   if (body?.kind === 'journey_finished') return journeyFinished(supabase, body);
   if (body?.kind === 'club_post') return clubPost(supabase, body);
   if (body?.kind === 'club_invite') return clubInvite(supabase, body);
+  if (body?.kind === 'pack_fun') return packFun(supabase, body);
   if (
     !body?.from_user ||
     !body?.to_user ||
@@ -282,6 +291,19 @@ async function clubInvite(supabase: SupabaseClient, body: RequestBody): Promise<
   return toFriends(supabase, body, (name) => `${name} invited you to ${club}. Tap to join.`, {
     title: 'Club invite',
     data: { type: 'club_invite', clubId: body.club_id },
+  });
+}
+
+// A Pack Fun message. Opens the Pack Fun.
+async function packFun(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
+  const message = (body.message ?? '').trim();
+  if (!message || !body.pack_id) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
+  }
+  return toFriends(supabase, body, (name) => message.replaceAll('{name}', name), {
+    title: (body.pack_name ?? '').trim() || 'Pack Fun',
+    data: { type: 'pack_fun', packId: body.pack_id },
+    username: true,
   });
 }
 

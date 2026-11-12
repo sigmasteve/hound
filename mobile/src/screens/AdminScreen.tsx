@@ -44,6 +44,8 @@ import { MaintenanceAdminCard, maintenanceSummary } from '../components/Maintena
 import { DogPhotosAdminCard } from '../components/DogPhotosAdminCard';
 import { dogPhotosSummary, getDogPhotosOverview } from '../dogPhotos/dogPhotos';
 import { getMaintenanceOverview } from '../maintenance/maintenance';
+import { PackFunAdminCard } from '../components/PackFunAdminCard';
+import { getPackFunOverview, packFunSummary } from '../packFun/packFunApi';
 import { ClubsAdminCard, clubsSummary } from '../components/ClubsAdminCard';
 import { getClubsOverview } from '../clubs/clubsApi';
 import { getHolidayOverview } from '../holiday/holidayApi';
@@ -172,6 +174,8 @@ export function AdminScreen({
   const [maintenanceLine, setMaintenanceLine] = useState<string | null>(null);
   // The Dog photos fold's line (0191).
   const [dogPhotosLine, setDogPhotosLine] = useState<string | null>(null);
+  // The Pack Fun fold's line (0192).
+  const [packFunLine, setPackFunLine] = useState<string | null>(null);
   // The Clubs fold's line (0185).
   const [clubsSummaryLine, setClubsSummaryLine] = useState<string | null>(null);
   // The Tag fold's line (0181).
@@ -223,6 +227,9 @@ export function AdminScreen({
         .catch(() => {});
       getDogPhotosOverview()
         .then((o) => setDogPhotosLine(dogPhotosSummary(o)))
+        .catch(() => {});
+      getPackFunOverview()
+        .then((o) => setPackFunLine(packFunSummary(o)))
         .catch(() => {});
       getClubsOverview()
         .then((o) => setClubsSummaryLine(clubsSummary(o)))
@@ -774,6 +781,9 @@ export function AdminScreen({
                   <AppVersionsCard />
                 </AdminFold>
                 </View>
+                <AdminFold title="Pack Fun" summary={packFunLine ?? 'Live sessions, Bones and the daily cap'}>
+                  <PackFunAdminCard onChanged={(o) => setPackFunLine(packFunSummary(o))} />
+                </AdminFold>
                 <AdminFold title="Dog photos" summary={dogPhotosLine ?? 'Dogs as avatars, and reports'}>
                   <DogPhotosAdminCard onChanged={(o) => setDogPhotosLine(dogPhotosSummary(o))} />
                 </AdminFold>

@@ -50,12 +50,14 @@ export function ClubScreen({
   onBack,
   onOpenChallenge,
   onPostChallenge,
+  onStartPackFun,
   onEdit,
 }: {
   clubId: string;
   onBack: () => void;
   onOpenChallenge: (challengeId: string) => void;
   onPostChallenge: () => void;
+  onStartPackFun?: () => void;
   onEdit: () => void;
 }) {
   const { colors, text } = useTheme();
@@ -269,6 +271,9 @@ export function ClubScreen({
                 <Button label={inviteOpen ? 'Hide invite' : 'Invite'} variant="secondary" small onPress={() => setInviteOpen((o) => !o)} />
               </View>
             </View>
+          )}
+          {member && onStartPackFun && (
+            <Button label="Start a Pack Fun with the club" variant="secondary" small onPress={onStartPackFun} />
           )}
 
           {member && inviteOpen && club.code && (

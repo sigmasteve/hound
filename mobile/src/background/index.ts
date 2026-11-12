@@ -5,6 +5,13 @@ import { Platform } from 'react-native';
 export function defineBackgroundSync(): void {
   if (Platform.OS === 'web') return;
   require('./backgroundSync');
+  // Pack Fun's background location (0192). Builds before 1.2.0 have no
+  // location module; the task is never started there.
+  try {
+    require('../packFun/packFunTask');
+  } catch {
+    // Nothing to define.
+  }
 }
 
 export function startBackgroundSync(): void {

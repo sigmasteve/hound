@@ -51,7 +51,8 @@
         "android.permission.health.READ_HEART_RATE",
         "android.permission.health.READ_WEIGHT",
         "android.permission.health.READ_HYDRATION",
-        "android.permission.health.READ_SLEEP"
+        "android.permission.health.READ_SLEEP",
+        "android.permission.ACTIVITY_RECOGNITION"
       ]
     },
     "web": {
@@ -94,6 +95,24 @@
         }
       ],
       "expo-background-task",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Hound shows your pack on the Pack Fun map, only during a Pack Fun you join, and only to that pack.",
+          "locationAlwaysAndWhenInUsePermission": "Hound keeps your spot on your pack's Pack Fun map while your phone is locked, only until that Pack Fun ends.",
+          "locationAlwaysPermission": "Hound keeps your spot on your pack's Pack Fun map while your phone is locked, only until that Pack Fun ends.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Hound counts your steps live during a Pack Fun, so your pack sees them right away."
+        }
+      ],
+      "react-native-maps",
       [
         "expo-image-picker",
         {
