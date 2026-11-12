@@ -30,7 +30,9 @@ import {
 // checks it's a dog; friends see it, everyone else sees your hound. The
 // same photo can give your hound its look.
 
-export function DogPhotoSettings() {
+// embedded: inside the Your avatar sheet (AvatarSheet), which has its
+// own My hound and An icon choices. onChanged: after the avatar changes.
+export function DogPhotoSettings({ embedded = false, onChanged }: { embedded?: boolean; onChanged?: () => void } = {}) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { refresh } = useDogPhotos();
@@ -52,8 +54,18 @@ export function DogPhotoSettings() {
 
   const canAdd = canAddPhoto();
   const active = mine?.status === 'active' || mine?.status === 'hidden';
-  // Older builds can't add a photo; they only see this if one's in use.
-  if (!mine || (!canAdd && !active)) return null;
+  // Older builds can't add a photo; they only see this if one's in use
+  // (or, in the sheet, a note that it's coming).
+  if (!mine) return null;
+  if (!canAdd && !active) {
+    if (!embedded) return null;
+    return (
+      <View style={styles.panel}>
+        <Text style={styles.strong}>Your dog as your avatar</Text>
+        <Text style={styles.note}>A photo of your dog or puppy, seen by your friends. Coming in the next app update.</Text>
+      </View>
+    );
+  }
 
   const start = async (from: 'library' | 'camera') => {
     try {
@@ -80,6 +92,7 @@ export function DogPhotoSettings() {
             await stopDogPhoto();
             refresh();
             load();
+            onChanged?.();
           } catch (e) {
             Alert.alert('Your dog’s photo', e instanceof Error ? e.message : 'Try again.');
           } finally {
@@ -91,9 +104,10 @@ export function DogPhotoSettings() {
 
   const blocked = !!mine.blockedUntil;
 
+  const Wrap = embedded ? View : Card;
   return (
-    <Card style={{ gap: 12 }} elevated={false}>
-      <Text style={text.h4}>Your dog as your avatar</Text>
+    <Wrap style={embedded ? styles.panel : { gap: 12 }} {...(embedded ? {} : { elevated: false })}>
+      {embedded ? <Text style={styles.strong}>Your dog as your avatar</Text> : <Text style={text.h4}>Your dog as your avatar</Text>}
       {active ? (
         <View style={styles.row}>
           {mineUrl ? <Image source={{ uri: mineUrl }} style={styles.photo} /> : <View style={[styles.photo, styles.photoEmpty]} />}
@@ -126,7 +140,7 @@ export function DogPhotoSettings() {
       {active && mine.look && (
         <Button label="Make my hound look like my dog" variant="ghost" block onPress={() => setLook({ look: mine.look!, uri: mineUrl })} />
       )}
-      {active && <Button label="Back to my hound" variant="ghost" block onPress={busy ? undefined : stop} />}
+      {active && !embedded && <Button label="Back to my hound" variant="ghost" block onPress={busy ? undefined : stop} />}
       {!active && !blocked && (
         <Text style={styles.small}>Hound checks it’s a dog before anyone sees it. Photos of people, or anything rude, aren’t allowed and can be reported.</Text>
       )}
@@ -143,6 +157,7 @@ export function DogPhotoSettings() {
           onUsed={() => {
             refresh();
             load();
+            onChanged?.();
           }}
           onLook={(l) => {
             setFlow(null);
@@ -151,7 +166,7 @@ export function DogPhotoSettings() {
         />
       )}
       {look && <LookSheet look={look.look} uri={look.uri} onClose={() => setLook(null)} />}
-    </Card>
+    </Wrap>
   );
 }
 
@@ -376,6 +391,7 @@ function cap(s: string) {
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    panel: { gap: 10, padding: 16, borderRadius: 16, backgroundColor: colors.surface },
     photo: { width: 72, height: 72, borderRadius: 36 },
     photoEmpty: { backgroundColor: withAlpha(colors.text, 0.08), borderWidth: 1, borderColor: withAlpha(colors.text, 0.2) },
     strong: { fontFamily: font.headingSemibold, fontSize: 14.5, color: colors.text },

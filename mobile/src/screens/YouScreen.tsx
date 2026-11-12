@@ -26,6 +26,8 @@ import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
 import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
 import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cosmeticsApi';
+import { AvatarSheet } from '../dogPhotos/AvatarSheet';
+import { PencilSimpleIcon } from 'phosphor-react-native';
 import { listAchievements, listEarnedAchievements } from '../achievements/achievementsApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { useGoals } from '../goals/GoalsContext';
@@ -78,6 +80,8 @@ export function YouScreen({
   const [achievementCounts, setAchievementCounts] = useState<{ earned: number; total: number } | null>(null);
   const [healthStatus, setHealthStatus] = useState<HealthAuthStatus | null>(null);
   const [bonesOpen, setBonesOpen] = useState(false);
+  // Your avatar (tap it): dog photo, hound or icon.
+  const [avatarOpen, setAvatarOpen] = useState(false);
   // undefined until loaded, so the card doesn't flash "Start a Journey".
   const [journey, setJourney] = useState<MyJourney | null | undefined>(undefined);
   useFocusEffect(
@@ -165,17 +169,32 @@ export function YouScreen({
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <AvatarSheet
+        visible={avatarOpen}
+        level={level?.level}
+        onClose={() => setAvatarOpen(false)}
+        onChanged={() => {
+          if (user?.id) getMyEquippedCosmetics(user.id).then(setEquipped).catch(() => {});
+        }}
+        onOpenLocker={onOpenLocker}
+        onOpenKennel={onOpenKennel}
+      />
       <View style={styles.profileRow}>
-        <Avatar
-          initials={user?.initials ?? ''}
-          tint={colors.accent800}
-          size={56}
-          fontSize={20}
-          frameId={equipped?.frameId}
-          backgroundId={equipped?.backgroundId}
-          iconId={equipped?.iconId}
-          level={level?.level}
-        />
+        <Pressable onPress={() => setAvatarOpen(true)} accessibilityRole="button" accessibilityLabel="Change your avatar" hitSlop={6}>
+          <Avatar
+            initials={user?.initials ?? ''}
+            tint={colors.accent800}
+            size={56}
+            fontSize={20}
+            frameId={equipped?.frameId}
+            backgroundId={equipped?.backgroundId}
+            iconId={equipped?.iconId}
+            level={level?.level}
+          />
+          <View style={styles.avatarEdit}>
+            <PencilSimpleIcon size={11} color="#fff" weight="bold" />
+          </View>
+        </Pressable>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={[text.h2, { fontSize: 24 }]} numberOfLines={1}>
             {user?.name ?? 'You'}
@@ -282,6 +301,20 @@ function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 16, paddingBottom: 32 },
     profileRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingTop: 4 },
+    // The pencil on your avatar: it opens Your avatar.
+    avatarEdit: {
+      position: 'absolute',
+      right: -4,
+      top: -4,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: colors.accent,
+      borderWidth: 2,
+      borderColor: colors.bg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     levelLine: { fontFamily: font.heading, fontSize: 13.5, color: colors.accentActive },
     statsRow: { flexDirection: 'row', gap: 12 },
     stat: { flex: 1, gap: 2 },

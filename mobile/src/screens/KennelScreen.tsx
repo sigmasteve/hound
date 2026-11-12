@@ -28,6 +28,8 @@ import { useCurrencyName } from '../organizations/useCurrencyName';
 import { useAuth } from '../auth/AuthContext';
 import { getMyEquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import { HOUND_AVATAR_PREFIX } from '../kennel/houndAvatar';
+import { AvatarSheet } from '../dogPhotos/AvatarSheet';
+import type { EquippedCosmetics } from '../cosmetics/cosmeticsApi';
 import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
 import { HoundArt } from '../kennel/HoundArt';
@@ -207,7 +209,9 @@ export function KennelScreen({
 
   // Whether your avatar is this hound (0106_hound_avatar.sql).
   const { user } = useAuth();
-  const [houndIsAvatar, setHoundIsAvatar] = useState(false);
+  // Your avatar, at the end of the top bar; tap it for Your avatar.
+  const [equipped, setEquipped] = useState<EquippedCosmetics | null>(null);
+  const [avatarOpen, setAvatarOpen] = useState(false);
 
   const reload = useCallback(() => {
     getKennel()
@@ -221,7 +225,7 @@ export function KennelScreen({
       .catch(() => setYard(null));
     if (user?.id) {
       getMyEquippedCosmetics(user.id)
-        .then((c) => setHoundIsAvatar(!!c.iconId?.startsWith(HOUND_AVATAR_PREFIX)))
+        .then(setEquipped)
         .catch(() => {});
     }
   }, [user?.id]);
@@ -813,6 +817,20 @@ export function KennelScreen({
             <BoneIcon size={13} color={colors.amber} weight="fill" />
             <Text style={styles.bonesText}>{kennel.bonesBalance.toLocaleString()}</Text>
             <PlusIcon size={11} color={colors.accentActive} weight="bold" />
+          </Pressable>
+          <Pressable onPress={() => setAvatarOpen(true)} hitSlop={6} accessibilityRole="button" accessibilityLabel="Your avatar">
+            <Avatar
+              initials={user?.initials ?? '?'}
+              tint={colors.accent800}
+              size={34}
+              fontSize={12}
+              frameId={equipped?.frameId}
+              backgroundId={equipped?.backgroundId}
+              iconId={equipped?.iconId}
+            />
+            <View style={styles.avatarEdit}>
+              <PencilSimpleIcon size={8} color="#fff" weight="bold" />
+            </View>
           </Pressable>
         </View>
 
@@ -1643,48 +1661,44 @@ export function KennelScreen({
 
               </Card>
             )}
-        {/* Your hound in your avatar's place on leaderboards, friends,
-            chats and Today. Your frame and background stay. */}
-        <Card style={styles.avatarCard} elevated={false}>
-          <Avatar
-            initials={user?.initials ?? '?'}
-            tint={colors.accent800}
-            size={44}
-            fontSize={15}
-            iconId={`${HOUND_AVATAR_PREFIX}${kennel.coatId ?? ''}.${kennel.ears}.${kennel.tail}.${kennel.markings}.${kennel.neckId ?? ''}.${kennel.headId ?? ''}.${kennel.faceId ?? ''}${kennel.breedId ? `.${kennel.breedId}` : ''}`}
-          />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.itemName}>Use {kennel.name} as my avatar</Text>
-            <Text style={styles.itemNote}>On leaderboards, friends and everywhere else your avatar shows.</Text>
-          </View>
-          <Switch
-            value={houndIsAvatar}
-            disabled={busyId !== null}
-            onValueChange={(on) => {
-              setHoundIsAvatar(on);
-              run(
-                'avatar',
-                async () => {
-                  try {
-                    await setHoundAvatar(on);
-                  } catch (e) {
-                    setHoundIsAvatar(!on);
-                    throw e;
-                  }
-                },
-                "Couldn't change your avatar",
-              );
-            }}
-            trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }}
-            accessibilityLabel={`Use ${kennel.name} as my avatar`}
-          />
-        </Card>
+        {/* Your avatar: the hound, your dog's photo or an icon, in the
+            Your avatar sheet. */}
+        <Pressable
+          onPress={() => {
+            setSheetOpen(false);
+            setAvatarOpen(true);
+          }}
+          accessibilityRole="button"
+        >
+          <Card style={styles.avatarCard} elevated={false}>
+            <Avatar
+              initials={user?.initials ?? '?'}
+              tint={colors.accent800}
+              size={44}
+              fontSize={15}
+              frameId={equipped?.frameId}
+              backgroundId={equipped?.backgroundId}
+              iconId={equipped?.iconId}
+            />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.itemName}>Your avatar</Text>
+              <Text style={styles.itemNote}>{kennel.name}, a photo of your dog, or an icon.</Text>
+            </View>
+            <CaretRightIcon size={16} color={withAlpha(colors.text, 0.5)} weight="bold" />
+          </Card>
+        </Pressable>
               </ScrollView>
             </View>
           </View>
         </Modal>
       )}
       {ladderOpen && <HoundLadderSheet kennel={kennel} onClose={() => setLadderOpen(false)} />}
+      <AvatarSheet
+        visible={avatarOpen}
+        onClose={() => setAvatarOpen(false)}
+        onChanged={reload}
+        onOpenLocker={onOpenLocker}
+      />
       <BathScene
         visible={bathOpen}
         hound={{
@@ -1772,6 +1786,20 @@ function makeStyles(colors: Palette) {
     topRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
     nameRowSmall: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
     nameSmall: { fontFamily: font.headingSemibold, fontSize: 22, color: colors.text },
+    // The pencil on your avatar in the top bar.
+    avatarEdit: {
+      position: 'absolute',
+      right: -3,
+      top: -3,
+      width: 15,
+      height: 15,
+      borderRadius: 8,
+      backgroundColor: colors.accent,
+      borderWidth: 1.5,
+      borderColor: colors.bg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     bonesPill: {
       marginLeft: 'auto',
       flexDirection: 'row',

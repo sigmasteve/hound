@@ -424,7 +424,7 @@ export function RootNavigator() {
             <Stack.Screen name="Settings" options={{ animation: 'slide_from_right' }}>
               {({ navigation }) => (
                 <StackPage onBack={() => navigation.goBack()}>
-                  <SettingsScreen />
+                  <SettingsScreen onOpenLocker={() => navigation.navigate('Locker')} />
                 </StackPage>
               )}
             </Stack.Screen>

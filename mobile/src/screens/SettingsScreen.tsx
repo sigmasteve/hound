@@ -35,7 +35,8 @@ import { getDiscoverable, setDiscoverable } from '../friends/discovery';
 import { getFeatureNewest, setFeatureNewest } from '../challenges/todayFeature';
 import { getSocialPushEnabled, setSocialPushEnabled } from '../social/social';
 import { WatchSettings } from '../watch/WatchSettings';
-import { DogPhotoSettings } from '../dogPhotos/DogPhotoSettings';
+import { AvatarSheet } from '../dogPhotos/AvatarSheet';
+import { photoTokenFromIcon } from '../dogPhotos/dogPhotos';
 import {
   askForPush,
   getPushPermission,
@@ -52,7 +53,7 @@ const PROVIDER_LABEL: Record<AuthProviderId, string> = {
   email: 'Email & password',
 };
 
-export function SettingsScreen() {
+export function SettingsScreen({ onOpenLocker }: { onOpenLocker?: () => void } = {}) {
   const { user, signOut, updateUser } = useAuth();
 
   // Delete account (H8 in the security review): asks once, then deletes
@@ -277,6 +278,8 @@ export function SettingsScreen() {
   // account row's Avatar below just renders its plain default look until
   // this actually resolves, rather than a guessed empty state.
   const [equipped, setEquipped] = useState<EquippedCosmetics | null>(null);
+  // Your avatar (the row below): dog photo, hound or icon.
+  const [avatarOpen, setAvatarOpen] = useState(false);
   useFocusEffect(
     useCallback(() => {
       if (!isSupabaseConfigured || !user?.id) {
@@ -716,7 +719,40 @@ export function SettingsScreen() {
 
       <TodaySettings featureNewest={featureNewest} onToggleFeatureNewest={toggleFeatureNewest} />
       <CelebrationSettings />
-      <DogPhotoSettings />
+      {user && (
+        <Pressable onPress={() => setAvatarOpen(true)} accessibilityRole="button">
+          <Card style={styles.accountRow} elevated={false}>
+            <Avatar
+              initials={user.initials}
+              tint={colors.accent800}
+              size={40}
+              fontSize={14}
+              frameId={equipped?.frameId}
+              backgroundId={equipped?.backgroundId}
+              iconId={equipped?.iconId}
+            />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.sourceName}>Your avatar</Text>
+              <Text style={styles.footNote}>
+                {photoTokenFromIcon(equipped?.iconId)
+                  ? 'Your dog’s photo · friends see it'
+                  : equipped?.iconId?.startsWith('hound:')
+                    ? 'Your hound · or a photo of your dog'
+                    : 'An icon · or your hound, or your dog'}
+              </Text>
+            </View>
+            <CaretRightIcon size={16} color={withAlpha(colors.text, 0.5)} weight="bold" />
+          </Card>
+        </Pressable>
+      )}
+      <AvatarSheet
+        visible={avatarOpen}
+        onClose={() => setAvatarOpen(false)}
+        onChanged={() => {
+          if (user?.id) getMyEquippedCosmetics(user.id).then(setEquipped).catch(() => {});
+        }}
+        onOpenLocker={onOpenLocker}
+      />
       <WatchSettings />
 
       <AdPrivacyCard />
