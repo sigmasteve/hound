@@ -12,8 +12,9 @@ import { useAuth } from '../../auth/AuthContext';
 export function LoginScreen({ onBack, onCreateAccount }: { onBack: () => void; onCreateAccount: () => void }) {
   const { signInWithEmail, resetPasswordForEmail } = useAuth();
   const { colors, text } = useTheme();
-  // Android draws under the system navigation bar (edge-to-edge), so the
-  // bottom of the screen needs its height as padding.
+  // The screen draws under the status bar and the system navigation bar
+  // (edge-to-edge), so the top and bottom need their heights as padding;
+  // without the top one, Back sat under the clock and Dynamic Island.
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [email, setEmail] = useState('');
@@ -65,7 +66,7 @@ export function LoginScreen({ onBack, onCreateAccount }: { onBack: () => void; o
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={[styles.container, { paddingBottom: 24 + insets.bottom }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <ScrollView contentContainerStyle={[styles.container, { paddingTop: 20 + insets.top, paddingBottom: 24 + insets.bottom }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <Button
           label="Back"
           variant="ghost"
