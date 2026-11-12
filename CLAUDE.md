@@ -91,7 +91,8 @@ of tiles, each opening a sheet with the full cards; testers found the
 old stack of cards too much at once.
 
 Above the scrolling grid, outside it: "A new version of Hound is
-ready" (UpdateReadyBanner), then the announcement banner.
+ready" (UpdateReadyBanner), then the maintenance heads-up while an Admin
+window is near (MaintenanceHeadsUp, 0190), then the announcement banner.
 
 Inside the scroll, in order:
 
