@@ -3,7 +3,7 @@
     "name": "Hound",
     "slug": "hound",
     "scheme": "hound",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -88,12 +88,20 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Hound uses the camera to scan a friend's QR code so you can add them.",
+          "cameraPermission": "Hound uses the camera to scan a friend's QR code, or to take a photo of your dog for your avatar.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
       ],
       "expo-background-task",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Hound uses a photo of your dog for your avatar, if you choose one.",
+          "cameraPermission": "Hound uses the camera to scan a friend's QR code, or to take a photo of your dog for your avatar.",
+          "microphonePermission": false
+        }
+      ],
       [
         "expo-widgets",
         {

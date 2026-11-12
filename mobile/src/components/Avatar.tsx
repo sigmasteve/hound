@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { font } from '../theme/tokens';
@@ -9,6 +9,8 @@ import { rankForLevel } from '../challenges/ranks';
 import { useTheme } from '../theme/ThemeContext';
 import { HoundArt } from '../kennel/HoundArt';
 import { parseHoundAvatar } from '../kennel/houndAvatar';
+import { photoTokenFromIcon } from '../dogPhotos/dogPhotos';
+import { useDogPhotos } from '../dogPhotos/DogPhotoContext';
 
 let gradientIdCounter = 0;
 
@@ -48,6 +50,10 @@ export function Avatar({
   const background = backgroundById(backgroundId);
   // Their Kennel hound (houndAvatar.ts), drawn in place of an icon.
   const hound = parseHoundAvatar(iconId);
+  // Their dog's photo (0191), when this phone may show it (yours and
+  // your friends'); otherwise the hound.
+  const { urlFor } = useDogPhotos();
+  const photoUrl = urlFor(photoTokenFromIcon(iconId));
   const iconStyle = iconStyleById(iconId);
   const IconGlyph = iconStyle ? (ICON_COMPONENTS[iconStyle.icon] ?? DEFAULT_AVATAR_ICON) : null;
   // Stable for this component instance, not regenerated every render —
@@ -79,7 +85,9 @@ export function Avatar({
           <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${gradientId})`} />
         </Svg>
       )}
-      {hound ? (
+      {photoUrl ? (
+        <Image source={{ uri: photoUrl }} style={{ width: size, height: size }} accessibilityIgnoresInvertColors />
+      ) : hound ? (
         <View>
           <HoundArt
             rank="alpha"

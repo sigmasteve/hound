@@ -10,6 +10,8 @@ import { SegmentedControl } from '../components/SegmentedControl';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
+import { UserDogPhotoAdmin } from '../components/UserDogPhotoAdmin';
+import { blockDogUploads } from '../dogPhotos/dogPhotos';
 import { banUser, deleteUser, getMemberItems, getUserOverview, giveItems, isBanned, takeItems, unbanUser, type AdminUserOverview } from '../admin/adminApi';
 import { PORCH_ITEMS, PORCH_UNLOCK } from '../kennel/yardItems';
 import { buildLabel, getUserApp, SOURCE_NAME, updateLabel, type ReportedApp } from '../admin/appVersions';
@@ -171,6 +173,8 @@ export function AdminUserDetailScreen({
             setBanning(true);
             try {
               await banUser(userId, durationDays);
+              // A banned account's dog photo comes down too (0191).
+              blockDogUploads(userId, -1).catch(() => {});
               setOverview((o) => (o ? { ...o, bannedUntil: 'infinity' } : o));
               setShowBanPicker(false);
             } catch (e) {
@@ -319,6 +323,9 @@ export function AdminUserDetailScreen({
             })()}
           </Card>
         )}
+
+        {/* Dog photos (0191): their photo, and a block on uploading. */}
+        {!isSelf && <UserDogPhotoAdmin userId={userId} name={name} />}
 
         {isSelf ? (
           <Text style={[styles.footNote, { textAlign: 'center' }]}>You can't ban or delete your own account from here.</Text>
