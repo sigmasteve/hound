@@ -25,6 +25,7 @@ import { useForegroundUpdateCheck } from './src/updates/updateReady';
 import { UsernameAskProvider } from './src/profiles/UsernameAsk';
 import { VersionGate } from './src/updates/versionGate';
 import { MaintenanceGate } from './src/maintenance/MaintenanceGate';
+import { DogPhotoProvider } from './src/dogPhotos/DogPhotoContext';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -57,6 +58,8 @@ function AppContent() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaProvider>
         <AuthProvider>
+          {/* Friends' dog photos for avatars (0191). */}
+          <DogPhotoProvider>
           <HealthDataProvider>
             <LabelsProvider>
               <GoalsProvider>
@@ -83,6 +86,7 @@ function AppContent() {
               </GoalsProvider>
             </LabelsProvider>
           </HealthDataProvider>
+          </DogPhotoProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

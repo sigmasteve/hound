@@ -41,6 +41,8 @@ import { ChallengesAdminCard } from '../components/ChallengesAdminCard';
 import { HolidayAdminCard, holidaySummary } from '../components/HolidayAdminCard';
 import { WatchAdminCard, getWatchOverview, watchSummary } from '../components/WatchAdminCard';
 import { MaintenanceAdminCard, maintenanceSummary } from '../components/MaintenanceAdminCard';
+import { DogPhotosAdminCard } from '../components/DogPhotosAdminCard';
+import { dogPhotosSummary, getDogPhotosOverview } from '../dogPhotos/dogPhotos';
 import { getMaintenanceOverview } from '../maintenance/maintenance';
 import { ClubsAdminCard, clubsSummary } from '../components/ClubsAdminCard';
 import { getClubsOverview } from '../clubs/clubsApi';
@@ -168,6 +170,8 @@ export function AdminScreen({
   const [watchSummaryLine, setWatchSummaryLine] = useState<string | null>(null);
   // The Maintenance fold's line (0190).
   const [maintenanceLine, setMaintenanceLine] = useState<string | null>(null);
+  // The Dog photos fold's line (0191).
+  const [dogPhotosLine, setDogPhotosLine] = useState<string | null>(null);
   // The Clubs fold's line (0185).
   const [clubsSummaryLine, setClubsSummaryLine] = useState<string | null>(null);
   // The Tag fold's line (0181).
@@ -216,6 +220,9 @@ export function AdminScreen({
         .catch(() => {});
       getMaintenanceOverview()
         .then((o) => setMaintenanceLine(maintenanceSummary(o)))
+        .catch(() => {});
+      getDogPhotosOverview()
+        .then((o) => setDogPhotosLine(dogPhotosSummary(o)))
         .catch(() => {});
       getClubsOverview()
         .then((o) => setClubsSummaryLine(clubsSummary(o)))
@@ -767,6 +774,9 @@ export function AdminScreen({
                   <AppVersionsCard />
                 </AdminFold>
                 </View>
+                <AdminFold title="Dog photos" summary={dogPhotosLine ?? 'Dogs as avatars, and reports'}>
+                  <DogPhotosAdminCard onChanged={(o) => setDogPhotosLine(dogPhotosSummary(o))} />
+                </AdminFold>
                 <AdminFold title="Maintenance" summary={maintenanceLine ?? 'Before changing the server'}>
                   <MaintenanceAdminCard onChanged={(o) => setMaintenanceLine(maintenanceSummary(o))} />
                 </AdminFold>

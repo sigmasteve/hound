@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeftIcon, BoneIcon, GiftIcon, PawPrintIcon, TrashIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BoneIcon, GiftIcon, FlagIcon, PawPrintIcon, TrashIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
+import { useDogPhotos } from '../dogPhotos/DogPhotoContext';
+import { photoTokenFromIcon, reportDogPhoto } from '../dogPhotos/dogPhotos';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useTheme } from '../theme/ThemeContext';
@@ -186,6 +188,27 @@ export function FriendDetailScreen({
     } finally {
       setGivingKudos(false);
     }
+  };
+
+  // Their dog's photo (0191): friends can report one that shouldn't be
+  // there. They aren't told who.
+  const { urlFor } = useDogPhotos();
+  const hasDogPhoto = !!urlFor(photoTokenFromIcon(friendIconId));
+  const [reported, setReported] = useState(false);
+  const reportPhoto = () => {
+    const send = (reason: string) =>
+      reportDogPhoto(friendUserId, reason)
+        .then(() => {
+          setReported(true);
+          Alert.alert('Thanks for telling us', `Hound’s team will have a look. ${friendName.split(' ')[0]} isn’t told who reported it.`);
+        })
+        .catch((e) => Alert.alert('Couldn’t report it', e instanceof Error ? e.message : 'Try again.'));
+    Alert.alert(`Report ${friendName.split(' ')[0]}’s photo?`, 'What’s wrong with it?', [
+      { text: 'It isn’t a dog', onPress: () => send('Not a dog') },
+      { text: 'It’s rude or upsetting', onPress: () => send('Rude or upsetting') },
+      { text: 'Something else', onPress: () => send('Something else') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const confirmRemove = () => {
@@ -544,6 +567,12 @@ export function FriendDetailScreen({
           </Text>
         </Card>
 
+        {hasDogPhoto && (
+          <Pressable onPress={reportPhoto} disabled={reported} style={styles.deleteRow} accessibilityRole="button">
+            <FlagIcon size={14} color={colors.amber} />
+            <Text style={styles.deleteLabel}>{reported ? 'Photo reported' : 'Report photo'}</Text>
+          </Pressable>
+        )}
         <Pressable onPress={confirmRemove} disabled={removing} style={styles.deleteRow}>
           <TrashIcon size={14} color={colors.amber} />
           <Text style={styles.deleteLabel}>{removing ? 'Removing…' : 'Remove friend'}</Text>

@@ -35,6 +35,7 @@ import { getDiscoverable, setDiscoverable } from '../friends/discovery';
 import { getFeatureNewest, setFeatureNewest } from '../challenges/todayFeature';
 import { getSocialPushEnabled, setSocialPushEnabled } from '../social/social';
 import { WatchSettings } from '../watch/WatchSettings';
+import { DogPhotoSettings } from '../dogPhotos/DogPhotoSettings';
 import {
   askForPush,
   getPushPermission,
@@ -715,6 +716,7 @@ export function SettingsScreen() {
 
       <TodaySettings featureNewest={featureNewest} onToggleFeatureNewest={toggleFeatureNewest} />
       <CelebrationSettings />
+      <DogPhotoSettings />
       <WatchSettings />
 
       <AdPrivacyCard />
