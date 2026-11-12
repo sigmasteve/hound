@@ -35,6 +35,9 @@ import { HoundArt } from '../kennel/HoundArt';
 import { EAR_OPTIONS, KENNEL_ITEMS, TAN_SWATCH, type HoundEars } from '../kennel/kennelItems';
 import { buyKennelItem, equipKennelItem, getKennel, setHoundAvatar, setKennel, setKennelLook, type Kennel } from '../kennel/kennelApi';
 import { notifyBonesChanged } from '../bones/bonesChanged';
+import { Image } from 'react-native';
+import { canAddPhoto, checkPhoto, chooseDogPhoto, pickPhoto, type DogLook } from '../dogPhotos/dogPhotos';
+import type { HoundMarkings, HoundTail } from '../kennel/kennelItems';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { claimOnboardingReward, getOnboardingStatus } from './onboardingApi';
 import { markAskedForUsername, useUsernameForm, UsernameFields } from '../profiles/UsernameForm';
@@ -559,6 +562,49 @@ function HoundStep({ styles, last, onNext }: { styles: Styles; last: boolean; on
   const [ears, setEars] = useState<HoundEars>('floppy');
   const [asAvatar, setAsAvatar] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Or a photo of their dog as the avatar (0191, from 1.2.0): checked
+  // here, used on Next. The photo's look can style the hound too.
+  const photos = canAddPhoto();
+  const [avatarChoice, setAvatarChoice] = useState<'hound' | 'dog'>('hound');
+  const [dog, setDog] = useState<{ uri: string; photoId: string; look: DogLook } | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [useLook, setUseLook] = useState(true);
+  const [lookRest, setLookRest] = useState<{ tail: HoundTail; markings: HoundMarkings } | null>(null);
+
+  const pickDog = async () => {
+    try {
+      const photo = await pickPhoto('library');
+      if (!photo) return;
+      setChecking(true);
+      const result = await checkPhoto(photo.base64);
+      if (!result.ok) {
+        Alert.alert(result.limit ? 'That’s enough for today' : 'That doesn’t look like a dog', result.reason);
+        return;
+      }
+      setDog({ uri: photo.uri, photoId: result.photoId, look: result.look });
+      setAvatarChoice('dog');
+      applyLook(result.look, true);
+    } catch (e) {
+      Alert.alert('Your dog’s photo', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  // The free parts of the dog's look go on the hound shown here (a coat
+  // only if it's a free one); the rest is saved on Next.
+  const applyLook = (look: DogLook, on: boolean) => {
+    setUseLook(on);
+    if (!on || !kennel) {
+      setEars(kennel?.ears ?? 'floppy');
+      setCoatId(kennel?.coatId ?? null);
+      setLookRest(null);
+      return;
+    }
+    setEars(look.ears);
+    if (look.coat === null || FREE_COATS.some((c) => c.id === look.coat)) setCoatId(look.coat);
+    setLookRest({ tail: look.tail, markings: look.markings });
+  };
 
   useEffect(() => {
     getKennel()
@@ -581,8 +627,9 @@ function HoundStep({ styles, last, onNext }: { styles: Styles; last: boolean; on
         if (coatId && !kennel.owned.includes(coatId)) await buyKennelItem(coatId);
         await equipKennelItem('coat', coatId);
       }
-      if (ears !== kennel.ears) await setKennelLook({ ears });
-      if (asAvatar) await setHoundAvatar(true);
+      if (ears !== kennel.ears || lookRest) await setKennelLook({ ears, ...(lookRest ?? {}) });
+      if (avatarChoice === 'dog' && dog) await chooseDogPhoto(dog.photoId);
+      else if (asAvatar) await setHoundAvatar(true);
     } catch (e) {
       Alert.alert('Your hound', e instanceof Error ? e.message : 'Some of that didn’t save. You can change it in the Kennel.');
     }
@@ -598,7 +645,7 @@ function HoundStep({ styles, last, onNext }: { styles: Styles; last: boolean; on
       footer={<Button label={saving ? 'Saving…' : last ? 'Go to Today' : 'Next'} variant="primary" block disabled={saving || !kennel} onPress={save} />}
     >
       <View style={styles.houndArt}>
-        <HoundArt rank="pup" mood="happy" coatId={coatId} ears={ears} size={130} />
+        <HoundArt rank="pup" mood="happy" coatId={coatId} ears={ears} tail={lookRest?.tail} markings={lookRest?.markings} size={130} />
       </View>
       {kennel ? (
         <View style={{ gap: 16, alignSelf: 'stretch' }}>
@@ -639,22 +686,88 @@ function HoundStep({ styles, last, onNext }: { styles: Styles; last: boolean; on
               ))}
             </View>
           </View>
-          <Pressable
-            onPress={() => setAsAvatar((v) => !v)}
-            style={asAvatar ? [styles.option, styles.optionOn] : styles.option}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: asAvatar }}
-          >
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={styles.optionName}>Use as my avatar</Text>
-              <Text style={styles.optionDetail}>Your hound shows next to your name on leaderboards and with friends.</Text>
+          {photos ? (
+            <View style={{ gap: 8 }}>
+              <Text style={styles.panelLabel}>Your avatar</Text>
+              <Pressable
+                onPress={() => setAvatarChoice('hound')}
+                style={avatarChoice === 'hound' ? [styles.option, styles.optionOn] : styles.option}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: avatarChoice === 'hound' }}
+              >
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.optionName}>{name.trim() || 'Your hound'}</Text>
+                  <Text style={styles.optionDetail}>Your hound next to your name on leaderboards and with friends.</Text>
+                </View>
+                {avatarChoice === 'hound' ? (
+                  <CheckCircleIcon size={22} color={colors.accent} weight="fill" />
+                ) : (
+                  <CircleIcon size={22} color={withAlpha(colors.text, 0.3)} />
+                )}
+              </Pressable>
+              <Pressable
+                onPress={checking ? undefined : dog ? () => setAvatarChoice('dog') : pickDog}
+                style={avatarChoice === 'dog' ? [styles.option, styles.optionOn] : styles.option}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: avatarChoice === 'dog', busy: checking }}
+              >
+                {dog ? <Image source={{ uri: dog.uri }} style={{ width: 44, height: 44, borderRadius: 22 }} /> : null}
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.optionName}>{checking ? 'Checking it’s a dog…' : dog ? 'A photo of my dog · checked' : 'A photo of my dog'}</Text>
+                  <Text style={styles.optionDetail}>
+                    {dog ? 'Friends see it; everyone else sees your hound. Tap to pick another.' : 'Friends see it, others see your hound. Hound can give your hound your dog’s look too.'}
+                  </Text>
+                </View>
+                {checking ? (
+                  <ActivityIndicator color={colors.accent} />
+                ) : avatarChoice === 'dog' ? (
+                  <CheckCircleIcon size={22} color={colors.accent} weight="fill" />
+                ) : (
+                  <CircleIcon size={22} color={withAlpha(colors.text, 0.3)} />
+                )}
+              </Pressable>
+              {dog && avatarChoice === 'dog' && (
+                <Pressable onPress={pickDog} accessibilityRole="button">
+                  <Text style={[styles.optionDetail, { color: colors.accentActive, textAlign: 'center' }]}>Pick a different photo</Text>
+                </Pressable>
+              )}
+              {dog && (
+                <Pressable
+                  onPress={() => applyLook(dog.look, !useLook)}
+                  style={useLook ? [styles.option, styles.optionOn] : styles.option}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: useLook }}
+                >
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={styles.optionName}>Give {name.trim() || 'your hound'} your dog’s look</Text>
+                    <Text style={styles.optionDetail}>Ears, tail, markings and a free coat now. Other coats and breeds are in the Kennel.</Text>
+                  </View>
+                  {useLook ? (
+                    <CheckCircleIcon size={22} color={colors.accent} weight="fill" />
+                  ) : (
+                    <CircleIcon size={22} color={withAlpha(colors.text, 0.3)} />
+                  )}
+                </Pressable>
+              )}
             </View>
-            {asAvatar ? (
-              <CheckCircleIcon size={22} color={colors.accent} weight="fill" />
-            ) : (
-              <CircleIcon size={22} color={withAlpha(colors.text, 0.3)} />
-            )}
-          </Pressable>
+          ) : (
+          <Pressable
+              onPress={() => setAsAvatar((v) => !v)}
+              style={asAvatar ? [styles.option, styles.optionOn] : styles.option}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: asAvatar }}
+            >
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.optionName}>Use as my avatar</Text>
+                <Text style={styles.optionDetail}>Your hound shows next to your name on leaderboards and with friends.</Text>
+              </View>
+              {asAvatar ? (
+                <CheckCircleIcon size={22} color={colors.accent} weight="fill" />
+              ) : (
+                <CircleIcon size={22} color={withAlpha(colors.text, 0.3)} />
+              )}
+            </Pressable>
+          )}
         </View>
       ) : (
         <ActivityIndicator color={colors.accent} />
