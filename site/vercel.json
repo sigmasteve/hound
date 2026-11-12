@@ -12,7 +12,7 @@
   "redirects": [
     { "source": "/survive-in-woods", "destination": "https://www.surviveinwoods.com/2d", "permanent": true },
     { "source": "/survive-in-woods.html", "destination": "https://www.surviveinwoods.com/2d", "permanent": true },
-    { "source": "/downloads/hound.apk", "destination": "https://drive.google.com/uc?export=download&id=1iemIoSIRfNrV85qkSoaXWlrDS_dELdky", "permanent": false },
+    { "source": "/downloads/hound.apk", "destination": "https://drive.google.com/uc?export=download&id=115GUTZcLS9OAxdEs0NIugwxf9h10l6ae", "permanent": false },
     { "source": "/downloads/hound_0_9.apk", "destination": "/downloads/hound.apk", "permanent": false }
   ],
   "headers": [
