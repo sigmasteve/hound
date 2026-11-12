@@ -25,6 +25,9 @@ import { DiscoverScreen } from '../screens/DiscoverScreen';
 import { JoinCodeScreen } from '../screens/JoinCodeScreen';
 import { ClubScreen } from '../screens/ClubScreen';
 import { StartClubScreen } from '../screens/StartClubScreen';
+import { PackFunHubScreen } from '../packFun/PackFunHubScreen';
+import { PackFunStartScreen } from '../packFun/PackFunStartScreen';
+import { PackFunScreen } from '../packFun/PackFunScreen';
 import { useChallengeCodeLinks } from '../challenges/codeLinks';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { MetricsScreen } from '../screens/MetricsScreen';
@@ -466,6 +469,36 @@ export function RootNavigator() {
                   onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
                   onPostChallenge={() => navigation.navigate('Create', { clubId: route.params.clubId })}
                   onEdit={() => navigation.navigate('StartClub', { clubId: route.params.clubId })}
+                  onStartPackFun={() => navigation.navigate('PackFunStart', { clubId: route.params.clubId })}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="PackFunHub" options={{ animation: 'slide_from_right' }}>
+              {({ navigation }) => (
+                <PackFunHubScreen
+                  onBack={() => navigation.goBack()}
+                  onOpen={(packId) => navigation.navigate('PackFun', { packId })}
+                  onStart={() => navigation.navigate('PackFunStart')}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="PackFunStart" options={{ animation: 'slide_from_bottom' }}>
+              {({ navigation, route }) => (
+                <PackFunStartScreen
+                  clubId={route.params?.clubId}
+                  onBack={() => navigation.goBack()}
+                  onStarted={(packId) => navigation.replace('PackFun', { packId })}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="PackFun" options={{ animation: 'slide_from_right' }}>
+              {/* From the list, a push, or right after starting one. */}
+              {({ navigation, route }) => (
+                <PackFunScreen
+                  key={route.params.packId}
+                  packId={route.params.packId}
+                  myId={user?.id ?? ''}
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('PackFunHub'))}
                 />
               )}
             </Stack.Screen>

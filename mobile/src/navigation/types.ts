@@ -60,6 +60,10 @@ export type RootStackParamList = {
   JoinCode: { code: string };
   // 0185: a club's page, and starting (or editing) one.
   Club: { clubId: string };
+  // Pack Fun (0192): your list, starting one, and one Pack Fun live.
+  PackFunHub: undefined;
+  PackFunStart: { clubId?: string } | undefined;
+  PackFun: { packId: string };
   StartClub: { clubId?: string } | undefined;
   // Opened from the You tab (they used to be tabs or the top bar).
   Stats: undefined;

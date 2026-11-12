@@ -19,7 +19,20 @@ const STAGING_ID = 'app.hound.mobile.staging';
 // update also goes out to an older version's phones (also-publish.txt):
 // the version, and so the runtime version (policy appVersion), this one
 // publish is stamped with. Never set it for a build.
-module.exports = ({ config: base }) => {
+// GOOGLE_MAPS_ANDROID_KEY (an EAS environment variable, never in the
+// repo): Pack Fun's live map on Android uses Google Maps, which needs a
+// key. Without one, Android draws the pack on a plain map instead
+// (extra.androidMaps tells the app). iPhone uses Apple Maps: no key.
+function withMapsKey(config) {
+  const key = process.env.GOOGLE_MAPS_ANDROID_KEY;
+  const plugins = (config.plugins ?? []).map((plugin) =>
+    key && plugin === 'react-native-maps' ? ['react-native-maps', { androidGoogleMapsApiKey: key }] : plugin,
+  );
+  return { ...config, plugins, extra: { ...(config.extra ?? {}), androidMaps: !!key } };
+}
+
+module.exports = ({ config: input }) => {
+  const base = withMapsKey(input);
   const config = process.env.HOUND_PUBLISH_VERSION ? { ...base, version: process.env.HOUND_PUBLISH_VERSION } : base;
   if (process.env.APP_VARIANT !== 'staging') return config;
 
