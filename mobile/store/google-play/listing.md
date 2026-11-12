@@ -23,55 +23,66 @@ feature graphic into `out/`; phone screenshots come from
 
 ### Short description (80)
 
-Step races, Bingo and Journeys on real steps, with friends and a hound.
+Step races, Soccer, Bingo and run clubs on real steps, with a hound of your own.
 
 ### Full description (4,000)
 
-Hound turns your steps and workouts into games with your friends. Every
-step counts automatically from Health Connect, so there is nothing to
-log: just move, and your hound cheers you on.
+Hound turns your steps and workouts into games with your friends and your
+club. Every step counts automatically from Health Connect, so there is
+nothing to log: just move, and your hound cheers you on.
 
 PICK YOUR GAME
-Ten ways to compete, all on real steps, miles and workouts.
-• Step Race: most steps wins.
-• Chase: the Chaser has to catch everyone before time runs out.
-• Game of Tag: catch someone ahead of you, or stay It.
-• Tic-Tac-Go: claim squares, three in a row wins.
-• Bingo: real bingo with steps and workouts. First line wins.
+Fifteen ways to compete, all on real steps, miles and workouts.
+• Step Race, Chase and Game of Tag: out-walk everyone, catch the runner, or
+  don't get tagged.
 • Journey: walk a famous course with your own miles, from the Golden Gate
-  Bridge to the Appalachian Trail, with a postcard at every stop.
-• Daily Streak: hit your goal every day.
-• Group Distance Target: the group chases one shared total, or walks a
-  course together.
-• 75 Day Challenge: a daily checklist for 75 days.
-• Accountability: your own daily checklist, kept with friends.
+  Bridge to Route 66, with a postcard at every stop.
+• Soccer, Cricket and Baseball: a match on everyone's steps, a day at a
+  time. Teams of 1 to 9, with friends or bots.
+• Tic-Tac-Go, Bingo, Rally and Hound'opoly: board games and badminton on
+  your steps.
+• Daily Streak, Group Distance Target, 75 Day Challenge and
+  Accountability: habits, kept together.
+
+PACK FUN
+Out walking, running or hiking together? Start a live session for your
+pack. Puzzles drop as you move, anyone can start a quick race, and a live
+map shows where everyone is, with bones to walk to. Your spot is shared
+only with that pack, and only until it ends.
+
+CLUBS
+Bring your run club, cycling group or walking crew. Post challenges to
+the club, see the miles you all put in this week, and find public clubs
+by name, city or sport.
+
+EVERYONE ON HOUND
+Join Global Hound Challenges right from Today: Pack Wars, where four packs
+fight over a neighborhood map, Daily Doors, with a task behind a new door
+every day, and weekly races open to all.
 
 TALK TRASH
 Every challenge has a trash-talk wall with ready-made taunts that use the
-real standings. Nudge a friend who is slacking, react to their progress,
-and cheer each other on. You can mute anyone and report any message.
+real standings. Nudge a friend who is slacking and react to their
+progress. You can mute anyone and report any message.
 
 HIT YOUR GOALS
-Set goals for steps, miles and workouts and watch them fill as your phone
-syncs. Keep your streak alive, collect a daily bonus, and get a nudge
-from your hound when you are behind: choose Gentle, Playful, or Roast me
-if you can take it.
+Set goals for steps, miles and workouts, log water with one tap, and
+watch them fill as your phone syncs. Keep your streak alive, collect a
+daily bonus, and get a nudge from your hound when you are behind: choose
+Gentle, Playful, or Roast me if you can take it.
 
 RAISE A HOUND
-Every goal day and finished challenge earns Bones and XP. Spend Bones in
-the Kennel on hats, crowns, glasses and coats. Your hound grows with your
-level, from Pup to Tracker, Hunter, Alpha and Legend, and can be your
-avatar everywhere in the app.
+Every goal day and finished challenge earns Bones and XP. Dress your
+hound up, move it into a house with a porch and a hot tub, and watch it
+live: walks that turn up finds, a garden that grows with your steps,
+bath day, playdates at the dog park and a birthday every year. Use your
+hound as your avatar, or a photo of your own dog.
 
 SEE IT AT A GLANCE
 Your goals, steps and hound on a home screen widget. Share story-ready
 cards of your week, your goals and your wins, with a code that lets
-friends add you in one scan.
-
-PLAY WITH ANYONE
-Add friends by name, code or QR, or join Global Hound Challenges open to
-everyone on Hound. Friends on iPhone play the same games through Apple
-Health.
+friends add you in one scan. Friends on iPhone play the same games
+through Apple Health.
 
 Hound reads your activity from Health Connect and never writes to it.
 Bones can be earned by playing or bought in packs; they have no cash
@@ -96,10 +107,10 @@ same raws.
 
 ### Release notes (500 per language)
 
-First release on Google Play. Ten games on real steps and workouts, a
-hound that grows with you, Journeys along famous courses with a postcard
-at every stop, a home screen widget, and a trash-talk wall for every
-challenge.
+Hound on Google Play: fifteen games on real steps and workouts, from Step
+Races to Soccer and Baseball. Clubs for your run club, Pack Fun for
+walks together, Pack Wars and Daily Doors with everyone on Hound, and a
+hound with a life of its own.
 
 ## Dashboard: "Set up your app"
 
@@ -131,7 +142,7 @@ Fill the IARC questionnaire as: Category *Utility, Productivity,
 Communication, or Other*. Violence, sexuality, language, controlled
 substances: none. **User interaction: yes, users can interact** (the
 trash-talk wall; messages are limited to a challenge's members, any
-message can be reported and any member muted). **Shares location: no.**
+message can be reported and any member muted). **Shares location: yes** (Pack Fun's live map, with that Pack Fun's members only, until it ends).
 **Digital purchases: yes.** Expect Everyone or Teen.
 
 ### Target audience and content
@@ -157,7 +168,8 @@ Settings → Delete account) and at https://houndchallenge.net/delete-account.
 | Personal info: User IDs | yes | no | yes | App functionality, account management | no |
 | Health and fitness: Fitness info (steps, distance, workouts, heart rate, weight, via Health Connect) | yes | no | no (optional) | App functionality | no |
 | Messages: Other in-app messages (trash-talk wall) | yes | no | no | App functionality | no |
-| Photos: none | | | | | |
+| Location: Precise location (Pack Fun's live map, only during a Pack Fun the user joins; deleted when it ends) | yes | no | no (optional) | App functionality | no |
+| Photos and videos: Photos (a photo of the user's dog as their avatar, seen by friends) | yes | no | no (optional) | App functionality | no |
 | Financial info: Purchase history (Bones packs) | yes | no | no | App functionality | no |
 | App activity: App interactions | yes | no | yes | Analytics, app functionality | no |
 | App activity: Other user-generated content (hound name, username) | yes | no | yes | App functionality | no |
@@ -167,6 +179,17 @@ Settings → Delete account) and at https://houndchallenge.net/delete-account.
 Fitness data is read from Health Connect only, never written, and never
 shared or sold. Nothing is used for third-party advertising except the
 advertising ID AdMob uses to serve and count non-personalized ads.
+
+### Location and foreground service (from 1.2.0)
+
+1.2.0 adds `ACCESS_FINE_LOCATION`, a location foreground service and
+`ACTIVITY_RECOGNITION`, all for Pack Fun. In App content →
+*Foreground service permissions*, declare **Location**: "During a Pack
+Fun the user joins and chooses to keep sharing, their spot keeps updating
+on that group's map while the phone is locked, with a notification
+showing, until the Pack Fun ends." There is no background location
+permission, so no background-location declaration is needed. Activity
+recognition counts live steps during a Pack Fun.
 
 ### Government apps, Financial features
 

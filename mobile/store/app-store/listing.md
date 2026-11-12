@@ -22,54 +22,66 @@ are Apple's limits; `asc.py --check` verifies them.
 
 ### Promotional text (170, can change without a new version)
 
-Walk, run and hike against your friends in step races, chases, Bingo and
-real-course Journeys. Hit daily goals, earn Bones, and raise a hound.
+Bring your run club. Race friends in Step Races, Soccer, Baseball and
+Bingo, take ground in Pack Wars, and raise a hound with a life of its own.
 
 ### Description (4,000)
 
-Hound turns your steps and workouts into games with your friends. Every
-step counts automatically from Apple Health, so there is nothing to log:
-just move, and your hound cheers you on.
+Hound turns your steps and workouts into games with your friends and your
+club. Every step counts automatically from Apple Health, so there is
+nothing to log: just move, and your hound cheers you on.
 
 PICK YOUR GAME
-Nine ways to compete, all on real steps, miles and workouts.
-• Step Race: most steps wins.
-• Chase: the Chaser has to catch everyone before time runs out.
-• Game of Tag: catch someone ahead of you, or stay It.
-• Tic-Tac-Go: claim squares, three in a row wins.
-• Bingo: real bingo with steps and workouts. First line wins.
+Fifteen ways to compete, all on real steps, miles and workouts.
+• Step Race, Chase and Game of Tag: out-walk everyone, catch the runner, or
+  don't get tagged.
 • Journey: walk a famous course with your own miles, from the Golden Gate
-  Bridge to the Appalachian Trail, with a postcard at every stop.
-• Daily Streak: hit your goal every day.
-• Group Distance Target: the group chases one shared total.
-• 75 Day Challenge: a daily checklist for 75 days.
+  Bridge to Route 66, with a postcard at every stop.
+• Soccer, Cricket and Baseball: a match on everyone's steps, a day at a
+  time. Teams of 1 to 9, with friends or bots.
+• Tic-Tac-Go, Bingo, Rally and Hound'opoly: board games and badminton on
+  your steps.
+• Daily Streak, Group Distance Target, 75 Day Challenge and
+  Accountability: habits, kept together.
+
+PACK FUN
+Out walking, running or hiking together? Start a live session for your
+pack. Puzzles drop as you move, anyone can start a quick race, and a live
+map shows where everyone is, with bones to walk to. Your spot is shared
+only with that pack, and only until it ends.
+
+CLUBS
+Bring your run club, cycling group or walking crew. Post challenges to
+the club, see the miles you all put in this week, and find public clubs
+by name, city or sport.
+
+EVERYONE ON HOUND
+Join Global Hound Challenges right from Today: Pack Wars, where four packs
+fight over a neighborhood map, Daily Doors, with a task behind a new door
+every day, and weekly races open to all.
 
 TALK TRASH
 Every challenge has a trash-talk wall with ready-made taunts that use the
-real standings. Nudge a friend who is slacking, react to their progress,
-and cheer each other on. You can mute anyone and report any message.
+real standings. Nudge a friend who is slacking and react to their
+progress. You can mute anyone and report any message.
 
 HIT YOUR GOALS
-Set goals for steps, miles and workouts and watch them fill as your phone
-syncs. Keep your streak alive, collect a daily bonus, and get a nudge
-from your hound when you are behind: choose Gentle, Playful, or Roast me
-if you can take it.
+Set goals for steps, miles and workouts, log water with one tap, and
+watch them fill as your phone syncs. Keep your streak alive, collect a
+daily bonus, and get a nudge from your hound when you are behind: choose
+Gentle, Playful, or Roast me if you can take it.
 
 RAISE A HOUND
-Every goal day and finished challenge earns Bones and XP. Spend Bones in
-the Kennel on hats, crowns, glasses and coats. Your hound grows with your
-level, from Pup to Tracker, Hunter, Alpha and Legend, and can be your
-avatar everywhere in the app.
+Every goal day and finished challenge earns Bones and XP. Dress your
+hound up, move it into a house with a porch and a hot tub, and watch it
+live: walks that turn up finds, a garden that grows with your steps,
+bath day, playdates at the dog park and a birthday every year. Use your
+hound as your avatar, or a photo of your own dog.
 
-SEE IT AT A GLANCE
-Your goals, steps and hound on your Home Screen and Lock Screen widgets.
-Share story-ready cards of your week, your goals and your wins, with a
-code that lets friends add you in one scan.
-
-PLAY WITH ANYONE
-Add friends by name, code or QR, or join Global Hound Challenges open to
-everyone on Hound. Friends on Android play the same games through Health
-Connect.
+ON YOUR WRIST
+Hound on Apple Watch shows your goal rings and streak and adds water with
+a tap, with complications for your watch face. Widgets for your Home
+Screen and Lock Screen, and story-ready cards to share your wins.
 
 Hound reads your activity from Apple Health and never writes to it. Bones
 can be earned by playing or bought in packs; they have no cash value and
@@ -81,14 +93,20 @@ Terms: https://houndchallenge.net/terms
 
 ### Keywords (100, comma-separated, no spaces, no repeats of the name)
 
-steps,pedometer,walking,running,pup,walk,challenge,leaderboard,bingo,streak,goals,dog,social
+steps,pedometer,walking,running,run club,hiking,challenge,leaderboard,bingo,streak,goals,dog,watch
 
 ### What's New (4,000)
 
-First App Store release. Nine games on real steps and workouts, a hound
-that grows with you, Journeys along famous courses with a postcard at
-every stop, Home Screen widgets, and a trash-talk wall for every
-challenge.
+Pack Fun: out walking, running or hiking together? Start a live session
+for your pack. Puzzles drop as you move, anyone can start a quick race,
+and a live map shows where everyone is, with bones to walk to. Your spot
+is shared only with that pack, and only until it ends.
+
+Your dog as your avatar: use a photo of your own dog, seen by your
+friends, or have Hound dress your hound up to look like them. Tap your
+avatar on the You tab to change it.
+
+Plus fixes and smaller improvements.
 
 ## App Review notes (4,000)
 
@@ -111,6 +129,14 @@ Hound is a social fitness app. Notes for review:
   to the challenge's members. Any message can be reported (reports go to
   the admin screen) and any member can be muted. Our terms state zero
   tolerance for abuse.
+- **Location** (Pack Fun's live map, 1.2.0): used only during a Pack Fun
+  the user joins, shown only to that group, and deleted when it ends.
+  Background location continues only until that Pack Fun ends, with the
+  blue indicator showing. Live steps during a Pack Fun use Motion.
+- **Dog photos** (1.2.0): a photo of the user's own dog as their avatar,
+  seen only by their friends. Each upload is checked automatically to be a
+  dog and nothing objectionable; friends can report one, and reported
+  photos are hidden until reviewed. Uploading can be blocked per user.
 - **Sign in**: email, Google, Facebook, and Sign in with Apple.
 - **Demo account**: [the existing App Review demo account's email and
   password]. It has friends, active challenges of several kinds and a
@@ -120,7 +146,10 @@ Hound is a social fitness app. Notes for review:
 
 - Contact info: name, email (app functionality, account; linked).
 - Health & fitness: fitness data (app functionality; linked; not tracking).
-- User content: other user content, the trash-talk messages (app functionality; linked).
+- User content: other user content, the trash-talk messages (app functionality; linked);
+  photos, the dog photo used as an avatar (app functionality; linked; from 1.2.0).
+- Location: precise location, Pack Fun's live map (app functionality; linked;
+  not tracking; from 1.2.0).
 - Identifiers: user ID (app functionality; linked); device ID (third-party
   advertising via AdMob; **tracking: No**).
 - Purchases: purchase history (app functionality; linked).
