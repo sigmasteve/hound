@@ -98,9 +98,9 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Hound shows your pack on the Pack Fun map, only during a Pack Fun you join, and only to that pack.",
-          "locationAlwaysAndWhenInUsePermission": "Hound keeps your spot on your pack's Pack Fun map while your phone is locked, only until that Pack Fun ends.",
-          "locationAlwaysPermission": "Hound keeps your spot on your pack's Pack Fun map while your phone is locked, only until that Pack Fun ends.",
+          "locationWhenInUsePermission": "Hound shows your pack on the Pack Activity map, only during a Pack Activity you join, and only to that pack.",
+          "locationAlwaysAndWhenInUsePermission": "Hound keeps your spot on your pack's Pack Activity map while your phone is locked, only until that Pack Activity ends.",
+          "locationAlwaysPermission": "Hound keeps your spot on your pack's Pack Activity map while your phone is locked, only until that Pack Activity ends.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": false,
           "isAndroidForegroundServiceEnabled": true
@@ -109,7 +109,7 @@
       [
         "expo-sensors",
         {
-          "motionPermission": "Hound counts your steps live during a Pack Fun, so your pack sees them right away."
+          "motionPermission": "Hound counts your steps live during a Pack Activity, so your pack sees them right away."
         }
       ],
       "react-native-maps",

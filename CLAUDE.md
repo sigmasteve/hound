@@ -124,8 +124,11 @@ What each sheet holds:
   swaps the card for the four-week grid (GoalHistoryCard). All of it is
   scored on the phone from Health data (`src/home/GoalsSheet.tsx`).
 - Your hound: no sheet; the tile opens the Kennel straight away.
-- Needs you: invites and friend requests, then Bone Dig, nudges and
-  bounties. The tile's "N waiting" counts all of them.
+- Needs you: Pack Activities first (on now or coming up, with Join,
+  and Start a Pack Activity; Steve's ask, Nov 2026), then invites and
+  friend requests, then Bone Dig, nudges and bounties. The tile's "N
+  waiting" counts all of them (a Pack Activity when you're invited, it's
+  your club's, or it's live).
 - Your challenges: the pinned (highlighted) challenge's headline and
   board, then one line per other active challenge, then "All
   challenges".

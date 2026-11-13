@@ -32,6 +32,8 @@ import { CLUB_COLORS, ClubBadge, sportName } from '../clubs/clubLook';
 import { formatClubCode } from '../clubs/ClubJoinCard';
 import { ClubInviteFriends } from '../clubs/ClubInviteFriends';
 import { CLUB_USERNAME_WHY, useUsernameAsk } from '../profiles/UsernameAsk';
+import { PackActivitiesCard } from '../packFun/PackActivitiesCard';
+import { currentPackFuns, myPackFuns, type MyPackFun } from '../packFun/packFunApi';
 
 // This week's Monday, on the phone.
 function weekStart(): string {
@@ -51,6 +53,7 @@ export function ClubScreen({
   onOpenChallenge,
   onPostChallenge,
   onStartPackFun,
+  onOpenPackFun,
   onEdit,
 }: {
   clubId: string;
@@ -58,6 +61,7 @@ export function ClubScreen({
   onOpenChallenge: (challengeId: string) => void;
   onPostChallenge: () => void;
   onStartPackFun?: () => void;
+  onOpenPackFun?: (packId: string) => void;
   onEdit: () => void;
 }) {
   const { colors, text } = useTheme();
@@ -68,7 +72,12 @@ export function ClubScreen({
   const [inviteOpen, setInviteOpen] = useState(false);
   const askUsername = useUsernameAsk();
 
+  // This club's Pack Activities, on now or coming up.
+  const [packActivities, setPackActivities] = useState<MyPackFun[]>([]);
   const load = useCallback(() => {
+    myPackFuns()
+      .then((l) => setPackActivities(currentPackFuns(l).filter((p) => p.clubId === clubId)))
+      .catch(() => {});
     getClubPage(clubId, weekStart())
       .then((c) => {
         setClub(c);
@@ -272,8 +281,15 @@ export function ClubScreen({
               </View>
             </View>
           )}
-          {member && onStartPackFun && (
-            <Button label="Start a Pack Fun with the club" variant="secondary" small onPress={onStartPackFun} />
+          {member && onStartPackFun && onOpenPackFun && (
+            <PackActivitiesCard
+              list={packActivities}
+              onOpen={onOpenPackFun}
+              onStart={onStartPackFun}
+              startLabel="Start one with the club"
+              showClub={false}
+              emptyNote="Heading out together? Start a Pack Activity for the club: everyone gets a push to join."
+            />
           )}
 
           {member && inviteOpen && club.code && (

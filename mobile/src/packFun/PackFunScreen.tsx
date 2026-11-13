@@ -25,6 +25,7 @@ import {
   endPackFun,
   findBone,
   getPackFun,
+  inviteToPackFun,
   isLive,
   joinPackFun,
   mutePackFun,
@@ -45,8 +46,11 @@ import {
   watchLiveSteps,
 } from './packFunSensors';
 import { PackFunMap, packCentre } from './PackFunMap';
+import { supabaseFriendsProvider } from '../friends/supabaseFriends';
+import type { Friend } from '../friends/types';
+import { CheckCircleIcon, CircleIcon, UserPlusIcon } from 'phosphor-react-native';
 
-// A Pack Fun (0192): the live board, the scent trail, flash challenges,
+// A Pack Activity (0192): the live board, the scent trail, flash challenges,
 // cheers, the map, and the recap once it's over.
 
 const TICK_MS = 10_000;
@@ -78,6 +82,7 @@ export function PackFunScreen({ packId, myId, onBack }: { packId: string; myId: 
   const [flashOpen, setFlashOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // Steps: the best of the motion chip (iPhone) and Health + the live counter.
   const healthBase = useRef<number | null>(null);
@@ -156,7 +161,7 @@ export function PackFunScreen({ packId, myId, onBack }: { packId: string; myId: 
     });
   }, [state?.joined, live]);
 
-  // Background sharing: on while a map Pack Fun is live and you're in it.
+  // Background sharing: on while a map Pack Activity is live and you're in it.
   useEffect(() => {
     if (!state) return;
     let cancelled = false;
@@ -184,12 +189,12 @@ export function PackFunScreen({ packId, myId, onBack }: { packId: string; myId: 
       return;
     }
     if (!(await askLocation())) {
-      Alert.alert('Pack Fun', 'Allow location for Hound in Settings to share your spot with the pack.');
+      Alert.alert('Pack Activities', 'Allow location for Hound in Settings to share your spot with the pack.');
       return;
     }
     const ok = await startBackgroundSharing({ id: state.id, startsAt: state.startsAt, endsAt: state.endsAt, steps: myBest.current });
     setSharing(ok);
-    if (!ok) say('Your spot updates while Pack Fun is open.');
+    if (!ok) say('Your spot updates while this Pack Activity is open.');
   };
 
   const run = async (fn: () => Promise<void>) => {
@@ -198,7 +203,7 @@ export function PackFunScreen({ packId, myId, onBack }: { packId: string; myId: 
     try {
       await fn();
     } catch (e) {
-      Alert.alert('Pack Fun', e instanceof Error ? e.message : 'Try again.');
+      Alert.alert('Pack Activities', e instanceof Error ? e.message : 'Try again.');
     } finally {
       setBusy(false);
     }
@@ -243,7 +248,7 @@ export function PackFunScreen({ packId, myId, onBack }: { packId: string; myId: 
               })}
               hitSlop={10}
               accessibilityRole="button"
-              accessibilityLabel={state.muted ? 'Turn Pack Fun alerts on' : 'Mute Pack Fun alerts'}
+              accessibilityLabel={state.muted ? 'Turn Pack Activity alerts on' : 'Mute Pack Activity alerts'}
             >
               {state.muted ? <BellSlashIcon size={22} color={colors.text} /> : <BellIcon size={22} color={colors.text} />}
             </Pressable>
@@ -281,6 +286,29 @@ export function PackFunScreen({ packId, myId, onBack }: { packId: string; myId: 
               setState(await getPackFun(state.id));
             })} />
           </View>
+        )}
+
+        {state.joined && !over && !inviteOpen && (
+          <Button
+            label="Invite friends"
+            variant="secondary"
+            block
+            icon={<UserPlusIcon size={16} color={colors.text} />}
+            onPress={() => setInviteOpen(true)}
+          />
+        )}
+        {state.joined && !over && inviteOpen && (
+          <InvitePanel
+            state={state}
+            styles={styles}
+            colors={colors}
+            onClose={() => setInviteOpen(false)}
+            onSent={async (msg) => {
+              setInviteOpen(false);
+              setState(await getPackFun(state.id));
+              say(msg);
+            }}
+          />
         )}
 
         {over ? (
@@ -388,6 +416,12 @@ export function PackFunScreen({ packId, myId, onBack }: { packId: string; myId: 
                   </View>
                 )}
                 <PackFunMap members={state.members} bones={state.mapBones} me={me} myId={myId} />
+                {joined.filter((m) => m.userId !== myId && (m.lat == null || m.lng == null)).length > 0 && (
+                  <Text style={styles.small}>
+                    Not on the map: {joined.filter((m) => m.userId !== myId && (m.lat == null || m.lng == null)).map((m) => m.name.split(' ')[0]).join(', ')}.
+                    Their spot shows once they share it, which needs Hound 1.2 or later.
+                  </Text>
+                )}
                 {nearBone && (
                   <Button
                     label={`Pick up the bone (+${state.bones.boneFind})`}
@@ -395,7 +429,7 @@ export function PackFunScreen({ packId, myId, onBack }: { packId: string; myId: 
                     block
                     onPress={() => run(async () => {
                       const got = await findBone(nearBone.id, me!);
-                      say(got ? `+${got} Bones` : 'Found it! (You’re at today’s Pack Fun cap)');
+                      say(got ? `+${got} Bones` : 'Found it! (You’re at today’s Pack Activities cap)');
                       setState(await getPackFun(state.id));
                     })}
                   />
@@ -438,7 +472,7 @@ export function PackFunScreen({ packId, myId, onBack }: { packId: string; myId: 
                 variant="secondary"
                 block
                 onPress={() =>
-                  Alert.alert('End Pack Fun?', 'This finishes it for everyone and hands out the finish Bones.', [
+                  Alert.alert('End this Pack Activity?', 'This finishes it for everyone and hands out the finish Bones.', [
                     { text: 'Keep going', style: 'cancel' },
                     {
                       text: 'End it',
@@ -686,12 +720,106 @@ function FlashCard({
   );
 }
 
+// Invite more friends while it's on or coming up (0193).
+function InvitePanel({
+  state,
+  styles,
+  colors,
+  onClose,
+  onSent,
+}: {
+  state: PackFunState;
+  styles: Styles;
+  colors: Palette;
+  onClose: () => void;
+  onSent: (message: string) => void;
+}) {
+  const [friends, setFriends] = useState<Friend[] | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [sending, setSending] = useState(false);
+  const inIt = useMemo(() => new Set(state.members.map((m) => m.userId)), [state.members]);
+
+  useEffect(() => {
+    supabaseFriendsProvider
+      .listFriends()
+      .then((f) => setFriends(f.filter((x) => x.status === 'accepted' && !inIt.has(x.userId))))
+      .catch(() => setFriends([]));
+  }, [inIt]);
+
+  const send = async () => {
+    setSending(true);
+    try {
+      const ids = [...picked];
+      const r = await inviteToPackFun(state.id, ids);
+      const name = (id: string) => friends?.find((f) => f.userId === id)?.name.split(' ')[0] ?? 'Someone';
+      const notFriends = r.skipped.filter((x) => x.why === 'not_friend').map((x) => name(x.userId));
+      if (notFriends.length) {
+        Alert.alert('Not invited', `${notFriends.join(', ')} ${notFriends.length === 1 ? 'isn’t' : 'aren’t'} your friend in Hound yet.`);
+      }
+      onSent(r.added.length ? `Invited ${r.added.map(name).join(', ')}` : 'Nobody new to invite');
+    } catch (e) {
+      Alert.alert('Pack Activities', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Invite friends</Text>
+      {friends === null ? (
+        <ActivityIndicator color={colors.accent} />
+      ) : friends.length === 0 ? (
+        <Text style={styles.small}>Everyone you’re friends with is already in it. Add friends on the Friends tab.</Text>
+      ) : (
+        friends.map((f) => {
+          const on = picked.has(f.userId);
+          return (
+            <Pressable
+              key={f.userId}
+              style={styles.member}
+              onPress={() =>
+                setPicked((p) => {
+                  const n = new Set(p);
+                  if (n.has(f.userId)) n.delete(f.userId);
+                  else n.add(f.userId);
+                  return n;
+                })
+              }
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: on }}
+            >
+              <Avatar initials={f.initials} tint={colors.accent800} size={34} fontSize={12} frameId={f.frameId} backgroundId={f.backgroundId} iconId={f.iconId} />
+              <Text style={[styles.rowText, { flex: 1 }]}>{f.name}</Text>
+              {on ? <CheckCircleIcon size={22} color={colors.accent} weight="fill" /> : <CircleIcon size={22} color={withAlpha(colors.text, 0.3)} />}
+            </Pressable>
+          );
+        })
+      )}
+      <View style={styles.rowGap}>
+        <View style={{ flex: 1 }}>
+          <Button label="Not now" variant="secondary" block onPress={onClose} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Button
+            label={sending ? 'Sending…' : picked.size ? `Invite ${picked.size}` : 'Invite'}
+            variant="primary"
+            block
+            disabled={sending || picked.size === 0}
+            onPress={send}
+          />
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function Recap({ state, board, myId, styles, colors }: { state: PackFunState; board: PackFunMember[]; myId: string; styles: Styles; colors: Palette }) {
   const mins = Math.round((new Date(state.endsAt).getTime() - new Date(state.startsAt).getTime()) / 60000);
   return (
     <>
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Pack Fun recap</Text>
+        <Text style={styles.cardTitle}>Pack Activity recap</Text>
         <View style={styles.stats}>
           <Stat n={state.packSteps.toLocaleString()} label="pack steps" styles={styles} />
           <Stat n={`${mins} min`} label="together" styles={styles} />

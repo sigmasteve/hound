@@ -3,17 +3,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { APP_VERSION } from '../lib/appVersion';
 import { compareVersions } from '../updates/versionGate';
 
-// Pack Fun's live steps and location (1.2.0's native modules).
+// Pack Activities' live steps and location (1.2.0's native modules).
 //
 // Steps since the start: iPhone asks its motion chip directly
 // (CMPedometer through expo-sensors), which counts even while Hound was
 // closed. Android adds the live step counter to what Health Connect had
 // when the screen opened.
 //
-// Location, when the Pack Fun's map is on: while the screen is open, and
+// Location, when the Pack Activities' map is on: while the screen is open, and
 // in the background through a location task (iPhone shows the blue
 // location pill; Android a "Sharing your spot with your pack"
-// notification). It stops when the Pack Fun ends or you stop sharing.
+// notification). It stops when the Pack Activity ends or you stop sharing.
 
 export const PACK_FUN_LOCATION_TASK = 'hound-pack-fun-location';
 const ACTIVE_KEY = 'packfun:active';
@@ -104,7 +104,7 @@ export async function currentSpot(): Promise<{ lat: number; lng: number } | null
   }
 }
 
-// The Pack Fun the background task reports for.
+// The Pack Activity the background task reports for.
 export interface ActivePackFun {
   id: string;
   startsAt: string;
@@ -145,7 +145,7 @@ export async function startBackgroundSharing(a: ActivePackFun): Promise<boolean>
       activityType: m.location.ActivityType.Fitness,
       showsBackgroundLocationIndicator: true,
       foregroundService: {
-        notificationTitle: 'Pack Fun',
+        notificationTitle: 'Pack Activities',
         notificationBody: 'Sharing your spot with your pack until it ends.',
         notificationColor: '#9184d9',
       },

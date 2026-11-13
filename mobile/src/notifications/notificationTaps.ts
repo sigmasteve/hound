@@ -20,7 +20,7 @@ import type { RootStackParamList } from '../navigation/types';
 //   gift                 → the Kennel, where the gift is waiting
 //   club_post            → the club's page (0185), with its Join button
 //   club_invite          → the Clubs tab, where the invite waits (0187)
-//   pack_fun             → that Pack Fun (0192)
+//   pack_fun             → that Pack Activity (0192)
 function routeFor(data: Record<string, unknown> | undefined): (() => [keyof RootStackParamList, any]) | null {
   if (!data) return null;
   if (data.type === 'admin_signup' && typeof data.userId === 'string') {

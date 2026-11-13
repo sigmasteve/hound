@@ -2,8 +2,8 @@ import * as TaskManager from 'expo-task-manager';
 import { pingPackFun } from './packFunApi';
 import { PACK_FUN_LOCATION_TASK, getActivePackFun, pedometerStepsSince, setActivePackFun, stopBackgroundSharing } from './packFunSensors';
 
-// Pack Fun's background location (packFunSensors.ts): each update while
-// a Pack Fun's map is on reports where you are (and, on iPhone, your
+// Pack Activities' background location (packFunSensors.ts): each update while
+// a Pack Activities' map is on reports where you are (and, on iPhone, your
 // steps since the start) to the pack. Defined when the app starts
 // (index.ts), as background tasks must be.
 TaskManager.defineTask(PACK_FUN_LOCATION_TASK, async ({ data, error }) => {

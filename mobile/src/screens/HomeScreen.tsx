@@ -183,6 +183,8 @@ import { GoalSetupCard } from '../components/GoalSetupCard';
 import { GoalsTile, HoundTile, SheetLink, Tile, TileSheet, TileValue, tileGrid, tileRow } from '../home/TodayTiles';
 import { useGoalsTileStyle } from '../home/todayPrefs';
 import { useGoals } from '../goals/GoalsContext';
+import { PackActivitiesCard } from '../packFun/PackActivitiesCard';
+import { currentPackFuns, isLive, myPackFuns, type MyPackFun } from '../packFun/packFunApi';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 
 interface PrimaryChallenge {
@@ -664,10 +666,14 @@ export function HomeScreen({
   onOpenChallenge,
   onGoTab,
   onOpenAchievements,
+  onOpenPackFun,
+  onStartPackFun,
 }: {
   onOpenChallenge: (challengeId: string) => void;
   onGoTab: (dest: HomeDestination) => void;
   onOpenAchievements: () => void;
+  onOpenPackFun: (packId: string) => void;
+  onStartPackFun: () => void;
 }) {
   const { user } = useAuth();
   const health = useHealthProvider();
@@ -736,6 +742,17 @@ export function HomeScreen({
   useEffect(() => {
     loadFriendRequests();
   }, [loadFriendRequests]);
+
+  // Pack Activities on now or coming up (0192/0193), for Needs you.
+  const [packActivities, setPackActivities] = useState<MyPackFun[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured) return;
+      myPackFuns()
+        .then((l) => setPackActivities(currentPackFuns(l)))
+        .catch(() => {});
+    }, []),
+  );
 
   const respondToFriendRequest = async (friendshipId: string, accept: boolean) => {
     setRespondingFriendId(friendshipId);
@@ -2083,7 +2100,17 @@ export function HomeScreen({
   // The Needs you tile: everything waiting on you, newest kinds last.
   const digReady =
     !!boneDig && goalDayHit && !boneDig.dugToday && !!goalProgress?.some((p) => p.goal.period === 'day');
+  const packLines = packActivities
+    .filter((p) => !p.joined || isLive(p))
+    .map((p) =>
+      p.invited
+        ? `${p.creatorName} invited you to ${p.name}`
+        : !p.joined
+          ? `${p.clubName ?? p.creatorName}: ${p.name}${isLive(p) ? ' is live' : ''}`
+          : `${p.name} is live`,
+    );
   const needsLines = [
+    ...packLines,
     ...needsYou.map((item) =>
       item.type === 'action'
         ? item.action.label
@@ -2363,6 +2390,18 @@ export function HomeScreen({
     {openTile === 'needs' && (
       <TileSheet title="Needs you" onClose={closeTile}>
         {needsLines.length === 0 && <Text style={styles.caughtUp}>All caught up. Nothing is waiting on you.</Text>}
+        <PackActivitiesCard
+          list={packActivities}
+          onOpen={(id) => {
+            setOpenTile(null);
+            onOpenPackFun(id);
+          }}
+          onStart={() => {
+            setOpenTile(null);
+            onStartPackFun();
+          }}
+          emptyNote={null}
+        />
         {needsYou.length > 0 && (
           <Card style={styles.needsCard} elevated={false}>
             {/* No count here: the tile's "N waiting" counts Bone Dig, nudges

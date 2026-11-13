@@ -23,10 +23,10 @@
 //                 0185_clubs.sql, applied mutes)
 //   'club_invite' "annruns invited you to Waffle House Crew. Tap to
 //                 join." — to the friends picked (invite_to_club, 0187)
-//   'pack_fun'    a Pack Fun's own message (0192_pack_fun.sql): an
+//   'pack_fun'    a Pack Activities' own message (0192_pack_fun.sql): an
 //                 invite, a scent trail opening, a flash challenge, "wait
 //                 up!" — to the pack members in to_users, titled with the
-//                 Pack Fun's name; {name} is the sender's name
+//                 Pack Activities' name; {name} is the sender's name
 // The RPC has already checked who can do what, and that each recipient
 // has these pushes on; a failure here never undoes the nudge, reaction
 // or message — the calling side swallows it.
@@ -294,14 +294,14 @@ async function clubInvite(supabase: SupabaseClient, body: RequestBody): Promise<
   });
 }
 
-// A Pack Fun message. Opens the Pack Fun.
+// A Pack Activity message. Opens the Pack Activity.
 async function packFun(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
   const message = (body.message ?? '').trim();
   if (!message || !body.pack_id) {
     return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
   }
   return toFriends(supabase, body, (name) => message.replaceAll('{name}', name), {
-    title: (body.pack_name ?? '').trim() || 'Pack Fun',
+    title: (body.pack_name ?? '').trim() || 'Pack Activity',
     data: { type: 'pack_fun', packId: body.pack_id },
     username: true,
   });

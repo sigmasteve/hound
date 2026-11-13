@@ -11,10 +11,10 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { getMyClubs } from '../clubs/clubsApi';
-import { startPackFun } from './packFunApi';
+import { getPackFun, startPackFun } from './packFunApi';
 import { hasLiveFeatures } from './packFunSensors';
 
-// Start a Pack Fun (0192): a name, how long, who's coming (friends, or
+// Start a Pack Activity (0192): a name, how long, who's coming (friends, or
 // open to a club), and what's on.
 const LENGTHS: { minutes: 30 | 60 | 120 | 240; label: string }[] = [
   { minutes: 30, label: '30 min' },
@@ -62,12 +62,24 @@ export function PackFunStartScreen({ clubId: initialClub, onBack, onStarted }: {
       return n;
     });
 
-  const start = async () => {
+  // Nobody picked and no club: easy to do by mistake, so check.
+  const start = () => {
+    if (picked.size === 0 && !clubId) {
+      Alert.alert('Nobody’s invited yet', 'Tap the friends who are coming in “Who’s coming”, or open it to a club. Start on your own anyway?', [
+        { text: 'Pick friends', style: 'cancel' },
+        { text: 'Start on my own', onPress: () => void go() },
+      ]);
+      return;
+    }
+    void go();
+  };
+
+  const go = async () => {
     setSaving(true);
     try {
       const delay = WHEN.find((w) => w.id === when)!.minutes;
       const id = await startPackFun({
-        name: name.trim() || 'Pack Fun',
+        name: name.trim() || 'Pack Activity',
         minutes,
         invite: [...picked],
         clubId,
@@ -76,9 +88,18 @@ export function PackFunStartScreen({ clubId: initialClub, onBack, onStarted }: {
         map: map && live,
         startsAt: delay ? new Date(Date.now() + delay * 60_000) : null,
       });
+      // Anyone the server couldn't add (not a friend in Hound any more).
+      const missing = picked.size
+        ? await getPackFun(id)
+            .then((st) => (friends ?? []).filter((f) => picked.has(f.userId) && !st.members.some((m) => m.userId === f.userId)))
+            .catch(() => [])
+        : [];
+      if (missing.length) {
+        Alert.alert('Not invited', `${missing.map((f) => f.name.split(' ')[0]).join(', ')} couldn’t be invited: you need to be friends in Hound.`);
+      }
       onStarted(id);
     } catch (e) {
-      Alert.alert('Pack Fun', e instanceof Error ? e.message : 'Try again.');
+      Alert.alert('Pack Activities', e instanceof Error ? e.message : 'Try again.');
     } finally {
       setSaving(false);
     }
@@ -92,7 +113,7 @@ export function PackFunStartScreen({ clubId: initialClub, onBack, onStarted }: {
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <Text style={text.h2}>Pack Fun</Text>
+        <Text style={text.h2}>Pack Activities</Text>
         <Text style={styles.note}>A live session for a walk, run or hike together. Puzzles drop as the pack moves, anyone can start a quick race, and everyone sees the board.</Text>
         <TextField label="Name" value={name} onChangeText={setName} placeholder="Saturday hike" maxLength={60} />
         <Text style={styles.label}>How long</Text>
@@ -112,7 +133,7 @@ export function PackFunStartScreen({ clubId: initialClub, onBack, onStarted }: {
           ))}
         </View>
 
-        <Text style={styles.label}>Who’s coming</Text>
+        <Text style={styles.label}>Who’s coming{picked.size ? ` · ${picked.size} invited` : ': tap to invite'}</Text>
         <View style={styles.panel}>
           {friends === null ? (
             <ActivityIndicator color={colors.accent} />
