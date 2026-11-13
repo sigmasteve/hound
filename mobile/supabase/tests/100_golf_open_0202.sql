@@ -2,7 +2,7 @@
 -- setup, joining without a cap, banks from the join day, the leaderboard,
 -- the top-10 push, the sponsor's hole, ending only at the end, and
 -- payouts where a tie shares the places.
-select plan(44);
+select plan(46);
 
 select tests.new_user('Ada', true) as ada \gset
 select tests.new_user('Ann') as ann \gset
@@ -105,15 +105,15 @@ update public.golf_players g set scores[1] = 5 + (f.k % 2), hole = 2
   from fill f where g.challenge_id = :'open' and g.user_id = f.id;
 select tests.swung(:'open', id) from fill;
 
--- ── Ann plays the 1st for real: a par, and into the top 10 ──
+-- ── Ann plays the 1st for real: a birdie, and into the top 10 ──
 
 select tests.sign_in(:'ann');
 set local role authenticated;
 select public.golf_shot(:'open', 'driver', 250, 0, 0, 0) as s1 \gset
-select public.golf_shot(:'open', 'wedge', 85, 0, 0, 0) as s2 \gset
+select public.golf_shot(:'open', 'i9', 130, 0, 0, 0) as s2 \gset
 select is((:'s2'::jsonb) ->> 'lie', 'green', 'On in two');
 select public.golf_shot(:'open', 'putter',
-  ceil(sqrt(power(400 - ((:'s2'::jsonb) -> 'ball' ->> 'd')::numeric, 2) + power(((:'s2'::jsonb) -> 'ball' ->> 'lat')::numeric, 2)))::int, 0, 0, 0) as s3 \gset
+  round(sqrt(power(400 - ((:'s2'::jsonb) -> 'ball' ->> 'd')::numeric, 2) + power(((:'s2'::jsonb) -> 'ball' ->> 'lat')::numeric, 2)))::int, 0, 0, 0) as s3 \gset
 select is((:'s3'::jsonb) ->> 'holed', 'true', 'Holed');
 select is((:'s3'::jsonb) -> 'sponsor_bonus', 'null'::jsonb, 'No sponsor bonus off the sponsor''s hole');
 reset role;
@@ -144,7 +144,7 @@ update public.golf_players set scores[1] = 3, hole = 2 where challenge_id = :'op
 select tests.swung(:'open', :'bob');
 update public.golf_players set scores[1] = 6, hole = 2 where challenge_id = :'open' and user_id = :'cat';
 select tests.swung(:'open', :'cat');
--- Ann is 4, 2 (−2 thru 2); Bob 3 (−1 thru 1); Cat +2; the field +1/+2; Dan hasn't swung.
+-- Ann is 3, 2 (−3 thru 2); Bob 3 (−1 thru 1); Cat +2; the field +1/+2; Dan hasn't swung.
 
 select tests.sign_in(:'dan');
 set local role authenticated;
@@ -174,12 +174,12 @@ select is((:'f'::jsonb -> 'me' ->> 'pos')::int, 1, 'Ann is 1st');
 
 -- Ties share a place; the night's mark shows who moved.
 select public.golf_advance_all();
-update public.golf_players set scores[2] = 3 where challenge_id = :'open' and user_id = :'bob';
+update public.golf_players set scores[2] = 2 where challenge_id = :'open' and user_id = :'bob';
 select tests.sign_in(:'bob');
 set local role authenticated;
 select public.golf_open_board(:'open', 'top') as b2 \gset
 reset role;
-select is(:'b2'::jsonb -> 'me' -> 'pos', '1'::jsonb, 'Bob catches Ann at −2');
+select is(:'b2'::jsonb -> 'me' -> 'pos', '1'::jsonb, 'Bob catches Ann at −3');
 select is((:'b2'::jsonb -> 'me' ->> 'tied')::boolean, true, 'T1');
 select is((:'b2'::jsonb -> 'me' ->> 'moved')::int, 1, 'Up one since the night''s mark');
 
