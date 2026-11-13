@@ -26,6 +26,9 @@ export function usesDeviceSteps(challenge: Challenge): boolean {
     challenge.kind === 'cricket' ||
     // Baseball plays an inning a day on everyone's synced steps (0167).
     challenge.kind === 'baseball' ||
+    // Hoops and H-O-R-S-E play every day on everyone's synced steps (0195, 0196).
+    challenge.kind === 'hoops' ||
+    challenge.kind === 'horse' ||
     (challenge.kind === 'hunt' && challenge.scoringMethod === 'device_steps') ||
     ((challenge.kind === 'distance' || challenge.kind === 'tag') && challenge.distanceGoalUnit === 'steps')
   );

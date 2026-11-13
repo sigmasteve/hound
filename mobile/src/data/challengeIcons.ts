@@ -2,6 +2,8 @@ import type React from 'react';
 import {
   BaseballIcon,
   BaseballCapIcon,
+  BasketballIcon,
+  CourtBasketballIcon,
   BuildingsIcon,
   ClipboardTextIcon,
   DoorIcon,
@@ -37,6 +39,8 @@ export const CHALLENGE_KIND_ICON: Record<ChallengeKind, React.ComponentType<any>
   soccer: SoccerBallIcon,
   cricket: BaseballIcon,
   baseball: BaseballCapIcon,
+  hoops: BasketballIcon,
+  horse: CourtBasketballIcon,
   doors: DoorIcon,
   packs: FlagBannerIcon,
 };

@@ -1668,6 +1668,22 @@ export function TrophyArt({ kind }: { kind: TrophyKind }) {
           <Path d="M3 -8.5 C4.6 -6.5 4.6 -3.5 3 -1.5 M9 -8.5 C7.4 -6.5 7.4 -3.5 9 -1.5" stroke="#d64545" strokeWidth={0.8} fill="none" />
         </G>
       );
+    case 'hoops':
+      return (
+        <G>
+          <Circle cx={0} cy={-11} r={11} fill="#e8772e" stroke="#2a1608" strokeWidth={0.9} />
+          <Path d="M-11 -11 H11 M0 -22 V0 M-7 -19.5 Q-2.5 -11 -7 -2.5 M7 -19.5 Q2.5 -11 7 -2.5" stroke="#2a1608" strokeWidth={0.9} fill="none" />
+        </G>
+      );
+    case 'horse':
+      return (
+        <G>
+          <Rect x={-1.4} y={-30} width={2.8} height={30} fill="#5a5f75" />
+          <Rect x={-10} y={-36} width={20} height={12} rx={1} fill="#ffffff" stroke="#5a5f75" strokeWidth={0.8} />
+          <Ellipse cx={0} cy={-24} rx={6} ry={2} fill="none" stroke="#e8602c" strokeWidth={1.6} />
+          <Path d="M-6 -24 L-3.5 -17 M0 -22 V-17 M6 -24 L3.5 -17" stroke="#ffffff" strokeWidth={0.7} />
+        </G>
+      );
     case 'cricket':
       return (
         <G>

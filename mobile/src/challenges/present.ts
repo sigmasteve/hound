@@ -178,6 +178,14 @@ export function toChallengeCard(
     // The line score and the plays live in baseball_games, on the detail screen.
     stat = String(challenge.durationDays);
     statLabel = 'innings · one a day';
+  } else if (challenge.kind === 'hoops') {
+    // The score and the plays live in hoops_games, on the detail screen.
+    stat = '4';
+    statLabel = challenge.durationDays >= 8 ? 'quarters · two days each' : 'quarters · one a day';
+  } else if (challenge.kind === 'horse') {
+    // The letters live in horse_games, on the detail screen.
+    stat = '1v1';
+    statLabel = 'match the shot or take a letter';
   } else if (challenge.kind === 'packs') {
     // The map and the packs live in pack_territories, on the detail screen.
     stat = '4';

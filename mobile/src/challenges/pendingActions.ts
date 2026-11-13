@@ -13,6 +13,8 @@ export type PendingActionKind =
   | 'houndopolyDecide'
   | 'doorsKnock'
   | 'packsVote'
+  | 'hoopsPick'
+  | 'horseSetShot'
   | 'logProgress';
 
 export interface PendingAction {
@@ -40,7 +42,9 @@ export function needsManualEntry(challenge: Challenge): boolean {
     challenge.kind !== 'packs' &&
     challenge.kind !== 'soccer' &&
     challenge.kind !== 'cricket' &&
-    challenge.kind !== 'baseball'
+    challenge.kind !== 'baseball' &&
+    challenge.kind !== 'hoops' &&
+    challenge.kind !== 'horse'
   );
 }
 
@@ -76,6 +80,10 @@ export interface PendingActionsInput {
   doorsShut?: Set<string>;
   // Pack Wars where the caller hasn't voted today (0174).
   packsUnvoted?: Set<string>;
+  // Hoops where the caller hasn't voted on today's defense (0195), and
+  // H-O-R-S-E where they're setting and haven't picked today's shot (0196).
+  hoopsUnpicked?: Set<string>;
+  horseToSet?: Set<string>;
   // Whether the caller has logged anything today — only meaningful for
   // challenges needsManualEntry() considers manual-entry kinds.
   loggedProgressToday: Map<string, boolean>;
@@ -99,6 +107,8 @@ export function computePendingActions({
   houndopolyPending,
   doorsShut = new Set(),
   packsUnvoted = new Set(),
+  hoopsUnpicked = new Set(),
+  horseToSet = new Set(),
   loggedProgressToday,
 }: PendingActionsInput): PendingAction[] {
   const actions: PendingAction[] = [];
@@ -175,6 +185,24 @@ export function computePendingActions({
           challengeName: c.name,
           kind: 'packsVote',
           label: `Vote your pack's march in ${c.name}`,
+        });
+      }
+    } else if (c.kind === 'hoops') {
+      if (hoopsUnpicked.has(c.id)) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'hoopsPick',
+          label: `Pick your shot and your defense in ${c.name}`,
+        });
+      }
+    } else if (c.kind === 'horse') {
+      if (horseToSet.has(c.id)) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'horseSetShot',
+          label: `Set today's shot in ${c.name}`,
         });
       }
     } else if (c.kind === 'doors') {

@@ -93,6 +93,18 @@ export const KIND_INFO: KindInfo[] = [
     length: '3 to 9 days', words: ['innings', 'home run', 'pitcher', 'batting', 'team', 'sport', 'mlb', 'softball'], suits: ['sports'],
   },
   {
+    kind: 'hoops', format: 'game', counts: ['steps'], players: ['teams'], level: 'medium', bots: true,
+    summary: 'Basketball, a quarter a day: your steps take the shots.',
+    howToWin: 'Most points after four quarters.', who: 'Teams of one to nine, friends or bots.',
+    length: '4 or 8 days', words: ['basketball', 'hoops', 'nba', 'dunk', 'three', 'team', 'sport', 'court'], suits: ['sports'],
+  },
+  {
+    kind: 'horse', format: 'game', counts: ['steps'], players: ['one_on_one'], level: 'medium', bots: false,
+    summary: 'One on one: match the shot or take a letter.',
+    howToWin: 'Don’t be the one to spell H-O-R-S-E.', who: 'Just you and one friend.',
+    length: 'Up to two weeks', words: ['horse', 'pig', 'basketball', 'hoops', 'one on one', 'shot', 'sport'], suits: ['sports'],
+  },
+  {
     kind: 'bingo', format: 'game', counts: ['steps', 'workouts'], players: ['solo', 'group'], level: 'medium', bots: true,
     summary: 'A bingo card of steps, workouts and goals.',
     howToWin: 'First to finish a row, column or diagonal; play goes on for the full card.', who: 'Anyone. Bots can play.',

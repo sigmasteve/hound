@@ -76,6 +76,8 @@ export type ChallengeKind =
   | 'soccer'
   | 'cricket'
   | 'baseball'
+  | 'hoops'
+  | 'horse'
   | 'doors'
   | 'packs';
 
@@ -212,6 +214,20 @@ export const CHALLENGE_TYPES: {
     tint: '#1f3f6b',
     iconColor: '#d6e6fb',
   },
+  {
+    id: 'hoops',
+    name: 'Hoops',
+    desc: 'Basketball on everyone’s steps, a quarter a day. Your steps take the shots: pick a drive, a mid-range or a three, and out-walk whoever’s guarding you to make them fall. Vote on your team’s defense. Teams of one to nine, friends or bots.',
+    tint: '#6b3a1f',
+    iconColor: '#fbdcc4',
+  },
+  {
+    id: 'horse',
+    name: 'H-O-R-S-E',
+    desc: 'One on one. Whoever’s setting picks a shot, from a 6,000-step layup to a 15,000-step half-court heave. Make it and the other has to match it, or take a letter. Miss and they set the next one. Spell H-O-R-S-E and you’re out.',
+    tint: '#5a2f1f',
+    iconColor: '#fbd0b8',
+  },
   // Global only (0172_doors.sql): published from Admin, never in "Pick
   // the game", so it's in no group below.
   {
@@ -245,7 +261,7 @@ export const CHALLENGE_TYPES: {
 // appear in the picker at all.
 export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
   { label: 'Races', kinds: ['steps', 'distance', 'journey'] },
-  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'rally', 'soccer', 'cricket', 'baseball', 'bingo', 'houndopoly', 'packs'] },
+  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'rally', 'soccer', 'cricket', 'baseball', 'hoops', 'horse', 'bingo', 'houndopoly', 'packs'] },
   { label: 'Habits', kinds: ['streak', 'seventyfive', 'checklist'] },
 ];
 
