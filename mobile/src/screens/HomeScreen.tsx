@@ -2498,6 +2498,10 @@ export function HomeScreen({
       <TileSheet title="Goals" onClose={closeTile}>
         <GoalsSheet
           snap={snap}
+          workouts={workouts}
+          onWorkoutsChanged={() => {
+            health.getRecentWorkouts(50).then(setWorkouts).catch(() => {});
+          }}
           progress={goalProgress}
           streak={goalStreak}
           currencyName={currencyName}

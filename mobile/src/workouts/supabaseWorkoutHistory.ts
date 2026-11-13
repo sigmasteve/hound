@@ -17,6 +17,9 @@ function requireClient() {
 // reasoning ChallengeDetailScreen's syncFromDevice and the steps sync
 // already rely on.
 export async function recordWorkoutHistory(userId: string, workouts: WorkoutSample[]): Promise<void> {
+  // Workouts logged by hand are already on the server (0204), and the
+  // server won't take one written from here.
+  workouts = workouts.filter((w) => w.source !== 'manual');
   if (workouts.length === 0) return;
   const client = requireClient();
   const { error } = await client.from('workout_history').upsert(
