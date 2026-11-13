@@ -470,6 +470,7 @@ export function RootNavigator() {
                   onPostChallenge={() => navigation.navigate('Create', { clubId: route.params.clubId })}
                   onEdit={() => navigation.navigate('StartClub', { clubId: route.params.clubId })}
                   onStartPackFun={() => navigation.navigate('PackFunStart', { clubId: route.params.clubId })}
+                  onOpenPackFun={(packId) => navigation.navigate('PackFun', { packId })}
                 />
               )}
             </Stack.Screen>

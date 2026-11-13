@@ -88,7 +88,7 @@ export function YouScreen({
   const [avatarOpen, setAvatarOpen] = useState(false);
   // undefined until loaded, so the card doesn't flash "Start a Journey".
   const [journey, setJourney] = useState<MyJourney | null | undefined>(undefined);
-  // Pack Fun's row says when one is live or coming up.
+  // Pack Activities' row says when one is live or coming up.
   const [packFunDetail, setPackFunDetail] = useState<string | null>(null);
   useFocusEffect(
     useCallback(() => {
@@ -163,7 +163,7 @@ export function YouScreen({
           onPress: onOpenAchievements,
         },
         {
-          label: 'Pack Fun',
+          label: 'Pack Activities',
           Icon: UsersThreeIcon,
           detail: packFunDetail ?? 'Walk, run or hike together',
           tone: packFunDetail?.endsWith('live now') ? 'good' : undefined,

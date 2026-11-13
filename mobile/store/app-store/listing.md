@@ -44,7 +44,7 @@ Fifteen ways to compete, all on real steps, miles and workouts.
 • Daily Streak, Group Distance Target, 75 Day Challenge and
   Accountability: habits, kept together.
 
-PACK FUN
+PACK ACTIVITIES
 Out walking, running or hiking together? Start a live session for your
 pack. Puzzles drop as you move, anyone can start a quick race, and a live
 map shows where everyone is, with bones to walk to. Your spot is shared
@@ -97,7 +97,7 @@ steps,pedometer,walking,running,run club,hiking,challenge,leaderboard,bingo,stre
 
 ### What's New (4,000)
 
-Pack Fun: out walking, running or hiking together? Start a live session
+Pack Activities: out walking, running or hiking together? Start a live session
 for your pack. Puzzles drop as you move, anyone can start a quick race,
 and a live map shows where everyone is, with bones to walk to. Your spot
 is shared only with that pack, and only until it ends.
@@ -129,10 +129,10 @@ Hound is a social fitness app. Notes for review:
   to the challenge's members. Any message can be reported (reports go to
   the admin screen) and any member can be muted. Our terms state zero
   tolerance for abuse.
-- **Location** (Pack Fun's live map, 1.2.0): used only during a Pack Fun
+- **Location** (a Pack Activity's live map, 1.2.0): used only during a Pack Activity
   the user joins, shown only to that group, and deleted when it ends.
-  Background location continues only until that Pack Fun ends, with the
-  blue indicator showing. Live steps during a Pack Fun use Motion.
+  Background location continues only until that Pack Activity ends, with the
+  blue indicator showing. Live steps during a Pack Activity use Motion.
 - **Dog photos** (1.2.0): a photo of the user's own dog as their avatar,
   seen only by their friends. Each upload is checked automatically to be a
   dog and nothing objectionable; friends can report one, and reported
@@ -148,7 +148,7 @@ Hound is a social fitness app. Notes for review:
 - Health & fitness: fitness data (app functionality; linked; not tracking).
 - User content: other user content, the trash-talk messages (app functionality; linked);
   photos, the dog photo used as an avatar (app functionality; linked; from 1.2.0).
-- Location: precise location, Pack Fun's live map (app functionality; linked;
+- Location: precise location, a Pack Activity's live map (app functionality; linked;
   not tracking; from 1.2.0).
 - Identifiers: user ID (app functionality; linked); device ID (third-party
   advertising via AdMob; **tracking: No**).

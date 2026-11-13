@@ -44,7 +44,7 @@ Fifteen ways to compete, all on real steps, miles and workouts.
 • Daily Streak, Group Distance Target, 75 Day Challenge and
   Accountability: habits, kept together.
 
-PACK FUN
+PACK ACTIVITIES
 Out walking, running or hiking together? Start a live session for your
 pack. Puzzles drop as you move, anyone can start a quick race, and a live
 map shows where everyone is, with bones to walk to. Your spot is shared
@@ -108,7 +108,7 @@ same raws.
 ### Release notes (500 per language)
 
 Hound on Google Play: fifteen games on real steps and workouts, from Step
-Races to Soccer and Baseball. Clubs for your run club, Pack Fun for
+Races to Soccer and Baseball. Clubs for your run club, Pack Activities for
 walks together, Pack Wars and Daily Doors with everyone on Hound, and a
 hound with a life of its own.
 
@@ -142,7 +142,7 @@ Fill the IARC questionnaire as: Category *Utility, Productivity,
 Communication, or Other*. Violence, sexuality, language, controlled
 substances: none. **User interaction: yes, users can interact** (the
 trash-talk wall; messages are limited to a challenge's members, any
-message can be reported and any member muted). **Shares location: yes** (Pack Fun's live map, with that Pack Fun's members only, until it ends).
+message can be reported and any member muted). **Shares location: yes** (a Pack Activity's live map, with that Pack Activity's members only, until it ends).
 **Digital purchases: yes.** Expect Everyone or Teen.
 
 ### Target audience and content
@@ -168,7 +168,7 @@ Settings → Delete account) and at https://houndchallenge.net/delete-account.
 | Personal info: User IDs | yes | no | yes | App functionality, account management | no |
 | Health and fitness: Fitness info (steps, distance, workouts, heart rate, weight, via Health Connect) | yes | no | no (optional) | App functionality | no |
 | Messages: Other in-app messages (trash-talk wall) | yes | no | no | App functionality | no |
-| Location: Precise location (Pack Fun's live map, only during a Pack Fun the user joins; deleted when it ends) | yes | no | no (optional) | App functionality | no |
+| Location: Precise location (a Pack Activity's live map, only during a Pack Activity the user joins; deleted when it ends) | yes | no | no (optional) | App functionality | no |
 | Photos and videos: Photos (a photo of the user's dog as their avatar, seen by friends) | yes | no | no (optional) | App functionality | no |
 | Financial info: Purchase history (Bones packs) | yes | no | no | App functionality | no |
 | App activity: App interactions | yes | no | yes | Analytics, app functionality | no |
@@ -183,13 +183,13 @@ advertising ID AdMob uses to serve and count non-personalized ads.
 ### Location and foreground service (from 1.2.0)
 
 1.2.0 adds `ACCESS_FINE_LOCATION`, a location foreground service and
-`ACTIVITY_RECOGNITION`, all for Pack Fun. In App content →
+`ACTIVITY_RECOGNITION`, all for Pack Activities. In App content →
 *Foreground service permissions*, declare **Location**: "During a Pack
 Fun the user joins and chooses to keep sharing, their spot keeps updating
 on that group's map while the phone is locked, with a notification
-showing, until the Pack Fun ends." There is no background location
+showing, until the Pack Activity ends." There is no background location
 permission, so no background-location declaration is needed. Activity
-recognition counts live steps during a Pack Fun.
+recognition counts live steps during a Pack Activity.
 
 ### Government apps, Financial features
 

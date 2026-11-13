@@ -9,7 +9,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { clock, isLive, myPackFuns, type MyPackFun } from './packFunApi';
 
-// Your Pack Funs: live and coming up first, then the last few finished.
+// Your Pack Activities: live and coming up first, then the last few finished.
 export function PackFunHubScreen({ onBack, onOpen, onStart }: { onBack: () => void; onOpen: (id: string) => void; onStart: () => void }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -65,12 +65,12 @@ export function PackFunHubScreen({ onBack, onOpen, onStart }: { onBack: () => vo
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
-        <Text style={text.h2}>Pack Fun</Text>
+        <Text style={text.h2}>Pack Activities</Text>
         <Text style={styles.note}>
-          Out walking, running or hiking together? Start a Pack Fun: a live board for the pack, scent-trail puzzles as you go, quick races,
+          Out walking, running or hiking together? Start a Pack Activity: a live board for the pack, scent-trail puzzles as you go, quick races,
           and Bones for everyone.
         </Text>
-        <Button label="Start a Pack Fun" variant="primary" block onPress={onStart} />
+        <Button label="Start a Pack Activity" variant="primary" block onPress={onStart} />
         {list === null && !error && <ActivityIndicator color={colors.accent} />}
         {error && <Text style={styles.small}>{error}</Text>}
         {current.length > 0 && (
@@ -85,7 +85,7 @@ export function PackFunHubScreen({ onBack, onOpen, onStart }: { onBack: () => vo
             <View style={styles.card}>{done.map(row)}</View>
           </>
         )}
-        {list && list.length === 0 && <Text style={styles.small}>No Pack Funs yet. Start one and invite your friends.</Text>}
+        {list && list.length === 0 && <Text style={styles.small}>No Pack Activities yet. Start one and invite your friends.</Text>}
       </ScrollView>
     </SafeAreaView>
   );

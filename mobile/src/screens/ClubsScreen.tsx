@@ -29,6 +29,8 @@ import { CLUB_SPORTS, ClubBadge, clubMeta } from '../clubs/clubLook';
 import { ClubJoinCard } from '../clubs/ClubJoinCard';
 import { confirmCommunityAge } from '../challenges/communityApi';
 import { CLUB_USERNAME_WHY, useUsernameAsk } from '../profiles/UsernameAsk';
+import { PackActivitiesCard } from '../packFun/PackActivitiesCard';
+import { currentPackFuns, myPackFuns, type MyPackFun } from '../packFun/packFunApi';
 
 // The Clubs tab (0185): your clubs and finding one, and community
 // challenges (0152), which had no home of their own before.
@@ -38,6 +40,8 @@ export function ClubsScreen({
   onOpenChallenge,
   onJoinCode,
   onPublish,
+  onOpenPackFun,
+  onStartPackFun,
 }: {
   onOpenClub: (clubId: string) => void;
   onStartClub: () => void;
@@ -45,6 +49,8 @@ export function ClubsScreen({
   // A community challenge's Join card, by its code.
   onJoinCode: (code: string) => void;
   onPublish: () => void;
+  onOpenPackFun: (packId: string) => void;
+  onStartPackFun: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -62,8 +68,14 @@ export function ClubsScreen({
   const [community, setCommunity] = useState<{ featured: CommunityListing[]; popular: CommunityListing[] } | null>(null);
   const askUsername = useUsernameAsk();
 
+  // Pack Activities on now or coming up: yours, and ones your clubs opened.
+  const [packActivities, setPackActivities] = useState<MyPackFun[]>([]);
+
   const load = useCallback(() => {
     if (!isSupabaseConfigured) return;
+    myPackFuns()
+      .then((l) => setPackActivities(currentPackFuns(l)))
+      .catch(() => {});
     Promise.all([getClubStatus(), getMyClubs()])
       .then(([s, m]) => {
         setStatus(s);
@@ -214,6 +226,7 @@ export function ClubsScreen({
 
       {part === 'clubs' && (
         <>
+          <PackActivitiesCard list={packActivities} onOpen={onOpenPackFun} onStart={onStartPackFun} />
           {invites.length > 0 && (
             <Card style={[{ gap: 0 }, styles.featured]} elevated={false}>
               <Text style={[styles.kicker, { color: colors.accentActive }]}>CLUB INVITES</Text>

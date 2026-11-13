@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 
-// Pack Fun (0192_pack_fun.sql): a live session for a group walking,
+// Pack Activity (0192_pack_fun.sql): a live session for a group walking,
 // running or hiking together.
 
 export interface PackFunMember {
@@ -238,6 +238,11 @@ export interface MyPackFun {
   createdBy: string;
   mapOn: boolean;
   people: number;
+  // Invited and not joined yet (0193).
+  invited: boolean;
+  creatorName: string;
+  clubId: string | null;
+  clubName: string | null;
 }
 
 export async function myPackFuns(): Promise<MyPackFun[]> {
@@ -252,7 +257,31 @@ export async function myPackFuns(): Promise<MyPackFun[]> {
     createdBy: p.created_by,
     mapOn: !!p.map_on,
     people: Number(p.people ?? 0),
+    invited: !!p.invited,
+    creatorName: p.creator_name ?? 'Someone',
+    clubId: p.club_id ?? null,
+    clubName: p.club_name ?? null,
   }));
+}
+
+// The ones on now or coming up (not finished), live ones first.
+export function currentPackFuns(list: MyPackFun[], now = Date.now()): MyPackFun[] {
+  return list
+    .filter((p) => !p.settled && new Date(p.endsAt).getTime() > now)
+    .sort((a, b) => Number(isLive(b, now)) - Number(isLive(a, now)) || new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+}
+
+// Invite more friends to one that's on or coming up (0193). Skipped:
+// not a friend in Hound yet, or already in it.
+export async function inviteToPackFun(
+  id: string,
+  userIds: string[],
+): Promise<{ added: string[]; skipped: { userId: string; why: 'not_friend' | 'already' }[] }> {
+  const d = await rpc<any>('invite_to_pack_fun', { p_pack: id, p_invite: userIds });
+  return {
+    added: (d?.added ?? []) as string[],
+    skipped: ((d?.skipped ?? []) as any[]).map((x) => ({ userId: x.user_id, why: x.why })),
+  };
 }
 
 export function isLive(p: { startsAt: string; endsAt: string; settled: boolean }, now = Date.now()): boolean {

@@ -8,11 +8,11 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { getPackFunOverview, setPackFunConfig, type PackFunConfig, type PackFunOverview } from '../packFun/packFunApi';
 
-// Admin → Pack Fun (0192): how it's used, and the Bones it gives. Every
+// Admin → Pack Activity (0192): how it's used, and the Bones it gives. Every
 // amount here is live for the next award; the daily cap is per person
-// over the last 24 hours, across every Pack Fun.
+// over the last 24 hours, across every Pack Activity.
 const FIELDS: { key: keyof PackFunConfig; label: string; note: string; max: number }[] = [
-  { key: 'daily_cap', label: 'Daily cap', note: 'Most Bones one person can get from Pack Fun in 24 hours', max: 5000 },
+  { key: 'daily_cap', label: 'Daily cap', note: 'Most Bones one person can get from Pack Activities in 24 hours', max: 5000 },
   { key: 'trail_first_bones', label: 'Scent trail, first right', note: 'Whoever solves it first', max: 500 },
   { key: 'trail_answer_bones', label: 'Scent trail, right after', note: 'Each right answer after the first', max: 500 },
   { key: 'flash_win_bones', label: 'Dash win', note: 'Most steps in a Dash', max: 500 },
@@ -61,7 +61,7 @@ export function PackFunAdminCard({ onChanged }: { onChanged?: (o: PackFunOvervie
       await setPackFunConfig(patch);
       load();
     } catch (e) {
-      Alert.alert('Pack Fun', e instanceof Error ? e.message : 'Try again.');
+      Alert.alert('Pack Activities', e instanceof Error ? e.message : 'Try again.');
     } finally {
       setSaving(false);
     }
@@ -72,15 +72,15 @@ export function PackFunAdminCard({ onChanged }: { onChanged?: (o: PackFunOvervie
     for (const f of FIELDS) {
       const n = Number(draft[f.key]);
       if (!Number.isFinite(n) || n < 0 || n > f.max || Math.round(n) !== n) {
-        Alert.alert('Pack Fun', `${f.label}: a whole number from 0 to ${f.max.toLocaleString()}.`);
+        Alert.alert('Pack Activities', `${f.label}: a whole number from 0 to ${f.max.toLocaleString()}.`);
         return;
       }
       if (f.key === 'trail_every_steps' && n < 200) {
-        Alert.alert('Pack Fun', 'Scent trails: at least 200 pack steps apart.');
+        Alert.alert('Pack Activities', 'Scent trails: at least 200 pack steps apart.');
         return;
       }
       if (f.key === 'trail_minutes' && n < 1) {
-        Alert.alert('Pack Fun', 'Scent trails need at least a minute to answer.');
+        Alert.alert('Pack Activities', 'Scent trails need at least a minute to answer.');
         return;
       }
       patch[f.key] = n;
@@ -104,9 +104,9 @@ export function PackFunAdminCard({ onChanged }: { onChanged?: (o: PackFunOvervie
 
   return (
     <Card style={{ gap: 12 }} elevated={false}>
-      <Text style={text.h4}>Pack Fun</Text>
+      <Text style={text.h4}>Pack Activities</Text>
       <Text style={styles.footNote}>
-        Live sessions for groups out together. Bones only start once two people have joined, and nobody gets more than the daily cap from Pack Fun in 24 hours.
+        Live sessions for groups out together. Bones only start once two people have joined, and nobody gets more than the daily cap from Pack Activities in 24 hours.
       </Text>
       {error ? (
         <Text style={styles.loadError}>{error}</Text>
@@ -116,7 +116,7 @@ export function PackFunAdminCard({ onChanged }: { onChanged?: (o: PackFunOvervie
         <>
           <View style={styles.switchRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.value}>Pack Fun is on</Text>
+              <Text style={styles.value}>Pack Activities are on</Text>
               <Text style={styles.label}>Off: nobody can start a new one. Live ones carry on.</Text>
             </View>
             <Switch value={data.config.enabled} disabled={saving} onValueChange={(v) => save({ enabled: v })} trackColor={{ true: colors.accent }} />

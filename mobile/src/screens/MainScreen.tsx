@@ -70,6 +70,8 @@ export function MainScreen({ route, navigation }: Props) {
             onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
             onGoTab={goFromHome}
             onOpenAchievements={() => navigation.navigate('Achievements')}
+            onOpenPackFun={(packId) => navigation.navigate('PackFun', { packId })}
+            onStartPackFun={() => navigation.navigate('PackFunStart')}
           />
         )}
         {tab === 'challenges' && (
@@ -86,6 +88,8 @@ export function MainScreen({ route, navigation }: Props) {
             onOpenChallenge={(challengeId) => navigation.navigate('ChallengeDetail', { challengeId })}
             onJoinCode={(code) => navigation.navigate('JoinCode', { code })}
             onPublish={() => navigation.navigate('Create')}
+            onOpenPackFun={(packId) => navigation.navigate('PackFun', { packId })}
+            onStartPackFun={() => navigation.navigate('PackFunStart')}
           />
         )}
         {tab === 'friends' && (

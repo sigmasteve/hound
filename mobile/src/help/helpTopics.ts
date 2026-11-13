@@ -143,6 +143,20 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'pack-activities',
+      section: 'challenges',
+      title: 'Pack Activities',
+      summary: 'A live session for a walk, run or hike together.',
+      steps: [
+        'Start one from Today → Needs you, the Clubs tab, or a club’s page. Pick how long, when it starts, and tap the friends who are coming (or open it to a club).',
+        'Invited? It’s in Needs you on Today with a Join button, and you get a push. Club ones show on the Clubs tab and the club’s page.',
+        'While it’s on, the board shows everyone’s steps. Scent-trail puzzles open as the pack’s steps add up, anyone can start a quick Dash or Pack push, and the cheer buttons send Let’s go, Wait up, Water or Nice.',
+        'Forgot someone? Tap Invite friends on it. You can invite friends in Hound only.',
+        'With the live map on (Hound 1.2 or later), the pack sees each other’s spots and bones to walk to. Your spot is shared with that pack only, and deleted when it ends.',
+        'Bones start once two people have joined, up to a daily limit.',
+      ],
+    },
+    {
       id: 'pot',
       section: 'challenges',
       title: `${currency} pots`,
