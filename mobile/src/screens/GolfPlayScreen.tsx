@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Easing, PanResponder, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Easing, Image, Linking, PanResponder, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeftIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
@@ -21,6 +21,13 @@ import {
   type GolfClubId,
 } from '../challenges/golf';
 import { getGolfGame, takeGolfShot, type GolfGame, type GolfShotResult, type GolfSpot } from '../challenges/golfApi';
+import {
+  getChallengeSponsor,
+  recordSponsorClick,
+  recordSponsorViews,
+  sponsorColor,
+  type ChallengeSponsor,
+} from '../challenges/globalChallenges';
 
 // Golf, played a shot at a time (0200_golf.sql), the way the prototype
 // Steve played works: your steps since your last shot are yards, your
@@ -69,11 +76,16 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
   const [courseH, setCourseH] = useState(0);
   // The last hole is in: nothing left to play.
   const [roundOver, setRoundOver] = useState(false);
+  // The Hound Open's sponsor (0203), if it has one.
+  const [sponsor, setSponsor] = useState<ChallengeSponsor | null>(null);
 
   const me = game?.players.find((p) => p.userId === game.me) ?? null;
   const holeNo = me?.hole ?? 1;
   const hole = game?.course.holes[(holeNo - 1) % Math.max(1, game.course.holes.length)] ?? null;
   const onGreen = lie === 'green';
+  // The course's own hole number (18 holes play the nine twice).
+  const courseNo = ((holeNo - 1) % 9) + 1;
+  const sponsorHole = !!sponsor && sponsor.hole != null && sponsor.hole === courseNo;
   const toPin = hole ? Math.hypot(hole.pin.d - ball.d, hole.pin.lat - ball.lat) : 0;
 
   const load = useCallback(async () => {
@@ -108,6 +120,26 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
   useEffect(() => {
     load();
   }, [load]);
+
+  // An Open's sponsor, read once the game says it's Global.
+  const isGlobal = !!game?.isGlobal;
+  useEffect(() => {
+    if (!isGlobal) return;
+    getChallengeSponsor(challengeId).then(setSponsor).catch(() => {});
+  }, [isGlobal, challengeId]);
+
+  // Counted for the sponsor's report: the boards on the course, their hole,
+  // and (once the round's done) the finish message.
+  const roundDone = roundOver || !!me?.done || game?.status === 'final';
+  const showFinish = isGlobal && roundDone && !!sponsor?.finishMessage;
+  useEffect(() => {
+    if (!sponsor) return;
+    const seen: ('course' | 'hole' | 'finish')[] = [];
+    if (sponsor.boards) seen.push('course');
+    if (sponsorHole) seen.push('hole');
+    if (showFinish) seen.push('finish');
+    recordSponsorViews(challengeId, seen);
+  }, [sponsor, sponsorHole, showFinish, challengeId]);
 
   // What the pull asks for: yards (the caddie's club, or yours), aim, where it lands.
   const plan = useMemo(() => {
@@ -231,9 +263,10 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
       const diff = score - hole.par;
       buzz(diff <= 0 ? 'success' : 'light');
       setBanner({ text: `${r.pickedUp ? 'Picked up' : scoreWord(score, hole.par)} · ${score} ${score === 1 ? 'stroke' : 'strokes'}`, good: diff <= 0 });
+      const bonus = r.sponsorBonus && sponsor ? ` ${sponsor.name} adds ${r.sponsorBonus} Bones for that.` : '';
       setMsg(
-        r.message ||
-          `In the hole in ${score}. ${r.banks.yards.toLocaleString()} yards left in the bank${r.nextHole ? ` for the ${ordinal(r.nextHole)}.` : '.'}`,
+        (r.message ||
+          `In the hole in ${score}. ${r.banks.yards.toLocaleString()} yards left in the bank${r.nextHole ? ` for the ${ordinal(r.nextHole)}.` : '.'}`) + bonus,
       );
       if (r.nextHole == null || r.finished) setRoundOver(true);
       setPhase('holed');
@@ -351,6 +384,17 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
             onLanded={landed}
             trail={trail}
             cameraAt={phase === 'holed' ? holedFrom : null}
+            sponsor={
+              sponsor && (sponsor.boards || sponsorHole)
+                ? {
+                    name: sponsor.name,
+                    color: sponsorColor(sponsor),
+                    boards: !!sponsor.boards,
+                    holeSign: sponsorHole,
+                    holeLabel: `HOLE ${holeNo} · PAR ${hole.par}`,
+                  }
+                : null
+            }
           />
           )}
           <View style={styles.chips} pointerEvents="none">
@@ -379,6 +423,17 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
               </Text>
               <Text style={[styles.pullText, { color: '#a6e3b8' }]}>
                 {(plan.yd * GOLF_STEPS_PER_YARD).toLocaleString()} steps{pick && plan.club !== 'putter' ? ` + ${pick} power` : ''}
+              </Text>
+            </View>
+          )}
+          {sponsorHole && sponsor && !plan && phase === 'aim' && (
+            <View style={styles.pullInfo} pointerEvents="none">
+              <View style={[styles.logoDot, { backgroundColor: sponsorColor(sponsor) }]}>
+                <Text style={styles.logoDotText}>{sponsor.name.slice(0, 1).toUpperCase()}</Text>
+              </View>
+              <Text style={[styles.pullText, { flex: 1 }]}>
+                <Text style={{ fontFamily: font.headingSemibold, color: '#fff' }}>The {sponsor.name} {ordinal(holeNo)}.</Text>
+                {sponsor.holeBones ? ` Birdie it and ${sponsor.name} adds ${sponsor.holeBones} Bones.` : ''}
               </Text>
             </View>
           )}
@@ -477,6 +532,33 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
         <Text style={styles.msg} numberOfLines={2}>
           {msg}
         </Text>
+        {showFinish && sponsor && (
+          <View style={[styles.finish, { borderColor: withAlpha(sponsorColor(sponsor), 0.55) }]}>
+            <View style={styles.finishFrom}>
+              {sponsor.logoUrl ? (
+                <Image source={{ uri: sponsor.logoUrl }} style={styles.finishLogo} />
+              ) : (
+                <View style={[styles.logoDot, { backgroundColor: sponsorColor(sponsor), width: 26, height: 26 }]}>
+                  <Text style={styles.logoDotText}>{sponsor.name.slice(0, 1).toUpperCase()}</Text>
+                </View>
+              )}
+              <Text style={styles.small}>A message from {sponsor.name}</Text>
+            </View>
+            <Text style={styles.finishText}>{sponsor.finishMessage}</Text>
+            {sponsor.url ? (
+              <Pressable
+                onPress={() => {
+                  recordSponsorClick(challengeId, 'finish');
+                  Linking.openURL(sponsor.url!).catch(() => {});
+                }}
+                style={[styles.finishLink, { borderColor: withAlpha(sponsorColor(sponsor), 0.6) }]}
+                accessibilityRole="link"
+              >
+                <Text style={[styles.finishLinkText, { color: sponsorColor(sponsor) }]}>{sponsor.finishLabel || `Visit ${sponsor.name}`} ↗</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -580,5 +662,13 @@ function makeStyles(colors: Palette) {
     swingOff: { backgroundColor: withAlpha(colors.text, 0.1) },
     swingText: { fontFamily: font.headingSemibold, fontSize: 17, color: '#161826', textAlign: 'center' },
     msg: { fontSize: 12.5, lineHeight: 17, color: withAlpha(colors.text, 0.72), minHeight: 34 },
+    logoDot: { width: 20, height: 20, borderRadius: 5, alignItems: 'center', justifyContent: 'center' },
+    logoDotText: { fontFamily: font.headingSemibold, fontSize: 11, color: '#161826' },
+    finish: { borderWidth: 1, borderRadius: 14, padding: 12, gap: 8, alignItems: 'center', backgroundColor: colors.surface },
+    finishFrom: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    finishLogo: { width: 26, height: 26, borderRadius: 7 },
+    finishText: { fontFamily: font.headingSemibold, fontSize: 15, lineHeight: 20, color: colors.text, textAlign: 'center' },
+    finishLink: { alignSelf: 'stretch', minHeight: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+    finishLinkText: { fontFamily: font.headingSemibold, fontSize: 14 },
   });
 }

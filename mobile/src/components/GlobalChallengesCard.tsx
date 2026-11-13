@@ -7,7 +7,7 @@ import { useCurrencyName } from '../organizations/useCurrencyName';
 import { useTheme } from '../theme/ThemeContext';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
-import { canJoin, globalTimingLine, joinDeadlineLine, type GlobalChallenge } from '../challenges/globalChallenges';
+import { canJoin, globalTimingLine, joinDeadlineLine, recordSponsorViews, type GlobalChallenge } from '../challenges/globalChallenges';
 import { SponsorLine } from './SponsorLine';
 
 // Today's "Global Hound Challenges" — challenges an admin published to
@@ -49,6 +49,16 @@ export function GlobalChallengesCard({
   const now = Date.now();
   const [hidden, setHidden] = useState<Set<string> | null>(null);
   const [expanded, setExpanded] = useState(false);
+
+  // Sponsors on Today, counted for their report (0203).
+  const sponsoredKey = challenges.filter((c) => c.sponsor).map((c) => c.id).join(',');
+  useEffect(() => {
+    if (where !== 'today') return;
+    challenges.forEach((c) => {
+      if (c.sponsor) recordSponsorViews(c.id, c.sponsor.presented ? ['today', 'presented'] : ['today']);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sponsoredKey, where]);
 
   useEffect(() => {
     AsyncStorage.getItem(HIDDEN_KEY)
@@ -175,7 +185,7 @@ export function GlobalChallengesCard({
                   </Text>
                 </View>
               )}
-              {c.sponsor && <SponsorLine challengeId={c.id} sponsor={c.sponsor} compact />}
+              {c.sponsor && <SponsorLine challengeId={c.id} sponsor={c.sponsor} compact placement="today" />}
               {deadline && <Text style={styles.deadline}>{deadline}</Text>}
             </View>
           </>
