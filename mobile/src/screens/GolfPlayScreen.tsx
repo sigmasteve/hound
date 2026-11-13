@@ -63,6 +63,10 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
   // Where the holing shot was played from: the camera stays there.
   const [holedFrom, setHoledFrom] = useState<GolfSpot | null>(null);
   const pending = useRef<GolfShotResult | null>(null);
+  // A finger is on the course: hold the page still until it lifts.
+  const [dragging, setDragging] = useState(false);
+  // The course takes whatever height the controls leave.
+  const [courseH, setCourseH] = useState(0);
   // The last hole is in: nothing left to play.
   const [roundOver, setRoundOver] = useState(false);
 
@@ -134,8 +138,13 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
       PanResponder.create({
         onStartShouldSetPanResponder: () => live.current.phase === 'aim' && live.current.canPlay,
         onMoveShouldSetPanResponder: () => live.current.phase === 'aim' && live.current.canPlay,
-        onPanResponderGrant: () => setPull({ dx: 0, dy: 0 }),
+        onPanResponderGrant: () => {
+          setDragging(true);
+          setPull({ dx: 0, dy: 0 });
+        },
         onPanResponderMove: (_e, g) => setPull({ dx: g.dx, dy: g.dy }),
+        onPanResponderRelease: () => setDragging(false),
+        onPanResponderTerminate: () => setDragging(false),
         onPanResponderTerminationRequest: () => false,
       }),
     [],
@@ -275,20 +284,19 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
                   : 'Pull down on the course to aim';
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
-      <TopBar onBack={onBack} styles={styles} colors={colors} />
-      <ScrollView contentContainerStyle={styles.body} scrollEnabled={!pull}>
+    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+      <ScrollView contentContainerStyle={styles.body} scrollEnabled={!dragging}>
         <View style={styles.head}>
+          <Pressable onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
+            <ArrowLeftIcon size={20} color={colors.accentActive} />
+          </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker}>
-              {game.course.name.toUpperCase()} · HOLE {holeNo}
+            <Text style={styles.kicker} numberOfLines={1}>
+              {game.course.name.toUpperCase()} · HOLE {holeNo} · {hole.name.toUpperCase()}
+              {hole.slope ? ` · ${hole.slope.toUpperCase()}` : ''}
             </Text>
-            <Text style={styles.title}>
+            <Text style={styles.title} numberOfLines={1}>
               Par {hole.par} · {hole.length} yd
-            </Text>
-            <Text style={styles.small}>
-              {hole.name}
-              {hole.slope ? ` · ${hole.slope}` : ''}
             </Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
@@ -306,7 +314,9 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
             <View style={styles.bar}>
               <View style={[styles.barFill, { backgroundColor: colors.green, width: `${Math.round(Math.min(1, banks.yards / yardsFull) * 100)}%` }]} />
             </View>
-            <Text style={styles.bankNote}>{(banks.yards * GOLF_STEPS_PER_YARD).toLocaleString()} steps banked</Text>
+            <Text style={styles.bankNote} numberOfLines={1}>
+              {(banks.yards * GOLF_STEPS_PER_YARD).toLocaleString()} steps banked
+            </Text>
           </View>
           <View style={styles.bank}>
             <View style={styles.bankTop}>
@@ -316,14 +326,23 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
             <View style={styles.bar}>
               <View style={[styles.barFill, { backgroundColor: '#f08a24', width: `${Math.round(Math.min(1, banks.power / powerFull) * 100)}%` }]} />
             </View>
-            <Text style={styles.bankNote} numberOfLines={2}>
-              {powerFrom || 'Workouts add power: strength ×2, golf ×3'}
+            <Text style={styles.bankNote} numberOfLines={1}>
+              {powerFrom || 'From workouts: strength ×2'}
             </Text>
           </View>
         </View>
 
-        <View {...responder.panHandlers}>
+        <View
+          style={styles.course}
+          onLayout={(e) => {
+            const h = Math.floor(e.nativeEvent.layout.height);
+            if (Math.abs(h - courseH) > 1) setCourseH(h);
+          }}
+          {...responder.panHandlers}
+        >
+          {courseH > 0 && (
           <GolfHole
+            height={courseH}
             hole={hole}
             course={game.course.id}
             ball={ball}
@@ -333,6 +352,7 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
             trail={trail}
             cameraAt={phase === 'holed' ? holedFrom : null}
           />
+          )}
           <View style={styles.chips} pointerEvents="none">
             <Text style={styles.chip}>{phase === 'holed' ? 'In the hole' : `${distanceText(toPin)} to the ${toPin < 30 ? 'cup' : 'pin'}`}</Text>
             <Text style={styles.chip}>
@@ -370,7 +390,7 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
         </View>
 
         {/* The bag: the caddie (Auto), or a club of your own for one shot. */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bag}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.bag}>
           <Pressable
             onPress={() => {
               setManual(false);
@@ -407,6 +427,7 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
           })}
         </ScrollView>
 
+        {phase !== 'meter' && (
         <View style={styles.powerRow}>
           <Text style={styles.powerLabel}>Power</Text>
           {GOLF_POWER_STEPS.map((p) => {
@@ -426,6 +447,7 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
             );
           })}
         </View>
+        )}
 
         {phase === 'meter' && (
           <View style={styles.meter}>
@@ -452,7 +474,9 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
         >
           <Text style={[styles.swingText, !swingReady && { color: withAlpha(colors.text, 0.55) }]}>{swingLabel}</Text>
         </Pressable>
-        <Text style={styles.msg}>{msg}</Text>
+        <Text style={styles.msg} numberOfLines={2}>
+          {msg}
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -473,20 +497,22 @@ function makeStyles(colors: Palette) {
     root: { flex: 1, backgroundColor: colors.bg },
     top: { paddingHorizontal: 16, paddingVertical: 6, minHeight: 36 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-    body: { paddingHorizontal: 16, paddingBottom: 32, gap: 10 },
+    body: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 6, gap: 8 },
+    back: { paddingRight: 2, paddingBottom: 4 },
+    course: { flex: 1, minHeight: 240 },
     note: { fontSize: 14.5, color: withAlpha(colors.text, 0.7), textAlign: 'center' },
     head: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
     kicker: { fontFamily: font.headingSemibold, fontSize: 11.5, letterSpacing: 0.8, color: withAlpha(colors.text, 0.6) },
     title: { fontFamily: font.headingSemibold, fontSize: 22, color: colors.text },
     small: { fontSize: 12, color: withAlpha(colors.text, 0.6) },
     banks: { flexDirection: 'row', gap: 8 },
-    bank: { flex: 1, borderRadius: 12, padding: 10, backgroundColor: colors.surface },
+    bank: { flex: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: colors.surface },
     bankTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
     bankLabel: { fontFamily: font.headingSemibold, fontSize: 11.5, letterSpacing: 0.6 },
     bankValue: { fontFamily: font.headingSemibold, fontSize: 17, color: colors.text },
-    bar: { height: 5, borderRadius: 3, backgroundColor: withAlpha(colors.text, 0.1), marginTop: 6, overflow: 'hidden' },
-    barFill: { height: 5 },
-    bankNote: { fontSize: 11, color: withAlpha(colors.text, 0.6), marginTop: 4 },
+    bar: { height: 4, borderRadius: 2, backgroundColor: withAlpha(colors.text, 0.1), marginTop: 4, overflow: 'hidden' },
+    barFill: { height: 4 },
+    bankNote: { fontSize: 11, color: withAlpha(colors.text, 0.6), marginTop: 3 },
     chips: { position: 'absolute', left: 10, top: 10, flexDirection: 'row', gap: 6 },
     chip: {
       backgroundColor: 'rgba(15,17,28,0.75)',
@@ -546,13 +572,13 @@ function makeStyles(colors: Palette) {
     },
     powerOn: { borderWidth: 2, borderColor: '#ffd8b0', backgroundColor: 'rgba(240,138,36,0.18)' },
     powerText: { fontFamily: font.headingSemibold, fontSize: 13, color: colors.text },
-    meter: { height: 30, borderRadius: 15, overflow: 'hidden', position: 'relative' },
+    meter: { height: 44, borderRadius: 14, overflow: 'hidden', position: 'relative' },
     meterBand: { position: 'absolute', top: 0, bottom: 0 },
-    meterWord: { position: 'absolute', top: 8, fontSize: 11, fontFamily: font.headingSemibold, color: '#161826' },
+    meterWord: { position: 'absolute', top: 14, fontSize: 11, fontFamily: font.headingSemibold, color: '#161826' },
     marker: { position: 'absolute', top: 0, bottom: 0, width: 6, marginLeft: -3, borderRadius: 3, backgroundColor: '#161826', borderWidth: 2, borderColor: '#ffffff' },
     swing: { minHeight: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
     swingOff: { backgroundColor: withAlpha(colors.text, 0.1) },
     swingText: { fontFamily: font.headingSemibold, fontSize: 17, color: '#161826', textAlign: 'center' },
-    msg: { fontSize: 12.5, lineHeight: 18, color: withAlpha(colors.text, 0.72), minHeight: 36 },
+    msg: { fontSize: 12.5, lineHeight: 17, color: withAlpha(colors.text, 0.72), minHeight: 34 },
   });
 }
