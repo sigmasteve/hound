@@ -190,12 +190,9 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
           timing,
         });
         pending.current = r;
-        // Water and out of bounds: fly to where it landed, then the drop.
-        const landedAt =
-          r.lie === 'water' || r.lie === 'out' || r.penalty > 0
-            ? { d: r.from.d + r.carry * Math.cos(plan.th), lat: r.from.lat + r.carry * Math.sin(plan.th) }
-            : r.to;
-        setFlight({ from: r.from, to: landedAt, putt: plan.club === 'putter', carry: r.carry, key: Date.now() });
+        // Fly to where it came down; after water or out of bounds, the next
+        // shot is from r.ball (the drop, or where it was).
+        setFlight({ from: r.from, to: r.to, putt: plan.club === 'putter', carry: r.carry, key: Date.now() });
         setPhase('flying');
       } catch (e) {
         setPhase('aim');
@@ -213,27 +210,27 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
       return;
     }
     setTrail((t) => t.concat([{ from: r.from, to: r.to }]));
-    setBall(r.to);
+    setBall(r.ball);
     setLie(r.holed ? 'holed' : r.lie === 'water' || r.lie === 'out' ? 'drop' : r.lie);
     setStrokes(r.strokesOnHole);
     setBanks(r.banks);
     setPull(null);
     setPick(0);
-    if (r.holed) {
+    if (r.holed || r.pickedUp) {
       setHoledFrom(r.from);
       const score = r.holeScore ?? r.strokesOnHole;
       const diff = score - hole.par;
       buzz(diff <= 0 ? 'success' : 'light');
-      setBanner({ text: `${scoreWord(score, hole.par)} · ${score} ${score === 1 ? 'stroke' : 'strokes'}`, good: diff <= 0 });
+      setBanner({ text: `${r.pickedUp ? 'Picked up' : scoreWord(score, hole.par)} · ${score} ${score === 1 ? 'stroke' : 'strokes'}`, good: diff <= 0 });
       setMsg(
         r.message ||
           `In the hole in ${score}. ${r.banks.yards.toLocaleString()} yards left in the bank${r.nextHole ? ` for the ${ordinal(r.nextHole)}.` : '.'}`,
       );
-      if (r.nextHole == null) setRoundOver(true);
+      if (r.nextHole == null || r.finished) setRoundOver(true);
       setPhase('holed');
       return;
     }
-    const left = Math.hypot(hole.pin.d - r.to.d, hole.pin.lat - r.to.lat);
+    const left = Math.hypot(hole.pin.d - r.ball.d, hole.pin.lat - r.ball.lat);
     const green = r.lie === 'green';
     setClub(green ? 'putter' : caddieClub(left).id);
     setManual(false);
@@ -345,6 +342,7 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
           {phase !== 'holed' && (
             <Text style={[styles.chip, styles.lieChip]} pointerEvents="none">
               {GOLF_LIE_NAME[lie] ?? (lie === 'drop' ? 'Drop' : lie)}
+              {lie === 'green' && Math.abs(hole.green.break) >= 0.02 ? ` · breaks ${hole.green.break > 0 ? 'right' : 'left'}` : ''}
             </Text>
           )}
           {phase === 'aim' && !pull && strokes === 0 && canPlay && (

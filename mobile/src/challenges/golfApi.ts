@@ -38,7 +38,8 @@ export interface GolfHole {
   fairwayW: number;
   fairwayFrom: number;
   fairwayTo: number;
-  green: { d: number; lat: number; r: number };
+  // break: how far a putt drifts across, as a share of its roll (+ is right).
+  green: { d: number; lat: number; r: number; break: number };
   pin: GolfSpot;
   hazards: GolfHazard[];
   ob: number;
@@ -91,11 +92,18 @@ export interface GolfGame {
 
 export interface GolfShotResult {
   from: GolfSpot;
+  // Where it came down, and where the next shot is played from (a drop
+  // after water, the same spot after out of bounds).
   to: GolfSpot;
+  ball: GolfSpot;
   carry: number;
   lie: string;
   penalty: number;
   holed: boolean;
+  // Picked up at par + 4: the hole is over.
+  pickedUp: boolean;
+  // The whole round's done.
+  finished: boolean;
   holeScore: number | null;
   strokesOnHole: number;
   nextHole: number | null;
@@ -127,7 +135,7 @@ export function toGolfHole(h: any): GolfHole {
     fairwayW: num(h.fairway_w) || 17,
     fairwayFrom: num(h.fairway_from) || 30,
     fairwayTo: num(h.fairway_to) || num(h.green?.d) - 20,
-    green: { d: num(h.green?.d), lat: num(h.green?.lat), r: num(h.green?.r) || 14 },
+    green: { d: num(h.green?.d), lat: num(h.green?.lat), r: num(h.green?.r) || 14, break: num(h.green?.break) },
     pin: spot(h.pin),
     hazards: ((h.hazards ?? []) as any[]).map((z) => ({
       type: z.type,
@@ -223,10 +231,13 @@ export async function takeGolfShot(
   return {
     from: spot(d.from),
     to: spot(d.to),
+    ball: spot(d.ball ?? d.to),
     carry: num(d.carry),
     lie: d.lie ?? 'fairway',
     penalty: num(d.penalty),
     holed: !!d.holed,
+    pickedUp: !!d.picked_up,
+    finished: !!d.finished,
     holeScore: d.hole_score == null ? null : num(d.hole_score),
     strokesOnHole: num(d.strokes_on_hole),
     nextHole: d.next_hole == null ? null : num(d.next_hole),

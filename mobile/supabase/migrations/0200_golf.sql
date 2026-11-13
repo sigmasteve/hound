@@ -59,7 +59,7 @@ create table if not exists public.golf_config (
   win_bones integer not null default 40 check (win_bones between 0 and 500),
   play_bones integer not null default 10 check (play_bones between 0 and 500),
   -- How close counts as in: yards from the pin on a putt, and otherwise.
-  putt_cup numeric(3, 2) not null default 1.3 check (putt_cup between 0.2 and 3),
+  putt_cup numeric(3, 2) not null default 0.6 check (putt_cup between 0.2 and 3),
   cup numeric(3, 2) not null default 0.6 check (cup between 0.2 and 3),
   updated_at timestamptz not null default now(),
   updated_by uuid references public.profiles (id) on delete set null
@@ -401,7 +401,7 @@ revoke execute on function public.golf_lie_factor(jsonb, numeric, numeric, text,
 create or replace function public.golf_flight(
   h jsonb, p_d numeric, p_lat numeric, p_lie text, p_club text, p_yards numeric, p_aim numeric,
   p_power numeric, p_timing numeric, p_wind_mph numeric, p_wind_deg numeric,
-  p_putt_cup numeric default 1.3, p_cup numeric default 0.6
+  p_putt_cup numeric default 0.6, p_cup numeric default 0.6
 )
 returns jsonb
 language plpgsql
@@ -1272,9 +1272,8 @@ begin
   if c.id is null or g.challenge_id is null or g.status <> 'active' then
     return 0;
   end if;
+  -- Hands-off: the walks are the shots.
   if not g.hands_on then
-    null;
-  else
     for r in select p.user_id from public.golf_players p
       where p.challenge_id = p_challenge_id and p.joined and p.finished_at is null order by p.seated_at loop
       n := n + public.golf_play_walks(p_challenge_id, r.user_id, now() >= c.ends_at);
