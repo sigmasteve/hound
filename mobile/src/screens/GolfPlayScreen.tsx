@@ -263,10 +263,10 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
       const diff = score - hole.par;
       buzz(diff <= 0 ? 'success' : 'light');
       setBanner({ text: `${r.pickedUp ? 'Picked up' : scoreWord(score, hole.par)} · ${score} ${score === 1 ? 'stroke' : 'strokes'}`, good: diff <= 0 });
-      const bonus = r.sponsorBonus && sponsor ? ` ${sponsor.name} adds ${r.sponsorBonus} Bones for that.` : '';
+      // The server's message already names a sponsor's Bones (0202).
       setMsg(
-        (r.message ||
-          `In the hole in ${score}. ${r.banks.yards.toLocaleString()} yards left in the bank${r.nextHole ? ` for the ${ordinal(r.nextHole)}.` : '.'}`) + bonus,
+        r.message ||
+          `In the hole in ${score}. ${r.banks.yards.toLocaleString()} yards left in the bank${r.nextHole ? ` for the ${ordinal(r.nextHole)}.` : '.'}`,
       );
       if (r.nextHole == null || r.finished) setRoundOver(true);
       setPhase('holed');

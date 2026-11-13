@@ -399,6 +399,8 @@ export interface OpenBoard {
   } | null;
   rows: OpenRow[];
   more: number | null;
+  // The to-par range of that gap ("34 more at −2 and −1").
+  moreRange: { best: number; worst: number } | null;
   club: { id: string; name: string; playing: number } | null;
   prizes: number[];
   finishBones: number;
@@ -451,6 +453,7 @@ export async function getOpenBoard(challengeId: string, tab: OpenTab = 'top'): P
       best: r.best ? { hole: num(r.best.hole), diff: num(r.best.diff) } : null,
     })),
     more: d?.more == null ? null : num(d.more),
+    moreRange: d?.more_range ? { best: num(d.more_range.best), worst: num(d.more_range.worst) } : null,
     club: d?.club ? { id: d.club.id, name: d.club.name ?? 'Your club', playing: num(d.club.playing) } : null,
     prizes: ((d?.prizes ?? []) as any[]).map(num),
     finishBones: num(d?.finish_bones),

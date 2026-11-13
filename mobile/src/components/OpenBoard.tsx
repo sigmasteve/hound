@@ -220,7 +220,7 @@ export function OpenBoard({
           const showGap = tab === 'top' && r.isMe && board.more != null && board.more > 0 && !!prev && !prev.isMe;
           return (
             <View key={r.userId}>
-              {showGap && <Text style={styles.gap}>{board.more!.toLocaleString()} more</Text>}
+              {showGap && <Text style={styles.gap}>{gapLine(board.more!, board.moreRange)}</Text>}
               <Pressable
                 onPress={() => startWatch(r)}
                 style={[styles.row, r.isMe && styles.rowMe]}
@@ -498,6 +498,15 @@ export function OpenBoard({
       )}
     </View>
   );
+}
+
+// "34 more at −2 and −1", "5 more at E", "40 more from −3 to +1".
+function gapLine(n: number, range: { best: number; worst: number } | null): string {
+  const more = `${n.toLocaleString()} more`;
+  if (!range) return more;
+  if (range.best === range.worst) return `${more} at ${toParText(range.best)}`;
+  if (range.worst - range.best === 1) return `${more} at ${toParText(range.best)} and ${toParText(range.worst)}`;
+  return `${more} from ${toParText(range.best)} to ${toParText(range.worst)}`;
 }
 
 function bestWord(diff: number): string {

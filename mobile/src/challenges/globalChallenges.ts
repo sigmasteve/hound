@@ -127,6 +127,14 @@ export const GLOBAL_TEMPLATES: GlobalTemplate[] = [
     joinWindow: '3',
   },
   {
+    id: 'hound-open',
+    name: 'The Hound Open',
+    kind: 'golf',
+    durationDays: 7,
+    blurb: '18 holes of Golf for everyone, one week, stroke play. Lowest score wins.',
+    joinWindow: '3',
+  },
+  {
     id: 'windy-city-journey',
     name: 'Windy City 26.2, Together',
     kind: 'journey',
@@ -669,7 +677,7 @@ export interface SponsorOverview {
   views7d: number;
   taps7d: number;
   reached7d: number;
-  challenges: { challengeId: string; name: string; sponsorName: string; startsAt: string; endsAt: string; views: number; taps: number }[];
+  challenges: { challengeId: string; name: string; kind: ChallengeKind | null; sponsorName: string; startsAt: string; endsAt: string; views: number; taps: number }[];
 }
 
 // Admin only (0203): the Sponsors fold.
@@ -686,6 +694,7 @@ export async function getSponsorOverview(): Promise<SponsorOverview> {
     challenges: ((d.challenges ?? []) as any[]).map((c) => ({
       challengeId: c.challenge_id,
       name: c.name ?? '',
+      kind: c.kind ?? null,
       sponsorName: c.sponsor_name ?? '',
       startsAt: c.starts_at,
       endsAt: c.ends_at,

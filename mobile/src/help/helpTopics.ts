@@ -252,6 +252,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Rough and bunkers cost distance on the next shot. Water is a stroke and a drop; out of bounds is a stroke and the shot again. On the green it’s the putter, and distances switch to feet.',
         'Up to 3 holes a day, if the game was made that way. Turn off Take every shot myself and each walk of 10 minutes or more plays a shot for you overnight.',
         'Stroke play: fewest strokes wins. Skins: the lowest score on a hole wins its Bones, and a tie carries on. Match play: one on one, hole by hole. Tap a friend on the card to watch their hole.',
+        'The Hound Open is Golf for everyone: a Global Hound Challenge on Today. Everyone plays the same course, stroke play, and takes their own shots. Join in its first 3 days; your steps and workouts count from the day you join. The leaderboard shows the top, your friends and your club, with your place. Lowest score wins, ties share the Bones of the places they cover, and everyone who finishes every hole gets Bones too.',
       ],
     },
     {
