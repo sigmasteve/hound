@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import Svg, { Path, Rect } from 'react-native-svg';
-import { CaretRightIcon, SunIcon, TrophyIcon } from 'phosphor-react-native';
+import { CaretRightIcon, SunIcon, PencilSimpleIcon, TrophyIcon } from 'phosphor-react-native';
 import { Card } from '../components/Card';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { Tag } from '../components/Tag';
@@ -14,6 +14,7 @@ import { PersonalRecordsCard } from '../components/PersonalRecordsCard';
 import { getMyDailyStepRank, getMyWeeklyStepRank, type StepRank } from '../leaderboard/supabaseStepsRank';
 import { isSupabaseConfigured } from '../lib/supabase';
 import type { DailySteps, DailyStepsWithDate, WorkoutSample } from '../health/types';
+import { isLoggedWorkout } from '../workouts/loggedWorkouts';
 import { computeReadiness, READINESS_COPY, type ReadinessResult } from '../health/readiness';
 
 type MetricTab = 'steps' | 'distance' | 'workouts';
@@ -467,6 +468,7 @@ function WorkoutGroup({
           <View style={{ flex: 1.4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Text style={styles.td}>{w.name}</Text>
             {w.isOutdoor && <SunIcon size={12} color={colors.amber} weight="fill" />}
+            {isLoggedWorkout(w) && <PencilSimpleIcon size={12} color={colors.amber} />}
           </View>
           <Text style={[styles.td, styles.tdMuted, { flex: 1 }]}>
             {w.when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}

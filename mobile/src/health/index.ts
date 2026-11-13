@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { mockProvider } from './mockProvider';
 import type { HealthProvider } from './types';
+import { withLoggedWorkouts } from '../workouts/loggedWorkouts';
 
 export * from './types';
 
@@ -9,7 +10,14 @@ export * from './types';
 // the app runnable in Expo Go / this sandbox (no native modules) and on a
 // real device/dev-client build alike, without screens caring which one
 // they got. Never throws.
+// Workouts logged by hand (0204) are merged into getRecentWorkouts here,
+// once, so goals, Bingo, 75 Day, records and the rest count them like any
+// other workout (see workouts/loggedWorkouts.ts).
 export async function resolveHealthProvider(): Promise<HealthProvider> {
+  return withLoggedWorkouts(await resolvePlatformProvider());
+}
+
+async function resolvePlatformProvider(): Promise<HealthProvider> {
   try {
     if (Platform.OS === 'ios') {
       const { iosHealthProvider } = await import('./iosProvider');

@@ -1,5 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import type { HealthSnapshot } from '../health/types';
+import { View } from 'react-native';
+import type { HealthSnapshot, WorkoutSample } from '../health/types';
+import { TodaysWorkoutsCard } from '../workouts/LogWorkoutSheet';
 import { GoalsCard, type GoalHistoryView } from '../components/GoalsCard';
 import { GoalHistoryCard } from '../components/GoalHistoryCard';
 import { dayKeyOffset, endOfDay, goalDaySummary, goalWeekProgress, localDayKey, weekStart, type GoalDaySummary } from '../goals/goals';
@@ -10,8 +12,15 @@ type CardProps = Omit<React.ComponentProps<typeof GoalsCard>, 'history'>;
 // What the Goals tile opens: the goals card with the week strip under its
 // streak line, a past day's numbers when one is tapped, and "Earlier",
 // the four-week grid (GoalHistoryCard). Keeps the history and which view
-// is up; both reset when the sheet closes, since it unmounts.
-export function GoalsSheet({ snap, ...card }: CardProps & { snap: HealthSnapshot | null }) {
+// is up; both reset when the sheet closes, since it unmounts. Under the
+// card, today's workouts and "Log a workout" (0204), for people without a
+// watch.
+export function GoalsSheet({
+  snap,
+  workouts,
+  onWorkoutsChanged,
+  ...card
+}: CardProps & { snap: HealthSnapshot | null; workouts?: WorkoutSample[]; onWorkoutsChanged?: () => void }) {
   const todayKey = localDayKey(new Date());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   // The last day the week strip shows: today, until a day outside the
@@ -117,5 +126,10 @@ export function GoalsSheet({ snap, ...card }: CardProps & { snap: HealthSnapshot
         }
       : null;
 
-  return <GoalsCard {...card} history={view} />;
+  return (
+    <View style={{ gap: 12 }}>
+      <GoalsCard {...card} history={view} />
+      {workouts && <TodaysWorkoutsCard workouts={workouts} onChanged={onWorkoutsChanged} />}
+    </View>
+  );
 }

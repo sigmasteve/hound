@@ -128,7 +128,9 @@ What each sheet holds:
 - Goals: the goals card with the streak, and under the streak the last
   seven days (tap one to see that day's numbers in the card); "Earlier"
   swaps the card for the four-week grid (GoalHistoryCard). All of it is
-  scored on the phone from Health data (`src/home/GoalsSheet.tsx`).
+  scored on the phone from Health data (`src/home/GoalsSheet.tsx`). Under
+  the card, today's workouts and "Log a workout" (0204, for people without
+  a watch; logged ones marked "Logged by hand", with Undo for 15 minutes).
 - Your hound: no sheet; the tile opens the Kennel straight away.
 - Needs you: Pack Activities first (on now or coming up, with Join,
   and Start a Pack Activity; Steve's ask, Nov 2026), then invites and

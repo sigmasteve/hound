@@ -38,6 +38,7 @@ import type { HealthAuthStatus } from '../health/types';
 import { JourneyCard } from '../journeys/JourneyCard';
 import { getMyJourney, type MyJourney } from '../journeys/journeyApi';
 import { isLive, myPackFuns } from '../packFun/packFunApi';
+import { LogWorkoutSheet } from '../workouts/LogWorkoutSheet';
 
 // The You tab: who you are and how you're doing (level, Hound Score,
 // Bones), then the places that are about you, in three groups: your
@@ -81,6 +82,8 @@ export function YouScreen({
   // rather than a guessed 0.
   const [houndScore, setHoundScore] = useState<HoundScore | null>(null);
   const [equipped, setEquipped] = useState<EquippedCosmetics | null>(null);
+  // Log a workout (0204), under Health data.
+  const [logOpen, setLogOpen] = useState(false);
   const [achievementCounts, setAchievementCounts] = useState<{ earned: number; total: number } | null>(null);
   const [healthStatus, setHealthStatus] = useState<HealthAuthStatus | null>(null);
   const [bonesOpen, setBonesOpen] = useState(false);
@@ -182,6 +185,9 @@ export function YouScreen({
       title: 'App',
       rows: [
         { label: 'Health data', Icon: HeartbeatIcon, detail: healthDetail.text, tone: healthDetail.tone, onPress: onOpenHealthData },
+        ...(isSupabaseConfigured
+          ? [{ label: 'Log a workout', Icon: PencilSimpleIcon, detail: 'No watch? Up to 2 a day', onPress: () => setLogOpen(true) }]
+          : []),
         { label: 'Settings', Icon: GearSixIcon, detail: 'Profile, notifications, look', onPress: onOpenSettings },
         { label: 'Help', Icon: QuestionIcon, detail: 'How Hound works', onPress: onOpenHelp },
       ],
@@ -190,6 +196,7 @@ export function YouScreen({
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <LogWorkoutSheet visible={logOpen} onClose={() => setLogOpen(false)} />
       <AvatarSheet
         visible={avatarOpen}
         level={level?.level}
