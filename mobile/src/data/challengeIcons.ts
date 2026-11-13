@@ -12,6 +12,7 @@ import {
   FlagCheckeredIcon,
   FlameIcon,
   FootprintsIcon,
+  GolfIcon,
   GridNineIcon,
   HandTapIcon,
   HashIcon,
@@ -41,6 +42,7 @@ export const CHALLENGE_KIND_ICON: Record<ChallengeKind, React.ComponentType<any>
   baseball: BaseballCapIcon,
   hoops: BasketballIcon,
   horse: CourtBasketballIcon,
+  golf: GolfIcon,
   doors: DoorIcon,
   packs: FlagBannerIcon,
 };

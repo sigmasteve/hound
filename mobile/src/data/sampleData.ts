@@ -78,6 +78,7 @@ export type ChallengeKind =
   | 'baseball'
   | 'hoops'
   | 'horse'
+  | 'golf'
   | 'doors'
   | 'packs';
 
@@ -228,6 +229,13 @@ export const CHALLENGE_TYPES: {
     tint: '#5a2f1f',
     iconColor: '#fbd0b8',
   },
+  {
+    id: 'golf',
+    name: 'Golf',
+    desc: 'Nine or eighteen holes, and you take every shot. Your steps bank yards and your workouts bank power. Pull back to aim, the caddie picks the club, and tap Hit as the marker crosses the middle. Every shot spends what it used. Stroke play, Skins or Match play.',
+    tint: '#1f5a34',
+    iconColor: '#cdf0d6',
+  },
   // Global only (0172_doors.sql): published from Admin, never in "Pick
   // the game", so it's in no group below.
   {
@@ -261,7 +269,7 @@ export const CHALLENGE_TYPES: {
 // appear in the picker at all.
 export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
   { label: 'Races', kinds: ['steps', 'distance', 'journey'] },
-  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'rally', 'soccer', 'cricket', 'baseball', 'hoops', 'horse', 'bingo', 'houndopoly', 'packs'] },
+  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'rally', 'soccer', 'cricket', 'baseball', 'hoops', 'horse', 'golf', 'bingo', 'houndopoly', 'packs'] },
   { label: 'Habits', kinds: ['streak', 'seventyfive', 'checklist'] },
 ];
 

@@ -82,6 +82,8 @@ import { setupBaseball, type BaseballSeat } from '../challenges/baseballApi';
 import { DEFAULT_HOOPS_SHOT_STEPS, HOOPS_MAX_SIDE, HOOPS_SHOT_OPTIONS, HORSE_DAYS, HORSE_LENGTHS, HORSE_SHOTS, HORSE_WORDS, spelled, type HorseWord } from '../challenges/hoops';
 import { setupHoops } from '../challenges/hoopsApi';
 import { setupHorse } from '../challenges/horseApi';
+import { setupGolf } from '../challenges/golfApi';
+import { GOLF_COURSES, GOLF_FORMAT_NAME, GOLF_FORMAT_NOTE, GOLF_HOLES_PER_DAY, golfDays, type GolfCourseId, type GolfFormat } from '../challenges/golf';
 import {
   autoHint,
   CHECKLIST_LABEL_MAX,
@@ -162,6 +164,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   baseball: 'An inning a day: aim, swing and run on your steps.',
   hoops: 'A quarter a day: your steps take the shots.',
   horse: 'One on one: match the shot or take a letter.',
+  golf: 'A shot at a time: steps are yards, workouts are power.',
   steps: 'Most steps wins.',
   tag: 'One hound is IT each day. Stay ahead, or be IT tomorrow.',
   distance: 'The group chases one shared target.',
@@ -262,6 +265,13 @@ export function CreateScreen({
   const [hoopsFillBots, setHoopsFillBots] = useState(true);
   // H-O-R-S-E (0196): the word.
   const [horseWord, setHorseWord] = useState<HorseWord>('HORSE');
+  // Golf (0200): the course, 9 or 18, the format, whether you take every
+  // shot yourself, and the daily cap on holes started.
+  const [golfCourse, setGolfCourse] = useState<GolfCourseId>('links');
+  const [golfHoles, setGolfHoles] = useState<9 | 18>(9);
+  const [golfFormat, setGolfFormat] = useState<GolfFormat>('stroke');
+  const [golfHandsOn, setGolfHandsOn] = useState(true);
+  const [golfDailyCap, setGolfDailyCap] = useState(true);
   const [myPosition, setMyPosition] = useState<SoccerPosition>('forward');
   const [soccerSeats, setSoccerSeats] = useState<Map<string, { team: 'a' | 'b'; position: SoccerPosition }>>(new Map());
   const [distanceGoalMi, setDistanceGoalMi] = useState(rematch?.distanceGoalMi ?? 100);
@@ -529,6 +539,7 @@ export function CreateScreen({
     if (draftType === 'baseball') setLength(String(DEFAULT_BASEBALL_INNINGS));
     if (draftType === 'hoops') setLength('4');
     if (draftType === 'horse') setLength(String(HORSE_DAYS));
+    if (draftType === 'golf') setLength(String(golfDays(golfHoles)));
     if (draftType === 'journey') setLength(String(journeyDefaultDays(course.miles)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftType]);
@@ -629,7 +640,7 @@ export function CreateScreen({
   const toggleFriend = (userId: string) => {
     // Tic-Tac-Go and Rally singles are strictly 1v1 — picking someone
     // replaces the last pick.
-    if (draftType === 'tictacgo' || draftType === 'horse' || (draftType === 'rally' && !rallyDoubles)) {
+    if (draftType === 'tictacgo' || draftType === 'horse' || (draftType === 'golf' && golfFormat === 'match') || (draftType === 'rally' && !rallyDoubles)) {
       setInvited((cur) => (cur.includes(userId) ? [] : [userId]));
       setRallyPartnerId(null);
       return;
@@ -863,8 +874,8 @@ export function CreateScreen({
       setStep(1);
       return;
     }
-    if ((draftType === 'tictacgo' || draftType === 'horse' || (draftType === 'rally' && !rallyDoubles)) && invited.length !== 1) {
-      setSaveError('Pick one friend to play against.');
+    if ((draftType === 'tictacgo' || draftType === 'horse' || (draftType === 'golf' && golfFormat === 'match') || (draftType === 'rally' && !rallyDoubles)) && invited.length !== 1) {
+      setSaveError(draftType === 'golf' ? 'Match play is one on one: pick one friend.' : 'Pick one friend to play against.');
       return;
     }
     if (draftType === 'rally' && rallyDoubles && (!rallyPartnerId || invited.length !== 3)) {
@@ -989,7 +1000,8 @@ export function CreateScreen({
               draftType === 'houndopoly' ||
               draftType === 'packs' ||
               draftType === 'hoops' ||
-              draftType === 'horse'
+              draftType === 'horse' ||
+              draftType === 'golf'
             ? []
             : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
       const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
@@ -1092,6 +1104,21 @@ export function CreateScreen({
           });
         } catch (e) {
           // A game with no sides can't be played — don't leave it behind.
+          await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
+          throw e;
+        }
+      }
+      if (draftType === 'golf') {
+        try {
+          await setupGolf(created.id, {
+            course: golfCourse,
+            holes: golfHoles,
+            format: golfFormat,
+            handsOn: golfHandsOn,
+            holesPerDay: golfDailyCap ? GOLF_HOLES_PER_DAY : 0,
+            players: [user?.id ?? '', ...invited],
+          });
+        } catch (e) {
           await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
           throw e;
         }
@@ -1418,8 +1445,8 @@ export function CreateScreen({
           </View>
           )}
 
-          {/* Hoops and H-O-R-S-E set their length in their own block below. */}
-          {draftType !== 'hoops' && draftType !== 'horse' && (
+          {/* Hoops, H-O-R-S-E and Golf set their length in their own block below. */}
+          {draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'golf' && (
           <View style={{ gap: 5 }}>
             <View style={styles.huntBlockHeader}>
               <Text style={styles.fieldLabel}>Runs for</Text>
@@ -1820,6 +1847,79 @@ export function CreateScreen({
             </View>
           )}
 
+          {draftType === 'golf' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Course</Text>
+              </View>
+              <View style={styles.golfCourses}>
+                {GOLF_COURSES.map((c) => {
+                  const on = golfCourse === c.id;
+                  return (
+                    <Pressable
+                      key={c.id}
+                      onPress={() => setGolfCourse(c.id)}
+                      style={[styles.golfCourse, on && { borderColor: colors.accent, borderWidth: 2, backgroundColor: withAlpha(colors.accent, 0.1) }]}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: on }}
+                    >
+                      <Text style={styles.golfCourseName}>{c.name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={styles.huntBlockNote}>{GOLF_COURSES.find((c) => c.id === golfCourse)?.note}. Nine holes, each its own shape.</Text>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Holes</Text>
+                <Text style={styles.huntBlockValue}>{golfHoles === 18 ? 'Over a week' : 'Over 4 days'}</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: '9', label: '9 holes' },
+                  { value: '18', label: '18 holes' },
+                ]}
+                value={String(golfHoles)}
+                onChange={(v) => {
+                  const n = v === '18' ? 18 : 9;
+                  setGolfHoles(n);
+                  setLength(String(golfDays(n)));
+                }}
+              />
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Format</Text>
+                <Text style={styles.huntBlockValue}>{GOLF_FORMAT_NOTE[golfFormat]}</Text>
+              </View>
+              <SegmentedControl
+                options={(['stroke', 'skins', 'match'] as GolfFormat[]).map((f) => ({ value: f, label: GOLF_FORMAT_NAME[f] }))}
+                value={golfFormat}
+                onChange={(v) => {
+                  setGolfFormat(v as GolfFormat);
+                  if (v === 'match') setInvited((cur) => cur.slice(0, 1));
+                }}
+              />
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.friendName}>Take every shot myself</Text>
+                  <Text style={styles.huntBlockNote}>
+                    {golfHandsOn ? 'Pull to aim, then time your swing.' : 'Off: each walk of 10 minutes or more plays a shot tonight.'}
+                  </Text>
+                </View>
+                <Switch value={golfHandsOn} onValueChange={setGolfHandsOn} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+              </View>
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.friendName}>Up to {GOLF_HOLES_PER_DAY} holes a day</Text>
+                  <Text style={styles.huntBlockNote}>So nobody plays the whole round on day one.</Text>
+                </View>
+                <Switch value={golfDailyCap} onValueChange={setGolfDailyCap} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+              </View>
+              <Text style={styles.huntBlockNote}>
+                Every 10 steps bank a yard, and workouts bank power (strength counts double, golf triple). Every shot
+                spends what it used.
+              </Text>
+            </View>
+          )}
+
           {draftType === 'horse' && (
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
@@ -2191,12 +2291,19 @@ export function CreateScreen({
       {step === 3 && !crowd && (
         <View style={{ gap: 14 }}>
           <Text style={text.h2}>
-            {draftType === 'tictacgo' || draftType === 'rally' || draftType === 'horse'
+            {draftType === 'tictacgo' || draftType === 'rally' || draftType === 'horse' || (draftType === 'golf' && golfFormat === 'match')
               ? 'Pick your opponent'
               : draftType === 'soccer' || draftType === 'cricket' || draftType === 'baseball' || draftType === 'hoops'
                 ? 'Pick the teams'
                 : 'Bring friends'}
           </Text>
+          {draftType === 'golf' && (
+            <Text style={styles.footNote}>
+              {golfFormat === 'match'
+                ? 'Match play is one on one, hole by hole.'
+                : 'Everyone plays their own ball. Friends tee off once they accept. Or play it alone.'}
+            </Text>
+          )}
           {draftType === 'horse' && (
             <Text style={styles.footNote}>
               H-O-R-S-E is one on one. You set the first shot; the game starts the day after they accept.
@@ -2403,6 +2510,7 @@ export function CreateScreen({
             draftType !== 'baseball' &&
             draftType !== 'hoops' &&
             draftType !== 'horse' &&
+            draftType !== 'golf' &&
             draftType !== 'seventyfive' &&
             draftType !== 'checklist' &&
             draftType !== 'houndopoly' &&
@@ -2667,6 +2775,19 @@ function makeStyles(colors: Palette) {
     },
     noticeText: { flex: 1, fontSize: 12.5, lineHeight: 18, color: colors.accentActive },
     switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
+    golfCourses: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    golfCourseName: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text, textAlign: 'center' },
+    golfCourse: {
+      flexBasis: '47%',
+      flexGrow: 1,
+      minHeight: 44,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.text, 0.16),
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
     friendRow: {
       flexDirection: 'row',
       alignItems: 'center',

@@ -105,6 +105,12 @@ export const KIND_INFO: KindInfo[] = [
     length: 'Up to two weeks', words: ['horse', 'pig', 'basketball', 'hoops', 'one on one', 'shot', 'sport'], suits: ['sports'],
   },
   {
+    kind: 'golf', format: 'game', counts: ['steps', 'workouts'], players: ['solo', 'one_on_one', 'group'], level: 'medium', bots: false,
+    summary: 'Golf, a shot at a time: steps bank yards, workouts bank power.',
+    howToWin: 'Fewest strokes, most skins, or win the match.', who: 'Just you, or friends.',
+    length: '4 days (9 holes) or a week (18)', words: ['golf', 'putt', 'birdie', 'par', 'tee', 'skins', 'course', 'sport', 'pga'], suits: ['sports'],
+  },
+  {
     kind: 'bingo', format: 'game', counts: ['steps', 'workouts'], players: ['solo', 'group'], level: 'medium', bots: true,
     summary: 'A bingo card of steps, workouts and goals.',
     howToWin: 'First to finish a row, column or diagonal; play goes on for the full card.', who: 'Anyone. Bots can play.',

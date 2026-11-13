@@ -29,6 +29,8 @@ export type ResultOutcome =
   | { type: 'hoops'; result: 'won' | 'lost' | 'tie'; score: string }
   // H-O-R-S-E: the result and the letters each ended with.
   | { type: 'horse'; result: 'won' | 'lost' | 'tie'; word: string; mine: string; theirs: string }
+  // Golf: where the viewer finished, and their round, e.g. "−2 (34)".
+  | { type: 'golf'; result: 'won' | 'lost' | 'tie'; score: string; course: string }
   // A Journey: your place by miles, whether you reached the end of the
   // course, and the course's name.
   | { type: 'journey'; rank: number; of: number; miles: string; finished: boolean; courseName: string }
@@ -133,6 +135,12 @@ export function resultLine(challengeName: string, outcome: ResultOutcome, labels
         : outcome.result === 'tie'
           ? `${challengeName} ended level at ${outcome.word.split('').join('-')}.`
           : `I spelled ${outcome.word.split('').join('-')} first in ${challengeName} — rematch time.`;
+    case 'golf':
+      return outcome.result === 'won'
+        ? `I won ${challengeName} at ${outcome.course}, ${outcome.score}, all on my steps! ⛳🏆`
+        : outcome.result === 'tie'
+          ? `${challengeName} at ${outcome.course} finished level: I shot ${outcome.score}.`
+          : `I shot ${outcome.score} at ${outcome.course} in ${challengeName} — rematch time.`;
     case 'journey':
       if (outcome.rank === 1 && outcome.finished) return `I reached the end of the ${outcome.courseName} first in ${challengeName}! 🏆`;
       if (outcome.rank === 1) return `I won ${challengeName}, furthest along the ${outcome.courseName} with ${outcome.miles}! 🏆`;
@@ -179,6 +187,7 @@ export function isWin(outcome: ResultOutcome): boolean {
     case 'baseball':
     case 'hoops':
     case 'horse':
+    case 'golf':
       return outcome.result === 'won';
     case 'journey':
       return outcome.rank === 1;

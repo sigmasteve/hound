@@ -240,6 +240,21 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'golf',
+      section: 'challenges',
+      title: 'Golf',
+      summary: 'Steps bank yards, workouts bank power, and you take every shot.',
+      steps: [
+        'Nine holes over 4 days, or 18 over a week, on one of four courses: Seaside Links, Canyon Desert, Lakeside Park or Ridge Mountain. Every hole is different.',
+        'Every 10 steps bank a yard. Workouts bank power: a minute of strength training is 2, a minute of golf is 3, anything else is 1. Each shot spends what it used, so nothing counts twice.',
+        'To hit: put your finger on the course and pull down toward you. Further is longer, up to 250 yards. Pull left or right to aim. The caddie picks the club; tap a club to choose your own for one shot, or Auto to hand it back.',
+        'Add power for extra carry (+10%, +20% or +30%); it also takes the wind out of the shot. Then tap Swing, and Hit as the marker crosses the middle. Early hooks it left, late slices it right.',
+        'Rough and bunkers cost distance on the next shot. Water is a stroke and a drop; out of bounds is a stroke and the shot again. On the green it’s the putter, and distances switch to feet.',
+        'Up to 3 holes a day, if the game was made that way. Turn off Take every shot myself and each walk of 10 minutes or more plays a shot for you overnight.',
+        'Stroke play: fewest strokes wins. Skins: the lowest score on a hole wins its Bones, and a tie carries on. Match play: one on one, hole by hole. Tap a friend on the card to watch their hole.',
+      ],
+    },
+    {
       id: 'packs',
       section: 'challenges',
       title: 'Pack Wars: take the neighborhood',
