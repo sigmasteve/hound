@@ -15,6 +15,7 @@ export type PendingActionKind =
   | 'packsVote'
   | 'hoopsPick'
   | 'horseSetShot'
+  | 'golfPlay'
   | 'logProgress';
 
 export interface PendingAction {
@@ -44,7 +45,8 @@ export function needsManualEntry(challenge: Challenge): boolean {
     challenge.kind !== 'cricket' &&
     challenge.kind !== 'baseball' &&
     challenge.kind !== 'hoops' &&
-    challenge.kind !== 'horse'
+    challenge.kind !== 'horse' &&
+    challenge.kind !== 'golf'
   );
 }
 
@@ -84,6 +86,9 @@ export interface PendingActionsInput {
   // H-O-R-S-E where they're setting and haven't picked today's shot (0196).
   hoopsUnpicked?: Set<string>;
   horseToSet?: Set<string>;
+  // Golf where the caller takes their own shots and has yards banked
+  // (0200): what's banked and the hole they're on.
+  golfToPlay?: Map<string, { yards: number; hole: number }>;
   // Whether the caller has logged anything today — only meaningful for
   // challenges needsManualEntry() considers manual-entry kinds.
   loggedProgressToday: Map<string, boolean>;
@@ -109,6 +114,7 @@ export function computePendingActions({
   packsUnvoted = new Set(),
   hoopsUnpicked = new Set(),
   horseToSet = new Set(),
+  golfToPlay = new Map(),
   loggedProgressToday,
 }: PendingActionsInput): PendingAction[] {
   const actions: PendingAction[] = [];
@@ -203,6 +209,16 @@ export function computePendingActions({
           challengeName: c.name,
           kind: 'horseSetShot',
           label: `Set today's shot in ${c.name}`,
+        });
+      }
+    } else if (c.kind === 'golf') {
+      const g = golfToPlay.get(c.id);
+      if (g) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'golfPlay',
+          label: `${g.yards.toLocaleString()} yards banked: play hole ${g.hole}`,
         });
       }
     } else if (c.kind === 'doors') {

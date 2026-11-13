@@ -186,6 +186,10 @@ export function toChallengeCard(
     // The letters live in horse_games, on the detail screen.
     stat = '1v1';
     statLabel = 'match the shot or take a letter';
+  } else if (challenge.kind === 'golf') {
+    // The course and the cards live in golf_games, on the detail screen.
+    stat = challenge.durationDays >= 7 ? '18' : '9';
+    statLabel = 'holes · a shot at a time';
   } else if (challenge.kind === 'packs') {
     // The map and the packs live in pack_territories, on the detail screen.
     stat = '4';

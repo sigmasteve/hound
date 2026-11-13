@@ -1684,6 +1684,16 @@ export function TrophyArt({ kind }: { kind: TrophyKind }) {
           <Path d="M-6 -24 L-3.5 -17 M0 -22 V-17 M6 -24 L3.5 -17" stroke="#ffffff" strokeWidth={0.7} />
         </G>
       );
+    case 'golf':
+      return (
+        <G>
+          <Ellipse cx={0} cy={-1} rx={11} ry={3} fill="#5fb36f" />
+          <Ellipse cx={2} cy={-1} rx={2.4} ry={0.9} fill="#1d2b1f" />
+          <Rect x={-0.7} y={-34} width={1.4} height={33} fill="#e9e6dc" />
+          <Path d="M0.7 -34 L13 -29.5 L0.7 -25 Z" fill="#e5484d" />
+          <Circle cx={-6} cy={-3.2} r={2.4} fill="#ffffff" stroke="#d6d0c2" strokeWidth={0.5} />
+        </G>
+      );
     case 'cricket':
       return (
         <G>

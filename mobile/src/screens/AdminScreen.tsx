@@ -61,6 +61,8 @@ import { GrowthAdminCard } from '../components/GrowthAdminCard';
 import { BaseballAdminCard } from '../components/BaseballAdminCard';
 import { HoopsAdminCard } from '../components/HoopsAdminCard';
 import { getHoopsOverview, hoopsSummary } from '../challenges/hoopsApi';
+import { GolfAdminCard } from '../components/GolfAdminCard';
+import { getGolfOverview, golfSummary } from '../challenges/golfApi';
 import { SportBonusAdminCard } from '../components/SportBonusAdminCard';
 import { getSportBonusOverview, sportBonusSummary } from '../challenges/sportBonusApi';
 import { DoorsAdminCard } from '../components/DoorsAdminCard';
@@ -193,6 +195,8 @@ export function AdminScreen({
   const [baseballSummary, setBaseballSummary] = useState<string | null>(null);
   // The Hoops & H-O-R-S-E fold's line (0195, 0196).
   const [hoopsLine, setHoopsLine] = useState<string | null>(null);
+  // The Golf fold's line (0200).
+  const [golfLine, setGolfLine] = useState<string | null>(null);
   // The Sports bonuses fold's line (0198).
   const [sportBonusLine, setSportBonusLine] = useState<string | null>(null);
   const [doorsSummary, setDoorsSummary] = useState<string | null>(null);
@@ -268,6 +272,9 @@ export function AdminScreen({
         .catch(() => {});
       getHoopsOverview()
         .then((o) => setHoopsLine(hoopsSummary(o)))
+        .catch(() => {});
+      getGolfOverview()
+        .then((o) => setGolfLine(golfSummary(o)))
         .catch(() => {});
       getBaseballOverview()
         .then((b) => setBaseballSummary(`${b.active} ${b.active === 1 ? 'game' : 'games'} on now, ${b.finished} played`))
@@ -857,6 +864,9 @@ export function AdminScreen({
                 </AdminFold>
                 <AdminFold title="Hoops & H-O-R-S-E" summary={hoopsLine ?? 'Games, shots and Bones'}>
                   <HoopsAdminCard onChanged={(o) => setHoopsLine(hoopsSummary(o))} />
+                </AdminFold>
+                <AdminFold title="Golf" summary={golfLine ?? 'Rounds, shots and birdies'}>
+                  <GolfAdminCard onChanged={(o) => setGolfLine(golfSummary(o))} />
                 </AdminFold>
                 <AdminFold title="Sports bonuses" summary={sportBonusLine ?? 'Strength workouts and game days in the sports games'}>
                   <SportBonusAdminCard onChanged={(o) => setSportBonusLine(sportBonusSummary(o))} />

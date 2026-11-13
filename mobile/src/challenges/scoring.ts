@@ -29,6 +29,8 @@ export function usesDeviceSteps(challenge: Challenge): boolean {
     // Hoops and H-O-R-S-E play every day on everyone's synced steps (0195, 0196).
     challenge.kind === 'hoops' ||
     challenge.kind === 'horse' ||
+    // Golf banks yards from everyone's synced steps (0200).
+    challenge.kind === 'golf' ||
     (challenge.kind === 'hunt' && challenge.scoringMethod === 'device_steps') ||
     ((challenge.kind === 'distance' || challenge.kind === 'tag') && challenge.distanceGoalUnit === 'steps')
   );

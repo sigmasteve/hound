@@ -185,6 +185,9 @@ import { useGoalsTileStyle } from '../home/todayPrefs';
 import { useGoals } from '../goals/GoalsContext';
 import { advanceHoops, getHoops, type HoopsGame } from '../challenges/hoopsApi';
 import { advanceHorse, getHorse, type HorseGame } from '../challenges/horseApi';
+import { getGolfGame, type GolfGame } from '../challenges/golfApi';
+import { distanceText, toParText } from '../challenges/golf';
+import { GolfHole } from '../components/GolfHole';
 import { HoopsCourt } from '../components/HoopsCourt';
 import { PackActivitiesCard } from '../packFun/PackActivitiesCard';
 import { currentPackFuns, isLive, myPackFuns, type MyPackFun } from '../packFun/packFunApi';
@@ -383,6 +386,23 @@ function hoopsHeadline(name: string, game: HoopsGame | null): string {
   return `${name}: ${standing}${next ? `, ${next} today` : ''}.`;
 }
 
+// A pinned round of Golf: where your ball is and how you stand.
+function golfHeadline(name: string, game: GolfGame | null): string {
+  if (!game) return `Getting ${name} ready.`;
+  const me = game.players.find((p) => p.userId === game.me);
+  if (!me) return `${name} at ${game.course.name}.`;
+  const field = [...game.players].sort((a, b) => a.toPar - b.toPar);
+  const pos = field.findIndex((p) => p.userId === me.userId) + 1;
+  const standing = me.thru > 0 ? ` ${toParText(me.toPar)}${game.players.length > 1 ? `, ${ordinal(pos)}` : ''}.` : '';
+  if (game.status === 'final') return game.winner === game.me ? `You won ${name}!` : `${name} is over: you shot ${toParText(me.toPar)}.`;
+  if (me.done) return `You’ve finished ${name}:${standing}`;
+  if (game.status === 'upcoming') return `${name} tees off soon at ${game.course.name}.`;
+  const hole = game.course.holes[(me.hole - 1) % Math.max(1, game.course.holes.length)];
+  const left = hole ? Math.hypot(hole.pin.d - me.ball.d, hole.pin.lat - me.ball.lat) : 0;
+  const where = me.strokesOnHole === 0 ? `On the ${ordinal(me.hole)} tee` : `${distanceText(left)} out on the ${ordinal(me.hole)}`;
+  return `${where} with ${game.banks.yards.toLocaleString()} yards banked.${standing}`;
+}
+
 // A pinned H-O-R-S-E: who's setting what, and the letters.
 function horseHeadline(name: string, game: HorseGame | null): string {
   if (!game) return `Getting ${name} ready.`;
@@ -471,6 +491,7 @@ function heroCopy(
   packGame: PackWarsGame | null = null,
   hoopsGame: HoopsGame | null = null,
   horseGame: HorseGame | null = null,
+  golfGame: GolfGame | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -526,6 +547,9 @@ function heroCopy(
   }
   if (challenge.kind === 'horse') {
     return { eyebrow, headline: horseHeadline(challenge.name, horseGame) };
+  }
+  if (challenge.kind === 'golf') {
+    return { eyebrow, headline: golfHeadline(challenge.name, golfGame) };
   }
   if (challenge.kind === 'doors') {
     return { eyebrow, headline: doorsHeadline(challenge.name, doorsGame) };
@@ -1088,6 +1112,7 @@ export function HomeScreen({
   const [primaryBaseball, setPrimaryBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[] }>({ game: null, innings: [] });
   const [primaryHoops, setPrimaryHoops] = useState<HoopsGame | null>(null);
   const [primaryHorse, setPrimaryHorse] = useState<HorseGame | null>(null);
+  const [primaryGolf, setPrimaryGolf] = useState<GolfGame | null>(null);
   const [primaryCricket, setPrimaryCricket] = useState<{ game: CricketGame | null; onStrike: CricketOnStrike | null }>({
     game: null,
     onStrike: null,
@@ -1908,6 +1933,17 @@ export function HomeScreen({
       } else {
         setPrimaryHorse(null);
       }
+      if (primaryResult?.challenge.kind === 'golf') {
+        getGolfGame(primaryResult.challenge.id)
+          .then((g) => {
+            if (!cancelled) setPrimaryGolf(g);
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryGolf(null);
+          });
+      } else {
+        setPrimaryGolf(null);
+      }
       if (primaryResult?.challenge.kind === 'baseball') {
         const bId = primaryResult.challenge.id;
         advanceBaseball(bId)
@@ -1936,7 +1972,7 @@ export function HomeScreen({
       const activeResults = results.filter((r) => !r.finished);
       if (user?.id) {
         const myId = user.id;
-        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries, hoopsEntries, horseEntries] = await Promise.all([
+        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries, hoopsEntries, horseEntries, golfEntries] = await Promise.all([
           Promise.all(
             activeResults
               .filter((r) => r.challenge.kind === 'tag' && r.challenge.tagMode !== 'chase')
@@ -2025,6 +2061,12 @@ export function HomeScreen({
               .filter((r) => r.challenge.kind === 'horse')
               .map(async (r): Promise<readonly [string, HorseGame | null]> => [r.challenge.id, await getHorse(r.challenge.id).catch(() => null)]),
           ),
+          // Golf: each round (fails toward nothing waiting).
+          Promise.all(
+            activeResults
+              .filter((r) => r.challenge.kind === 'golf')
+              .map(async (r): Promise<readonly [string, GolfGame | null]> => [r.challenge.id, await getGolfGame(r.challenge.id).catch(() => null)]),
+          ),
         ]);
         const packMap = new Map(packEntries.filter((e): e is readonly [string, PackWarsGame] => e[1] !== null));
         const doorsMap = new Map(doorsEntries.filter((e): e is readonly [string, DoorsGame] => e[1] !== null));
@@ -2043,6 +2085,15 @@ export function HomeScreen({
             packsUnvoted: new Set([...packMap].filter(([, g]) => !g.settled && packDayNo(g) != null && g.myVote == null).map(([id]) => id)),
             hoopsUnpicked: new Set(hoopsEntries.filter(([, g]) => g && g.status === 'live' && g.me && g.myVote == null).map(([id]) => id)),
             horseToSet: new Set(horseEntries.filter(([, g]) => g && g.status === 'live' && g.me && g.setter === g.me).map(([id]) => id)),
+            // 30 yards is a short pitch; less than that and there's nothing to play yet.
+            golfToPlay: new Map(
+              golfEntries.flatMap(([id, g]) => {
+                const me = g?.players.find((p) => p.userId === g.me);
+                if (!g || !me || me.done || g.status !== 'live' || !g.handsOn || g.banks.yards < 30) return [];
+                if (me.strokesOnHole === 0 && !g.today.canStart) return [];
+                return [[id, { yards: g.banks.yards, hole: me.hole }] as const];
+              }),
+            ),
             loggedProgressToday: new Map(manualEntries),
           });
           setDoorsGames(doorsMap);
@@ -2114,6 +2165,7 @@ export function HomeScreen({
         packGames.get(primary.challenge.id) ?? null,
         primaryHoops,
         primaryHorse,
+        primaryGolf,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -2652,6 +2704,8 @@ export function HomeScreen({
               <HoopsPreview primary={primary} game={primaryHoops} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'horse' ? (
               <HorsePreview primary={primary} game={primaryHorse} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : primary.challenge.kind === 'golf' ? (
+              <GolfPreview primary={primary} game={primaryGolf} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'baseball' ? (
               <BaseballPreview primary={primary} game={primaryBaseball.game} innings={primaryBaseball.innings} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'houndopoly' ? (
@@ -3373,6 +3427,25 @@ function HoopsPreview({ primary, game, onOpen, styles }: { primary: PrimaryChall
       ) : (
         <Text style={styles.tileSub}>Loading the score…</Text>
       )}
+      <Button label="Open game" variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+function GolfPreview({ primary, game, onOpen, styles }: { primary: PrimaryChallenge; game: GolfGame | null; onOpen: () => void; styles: HomeStyles }) {
+  const { challenge } = primary;
+  const me = game?.players.find((p) => p.userId === game.me) ?? null;
+  const hole = game && me ? game.course.holes[(me.hole - 1) % Math.max(1, game.course.holes.length)] : null;
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+      </View>
+      {game && me && hole && !me.done && game.status !== 'final' && (
+        <GolfHole hole={hole} course={game.course.id} ball={me.ball} plan={null} flight={null} houndIcon={me.iconId} height={170} compact />
+      )}
+      <Text style={styles.tileSub}>{golfHeadline(challenge.name, game)}</Text>
       <Button label="Open game" variant="ghost" small onPress={onOpen} />
     </Card>
   );

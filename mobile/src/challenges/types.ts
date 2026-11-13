@@ -18,6 +18,7 @@ export type ChallengeKind =
   | 'baseball'
   | 'hoops'
   | 'horse'
+  | 'golf'
   | 'doors'
   | 'packs';
 

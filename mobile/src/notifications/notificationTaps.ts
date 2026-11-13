@@ -63,7 +63,7 @@ function routeFor(data: Record<string, unknown> | undefined): (() => [keyof Root
   if (data.type === 'yard_pawprint' || data.type === 'yard_treat' || data.type === 'gift') return () => ['Kennel', undefined];
   if (data.type === 'club_post' && typeof data.clubId === 'string') return () => ['Club', { clubId: data.clubId }];
   if (data.type === 'club_invite') return () => ['Main', { tab: 'clubs' }];
-  if ((data.type === 'hoops' || data.type === 'horse') && typeof data.challengeId === 'string') {
+  if ((data.type === 'hoops' || data.type === 'horse' || data.type === 'golf') && typeof data.challengeId === 'string') {
     return () => ['ChallengeDetail', { challengeId: data.challengeId }];
   }
   if (data.type === 'pack_fun' && typeof data.packId === 'string') return () => ['PackFun', { packId: data.packId }];
