@@ -42,15 +42,58 @@ const guardSpot = (p: { x: number; y: number }) => {
   return { x: t.x + (p.x < 0.5 ? 0.06 : p.x > 0.5 ? -0.06 : 0.07), y: t.y };
 };
 
-// Where a shot of each kind goes up from.
-function shotSpot(e: HoopsEvent, home: { x: number; y: number }): { x: number; y: number } {
+// A spot around the hoop: an angle (0 = the right baseline, 90 = straight
+// out in front, 180 = the left baseline) and a distance in court widths.
+const around = (deg: number, r: number) => {
+  const t = (deg * Math.PI) / 180;
+  return { x: HOOP.x + r * Math.cos(t), y: HOOP.y + (r / LEN) * Math.sin(t) };
+};
+
+// Where threes go up from: both corners, the wings, in between and the top.
+const THREES = [
+  { x: 0.04, y: 0.15 },
+  { x: 0.96, y: 0.15 },
+  around(28, 0.5),
+  around(152, 0.5),
+  around(45, 0.5),
+  around(135, 0.5),
+  around(65, 0.5),
+  around(115, 0.5),
+  around(90, 0.5),
+];
+// Mid-range: the baseline, the elbows, the wings and the free-throw line.
+const MIDS = [around(8, 0.27), around(172, 0.27), around(35, 0.29), around(145, 0.29), around(62, 0.3), around(118, 0.3), around(90, 0.29)];
+// The angles a drive comes in from, and where it finishes by the rim.
+const DRIVES = [15, 50, 90, 130, 165];
+
+// A number from 0 to 1 that's the same for the same play every time.
+function pick(key: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+  // Stir it, so plays one apart land far apart.
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+
+// Where a shot goes up from, and for a drive, where it cuts in from.
+// Each play gets its own spot, so the same play replays the same way.
+function shotSpot(e: HoopsEvent, home: { x: number; y: number }): { x: number; y: number; via?: { x: number; y: number } } {
   if (e.kind === 'ft') return { x: 0.5, y: 0.4 };
-  if (e.kind === 'putback') return { x: 0.47, y: 0.17 };
-  if (e.kind === 'drive') return { x: 0.52, y: e.dunk ? 0.14 : 0.18 };
-  if (e.kind === 'mid') return { x: home.x < 0.5 ? 0.3 : 0.7, y: 0.3 };
-  // A three: from the arc, on the shooter's side.
-  const left = home.x < 0.5;
-  return home.y > 0.6 ? { x: 0.5, y: 0.63 } : { x: left ? 0.09 : 0.91, y: 0.25 };
+  const r = pick(`${e.shooter}:${e.seq}:${e.kind}`);
+  if (e.kind === 'three') return THREES[Math.floor(r * THREES.length)];
+  if (e.kind === 'mid') return MIDS[Math.floor(r * MIDS.length)];
+  // Drives and putbacks finish by the rim from an angle; a drive cuts in
+  // from further out on the same line.
+  const deg = DRIVES[Math.floor(r * DRIVES.length)];
+  if (e.kind === 'putback') return around(deg, 0.07);
+  const at = around(deg, e.dunk ? 0.045 : 0.075);
+  const via = around(deg, 0.27);
+  // Not back through where they started: straight in if they're already on that line.
+  return Math.hypot(home.x - via.x, home.y - via.y) < 0.08 ? at : { ...at, via };
 }
 
 export type CourtView = Perspective;
@@ -217,9 +260,18 @@ export function HoopsCourt({
 
     const defender = e.defender && spots.has(e.defender) ? e.defender : null;
     const shooterTo = e.dunk ? { x: from.x, y: from.y - 0.01 } : from;
+    // A drive cuts to its lane first, then goes at the rim from there.
+    const viaPx = from.via ? px(from.via) : null;
     const lead = [
-      run(moveOf(e.shooter), off(e.shooter, shooterTo), 700),
-      run(ball, { x: fromPx.x, y: fromPx.y - size * 0.9 * fromPx.s }, 700),
+      from.via
+        ? Animated.sequence([run(moveOf(e.shooter), off(e.shooter, from.via), 420), run(moveOf(e.shooter), off(e.shooter, shooterTo), 330)])
+        : run(moveOf(e.shooter), off(e.shooter, shooterTo), 700),
+      viaPx
+        ? Animated.sequence([
+            run(ball, { x: viaPx.x, y: viaPx.y - size * 0.9 * viaPx.s }, 420),
+            run(ball, { x: fromPx.x, y: fromPx.y - size * 0.9 * fromPx.s }, 330),
+          ])
+        : run(ball, { x: fromPx.x, y: fromPx.y - size * 0.9 * fromPx.s }, 700),
       ...(defender ? [run(moveOf(defender), off(defender, guardSpot(from)), 750)] : []),
     ];
     // A dunk: the shooter rises to the rim.

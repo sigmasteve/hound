@@ -223,7 +223,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Pick your shot: a Drive (2 points, the best odds), a Mid-range (2) or a Three (3, the hardest). It stays picked until you change it, and the chips show today’s odds.',
         'Everyone guards someone on the other side. Out-walk whoever’s guarding you and your shots fall more often; get out-walked and they miss more.',
         'Each day your team votes on defense: Pack the paint makes their drives harder, Guard the arc makes their threes harder. Most votes by midnight wins.',
-        'Missed shots: the side that walked more that day gets the rebound, and one more try. Walk twice your defender’s steps and you’re fouled for two free throws. Over 15,000 steps, drives are dunks. Three makes in a row and you’re on fire.',
+        'Missed shots: the side that walked more that day gets the rebound, and one more try. Walk twice your defender’s steps (when they walked at least 1,000) and you’re fouled for two free throws. Over 15,000 steps, drives are dunks. Three makes in a row and you’re on fire.',
         'Teams of one to nine; bots fill a side to five. Each morning, tap Watch to replay last night’s quarter on the court, and see every play with why it went in or didn’t.',
       ],
     },
