@@ -727,8 +727,8 @@ begin
     -- In play, where the batter aimed.
     aim := coalesce(bpick.aim, zones[1 + floor(public.baseball_rand(seed || ':aim') * 3)::int]);
 
-    if public.baseball_rand(seed || ':hr') < case when bb.strength = 0 then public.baseball_home_run_chance(bs, approach)
-                                                     else greatest(public.baseball_home_run_chance(bs, approach), 0.03) * pw end then
+    if public.baseball_rand(seed || ':hr') < (case when bb.strength = 0 then public.baseball_home_run_chance(bs, approach)
+                                                      else greatest(public.baseball_home_run_chance(bs, approach), 0.03) * pw end) then
       scored := 1 + (b1 is not null)::int + (b2 is not null)::int + (b3 is not null)::int;
       b1 := null; b2 := null; b3 := null;
       v_runs := v_runs + scored;

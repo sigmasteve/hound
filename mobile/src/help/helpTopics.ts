@@ -240,6 +240,21 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'sport-bonuses',
+      section: 'challenges',
+      title: 'Workouts in sports games',
+      summary: 'Strength workouts and playing the real sport count in Soccer, Cricket, Baseball, Rally, Hoops and H-O-R-S-E.',
+      steps: [
+        'Strength: 15 minutes of strength workouts in a day gets you a bonus, and 45 minutes gets a second. Two at most a day.',
+        'Game day: 20 minutes or more of the game’s own sport that day. Basketball for Hoops and H-O-R-S-E, soccer for Soccer, baseball or softball for Baseball, cricket for Cricket, and badminton, tennis, squash or pickleball for Rally.',
+        'Hoops and Soccer: each strength bonus is a shot on top of your steps. A game day is one more shot, and your shots are 8% likelier to go in (on target in Soccer).',
+        'Baseball and Cricket: strength adds power, so hits go further and more balls go for four or six. A game day makes a hit 8% likelier.',
+        'Rally: each strength bonus is a smash, a return you don’t have to walk. On a game day your return needs 20% fewer steps.',
+        'H-O-R-S-E: each strength bonus counts as 2,000 steps toward the shot, and a basketball game day as 4,000.',
+        'It all comes from your workouts in Apple Health or Health Connect, counted when that day is played. Your game shows what you’ve earned today, and anyone who played the real sport gets a “Played for real” tag in that day’s plays.',
+      ],
+    },
+    {
       id: 'packs',
       section: 'challenges',
       title: 'Pack Wars: take the neighborhood',
