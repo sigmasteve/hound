@@ -58,7 +58,8 @@ export function HoopsCard({
   const [shot, setShot] = useState<HoopsShot | null>(null);
   const [vote, setVote] = useState<HoopsDefense | null>(null);
 
-  // Replaying: one play every 3 seconds, then stop.
+  // Replaying: one play every 4 seconds (most start with a run up the
+  // floor), then stop.
   const events = game?.last?.events ?? [];
   useEffect(() => {
     if (replayAt == null) return;
@@ -69,7 +70,7 @@ export function HoopsCard({
       return;
     }
     setPlay((cur) => ({ event: e, n: (cur?.n ?? 0) + 1 }));
-    const t = setTimeout(() => setReplayAt((i) => (i == null ? null : i + 1)), 3200);
+    const t = setTimeout(() => setReplayAt((i) => (i == null ? null : i + 1)), 4100);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replayAt]);

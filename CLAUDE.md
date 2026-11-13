@@ -82,6 +82,12 @@ its width and length and put every point (lines, players, the ball,
 replays) through `project()`, so they all line up. New sports start this
 way; mock it up first.
 
+The one exception is Hoops: its full court is seen from the sideline,
+like a TV broadcast (Steve's pick, Nov 2026), so a replay can run the
+length of the floor. It's still `perspective.ts` and `project()`, with
+x along the court and the stand behind the far sideline
+(`HoopsCourt.tsx`).
+
 ## Today screen layout
 
 Steve's agreed layout for Today (`mobile/src/screens/HomeScreen.tsx`,
