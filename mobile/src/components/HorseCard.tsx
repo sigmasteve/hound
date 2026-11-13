@@ -9,6 +9,7 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { formatSteps, spelled, type HorseShotId } from '../challenges/hoops';
 import { setHorseShot, type HorseGame, type HorsePlayer } from '../challenges/horseApi';
 import type { HoopsGame } from '../challenges/hoopsApi';
+import { GameDayLine, SportBonusRow, useGameDayIds } from './SportBonusRow';
 
 const ME_COLOR = '#f08a24';
 // Where each shot is taken from, on the half court (0 at the baseline).
@@ -38,6 +39,8 @@ export function HorseCard({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [shot, setShot] = useState<HorseShotId | null>(null);
+  // Who's played real basketball today (0198), for the court's badges.
+  const gameDayIds = useGameDayIds(challengeId, null);
 
   if (!game) {
     return (
@@ -142,7 +145,7 @@ export function HorseCard({
           : `Day ${Math.max(1, game.dayNo)} of ${game.days} · first to spell ${spelled(game.word)} loses.`}
       </Text>
 
-      <HoopsCourt game={court} compact spot={HORSE_SPOT[current.id] ?? HORSE_SPOT.three} />
+      <HoopsCourt game={court} compact spot={HORSE_SPOT[current.id] ?? HORSE_SPOT.three} gameDayIds={gameDayIds} />
 
       {/* Today's shot. */}
       {live && (
@@ -187,6 +190,7 @@ export function HorseCard({
               </View>
             );
           })}
+          {me && <SportBonusRow challengeId={challengeId} kind="horse" userId={me.userId} />}
         </Card>
       )}
 
@@ -210,6 +214,9 @@ export function HorseCard({
                     {shotName} · {formatSteps(h.target)}
                   </Text>
                   <Text style={styles.small}>{line}</Text>
+                  {game.firstDay ? (
+                    <GameDayLine challengeId={challengeId} day={addDays(game.firstDay, h.dayNo - 1)} kind="horse" nameOf={(id) => nameOf(id)} />
+                  ) : null}
                 </View>
                 {h.letterTo && <Text style={[styles.histLetter, { color: h.letterTo === game.me ? ME_COLOR : THEM_COLOR }]}>{h.letterTo === game.me ? 'You' : nameOf(h.letterTo)} +1</Text>}
               </View>
@@ -251,4 +258,10 @@ function makeStyles(colors: Palette) {
     histDay: { width: 44, fontFamily: font.headingSemibold, fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
     histLetter: { fontFamily: font.headingSemibold, fontSize: 12.5 },
   });
+}
+
+// YYYY-MM-DD plus n days.
+function addDays(day: string, n: number): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 }

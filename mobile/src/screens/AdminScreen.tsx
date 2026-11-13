@@ -61,6 +61,8 @@ import { GrowthAdminCard } from '../components/GrowthAdminCard';
 import { BaseballAdminCard } from '../components/BaseballAdminCard';
 import { HoopsAdminCard } from '../components/HoopsAdminCard';
 import { getHoopsOverview, hoopsSummary } from '../challenges/hoopsApi';
+import { SportBonusAdminCard } from '../components/SportBonusAdminCard';
+import { getSportBonusOverview, sportBonusSummary } from '../challenges/sportBonusApi';
 import { DoorsAdminCard } from '../components/DoorsAdminCard';
 import { PacksAdminCard } from '../components/PacksAdminCard';
 import { getPacksAdminOverview } from '../challenges/packWarsApi';
@@ -191,6 +193,8 @@ export function AdminScreen({
   const [baseballSummary, setBaseballSummary] = useState<string | null>(null);
   // The Hoops & H-O-R-S-E fold's line (0195, 0196).
   const [hoopsLine, setHoopsLine] = useState<string | null>(null);
+  // The Sports bonuses fold's line (0198).
+  const [sportBonusLine, setSportBonusLine] = useState<string | null>(null);
   const [doorsSummary, setDoorsSummary] = useState<string | null>(null);
   const [packsSummary, setPacksSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
@@ -258,6 +262,9 @@ export function AdminScreen({
         .catch(() => {});
       getDoorsAdminOverview()
         .then((d) => setDoorsSummary(`${d.joined} joined · ${d.openedToday} opened a door today`))
+        .catch(() => {});
+      getSportBonusOverview()
+        .then((o) => setSportBonusLine(sportBonusSummary(o)))
         .catch(() => {});
       getHoopsOverview()
         .then((o) => setHoopsLine(hoopsSummary(o)))
@@ -850,6 +857,9 @@ export function AdminScreen({
                 </AdminFold>
                 <AdminFold title="Hoops & H-O-R-S-E" summary={hoopsLine ?? 'Games, shots and Bones'}>
                   <HoopsAdminCard onChanged={(o) => setHoopsLine(hoopsSummary(o))} />
+                </AdminFold>
+                <AdminFold title="Sports bonuses" summary={sportBonusLine ?? 'Strength workouts and game days in the sports games'}>
+                  <SportBonusAdminCard onChanged={(o) => setSportBonusLine(sportBonusSummary(o))} />
                 </AdminFold>
                 <AdminFold title="Shop" summary={shopSummary ?? 'Packs sold and Bones spent'}>
                   <ShopAdminCard />

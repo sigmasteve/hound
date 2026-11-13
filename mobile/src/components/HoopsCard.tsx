@@ -32,6 +32,7 @@ import {
   type HoopsGame,
   type HoopsPlayer,
 } from '../challenges/hoopsApi';
+import { PlayedForReal, SportBonusRow, useGameDayIds } from './SportBonusRow';
 
 // A game of Hoops on the challenge page (0195): the scoreboard and line
 // score, the court replaying last night's quarter, every play with why
@@ -74,6 +75,20 @@ export function HoopsCard({
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replayAt]);
+
+  // Who played real basketball on last night's day(s) (0198): a quarter is
+  // one day, or two at two days a quarter; overtime is a day of its own.
+  const lastDays = (() => {
+    if (!game?.firstDay || !game.last) return [null, null] as (string | null)[];
+    const dpq = Math.max(1, game.daysPerQuarter);
+    const p = game.last.period;
+    const lastIdx = p <= 4 ? p * dpq - 1 : 4 * dpq + (p - 5);
+    const at = (i: number) => (i < 0 ? null : addDays(game.firstDay as string, i));
+    return [at(lastIdx), p <= 4 && dpq > 1 ? at(lastIdx - 1) : null];
+  })();
+  const gameDayA = useGameDayIds(challengeId, lastDays[0]);
+  const gameDayB = useGameDayIds(challengeId, lastDays[1]);
+  const gameDayIds = useMemo(() => new Set([...gameDayA, ...gameDayB]), [gameDayA, gameDayB]);
 
   if (!game) {
     return (
@@ -214,7 +229,7 @@ export function HoopsCard({
 
       {/* The court, replaying last night. */}
       <View>
-        <HoopsCourt game={game} play={play} />
+        <HoopsCourt game={game} play={play} gameDayIds={gameDayIds} />
         {play && (
           <View style={styles.replayTag} pointerEvents="none">
             <Text style={styles.replayTagText}>
@@ -249,6 +264,7 @@ export function HoopsCard({
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={styles.playText}>{hoopsPlayWords({ ...e, on_fire: e.onFire }, first(e.shooter))}</Text>
                 {why(e) ? <Text style={styles.small}>{why(e)}</Text> : null}
+                {gameDayIds.has(byId.get(e.shooter)?.userId ?? '') ? <PlayedForReal kind="hoops" /> : null}
               </View>
               <Text style={[styles.playPts, { color: e.made ? HOOPS_TEAM_TEXT[e.team] : withAlpha(colors.text, 0.35) }]}>{e.made ? `+${e.pts}` : 'miss'}</Text>
             </Pressable>
@@ -288,6 +304,7 @@ export function HoopsCard({
             A shot every {formatSteps(game.shotSteps)} steps, up to {HOOPS_MAX_SHOTS_A_DAY} a day.
             {toNext != null ? ` Your next at ${formatSteps(myStepsToday + toNext)}.` : ' All five earned.'}
           </Text>
+          <SportBonusRow challengeId={challengeId} kind="hoops" userId={me.userId} />
 
           {live || game.status === 'upcoming' ? (
             <>
@@ -490,4 +507,11 @@ function makeStyles(colors: Palette) {
     boxNum: { width: 44, textAlign: 'right', fontSize: 13, color: colors.text, fontVariant: ['tabular-nums'] },
     boxPts: { fontFamily: font.headingSemibold },
   });
+}
+
+// YYYY-MM-DD plus n days.
+function addDays(day: string, n: number): string {
+  const [y, m, d] = day.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return t.toISOString().slice(0, 10);
 }

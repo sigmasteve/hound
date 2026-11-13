@@ -39,6 +39,7 @@ import {
   type BaseballPlayer,
   type BaseballTeam,
 } from '../challenges/baseballApi';
+import { GameDayLine, SportBadge, SportBonusRow, useGameDayIds } from './SportBonusRow';
 
 // Whoever's on the field: the fields Participant and BoardEntry both
 // carry, so the detail screen and Home can each hand over what they have.
@@ -109,6 +110,7 @@ export function BaseballField({
   litZone,
   onZone,
   compact,
+  gameDayIds,
 }: {
   game: BaseballGame;
   people: FieldPerson[];
@@ -117,6 +119,8 @@ export function BaseballField({
   litZone?: BaseballZone | null;
   onZone?: (z: BaseballZone) => void;
   compact?: boolean;
+  // Who played real baseball or softball on the day shown: a ⚾ badge.
+  gameDayIds?: Set<string>;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -147,6 +151,7 @@ export function BaseballField({
             <View style={styles.ghostDot} />
           </View>
         )}
+        {gameDayIds?.has(p.playerId) && <SportBadge kind="baseball" size={compact ? 11 : 14} />}
       </View>
     );
   };
@@ -461,6 +466,8 @@ export function BaseballCard({
   const [replayInning, setReplayInning] = useState<number | null>(null);
   const showInning = replayInning ?? lastInning;
   const night = useMemo(() => plays.filter((p) => p.inning === showInning), [plays, showInning]);
+  // Who played real baseball or softball on the inning's day (0198).
+  const gameDayIds = useGameDayIds(game?.challengeId, innings.find((i) => i.inning === showInning)?.day ?? null);
   // Bumped to start a replay over, even of the same inning.
   const [replayGo, setReplayGo] = useState(0);
   const fieldRef = useRef<View>(null);
@@ -599,6 +606,7 @@ export function BaseballCard({
           moment={moment}
           litZone={showing ? showing.aim : game.status === 'active' ? picks.aim : null}
           onZone={game.status === 'active' && me?.joined && !showing ? (z) => pick('aim', picks.aim === z ? null : z) : undefined}
+          gameDayIds={gameDayIds}
         />
       </View>
 
@@ -639,6 +647,7 @@ export function BaseballCard({
           {waiting > 0 ? ` · ${waiting} haven’t joined` : ''}
         </Text>
       )}
+      {me && game.status === 'active' && <SportBonusRow challengeId={game.challengeId} kind="baseball" userId={userId} />}
 
       {game.status === 'active' && me?.joined && !showing && (
         <PickRow
@@ -761,6 +770,7 @@ export function BaseballCard({
                     </View>
                   );
                 })}
+                <GameDayLine challengeId={game.challengeId} day={inn.day} kind="baseball" nameOf={(id) => nameOf(id)} />
               </DayCard>
             );
           })}

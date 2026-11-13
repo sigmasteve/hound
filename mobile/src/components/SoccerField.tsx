@@ -9,6 +9,7 @@ import { font, TINT_A, TINT_N, type Palette } from '../theme/tokens';
 import type { Participant } from '../challenges/types';
 import { SOCCER_POSITION_SHORT, type SoccerPosition, type SoccerZone } from '../challenges/soccer';
 import { soccerTeamMembers, soccerTeamOf, type SoccerGame, type SoccerPlayer, type SoccerShot, type SoccerTeam } from '../challenges/soccerApi';
+import { SportBadge } from './SportBonusRow';
 
 // Whoever's on the pitch: the fields Participant and BoardEntry both
 // carry, so the detail screen and Home can each hand over what they have.
@@ -60,12 +61,15 @@ export function SoccerPitch({
   userId,
   compact,
   shot,
+  gameDayIds,
 }: {
   game: SoccerGame;
   people: PitchPerson[];
   userId: string | null | undefined;
   compact?: boolean;
   shot?: { shot: SoccerShot; n: number } | null;
+  // Who played real soccer on the day shown: a ⚽ badge on their hound.
+  gameDayIds?: Set<string>;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -229,6 +233,7 @@ export function SoccerPitch({
                     backgroundId={person?.backgroundId}
                     iconId={person?.iconId}
                   />
+                  {gameDayIds?.has(p.playerId) && <SportBadge kind="soccer" size={compact ? 12 : 15} />}
                 </View>
                 {!compact && (
                   <Text style={[styles.slotName, isMe && styles.slotNameMe]} numberOfLines={1}>

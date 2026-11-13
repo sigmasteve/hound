@@ -18,6 +18,7 @@ import {
   rallyWindowLabel,
 } from '../challenges/rally';
 import { armRallySmash, rallyTeamMembers, rallyTeamOf, type RallyGame, type RallyTeam } from '../challenges/rallyApi';
+import { SportBadge, SportBonusRow, useGameDayIds } from './SportBonusRow';
 
 // Whoever's on the court: the fields Participant and BoardEntry both
 // carry, so the detail screen and Home can each hand over what they have.
@@ -45,12 +46,15 @@ export function RallyCourt({
   userId,
   compact,
   now = Date.now(),
+  gameDayIds,
 }: {
   game: RallyGame;
   people: CourtPerson[];
   userId: string | null | undefined;
   compact?: boolean;
   now?: number;
+  // Who's played a real racquet sport today: a 🏸 badge.
+  gameDayIds?: Set<string>;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -98,6 +102,7 @@ export function RallyCourt({
                 <View style={styles.ghostDot} />
               </View>
             )}
+            {p && gameDayIds?.has(p.playerId) && <SportBadge kind="rally" size={compact ? 12 : 15} />}
             {hasShuttle && (
               <View style={[styles.shuttle, far ? { bottom: -6 } : { top: -10 }, { right: -sz * 0.5 }]}>
                 <Shuttlecock size={compact ? 14 : 20} />
@@ -313,6 +318,8 @@ export function RallyCard({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [arming, setArming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Who's played a real racquet sport today (0198), for the court's badges.
+  const gameDayIds = useGameDayIds(game?.challengeId, null);
 
   if (!game) {
     return (
@@ -366,7 +373,7 @@ export function RallyCard({
         </Text>
       </View>
 
-      <RallyCourt game={game} people={participants} userId={userId} now={now} />
+      <RallyCourt game={game} people={participants} userId={userId} now={now} gameDayIds={gameDayIds} />
       <RallyScore game={game} people={participants} userId={userId} />
 
       {game.status === 'waiting' && (
@@ -425,6 +432,8 @@ export function RallyCard({
           {game.smashArmed ? ', smash armed' : ''}. {timeLeft ? `${timeLeft} left.` : ''}
         </Text>
       )}
+
+      {game.status === 'active' && myTeam && <SportBonusRow challengeId={game.challengeId} kind="rally" userId={userId} />}
 
       {game.status === 'won' && (
         <Text style={styles.note}>

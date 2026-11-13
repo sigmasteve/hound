@@ -36,6 +36,7 @@ import {
 // a replay); re-exported here for the screens that import it from here.
 export { SoccerPitch, type PitchPerson } from './SoccerField';
 import { SoccerPitch, shotResult, type PitchPerson } from './SoccerField';
+import { GameDayLine, SportBonusRow, useGameDayIds } from './SportBonusRow';
 
 const PITCH = '#2f7a4f';
 
@@ -180,6 +181,9 @@ export function SoccerCard({
   // The day being replayed: any day, from its card in the report.
   const [replayDay, setReplayDay] = useState<number | null>(null);
   const showDay = replayDay ?? lastDayNo;
+  // Who played real soccer on the day shown (0198).
+  const shownDate = shots.find((s) => s.dayNo === showDay)?.day ?? null;
+  const gameDayIds = useGameDayIds(game?.challengeId, shownDate);
   const night = useMemo(() => {
     const day = shots.filter((s) => s.dayNo === showDay);
     const a = day.filter((s) => s.team === 'a');
@@ -350,6 +354,7 @@ export function SoccerCard({
           people={participants}
           userId={userId}
           shot={step != null && night[step] ? { shot: night[step], n: replayN } : null}
+          gameDayIds={gameDayIds}
         />
       </View>
 
@@ -444,6 +449,7 @@ export function SoccerCard({
           {waiting > 0 && game.status === 'active' ? ` · ${waiting} haven’t joined` : ''}
         </Text>
       )}
+      {me && game.status === 'active' && <SportBonusRow challengeId={game.challengeId} kind="soccer" userId={userId} />}
 
       {me && me.joined && game.status === 'active' && dayNo != null && (
         <PickRow
@@ -602,6 +608,7 @@ export function SoccerCard({
                       {l}
                     </Text>
                   ))}
+                  <GameDayLine challengeId={game.challengeId} day={d.day} kind="soccer" nameOf={(id) => nameOf(id)} />
                 </DayCard>
               );
             })}
