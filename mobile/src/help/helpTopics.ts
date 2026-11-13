@@ -213,6 +213,33 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'hoops',
+      section: 'challenges',
+      title: 'Hoops: shots, matchups and defense',
+      summary: 'A quarter a day: how your steps take shots and what makes them fall.',
+      steps: [
+        'Four quarters, one a day (or two days a quarter over eight days), each played overnight on that day’s steps. Tied at the end? An overtime day.',
+        'Your steps take the shots: one for every 2,000 steps (or whatever the game was made with), up to five a day. Everyone shoots their own.',
+        'Pick your shot: a Drive (2 points, the best odds), a Mid-range (2) or a Three (3, the hardest). It stays picked until you change it, and the chips show today’s odds.',
+        'Everyone guards someone on the other side. Out-walk whoever’s guarding you and your shots fall more often; get out-walked and they miss more.',
+        'Each day your team votes on defense: Pack the paint makes their drives harder, Guard the arc makes their threes harder. Most votes by midnight wins.',
+        'Missed shots: the side that walked more that day gets the rebound, and one more try. Walk twice your defender’s steps and you’re fouled for two free throws. Over 15,000 steps, drives are dunks. Three makes in a row and you’re on fire.',
+        'Teams of one to nine; bots fill a side to five. Each morning, tap Watch to replay last night’s quarter on the court, and see every play with why it went in or didn’t.',
+      ],
+    },
+    {
+      id: 'horse',
+      section: 'challenges',
+      title: 'H-O-R-S-E',
+      summary: 'One on one: set a shot, match it or take a letter.',
+      steps: [
+        'Two players. Whoever’s setting picks today’s shot: Layup 6,000 steps, Free throw 8,000, Three 10,000, Hook shot 12,000 or Half-court 15,000.',
+        'At midnight: if the setter walked the target, they made it, and the other has to walk it too or take the next letter. Make it and you keep setting.',
+        'If the setter misses, nobody takes a letter, and the other one sets tomorrow.',
+        'Spell H-O-R-S-E (or P-I-G, if that’s what you picked) and you lose. If nobody has by the last day (a game runs a week or two), fewer letters wins.',
+      ],
+    },
+    {
       id: 'packs',
       section: 'challenges',
       title: 'Pack Wars: take the neighborhood',

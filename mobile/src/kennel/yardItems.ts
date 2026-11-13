@@ -139,7 +139,7 @@ export function nextSizeLine(size: number): string | null {
 }
 
 // Trophies (0148's yard_trophies): won, never bought.
-export type TrophyKind = 'steps' | 'houndopoly' | 'soccer' | 'rally' | 'cricket' | 'baseball' | 'tictacgo' | 'bingo' | 'streak' | 'journey';
+export type TrophyKind = 'steps' | 'houndopoly' | 'soccer' | 'rally' | 'cricket' | 'baseball' | 'hoops' | 'horse' | 'tictacgo' | 'bingo' | 'streak' | 'journey';
 
 export const TROPHIES: Record<TrophyKind, { name: string; how: string }> = {
   steps: { name: 'Step Race cup', how: 'Win a Step Race' },
@@ -148,6 +148,8 @@ export const TROPHIES: Record<TrophyKind, { name: string; how: string }> = {
   rally: { name: 'Rally racquet', how: 'Win a Rally' },
   cricket: { name: 'Cricket stumps', how: 'Win a Cricket match' },
   baseball: { name: 'Bat and ball', how: 'Win a Baseball game' },
+  hoops: { name: 'Hoops ball', how: 'Win a game of Hoops' },
+  horse: { name: 'Little hoop', how: 'Win a game of H-O-R-S-E' },
   tictacgo: { name: 'Tic-Tac-Go board', how: 'Win a Tic-Tac-Go' },
   bingo: { name: 'Bingo card', how: 'Get the first BINGO, or a blackout' },
   streak: { name: 'Streak torch', how: 'Survive a Daily Streak' },

@@ -32,15 +32,15 @@ club. Every step counts automatically from Health Connect, so there is
 nothing to log: just move, and your hound cheers you on.
 
 PICK YOUR GAME
-Fifteen ways to compete, all on real steps, miles and workouts.
+Seventeen ways to compete, all on real steps, miles and workouts.
 • Step Race, Chase and Game of Tag: out-walk everyone, catch the runner, or
   don't get tagged.
 • Journey: walk a famous course with your own miles, from the Golden Gate
   Bridge to Route 66, with a postcard at every stop.
-• Soccer, Cricket and Baseball: a match on everyone's steps, a day at a
-  time. Teams of 1 to 9, with friends or bots.
-• Tic-Tac-Go, Bingo, Rally and Hound'opoly: board games and badminton on
-  your steps.
+• Soccer, Cricket, Baseball and Hoops: a match on everyone's steps, a day
+  at a time. Teams of 1 to 9, with friends or bots.
+• Tic-Tac-Go, Bingo, Rally, H-O-R-S-E and Hound'opoly: board games,
+  badminton and a shootout on your steps.
 • Daily Streak, Group Distance Target, 75 Day Challenge and
   Accountability: habits, kept together.
 
@@ -107,8 +107,8 @@ same raws.
 
 ### Release notes (500 per language)
 
-Hound on Google Play: fifteen games on real steps and workouts, from Step
-Races to Soccer and Baseball. Clubs for your run club, Pack Activities for
+Hound on Google Play: seventeen games on real steps and workouts, from Step
+Races to Soccer and Hoops. Clubs for your run club, Pack Activities for
 walks together, Pack Wars and Daily Doors with everyone on Hound, and a
 hound with a life of its own.
 

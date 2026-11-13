@@ -124,6 +124,10 @@ import {
   type CricketTeam,
 } from '../challenges/cricketApi';
 import { CricketCard, cricketResultLine } from '../components/CricketCard';
+import { HoopsCard } from '../components/HoopsCard';
+import { HorseCard } from '../components/HorseCard';
+import { advanceHoops, getHoops, type HoopsGame } from '../challenges/hoopsApi';
+import { advanceHorse, getHorse, type HorseGame } from '../challenges/horseApi';
 import { BaseballCard } from '../components/BaseballCard';
 import {
   addBaseballPlayer,
@@ -468,6 +472,9 @@ export function ChallengeDetailScreen({
   const [cricketBalls, setCricketBalls] = useState<CricketBall[]>([]);
   const [cricketOnStrike, setCricketOnStrike] = useState<CricketOnStrike | null>(null);
   // Baseball (0167): the game, the line score, every play, and your picks today.
+  // Hoops and H-O-R-S-E (0195, 0196): one view each.
+  const [hoopsGame, setHoopsGame] = useState<HoopsGame | null>(null);
+  const [horseGame, setHorseGame] = useState<HorseGame | null>(null);
   const [baseball, setBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[]; plays: BaseballPlay[]; picks: BaseballPicks }>({
     game: null,
     innings: [],
@@ -889,9 +896,30 @@ export function ChallengeDetailScreen({
     }
   };
 
+  // Hoops / H-O-R-S-E: play any day that's due, then read the game.
+  const loadHoops = useCallback(async () => {
+    if (challenge?.kind === 'hoops') {
+      await advanceHoops(challengeId).catch(() => {});
+      setHoopsGame(await getHoops(challengeId).catch(() => null));
+    } else if (challenge?.kind === 'horse') {
+      await advanceHorse(challengeId).catch(() => {});
+      setHorseGame(await getHorse(challengeId).catch(() => null));
+    }
+  }, [challenge?.kind, challengeId]);
+  useEffect(() => {
+    loadHoops();
+  }, [loadHoops, challenge]);
+
   // Soccer and Cricket: today's steps so far, for what they're worth.
   useEffect(() => {
-    if (challenge?.kind !== 'soccer' && challenge?.kind !== 'cricket' && challenge?.kind !== 'baseball') return;
+    if (
+      challenge?.kind !== 'soccer' &&
+      challenge?.kind !== 'cricket' &&
+      challenge?.kind !== 'baseball' &&
+      challenge?.kind !== 'hoops' &&
+      challenge?.kind !== 'horse'
+    )
+      return;
     let cancelled = false;
     health
       .getSnapshot()
@@ -1187,6 +1215,7 @@ export function ChallengeDetailScreen({
       setInvitedIds((cur) => new Set(cur).add(friend.userId));
       // The seat shows on the pitch or the ground as Invited straight away.
       if (challenge?.kind === 'soccer' || challenge?.kind === 'cricket') load();
+      if (challenge?.kind === 'hoops') loadHoops();
       if (challenge?.kind === 'baseball') loadBaseball();
     } catch (e) {
       // "Already invited" isn't really a failure from here — still mark
@@ -1613,7 +1642,13 @@ export function ChallengeDetailScreen({
   // Where everyone stands, for the trash-talk taunts with numbers in them
   // ("I'm 4,200 steps ahead of Casey"). Tic-Tac-Go has no single number.
   const trashTalkBoard: { standings: Standing[] | null; unit: TauntUnit | null } =
-    challenge.kind === 'tictacgo' || challenge.kind === 'rally' || challenge.kind === 'soccer' || challenge.kind === 'cricket' || challenge.kind === 'baseball'
+    challenge.kind === 'tictacgo' ||
+    challenge.kind === 'rally' ||
+    challenge.kind === 'soccer' ||
+    challenge.kind === 'cricket' ||
+    challenge.kind === 'baseball' ||
+    challenge.kind === 'hoops' ||
+    challenge.kind === 'horse'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
         ? isHound
@@ -1770,7 +1805,12 @@ export function ChallengeDetailScreen({
     0,
   );
   const goalMet = !!distanceGoal && groupTotal >= distanceGoal;
-  const finished = isChallengeFinished(challenge, board);
+  // Hoops' overtime and H-O-R-S-E's last day play after ends_at, so those
+  // two are over only once the server says final.
+  const gameStillOn =
+    (challenge.kind === 'hoops' && !!hoopsGame && hoopsGame.status !== 'final') ||
+    (challenge.kind === 'horse' && !!horseGame && horseGame.status !== 'final');
+  const finished = isChallengeFinished(challenge, board) && !gameStillOn;
   // Tic-Tac-Go can end well before its clock does — three in a row, or a
   // full board — so "over" for the wrap-up card below also reads the
   // game's own status.
@@ -1780,7 +1820,9 @@ export function ChallengeDetailScreen({
     (challenge.kind === 'rally' && (rallyGame?.status === 'won' || rallyGame?.status === 'draw')) ||
     (challenge.kind === 'soccer' && soccerGame?.status === 'final') ||
     (challenge.kind === 'cricket' && cricketGame?.status === 'final') ||
-    (challenge.kind === 'baseball' && baseball.game?.status === 'final');
+    (challenge.kind === 'baseball' && baseball.game?.status === 'final') ||
+    (challenge.kind === 'hoops' && hoopsGame?.status === 'final') ||
+    (challenge.kind === 'horse' && horseGame?.status === 'final');
 
   // How this challenge went for the viewer, for the wrap-up card's line
   // and the Share message — each kind reads its own outcome (see
@@ -1896,6 +1938,22 @@ export function ChallengeDetailScreen({
           result: cricketGame.result === 'tie' ? 'tie' : won ? 'won' : 'lost',
           how,
         };
+      }
+      case 'hoops': {
+        const g = hoopsGame;
+        if (!g || g.status !== 'final') return null;
+        const mine = g.players.find((p) => p.id === g.me)?.team;
+        if (!mine) return null;
+        const theirs = mine === 'home' ? 'away' : 'home';
+        return { type: 'hoops', result: g.winner == null ? 'tie' : g.winner === mine ? 'won' : 'lost', score: `${g.teams[mine].score}–${g.teams[theirs].score}` };
+      }
+      case 'horse': {
+        const g = horseGame;
+        if (!g || g.status !== 'final' || !g.me) return null;
+        const mine = g.players.find((p) => p.userId === g.me);
+        const theirs = g.players.find((p) => p.userId !== g.me);
+        if (!mine || !theirs) return null;
+        return { type: 'horse', result: g.winner == null ? 'tie' : g.winner === g.me ? 'won' : 'lost', word: g.word, mine: mine.letters, theirs: theirs.letters };
       }
       case 'baseball': {
         const g = baseball.game;
@@ -2327,6 +2385,10 @@ export function ChallengeDetailScreen({
               onShowField={showOnPage}
             />
           )}
+
+          {challenge.kind === 'hoops' && <HoopsCard challengeId={challengeId} game={hoopsGame} stepsToday={soccerSteps} onChanged={loadHoops} />}
+
+          {challenge.kind === 'horse' && <HorseCard challengeId={challengeId} game={horseGame} stepsToday={soccerSteps} onChanged={loadHoops} />}
 
           {challenge.kind === 'cricket' && (
             <CricketCard
@@ -3158,9 +3220,12 @@ export function ChallengeDetailScreen({
           )}
 
           {/* A Rally's seats are named at setup (two or four), so there's nobody to invite later. */}
-          {!wrappedUp && !isGlobal && !community && challenge.kind !== 'rally' && !(challenge.kind === 'tictacgo' && (participants.length >= 2 || invitedIds.size > 0)) && (
+          {!wrappedUp && !isGlobal && !community && challenge.kind !== 'rally' && !((challenge.kind === 'tictacgo' || challenge.kind === 'horse') && (participants.length >= 2 || invitedIds.size > 0)) && (
             <Card style={{ gap: 10 }} elevated={false}>
-              <Text style={text.h4}>{challenge.kind === 'tictacgo' ? 'Invite your opponent' : 'Invite a friend'}</Text>
+              <Text style={text.h4}>{challenge.kind === 'tictacgo' || challenge.kind === 'horse' ? 'Invite your opponent' : 'Invite a friend'}</Text>
+              {challenge.kind === 'hoops' && (
+                <Text style={styles.footNote}>They go on the smaller side, taking a bot&rsquo;s place if there is one, from the day they accept.</Text>
+              )}
               {challenge.kind === 'soccer' && (
                 <Text style={styles.footNote}>You pick their team and position when you invite them. They count from the day they accept.</Text>
               )}

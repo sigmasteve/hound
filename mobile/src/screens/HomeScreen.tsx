@@ -183,6 +183,9 @@ import { GoalSetupCard } from '../components/GoalSetupCard';
 import { GoalsTile, HoundTile, SheetLink, Tile, TileSheet, TileValue, tileGrid, tileRow } from '../home/TodayTiles';
 import { useGoalsTileStyle } from '../home/todayPrefs';
 import { useGoals } from '../goals/GoalsContext';
+import { advanceHoops, getHoops, type HoopsGame } from '../challenges/hoopsApi';
+import { advanceHorse, getHorse, type HorseGame } from '../challenges/horseApi';
+import { HoopsCourt } from '../components/HoopsCourt';
 import { PackActivitiesCard } from '../packFun/PackActivitiesCard';
 import { currentPackFuns, isLive, myPackFuns, type MyPackFun } from '../packFun/packFunApi';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
@@ -363,6 +366,35 @@ function rallyHeadline(name: string, game: RallyGame | null, userId: string | nu
   return `${nameOf(game.sideUserId)} has the shuttle in ${name}: ${formatSteps(need)}, ${left} left.`;
 }
 
+// A pinned game of Hoops: the score from your side, or the result.
+function hoopsHeadline(name: string, game: HoopsGame | null): string {
+  if (!game) return `Getting ${name} ready.`;
+  const me = game.players.find((p) => p.id === game.me);
+  const mine = me?.team ?? 'home';
+  const theirs = mine === 'home' ? 'away' : 'home';
+  const us = game.teams[mine].score;
+  const them = game.teams[theirs].score;
+  if (game.status === 'final') {
+    return game.winner == null ? `${name} ended ${us}–${them}, a tie.` : game.winner === mine ? `You won ${name} ${us}–${them}!` : `You lost ${name} ${us}–${them}.`;
+  }
+  if (game.status === 'upcoming' || !game.line.some((l) => l.played)) return `Tip-off in ${name}: every step today takes a shot.`;
+  const next = game.line.find((l) => !l.played)?.label ?? '';
+  const standing = us > them ? `you lead ${us}–${them}` : us < them ? `you trail ${us}–${them}` : `tied at ${us}`;
+  return `${name}: ${standing}${next ? `, ${next} today` : ''}.`;
+}
+
+// A pinned H-O-R-S-E: who's setting what, and the letters.
+function horseHeadline(name: string, game: HorseGame | null): string {
+  if (!game) return `Getting ${name} ready.`;
+  const me = game.players.find((p) => p.userId === game.me);
+  const them = game.players.find((p) => p.userId !== game.me);
+  if (game.status === 'final') return game.winner === game.me ? `You won ${name}!` : game.winner ? `${them?.name.split(' ')[0] ?? 'They'} won ${name}.` : `${name} ended in a tie.`;
+  const letters = `You ${me?.letters || '—'}, ${them?.name.split(' ')[0] ?? 'them'} ${them?.letters || '—'}`;
+  return game.setter === game.me
+    ? `You’re setting in ${name}: ${game.shot.name}, ${game.shot.target.toLocaleString()} steps. ${letters}.`
+    : `Match the ${game.shot.name.toLowerCase()} in ${name}: ${game.shot.target.toLocaleString()} steps. ${letters}.`;
+}
+
 function soccerHeadline(name: string, days: number, game: SoccerGame | null, userId: string | null): string {
   if (!game) return `Getting ${name} ready.`;
   const myTeam = soccerTeamOf(game, userId) ?? 'a';
@@ -437,6 +469,8 @@ function heroCopy(
   baseball: BaseballGame | null = null,
   doorsGame: DoorsGame | null = null,
   packGame: PackWarsGame | null = null,
+  hoopsGame: HoopsGame | null = null,
+  horseGame: HorseGame | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -486,6 +520,12 @@ function heroCopy(
   }
   if (challenge.kind === 'baseball') {
     return { eyebrow, headline: baseballHeadline(challenge.name, baseball, userId) };
+  }
+  if (challenge.kind === 'hoops') {
+    return { eyebrow, headline: hoopsHeadline(challenge.name, hoopsGame) };
+  }
+  if (challenge.kind === 'horse') {
+    return { eyebrow, headline: horseHeadline(challenge.name, horseGame) };
   }
   if (challenge.kind === 'doors') {
     return { eyebrow, headline: doorsHeadline(challenge.name, doorsGame) };
@@ -1046,6 +1086,8 @@ export function HomeScreen({
   // Only populated when `primary` is a Cricket match.
   // Only populated when `primary` is a Baseball game.
   const [primaryBaseball, setPrimaryBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[] }>({ game: null, innings: [] });
+  const [primaryHoops, setPrimaryHoops] = useState<HoopsGame | null>(null);
+  const [primaryHorse, setPrimaryHorse] = useState<HorseGame | null>(null);
   const [primaryCricket, setPrimaryCricket] = useState<{ game: CricketGame | null; onStrike: CricketOnStrike | null }>({
     game: null,
     onStrike: null,
@@ -1838,6 +1880,34 @@ export function HomeScreen({
       } else {
         setPrimaryCricket({ game: null, onStrike: null });
       }
+      if (primaryResult?.challenge.kind === 'hoops') {
+        const hId = primaryResult.challenge.id;
+        advanceHoops(hId)
+          .catch(() => {})
+          .then(() => getHoops(hId))
+          .then((g) => {
+            if (!cancelled) setPrimaryHoops(g);
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryHoops(null);
+          });
+      } else {
+        setPrimaryHoops(null);
+      }
+      if (primaryResult?.challenge.kind === 'horse') {
+        const hId = primaryResult.challenge.id;
+        advanceHorse(hId)
+          .catch(() => {})
+          .then(() => getHorse(hId))
+          .then((g) => {
+            if (!cancelled) setPrimaryHorse(g);
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryHorse(null);
+          });
+      } else {
+        setPrimaryHorse(null);
+      }
       if (primaryResult?.challenge.kind === 'baseball') {
         const bId = primaryResult.challenge.id;
         advanceBaseball(bId)
@@ -1866,7 +1936,7 @@ export function HomeScreen({
       const activeResults = results.filter((r) => !r.finished);
       if (user?.id) {
         const myId = user.id;
-        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries] = await Promise.all([
+        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries, hoopsEntries, horseEntries] = await Promise.all([
           Promise.all(
             activeResults
               .filter((r) => r.challenge.kind === 'tag' && r.challenge.tagMode !== 'chase')
@@ -1944,6 +2014,17 @@ export function HomeScreen({
               .filter((r) => r.challenge.kind === 'packs')
               .map(async (r): Promise<readonly [string, PackWarsGame | null]> => [r.challenge.id, await getPackWars(r.challenge.id).catch(() => null)]),
           ),
+          // Hoops and H-O-R-S-E: each game (fails toward nothing waiting).
+          Promise.all(
+            activeResults
+              .filter((r) => r.challenge.kind === 'hoops')
+              .map(async (r): Promise<readonly [string, HoopsGame | null]> => [r.challenge.id, await getHoops(r.challenge.id).catch(() => null)]),
+          ),
+          Promise.all(
+            activeResults
+              .filter((r) => r.challenge.kind === 'horse')
+              .map(async (r): Promise<readonly [string, HorseGame | null]> => [r.challenge.id, await getHorse(r.challenge.id).catch(() => null)]),
+          ),
         ]);
         const packMap = new Map(packEntries.filter((e): e is readonly [string, PackWarsGame] => e[1] !== null));
         const doorsMap = new Map(doorsEntries.filter((e): e is readonly [string, DoorsGame] => e[1] !== null));
@@ -1960,6 +2041,8 @@ export function HomeScreen({
             houndopolyPending,
             doorsShut: new Set([...doorsMap].filter(([, g]) => todaysDoor(g)?.state === 'ready').map(([id]) => id)),
             packsUnvoted: new Set([...packMap].filter(([, g]) => !g.settled && packDayNo(g) != null && g.myVote == null).map(([id]) => id)),
+            hoopsUnpicked: new Set(hoopsEntries.filter(([, g]) => g && g.status === 'live' && g.me && g.myVote == null).map(([id]) => id)),
+            horseToSet: new Set(horseEntries.filter(([, g]) => g && g.status === 'live' && g.me && g.setter === g.me).map(([id]) => id)),
             loggedProgressToday: new Map(manualEntries),
           });
           setDoorsGames(doorsMap);
@@ -2029,6 +2112,8 @@ export function HomeScreen({
         primaryBaseball.game,
         doorsGames.get(primary.challenge.id) ?? null,
         packGames.get(primary.challenge.id) ?? null,
+        primaryHoops,
+        primaryHorse,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -2563,6 +2648,10 @@ export function HomeScreen({
               <SoccerPreview primary={primary} game={primarySoccerGame} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'cricket' ? (
               <CricketPreview primary={primary} game={primaryCricket.game} onStrike={primaryCricket.onStrike} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : primary.challenge.kind === 'hoops' ? (
+              <HoopsPreview primary={primary} game={primaryHoops} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : primary.challenge.kind === 'horse' ? (
+              <HorsePreview primary={primary} game={primaryHorse} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'baseball' ? (
               <BaseballPreview primary={primary} game={primaryBaseball.game} innings={primaryBaseball.innings} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'houndopoly' ? (
@@ -3261,6 +3350,44 @@ function SoccerPreview({
         <Text style={styles.tileSub}>Loading the match…</Text>
       )}
       <Button label="Open match" variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+function HoopsPreview({ primary, game, onOpen, styles }: { primary: PrimaryChallenge; game: HoopsGame | null; onOpen: () => void; styles: HomeStyles }) {
+  const { challenge } = primary;
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+      </View>
+      {game ? (
+        <>
+          <Text style={styles.raceTitle}>
+            {game.teams.home.name} {game.teams.home.score} · {game.teams.away.name} {game.teams.away.score}
+          </Text>
+          <HoopsCourt game={game} compact />
+          <Text style={styles.tileSub}>{game.status === 'final' ? hoopsHeadline(challenge.name, game) : 'Every 2,000 or so steps today is a shot. Pick a drive, a mid-range or a three.'}</Text>
+        </>
+      ) : (
+        <Text style={styles.tileSub}>Loading the score…</Text>
+      )}
+      <Button label="Open game" variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+function HorsePreview({ primary, game, onOpen, styles }: { primary: PrimaryChallenge; game: HorseGame | null; onOpen: () => void; styles: HomeStyles }) {
+  const { challenge } = primary;
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+      </View>
+      <Text style={styles.tileSub}>{horseHeadline(challenge.name, game)}</Text>
+      <Button label="Open game" variant="ghost" small onPress={onOpen} />
     </Card>
   );
 }

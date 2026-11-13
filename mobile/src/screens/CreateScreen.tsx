@@ -79,6 +79,9 @@ import { CRICKET_MAX_SIDE, DEFAULT_CRICKET_DAYS, oversPerInnings } from '../chal
 import { setupCricket, type CricketSeat } from '../challenges/cricketApi';
 import { BASEBALL_INNINGS, BASEBALL_MAX_SIDE, DEFAULT_BASEBALL_INNINGS, POSITION_SHORT, positionsFor } from '../challenges/baseball';
 import { setupBaseball, type BaseballSeat } from '../challenges/baseballApi';
+import { DEFAULT_HOOPS_SHOT_STEPS, HOOPS_MAX_SIDE, HOOPS_SHOT_OPTIONS, HORSE_DAYS, HORSE_LENGTHS, HORSE_SHOTS, HORSE_WORDS, spelled, type HorseWord } from '../challenges/hoops';
+import { setupHoops } from '../challenges/hoopsApi';
+import { setupHorse } from '../challenges/horseApi';
 import {
   autoHint,
   CHECKLIST_LABEL_MAX,
@@ -157,6 +160,8 @@ const TAGLINES: Record<ChallengeKind, string> = {
   soccer: 'Forwards shoot, defenders block, the keeper saves. All on steps.',
   cricket: 'An over a day: your steps against the bowler’s. Then chase.',
   baseball: 'An inning a day: aim, swing and run on your steps.',
+  hoops: 'A quarter a day: your steps take the shots.',
+  horse: 'One on one: match the shot or take a letter.',
   steps: 'Most steps wins.',
   tag: 'One hound is IT each day. Stay ahead, or be IT tomorrow.',
   distance: 'The group chases one shared target.',
@@ -252,6 +257,11 @@ export function CreateScreen({
   // Soccer: the shot size, your own position, and a seat (team and
   // position) for every friend or bot in `invited`.
   const [soccerShot, setSoccerShot] = useState<number>(DEFAULT_SOCCER_SHOT_STEPS);
+  // Hoops (0195): steps a shot, and whether bots fill each side to five.
+  const [hoopsShot, setHoopsShot] = useState<number>(DEFAULT_HOOPS_SHOT_STEPS);
+  const [hoopsFillBots, setHoopsFillBots] = useState(true);
+  // H-O-R-S-E (0196): the word.
+  const [horseWord, setHorseWord] = useState<HorseWord>('HORSE');
   const [myPosition, setMyPosition] = useState<SoccerPosition>('forward');
   const [soccerSeats, setSoccerSeats] = useState<Map<string, { team: 'a' | 'b'; position: SoccerPosition }>>(new Map());
   const [distanceGoalMi, setDistanceGoalMi] = useState(rematch?.distanceGoalMi ?? 100);
@@ -517,6 +527,8 @@ export function CreateScreen({
     if (draftType === 'soccer') setLength(String(DEFAULT_SOCCER_DAYS));
     if (draftType === 'cricket') setLength(String(DEFAULT_CRICKET_DAYS));
     if (draftType === 'baseball') setLength(String(DEFAULT_BASEBALL_INNINGS));
+    if (draftType === 'hoops') setLength('4');
+    if (draftType === 'horse') setLength(String(HORSE_DAYS));
     if (draftType === 'journey') setLength(String(journeyDefaultDays(course.miles)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftType]);
@@ -617,7 +629,7 @@ export function CreateScreen({
   const toggleFriend = (userId: string) => {
     // Tic-Tac-Go and Rally singles are strictly 1v1 — picking someone
     // replaces the last pick.
-    if (draftType === 'tictacgo' || (draftType === 'rally' && !rallyDoubles)) {
+    if (draftType === 'tictacgo' || draftType === 'horse' || (draftType === 'rally' && !rallyDoubles)) {
       setInvited((cur) => (cur.includes(userId) ? [] : [userId]));
       setRallyPartnerId(null);
       return;
@@ -625,7 +637,7 @@ export function CreateScreen({
     // Soccer and Cricket: a tap adds someone to the other team (their
     // seat's own controls move them), a second tap takes them out. In
     // Cricket the order they're added is the batting order.
-    if (draftType === 'soccer' || draftType === 'cricket' || draftType === 'baseball') {
+    if (draftType === 'soccer' || draftType === 'cricket' || draftType === 'baseball' || draftType === 'hoops') {
       if (invited.includes(userId)) {
         setInvited((cur) => cur.filter((id) => id !== userId));
         setSoccerSeats((cur) => {
@@ -851,7 +863,7 @@ export function CreateScreen({
       setStep(1);
       return;
     }
-    if ((draftType === 'tictacgo' || (draftType === 'rally' && !rallyDoubles)) && invited.length !== 1) {
+    if ((draftType === 'tictacgo' || draftType === 'horse' || (draftType === 'rally' && !rallyDoubles)) && invited.length !== 1) {
       setSaveError('Pick one friend to play against.');
       return;
     }
@@ -912,6 +924,19 @@ export function CreateScreen({
         return;
       }
     }
+    if (draftType === 'hoops') {
+      const teams = invited.map((id) => soccerSeats.get(id)?.team ?? 'b');
+      const sizeA = 1 + teams.filter((t) => t === 'a').length;
+      const sizeB = teams.filter((t) => t === 'b').length;
+      if (sizeB === 0 && !hoopsFillBots) {
+        setSaveError('Pick at least one player for the other side, or fill the sides with bots.');
+        return;
+      }
+      if (sizeA > HOOPS_MAX_SIDE || sizeB > HOOPS_MAX_SIDE) {
+        setSaveError(`A side has at most ${HOOPS_MAX_SIDE} players.`);
+        return;
+      }
+    }
     if (draftType === 'hunt' && !global && invited.length === 0 && selectedBots.length === 0) {
       setSaveError('Invite a friend or add a bot: a chase needs someone to chase, or be chased by.');
       return;
@@ -962,7 +987,9 @@ export function CreateScreen({
               draftType === 'seventyfive' ||
               draftType === 'checklist' ||
               draftType === 'houndopoly' ||
-              draftType === 'packs'
+              draftType === 'packs' ||
+              draftType === 'hoops' ||
+              draftType === 'horse'
             ? []
             : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
       const roleFor = (id: string): HuntRole | undefined => (isHunt ? (id === hunterId ? 'hunter' : 'hunted') : undefined);
@@ -1048,6 +1075,31 @@ export function CreateScreen({
           await setupBaseball(created.id, seats);
         } catch (e) {
           // A game with no sides can't be played — don't leave it behind.
+          await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
+          throw e;
+        }
+      }
+      if (draftType === 'hoops') {
+        try {
+          await setupHoops(created.id, {
+            shotSteps: hoopsShot,
+            daysPerQuarter: Number(length) >= 8 ? 2 : 1,
+            fillBots: hoopsFillBots,
+            players: [
+              { userId: user?.id ?? '', team: 'home' },
+              ...invited.map((id) => ({ userId: id, team: (soccerSeats.get(id)?.team ?? 'b') === 'a' ? ('home' as const) : ('away' as const) })),
+            ],
+          });
+        } catch (e) {
+          // A game with no sides can't be played — don't leave it behind.
+          await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
+          throw e;
+        }
+      }
+      if (draftType === 'horse') {
+        try {
+          await setupHorse(created.id, horseWord);
+        } catch (e) {
           await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
           throw e;
         }
@@ -1366,6 +1418,8 @@ export function CreateScreen({
           </View>
           )}
 
+          {/* Hoops and H-O-R-S-E set their length in their own block below. */}
+          {draftType !== 'hoops' && draftType !== 'horse' && (
           <View style={{ gap: 5 }}>
             <View style={styles.huntBlockHeader}>
               <Text style={styles.fieldLabel}>Runs for</Text>
@@ -1425,6 +1479,7 @@ export function CreateScreen({
               thumbTintColor={colors.accent}
             />
           </View>
+          )}
 
           {canHavePot && (
             <View style={{ gap: 5 }}>
@@ -1729,6 +1784,66 @@ export function CreateScreen({
                 batter&rsquo;s steps against the pitcher&rsquo;s, then the fielder&rsquo;s, then the catcher&rsquo;s at home
                 plate. Batters aim left, center or right; the catcher calls a shift; the pitcher picks Power or Finesse.
                 Big step days clear the fence. Tied after the last inning? Extra innings, up to three.
+              </Text>
+            </View>
+          )}
+
+          {draftType === 'hoops' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Game length</Text>
+                <Text style={styles.huntBlockValue}>{Number(length) >= 8 ? 'Two days a quarter' : 'A quarter a day'}</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: '4', label: '4 days' },
+                  { value: '8', label: '8 days' },
+                ]}
+                value={Number(length) >= 8 ? '8' : '4'}
+                onChange={(v) => setLength(v)}
+              />
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>A shot is</Text>
+                <Text style={styles.huntBlockValue}>{hoopsShot.toLocaleString()} steps</Text>
+              </View>
+              <SegmentedControl
+                options={HOOPS_SHOT_OPTIONS.map((s) => ({ value: String(s), label: s.toLocaleString() }))}
+                value={String(hoopsShot)}
+                onChange={(v) => setHoopsShot(Number(v))}
+              />
+              <Text style={styles.huntBlockNote}>
+                Four quarters, played overnight on that day&rsquo;s steps. Everyone takes a shot per that many steps, up to
+                five a day, and picks a drive, a mid-range or a three. Out-walk whoever&rsquo;s guarding you and your shots
+                fall more often. Each team votes on its defense: pack the paint or guard the arc. Tied at the end? An
+                overtime day.
+              </Text>
+            </View>
+          )}
+
+          {draftType === 'horse' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Play to</Text>
+                <Text style={styles.huntBlockValue}>{spelled(horseWord)}</Text>
+              </View>
+              <SegmentedControl
+                options={HORSE_WORDS.map((w) => ({ value: w, label: spelled(w) }))}
+                value={horseWord}
+                onChange={setHorseWord}
+              />
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Up to</Text>
+                <Text style={styles.huntBlockValue}>{length} days</Text>
+              </View>
+              <SegmentedControl
+                options={HORSE_LENGTHS.map((n) => ({ value: String(n), label: `${n} days` }))}
+                value={Number(length) <= 7 ? '7' : '14'}
+                onChange={(v) => setLength(v)}
+              />
+              <Text style={styles.huntBlockNote}>
+                Whoever&rsquo;s setting picks a shot: {HORSE_SHOTS.map((x) => `${x.name.toLowerCase()} ${x.target.toLocaleString()}`).join(', ')} steps.
+                Walk it by midnight and the other has to match it, or take a letter. Miss and they set the next one. Spell{' '}
+                {spelled(horseWord)} and you lose. If nobody has by the last day, fewer letters wins.
               </Text>
             </View>
           )}
@@ -2076,12 +2191,32 @@ export function CreateScreen({
       {step === 3 && !crowd && (
         <View style={{ gap: 14 }}>
           <Text style={text.h2}>
-            {draftType === 'tictacgo' || draftType === 'rally'
+            {draftType === 'tictacgo' || draftType === 'rally' || draftType === 'horse'
               ? 'Pick your opponent'
-              : draftType === 'soccer' || draftType === 'cricket' || draftType === 'baseball'
+              : draftType === 'soccer' || draftType === 'cricket' || draftType === 'baseball' || draftType === 'hoops'
                 ? 'Pick the teams'
                 : 'Bring friends'}
           </Text>
+          {draftType === 'horse' && (
+            <Text style={styles.footNote}>
+              H-O-R-S-E is one on one. You set the first shot; the game starts the day after they accept.
+            </Text>
+          )}
+          {draftType === 'hoops' && (
+            <View style={{ gap: 8 }}>
+              <Text style={styles.footNote}>
+                {`Tap a friend to put them on the other side, then set their side. Friends play from the day they accept. Up to ${HOOPS_MAX_SIDE} a side.`}
+              </Text>
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.friendName}>Fill to 5 with bots</Text>
+                  <Text style={styles.footNote}>Bots walk about 7,000 steps a day and take a friend’s place when one joins.</Text>
+                </View>
+                <Switch value={hoopsFillBots} onValueChange={setHoopsFillBots} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+              </View>
+              <Text style={[text.h4, { marginTop: 4 }]}>Friends</Text>
+            </View>
+          )}
           {draftType === 'tictacgo' && (
             <Text style={styles.footNote}>
               Tic-Tac-Go is one-on-one. The game starts when they accept — a coin flip decides who&rsquo;s X and
@@ -2178,7 +2313,7 @@ export function CreateScreen({
               <Text style={[text.h4, { marginTop: 4 }]}>Friends</Text>
             </View>
           )}
-          {draftType !== 'tictacgo' && draftType !== 'rally' && draftType !== 'soccer' && draftType !== 'cricket' && draftType !== 'baseball' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (
+          {draftType !== 'tictacgo' && draftType !== 'rally' && draftType !== 'soccer' && draftType !== 'cricket' && draftType !== 'baseball' && draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (
             <Text style={styles.footNote}>
               Rewards need at least one friend to join. Bots and pending invites don&rsquo;t count.
             </Text>
@@ -2235,7 +2370,7 @@ export function CreateScreen({
                             : ' · opponent'
                           : ''}
                       </Text>
-                      {(draftType === 'soccer' || draftType === 'cricket' || draftType === 'baseball') && picked && soccerSeatControls(f.userId)}
+                      {(draftType === 'soccer' || draftType === 'cricket' || draftType === 'baseball' || draftType === 'hoops') && picked && soccerSeatControls(f.userId)}
                       {!eligible && (
                         <Text style={styles.footNote}>
                           {challengeScope === 'org' ? `Not in ${myOrg?.name ?? 'this organization'}` : `In ${myOrg?.name ?? 'your organization'}`}
@@ -2266,6 +2401,8 @@ export function CreateScreen({
             draftType !== 'soccer' &&
             draftType !== 'cricket' &&
             draftType !== 'baseball' &&
+            draftType !== 'hoops' &&
+            draftType !== 'horse' &&
             draftType !== 'seventyfive' &&
             draftType !== 'checklist' &&
             draftType !== 'houndopoly' &&
@@ -2529,6 +2666,7 @@ function makeStyles(colors: Palette) {
       alignItems: 'flex-start',
     },
     noticeText: { flex: 1, fontSize: 12.5, lineHeight: 18, color: colors.accentActive },
+    switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
     friendRow: {
       flexDirection: 'row',
       alignItems: 'center',
