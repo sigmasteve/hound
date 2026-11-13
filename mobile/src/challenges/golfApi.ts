@@ -88,6 +88,11 @@ export interface GolfGame {
   players: GolfPlayer[];
   skins: { hole: number; winner: string | null; bones: number; carried: number }[];
   winner: string | null;
+  // The Hound Open (0202): a Global game. Its players are on the board
+  // (getOpenBoard), so `players` holds only you.
+  isGlobal: boolean;
+  // Bones for finishing every hole of the Open, or null for Admin's default.
+  finishBones: number | null;
 }
 
 export interface GolfShotResult {
@@ -110,6 +115,8 @@ export interface GolfShotResult {
   banks: { yards: number; power: number };
   wind: { mph: number; deg: number };
   message: string;
+  // Birdied the sponsor's hole in the Open: their Bones (0202).
+  sponsorBonus: number | null;
 }
 
 export interface GolfShotRow {
@@ -193,6 +200,8 @@ export function toGolfGame(d: any): GolfGame {
     })),
     skins: ((d.skins ?? []) as any[]).map((s) => ({ hole: num(s.hole), winner: s.winner ?? null, bones: num(s.bones), carried: num(s.carried) })),
     winner: d.winner ?? null,
+    isGlobal: !!d.is_global,
+    finishBones: d.finish_bones == null ? null : num(d.finish_bones),
   };
 }
 
@@ -244,6 +253,7 @@ export async function takeGolfShot(
     banks: { yards: num(d.banks?.yards), power: num(d.banks?.power) },
     wind: { mph: num(d.wind?.mph), deg: d.wind?.deg == null ? 90 : num(d.wind.deg) },
     message: d.message ?? '',
+    sponsorBonus: d.sponsor_bonus == null ? null : num(d.sponsor_bonus),
   };
 }
 
@@ -290,6 +300,8 @@ export interface GolfOverview {
   byCourse: Record<string, number>;
   powerSpent7d: number;
   yardsSpent7d: number;
+  // The Hound Open (0202).
+  open: { live: number; players: number; finished: number; gamesAll: number } | null;
 }
 
 export async function getGolfOverview(): Promise<GolfOverview> {
@@ -310,6 +322,9 @@ export async function getGolfOverview(): Promise<GolfOverview> {
     byCourse: d.by_course ?? {},
     powerSpent7d: num(d.power_spent_7d),
     yardsSpent7d: num(d.yards_spent_7d),
+    open: d.open
+      ? { live: num(d.open.live), players: num(d.open.players), finished: num(d.open.finished), gamesAll: num(d.open.games_all) }
+      : null,
   };
 }
 
@@ -318,5 +333,153 @@ export async function setGolfConfig(patch: Partial<GolfConfig>): Promise<void> {
 }
 
 export function golfSummary(o: GolfOverview): string {
-  return `${o.gamesLive} live · ${o.holes7d} ${o.holes7d === 1 ? 'hole' : 'holes'} played this week`;
+  const base = `${o.gamesLive} live · ${o.holes7d} ${o.holes7d === 1 ? 'hole' : 'holes'} played this week`;
+  return o.open && o.open.live > 0 ? `${base} · Open: ${o.open.players.toLocaleString()} playing` : base;
+}
+
+// ── The Hound Open (0202): Golf as a Global Hound Challenge ──
+
+// Admin only, right after publish_global_challenge: the course, 9 or 18,
+// the daily limit and the Bones for finishing. Always stroke play, and
+// everyone takes their own shots.
+export async function setupGlobalGolf(
+  challengeId: string,
+  input: { course: GolfCourseId; holes: 9 | 18; holesPerDay: number; finishBones: number | null },
+): Promise<void> {
+  await rpc('golf_setup_global', {
+    p_challenge_id: challengeId,
+    p_course: input.course,
+    p_holes: input.holes,
+    p_holes_per_day: input.holesPerDay,
+    p_finish_bones: input.finishBones,
+  });
+}
+
+export type OpenTab = 'top' | 'friends' | 'club';
+
+export interface OpenRow {
+  pos: number | null;
+  tied: boolean;
+  userId: string;
+  name: string;
+  initials: string;
+  iconId: string | null;
+  frameId: string | null;
+  backgroundId: string | null;
+  toPar: number;
+  thru: number;
+  hole: number;
+  strokesOnHole: number;
+  total: number;
+  finished: boolean;
+  isMe: boolean;
+  isFriend: boolean;
+  best: { hole: number; diff: number } | null;
+}
+
+export interface OpenBoard {
+  field: number;
+  swung: number;
+  status: 'upcoming' | 'live' | 'final';
+  course: { id: GolfCourseId; name: string };
+  holes: number;
+  endsAt: string | null;
+  joinClosesAt: string | null;
+  joined: boolean;
+  me: {
+    pos: number | null;
+    tied: boolean;
+    toPar: number;
+    thru: number;
+    hole: number;
+    total: number;
+    moved: number;
+    behindTop10: number | null;
+    finished: boolean;
+  } | null;
+  rows: OpenRow[];
+  more: number | null;
+  // The to-par range of that gap ("34 more at −2 and −1").
+  moreRange: { best: number; worst: number } | null;
+  club: { id: string; name: string; playing: number } | null;
+  prizes: number[];
+  finishBones: number;
+  podium: { place: number; tied: boolean; userId: string; name: string; initials: string; iconId: string | null; toPar: number; total: number; bones: number }[];
+  highlights: { userId: string; name: string; hole: number; kind: 'ace' | 'eagle' | 'putt'; feet: number | null }[];
+}
+
+export async function getOpenBoard(challengeId: string, tab: OpenTab = 'top'): Promise<OpenBoard> {
+  const d = await rpc<any>('golf_open_board', { p_challenge_id: challengeId, p_tab: tab });
+  const m = d?.me;
+  return {
+    field: num(d?.field),
+    swung: num(d?.swung),
+    status: d?.status ?? 'upcoming',
+    course: { id: d?.course?.id ?? 'links', name: d?.course?.name ?? 'The course' },
+    holes: num(d?.holes) || 18,
+    endsAt: d?.ends_at ?? null,
+    joinClosesAt: d?.join_closes_at ?? null,
+    joined: !!d?.joined,
+    me: m
+      ? {
+          pos: m.pos == null ? null : num(m.pos),
+          tied: !!m.tied,
+          toPar: num(m.to_par),
+          thru: num(m.thru),
+          hole: num(m.hole) || 1,
+          total: num(m.total),
+          moved: num(m.moved),
+          behindTop10: m.behind_top10 == null ? null : num(m.behind_top10),
+          finished: !!m.finished,
+        }
+      : null,
+    rows: ((d?.rows ?? []) as any[]).map((r) => ({
+      pos: r.pos == null ? null : num(r.pos),
+      tied: !!r.tied,
+      userId: r.user_id,
+      name: r.name ?? 'Someone',
+      initials: r.initials ?? '?',
+      iconId: r.icon_id ?? null,
+      frameId: r.frame_id ?? null,
+      backgroundId: r.background_id ?? null,
+      toPar: num(r.to_par),
+      thru: num(r.thru),
+      hole: num(r.hole) || 1,
+      strokesOnHole: num(r.strokes_on_hole),
+      total: num(r.total),
+      finished: !!r.finished,
+      isMe: !!r.is_me,
+      isFriend: !!r.is_friend,
+      best: r.best ? { hole: num(r.best.hole), diff: num(r.best.diff) } : null,
+    })),
+    more: d?.more == null ? null : num(d.more),
+    moreRange: d?.more_range ? { best: num(d.more_range.best), worst: num(d.more_range.worst) } : null,
+    club: d?.club ? { id: d.club.id, name: d.club.name ?? 'Your club', playing: num(d.club.playing) } : null,
+    prizes: ((d?.prizes ?? []) as any[]).map(num),
+    finishBones: num(d?.finish_bones),
+    podium: ((d?.podium ?? []) as any[]).map((p) => ({
+      place: num(p.place),
+      tied: !!p.tied,
+      userId: p.user_id,
+      name: p.name ?? 'Someone',
+      initials: p.initials ?? '?',
+      iconId: p.icon_id ?? null,
+      toPar: num(p.to_par),
+      total: num(p.total),
+      bones: num(p.bones),
+    })),
+    highlights: ((d?.highlights ?? []) as any[]).map((h) => ({
+      userId: h.user_id,
+      name: h.name ?? 'Someone',
+      hole: num(h.hole),
+      kind: h.kind === 'ace' || h.kind === 'eagle' ? h.kind : 'putt',
+      feet: h.feet == null ? null : num(h.feet),
+    })),
+  };
+}
+
+// "T41", "1", or "–" for someone who hasn't swung yet.
+export function openPos(pos: number | null, tied: boolean): string {
+  if (pos == null) return '–';
+  return `${tied ? 'T' : ''}${pos}`;
 }

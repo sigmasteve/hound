@@ -82,7 +82,8 @@ import { setupBaseball, type BaseballSeat } from '../challenges/baseballApi';
 import { DEFAULT_HOOPS_SHOT_STEPS, HOOPS_MAX_SIDE, HOOPS_SHOT_OPTIONS, HORSE_DAYS, HORSE_LENGTHS, HORSE_SHOTS, HORSE_WORDS, spelled, type HorseWord } from '../challenges/hoops';
 import { setupHoops } from '../challenges/hoopsApi';
 import { setupHorse } from '../challenges/horseApi';
-import { setupGolf } from '../challenges/golfApi';
+import { setupGlobalGolf, setupGolf } from '../challenges/golfApi';
+import { SponsorEditor, emptySponsorDraft, sponsorDraftProblem, sponsorFromDraft, usesPlacements } from '../components/SponsorEditor';
 import { GOLF_COURSES, GOLF_FORMAT_NAME, GOLF_FORMAT_NOTE, GOLF_HOLES_PER_DAY, golfDays, type GolfCourseId, type GolfFormat } from '../challenges/golf';
 import {
   autoHint,
@@ -116,6 +117,8 @@ import {
   joinClosesAt,
   publishGlobalChallenge,
   setChallengeSponsor,
+  setChallengeSponsorV2,
+  deleteGlobalChallenge,
   startsLabel,
   type GlobalTemplate,
   type JoinWindow,
@@ -420,10 +423,14 @@ export function CreateScreen({
     number,
     number,
   ];
-  // Global challenges: an optional sponsor (0111_sponsored_challenges.sql).
-  const [sponsorName, setSponsorName] = useState('');
-  const [sponsorMessage, setSponsorMessage] = useState('');
-  const [sponsorUrl, setSponsorUrl] = useState('');
+  // Global challenges: an optional sponsor (0111_sponsored_challenges.sql)
+  // and where they show (0203).
+  const [sponsorDraft, setSponsorDraft] = useState(emptySponsorDraft);
+  const sponsorName = sponsorDraft.name;
+  // The Hound Open (0202): Bones for finishing every hole.
+  const [golfFinishText, setGolfFinishText] = useState('10');
+  const golfFinishBones = Math.max(0, Math.min(500, Math.round(Number(golfFinishText.replace(/[^0-9]/g, '')) || 0)));
+  const globalGolf = global && draftType === 'golf';
   const canHavePot = !crowd && POT_KINDS.includes(draftType);
   const canHavePrizes = global && draftType !== 'seventyfive' && draftType !== 'checklist';
   const [saving, setSaving] = useState(false);
@@ -540,6 +547,11 @@ export function CreateScreen({
     if (draftType === 'hoops') setLength('4');
     if (draftType === 'horse') setLength(String(HORSE_DAYS));
     if (draftType === 'golf') setLength(String(golfDays(golfHoles)));
+    // The Hound Open: joining closes 3 days in, and bigger prizes.
+    if (draftType === 'golf' && global) {
+      setJoinWindow('3');
+      setPrizeText(['500', '250', '100']);
+    }
     if (draftType === 'journey') setLength(String(journeyDefaultDays(course.miles)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftType]);
@@ -569,7 +581,8 @@ export function CreateScreen({
       return;
     }
     const turnOn = () => {
-      if (!GLOBAL_KINDS.includes(draftType)) setDraftType('steps');
+      // Golf is Global only (0202), not a community challenge.
+      if (!GLOBAL_KINDS.includes(draftType) || draftType === 'golf') setDraftType('steps');
       setCommunity(true);
     };
     if (st.ageGate && !st.ageOk) {
@@ -623,6 +636,10 @@ export function CreateScreen({
     if (t.distanceGoalSteps) setDistanceGoalSteps(t.distanceGoalSteps);
     setDistanceSource(t.distanceSource ?? 'workouts');
     if (t.courseId && t.kind === 'journey') setCourseId(t.courseId);
+    if (t.kind === 'golf') {
+      setGolfHoles(t.durationDays >= 7 ? 18 : 9);
+      setPrizeText(['500', '250', '100']);
+    }
     setPoolCourseId(t.kind === 'distance' ? (t.courseId ?? null) : null);
     setNameError(null);
     setStep(2);
@@ -813,12 +830,9 @@ export function CreateScreen({
       return;
     }
     if (global) {
-      if (sponsorUrl.trim() && !/^https:\/\/\S+$/.test(sponsorUrl.trim())) {
-        setSaveError('The sponsor’s link must start with https://');
-        return;
-      }
-      if (!sponsorName.trim() && (sponsorMessage.trim() || sponsorUrl.trim())) {
-        setSaveError('Add the sponsor’s name, or clear the message and link.');
+      const sponsorProblem = sponsorDraftProblem(sponsorDraft);
+      if (sponsorProblem) {
+        setSaveError(sponsorProblem);
         return;
       }
       setSaveError(null);
@@ -841,6 +855,21 @@ export function CreateScreen({
           courseId: isJourney ? course.id : isDistance && distanceGoalUnit === 'miles' ? (poolCourseId ?? undefined) : undefined,
           distanceSource: isDistance && distanceGoalUnit === 'miles' ? distanceSource : undefined,
         });
+        // The Hound Open: its course, right away. Without it nobody could
+        // join, so a failure takes it back down.
+        if (draftType === 'golf') {
+          try {
+            await setupGlobalGolf(globalId, {
+              course: golfCourse,
+              holes: golfHoles,
+              holesPerDay: golfDailyCap ? GOLF_HOLES_PER_DAY : 0,
+              finishBones: golfFinishBones,
+            });
+          } catch (e) {
+            await deleteGlobalChallenge(globalId).catch(() => {});
+            throw e;
+          }
+        }
         if (draftType === 'checklist') {
           await addChecklistItems(globalId, checklistToSave).catch((e: Error) =>
             Alert.alert('Published, but the list didn’t save', `${e.message} Take it down from the Admin screen and publish again.`),
@@ -851,12 +880,13 @@ export function CreateScreen({
             Alert.alert('Published, but the prizes didn’t save', `${e.message} Set them from the Admin screen.`),
           );
         }
-        if (sponsorName.trim()) {
-          await setChallengeSponsor(globalId, {
-            name: sponsorName.trim(),
-            message: sponsorMessage.trim() || null,
-            url: sponsorUrl.trim() || null,
-          }).catch((e: Error) =>
+        const sponsor = sponsorFromDraft(sponsorDraft, draftType === 'golf');
+        if (sponsor) {
+          // The placements need 0203; without them, the plain line still saves.
+          const save = usesPlacements(sponsor)
+            ? setChallengeSponsorV2(globalId, sponsor).catch(() => setChallengeSponsor(globalId, sponsor))
+            : setChallengeSponsor(globalId, sponsor);
+          await save.catch((e: Error) =>
             Alert.alert('Published, but the sponsor didn’t save', `${e.message} Add it from the Admin screen.`),
           );
         }
@@ -1264,7 +1294,7 @@ export function CreateScreen({
               {!!group.label && <Text style={styles.groupLabel}>{group.label}</Text>}
               <View style={{ gap: 10 }}>
                 {group.kinds
-                  .filter((k) => !crowd || GLOBAL_KINDS.includes(k))
+                  .filter((k) => !crowd || (GLOBAL_KINDS.includes(k) && (global || k !== 'golf')))
                   // Pack Wars: invite-only games for admins while it's
                   // tested (global ones come from the templates above);
                   // never a community challenge.
@@ -1885,27 +1915,36 @@ export function CreateScreen({
                   setLength(String(golfDays(n)));
                 }}
               />
-              <View style={styles.huntBlockHeader}>
-                <Text style={styles.huntBlockLabel}>Format</Text>
-                <Text style={styles.huntBlockValue}>{GOLF_FORMAT_NOTE[golfFormat]}</Text>
-              </View>
-              <SegmentedControl
-                options={(['stroke', 'skins', 'match'] as GolfFormat[]).map((f) => ({ value: f, label: GOLF_FORMAT_NAME[f] }))}
-                value={golfFormat}
-                onChange={(v) => {
-                  setGolfFormat(v as GolfFormat);
-                  if (v === 'match') setInvited((cur) => cur.slice(0, 1));
-                }}
-              />
-              <View style={styles.switchRow}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.friendName}>Take every shot myself</Text>
-                  <Text style={styles.huntBlockNote}>
-                    {golfHandsOn ? 'Pull to aim, then time your swing.' : 'Off: each walk of 10 minutes or more plays a shot tonight.'}
-                  </Text>
-                </View>
-                <Switch value={golfHandsOn} onValueChange={setGolfHandsOn} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
-              </View>
+              {globalGolf ? (
+                <Text style={styles.huntBlockNote}>
+                  Stroke play only: Skins and Match play are for friends’ games. Everyone takes their own shots; there’s no
+                  hands-off option in the Open. Steps count from the day each player joins.
+                </Text>
+              ) : (
+                <>
+                  <View style={styles.huntBlockHeader}>
+                    <Text style={styles.huntBlockLabel}>Format</Text>
+                    <Text style={styles.huntBlockValue}>{GOLF_FORMAT_NOTE[golfFormat]}</Text>
+                  </View>
+                  <SegmentedControl
+                    options={(['stroke', 'skins', 'match'] as GolfFormat[]).map((f) => ({ value: f, label: GOLF_FORMAT_NAME[f] }))}
+                    value={golfFormat}
+                    onChange={(v) => {
+                      setGolfFormat(v as GolfFormat);
+                      if (v === 'match') setInvited((cur) => cur.slice(0, 1));
+                    }}
+                  />
+                  <View style={styles.switchRow}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.friendName}>Take every shot myself</Text>
+                      <Text style={styles.huntBlockNote}>
+                        {golfHandsOn ? 'Pull to aim, then time your swing.' : 'Off: each walk of 10 minutes or more plays a shot tonight.'}
+                      </Text>
+                    </View>
+                    <Switch value={golfHandsOn} onValueChange={setGolfHandsOn} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+                  </View>
+                </>
+              )}
               <View style={styles.switchRow}>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={styles.friendName}>Up to {GOLF_HOLES_PER_DAY} holes a day</Text>
@@ -2207,6 +2246,11 @@ export function CreateScreen({
                   'Prizes',
                   prizes.some((b) => b > 0) ? prizes.map((b) => `${b}`).join(' / ') + ` ${currencyName}` : 'None',
                 ]);
+              if (draftType === 'golf') {
+                rows.push(['Course', GOLF_COURSES.find((c) => c.id === golfCourse)?.name ?? golfCourse]);
+                rows.push(['Holes', `${golfHoles}, stroke play`]);
+                rows.push(['Holes a day', golfDailyCap ? `Up to ${GOLF_HOLES_PER_DAY}` : 'No limit']);
+              }
               if (sponsorName.trim()) rows.push(['Sponsor', sponsorName.trim()]);
               return rows.map(([k, v]) => (
                 <View key={k} style={styles.huntBlockHeader}>
@@ -2235,7 +2279,9 @@ export function CreateScreen({
                 ))}
               </View>
               <Text style={styles.footNote}>
-                {draftType === 'bingo'
+                {draftType === 'golf'
+                  ? 'Lowest score wins. Ties share the Bones of the places they cover'
+                  : draftType === 'bingo'
                   ? 'BINGOs place in the order they come in, then most squares'
                   : draftType === 'streak'
                     ? 'Finishing the streak comes first, then most steps'
@@ -2244,35 +2290,25 @@ export function CreateScreen({
                       : draftType === 'distance' && distanceGoalUnit === 'miles'
                         ? 'Most miles wins'
                         : 'Most steps wins'}
-                . Ties share a place. 0 means no prize for that place; up to 1,000 each.
+                {draftType === 'golf' ? '' : '. Ties share a place'}. 0 means no prize for that place; up to 1,000 each.
               </Text>
+              {draftType === 'golf' && (
+                <TextField
+                  label={`${currencyName} for finishing every hole`}
+                  value={golfFinishText}
+                  onChangeText={setGolfFinishText}
+                  keyboardType="number-pad"
+                  maxLength={3}
+                />
+              )}
             </View>
           )}
-          <View style={styles.huntBlock}>
-            <Text style={styles.huntBlockLabel}>Sponsor (optional)</Text>
-            <TextField label="Sponsor name" value={sponsorName} onChangeText={setSponsorName} placeholder="e.g. Acme Running" maxLength={40} />
-            <TextField
-              label="Message"
-              value={sponsorMessage}
-              onChangeText={setSponsorMessage}
-              placeholder="e.g. Winner gets a $50 gift card"
-              maxLength={100}
-            />
-            <TextField
-              label="Link"
-              value={sponsorUrl}
-              onChangeText={setSponsorUrl}
-              placeholder="https://"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              maxLength={200}
-            />
-            <Text style={styles.footNote}>
-              Shows “Sponsored by” with the message on the challenge. Tapping it opens the link. A real prize is sent by
-              the sponsor, not Hound.
-            </Text>
-          </View>
+          {global && (
+            <View style={styles.huntBlock}>
+              <Text style={styles.huntBlockLabel}>Sponsor (optional)</Text>
+              <SponsorEditor value={sponsorDraft} onChange={setSponsorDraft} golf={draftType === 'golf'} />
+            </View>
+          )}
           {global ? (
             <Text style={styles.footNote}>
               Publishing shows it on everyone’s Today screen under Global Hound Challenges. You’re not added

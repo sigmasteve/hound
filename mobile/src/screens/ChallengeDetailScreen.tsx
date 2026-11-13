@@ -129,6 +129,7 @@ import { HorseCard } from '../components/HorseCard';
 import { advanceHoops, getHoops, type HoopsGame } from '../challenges/hoopsApi';
 import { advanceHorse, getHorse, type HorseGame } from '../challenges/horseApi';
 import { GolfCard } from '../components/GolfCard';
+import { OpenBoard } from '../components/OpenBoard';
 import { getGolfGame, type GolfGame } from '../challenges/golfApi';
 import { toParText, golfCourseName } from '../challenges/golf';
 import { useFocusEffect } from '@react-navigation/native';
@@ -2132,7 +2133,10 @@ export function ChallengeDetailScreen({
         </Pressable>
       </View>
 
-      {sponsor && <SponsorBanner challengeId={challengeId} sponsor={sponsor} />}
+      {/* The Hound Open shows its sponsor in its own board ("presented by", the prizes). */}
+      {sponsor && !(challenge.kind === 'golf' && isGlobal && (sponsor.presented || sponsor.prizes)) && (
+        <SponsorBanner challengeId={challengeId} sponsor={sponsor} />
+      )}
 
       <SegmentedControl
         options={[
@@ -2421,7 +2425,10 @@ export function ChallengeDetailScreen({
 
           {challenge.kind === 'hoops' && <HoopsCard challengeId={challengeId} game={hoopsGame} stepsToday={soccerSteps} onChanged={loadHoops} />}
 
-          {challenge.kind === 'golf' && <GolfCard challengeId={challengeId} game={golfGame} onPlay={() => onPlayGolf?.()} />}
+          {challenge.kind === 'golf' && isGlobal && (
+            <OpenBoard challengeId={challengeId} name={challenge.name} game={golfGame} sponsor={sponsor} onPlay={() => onPlayGolf?.()} />
+          )}
+          {challenge.kind === 'golf' && !isGlobal && <GolfCard challengeId={challengeId} game={golfGame} onPlay={() => onPlayGolf?.()} />}
 
           {challenge.kind === 'horse' && <HorseCard challengeId={challengeId} game={horseGame} stepsToday={soccerSteps} onChanged={loadHoops} />}
 

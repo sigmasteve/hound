@@ -6,6 +6,8 @@
 //                 and a hole you can play today (golf_reminders)
 //   - 'skin'      you won a skin (golf_settle_skins)
 //   - 'final'     the round's over: who won, and your score
+//   - 'top10'     a Global Golf (the Hound Open): you've moved into the top
+//                 10, once (0202's golf_strike, once the field's 20+)
 // Every push carries { type: 'golf', challengeId } so a tap opens the game.
 // A failure here never affects the game: the caller swallows it.
 //
@@ -16,8 +18,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
-type Kind = 'birdie' | 'ace' | 'reminder' | 'skin' | 'final';
-const KINDS: Kind[] = ['birdie', 'ace', 'reminder', 'skin', 'final'];
+type Kind = 'birdie' | 'ace' | 'reminder' | 'skin' | 'final' | 'top10';
+const KINDS: Kind[] = ['birdie', 'ace', 'reminder', 'skin', 'final', 'top10'];
 
 interface RequestBody {
   kind: Kind;
@@ -38,6 +40,10 @@ interface RequestBody {
   winner_id?: string | null;
   winner_name?: string | null;
   total?: number;
+  // top10
+  pos?: number;
+  tied?: boolean;
+  thru?: number;
 }
 
 function ordinal(n: number): string {
@@ -71,6 +77,11 @@ function message(body: RequestBody, me: string, game: string): { title: string; 
     }
     case 'skin':
       return { title: 'Skins', text: `You won the skin on ${hole} in "${game}": ${body.bones ?? 0} Bones.` };
+    case 'top10': {
+      const place = `${body.tied ? 'T' : ''}${body.pos ?? 10}`;
+      const thru = body.thru ? ` after ${body.thru} ${body.thru === 1 ? 'hole' : 'holes'}` : '';
+      return { title: game, text: `You're into the top 10: ${place}${thru}. Keep going.` };
+    }
     case 'final': {
       const score = body.total != null && body.to_par != null ? ` You shot ${body.total} (${toPar(body.to_par)}).` : '';
       if (!body.winner_id) return { title: 'Golf', text: `"${game}" is over: it's a tie.${score}` };

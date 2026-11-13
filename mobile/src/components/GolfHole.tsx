@@ -17,6 +17,17 @@ import type { GolfCourseId } from '../challenges/golf';
 // Everything goes through toScreen() → project(), so the art, the
 // preview and the ball's flight all line up.
 
+// A sponsor on the course (the Hound Open, 0203): boards behind the
+// green, and on their hole a sign beside the tee.
+export interface GolfSponsorArt {
+  name: string;
+  color: string;
+  boards: boolean;
+  holeSign: boolean;
+  // "HOLE 7 · PAR 4" on the sign.
+  holeLabel?: string;
+}
+
 export interface GolfFlight {
   from: GolfSpot;
   // Where it lands (for water and out of bounds, before the drop).
@@ -83,6 +94,7 @@ export function GolfHole({
   height = 420,
   compact,
   cameraAt,
+  sponsor,
 }: {
   hole: Hole;
   course: GolfCourseId;
@@ -100,6 +112,7 @@ export function GolfHole({
   // Look from here instead of from the ball (once it's in the cup, from
   // where the last shot was played).
   cameraAt?: GolfSpot | null;
+  sponsor?: GolfSponsorArt | null;
 }) {
   const [w, setW] = useState(0);
   const h = height;
@@ -210,7 +223,45 @@ export function GolfHole({
     const greenLines = zoomed
       ? [-0.6, -0.3, 0, 0.3, 0.6].map((k) => path([[hole.green.d - hole.green.r * 0.85, hole.green.lat + k * hole.green.r], [hole.green.d + hole.green.r * 0.85, hole.green.lat + k * hole.green.r]])).join(' ')
       : '';
+    // Sponsor boards: a low row standing on the ground just past the
+    // green, alternating the sponsor's colour with Hound's cream.
+    const boards: { d: string; fill: string; x: number; y: number; wpx: number; hpx: number; label: string }[] = [];
+    if (sponsor?.boards) {
+      const bd = hole.green.d + hole.green.r + 9;
+      const n = 5;
+      const bw = 11;
+      const gap = 1.5;
+      const start = hole.green.lat - (n * bw + (n - 1) * gap) / 2;
+      for (let i = 0; i < n; i++) {
+        const l0 = start + i * (bw + gap);
+        const l1 = l0 + bw;
+        const a = P(bd, l0);
+        const b = P(bd, l1);
+        const hpx = Math.max(3, 8 * ((a.s + b.s) / 2) + 2);
+        boards.push({
+          d: `M${f(a.x)} ${f(a.y)} L${f(b.x)} ${f(b.y)} L${f(b.x)} ${f(b.y - hpx)} L${f(a.x)} ${f(a.y - hpx)} Z`,
+          fill: i % 2 === 1 ? '#f7f3ea' : sponsor.color,
+          x: Math.min(a.x, b.x),
+          y: Math.min(a.y, b.y) - hpx,
+          wpx: Math.abs(b.x - a.x),
+          hpx,
+          label: i % 2 === 1 ? 'HOUND' : sponsor.name.toUpperCase(),
+        });
+      }
+    }
+    // The hole sponsor's sign: on a post beside the tee, right of it.
+    let sign: { x: number; y: number; w: number; h: number; post: number } | null = null;
+    if (sponsor?.holeSign) {
+      const q = P(2, 14);
+      if (q.y < v.h + 40 && q.y > v.y0) {
+        const sw = Math.min(150, Math.max(70, 118 * q.s));
+        const sh = sw * 0.42;
+        sign = { x: q.x - sw * 0.2, y: q.y - sh - 14 * q.s - 6, w: sw, h: sh, post: 14 * q.s + 6 };
+      }
+    }
     return {
+      boards,
+      sign,
       fairway,
       fairwayStripes,
       roughStripes,
@@ -228,7 +279,7 @@ export function GolfHole({
       cup: ellipse(hole.pin.d, hole.pin.lat, 0.55, 0.55),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [w, h, hole, cam.d, cam.lat, cam.len, cam.fd, cam.fl]);
+  }, [w, h, hole, cam.d, cam.lat, cam.len, cam.fd, cam.fl, sponsor?.boards, sponsor?.holeSign, sponsor?.color, sponsor?.name]);
 
   if (!w || !art) {
     return <View style={[styles.box, { height: h }]} onLayout={(e) => setW(Math.floor(e.nativeEvent.layout.width))} />;
@@ -303,6 +354,9 @@ export function GolfHole({
         <Path d={art.green} fill="#86cf63" stroke="#5da545" strokeWidth={1} />
         {art.greenLines ? <Path d={art.greenLines} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={1} /> : null}
         <Path d={art.cup} fill="#16241a" />
+        {art.boards.map((b, i) => (
+          <Path key={`board${i}`} d={b.d} fill={b.fill} stroke="rgba(0,0,0,0.25)" strokeWidth={0.6} />
+        ))}
         <Path d={art.trees} fill={st.tree} />
         <Path d={art.treesLight} fill={st.treeLight} />
         <Rect x={0} y={horizon} width={w} height={h - horizon} fill="url(#golfHaze)" />
@@ -323,6 +377,37 @@ export function GolfHole({
           {m.text}
         </Text>
       ))}
+      {art.boards.map((b, i) =>
+        b.wpx >= 26 && b.hpx >= 7 ? (
+          <Text
+            key={`boardText${i}`}
+            numberOfLines={1}
+            pointerEvents="none"
+            style={[styles.boardText, { left: b.x, top: b.y, width: b.wpx, height: b.hpx, lineHeight: b.hpx, fontSize: Math.max(5, Math.min(11, b.hpx * 0.6)) }]}
+            maxFontSizeMultiplier={1}
+          >
+            {b.label}
+          </Text>
+        ) : null,
+      )}
+      {art.sign && sponsor && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: art.sign.x, top: art.sign.y, width: art.sign.w, alignItems: 'center' }}>
+          <View style={[styles.sign, { width: art.sign.w, height: art.sign.h, borderColor: sponsor.color }]}>
+            {sponsor.holeLabel ? (
+              <Text style={[styles.signTop, { fontSize: art.sign.w * 0.085 }]} numberOfLines={1} maxFontSizeMultiplier={1}>
+                {sponsor.holeLabel}
+              </Text>
+            ) : null}
+            <Text style={[styles.signSmall, { fontSize: art.sign.w * 0.07 }]} numberOfLines={1} maxFontSizeMultiplier={1}>
+              presented by
+            </Text>
+            <Text style={[styles.signName, { fontSize: art.sign.w * 0.085, color: sponsor.color }]} numberOfLines={1} maxFontSizeMultiplier={1}>
+              {sponsor.name.toUpperCase()}
+            </Text>
+          </View>
+          <View style={{ width: 3, height: art.sign.post, backgroundColor: '#7a5a3a' }} />
+        </View>
+      )}
       {showHound && (
         <View pointerEvents="none" style={{ position: 'absolute', left: hq.x - hs * 0.8, top: hq.y - hs * 0.95, width: hs, height: hs }}>
           <HoundArt
@@ -349,6 +434,25 @@ export function GolfHole({
 }
 
 const styles = StyleSheet.create({
+  boardText: {
+    position: 'absolute',
+    textAlign: 'center',
+    color: '#161826',
+    fontFamily: font.headingSemibold,
+    letterSpacing: 0.3,
+    overflow: 'hidden',
+  },
+  sign: {
+    backgroundColor: '#f7f3ea',
+    borderRadius: 5,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  signTop: { color: '#161826', fontFamily: font.headingSemibold },
+  signSmall: { color: '#3a3a3a' },
+  signName: { fontFamily: font.headingSemibold, letterSpacing: 0.3 },
   box: { width: '100%', borderRadius: 16, overflow: 'hidden', backgroundColor: '#2d6a35' },
   marker: {
     position: 'absolute',

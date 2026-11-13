@@ -10,7 +10,7 @@ import type { BingoCardType, ChallengeKind, DistanceGoalUnit, DistanceSource } f
 // The kinds that work with an open-ended crowd — the same list
 // publish_global_challenge enforces server-side. Chase, Tag, and
 // Tic-Tac-Go all depend on a small, known group.
-export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly', 'doors', 'packs'];
+export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly', 'doors', 'packs', 'golf'];
 
 // How long after the start people can still join. 'start' closes
 // joining the moment it begins (only offered for a future start); 'end'
@@ -124,6 +124,14 @@ export const GLOBAL_TEMPLATES: GlobalTemplate[] = [
     kind: 'packs',
     durationDays: 14,
     blurb: 'Four packs fight over one neighborhood map. Vote your pack’s march each day; most ground at the end wins. 7 to 30 days.',
+    joinWindow: '3',
+  },
+  {
+    id: 'hound-open',
+    name: 'The Hound Open',
+    kind: 'golf',
+    durationDays: 7,
+    blurb: '18 holes of Golf for everyone, one week, stroke play. Lowest score wins.',
     joinWindow: '3',
   },
   {
@@ -312,6 +320,42 @@ export interface ChallengeSponsor {
   message: string | null;
   // Their site, opened when someone taps the sponsor line.
   url: string | null;
+  // 0203_sponsor_v2.sql: where else they show. All optional, so a
+  // sponsor read before 0203 (or set the old way) is just the line.
+  logoUrl?: string | null;
+  // #rrggbb, for the boards, the logo square and the cards' trim.
+  color?: string | null;
+  // "presented by" on the title, Today and the leaderboard.
+  presented?: boolean;
+  // Boards behind every green (Golf).
+  boards?: boolean;
+  // The sponsor's hole (1–9, both nines on 18) and its birdie Bones.
+  hole?: number | null;
+  holeBones?: number | null;
+  // Once, when you finish the round (Golf), with a link labelled so.
+  finishMessage?: string | null;
+  finishLabel?: string | null;
+  // "Prizes from …" on the prizes, with a line of the admin's own.
+  prizes?: boolean;
+  prizeNote?: string | null;
+}
+
+// Where a sponsor was seen or tapped, for its report (0203).
+export type SponsorPlacement = 'presented' | 'today' | 'board' | 'course' | 'hole' | 'finish' | 'prizes';
+
+export const SPONSOR_PLACEMENT_NAME: Record<SponsorPlacement, string> = {
+  presented: 'Presented by',
+  today: 'Today',
+  board: 'Leaderboard',
+  course: 'Course boards',
+  hole: 'Hole sponsor',
+  finish: 'Finish message',
+  prizes: 'Prizes from',
+};
+
+// The sponsor's colour, or Hound's amber.
+export function sponsorColor(s: ChallengeSponsor | null | undefined): string {
+  return s?.color && /^#[0-9a-fA-F]{6}$/.test(s.color) ? s.color : '#f08a24';
 }
 
 export function canJoin(c: GlobalChallenge, now: number = Date.now()): boolean {
@@ -403,18 +447,51 @@ export async function listGlobalChallenges(includeEnded = false): Promise<Global
   });
 }
 
+const SPONSOR_V2_COLUMNS =
+  'sponsor_logo_url, sponsor_color, sponsor_presented, sponsor_boards, sponsor_hole, sponsor_hole_bones, sponsor_finish_message, sponsor_finish_label, sponsor_prizes, sponsor_prize_note';
+
 async function readSponsors(ids: string[]): Promise<Map<string, ChallengeSponsor>> {
-  const { data, error } = await requireClient()
+  const sponsors = new Map<string, ChallengeSponsor>();
+  if (ids.length === 0) return sponsors;
+  const client = requireClient();
+  // The placements (0203) when they're there; else just the line (0111).
+  const first = await client
     .from('challenges')
-    .select('id, sponsor_name, sponsor_message, sponsor_url')
+    .select(`id, sponsor_name, sponsor_message, sponsor_url, ${SPONSOR_V2_COLUMNS}`)
     .in('id', ids)
     .not('sponsor_name', 'is', null);
-  const sponsors = new Map<string, ChallengeSponsor>();
+  let data: any[] | null = first.data as any[] | null;
+  let error = first.error;
+  if (error) {
+    ({ data, error } = await client
+      .from('challenges')
+      .select('id, sponsor_name, sponsor_message, sponsor_url')
+      .in('id', ids)
+      .not('sponsor_name', 'is', null));
+  }
   if (error) return sponsors;
-  for (const r of (data ?? []) as { id: string; sponsor_name: string; sponsor_message: string | null; sponsor_url: string | null }[]) {
-    sponsors.set(r.id, { name: r.sponsor_name, message: r.sponsor_message, url: r.sponsor_url });
+  for (const r of (data ?? []) as any[]) {
+    sponsors.set(r.id, rowToSponsor(r));
   }
   return sponsors;
+}
+
+function rowToSponsor(r: any): ChallengeSponsor {
+  return {
+    name: r.sponsor_name,
+    message: r.sponsor_message ?? null,
+    url: r.sponsor_url ?? null,
+    logoUrl: r.sponsor_logo_url ?? null,
+    color: r.sponsor_color ?? null,
+    presented: !!r.sponsor_presented,
+    boards: !!r.sponsor_boards,
+    hole: r.sponsor_hole == null ? null : Number(r.sponsor_hole),
+    holeBones: r.sponsor_hole_bones == null ? null : Number(r.sponsor_hole_bones),
+    finishMessage: r.sponsor_finish_message ?? null,
+    finishLabel: r.sponsor_finish_label ?? null,
+    prizes: !!r.sponsor_prizes,
+    prizeNote: r.sponsor_prize_note ?? null,
+  };
 }
 
 // One challenge's sponsor, for its page; null for none.
@@ -425,13 +502,36 @@ export async function getChallengeSponsor(challengeId: string): Promise<Challeng
 
 // Counts a tap on a sponsor's link (0111). Never throws: a missed count
 // mustn't stop the link opening.
-export async function recordSponsorClick(challengeId: string): Promise<void> {
+export async function recordSponsorClick(challengeId: string, placement?: SponsorPlacement): Promise<void> {
   if (!supabase) return;
   try {
-    await supabase.rpc('record_sponsor_click', { p_challenge_id: challengeId });
+    const { error } = await supabase.rpc(
+      'record_sponsor_click',
+      placement ? { p_challenge_id: challengeId, p_placement: placement } : { p_challenge_id: challengeId },
+    );
+    // Before 0203: count it the old way.
+    if (error && placement) await supabase.rpc('record_sponsor_click', { p_challenge_id: challengeId });
   } catch {
     // Offline, or before 0111 has run.
   }
+}
+
+// Counts that a sponsor was seen, once per screen open (0203). Never
+// throws, and a phone sends each challenge's placements once a minute at
+// most, so a re-render doesn't count again.
+const viewsSent = new Map<string, number>();
+export function recordSponsorViews(challengeId: string, placements: SponsorPlacement[]): void {
+  if (!supabase || placements.length === 0) return;
+  const now = Date.now();
+  const fresh = placements.filter((p) => {
+    const key = `${challengeId}:${p}`;
+    const last = viewsSent.get(key);
+    if (last && now - last < 60_000) return false;
+    viewsSent.set(key, now);
+    return true;
+  });
+  if (fresh.length === 0) return;
+  Promise.resolve(supabase.rpc('record_sponsor_views', { p_challenge_id: challengeId, p_placements: fresh })).catch(() => {});
 }
 
 export interface SponsorClicks {
@@ -469,6 +569,145 @@ export async function setChallengeSponsor(challengeId: string, sponsor: Challeng
     p_url: sponsor?.url ?? null,
   });
   if (error) throw new Error(error.message);
+}
+
+// Admin only (0203): the sponsor and where they show. A blank name takes
+// everything off.
+export async function setChallengeSponsorV2(challengeId: string, sponsor: ChallengeSponsor | null): Promise<void> {
+  const name = sponsor?.name.trim() ?? '';
+  const p = !sponsor || !name
+    ? { name: null }
+    : {
+        name,
+        message: sponsor.message?.trim() || null,
+        url: sponsor.url?.trim() || null,
+        logo_url: sponsor.logoUrl?.trim() || null,
+        color: sponsor.color?.trim() || null,
+        presented: !!sponsor.presented,
+        boards: !!sponsor.boards,
+        hole: sponsor.hole ?? null,
+        hole_bones: sponsor.hole ? sponsor.holeBones ?? 5 : null,
+        finish_message: sponsor.finishMessage?.trim() || null,
+        finish_label: sponsor.finishLabel?.trim() || null,
+        prizes: !!sponsor.prizes,
+        prize_note: sponsor.prizeNote?.trim() || null,
+      };
+  const { error } = await requireClient().rpc('set_challenge_sponsor_v2', { p_challenge_id: challengeId, p });
+  if (error) throw new Error(error.message);
+}
+
+export const SPONSOR_LOGO_BUCKET = 'sponsor-logos';
+
+// Admin only: a square logo (picked and resized like a dog photo) into the
+// public bucket (0203); returns its public URL.
+export async function uploadSponsorLogo(base64Jpeg: string): Promise<string> {
+  const client = requireClient();
+  const path = `logo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const { error } = await client.storage
+    .from(SPONSOR_LOGO_BUCKET)
+    .upload(path, base64ToBytes(base64Jpeg), { contentType: 'image/jpeg', upsert: false });
+  if (error) throw new Error(error.message);
+  return client.storage.from(SPONSOR_LOGO_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const clean = b64.replace(/[^A-Za-z0-9+/]/g, '');
+  const out = new Uint8Array(Math.floor((clean.length * 3) / 4));
+  let o = 0;
+  for (let i = 0; i < clean.length; i += 4) {
+    const n =
+      (chars.indexOf(clean[i]) << 18) |
+      (chars.indexOf(clean[i + 1]) << 12) |
+      ((i + 2 < clean.length ? chars.indexOf(clean[i + 2]) : 0) << 6) |
+      (i + 3 < clean.length ? chars.indexOf(clean[i + 3]) : 0);
+    if (o < out.length) out[o++] = (n >> 16) & 255;
+    if (i + 2 < clean.length && o < out.length) out[o++] = (n >> 8) & 255;
+    if (i + 3 < clean.length && o < out.length) out[o++] = n & 255;
+  }
+  return out;
+}
+
+export interface SponsorReport {
+  challengeId: string;
+  name: string;
+  sponsor: { name: string; logoUrl: string | null; color: string | null };
+  startsAt: string;
+  endsAt: string;
+  players: number;
+  reached: number;
+  views: number;
+  taps: number;
+  tapRate: number;
+  placements: { placement: SponsorPlacement; views: number; viewers: number; taps: number }[];
+  hole: { hole: number; played: number; birdies: number; bones: number } | null;
+}
+
+// Admin only (0203): one sponsored challenge's numbers, counts only.
+export async function getSponsorReport(challengeId: string): Promise<SponsorReport> {
+  const { data, error } = await requireClient().rpc('admin_sponsor_report', { p_challenge_id: challengeId });
+  if (error) throw new Error(error.message);
+  const d = (data ?? {}) as any;
+  return {
+    challengeId: d.challenge_id ?? challengeId,
+    name: d.name ?? '',
+    sponsor: { name: d.sponsor?.name ?? '', logoUrl: d.sponsor?.logo_url ?? null, color: d.sponsor?.color ?? null },
+    startsAt: d.starts_at,
+    endsAt: d.ends_at,
+    players: Number(d.players ?? 0),
+    reached: Number(d.reached ?? 0),
+    views: Number(d.views ?? 0),
+    taps: Number(d.taps ?? 0),
+    tapRate: Number(d.tap_rate ?? 0),
+    placements: ((d.placements ?? []) as any[]).map((p) => ({
+      placement: p.placement,
+      views: Number(p.views ?? 0),
+      viewers: Number(p.viewers ?? 0),
+      taps: Number(p.taps ?? 0),
+    })),
+    hole: d.hole
+      ? { hole: Number(d.hole.hole), played: Number(d.hole.played ?? 0), birdies: Number(d.hole.birdies ?? 0), bones: Number(d.hole.bones ?? 0) }
+      : null,
+  };
+}
+
+export interface SponsorOverview {
+  sponsoredLive: number;
+  sponsoredAll: number;
+  views7d: number;
+  taps7d: number;
+  reached7d: number;
+  challenges: { challengeId: string; name: string; kind: ChallengeKind | null; sponsorName: string; startsAt: string; endsAt: string; views: number; taps: number }[];
+}
+
+// Admin only (0203): the Sponsors fold.
+export async function getSponsorOverview(): Promise<SponsorOverview> {
+  const { data, error } = await requireClient().rpc('admin_sponsor_overview');
+  if (error) throw new Error(error.message);
+  const d = (data ?? {}) as any;
+  return {
+    sponsoredLive: Number(d.sponsored_live ?? 0),
+    sponsoredAll: Number(d.sponsored_all ?? 0),
+    views7d: Number(d.views_7d ?? 0),
+    taps7d: Number(d.taps_7d ?? 0),
+    reached7d: Number(d.reached_7d ?? 0),
+    challenges: ((d.challenges ?? []) as any[]).map((c) => ({
+      challengeId: c.challenge_id,
+      name: c.name ?? '',
+      kind: c.kind ?? null,
+      sponsorName: c.sponsor_name ?? '',
+      startsAt: c.starts_at,
+      endsAt: c.ends_at,
+      views: Number(c.views ?? 0),
+      taps: Number(c.taps ?? 0),
+    })),
+  };
+}
+
+// The Sponsors fold's one line.
+export function sponsorSummary(o: SponsorOverview): string {
+  if (o.sponsoredAll === 0) return 'No sponsors yet';
+  return `${o.sponsoredLive} sponsored now · ${o.views7d.toLocaleString()} views · ${o.taps7d.toLocaleString()} taps this week`;
 }
 
 export async function joinGlobalChallenge(challengeId: string): Promise<void> {

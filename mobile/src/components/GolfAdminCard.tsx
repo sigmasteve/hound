@@ -86,6 +86,12 @@ export function GolfAdminCard({ onChanged }: { onChanged?: (o: GolfOverview) => 
         ['Shots this week', `${data.shots7d.toLocaleString()} · ${data.holes7d} holes finished`],
         ['Birdies this week', `${data.birdies7d} · ${data.eagles7d} eagles · ${data.holeInOnesAll} ${data.holeInOnesAll === 1 ? 'hole' : 'holes'} in one ever`],
         ['Average to par a hole', data.avgToPar7d == null ? '–' : `${data.avgToPar7d > 0 ? '+' : ''}${data.avgToPar7d.toFixed(2)}`],
+        [
+          'The Hound Open',
+          data.open
+            ? `${data.open.live} on now · ${data.open.players.toLocaleString()} playing · ${data.open.finished.toLocaleString()} finished · ${data.open.gamesAll} ever`
+            : 'None yet',
+        ],
         ['Taking their own shots', data.handsOnShare == null ? '–' : `${Math.round(data.handsOnShare * 100)}% of players`],
         ['Spent this week', `${data.yardsSpent7d.toLocaleString()} yards · ${data.powerSpent7d.toLocaleString()} power`],
         [
