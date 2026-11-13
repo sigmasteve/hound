@@ -8,6 +8,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, type Palette } from '../theme/tokens';
 import { HOOPS_TEAM_COLOR, type HoopsTeam } from '../challenges/hoops';
 import type { HoopsEvent, HoopsGame, HoopsPlayer } from '../challenges/hoopsApi';
+import { SportBadge } from './SportBonusRow';
 
 // The full court in perspective (perspective.ts), seen from the sideline
 // like a TV broadcast: the long floor left to right, a hoop at each end,
@@ -146,9 +147,12 @@ export function HoopsCourt({
   compact,
   play,
   spot,
+  gameDayIds,
 }: {
   game: HoopsGame;
   compact?: boolean;
+  // Who played real basketball on the day shown (user ids): a 🏀 badge.
+  gameDayIds?: Set<string>;
   // Two players side by side here (H-O-R-S-E: where today's shot is from),
   // in the right-hand end's terms.
   spot?: Pt;
@@ -405,6 +409,7 @@ export function HoopsCourt({
                     backgroundId={p.backgroundId}
                     iconId={p.iconId}
                   />
+                  {p.userId && gameDayIds?.has(p.userId) ? <SportBadge kind="hoops" size={compact ? 11 : 13} /> : null}
                 </View>
                 {!compact && (
                   <Text style={[styles.slotName, isMe && styles.slotNameMe]} numberOfLines={1}>

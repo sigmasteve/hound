@@ -21,6 +21,7 @@ import {
   type CricketPlayer,
   type CricketTeam,
 } from '../challenges/cricketApi';
+import { GameDayLine, SportBadge, SportBonusRow, useGameDayIds } from './SportBonusRow';
 
 // Whoever's on the ground: the fields Participant and BoardEntry both
 // carry, so the detail screen and Home can each hand over what they have.
@@ -77,12 +78,15 @@ export function CricketGround({
   people,
   userId,
   compact,
+  gameDayIds,
 }: {
   game: CricketGame;
   onStrike: CricketOnStrike | null;
   people: GroundPerson[];
   userId: string | null | undefined;
   compact?: boolean;
+  // Who's played real cricket today: a 🏏 badge on their hound.
+  gameDayIds?: Set<string>;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -117,6 +121,7 @@ export function CricketGround({
             <View style={styles.ghostDot} />
           </View>
         )}
+        {gameDayIds?.has(p.playerId) && <SportBadge kind="cricket" size={compact ? 12 : 15} />}
       </View>
     );
   };
@@ -359,6 +364,8 @@ export function CricketCard({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   // The report shows the last three overs until asked for the rest.
   const [allOvers, setAllOvers] = useState(false);
+  // Who's played real cricket today (0198), for the ground's badges.
+  const gameDayIds = useGameDayIds(game?.challengeId, null);
 
   if (!game) {
     return (
@@ -420,7 +427,7 @@ export function CricketCard({
           Target {game.target}: {need} needed from {ballsLeft} ball{ballsLeft === 1 ? '' : 's'}.
         </Text>
       )}
-      <CricketGround game={game} onStrike={onStrike} people={participants} userId={userId} />
+      <CricketGround game={game} onStrike={onStrike} people={participants} userId={userId} gameDayIds={gameDayIds} />
 
       {/* Where things stand, in one line. */}
       {game.status === 'active' && onStrike && (
@@ -433,6 +440,9 @@ export function CricketCard({
               : `${nameOf(onStrike.batterId)} bats, ${nameOf(onStrike.bowlerId)} bowls`}
           {' · played tomorrow morning'}
         </Text>
+      )}
+      {game.status === 'active' && (iBat || iBowl || game.players.some((p) => p.playerId === userId)) && (
+        <SportBonusRow challengeId={game.challengeId} kind="cricket" userId={userId} />
       )}
       {game.status === 'final' && <Text style={styles.result}>{cricketResultLine(game, participants, userId)}</Text>}
 
@@ -457,6 +467,7 @@ export function CricketCard({
                     </View>
                   ))}
                 </View>
+                <GameDayLine challengeId={game.challengeId} day={o.balls[0]?.day ?? null} kind="cricket" nameOf={(id) => nameOf(id)} />
               </DayCard>
             );
           })}
