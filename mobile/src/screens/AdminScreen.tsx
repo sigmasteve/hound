@@ -64,6 +64,8 @@ import { getHoopsOverview, hoopsSummary } from '../challenges/hoopsApi';
 import { GolfAdminCard } from '../components/GolfAdminCard';
 import { getGolfOverview, golfSummary } from '../challenges/golfApi';
 import { SportBonusAdminCard } from '../components/SportBonusAdminCard';
+import { LoggedWorkoutsAdminCard } from '../components/LoggedWorkoutsAdminCard';
+import { getWorkoutLogOverview, workoutLogSummary } from '../workouts/loggedWorkouts';
 import { getSportBonusOverview, sportBonusSummary } from '../challenges/sportBonusApi';
 import { DoorsAdminCard } from '../components/DoorsAdminCard';
 import { PacksAdminCard } from '../components/PacksAdminCard';
@@ -199,6 +201,8 @@ export function AdminScreen({
   const [golfLine, setGolfLine] = useState<string | null>(null);
   // The Sports bonuses fold's line (0198).
   const [sportBonusLine, setSportBonusLine] = useState<string | null>(null);
+  // The Logged workouts fold's line (0204).
+  const [workoutLogLine, setWorkoutLogLine] = useState<string | null>(null);
   const [doorsSummary, setDoorsSummary] = useState<string | null>(null);
   const [packsSummary, setPacksSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
@@ -269,6 +273,9 @@ export function AdminScreen({
         .catch(() => {});
       getSportBonusOverview()
         .then((o) => setSportBonusLine(sportBonusSummary(o)))
+        .catch(() => {});
+      getWorkoutLogOverview()
+        .then((o) => setWorkoutLogLine(workoutLogSummary(o)))
         .catch(() => {});
       getHoopsOverview()
         .then((o) => setHoopsLine(hoopsSummary(o)))
@@ -870,6 +877,9 @@ export function AdminScreen({
                 </AdminFold>
                 <AdminFold title="Sports bonuses" summary={sportBonusLine ?? 'Strength workouts and game days in the sports games'}>
                   <SportBonusAdminCard onChanged={(o) => setSportBonusLine(sportBonusSummary(o))} />
+                </AdminFold>
+                <AdminFold title="Logged workouts" summary={workoutLogLine ?? 'Workouts logged by hand, for people without a watch'}>
+                  <LoggedWorkoutsAdminCard onChanged={(o) => setWorkoutLogLine(workoutLogSummary(o))} />
                 </AdminFold>
                 <AdminFold title="Shop" summary={shopSummary ?? 'Packs sold and Bones spent'}>
                   <ShopAdminCard />

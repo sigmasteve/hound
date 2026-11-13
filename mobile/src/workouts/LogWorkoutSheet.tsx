@@ -310,7 +310,7 @@ export function LogWorkoutSheet({
                     {valuePct >= 100 ? 'In full' : valuePct <= 0 ? 'Not at all' : 'Half value'}
                   </Text>{' '}
                   in the sports games, Golf power and Global prizes: {halfLine}.{'\n'}
-                  Never steps or miles. Friends see it as logged by hand.
+                  Never steps or miles. It shows as logged by hand.
                 </Text>
               </View>
 

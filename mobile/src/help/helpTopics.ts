@@ -378,6 +378,20 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'log-workout',
+      section: 'basics',
+      title: 'Log a workout',
+      summary: 'No watch? Log a workout by hand, up to 2 a day.',
+      steps: [
+        'Open the Goals tile on Today and tap Log a workout under today’s workouts, or find it on You under Health data.',
+        'Pick what you did, how many minutes (5 to 90) and when it ended: today or yesterday, never later than now.',
+        'Up to 2 a day. Undo is there for 15 minutes; after that it stands, and an undone one still uses up one of the day’s 2.',
+        'It counts in full for your goals, Daily Doors, streaks, Bingo and 75 Day. In the sports games, Golf power and Global prizes it’s worth half: 30 minutes of strength counts as 15.',
+        'It never adds steps or miles, and it can’t overlap another workout. If your phone or a watch records the same time later, theirs replaces it.',
+        'It shows as logged by hand. Logging opens after your first week on Hound.',
+      ],
+    },
+    {
       id: 'daily-bonus',
       section: 'rewards',
       title: 'Daily bonus and streak',
