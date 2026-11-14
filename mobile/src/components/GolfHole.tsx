@@ -234,9 +234,66 @@ export function GolfHole({
         markers.push({ x: q.x, y: q.y, s: q.s, text: String(yd) });
       });
     }
-    const greenLines = zoomed
+    const greenLines = zoomed && !putting
       ? [-0.6, -0.3, 0, 0.3, 0.6].map((k) => path([[hole.green.d - hole.green.r * 0.85, hole.green.lat + k * hole.green.r], [hole.green.d + hole.green.r * 0.85, hole.green.lat + k * hole.green.r]])).join(' ')
       : '';
+    // Putting: read the green. A grid over it, shading darker toward the
+    // low side, and arrows pointing downhill, stronger the more it breaks.
+    // The green tilts one way (green.break: + drifts right, − left), so
+    // the low side is that side.
+    const g = hole.green;
+    const brk = g.break || 0;
+    const fall = brk >= 0 ? 1 : -1;
+    const tilt = Math.min(1, Math.abs(brk) / 0.21);
+    let greenGrid = '';
+    const greenShade: { d: string; o: number }[] = [];
+    let greenArrows = '';
+    if (putting) {
+      const step = 2;
+      const half = (x: number) => Math.sqrt(Math.max(0, g.r * g.r - x * x));
+      for (let k = -g.r + step; k < g.r; k += step) {
+        const span = half(k) * 0.97;
+        if (span < 0.8) continue;
+        greenGrid += path([[g.d - span, g.lat + k], [g.d + span, g.lat + k]]) + ' ';
+        greenGrid += path([[g.d + k, g.lat - span], [g.d + k, g.lat + span]]) + ' ';
+      }
+      // Bands across the slope, from the high side to the low side.
+      const bands = 6;
+      for (let b = 0; b < bands; b++) {
+        const a = -g.r + (2 * g.r * b) / bands;
+        const z = a + (2 * g.r) / bands;
+        const pts: [number, number][] = [];
+        for (let i = 0; i <= 8; i++) {
+          const x = a + ((z - a) * i) / 8;
+          pts.push([g.d + half(x), g.lat + x]);
+        }
+        for (let i = 8; i >= 0; i--) {
+          const x = a + ((z - a) * i) / 8;
+          pts.push([g.d - half(x), g.lat + x]);
+        }
+        // Lighter on the high side, darker toward the low side.
+        const low = fall > 0 ? b / (bands - 1) : 1 - b / (bands - 1);
+        greenShade.push({ d: path(pts, true), o: (0.03 + 0.24 * low) * (0.45 + 0.55 * tilt) });
+      }
+      // Arrows downhill on a coarser grid.
+      for (let dd = -g.r + 3; dd < g.r; dd += 4.5) {
+        for (let ll = -g.r + 3; ll < g.r; ll += 4.5) {
+          if (dd * dd + ll * ll > (g.r - 1.5) * (g.r - 1.5)) continue;
+          const a = P(g.d + dd, g.lat + ll);
+          const b = P(g.d + dd, g.lat + ll + fall * 1.1);
+          const vx = b.x - a.x;
+          const vy = b.y - a.y;
+          const len = Math.hypot(vx, vy);
+          if (len < 2) continue;
+          const ux = vx / len;
+          const uy = vy / len;
+          // A small chevron, no bigger near the camera than far away.
+          const sz = Math.min(7, Math.max(3, len * 0.35));
+          const w = sz * 0.7;
+          greenArrows += `M${f(a.x - ux * sz - uy * w)} ${f(a.y - uy * sz + ux * w)} L${f(a.x)} ${f(a.y)} L${f(a.x - ux * sz + uy * w)} ${f(a.y - uy * sz - ux * w)} `;
+        }
+      }
+    }
     // Sponsor boards: a low row standing on the ground just past the
     // green, alternating the sponsor's colour with Hound's cream.
     const boards: { d: string; fill: string; x: number; y: number; wpx: number; hpx: number; label: string }[] = [];
@@ -290,11 +347,15 @@ export function GolfHole({
       fringe: ellipse(hole.green.d, hole.green.lat, hole.green.r + 3, hole.green.r + 3),
       green: ellipse(hole.green.d, hole.green.lat, hole.green.r, hole.green.r),
       greenLines,
+      greenGrid,
+      greenShade,
+      greenArrows,
+      greenTilt: tilt,
       cup: ellipse(hole.pin.d, hole.pin.lat, 0.55, 0.55),
       cupRim: ellipse(hole.pin.d, hole.pin.lat, 0.8, 0.8),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [w, h, hole, cam.d, cam.lat, cam.len, cam.fd, cam.fl, sponsor?.boards, sponsor?.holeSign, sponsor?.color, sponsor?.name]);
+  }, [w, h, hole, cam.d, cam.lat, cam.len, cam.fd, cam.fl, putting, sponsor?.boards, sponsor?.holeSign, sponsor?.color, sponsor?.name]);
 
   if (!w || !art) {
     return <View style={[styles.box, { height: h }]} onLayout={(e) => setW(Math.floor(e.nativeEvent.layout.width))} />;
@@ -368,6 +429,13 @@ export function GolfHole({
         <Path d={art.fringe} fill="#74bd57" />
         <Path d={art.green} fill="#86cf63" stroke="#5da545" strokeWidth={1} />
         {art.greenLines ? <Path d={art.greenLines} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={1} /> : null}
+        {art.greenShade.map((b, i) => (
+          <Path key={`shade${i}`} d={b.d} fill="#0b3d16" fillOpacity={b.o} />
+        ))}
+        {art.greenGrid ? <Path d={art.greenGrid} fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth={0.8} /> : null}
+        {art.greenArrows ? (
+          <Path d={art.greenArrows} fill="none" stroke="#ffffff" strokeOpacity={0.4 + 0.4 * art.greenTilt} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+        ) : null}
         {putting ? <Path d={art.cupRim} fill="none" stroke="#ffffff" strokeWidth={2} strokeOpacity={0.9} /> : null}
         <Path d={art.cup} fill="#16241a" />
         {art.boards.map((b, i) => (
