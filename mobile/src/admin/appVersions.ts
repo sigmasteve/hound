@@ -184,6 +184,10 @@ export async function getUserApp(userId: string): Promise<ReportedApp | null> {
 export interface Latest {
   // Per platform: the highest build number reported.
   build: Record<string, number>;
+  // Per platform: the highest app version reported ("1.2.0"). Anyone on a
+  // lower version is on an older build, wherever they installed from:
+  // the website APK's build numbers don't tell you Play already has 1.2.0.
+  version: Record<string, string>;
   // Per app version (an OTA update only reaches builds of the version it
   // was published for): the newest OTA update's publish time. A build's
   // own code doesn't raise this bar — a build made after the last update
@@ -198,9 +202,24 @@ function buildKey(a: RunningApp & { installSource?: InstallSource | null }): str
   return a.installSource ? `${a.platform}:${a.installSource}` : a.platform;
 }
 
+// Compares "1.2.0" with "0.11.0" part by part; missing parts are 0.
+export function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map((x) => Number(x) || 0);
+  const pb = b.split('.').map((x) => Number(x) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
 export function findLatest(apps: (RunningApp & { installSource?: InstallSource | null })[]): Latest {
-  const latest: Latest = { build: {}, updateAt: {} };
+  const latest: Latest = { build: {}, updateAt: {}, version: {} };
   for (const a of apps) {
+    if (a.platform && a.appVersion) {
+      const cur = latest.version[a.platform];
+      if (!cur || compareVersions(a.appVersion, cur) > 0) latest.version[a.platform] = a.appVersion;
+    }
     const build = Number(a.appBuild);
     if (a.appBuild && Number.isFinite(build)) {
       latest.build[a.platform] = Math.max(latest.build[a.platform] ?? 0, build);
@@ -221,6 +240,8 @@ export type AppStatus = 'latest' | 'old_build' | 'old_update' | 'unknown';
 
 export function appStatus(app: RunningApp & { installSource?: InstallSource | null }, latest: Latest): AppStatus {
   if (!app.appVersion) return 'unknown';
+  const newestVersion = app.platform ? latest.version[app.platform] : undefined;
+  if (newestVersion && compareVersions(app.appVersion, newestVersion) < 0) return 'old_build';
   const newestBuild = latest.build[buildKey(app)] ?? latest.build[app.platform];
   // Every build that reports a number is newer than every build that
   // can't (expo-application arrived with build numbers), so no number
@@ -299,7 +320,9 @@ export function groupApps(apps: ReportedApp[]): { groups: VersionGroup[]; unrepo
     }
     const status = appStatus(a, latest);
     if (status === 'latest') latestCount += 1;
-    const key = [a.platform, a.appVersion, a.appBuild ?? '', a.otaUpdateId ?? 'embedded'].join('|');
+    // Android rows split by where the app came from: Play and the website
+    // APK are compared separately, so one row's label fits everyone in it.
+    const key = [a.platform, a.appVersion, a.appBuild ?? '', a.otaUpdateId ?? 'embedded', a.platform === 'android' ? (a.installSource ?? 'unknown') : ''].join('|');
     const existing = byKey.get(key);
     const source = a.platform === 'android' ? (a.installSource ?? 'unknown') : null;
     if (existing) {
