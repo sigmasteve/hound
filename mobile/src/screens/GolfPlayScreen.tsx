@@ -397,18 +397,23 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
             }
           />
           )}
+          {/* One row: they used to overlap when the lie chip got long.
+              Wind doesn't move a putt (only the break does), so on the
+              green its chip steps aside. */}
           <View style={styles.chips} pointerEvents="none">
             <Text style={styles.chip}>{phase === 'holed' ? 'In the hole' : `${distanceText(toPin)} to the ${toPin < 30 ? 'cup' : 'pin'}`}</Text>
-            <Text style={styles.chip}>
-              Wind {Math.round(game.wind.mph)} mph {windArrow(game.wind.deg)}
-            </Text>
+            {!onGreen && phase !== 'holed' && (
+              <Text style={styles.chip}>
+                Wind {Math.round(game.wind.mph)} mph {windArrow(game.wind.deg)}
+              </Text>
+            )}
+            {phase !== 'holed' && (
+              <Text style={[styles.chip, styles.lieChip]}>
+                {GOLF_LIE_NAME[lie] ?? (lie === 'drop' ? 'Drop' : lie)}
+                {lie === 'green' && Math.abs(hole.green.break) >= 0.02 ? ` · breaks ${hole.green.break > 0 ? 'right' : 'left'}` : ''}
+              </Text>
+            )}
           </View>
-          {phase !== 'holed' && (
-            <Text style={[styles.chip, styles.lieChip]} pointerEvents="none">
-              {GOLF_LIE_NAME[lie] ?? (lie === 'drop' ? 'Drop' : lie)}
-              {lie === 'green' && Math.abs(hole.green.break) >= 0.02 ? ` · breaks ${hole.green.break > 0 ? 'right' : 'left'}` : ''}
-            </Text>
-          )}
           {phase === 'aim' && !pull && strokes === 0 && canPlay && (
             <View style={styles.hint} pointerEvents="none">
               <Text style={styles.hintText}>Put your finger on the course and pull down toward you. Pull left or right to aim.</Text>
@@ -595,7 +600,7 @@ function makeStyles(colors: Palette) {
     bar: { height: 4, borderRadius: 2, backgroundColor: withAlpha(colors.text, 0.1), marginTop: 4, overflow: 'hidden' },
     barFill: { height: 4 },
     bankNote: { fontSize: 11, color: withAlpha(colors.text, 0.6), marginTop: 3 },
-    chips: { position: 'absolute', left: 10, top: 10, flexDirection: 'row', gap: 6 },
+    chips: { position: 'absolute', left: 10, right: 10, top: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     chip: {
       backgroundColor: 'rgba(15,17,28,0.75)',
       color: '#fff',
@@ -606,7 +611,7 @@ function makeStyles(colors: Palette) {
       fontFamily: font.headingSemibold,
       overflow: 'hidden',
     },
-    lieChip: { position: 'absolute', right: 10, top: 10 },
+    lieChip: { marginLeft: 'auto' },
     hint: { position: 'absolute', left: '50%', bottom: 70, width: 240, marginLeft: -120, backgroundColor: 'rgba(15,17,28,0.82)', borderRadius: 12, padding: 10 },
     hintText: { color: '#fff', fontSize: 12.5, fontFamily: font.headingSemibold, textAlign: 'center' },
     pullInfo: {
