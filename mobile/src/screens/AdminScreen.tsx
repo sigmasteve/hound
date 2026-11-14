@@ -122,6 +122,11 @@ import { CHALLENGE_KIND_ICON, DEFAULT_CHALLENGE_ICON } from '../data/challengeIc
 // (0022_admin_gate_app_labels.sql) — this check is belt, that's braces.
 type AdminTab = 'overview' | 'people' | 'publish' | 'social' | 'bones';
 const ADMIN_TABS: AdminTab[] = ['overview', 'people', 'publish', 'social', 'bones'];
+// Overview's own tabs, so its folds aren't one long list: the app's
+// health first, then the games, fitness and the hound.
+type OverviewTab = 'status' | 'games' | 'fitness' | 'hound';
+const OVERVIEW_TABS: OverviewTab[] = ['status', 'games', 'fitness', 'hound'];
+const OVERVIEW_TAB_KEY = 'hound:admin-overview-tab';
 // Admin opens on the tab you last used.
 const TAB_KEY = 'admin:tab';
 
@@ -155,6 +160,18 @@ export function AdminScreen({
   const chooseTab = (t: AdminTab) => {
     setTab(t);
     AsyncStorage.setItem(TAB_KEY, t).catch(() => {});
+  };
+  const [overviewTab, setOverviewTab] = useState<OverviewTab>('status');
+  useEffect(() => {
+    AsyncStorage.getItem(OVERVIEW_TAB_KEY)
+      .then((t) => {
+        if (t && OVERVIEW_TABS.includes(t as OverviewTab)) setOverviewTab(t as OverviewTab);
+      })
+      .catch(() => {});
+  }, []);
+  const chooseOverviewTab = (t: OverviewTab) => {
+    setOverviewTab(t);
+    AsyncStorage.setItem(OVERVIEW_TAB_KEY, t).catch(() => {});
   };
 
   // For "Needs you" and the Social tab's badge: reported messages waiting,
@@ -731,6 +748,7 @@ export function AdminScreen({
       text: `${behindCount} ${behindCount === 1 ? 'person' : 'people'} not on the latest code`,
       action: 'Versions',
       onPress: () => {
+        chooseOverviewTab('status');
         setVersionsOpen(true);
         if (versionsY !== null) scrollRef.current?.scrollTo({ y: Math.max(0, versionsY - 12), animated: true });
       },
@@ -787,117 +805,143 @@ export function AdminScreen({
 
             {tab === 'overview' && (
               <>
-                <Card style={{ gap: 6 }} elevated={false}>
-                  <Text style={text.h4}>Needs you</Text>
-                  {needs.length === 0 ? (
-                    <Text style={styles.footNote}>All clear.</Text>
-                  ) : (
-                    needs.map((n, i) => (
-                      <Pressable
-                        key={n.text}
-                        onPress={n.onPress}
-                        style={[styles.needRow, i > 0 && styles.needDivider]}
-                        accessibilityRole="button"
-                      >
-                        <View style={[styles.needDot, { backgroundColor: n.good ? colors.green : colors.amber }]} />
-                        <Text style={styles.needText}>{n.text}</Text>
-                        <Text style={styles.needGo}>{n.action} ›</Text>
-                      </Pressable>
-                    ))
-                  )}
-                </Card>
-                <EngagementAdminCard />
-                <View onLayout={(e) => setVersionsY(e.nativeEvent.layout.y)}>
-                <AdminFold
-                  title="App versions"
-                  summary={versionsSummary}
-                  open={versionsOpen}
-                  onOpenChange={setVersionsOpen}
-                >
-                  <AppVersionsCard />
-                </AdminFold>
-                </View>
-                <AdminFold title="Pack Activities" summary={packFunLine ?? 'Live sessions, Bones and the daily cap'}>
-                  <PackFunAdminCard onChanged={(o) => setPackFunLine(packFunSummary(o))} />
-                </AdminFold>
-                <AdminFold title="Dog photos" summary={dogPhotosLine ?? 'Dogs as avatars, and reports'}>
-                  <DogPhotosAdminCard onChanged={(o) => setDogPhotosLine(dogPhotosSummary(o))} />
-                </AdminFold>
-                <AdminFold title="Maintenance" summary={maintenanceLine ?? 'Before changing the server'}>
-                  <MaintenanceAdminCard onChanged={(o) => setMaintenanceLine(maintenanceSummary(o))} />
-                </AdminFold>
-                <AdminFold title="Apple Watch" summary={watchSummaryLine ?? 'Hound on the wrist'}>
-                  <WatchAdminCard />
-                </AdminFold>
-                <AdminFold title="Holiday themes" summary={holidaySummaryLine ?? 'Decorations on Today'}>
-                  <HolidayAdminCard onChanged={(o) => setHolidaySummaryLine(holidaySummary(o))} />
-                </AdminFold>
-                <AdminFold title="Clubs" summary={clubsSummaryLine ?? 'Run clubs, cycling clubs and who’s in them'}>
-                  <ClubsAdminCard onChanged={(o) => setClubsSummaryLine(clubsSummary(o))} />
-                </AdminFold>
-                <AdminFold title="Challenges" summary={challengesSummary ?? 'What’s running, by game'}>
-                  <ChallengesAdminCard />
-                </AdminFold>
-                <AdminFold title="Goals" summary="Who sets goals and hits them">
-                  <GoalsAdminCard />
-                </AdminFold>
-                <AdminFold title="Water" summary={waterSummary ?? 'Who tracks water'}>
-                  <WaterAdminCard />
-                </AdminFold>
-                <AdminFold title="Walks" summary={walksSummary ?? 'Walks, finds and the diary'}>
-                  <WalksAdminCard />
-                </AdminFold>
-                <AdminFold title="Garden" summary={gardenSummary ?? 'Seeds planted and grown'}>
-                  <GardenAdminCard />
-                </AdminFold>
-                <AdminFold title="Growth" summary={growthSummary ?? 'Fitness, traits and birthdays'}>
-                  <GrowthAdminCard />
-                </AdminFold>
-                <AdminFold title="Bath time" summary={bathSummary ?? 'Baths played, bubbles and Bones'}>
-                  <BathAdminCard />
-                </AdminFold>
-                <AdminFold title="Bath and treats" summary={careSummary ?? 'Baths, and treats baked'}>
-                  <CareAdminCard />
-                </AdminFold>
-                <AdminFold title="Inside the house" summary={roomSummary ?? 'Rooms decorated'}>
-                  <RoomAdminCard />
-                </AdminFold>
-                <AdminFold title="Together" summary={togetherSummary ?? 'Playdates, walks together, the dog park'}>
-                  <TogetherAdminCard />
-                </AdminFold>
-                <AdminFold title="Pack Wars" summary={packsSummary ?? 'Packs, votes and the map'}>
-                  <PacksAdminCard />
-                </AdminFold>
-                <AdminFold title="Game of Tag" summary={tagSummary ?? 'Daily chases, tags and head starts'}>
-                  <TagAdminCard />
-                </AdminFold>
-                <AdminFold title="Daily Doors" summary={doorsSummary ?? 'Doors opened and done'}>
-                  <DoorsAdminCard />
-                </AdminFold>
-                <AdminFold title="Baseball" summary={baseballSummary ?? 'Games, picks and plays'}>
-                  <BaseballAdminCard />
-                </AdminFold>
-                <AdminFold title="Hoops & H-O-R-S-E" summary={hoopsLine ?? 'Games, shots and Bones'}>
-                  <HoopsAdminCard onChanged={(o) => setHoopsLine(hoopsSummary(o))} />
-                </AdminFold>
-                <AdminFold title="Golf" summary={golfLine ?? 'Rounds, shots and birdies'}>
-                  <GolfAdminCard onChanged={(o) => setGolfLine(golfSummary(o))} />
-                </AdminFold>
-                <AdminFold title="Sponsors" summary={sponsorLine ?? 'Who sponsors what, and how it did'}>
-                  <SponsorAdminCard onChanged={(o) => setSponsorLine(sponsorSummary(o))} />
-                </AdminFold>
-                <AdminFold title="Sports bonuses" summary={sportBonusLine ?? 'Strength workouts and game days in the sports games'}>
-                  <SportBonusAdminCard onChanged={(o) => setSportBonusLine(sportBonusSummary(o))} />
-                </AdminFold>
-                <AdminFold title="Logged workouts" summary={workoutLogLine ?? 'Workouts logged by hand, for people without a watch'}>
-                  <LoggedWorkoutsAdminCard onChanged={(o) => setWorkoutLogLine(workoutLogSummary(o))} />
-                </AdminFold>
-                <AdminFold title="Shop" summary={shopSummary ?? 'Packs sold and Bones spent'}>
-                  <ShopAdminCard />
-                </AdminFold>
-                <AdminFold title="Push reach" summary="Who pushes can reach">
-                  <PushReachCard />
-                </AdminFold>
+                <AdminTabs
+                  tabs={[
+                    { id: 'status', label: 'Status', badge: needs.filter((n) => !n.good).length },
+                    { id: 'games', label: 'Games' },
+                    { id: 'fitness', label: 'Fitness' },
+                    { id: 'hound', label: 'Hound' },
+                  ]}
+                  value={overviewTab}
+                  onChange={chooseOverviewTab}
+                />
+                {overviewTab === 'status' && (
+                  <>
+                  <Card style={{ gap: 6 }} elevated={false}>
+                    <Text style={text.h4}>Needs you</Text>
+                    {needs.length === 0 ? (
+                      <Text style={styles.footNote}>All clear.</Text>
+                    ) : (
+                      needs.map((n, i) => (
+                        <Pressable
+                          key={n.text}
+                          onPress={n.onPress}
+                          style={[styles.needRow, i > 0 && styles.needDivider]}
+                          accessibilityRole="button"
+                        >
+                          <View style={[styles.needDot, { backgroundColor: n.good ? colors.green : colors.amber }]} />
+                          <Text style={styles.needText}>{n.text}</Text>
+                          <Text style={styles.needGo}>{n.action} ›</Text>
+                        </Pressable>
+                      ))
+                    )}
+                  </Card>
+                  <EngagementAdminCard />
+                  <View onLayout={(e) => setVersionsY(e.nativeEvent.layout.y)}>
+                  <AdminFold
+                    title="App versions"
+                    summary={versionsSummary}
+                    open={versionsOpen}
+                    onOpenChange={setVersionsOpen}
+                  >
+                    <AppVersionsCard />
+                  </AdminFold>
+                  </View>
+                  <AdminFold title="Maintenance" summary={maintenanceLine ?? 'Before changing the server'}>
+                    <MaintenanceAdminCard onChanged={(o) => setMaintenanceLine(maintenanceSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Push reach" summary="Who pushes can reach">
+                    <PushReachCard />
+                  </AdminFold>
+                  <AdminFold title="Apple Watch" summary={watchSummaryLine ?? 'Hound on the wrist'}>
+                    <WatchAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Holiday themes" summary={holidaySummaryLine ?? 'Decorations on Today'}>
+                    <HolidayAdminCard onChanged={(o) => setHolidaySummaryLine(holidaySummary(o))} />
+                  </AdminFold>
+                  </>
+                )}
+                {overviewTab === 'games' && (
+                  <>
+                  <AdminFold title="Challenges" summary={challengesSummary ?? 'What’s running, by game'}>
+                    <ChallengesAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Pack Wars" summary={packsSummary ?? 'Packs, votes and the map'}>
+                    <PacksAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Game of Tag" summary={tagSummary ?? 'Daily chases, tags and head starts'}>
+                    <TagAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Daily Doors" summary={doorsSummary ?? 'Doors opened and done'}>
+                    <DoorsAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Baseball" summary={baseballSummary ?? 'Games, picks and plays'}>
+                    <BaseballAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Hoops & H-O-R-S-E" summary={hoopsLine ?? 'Games, shots and Bones'}>
+                    <HoopsAdminCard onChanged={(o) => setHoopsLine(hoopsSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Golf" summary={golfLine ?? 'Rounds, shots and birdies'}>
+                    <GolfAdminCard onChanged={(o) => setGolfLine(golfSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Sports bonuses" summary={sportBonusLine ?? 'Strength workouts and game days in the sports games'}>
+                    <SportBonusAdminCard onChanged={(o) => setSportBonusLine(sportBonusSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Sponsors" summary={sponsorLine ?? 'Who sponsors what, and how it did'}>
+                    <SponsorAdminCard onChanged={(o) => setSponsorLine(sponsorSummary(o))} />
+                  </AdminFold>
+                  </>
+                )}
+                {overviewTab === 'fitness' && (
+                  <>
+                  <AdminFold title="Goals" summary="Who sets goals and hits them">
+                    <GoalsAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Water" summary={waterSummary ?? 'Who tracks water'}>
+                    <WaterAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Logged workouts" summary={workoutLogLine ?? 'Workouts logged by hand, for people without a watch'}>
+                    <LoggedWorkoutsAdminCard onChanged={(o) => setWorkoutLogLine(workoutLogSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Pack Activities" summary={packFunLine ?? 'Live sessions, Bones and the daily cap'}>
+                    <PackFunAdminCard onChanged={(o) => setPackFunLine(packFunSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Clubs" summary={clubsSummaryLine ?? 'Run clubs, cycling clubs and who’s in them'}>
+                    <ClubsAdminCard onChanged={(o) => setClubsSummaryLine(clubsSummary(o))} />
+                  </AdminFold>
+                  </>
+                )}
+                {overviewTab === 'hound' && (
+                  <>
+                  <AdminFold title="Walks" summary={walksSummary ?? 'Walks, finds and the diary'}>
+                    <WalksAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Garden" summary={gardenSummary ?? 'Seeds planted and grown'}>
+                    <GardenAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Growth" summary={growthSummary ?? 'Fitness, traits and birthdays'}>
+                    <GrowthAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Bath time" summary={bathSummary ?? 'Baths played, bubbles and Bones'}>
+                    <BathAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Bath and treats" summary={careSummary ?? 'Baths, and treats baked'}>
+                    <CareAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Inside the house" summary={roomSummary ?? 'Rooms decorated'}>
+                    <RoomAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Together" summary={togetherSummary ?? 'Playdates, walks together, the dog park'}>
+                    <TogetherAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Dog photos" summary={dogPhotosLine ?? 'Dogs as avatars, and reports'}>
+                    <DogPhotosAdminCard onChanged={(o) => setDogPhotosLine(dogPhotosSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Shop" summary={shopSummary ?? 'Packs sold and Bones spent'}>
+                    <ShopAdminCard />
+                  </AdminFold>
+                  </>
+                )}
               </>
             )}
 
