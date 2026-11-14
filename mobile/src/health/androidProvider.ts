@@ -31,11 +31,15 @@ import { appName, SAMSUNG_HEALTH_PACKAGES, type DataSourcesReport, type DataSour
 // installed on the test device/emulator (Android 14+ ships it in-box;
 // earlier versions install it from Play).
 
+// Only what Hound uses (Google Play's health declaration asks for a
+// reason for each): steps, distance and workouts here, water on its own
+// ask (requestWaterAccess). Heart rate, weight and sleep were taken out of
+// the manifest for 1.2.0's Play release; the reads below that touch them
+// come back empty without the permission. Put a type back (here and in
+// app.json's android.permissions) with the feature that uses it.
 const PERMISSIONS = [
   { accessType: 'read' as const, recordType: 'Steps' as const },
   { accessType: 'read' as const, recordType: 'Distance' as const },
-  { accessType: 'read' as const, recordType: 'HeartRate' as const },
-  { accessType: 'read' as const, recordType: 'Weight' as const },
   { accessType: 'read' as const, recordType: 'ExerciseSession' as const },
 ];
 
@@ -339,8 +343,9 @@ export const androidHealthProvider: HealthProvider = {
     }
   },
 
-  // Sleep (#494): READ_SLEEP, also from the 1.1.0 build. Nothing asks
-  // yet; the Hound's bedtime will.
+  // Sleep (#494): nothing asks yet. READ_SLEEP left the manifest for
+  // 1.2.0's Play release, so this returns false until it's back in
+  // app.json with the feature that uses it.
   async requestSleepAccess(): Promise<boolean> {
     if (!HAS_HEALTH_1_1) return false;
     try {
