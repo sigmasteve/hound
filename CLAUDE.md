@@ -44,7 +44,12 @@ now, and how. Build it in the same PR as the feature:
   like `admin_goals_overview` (0098) and `admin_water_overview` (0154).
 - A fold on Admin → Overview with a one-line summary that shows without
   opening it (e.g. "12 with a water goal"), and a card inside with the
-  detail, like `GoalsAdminCard` and `WaterAdminCard`.
+  detail, like `GoalsAdminCard` and `WaterAdminCard`. Overview has
+  subtabs; put the fold in the one it belongs to: Status (Needs you,
+  engagement, versions, maintenance, pushes, the Watch, holiday themes),
+  Games (challenges, the games, sports bonuses, sponsors), Fitness (goals,
+  water, logged workouts, Pack Activities, clubs) or Hound (the Kennel's
+  walks, garden, growth, care, the house, together, dog photos, the shop).
 
 ## Maintenance
 
