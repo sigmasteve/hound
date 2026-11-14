@@ -68,14 +68,26 @@ export function centerAt(hole: Hole, d: number): number {
   return c[c.length - 1][1];
 }
 
+// Within this many yards of the pin the camera frames the putt, and the
+// flag comes out of the cup.
+const GREEN_VIEW_YD = 30;
+
 export function makeCamera(hole: Hole, ball: GolfSpot): Camera {
   const pin = hole.pin;
   const dist = Math.max(1, Math.hypot(pin.d - ball.d, pin.lat - ball.lat));
-  const len = Math.max(40, Math.min(Math.max(450, hole.length + 40), dist * 1.25 + 22));
   const fd = (pin.d - ball.d) / dist;
   const fl = (pin.lat - ball.lat) / dist;
-  const back = len * 0.05;
-  return { d: ball.d - fd * back, lat: ball.lat - fl * back, fd, fl, len };
+  const far = Math.max(40, Math.min(Math.max(450, hole.length + 40), dist * 1.25 + 22));
+  // Putting distance: frame the putt instead, the ball near the bottom and
+  // the cup halfway up the screen, clear of the hound and the ball, so you
+  // can see what you're putting at.
+  if (dist <= GREEN_VIEW_YD) {
+    const len = Math.min(far, Math.max(10, dist * 2.8));
+    const back = len * 0.14;
+    return { d: ball.d - fd * back, lat: ball.lat - fl * back, fd, fl, len };
+  }
+  const back = far * 0.05;
+  return { d: ball.d - fd * back, lat: ball.lat - fl * back, fd, fl, len: far };
 }
 
 function view(w: number, h: number): Perspective {
@@ -145,6 +157,8 @@ export function GolfHole({
   const eye = cameraAt ?? (flight && t != null ? flight.from : ball);
   const cam = useMemo(() => makeCamera(hole, eye), [hole, eye.d, eye.lat]);
   const zoomed = cam.len < 300;
+  // Close enough to putt: the flag's out, so nothing stands in the cup.
+  const putting = Math.hypot(hole.pin.d - eye.d, hole.pin.lat - eye.lat) <= GREEN_VIEW_YD;
 
   const P = (d: number, lat: number) => {
     const rd = d - cam.d;
@@ -277,6 +291,7 @@ export function GolfHole({
       green: ellipse(hole.green.d, hole.green.lat, hole.green.r, hole.green.r),
       greenLines,
       cup: ellipse(hole.pin.d, hole.pin.lat, 0.55, 0.55),
+      cupRim: ellipse(hole.pin.d, hole.pin.lat, 0.8, 0.8),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [w, h, hole, cam.d, cam.lat, cam.len, cam.fd, cam.fl, sponsor?.boards, sponsor?.holeSign, sponsor?.color, sponsor?.name]);
@@ -353,6 +368,7 @@ export function GolfHole({
         <Path d={art.fringe} fill="#74bd57" />
         <Path d={art.green} fill="#86cf63" stroke="#5da545" strokeWidth={1} />
         {art.greenLines ? <Path d={art.greenLines} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={1} /> : null}
+        {putting ? <Path d={art.cupRim} fill="none" stroke="#ffffff" strokeWidth={2} strokeOpacity={0.9} /> : null}
         <Path d={art.cup} fill="#16241a" />
         {art.boards.map((b, i) => (
           <Path key={`board${i}`} d={b.d} fill={b.fill} stroke="rgba(0,0,0,0.25)" strokeWidth={0.6} />
@@ -364,8 +380,12 @@ export function GolfHole({
         {preview ? <Path d={preview} fill="none" stroke="#ffffff" strokeWidth={2} strokeDasharray="3 5" strokeLinecap="round" /> : null}
         {landing ? <Path d={landing} fill="rgba(255,255,255,0.18)" stroke="#ffffff" strokeWidth={1.5} /> : null}
         {trailPath ? <Path d={trailPath} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth={1.5} strokeLinecap="round" /> : null}
-        <Line x1={pinQ.x} y1={pinQ.y} x2={pinQ.x} y2={pinQ.y - poleH} stroke="#f4f4f4" strokeWidth={1.6} />
-        <Path d={`M${f(pinQ.x)} ${f(pinQ.y - poleH)} l${f(9 * pinQ.s + 4)} ${f(3 * pinQ.s + 1.5)} l${f(-(9 * pinQ.s + 4))} ${f(3 * pinQ.s + 1.5)} Z`} fill="#e5484d" />
+        {!putting ? (
+          <>
+            <Line x1={pinQ.x} y1={pinQ.y} x2={pinQ.x} y2={pinQ.y - poleH} stroke="#f4f4f4" strokeWidth={1.6} />
+            <Path d={`M${f(pinQ.x)} ${f(pinQ.y - poleH)} l${f(9 * pinQ.s + 4)} ${f(3 * pinQ.s + 1.5)} l${f(-(9 * pinQ.s + 4))} ${f(3 * pinQ.s + 1.5)} Z`} fill="#e5484d" />
+          </>
+        ) : null}
         <Ellipse cx={bq.x} cy={bq.y} rx={ballR * 0.9} ry={ballR * 0.35} fill="rgba(0,0,0,0.3)" />
       </Svg>
       {art.markers.map((m) => (
