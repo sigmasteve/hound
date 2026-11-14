@@ -14,6 +14,7 @@ import {
   TargetIcon,
   UsersThreeIcon,
   TrophyIcon,
+  MapTrifoldIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Card } from '../components/Card';
@@ -35,7 +36,6 @@ import { useGoals } from '../goals/GoalsContext';
 import { HOUND_LEVELS } from '../goals/hound';
 import { BonesSheet } from '../components/BonesSheet';
 import type { HealthAuthStatus } from '../health/types';
-import { JourneyCard } from '../journeys/JourneyCard';
 import { getMyJourney, type MyJourney } from '../journeys/journeyApi';
 import { isLive, myPackFuns } from '../packFun/packFunApi';
 import { LogWorkoutSheet } from '../workouts/LogWorkoutSheet';
@@ -44,8 +44,9 @@ import { LogWorkoutSheet } from '../workouts/LogWorkoutSheet';
 // Bones), then the places that are about you, in three groups: your
 // progress, where Bones go, and the app itself. Everything here used to
 // be spread across Settings, the Data and Connect tabs, and icons in the
-// top bar. Tapping Bones explains how to earn and spend them. Your
-// Journey sits right under the numbers.
+// top bar. Tapping Bones explains how to earn and spend them. Journeys
+// are a row in Your progress, not a card (Steve, Nov 2026: the big card
+// took over the tab); Today has its own tile while you're on one.
 export function YouScreen({
   onOpenGoals,
   onOpenStats,
@@ -148,6 +149,11 @@ export function YouScreen({
     tone?: 'plain' | 'good' | 'warn';
     onPress: () => void;
   };
+  // On a Journey: where you are on it; else what it is.
+  const journeyDetail =
+    journey && !journey.finishedAt
+      ? `${journey.courseName} · ${Math.min(100, Math.floor((journey.miles / Math.max(0.1, journey.courseMiles)) * 100))}%`
+      : 'Walk a famous course';
   const groups: { title: string; rows: Row[] }[] = [
     {
       title: 'Your progress',
@@ -164,6 +170,12 @@ export function YouScreen({
           Icon: TrophyIcon,
           detail: achievementCounts ? `${achievementCounts.earned} of ${achievementCounts.total}` : null,
           onPress: onOpenAchievements,
+        },
+        {
+          label: 'Journeys',
+          Icon: MapTrifoldIcon,
+          detail: journeyDetail,
+          onPress: journey && !journey.finishedAt ? onOpenJourney : onPickJourney,
         },
         {
           label: 'Pack Activities',
@@ -267,8 +279,6 @@ export function YouScreen({
           </View>
         </Card>
       )}
-
-      {journey !== undefined && <JourneyCard journey={journey} onOpen={onOpenJourney} onPick={onPickJourney} />}
 
       {groups.map((group) => (
         <Fragment key={group.title}>
