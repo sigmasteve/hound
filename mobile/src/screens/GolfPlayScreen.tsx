@@ -623,7 +623,7 @@ function makeStyles(colors: Palette) {
       gap: 8,
     },
     pullText: { color: 'rgba(255,255,255,0.85)', fontSize: 12.5, flexShrink: 1 },
-    banner: { position: 'absolute', alignSelf: 'center', top: '42%', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10 },
+    banner: { position: 'absolute', alignSelf: 'center', top: '64%', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10 },
     bannerText: { fontFamily: font.headingSemibold, fontSize: 18, color: '#161826' },
     bag: { gap: 6, paddingVertical: 2 },
     clubChip: {
