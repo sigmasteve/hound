@@ -71,7 +71,6 @@ export function MainScreen({ route, navigation }: Props) {
             onGoTab={goFromHome}
             onOpenAchievements={() => navigation.navigate('Achievements')}
             onOpenPackFun={(packId) => navigation.navigate('PackFun', { packId })}
-            onStartPackFun={() => navigation.navigate('PackFunStart')}
           />
         )}
         {tab === 'challenges' && (
