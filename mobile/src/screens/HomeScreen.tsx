@@ -731,13 +731,11 @@ export function HomeScreen({
   onGoTab,
   onOpenAchievements,
   onOpenPackFun,
-  onStartPackFun,
 }: {
   onOpenChallenge: (challengeId: string) => void;
   onGoTab: (dest: HomeDestination) => void;
   onOpenAchievements: () => void;
   onOpenPackFun: (packId: string) => void;
-  onStartPackFun: () => void;
 }) {
   const { user } = useAuth();
   const health = useHealthProvider();
@@ -2531,18 +2529,18 @@ export function HomeScreen({
     {openTile === 'needs' && (
       <TileSheet title="Needs you" onClose={closeTile}>
         {needsLines.length === 0 && <Text style={styles.caughtUp}>All caught up. Nothing is waiting on you.</Text>}
-        <PackActivitiesCard
-          list={packActivities}
-          onOpen={(id) => {
-            setOpenTile(null);
-            onOpenPackFun(id);
-          }}
-          onStart={() => {
-            setOpenTile(null);
-            onStartPackFun();
-          }}
-          emptyNote={null}
-        />
+        {/* Only Pack Activities waiting on you (invited, your club's, or on
+            now). Starting one lives on the Clubs tab, not here. */}
+        {packActivities.length > 0 && (
+          <PackActivitiesCard
+            list={packActivities}
+            onOpen={(id) => {
+              setOpenTile(null);
+              onOpenPackFun(id);
+            }}
+            emptyNote={null}
+          />
+        )}
         {needsYou.length > 0 && (
           <Card style={styles.needsCard} elevated={false}>
             {/* No count here: the tile's "N waiting" counts Bone Dig, nudges
