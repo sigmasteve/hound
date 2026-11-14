@@ -11,7 +11,6 @@ import {
   FlagCheckeredIcon,
   GlobeHemisphereWestIcon,
   InfoIcon,
-  MagnifyingGlassIcon,
   RobotIcon,
   ShareNetworkIcon,
   TrashIcon,
@@ -23,6 +22,7 @@ import { PersonActions } from '../components/PersonActions';
 import { TrashTalkCard } from '../components/TrashTalkCard';
 import type { Standing, TauntUnit } from '../social/trashTalk';
 import { Avatar } from '../components/Avatar';
+import { FriendPickList } from '../components/FriendPickList';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { LoadingView } from '../components/LoadingView';
@@ -603,7 +603,6 @@ export function ChallengeDetailScreen({
       if (global) getChallengeSponsor(challengeId).then(setSponsor).catch(() => {});
     });
   }, [challengeId]);
-  const [friendSearch, setFriendSearch] = useState('');
 
   // Where the viewer stands with someone on this challenge's board — null
   // means no chip at all: it's the viewer, a bot, or already a friend.
@@ -1796,9 +1795,6 @@ export function ChallengeDetailScreen({
   // Case-insensitive substring match, applied after the eligibility
   // filter above — this narrows an already-invitable list down further,
   // it never brings back someone who's already in the challenge.
-  const searchedFriends = friendSearch.trim()
-    ? invitableFriends.filter((f) => f.name.toLowerCase().includes(friendSearch.trim().toLowerCase()))
-    : invitableFriends;
   // Same window inviteFriendToChallenge/acceptChallengeInvite enforce
   // server-side (see supabaseChallenges.ts and inviteWindowClosed's own
   // comment) — this is just what keeps the inviter from sending a doomed
@@ -3284,19 +3280,10 @@ export function ChallengeDetailScreen({
                     : 'Everyone you’re friends with is already in this challenge.'}
                 </Text>
               ) : (
-                <>
-                  <TextField
-                    label="Search friends"
-                    value={friendSearch}
-                    onChangeText={setFriendSearch}
-                    placeholder="Search by name"
-                    icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
-                    autoCapitalize="none"
-                  />
-                  {searchedFriends.length === 0 ? (
-                    <Text style={styles.footNote}>No friends match “{friendSearch.trim()}”.</Text>
-                  ) : (
-                    searchedFriends.map((f) => {
+                <FriendPickList
+                  items={invitableFriends}
+                  searchAfter={8}
+                  renderItem={(f) => {
                       const invited = invitedIds.has(f.userId);
                       const busy = invitingId === f.userId;
                       return (
@@ -3320,9 +3307,8 @@ export function ChallengeDetailScreen({
                           />
                         </View>
                       );
-                    })
-                  )}
-                </>
+                  }}
+                />
               )}
             </Card>
           )}
