@@ -137,9 +137,10 @@ What each sheet holds:
   the card, today's workouts and "Log a workout" (0204, for people without
   a watch; logged ones marked "Logged by hand", with Undo for 15 minutes).
 - Your hound: no sheet; the tile opens the Kennel straight away.
-- Needs you: Pack Activities first (on now or coming up, with Join,
-  and Start a Pack Activity; Steve's ask, Nov 2026), then invites and
-  friend requests, then Bone Dig, nudges and bounties. The tile's "N
+- Needs you: Pack Activities first, only when one is waiting on you (on
+  now or coming up, with Join; Steve's ask, Nov 2026). No "Start a Pack
+  Activity" here: that's on the Clubs tab and a club's page. Then
+  invites and friend requests, then Bone Dig, nudges and bounties. The tile's "N
   waiting" counts all of them (a Pack Activity when you're invited, it's
   your club's, or it's live).
 - Your challenges: the pinned (highlighted) challenge's headline and

@@ -15,6 +15,7 @@ import {
 import { Text } from '../components/Text';
 import { Button } from '../components/Button';
 import { Avatar } from '../components/Avatar';
+import { FriendPickList } from '../components/FriendPickList';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from '../health/HealthContext';
@@ -772,7 +773,18 @@ function InvitePanel({
       ) : friends.length === 0 ? (
         <Text style={styles.small}>Everyone you’re friends with is already in it. Add friends on the Friends tab.</Text>
       ) : (
-        friends.map((f) => {
+        <FriendPickList
+          items={friends}
+          pickedIds={picked}
+          onUnpick={(id) =>
+            setPicked((p) => {
+              const n = new Set(p);
+              n.delete(id);
+              return n;
+            })
+          }
+          gap={2}
+          renderItem={(f) => {
           const on = picked.has(f.userId);
           return (
             <Pressable
@@ -794,7 +806,8 @@ function InvitePanel({
               {on ? <CheckCircleIcon size={22} color={colors.accent} weight="fill" /> : <CircleIcon size={22} color={withAlpha(colors.text, 0.3)} />}
             </Pressable>
           );
-        })
+          }}
+        />
       )}
       <View style={styles.rowGap}>
         <View style={{ flex: 1 }}>

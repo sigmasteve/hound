@@ -6,6 +6,7 @@ import { Text } from '../components/Text';
 import { Button } from '../components/Button';
 import { TextField } from '../components/TextField';
 import { Avatar } from '../components/Avatar';
+import { FriendPickList } from '../components/FriendPickList';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
@@ -140,7 +141,12 @@ export function PackFunStartScreen({ clubId: initialClub, onBack, onStarted }: {
           ) : friends.length === 0 ? (
             <Text style={styles.note}>Add friends to invite them, or open it to a club below.</Text>
           ) : (
-            friends.map((f) => {
+            <FriendPickList
+              items={friends}
+              pickedIds={picked}
+              onUnpick={toggle}
+              gap={2}
+              renderItem={(f) => {
               const on = picked.has(f.userId);
               return (
                 <Pressable key={f.userId} onPress={() => toggle(f.userId)} style={styles.friendRow} accessibilityRole="checkbox" accessibilityState={{ checked: on }}>
@@ -149,7 +155,8 @@ export function PackFunStartScreen({ clubId: initialClub, onBack, onStarted }: {
                   {on ? <CheckCircleIcon size={22} color={colors.accent} weight="fill" /> : <CircleIcon size={22} color={withAlpha(colors.text, 0.3)} />}
                 </Pressable>
               );
-            })
+              }}
+            />
           )}
         </View>
         {clubs.length > 0 && (

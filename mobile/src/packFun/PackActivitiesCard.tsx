@@ -21,7 +21,9 @@ export function PackActivitiesCard({
 }: {
   list: MyPackFun[];
   onOpen: (id: string) => void;
-  onStart: () => void;
+  // Without it, no Start button: Today's Needs you lists only what's
+  // waiting on you, and starting one lives on the Clubs tab.
+  onStart?: () => void;
   startLabel?: string;
   showClub?: boolean;
   emptyNote?: string | null;
@@ -76,7 +78,7 @@ export function PackActivitiesCard({
           </View>
         );
       })}
-      <Button label={startLabel} variant={list.length ? 'secondary' : 'primary'} block small onPress={onStart} />
+      {onStart ? <Button label={startLabel} variant={list.length ? 'secondary' : 'primary'} block small onPress={onStart} /> : null}
     </Card>
   );
 }
