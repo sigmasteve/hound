@@ -18,6 +18,7 @@ import {
   XIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
+import { FriendPickList } from '../components/FriendPickList';
 import { Button } from '../components/Button';
 import { RadioPill } from '../components/Selectable';
 import { SegmentedControl } from '../components/SegmentedControl';
@@ -2485,7 +2486,11 @@ export function CreateScreen({
             </View>
           ) : (
             <>
-              {acceptedFriends.map((f) => {
+              <FriendPickList
+                items={acceptedFriends}
+                pickedIds={invited}
+                onUnpick={toggleFriend}
+                renderItem={(f) => {
                 const picked = invited.includes(f.userId);
                 const eligible = !myOrgId || friendEligible(f, challengeScope, myOrgId);
                 return (
@@ -2527,7 +2532,8 @@ export function CreateScreen({
                     )}
                   </Pressable>
                 );
-              })}
+                }}
+              />
               {acceptedFriends.length === 0 && (
                 <Text style={styles.footNote}>Add friends from the Friends tab, then invite them here.</Text>
               )}

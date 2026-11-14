@@ -5,6 +5,7 @@ import { Text } from '../components/Text';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Avatar } from '../components/Avatar';
+import { FriendPickList } from '../components/FriendPickList';
 import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { friendsForClub, inviteToClub, type ClubFriend } from './clubsApi';
@@ -57,7 +58,11 @@ export function ClubInviteFriends({ clubId, clubName }: { clubId: string; clubNa
         <Text style={styles.note}>All your friends are in the club already.</Text>
       ) : (
         <>
-          {open.map((f) => {
+          <FriendPickList
+            items={open}
+            pickedIds={picked}
+            onUnpick={toggle}
+            renderItem={(f) => {
             const on = picked.includes(f.userId);
             return (
               <Pressable
@@ -82,7 +87,8 @@ export function ClubInviteFriends({ clubId, clubName }: { clubId: string; clubNa
                 )}
               </Pressable>
             );
-          })}
+            }}
+          />
           {inClub > 0 && <Text style={styles.note}>{inClub === 1 ? '1 friend is' : `${inClub} friends are`} in the club already.</Text>}
           <Button
             label={sending ? 'Inviting…' : picked.length === 0 ? 'Pick friends to invite' : `Invite ${picked.length === 1 ? '1 friend' : `${picked.length} friends`}`}
