@@ -176,17 +176,21 @@ export interface HoopsLiveShot {
   made: boolean;
   pts: number;
   dunk: boolean;
+  onFire: boolean;
   putback: { made: boolean; pts: number } | null;
 }
 
 export interface HoopsLive {
   handsOn: boolean;
   canShoot: boolean;
-  // Why not, in a sentence ("Not a game day.").
+  // Why not, in the server's sentence ("Not a game day.", "No shots
+  // ready: your next one comes at 6,000 steps.", "That's all your shots
+  // today."): shown as is.
   reason: string | null;
   day: string | null;
   dayNo: number;
   period: number;
+  // hoops_label: "Q2", "OT".
   label: string;
   steps: number;
   shotSteps: number;
@@ -252,6 +256,7 @@ export function toLive(d: any): HoopsLive {
       made: !!x.made,
       pts: num(x.pts),
       dunk: !!x.dunk,
+      onFire: !!x.on_fire,
       putback: toPutback(x.putback),
     })),
   };

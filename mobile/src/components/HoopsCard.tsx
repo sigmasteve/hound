@@ -43,12 +43,15 @@ export function HoopsCard({
   game,
   stepsToday,
   onChanged,
+  onShoot,
 }: {
   challengeId: string;
   game: HoopsGame | null;
   // The phone's steps today, which can be ahead of the server's.
   stepsToday: number | null;
   onChanged: () => void;
+  // A hands-on game (0206): opens the shooting screen.
+  onShoot?: () => void;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -263,7 +266,13 @@ export function HoopsCard({
               <View style={[styles.playDot, { backgroundColor: HOOPS_TEAM_COLOR[e.team] }]} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={styles.playText}>{hoopsPlayWords({ ...e, on_fire: e.onFire }, first(e.shooter))}</Text>
-                {why(e) ? <Text style={styles.small}>{why(e)}</Text> : null}
+                {why(e) || e.byHand ? (
+                  <Text style={styles.small}>
+                    {e.byHand ? <Text style={styles.byHand}>by hand</Text> : null}
+                    {e.byHand && why(e) ? ' · ' : ''}
+                    {why(e)}
+                  </Text>
+                ) : null}
                 {gameDayIds.has(byId.get(e.shooter)?.userId ?? '') ? <PlayedForReal kind="hoops" /> : null}
               </View>
               <Text style={[styles.playPts, { color: e.made ? HOOPS_TEAM_TEXT[e.team] : withAlpha(colors.text, 0.35) }]}>{e.made ? `+${e.pts}` : 'miss'}</Text>
@@ -306,9 +315,42 @@ export function HoopsCard({
           </Text>
           <SportBonusRow challengeId={challengeId} kind="hoops" userId={me.userId} />
 
+          {/* Taking your own shots (0206). */}
+          {game.handsOn && game.live && (
+            <View style={{ gap: 6 }}>
+              <Pressable
+                onPress={onShoot}
+                style={[styles.shoot, game.live.ready > 0 ? { backgroundColor: colors.green } : styles.shootOff]}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.shootText, game.live.ready <= 0 && { color: colors.text }]}>
+                  {game.live.ready > 0 ? `Take your shots · ${game.live.ready} ready` : 'Take your shots'}
+                </Text>
+              </Pressable>
+              {game.live.shots.length > 0 ? (
+                <Text style={styles.small}>
+                  Today you've taken {game.live.shots.length}{' '}
+                  {game.live.shots.length === 1 ? 'shot' : 'shots'}:{' '}
+                  {game.live.shots
+                    .map((x) =>
+                      x.made ? `${HOOPS_SHOT_NAME[x.kind]} +${x.pts}` : x.putback?.made ? `${HOOPS_SHOT_NAME[x.kind]} miss, putback +${x.putback.pts}` : `${HOOPS_SHOT_NAME[x.kind]} miss`,
+                    )
+                    .join(' · ')}
+                  . {game.live.todayPts} {game.live.todayPts === 1 ? 'point' : 'points'}, counted tonight.
+                </Text>
+              ) : (
+                <Text style={styles.small}>
+                  {game.live.canShoot || game.live.ready > 0
+                    ? 'Shoot them yourself: time the release in the green. Any you don’t take play for you tonight.'
+                    : game.live.reason || 'Any shots you don’t take play for you tonight.'}
+                </Text>
+              )}
+            </View>
+          )}
+
           {live || game.status === 'upcoming' ? (
             <>
-              <Text style={styles.label}>Your shot today</Text>
+              <Text style={styles.label}>{game.handsOn ? 'Shots you don’t take' : 'Your shot today'}</Text>
               <View style={styles.chips}>
                 {HOOPS_SHOTS.map((s) => {
                   const on = myShot === s;
@@ -481,6 +523,10 @@ function makeStyles(colors: Palette) {
     playDot: { width: 8, height: 8, borderRadius: 4 },
     playText: { fontSize: 14, lineHeight: 19, color: colors.text },
     playPts: { minWidth: 34, textAlign: 'right', fontFamily: font.headingSemibold, fontSize: 14 },
+    byHand: { fontFamily: font.headingSemibold, color: colors.accentActive },
+    shoot: { minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+    shootOff: { backgroundColor: withAlpha(colors.text, 0.1) },
+    shootText: { fontFamily: font.headingSemibold, fontSize: 16, color: '#161826' },
     link: { color: colors.accentActive, fontFamily: font.headingSemibold, fontSize: 14 },
     big: { fontFamily: font.headingSemibold, fontSize: 28, color: colors.text, fontVariant: ['tabular-nums'] },
     shotsCount: { fontFamily: font.headingSemibold, fontSize: 15 },

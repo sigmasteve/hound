@@ -267,6 +267,8 @@ export function CreateScreen({
   // Hoops (0195): steps a shot, and whether bots fill each side to five.
   const [hoopsShot, setHoopsShot] = useState<number>(DEFAULT_HOOPS_SHOT_STEPS);
   const [hoopsFillBots, setHoopsFillBots] = useState(true);
+  // 0206: take your own shots during the day (off: walks play them overnight).
+  const [hoopsHandsOn, setHoopsHandsOn] = useState(true);
   // H-O-R-S-E (0196): the word.
   const [horseWord, setHorseWord] = useState<HorseWord>('HORSE');
   // Golf (0200): the course, 9 or 18, the format, whether you take every
@@ -1128,6 +1130,7 @@ export function CreateScreen({
             shotSteps: hoopsShot,
             daysPerQuarter: Number(length) >= 8 ? 2 : 1,
             fillBots: hoopsFillBots,
+            handsOn: hoopsHandsOn,
             players: [
               { userId: user?.id ?? '', team: 'home' },
               ...invited.map((id) => ({ userId: id, team: (soccerSeats.get(id)?.team ?? 'b') === 'a' ? ('home' as const) : ('away' as const) })),
@@ -2357,6 +2360,17 @@ export function CreateScreen({
                   <Text style={styles.footNote}>Bots walk about 7,000 steps a day and take a friend’s place when one joins.</Text>
                 </View>
                 <Switch value={hoopsFillBots} onValueChange={setHoopsFillBots} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+              </View>
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.friendName}>Take my own shots</Text>
+                  <Text style={styles.footNote}>
+                    {hoopsHandsOn
+                      ? 'Your steps earn the shots; take them in the app and time the release. Any you don’t take play for you tonight.'
+                      : 'Off: your steps play every shot for you overnight.'}
+                  </Text>
+                </View>
+                <Switch value={hoopsHandsOn} onValueChange={setHoopsHandsOn} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
               </View>
               <Text style={[text.h4, { marginTop: 4 }]}>Friends</Text>
             </View>

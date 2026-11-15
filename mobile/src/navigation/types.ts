@@ -66,6 +66,8 @@ export type RootStackParamList = {
   PackFun: { packId: string };
   // Golf (0200): playing your ball on a golf challenge.
   GolfPlay: { challengeId: string };
+  // Hoops, taking your own shots (0206).
+  HoopsShoot: { challengeId: string };
   StartClub: { clubId?: string } | undefined;
   // Opened from the You tab (they used to be tabs or the top bar).
   Stats: undefined;

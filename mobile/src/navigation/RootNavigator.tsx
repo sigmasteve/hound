@@ -29,6 +29,7 @@ import { PackFunHubScreen } from '../packFun/PackFunHubScreen';
 import { PackFunStartScreen } from '../packFun/PackFunStartScreen';
 import { PackFunScreen } from '../packFun/PackFunScreen';
 import { GolfPlayScreen } from '../screens/GolfPlayScreen';
+import { HoopsShootScreen } from '../screens/HoopsShootScreen';
 import { useChallengeCodeLinks } from '../challenges/codeLinks';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { MetricsScreen } from '../screens/MetricsScreen';
@@ -280,6 +281,7 @@ export function RootNavigator() {
                   onBack={() => navigation.navigate('Main', { tab: 'challenges' })}
                   onGoHome={() => navigation.navigate('Main', { tab: 'home' })}
                   onPlayGolf={() => navigation.navigate('GolfPlay', { challengeId: route.params.challengeId })}
+                  onShootHoops={() => navigation.navigate('HoopsShoot', { challengeId: route.params.challengeId })}
                 />
               )}
             </Stack.Screen>
@@ -509,6 +511,18 @@ export function RootNavigator() {
               {/* Golf: your ball on the course, from the challenge's card. */}
               {({ navigation, route }) => (
                 <GolfPlayScreen
+                  key={route.params.challengeId}
+                  challengeId={route.params.challengeId}
+                  onBack={() =>
+                    navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ChallengeDetail', { challengeId: route.params.challengeId })
+                  }
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="HoopsShoot" options={{ animation: 'slide_from_right', gestureEnabled: false }}>
+              {/* Hoops: take your own shots, from the challenge's card. */}
+              {({ navigation, route }) => (
+                <HoopsShootScreen
                   key={route.params.challengeId}
                   challengeId={route.params.challengeId}
                   onBack={() =>
