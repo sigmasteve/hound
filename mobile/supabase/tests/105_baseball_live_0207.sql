@@ -5,7 +5,7 @@
 -- pitches, when you can't bat, the inning using waiting at-bats first
 -- (and one the order didn't reach waiting for the next), hands-off games
 -- as before, the plays' by_hand, and Admin.
-select plan(55);
+select plan(62);
 
 select tests.new_user('Ann') as ann \gset
 select tests.new_user('Bob') as bob \gset
@@ -107,6 +107,7 @@ select is((select jsonb_build_object('can_bat', l -> 'can_bat', 'earned', l -> '
 -- ── A pitch ──
 select public.baseball_pitch('00000000-0000-0000-0000-00000000ba01') as p1 \gset
 select is(public.baseball_pitch('00000000-0000-0000-0000-00000000ba01'), :'p1'::jsonb, 'Asking again before the swing: the same pitch');
+reset role;
 select is((:'p1'::jsonb) - 'bands' - 'mph',
   jsonb_build_object('ab', 1, 'pitch_no', 1, 'balls', 0, 'strikes', 0,
     'kind', case when public.baseball_rand('00000000-0000-0000-0000-00000000ba01:' || :'ann' || ':live:1:1:change') < 0.30 then 'changeup' else 'fastball' end,
@@ -115,6 +116,8 @@ select is((:'p1'::jsonb) - 'bands' - 'mph',
           else round(700 * (1 - 0.3 * (1.0 / 3)))::int end),
   'The pitch is seeded: kind, zone, and a quicker fastball against a pitcher who out-walks you');
 select is(((:'p1'::jsonb) ->> 'mph')::int, case when (:'p1'::jsonb) ->> 'kind' = 'changeup' then 80 else 95 end, 'mph: 88 + 20 x pressure, a changeup 80');
+select tests.sign_in(:'ann');
+set local role authenticated;
 select is(public.baseball_live('00000000-0000-0000-0000-00000000ba01') -> 'open',
   jsonb_build_object('ab', 1, 'pitch_no', 1, 'balls', 0, 'strikes', 0,
     'pending', jsonb_build_object('kind', (:'p1'::jsonb) ->> 'kind', 'mph', ((:'p1'::jsonb) ->> 'mph')::int,
@@ -224,6 +227,7 @@ select pg_temp.fix_pitch(true);
 select tests.sign_in(:'ann');
 set local role authenticated;
 select public.baseball_swing('00000000-0000-0000-0000-00000000ba01', 0) as s3 \gset
+reset role;
 select is((:'s3'::jsonb) ->> 'call',
   case when public.baseball_rand('00000000-0000-0000-0000-00000000ba01:' || :'ann' || ':live:3:1:foul') < 0.20 then 'foul' else 'in_play' end,
   'On time: barrel contact, unless the seeded foul share says foul');
@@ -232,7 +236,6 @@ select ok((:'s3'::jsonb) ->> 'call' = 'foul'
       and (:'s3'::jsonb) -> 'result' ->> 'kind' in ('home_run', 'single', 'double', 'triple', 'ground_out', 'fly_out')
       and (:'s3'::jsonb) ->> 'message' is not null),
   'and in play it goes up the middle, with a result and a message');
-reset role;
 select is((select count(*)::int from public.baseball_live_pitches lp join public.baseball_live_abs a on a.id = lp.ab_id
   where a.challenge_id = '00000000-0000-0000-0000-00000000ba01' and lp.call is not null and lp.timing_ms is not distinct from case when lp.call in ('ball', 'strike') then null else lp.timing_ms end),
   (select count(*)::int from public.baseball_live_pitches lp join public.baseball_live_abs a on a.id = lp.ab_id
@@ -302,6 +305,17 @@ select is((select count(*)::int from public.baseball_plays where challenge_id = 
   2, 'and the rest are rolled as before');
 select is((select count(*)::int from public.baseball_live_abs where challenge_id = '00000000-0000-0000-0000-00000000ba06' and used_day is null),
   0, 'Nothing left waiting');
+-- Balls in play go through the engine from there: a single stretched to
+-- a double by a late throw, then a grounder to short.
+insert into public.baseball_live_abs (challenge_id, user_id, team, n, day, status, result, contact, aim, fielder_pos, len, caught, late)
+values ('00000000-0000-0000-0000-00000000ba06', :'ann', 'a', 2, :'today', 'done', 'double', 'solid', 'left', 'lf', 1, false, true),
+       ('00000000-0000-0000-0000-00000000ba06', :'cat', 'a', 3, :'today', 'done', 'ground_out', 'weak', 'center', 'ss', 1, true, false);
+select public.baseball_half('00000000-0000-0000-0000-00000000ba06', :'today', :'d1', 3, 'top', 'a', 3, null);
+select is((select array_agg(kind || ':' || fielder_pos || ':' || late_throw || ':' || by_hand order by seq) from (
+    select * from public.baseball_plays where challenge_id = '00000000-0000-0000-0000-00000000ba06' and inning = 3 order by seq limit 2) x),
+  array['double:lf:true:true', 'ground_out:ss:false:true'], 'In play by hand: the late-throw double, then the grounder to short');
+select is((select on_second from public.baseball_plays where challenge_id = '00000000-0000-0000-0000-00000000ba06' and inning = 3 and seq = 2), :'ann'::uuid,
+  'with the runners moved by the engine');
 
 -- G: hands-off, the same at-bats sitting there are never used.
 insert into public.baseball_live_abs (challenge_id, user_id, team, n, day, status, result)
@@ -319,6 +333,8 @@ select is((select count(*)::int from public.baseball_plays where challenge_id = 
   'with nothing by hand');
 
 -- ── Admin ──
+select count(*) filter (where status = 'done') as done_abs, count(*) filter (where result = 'home_run') as hrs from public.baseball_live_abs \gset
+select count(*) as pitches from public.baseball_live_pitches \gset
 select tests.sign_in(:'ann');
 set local role authenticated;
 select throws_ok($$select public.admin_baseball_overview()$$, 'not authorized', 'Admin only');
@@ -326,9 +342,7 @@ reset role;
 select tests.sign_in(:'ada');
 set local role authenticated;
 select is((select (o -> 'live') - 'auto_avg_7d' - 'avg_7d' from public.admin_baseball_overview() o),
-  jsonb_build_object('games_hands_on', 3, 'people_7d', 4, 'at_bats_7d', (select count(*) from public.baseball_live_abs where status = 'done'), 'pitches_7d',
-    (select count(*) from public.baseball_live_pitches), 'hr_7d',
-    (select count(*) from public.baseball_live_abs where result = 'home_run')),
+  jsonb_build_object('games_hands_on', 3, 'people_7d', 4, 'at_bats_7d', :'done_abs'::int, 'pitches_7d', :'pitches'::int, 'hr_7d', :'hrs'::int),
   'Admin: hands-on games, people, at-bats, pitches and home runs this week');
 select ok((select (o -> 'live' ->> 'avg_7d')::numeric between 0 and 1 from public.admin_baseball_overview() o),
   'and the average by hand');

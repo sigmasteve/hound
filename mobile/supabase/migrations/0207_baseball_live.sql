@@ -247,6 +247,9 @@ as $$
     else 'right fielder' end;
 $$;
 
+revoke execute on function public.baseball_live_pressure(numeric, numeric) from public, anon;
+revoke execute on function public.baseball_live_band(text, double precision, boolean) from public, anon;
+revoke execute on function public.baseball_live_contact(int, double precision, boolean) from public, anon;
 grant execute on function public.baseball_live_pressure(numeric, numeric) to authenticated;
 grant execute on function public.baseball_live_band(text, double precision, boolean) to authenticated;
 grant execute on function public.baseball_live_contact(int, double precision, boolean) to authenticated;
@@ -297,6 +300,7 @@ begin
   today := public.soccer_today(p_user);
   first_day := public.soccer_first_day(c);
   select * into me from public.baseball_players p where p.challenge_id = p_challenge_id and p.user_id = p_user and p.joined;
+  select 0 as strength, false as game_day into bn;
 
   if me.id is not null then
     ft := case when me.team = 'a' then 'b' else 'a' end;
