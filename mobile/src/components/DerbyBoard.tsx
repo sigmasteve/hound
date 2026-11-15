@@ -86,14 +86,12 @@ export function DerbyBoard({
   const me = board.me;
   const sColor = sponsorColor(sponsor);
   const p = board.prizes;
+  const places = p.places.filter((b) => b > 0);
   const prizeLine = [
-    p.places
-      .filter((b) => b > 0)
-      .map((b, i) => `${ordinal(i + 1)} ${b.toLocaleString()}`)
-      .join(' · '),
+    places.length ? `${places.map((b, i) => `${ordinal(i + 1)} ${b.toLocaleString()}`).join(' · ')} ${currency}` : null,
     p.top10 > 0 ? `4th–10th ${p.top10.toLocaleString()}` : null,
-    p.longest > 0 ? `longest home run ${p.longest.toLocaleString()}` : null,
-    p.tenPlus > 0 ? `${p.tenPlus} for 10+ home runs` : null,
+    p.longest > 0 ? `the longest home run ${p.longest.toLocaleString()}` : null,
+    p.tenPlus > 0 ? `10+ home runs ${p.tenPlus}` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -147,7 +145,7 @@ export function DerbyBoard({
       <View style={styles.board}>
         <View style={styles.headRow}>
           <Text style={[styles.headCell, { width: 38 }]}>#</Text>
-          <Text style={[styles.headCell, { flex: 1, marginLeft: 42 }]}>HOUND</Text>
+          <Text style={[styles.headCell, { flex: 1, marginLeft: 34 }]}>HOUND</Text>
           <Text style={[styles.headCell, { width: 40, textAlign: 'right' }]}>HR</Text>
           <Text style={[styles.headCell, { width: 62, textAlign: 'right' }]}>LONGEST</Text>
         </View>
@@ -353,7 +351,7 @@ export function DerbyBoard({
             </Text>
           </View>
           <Text style={styles.rowText}>
-            {prizeLine} {currency}
+            {prizeLine}
             {sponsor.prizeNote ? `. ${sponsor.prizeNote}` : ''}
           </Text>
           {sponsor.url && (
@@ -365,9 +363,7 @@ export function DerbyBoard({
         </View>
       ) : (
         !!prizeLine && (
-          <Text style={styles.small}>
-            {prizeLine} {currency}. Ties go to the longest home run.
-          </Text>
+          <Text style={styles.small}>{prizeLine}. Ties go to the longest home run.</Text>
         )
       )}
 
@@ -408,7 +404,7 @@ function makeStyles(colors: Palette) {
     tabText: { fontFamily: font.headingSemibold, fontSize: 13.5, color: withAlpha(colors.text, 0.75) },
     tabTextOn: { color: colors.bg },
     board: { borderRadius: 16, paddingHorizontal: 12, paddingVertical: 4, backgroundColor: colors.surface },
-    headRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+    headRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
     headCell: { fontFamily: font.headingSemibold, fontSize: 11, letterSpacing: 0.6, color: withAlpha(colors.text, 0.55) },
     gap: { textAlign: 'center', fontSize: 12, color: withAlpha(colors.text, 0.5), paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: withAlpha(colors.text, 0.12) },
     row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: withAlpha(colors.text, 0.12) },

@@ -226,7 +226,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
 
   const v = useMemo(() => (size.w > 0 ? view(size.w, size.h) : null), [size.w, size.h]);
   const factor = live?.factor ?? 1;
-  const bands: DerbyBands = pitch?.p.bands ?? bandsFor(factor);
+  const bands: DerbyBands = pitch?.p.bands ?? live?.bands ?? bandsFor(factor);
   const signName = live?.sponsor?.name ?? sponsor?.name ?? null;
   const signColor = sponsorColor(sponsor);
 
@@ -248,8 +248,8 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
     const zone = { x: home.x, y: home.y - HS * home.s * 0.5, d: 22 };
     const hand = { x: mound.x + FW * 0.25 * mound.s, y: mound.y - FH * 0.78 * mound.s, d: 12 * mound.s };
     const c = P(v, onFence(0.5));
-    const signW = Math.min(150, v.w * 0.3);
-    const signH = Math.max(16, signW * 0.2);
+    const signW = Math.min(190, v.w * 0.44);
+    const signH = Math.max(16, signW * 0.16);
     const sign = { x: c.x, y: c.y - WALL_H * c.s - signH / 2 - 2, w: signW, h: signH };
     const markers = MARKERS.map((m) => {
       const q = P(v, onFence(m.t));
@@ -446,7 +446,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
             <Text style={[styles.bankLabel, { color: '#a6e3b8' }]}>SWINGS LEFT</Text>
             <Text style={styles.bankValue}>{live.swingsLeft}</Text>
             <Text style={styles.bankNote} numberOfLines={1}>
-              1 per 1,000 steps
+              1 per 1,000
             </Text>
           </View>
           <View style={styles.bank}>
@@ -489,7 +489,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
                     },
                   ]}
                 >
-                  <Text style={[styles.signText, { fontSize: Math.max(8, spots.sign.h * 0.5) }]} numberOfLines={1}>
+                  <Text style={[styles.signText, { fontSize: Math.max(8, Math.min(spots.sign.h * 0.55, (spots.sign.w * 1.6) / Math.max(6, signName.length))) }]} numberOfLines={1}>
                     {signName.toUpperCase()}
                   </Text>
                 </View>
@@ -557,6 +557,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
       <View style={styles.pinned}>
         <View style={styles.meter} accessibilityLabel={`Timing: on time is the middle; contact within ${Math.round(bands.b70)} milliseconds`}>
           <View style={[styles.band, { backgroundColor: '#e5484d', left: 0, width: '100%' }]} />
+          {band(bands.warning, '#c97a3a')}
           {band(bands.b70, '#e0a94f')}
           {band(bands.b45, '#bfe8cb')}
           {band(bands.b30, '#7fd39b')}

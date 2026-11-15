@@ -36,6 +36,8 @@ export interface DerbyBands {
   b30: number;
   b45: number;
   b70: number;
+  // 70f–120f off: still a fly ball, caught at the wall (0211).
+  warning: number;
 }
 
 export const DERBY_SPEEDS: Record<DerbyStage, { mph: number; factor: number }> = {
@@ -46,29 +48,31 @@ export const DERBY_SPEEDS: Record<DerbyStage, { mph: number; factor: number }> =
 
 export function bandsFor(factor: number): DerbyBands {
   const f = factor > 0 ? factor : 1;
-  return { b10: 10 * f, b20: 20 * f, b30: 30 * f, b45: 45 * f, b70: 70 * f };
+  return { b10: 10 * f, b20: 20 * f, b30: 30 * f, b45: 45 * f, b70: 70 * f, warning: 120 * f };
 }
 
 function toBands(d: any, factor: number): DerbyBands {
   const fallback = bandsFor(factor);
   if (!d || typeof d !== 'object') return fallback;
-  if (Array.isArray(d) && d.length >= 5) return { b10: num(d[0]), b20: num(d[1]), b30: num(d[2]), b45: num(d[3]), b70: num(d[4]) };
+  if (Array.isArray(d) && d.length >= 5) return { b10: num(d[0]), b20: num(d[1]), b30: num(d[2]), b45: num(d[3]), b70: num(d[4]), warning: d.length > 5 ? num(d[5]) : fallback.warning };
   const pick = (keys: string[], dflt: number) => {
     for (const k of keys) if (d[k] != null) return num(d[k]);
     return dflt;
   };
   return {
-    b10: pick(['b10', '10', 'perfect', 'barrel'], fallback.b10),
-    b20: pick(['b20', '20', 'great'], fallback.b20),
+    b10: pick(['dead_on', 'b10', '10', 'perfect', 'barrel'], fallback.b10),
+    b20: pick(['center', 'b20', '20', 'great'], fallback.b20),
     b30: pick(['b30', '30', 'good'], fallback.b30),
-    b45: pick(['b45', '45', 'ok', 'gap'], fallback.b45),
+    b45: pick(['gaps', 'b45', '45', 'ok', 'gap'], fallback.b45),
     b70: pick(['b70', '70', 'contact'], fallback.b70),
+    warning: pick(['warning_track', 'warning', 'b120', '120'], fallback.warning),
   };
 }
 
 export interface DerbySponsor {
   name: string;
   logoUrl: string | null;
+  color: string | null;
   signBones: number;
   signHits: number;
   signCap: number;
@@ -102,14 +106,19 @@ export interface DerbyLive {
   mph: number;
   factor: number;
   steps: number;
+  // Today's pitch speed and bands, before the first pitch (0211).
+  ms: number;
+  bands: DerbyBands;
   swingsEarned: number;
+  swingsTaken: number;
   swingsLeft: number;
   nextSwingAt: number | null;
   cap: number;
-  goldens: { shown: number; dueNext: boolean; secondUnlocksAt: number };
+  // dueNext: a golden ball is still to come today (not "the next pitch").
+  goldens: { shown: number; dueNext: boolean; secondUnlocksAt: number; secondUnlocked: boolean };
   power: { stepsFt: number; workoutFt: number };
   pending: DerbyPitch | null;
-  me: { hrs: number; longestFt: number; rank: number | null; moonshots: number };
+  me: { hrs: number; longestFt: number; rank: number | null; moonshots: number; goldensHit: number; signHits: number; swings: number };
   field: number;
   recent: DerbySwingRow[];
   sponsor: DerbySponsor | null;
@@ -154,7 +163,10 @@ export function toDerbyLive(d: any): DerbyLive {
     mph: num(d?.mph) || DERBY_SPEEDS[stage]?.mph || 70,
     factor,
     steps: num(d?.steps),
+    ms: num(d?.ms) || 700,
+    bands: toBands(d?.bands, factor),
     swingsEarned: num(d?.swings_earned),
+    swingsTaken: num(d?.swings_taken),
     swingsLeft: num(d?.swings_left),
     nextSwingAt: numOrNull(d?.next_swing_at),
     cap: num(d?.cap) || 20,
@@ -162,6 +174,7 @@ export function toDerbyLive(d: any): DerbyLive {
       shown: num(d?.goldens?.shown),
       dueNext: !!d?.goldens?.due_next,
       secondUnlocksAt: num(d?.goldens?.second_unlocks_at) || 15000,
+      secondUnlocked: !!d?.goldens?.second_unlocked,
     },
     power: { stepsFt: num(d?.power?.steps_ft), workoutFt: num(d?.power?.workout_ft) },
     pending: d?.pending ? toPitch(d.pending, factor) : null,
@@ -170,11 +183,14 @@ export function toDerbyLive(d: any): DerbyLive {
       longestFt: num(d?.me?.longest_ft),
       rank: numOrNull(d?.me?.rank),
       moonshots: num(d?.me?.moonshots),
+      goldensHit: num(d?.me?.goldens_hit),
+      signHits: num(d?.me?.sign_hits),
+      swings: num(d?.me?.swings),
     },
     field: num(d?.field ?? d?.me?.field),
     recent: ((d?.recent ?? []) as any[]).map(toSwingRow),
     sponsor: sp
-      ? { name: sp.name ?? 'Our sponsor', logoUrl: sp.logo_url ?? null, signBones: num(sp.sign_bones), signHits: num(sp.sign_hits), signCap: num(sp.sign_cap) || 5 }
+      ? { name: sp.name ?? 'Our sponsor', logoUrl: sp.logo_url ?? null, color: sp.color ?? null, signBones: num(sp.sign_bones), signHits: num(sp.sign_hits), signCap: num(sp.sign_cap) || 5 }
       : null,
     canSwing: !!d?.can_swing,
     reason: d?.reason ?? null,
@@ -197,6 +213,8 @@ export interface DerbySwing {
   moonshot: boolean;
   golden: boolean;
   sign: boolean;
+  // A sign hit that paid (false once you're past the cap).
+  signPaid: boolean;
   // Home runs this swing added (a Moonshot 2, golden doubles).
   counts: number;
   hrs: number;
@@ -219,6 +237,7 @@ export async function swingDerby(challengeId: string, timing: number | null): Pr
     moonshot: !!d?.moonshot,
     golden: !!d?.golden,
     sign: !!d?.sign,
+    signPaid: !!d?.sign_paid,
     counts: num(d?.counts),
     hrs: num(d?.hrs),
     longestFt: num(d?.longest_ft),
@@ -262,6 +281,8 @@ export interface DerbyPodium {
 
 export interface DerbyBoard {
   field: number;
+  // How many have swung at all.
+  swung: number;
   status: 'upcoming' | 'live' | 'final';
   dayNo: number;
   days: number;
@@ -275,6 +296,9 @@ export interface DerbyBoard {
   longestToday: { name: string; ft: number } | null;
   longestWeek: { name: string; ft: number } | null;
   signHitsTotal: number;
+  homeRunsTotal: number;
+  signBones: number;
+  signCap: number;
   prizes: { places: number[]; top10: number; longest: number; tenPlus: number };
   podium: DerbyPodium[];
   longestWinner: { name: string; ft: number; bones: number } | null;
@@ -285,14 +309,21 @@ export interface DerbyBoard {
 const nameFt = (x: any) => (x ? { name: x.name ?? 'Someone', ft: num(x.ft) } : null);
 
 export async function getDerbyBoard(challengeId: string, tab: DerbyTab = 'top'): Promise<DerbyBoard> {
-  const d = await rpc<any>('derby_board', { p_challenge_id: challengeId, p_tab: tab });
+  return toDerbyBoard(await rpc<any>('derby_board', { p_challenge_id: challengeId, p_tab: tab }));
+}
+
+export function toDerbyBoard(d: any): DerbyBoard {
   const m = d?.me;
   const pz = d?.prizes ?? {};
   const places = Array.isArray(pz) ? pz.map(num) : Array.isArray(pz.places) ? (pz.places as any[]).map(num) : [num(pz.first) || 500, num(pz.second) || 300, num(pz.third) || 200];
   const mb = d?.my_bones;
-  const lw = d?.longest_winner;
+  // The longest home run's winners (a tie shares it): the first, with the
+  // others' names joined on.
+  const lws = (Array.isArray(d?.longest_winner) ? d.longest_winner : d?.longest_winner ? [d.longest_winner] : []) as any[];
+  const lw = lws.length ? { name: lws.map((x) => x.name ?? 'Someone').join(' & '), ft: lws[0].ft, bones: lws[0].bones } : null;
   return {
     field: num(d?.field),
+    swung: num(d?.swung),
     status: d?.status === 'final' || d?.status === 'live' ? d.status : 'upcoming',
     dayNo: num(d?.day_no),
     days: num(d?.days) || 7,
@@ -323,18 +354,21 @@ export async function getDerbyBoard(challengeId: string, tab: DerbyTab = 'top'):
       longestFt: num(r.longest_ft),
       isMe: !!r.is_me,
       isFriend: !!r.is_friend,
-      isClub: !!r.is_club,
+      isClub: !!(r.in_club ?? r.is_club),
     })),
     more: numOrNull(d?.more),
     club: d?.club ? { id: d.club.id, name: d.club.name ?? 'Your club', playing: num(d.club.playing) } : null,
-    longestToday: nameFt(d?.longest_today),
-    longestWeek: nameFt(d?.longest_week),
-    signHitsTotal: num(d?.sign_hits_total ?? d?.sign_hits),
+    longestToday: nameFt(d?.today_longest ?? d?.longest_today),
+    longestWeek: nameFt(d?.week_longest ?? d?.longest_week),
+    signHitsTotal: num(d?.sign_hits ?? d?.sign_hits_total),
+    homeRunsTotal: num(d?.home_runs),
+    signBones: num(d?.sign_bones),
+    signCap: num(d?.sign_cap),
     prizes: {
       places,
-      top10: Array.isArray(pz) ? 100 : num(pz.top10 ?? pz.top_10) || 100,
-      longest: Array.isArray(pz) ? 150 : num(pz.longest) || 150,
-      tenPlus: Array.isArray(pz) ? 25 : num(pz.ten_plus) || 25,
+      top10: Array.isArray(pz) ? 100 : num(pz.top10 ?? pz.top_10 ?? 100),
+      longest: Array.isArray(pz) ? 150 : num(pz.longest ?? 150),
+      tenPlus: Array.isArray(pz) ? 25 : num(pz.ten_hr ?? pz.ten_plus ?? 25),
     },
     podium: ((d?.podium ?? []) as any[]).map((p) => ({
       place: num(p.place),
@@ -348,7 +382,15 @@ export async function getDerbyBoard(challengeId: string, tab: DerbyTab = 'top'):
       bones: num(p.bones),
     })),
     longestWinner: lw ? { name: lw.name ?? 'Someone', ft: num(lw.ft), bones: num(lw.bones) } : null,
-    myBones: mb ? { place: num(mb.place), longest: num(mb.longest), tenPlus: num(mb.ten_plus), sign: num(mb.sign), total: num(mb.total) } : null,
+    myBones: mb
+      ? {
+          place: num(mb.place_bones ?? mb.place),
+          longest: num(mb.longest_bones ?? mb.longest),
+          tenPlus: num(mb.ten_bones ?? mb.ten_plus),
+          sign: num(mb.sign_bones ?? mb.sign),
+          total: num(mb.total),
+        }
+      : null,
     totals: d?.totals ? { hrs: num(d.totals.hrs), swings: num(d.totals.swings) } : null,
   };
 }
@@ -379,12 +421,9 @@ export async function setupGlobalDerby(challengeId: string, input: { prizes: Der
     p_challenge_id: challengeId,
     p_prizes: {
       places: [input.prizes.first, input.prizes.second, input.prizes.third],
-      first: input.prizes.first,
-      second: input.prizes.second,
-      third: input.prizes.third,
       top10: input.prizes.top10,
       longest: input.prizes.longest,
-      ten_plus: input.prizes.tenPlus,
+      ten_hr: input.prizes.tenPlus,
     },
     p_sign_bones: input.signBones,
     p_sign_cap: input.signCap,
@@ -402,7 +441,9 @@ export interface DerbyOverview {
   goldenThrown7d: number;
   goldenHit7d: number;
   signHits7d: number;
-  sponsorBones7d: number;
+  // All time: Bones sponsors paid for sign hits, and prize Bones paid.
+  sponsorBonesAll: number;
+  prizeBonesAll: number;
   avgHrs: number | null;
   longestEver: { name: string; ft: number } | null;
 }
@@ -412,7 +453,7 @@ export async function getDerbyOverview(): Promise<DerbyOverview> {
   return {
     live: num(d?.live ?? d?.derbies_live),
     all: num(d?.all ?? d?.derbies_all),
-    joined: num(d?.joined ?? d?.players_joined),
+    joined: num(d?.players ?? d?.joined),
     swung7d: num(d?.swung_7d ?? d?.players_swung_7d),
     swings7d: num(d?.swings_7d),
     hrs7d: num(d?.hrs_7d),
@@ -420,7 +461,8 @@ export async function getDerbyOverview(): Promise<DerbyOverview> {
     goldenThrown7d: num(d?.golden_thrown_7d ?? d?.golden_thrown),
     goldenHit7d: num(d?.golden_hit_7d ?? d?.golden_hit),
     signHits7d: num(d?.sign_hits_7d ?? d?.sign_hits),
-    sponsorBones7d: num(d?.sponsor_bones_7d ?? d?.sponsor_bones),
+    sponsorBonesAll: num(d?.sponsor_bones_all),
+    prizeBonesAll: num(d?.prize_bones_all),
     avgHrs: d?.avg_hrs == null ? null : Number(d.avg_hrs),
     longestEver: nameFt(d?.longest_ever),
   };

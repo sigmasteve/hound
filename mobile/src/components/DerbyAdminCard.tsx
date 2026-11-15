@@ -48,7 +48,8 @@ export function DerbyAdminCard({ onChanged }: { onChanged?: (o: DerbyOverview) =
         ['This week', `${data.swings7d.toLocaleString()} swings · ${data.hrs7d.toLocaleString()} home runs (${pct(data.hrs7d, data.swings7d)} of swings)`],
         ['Moonshots', `${data.moonshots7d.toLocaleString()} this week (475+ ft)`],
         ['Golden balls', `${data.goldenThrown7d.toLocaleString()} thrown · ${data.goldenHit7d.toLocaleString()} hit out (${pct(data.goldenHit7d, data.goldenThrown7d)})`],
-        ['Sponsor sign', `${data.signHits7d.toLocaleString()} hits · ${data.sponsorBones7d.toLocaleString()} Bones from sponsors`],
+        ['Sponsor sign', `${data.signHits7d.toLocaleString()} hits this week · ${data.sponsorBonesAll.toLocaleString()} Bones from sponsors, all time`],
+        ['Prizes paid', `${data.prizeBonesAll.toLocaleString()} Bones, all time`],
         ['Per player', data.avgHrs == null ? '–' : `${data.avgHrs.toFixed(1)} home runs on average`],
         ['Longest ever', data.longestEver ? `${data.longestEver.name} · ${data.longestEver.ft} ft` : '–'],
       ]
