@@ -103,7 +103,10 @@ old stack of cards too much at once.
 
 Above the scrolling grid, outside it: "A new version of Hound is
 ready" (UpdateReadyBanner), then the maintenance heads-up while an Admin
-window is near (MaintenanceHeadsUp, 0190), then the announcement banner.
+window is near (MaintenanceHeadsUp, 0190), then "Hound can't see your
+steps" when Health has shown 0 steps for three days and today
+(HealthZeroBanner, 0205; Fix it says how, x hides it until tomorrow), then
+the announcement banner.
 
 Inside the scroll, in order:
 

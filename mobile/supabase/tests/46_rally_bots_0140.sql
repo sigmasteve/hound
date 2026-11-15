@@ -60,7 +60,7 @@ select ok((select side_since > now() - interval '90 minutes' and side_since < no
 select is((select count(*)::int from public.rally_events where challenge_id = '00000000-0000-0000-0000-0000000000a3' and kind = 'return' and user_id = '00000000-0000-0000-0000-0000000000b1'), 1, 'The bot''s return is logged');
 
 -- Ann returns; then give the bot a target it can't reach in time and it misses.
-insert into public.progress_snapshots (challenge_id, user_id, day, steps) values ('00000000-0000-0000-0000-0000000000a3', :'ann', current_date, 2000);
+insert into public.progress_snapshots (challenge_id, user_id, day, steps) values ('00000000-0000-0000-0000-0000000000a3', :'ann', (now() at time zone 'America/New_York')::date, 2000);
 select tests.sign_in(:'ann');
 set local role authenticated;
 select is(public.rally_check_shot('00000000-0000-0000-0000-0000000000a3'), 'returned', 'Ann returns');

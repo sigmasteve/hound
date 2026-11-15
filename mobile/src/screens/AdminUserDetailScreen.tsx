@@ -12,7 +12,7 @@ import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { UserDogPhotoAdmin } from '../components/UserDogPhotoAdmin';
 import { blockDogUploads } from '../dogPhotos/dogPhotos';
-import { banUser, deleteUser, getMemberItems, getUserOverview, giveItems, isBanned, takeItems, unbanUser, type AdminUserOverview } from '../admin/adminApi';
+import { banUser, deleteUser, getMemberItems, getUserOverview, giveItems, isBanned, takeItems, unbanUser, type AdminUserOverview, getUserStepsRecent, type UserStepsRecent } from '../admin/adminApi';
 import { PORCH_ITEMS, PORCH_UNLOCK } from '../kennel/yardItems';
 import { buildLabel, getUserApp, SOURCE_NAME, updateLabel, type ReportedApp } from '../admin/appVersions';
 import { getUserPushReach, REACH_LABEL, REACH_NOTE, type PushReach } from '../admin/pushReach';
@@ -83,6 +83,11 @@ export function AdminUserDetailScreen({
   const isSelf = currentUser?.id === userId;
 
   const [overview, setOverview] = useState<AdminUserOverview | null>(null);
+  // Their last 7 saved days of steps (0205): shows a phone that syncs 0s.
+  const [stepsRecent, setStepsRecent] = useState<UserStepsRecent | null>(null);
+  useEffect(() => {
+    getUserStepsRecent(userId).then(setStepsRecent).catch(() => setStepsRecent(null));
+  }, [userId]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [banning, setBanning] = useState(false);
@@ -242,8 +247,23 @@ export function AdminUserDetailScreen({
               </View>
               <Text style={styles.footNote}>
                 Last health sync is approximate — the most recent day this account synced progress into any
-                challenge, not a direct read of their device connection.
+                challenge, not a direct read of their device connection. A sync with 0 steps still counts.
               </Text>
+              {stepsRecent && stepsRecent.days.length > 0 && (
+                <View style={{ gap: 2 }}>
+                  <Text style={styles.appLabel}>STEPS SAVED, LAST 7 DAYS</Text>
+                  <Text style={styles.footNote}>
+                    {stepsRecent.days.map((d) => d.steps.toLocaleString()).join(' · ')}
+                  </Text>
+                  {stepsRecent.zeroStreak >= 3 && (
+                    <Text style={[styles.footNote, { color: colors.amber }]}>
+                      0 steps on their last {stepsRecent.zeroStreak} saved days
+                      {stepsRecent.lastNonzeroDay ? ` (steps last on ${stepsRecent.lastNonzeroDay})` : ''}. Hound probably
+                      can’t read their steps: on iPhone, Health → their picture → Apps → Hound → turn on Steps.
+                    </Text>
+                  )}
+                </View>
+              )}
             </>
           ) : !loadError ? (
             <ActivityIndicator color={colors.accent} />

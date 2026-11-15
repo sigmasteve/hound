@@ -212,3 +212,61 @@ export async function takeItems(userId: string, itemIds: string[]): Promise<numb
   if (error) throw new Error(error.message);
   return Number(data ?? 0);
 }
+
+// ── Phones that sync but send 0 steps (0205) ──
+
+export interface HealthZeroPerson {
+  userId: string;
+  name: string;
+  zeroDays: number;
+  lastActiveAt: string | null;
+  lastNonzeroDay: string | null;
+}
+
+export interface HealthZeroOverview {
+  count: number;
+  people: HealthZeroPerson[];
+}
+
+// Everyone who opened Hound in the last 3 days whose last 3+ saved days
+// were all 0 steps: Hound probably can't read their steps.
+export async function getHealthZeroOverview(): Promise<HealthZeroOverview> {
+  const { data, error } = await requireClient().rpc('admin_health_zero_overview');
+  if (error) throw new Error(error.message);
+  const d = (data ?? {}) as any;
+  return {
+    count: Number(d.count ?? 0),
+    people: ((d.people ?? []) as any[]).map((p) => ({
+      userId: p.user_id,
+      name: p.name ?? 'Someone',
+      zeroDays: Number(p.zero_days ?? 0),
+      lastActiveAt: p.last_active_at ?? null,
+      lastNonzeroDay: p.last_nonzero_day ?? null,
+    })),
+  };
+}
+
+export function healthZeroSummary(o: HealthZeroOverview): string {
+  return o.count === 0 ? 'Everyone’s steps are coming through' : `${o.count} syncing 0 steps for 3+ days`;
+}
+
+export interface UserStepsRecent {
+  days: { day: string; steps: number }[];
+  zeroStreak: number;
+  lastNonzeroDay: string | null;
+}
+
+// One person's last 7 saved days and how many recent ones in a row were 0.
+export async function getUserStepsRecent(userId: string): Promise<UserStepsRecent | null> {
+  const { data, error } = await requireClient().rpc('admin_user_steps_recent', { p_user: userId });
+  if (error) {
+    if (isMissingFunction(error)) return null;
+    throw new Error(error.message);
+  }
+  const d = (data ?? {}) as any;
+  return {
+    days: ((d.days ?? []) as any[]).map((x) => ({ day: String(x.day), steps: Number(x.steps ?? 0) })),
+    zeroStreak: Number(d.zero_streak ?? 0),
+    lastNonzeroDay: d.last_nonzero_day ?? null,
+  };
+}
