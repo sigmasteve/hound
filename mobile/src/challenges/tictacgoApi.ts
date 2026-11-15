@@ -7,7 +7,7 @@ function requireClient() {
 }
 
 export type TicTacGoStatus = 'waiting' | 'active' | 'won' | 'draw';
-export type TicTacGoEndedReason = 'three_in_a_row' | 'board_full' | 'time_up';
+export type TicTacGoEndedReason = 'three_in_a_row' | 'board_full' | 'time_up' | 'no_win';
 
 export interface TicTacGoGame {
   challengeId: string;
