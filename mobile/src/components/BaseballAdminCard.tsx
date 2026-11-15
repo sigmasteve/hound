@@ -7,6 +7,11 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { getBaseballOverview, type BaseballOverview } from '../challenges/baseballApi';
 
+// A batting average the baseball way: .312.
+function avg(v: number): string {
+  return v >= 1 ? v.toFixed(3) : v.toFixed(3).replace(/^0/, '');
+}
+
 function pct(part: number, whole: number): string {
   return whole > 0 ? ` (${Math.round((part / whole) * 100)}%)` : '';
 }
@@ -48,6 +53,17 @@ export function BaseballAdminCard() {
         ['Runs a game (both sides)', data.finished > 0 ? `${data.avgRuns}` : 'None finished yet'],
         ['Home runs · double plays', `${data.homeRuns} · ${data.doublePlays}`],
         ['Stolen bases · caught stealing', `${data.stolenBases} · ${data.caughtStealing}`],
+        // 0207: at-bats taken by hand.
+        ...(data.live
+          ? ([
+              ['Games where people take their own at-bats', `${data.live.gamesHandsOn}`],
+              [
+                'Took their own at-bats this week',
+                `${data.live.people7d} ${data.live.people7d === 1 ? 'person' : 'people'} · ${data.live.atBats7d} at-bats · ${data.live.pitches7d} pitches · ${data.live.hr7d} home runs`,
+              ],
+              ['Batting average this week', data.live.avg7d == null ? 'No at-bats by hand yet' : `${avg(data.live.avg7d)} by hand · ${data.live.autoAvg7d == null ? '–' : avg(data.live.autoAvg7d)} played for them`],
+            ] as [string, string][])
+          : []),
       ]
     : [];
 

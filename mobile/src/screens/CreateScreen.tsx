@@ -269,6 +269,9 @@ export function CreateScreen({
   const [hoopsFillBots, setHoopsFillBots] = useState(true);
   // 0206: take your own shots during the day (off: walks play them overnight).
   const [hoopsHandsOn, setHoopsHandsOn] = useState(true);
+  // 0207: Baseball, take your own at-bats during the day (off: walks bat
+  // for you overnight).
+  const [baseballHandsOn, setBaseballHandsOn] = useState(true);
   // H-O-R-S-E (0196): the word.
   const [horseWord, setHorseWord] = useState<HorseWord>('HORSE');
   // Golf (0200): the course, 9 or 18, the format, whether you take every
@@ -1117,7 +1120,7 @@ export function CreateScreen({
             { id: user?.id ?? '', team: 'a' },
             ...invited.map((id) => ({ id: resolve(id), team: soccerSeats.get(id)?.team ?? ('b' as const) })),
           ];
-          await setupBaseball(created.id, seats);
+          await setupBaseball(created.id, seats, { handsOn: baseballHandsOn });
         } catch (e) {
           // A game with no sides can't be played — don't leave it behind.
           await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
@@ -1846,6 +1849,17 @@ export function CreateScreen({
                 plate. Batters aim left, center or right; the catcher calls a shift; the pitcher picks Power or Finesse.
                 Big step days clear the fence. Tied after the last inning? Extra innings, up to three.
               </Text>
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.friendName}>Take my own at-bats</Text>
+                  <Text style={styles.footNote}>
+                    {baseballHandsOn
+                      ? 'Your steps earn at-bats (one every 3,000, up to 3 a day); take them in the app and time the swing. The game uses each one when your turn comes; the rest play for you.'
+                      : 'Off: your steps bat for you overnight.'}
+                  </Text>
+                </View>
+                <Switch value={baseballHandsOn} onValueChange={setBaseballHandsOn} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+              </View>
             </View>
           )}
 

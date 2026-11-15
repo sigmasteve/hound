@@ -30,6 +30,7 @@ import { PackFunStartScreen } from '../packFun/PackFunStartScreen';
 import { PackFunScreen } from '../packFun/PackFunScreen';
 import { GolfPlayScreen } from '../screens/GolfPlayScreen';
 import { HoopsShootScreen } from '../screens/HoopsShootScreen';
+import { BaseballBatScreen } from '../screens/BaseballBatScreen';
 import { useChallengeCodeLinks } from '../challenges/codeLinks';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { MetricsScreen } from '../screens/MetricsScreen';
@@ -282,6 +283,7 @@ export function RootNavigator() {
                   onGoHome={() => navigation.navigate('Main', { tab: 'home' })}
                   onPlayGolf={() => navigation.navigate('GolfPlay', { challengeId: route.params.challengeId })}
                   onShootHoops={() => navigation.navigate('HoopsShoot', { challengeId: route.params.challengeId })}
+                  onBatBaseball={() => navigation.navigate('BaseballBat', { challengeId: route.params.challengeId })}
                 />
               )}
             </Stack.Screen>
@@ -523,6 +525,18 @@ export function RootNavigator() {
               {/* Hoops: take your own shots, from the challenge's card. */}
               {({ navigation, route }) => (
                 <HoopsShootScreen
+                  key={route.params.challengeId}
+                  challengeId={route.params.challengeId}
+                  onBack={() =>
+                    navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ChallengeDetail', { challengeId: route.params.challengeId })
+                  }
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="BaseballBat" options={{ animation: 'slide_from_right', gestureEnabled: false }}>
+              {/* Baseball: take your own at-bats, from the challenge's card. */}
+              {({ navigation, route }) => (
+                <BaseballBatScreen
                   key={route.params.challengeId}
                   challengeId={route.params.challengeId}
                   onBack={() =>

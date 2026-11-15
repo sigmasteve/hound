@@ -210,6 +210,10 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Turn on Steal and, when you’re on base with the next one open, you’ll try for it: your steps against the catcher’s.',
         'At bat, it’s your steps against the pitcher’s, then the fielder’s. Big step days go further: doubles from 4,000 steps, triples and home runs from 8,000.',
         'Tied after the last inning? Extra innings, one a day, up to three. Tap Replay on an inning’s card to watch its plays on the field.',
+        'Take your own at-bats (on for new games; Create’s “Take my own at-bats”): your steps earn them, one for every 3,000, up to three a day. Tap Take your at-bats on the game’s card, then Pitch, and Swing! as the ball crosses the zone. Don’t swing and the umpire calls it: a ball or a strike.',
+        'The timing bar runs Early to Late and crosses the middle as the ball reaches the plate. Dead center squares it up; a little off is weaker contact; further off is a foul, then a miss. Four balls is a walk, three strikes is out.',
+        'Steps still matter most: the more the pitcher has out-walked you so far today, the quicker the fastball and the narrower the good part of the bar. Swing at one outside the zone and good contact is harder. A strength workout adds power: squared-up balls carry over the wall.',
+        'An at-bat you take is decided there and then, and the game uses it the next time you come up in the order: tonight’s inning, or a later one if tonight’s doesn’t reach you. At-bats you don’t take play for you. Plays you batted yourself say “by hand” in the game report.',
       ],
     },
     {

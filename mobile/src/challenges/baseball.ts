@@ -165,3 +165,27 @@ export function seedOf(s: string): number {
   for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) | 0;
   return Math.abs(h);
 }
+
+// ── Taking your own at-bats (0207) ──
+
+// An at-bat you took by hand, in a word or two: "Double", "K", "BB".
+export const LIVE_RESULT_SHORT: Record<string, string> = {
+  strikeout: 'K',
+  walk: 'BB',
+  single: 'Single',
+  double: 'Double',
+  triple: 'Triple',
+  home_run: 'Home run',
+  ground_out: 'Ground out',
+  fly_out: 'Fly out',
+};
+
+export function isLiveHit(result: string): boolean {
+  return result === 'single' || result === 'double' || result === 'triple' || result === 'home_run';
+}
+
+// Where a live at-bat stands: "waiting for your turn" until the game
+// reaches you in the order, then "used in the 3rd".
+export function liveAtBatWhen(used: boolean, inning: number | null): string {
+  return used && inning != null ? `used in the ${ordinal(inning)}` : 'waiting for your turn';
+}

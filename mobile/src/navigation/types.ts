@@ -68,6 +68,8 @@ export type RootStackParamList = {
   GolfPlay: { challengeId: string };
   // Hoops, taking your own shots (0206).
   HoopsShoot: { challengeId: string };
+  // Baseball, taking your own at-bats (0207).
+  BaseballBat: { challengeId: string };
   StartClub: { clubId?: string } | undefined;
   // Opened from the You tab (they used to be tabs or the top bar).
   Stats: undefined;
