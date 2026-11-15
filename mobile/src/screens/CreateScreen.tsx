@@ -189,6 +189,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   journey: 'Same course, same start. First to the end wins.',
   doors: 'A door a day: open it, then do what’s behind it.',
   packs: 'Four packs, one map. Vote your march; take the most ground.',
+  derby: 'Every pitch a meatball: most home runs in a week wins.',
 };
 
 // A Journey's default run: about two miles a day, at least three days,

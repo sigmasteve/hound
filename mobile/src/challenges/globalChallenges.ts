@@ -10,7 +10,7 @@ import type { BingoCardType, ChallengeKind, DistanceGoalUnit, DistanceSource } f
 // The kinds that work with an open-ended crowd — the same list
 // publish_global_challenge enforces server-side. Chase, Tag, and
 // Tic-Tac-Go all depend on a small, known group.
-export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly', 'doors', 'packs', 'golf'];
+export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly', 'doors', 'packs', 'golf', 'derby'];
 
 // How long after the start people can still join. 'start' closes
 // joining the moment it begins (only offered for a future start); 'end'
@@ -132,6 +132,14 @@ export const GLOBAL_TEMPLATES: GlobalTemplate[] = [
     kind: 'golf',
     durationDays: 7,
     blurb: '18 holes of Golf for everyone, one week, stroke play. Lowest score wins.',
+    joinWindow: '3',
+  },
+  {
+    id: 'home-run-derby',
+    name: 'Hound Home Run Derby',
+    kind: 'derby',
+    durationDays: 7,
+    blurb: 'A week at the plate for everyone. Steps buy the swings, every pitch is a meatball, most home runs wins.',
     joinWindow: '3',
   },
   {
