@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
-import { CoinsIcon, TrophyIcon } from 'phosphor-react-native';
+import { CoinsIcon, TrophyIcon, XIcon } from 'phosphor-react-native';
 import { Button } from './Button';
 import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
@@ -20,6 +20,8 @@ export function ChallengePotCard({
   names,
   myUserId,
   currencyName,
+  allPrizes,
+  allPrizesNote,
 }: {
   challengeId: string;
   isGlobal: boolean;
@@ -27,12 +29,18 @@ export function ChallengePotCard({
   names: Map<string, string>;
   myUserId: string | null;
   currencyName: string;
+  // Every prize, for a global game that has more than the top 3 (the Home
+  // Run Derby): adds "All prizes ›" to the banner, which opens them in a
+  // sheet.
+  allPrizes?: { label: string; value: string }[] | null;
+  allPrizesNote?: string;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [pot, setPot] = useState<ChallengePot | null>(null);
   const [prizes, setPrizes] = useState<[number, number, number] | null>(null);
   const [joining, setJoining] = useState(false);
+  const [sheet, setSheet] = useState(false);
 
   const load = useCallback(() => {
     if (!isSupabaseConfigured) return;
@@ -59,8 +67,36 @@ export function ChallengePotCard({
           <Text style={styles.title}>
             Prizes: {places.map(([p, b]) => `${p} ${b}`).join(' · ')} {currencyName}
           </Text>
+          {!!allPrizes?.length && (
+            <Pressable onPress={() => setSheet(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel="All prizes">
+              <Text style={styles.all}>All prizes ›</Text>
+            </Pressable>
+          )}
         </View>
         <Text style={styles.note}>Paid by Hound when it ends. Ties share a place.</Text>
+        {sheet && !!allPrizes?.length && (
+          <Modal transparent animationType="slide" visible onRequestClose={() => setSheet(false)}>
+            <View style={styles.backdrop}>
+              <Pressable style={StyleSheet.absoluteFill} onPress={() => setSheet(false)} accessibilityLabel="Close" />
+              <View style={styles.sheet}>
+                <View style={styles.sheetHead}>
+                  <TrophyIcon size={20} color={colors.amber} weight="fill" />
+                  <Text style={styles.sheetTitle}>All prizes</Text>
+                  <Pressable onPress={() => setSheet(false)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
+                    <XIcon size={18} color={withAlpha(colors.text, 0.5)} />
+                  </Pressable>
+                </View>
+                {allPrizes.map((r, i) => (
+                  <View key={r.label} style={[styles.prizeRow, i < allPrizes.length - 1 && styles.prizeRule]}>
+                    <Text style={styles.prizeLabel}>{r.label}</Text>
+                    <Text style={styles.prizeValue}>{r.value}</Text>
+                  </View>
+                ))}
+                <Text style={styles.note}>{allPrizesNote ?? 'Ties share the places they cover. Paid by Hound when it ends.'}</Text>
+              </View>
+            </View>
+          </Modal>
+        )}
       </Card>
     );
   }
@@ -131,5 +167,14 @@ function makeStyles(colors: Palette) {
     row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     title: { flex: 1, fontFamily: font.heading, fontSize: 15, color: colors.text },
     note: { fontSize: 13, color: withAlpha(colors.text, 0.7) },
+    all: { fontFamily: font.headingSemibold, fontSize: 13, color: colors.amber },
+    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+    sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 20, paddingBottom: 36, gap: 4 },
+    sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
+    sheetTitle: { flex: 1, fontFamily: font.headingSemibold, fontSize: 20, color: colors.text },
+    prizeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+    prizeRule: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: withAlpha(colors.text, 0.15) },
+    prizeLabel: { flex: 1, fontSize: 15, color: colors.text },
+    prizeValue: { fontFamily: font.headingSemibold, fontSize: 15, color: colors.text },
   });
 }

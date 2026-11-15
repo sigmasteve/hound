@@ -131,7 +131,7 @@ import { advanceHorse, getHorse, type HorseGame } from '../challenges/horseApi';
 import { GolfCard } from '../components/GolfCard';
 import { OpenBoard } from '../components/OpenBoard';
 import { DerbyBoard } from '../components/DerbyBoard';
-import { getDerbyLive, type DerbyLive } from '../challenges/derbyApi';
+import { getDerbyLive, type DerbyLive, type DerbyBoard as DerbyBoardData } from '../challenges/derbyApi';
 import { getGolfGame, type GolfGame } from '../challenges/golfApi';
 import { toParText, golfCourseName } from '../challenges/golf';
 import { useFocusEffect } from '@react-navigation/native';
@@ -503,6 +503,7 @@ export function ChallengeDetailScreen({
   const [golfGame, setGolfGame] = useState<GolfGame | null>(null);
   // The Home Run Derby (0211): your day at the plate.
   const [derbyLive, setDerbyLive] = useState<DerbyLive | null>(null);
+  const [derbyPrizes, setDerbyPrizes] = useState<DerbyBoardData['prizes'] | null>(null);
   const [baseballLive, setBaseballLive] = useState<BaseballLive | null>(null);
   const [baseball, setBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[]; plays: BaseballPlay[]; picks: BaseballPicks }>({
     game: null,
@@ -2223,6 +2224,8 @@ export function ChallengeDetailScreen({
             names={new Map(participants.map((p) => [p.userId, p.name]))}
             myUserId={user?.id ?? null}
             currencyName={currencyName}
+            allPrizes={challenge.kind === 'derby' && derbyPrizes ? derbyPrizeRows(derbyPrizes, currencyName) : null}
+            allPrizesNote={challenge.kind === 'derby' ? 'Ties share the places they cover; ties at the top go to the longest home run. Paid by Hound when the Derby ends.' : undefined}
           />
 
           {challenge.kind === 'journey' &&
@@ -2454,7 +2457,7 @@ export function ChallengeDetailScreen({
             <OpenBoard challengeId={challengeId} name={challenge.name} game={golfGame} sponsor={sponsor} onPlay={() => onPlayGolf?.()} />
           )}
           {challenge.kind === 'derby' && (
-            <DerbyBoard challengeId={challengeId} name={challenge.name} live={derbyLive} sponsor={sponsor} onBat={() => onBatDerby?.()} />
+            <DerbyBoard challengeId={challengeId} name={challenge.name} live={derbyLive} sponsor={sponsor} onBat={() => onBatDerby?.()} onPrizes={setDerbyPrizes} />
           )}
           {challenge.kind === 'golf' && !isGlobal && <GolfCard challengeId={challengeId} game={golfGame} onPlay={() => onPlayGolf?.()} />}
 
@@ -3623,4 +3626,17 @@ function makeStyles(colors: Palette) {
     },
     deleteLabel: { fontSize: 13, color: colors.amber, fontFamily: font.heading },
   });
+}
+
+// Every Home Run Derby prize, for the banner's "All prizes" sheet.
+function derbyPrizeRows(p: DerbyBoardData['prizes'], currency: string): { label: string; value: string }[] {
+  const ord = ['1st', '2nd', '3rd'];
+  const rows: { label: string; value: string }[] = [];
+  p.places.forEach((b, i) => {
+    if (b > 0) rows.push({ label: `${ord[i] ?? `${i + 1}th`} place`, value: `${b.toLocaleString()} ${currency}` });
+  });
+  if (p.top10 > 0) rows.push({ label: '4th to 10th', value: `${p.top10.toLocaleString()} each` });
+  if (p.longest > 0) rows.push({ label: 'Longest home run of the Derby', value: p.longest.toLocaleString() });
+  if (p.tenPlus > 0) rows.push({ label: 'Everyone with 10+ home runs', value: p.tenPlus.toLocaleString() });
+  return rows;
 }

@@ -37,6 +37,7 @@ export function DerbyBoard({
   live,
   sponsor,
   onBat,
+  onPrizes,
 }: {
   challengeId: string;
   name: string;
@@ -44,6 +45,8 @@ export function DerbyBoard({
   live: DerbyLive | null;
   sponsor: ChallengeSponsor | null;
   onBat: () => void;
+  // Every prize, for the banner's "All prizes" sheet.
+  onPrizes?: (prizes: Board['prizes']) => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -52,10 +55,18 @@ export function DerbyBoard({
   const [board, setBoard] = useState<Board | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showFull, setShowFull] = useState(false);
+  // The 10th place's home runs, from the Top 25 (kept while another tab shows).
+  const [tenth, setTenth] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setBoard(await getDerbyBoard(challengeId, tab));
+      const b = await getDerbyBoard(challengeId, tab);
+      setBoard(b);
+      if (tab === 'top') {
+        const row = b.rows.find((r) => r.pos === 10) ?? (b.rows.length >= 10 ? b.rows[9] : null);
+        setTenth(row ? row.hrs : null);
+      }
+      onPrizes?.(b.prizes);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load the leaderboard.');
@@ -95,6 +106,25 @@ export function DerbyBoard({
   ]
     .filter(Boolean)
     .join(' · ');
+  // C (Steve's pick): the prizes you can still reach, how close you are,
+  // and what to beat. Not at the end (the results say what you won).
+  const nextPrizes: { key: string; label: string; bones: number; state: string; good: boolean; progress: number | null }[] = [];
+  if (me && board.joined && board.status !== 'final') {
+    if (p.tenPlus > 0) {
+      const got = me.hrs >= 10;
+      nextPrizes.push({ key: 'ten', label: '10+ home runs', bones: p.tenPlus, state: got ? 'Earned' : `${10 - me.hrs} to go`, good: true, progress: got ? null : Math.min(1, me.hrs / 10) });
+    }
+    if (p.top10 > 0) {
+      const inTop = me.pos != null && me.pos <= 10;
+      const state = inTop ? 'You\u2019re in' : tenth != null ? `#10 has ${tenth}` : board.field < 10 ? 'Any home run gets you in' : '';
+      if (state) nextPrizes.push({ key: 'top', label: 'Top 10', bones: p.top10, state, good: inTop, progress: null });
+    }
+    if (p.longest > 0) {
+      const lw = board.longestWeek;
+      const holds = !!lw && me.longestFt > 0 && me.longestFt >= lw.ft;
+      nextPrizes.push({ key: 'long', label: 'Longest home run', bones: p.longest, state: holds ? 'You hold it' : lw ? `to beat: ${lw.ft} ft` : 'No home runs yet', good: holds, progress: null });
+    }
+  }
   const endsText = board.endsAt ? new Date(board.endsAt).toLocaleDateString(undefined, { weekday: 'long' }) : null;
   const sub = [
     board.days > 0 ? `${board.days} days` : null,
@@ -304,6 +334,26 @@ export function DerbyBoard({
                   </Text>
                 </View>
               </View>
+              {nextPrizes.length > 0 && (
+                <View style={styles.next}>
+                  <Text style={styles.nextKicker}>YOUR NEXT PRIZES</Text>
+                  {nextPrizes.map((n) => (
+                    <View key={n.key} style={{ gap: 5 }}>
+                      <View style={styles.nextRow}>
+                        <Text style={styles.nextLabel}>
+                          <Text style={styles.nextStrong}>{n.label}</Text> · {n.bones.toLocaleString()} {currency}
+                        </Text>
+                        <Text style={[styles.nextState, n.good && styles.nextStateGood]}>{n.state}</Text>
+                      </View>
+                      {n.progress != null && (
+                        <View style={styles.bar}>
+                          <View style={[styles.barFill, { width: `${Math.round(n.progress * 100)}%` }]} />
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
               {board.status === 'live' && (
                 <Pressable onPress={onBat} disabled={!canBat} style={[styles.play, !canBat && styles.playOff]} accessibilityRole="button">
                   <Text style={[styles.playText, !canBat && { color: withAlpha(colors.text, 0.6), fontSize: 13.5 }]}>{batLabel}</Text>
@@ -387,6 +437,15 @@ function makeStyles(colors: Palette) {
     big: { fontFamily: font.headingSemibold, fontSize: 15.5, color: colors.text },
     place: { borderRadius: 16, padding: 14, gap: 10, backgroundColor: withAlpha(colors.accent, 0.14) },
     placeTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    next: { borderRadius: 12, padding: 12, gap: 9, backgroundColor: colors.surface },
+    nextKicker: { fontFamily: font.headingSemibold, fontSize: 11, letterSpacing: 0.8, color: withAlpha(colors.text, 0.6) },
+    nextRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    nextLabel: { flex: 1, fontSize: 13.5, color: colors.text },
+    nextStrong: { fontFamily: font.headingSemibold },
+    nextState: { fontSize: 13, color: withAlpha(colors.text, 0.72) },
+    nextStateGood: { fontFamily: font.headingSemibold, color: colors.text },
+    bar: { height: 6, borderRadius: 3, backgroundColor: withAlpha(colors.text, 0.1), overflow: 'hidden' },
+    barFill: { height: 6, borderRadius: 3, backgroundColor: '#7fd39b' },
     posBig: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: ME_COLOR, alignItems: 'center', justifyContent: 'center' },
     posBigText: { fontFamily: font.headingSemibold, fontSize: 16, color: colors.text },
     placeTitle: { fontFamily: font.headingSemibold, fontSize: 15.5, color: colors.text },
