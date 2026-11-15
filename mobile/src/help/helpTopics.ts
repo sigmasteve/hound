@@ -283,6 +283,23 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'derby',
+      section: 'challenges',
+      title: 'Home Run Derby',
+      summary: 'A week at the plate: steps buy the swings, most home runs wins.',
+      steps: [
+        'A Global Hound Challenge on Today, usually a week. Join in its first 3 days; your swings count from the day you join.',
+        'Your steps today buy the swings: one every 1,000 steps, up to 20 a day. Swings you don’t take that day don’t carry over.',
+        'Tap Pitch. Every pitch is a meatball, so only your timing counts: tap Swing! as the marker crosses the middle. Taking a pitch is an out.',
+        'Right on time goes deepest, to center; a little early pulls it to left, a little late pushes it to right, where the wall is shorter. Too early or too late is a fly ball caught at the wall, or a miss.',
+        'Distance: your timing sets it (up to 435 feet), your steps today add 10 feet per 5,000 (up to 40), and a strength workout adds 15 (25 for two or more). The longest possible is 500 feet. 475 feet or more is a Moonshot and counts as two home runs.',
+        'The pitcher speeds up as the Derby goes on: 70 mph in the first third, 75 in the middle, 80 at the end, and the green gets narrower with it. Steps never change the window.',
+        'Golden ball: one of your first 10 pitches each day is golden, and a second one shows up after you pass 15,000 steps. A home run off a golden ball counts double. Miss it and it’s gone.',
+        'If the Derby has a sponsor, their sign is on the center-field wall: hit it and they add Bones, up to a few hits each.',
+        'The leaderboard ranks home runs, with ties going to the longest home run. It shows the top 25, your friends and your club. The top places, the longest home run of the Derby and everyone with 10 or more home runs get Bones at the end.',
+      ],
+    },
+    {
       id: 'packs',
       section: 'challenges',
       title: 'Pack Wars: take the neighborhood',

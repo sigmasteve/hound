@@ -41,14 +41,14 @@ import {
 // ball) goes through project().
 
 type Phase = 'ready' | 'waiting' | 'pitch' | 'result';
-type Pt = { x: number; y: number };
-type Key = { t: number; x: number; y: number; d: number };
+export type Pt = { x: number; y: number };
+export type Key = { t: number; x: number; y: number; d: number };
 
-const W = 560;
-const H = 400;
-const HOME: Pt = { x: 280, y: 372 };
-const MOUND: Pt = { x: 280, y: 312 };
-const AT: Record<Exclude<BaseballPos, 'c' | 'p'>, Pt> = {
+export const W = 560;
+export const H = 400;
+export const HOME: Pt = { x: 280, y: 372 };
+export const MOUND: Pt = { x: 280, y: 312 };
+export const AT: Record<Exclude<BaseballPos, 'c' | 'p'>, Pt> = {
   '1b': { x: 380, y: 266 },
   '2b': { x: 326, y: 212 },
   ss: { x: 234, y: 212 },
@@ -69,25 +69,25 @@ const LANDS: Record<'single' | 'double' | 'triple' | 'home_run', Record<Baseball
   triple: { left: { x: 112, y: 172 }, center: { x: 330, y: 96 }, right: { x: 450, y: 172 } },
   home_run: { left: { x: 70, y: 66 }, center: { x: 280, y: 34 }, right: { x: 490, y: 66 } },
 };
-const WINDUP_MS = 450;
-const TAKE_MS = 250; // no swing by then: you took it
-const BAR_MS = 500; // the timing bar, end to end
-const HS = 92; // the hound up close
-const FW = 40; // a figure's box up close
-const FH = 84;
-const BALL = 20; // the ball on the ground up close
-const PITCHER_COLOR = '#9184d9';
+export const WINDUP_MS = 450;
+export const TAKE_MS = 250; // no swing by then: you took it
+export const BAR_MS = 500; // the timing bar, end to end
+export const HS = 92; // the hound up close
+export const FW = 40; // a figure's box up close
+export const FH = 84;
+export const BALL = 20; // the ball on the ground up close
+export const PITCHER_COLOR = '#9184d9';
 
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
-function view(w: number, h: number): Perspective {
+export function view(w: number, h: number): Perspective {
   return perspective(w, h, { stand: h * 0.15, gap: h * 0.02, near: 0, botW: w * 3.2, a: 0.3, b: 0.3 });
 }
-const P = (v: Perspective, p: Pt) => project(v, p.x / W, p.y / H);
+export const P = (v: Perspective, p: Pt) => project(v, p.x / W, p.y / H);
 
 // The ball's path as keyframes: up `hgt` px at the top of an arc.
-function arcKeys(keys: Key[], t0: number, a: Omit<Key, 't'>, b: Omit<Key, 't'>, hgt: number, ms: number, n = 14): number {
+export function arcKeys(keys: Key[], t0: number, a: Omit<Key, 't'>, b: Omit<Key, 't'>, hgt: number, ms: number, n = 14): number {
   for (let i = 1; i <= n; i++) {
     const p = i / n;
     keys.push({ t: t0 + ms * p, x: lerp(a.x, b.x, p), y: lerp(a.y, b.y, p) - hgt * 4 * p * (1 - p), d: lerp(a.d, b.d, p) });
@@ -95,7 +95,7 @@ function arcKeys(keys: Key[], t0: number, a: Omit<Key, 't'>, b: Omit<Key, 't'>, 
   return t0 + ms;
 }
 
-function at(keys: Key[], t: number): Key {
+export function at(keys: Key[], t: number): Key {
   if (t <= keys[0].t) return keys[0];
   for (let i = 1; i < keys.length; i++) {
     if (t <= keys[i].t) {
@@ -560,7 +560,7 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
 }
 
 // The ball: white, with red seams.
-function BaseballBall({ size }: { size: number }) {
+export function BaseballBall({ size }: { size: number }) {
   const r = size / 2;
   return (
     <Svg width={size} height={size}>
@@ -578,7 +578,7 @@ function BaseballBall({ size }: { size: number }) {
 // A fielder or the pitcher, standing on the ground at (x, y), sized by s.
 // The pitcher winds up (arm back over the head), then throws (arm
 // forward); a fielder puts the glove up to catch.
-function Figure({ x, y, s, color, pose }: { x: number; y: number; s: number; color: string; pose: 'ready' | 'catch' | 'set' | 'windup' | 'thrown' }) {
+export function Figure({ x, y, s, color, pose }: { x: number; y: number; s: number; color: string; pose: 'ready' | 'catch' | 'set' | 'windup' | 'thrown' }) {
   const w = FW * s;
   const h = FH * s;
   const cx = FW / 2;
@@ -623,7 +623,7 @@ function Figure({ x, y, s, color, pose }: { x: number; y: number; s: number; col
 // Your hound at the plate, the bat over the shoulder; the swing turns it
 // from −70° (up) to +15° (just through level, at the plate) about the
 // hands.
-function Batter({ x, y, s, look, angle }: { x: number; y: number; s: number; look: ReturnType<typeof parseHoundAvatar>; angle: number }) {
+export function Batter({ x, y, s, look, angle }: { x: number; y: number; s: number; look: ReturnType<typeof parseHoundAvatar>; angle: number }) {
   const size = HS * s;
   const L = size * 0.78; // the bat
   const hands = { x: x + size * 0.28, y: y - size * 0.42 };
@@ -661,7 +661,7 @@ function Batter({ x, y, s, look, angle }: { x: number; y: number; s: number; loo
 // The ballpark from behind the plate: the stand beyond the fence, the
 // outfield in stripes, the infield dirt, the bases, the mound and the
 // batter's boxes. Drawn once per size.
-const FieldArt = React.memo(function FieldArt({ v }: { v: Perspective }) {
+export const FieldArt = React.memo(function FieldArt({ v }: { v: Perspective }) {
   const path = (pts: [number, number][], close = true) => groundPath(v, pts.map(([x, y]) => [x / W, y / H] as [number, number]), close);
   const arc = (r: number, from: Pt, to: Pt, n = 28): [number, number][] => {
     const a0 = Math.atan2(from.y - HOME.y, from.x - HOME.x);

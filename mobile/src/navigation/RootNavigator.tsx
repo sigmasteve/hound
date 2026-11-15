@@ -32,6 +32,7 @@ import { GolfPlayScreen } from '../screens/GolfPlayScreen';
 import { HoopsShootScreen } from '../screens/HoopsShootScreen';
 import { BaseballBatScreen } from '../screens/BaseballBatScreen';
 import { HorseShootScreen } from '../screens/HorseShootScreen';
+import { DerbyBatScreen } from '../screens/DerbyBatScreen';
 import { useChallengeCodeLinks } from '../challenges/codeLinks';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { MetricsScreen } from '../screens/MetricsScreen';
@@ -286,6 +287,7 @@ export function RootNavigator() {
                   onShootHoops={() => navigation.navigate('HoopsShoot', { challengeId: route.params.challengeId })}
                   onBatBaseball={() => navigation.navigate('BaseballBat', { challengeId: route.params.challengeId })}
                   onShootHorse={() => navigation.navigate('HorseShoot', { challengeId: route.params.challengeId })}
+                  onBatDerby={() => navigation.navigate('DerbyBat', { challengeId: route.params.challengeId })}
                 />
               )}
             </Stack.Screen>
@@ -551,6 +553,18 @@ export function RootNavigator() {
               {/* H-O-R-S-E: call your shot and take it, from the challenge's card. */}
               {({ navigation, route }) => (
                 <HorseShootScreen
+                  key={route.params.challengeId}
+                  challengeId={route.params.challengeId}
+                  onBack={() =>
+                    navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ChallengeDetail', { challengeId: route.params.challengeId })
+                  }
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="DerbyBat" options={{ animation: 'slide_from_right', gestureEnabled: false }}>
+              {/* The Home Run Derby: step up to the plate, from the Derby's board. */}
+              {({ navigation, route }) => (
+                <DerbyBatScreen
                   key={route.params.challengeId}
                   challengeId={route.params.challengeId}
                   onBack={() =>

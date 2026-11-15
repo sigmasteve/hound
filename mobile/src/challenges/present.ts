@@ -190,6 +190,10 @@ export function toChallengeCard(
     // The course and the cards live in golf_games, on the detail screen.
     stat = challenge.durationDays >= 7 ? '18' : '9';
     statLabel = 'holes · a shot at a time';
+  } else if (challenge.kind === 'derby') {
+    // The home runs live in derby_players, on the detail screen.
+    stat = '20';
+    statLabel = 'swings a day · most home runs wins';
   } else if (challenge.kind === 'packs') {
     // The map and the packs live in pack_territories, on the detail screen.
     stat = '4';

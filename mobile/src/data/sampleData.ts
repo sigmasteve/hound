@@ -80,7 +80,8 @@ export type ChallengeKind =
   | 'horse'
   | 'golf'
   | 'doors'
-  | 'packs';
+  | 'packs'
+  | 'derby';
 
 export interface ChallengeCard {
   id: string;
@@ -252,6 +253,14 @@ export const CHALLENGE_TYPES: {
     desc: 'Four packs, one neighborhood map. Each day, vote where your pack marches; only members who vote add their steps. Overnight, the strongest pack takes the ground it marched on. Most ground at the end wins.',
     tint: '#2f3f5a',
     iconColor: '#c9d5e8',
+  },
+  // Global only (0211_derby.sql), like Daily Doors.
+  {
+    id: 'derby',
+    name: 'Home Run Derby',
+    desc: 'Everyone steps up to the plate for a week. Your steps buy the swings, one every 1,000, up to 20 a day. Every pitch is a meatball: time it right and it’s gone. Steps and workouts add distance; 475 feet is a Moonshot and counts as two. Watch for the golden ball. Most home runs wins.',
+    tint: '#1f4a5a',
+    iconColor: '#cfe8f0',
   },
   { id: 'journey', name: 'Journey', desc: 'Everyone walks the same famous course from the same start — Windy City 26.2, Route 66, the Appalachian Trail. Your walks, runs and hikes move you along the map. First to the end wins; if nobody gets there, furthest along does.', tint: '#2f5a3f', iconColor: '#cdebd6' },
 ];

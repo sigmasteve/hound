@@ -72,6 +72,8 @@ export type RootStackParamList = {
   BaseballBat: { challengeId: string };
   // H-O-R-S-E, calling your own shots (0209).
   HorseShoot: { challengeId: string };
+  // The Home Run Derby, at the plate (0211).
+  DerbyBat: { challengeId: string };
   StartClub: { clubId?: string } | undefined;
   // Opened from the You tab (they used to be tabs or the top bar).
   Stats: undefined;

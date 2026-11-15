@@ -20,7 +20,8 @@ export type ChallengeKind =
   | 'horse'
   | 'golf'
   | 'doors'
-  | 'packs';
+  | 'packs'
+  | 'derby';
 
 // A hunt has exactly one Hunter and one or more Hunted — never set for
 // any other challenge kind. 'zombie' is a one-way transition a Hunted

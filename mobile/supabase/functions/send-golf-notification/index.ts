@@ -18,8 +18,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
-type Kind = 'birdie' | 'ace' | 'reminder' | 'skin' | 'final' | 'top10';
-const KINDS: Kind[] = ['birdie', 'ace', 'reminder', 'skin', 'final', 'top10'];
+// 'derby' (0211): the Home Run Derby's pushes, worded by the server.
+type Kind = 'birdie' | 'ace' | 'reminder' | 'skin' | 'final' | 'top10' | 'derby';
+const KINDS: Kind[] = ['birdie', 'ace', 'reminder', 'skin', 'final', 'top10', 'derby'];
 
 interface RequestBody {
   kind: Kind;
@@ -40,6 +41,9 @@ interface RequestBody {
   winner_id?: string | null;
   winner_name?: string | null;
   total?: number;
+  // derby
+  title?: string;
+  message?: string;
   // top10
   pos?: number;
   tied?: boolean;
@@ -82,6 +86,8 @@ function message(body: RequestBody, me: string, game: string): { title: string; 
       const thru = body.thru ? ` after ${body.thru} ${body.thru === 1 ? 'hole' : 'holes'}` : '';
       return { title: game, text: `You're into the top 10: ${place}${thru}. Keep going.` };
     }
+    case 'derby':
+      return { title: body.title ?? game, text: body.message ?? `Something happened in "${game}".` };
     case 'final': {
       const score = body.total != null && body.to_par != null ? ` You shot ${body.total} (${toPar(body.to_par)}).` : '';
       if (!body.winner_id) return { title: 'Golf', text: `"${game}" is over: it's a tie.${score}` };
