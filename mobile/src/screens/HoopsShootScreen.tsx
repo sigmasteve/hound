@@ -121,9 +121,10 @@ function flightKeys(v: Perspective, start: { x: number; y: number; d: number }, 
     through();
     return { keys, landAt, putbackAt: null };
   }
-  // Rims out, short, or long off the board.
+  // Rims out (a good release that missed, as the server words it), short,
+  // or long off the board.
   const end =
-    r.quality === 'near'
+    rimsOut(r)
       ? { x: rim.x + side * rim.rx * 0.95, y: rim.y - 2, d: ball }
       : timing < 0
         ? { x: rim.x, y: rim.y + rim.rx * 0.9, d: ball }
@@ -147,7 +148,13 @@ function flightKeys(v: Perspective, start: { x: number; y: number; d: number }, 
 function bannerFor(r: HoopsShotResult, timing: number): { text: string; good: boolean } {
   if (r.made) return { text: `${r.dunk ? 'Dunk!' : r.quality === 'swish' ? 'Swish!' : 'Good!'} +${r.pts}`, good: true };
   if (r.putback?.made) return { text: `Putback! +${r.putback.pts}`, good: true };
-  return { text: r.quality === 'near' ? 'Rims out' : timing < 0 ? 'Short' : 'Long', good: false };
+  return { text: rimsOut(r) ? 'Rims out' : timing < 0 ? 'Short' : 'Long', good: false };
+}
+
+// The server says "Rims out." for a miss on a swish or green release, and
+// "Short." / "Long." otherwise; the court and banner match it.
+function rimsOut(r: HoopsShotResult): boolean {
+  return r.quality === 'swish' || r.quality === 'green';
 }
 
 function shotLine(s: HoopsLiveShot): string {
