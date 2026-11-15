@@ -59,6 +59,18 @@ interface ChallengeRow {
   id: string;
   name: string;
   starts_at: string;
+  // The challenge's calendar days (0085): start_day to start_day +
+  // duration_days - 1. Null start_day on the oldest challenges.
+  start_day: string | null;
+  duration_days: number | null;
+}
+
+// The challenge's last counting day ('YYYY-MM-DD'), or null when unknown.
+function lastDayOf(c: ChallengeRow): string | null {
+  if (!c.start_day || !c.duration_days) return null;
+  const d = new Date(`${c.start_day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + c.duration_days - 1);
+  return d.toISOString().slice(0, 10);
 }
 
 interface ParticipantRow {
@@ -181,7 +193,7 @@ Deno.serve(async (req) => {
 
   const { data: challenges, error: challengesError } = await supabase
     .from('challenges')
-    .select('id, name, starts_at')
+    .select('id, name, starts_at, start_day, duration_days')
     .gt('ends_at', now.toISOString())
     .in('kind', SYNCED_KINDS)
     .returns<ChallengeRow[]>();
@@ -226,7 +238,13 @@ Deno.serve(async (req) => {
 
     // Quiet for over a day, opted in, and it's 6 PM where they are. Each
     // of them hears only about themselves.
+    // A challenge started "Now" runs past its last calendar day (until
+    // the same time the day after); on that extra day nothing can sync, so
+    // nobody is behind (Steve, Nov 2026: alerted on Family TAG's last
+    // evening after opening Today all day).
+    const lastDay = lastDayOf(challenge);
     const due = participants.filter((p) => {
+      if (lastDay && localClock(p.profiles?.time_zone ?? null, now).day > lastDay) return false;
       const lastSynced = lastSyncedByUser.get(p.user_id);
       const staleMs = lastSynced ? now.getTime() - new Date(lastSynced).getTime() : STALE_MS;
       return (
