@@ -109,6 +109,8 @@ export function HorseCard({
     myVote: null,
     teamVotes: { paint: 0, arc: 0 },
     last: null,
+    handsOn: false,
+    live: null,
   };
 
   return (

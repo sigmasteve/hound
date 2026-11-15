@@ -58,6 +58,8 @@ export interface HoopsEvent {
   defenderSteps: number;
   // The defending team's lean that day; 'none' when nobody voted.
   defense: HoopsDefense | 'none' | null;
+  // Taken by hand on the shooting screen (0206), not rolled overnight.
+  byHand: boolean;
 }
 
 export interface HoopsPeriod {
@@ -84,6 +86,10 @@ export interface HoopsGame {
   myVote: HoopsDefense | null;
   teamVotes: Record<HoopsDefense, number>;
   last: HoopsPeriod | null;
+  // 0206: everyone takes their own shots during the day (Create's "Take
+  // my own shots"); anything not taken plays overnight as before.
+  handsOn: boolean;
+  live: HoopsLive | null;
 }
 
 const num = (v: unknown) => Number(v ?? 0);
@@ -103,6 +109,7 @@ function toEvent(e: any): HoopsEvent {
     shooterSteps: num(e.shooter_steps),
     defenderSteps: num(e.defender_steps),
     defense: e.defense ?? null,
+    byHand: !!e.by_hand,
   };
 }
 
@@ -153,6 +160,124 @@ export function toHoopsGame(d: any): HoopsGame {
     myVote: d.my_vote ?? null,
     teamVotes: { paint: num(d.team_votes?.paint), arc: num(d.team_votes?.arc) },
     last: toPeriod(d.last),
+    handsOn: !!d.hands_on,
+    live: d.live ? toLive(d.live) : null,
+  };
+}
+
+// ── Taking your own shots (0206) ──
+
+export type HoopsShotQuality = 'swish' | 'green' | 'near' | 'off';
+
+export interface HoopsLiveShot {
+  n: number;
+  kind: HoopsShot;
+  quality: HoopsShotQuality;
+  made: boolean;
+  pts: number;
+  dunk: boolean;
+  putback: { made: boolean; pts: number } | null;
+}
+
+export interface HoopsLive {
+  handsOn: boolean;
+  canShoot: boolean;
+  // Why not, in a sentence ("Not a game day.").
+  reason: string | null;
+  day: string | null;
+  dayNo: number;
+  period: number;
+  label: string;
+  steps: number;
+  shotSteps: number;
+  earned: number;
+  taken: number;
+  ready: number;
+  // Steps at which the next shot comes; null at the day's cap.
+  nextAt: number | null;
+  defender: { name: string; steps: number } | null;
+  theirDefense: HoopsDefense | 'none';
+  // The make zone's width on the meter (a share of it), per shot: the
+  // green narrows the more your defender out-walks you.
+  windows: Record<HoopsShot, number>;
+  streak: number;
+  todayPts: number;
+  shots: HoopsLiveShot[];
+}
+
+export interface HoopsShotResult {
+  n: number;
+  kind: HoopsShot;
+  quality: HoopsShotQuality;
+  chance: number;
+  made: boolean;
+  pts: number;
+  dunk: boolean;
+  onFire: boolean;
+  putback: { made: boolean; pts: number } | null;
+  ready: number;
+  todayPts: number;
+  message: string;
+}
+
+function toPutback(p: any): { made: boolean; pts: number } | null {
+  return p ? { made: !!p.made, pts: num(p.pts) } : null;
+}
+
+export function toLive(d: any): HoopsLive {
+  const w = d?.windows ?? {};
+  return {
+    handsOn: d?.hands_on !== false,
+    canShoot: !!d?.can_shoot,
+    reason: d?.reason ?? null,
+    day: d?.day ?? null,
+    dayNo: num(d?.day_no),
+    period: num(d?.period),
+    label: d?.label ?? '',
+    steps: num(d?.steps),
+    shotSteps: num(d?.shot_steps) || 2000,
+    earned: num(d?.earned),
+    taken: num(d?.taken),
+    ready: num(d?.ready),
+    nextAt: d?.next_at == null ? null : num(d.next_at),
+    defender: d?.defender ? { name: d.defender.name ?? 'Your defender', steps: num(d.defender.steps) } : null,
+    theirDefense: d?.their_defense ?? 'none',
+    windows: { drive: num(w.drive) || 0.36, mid: num(w.mid) || 0.26, three: num(w.three) || 0.2 },
+    streak: num(d?.streak),
+    todayPts: num(d?.today_pts),
+    shots: ((d?.shots ?? []) as any[]).map((x) => ({
+      n: num(x.n),
+      kind: x.kind ?? 'drive',
+      quality: x.quality ?? 'off',
+      made: !!x.made,
+      pts: num(x.pts),
+      dunk: !!x.dunk,
+      putback: toPutback(x.putback),
+    })),
+  };
+}
+
+export async function getHoopsLive(challengeId: string): Promise<HoopsLive> {
+  return toLive(await rpc<any>('hoops_live', { p_challenge_id: challengeId }));
+}
+
+// One shot, by hand: the meter's offset from the middle (−0.5 early/short
+// … 0.5 late/long). The server decides it and keeps it for tonight.
+export async function takeHoopsShot(challengeId: string, kind: HoopsShot, timing: number): Promise<HoopsShotResult> {
+  const d = await rpc<any>('hoops_take_shot', { p_challenge_id: challengeId, p_kind: kind, p_timing: Math.max(-0.5, Math.min(0.5, timing)) });
+  return {
+    n: num(d?.n),
+    kind: d?.kind ?? kind,
+    quality: d?.quality ?? 'off',
+    chance: num(d?.chance),
+    made: !!d?.made,
+    pts: num(d?.pts),
+    dunk: !!d?.dunk,
+    onFire: !!d?.on_fire,
+    putback: toPutback(d?.putback),
+    ready: num(d?.ready),
+    todayPts: num(d?.today_pts),
+    message: d?.message ?? '',
   };
 }
 
@@ -167,9 +292,10 @@ export async function getHoopsPeriod(challengeId: string, period: number): Promi
 
 export async function setupHoops(
   challengeId: string,
-  opts: { shotSteps: number; daysPerQuarter: number; fillBots: boolean; players: { userId: string; team: HoopsTeam }[]; homeName?: string; awayName?: string },
+  opts: { shotSteps: number; daysPerQuarter: number; fillBots: boolean; players: { userId: string; team: HoopsTeam }[]; homeName?: string; awayName?: string; handsOn?: boolean },
 ): Promise<void> {
   await rpc('hoops_setup', {
+    ...(opts.handsOn ? { p_hands_on: true } : {}),
     p_challenge_id: challengeId,
     p_shot_steps: opts.shotSteps,
     p_days_per_quarter: opts.daysPerQuarter,
@@ -226,6 +352,8 @@ export interface HoopsOverview {
   horse7d: number;
   horseAll: number;
   bones7d: number;
+  // 0206: shots taken by hand.
+  live: { gamesHandsOn: number; people7d: number; shots7d: number; makeRate7d: number | null; autoMakeRate7d: number | null; swish7d: number } | null;
 }
 
 export async function getHoopsOverview(): Promise<HoopsOverview> {
@@ -248,6 +376,16 @@ export async function getHoopsOverview(): Promise<HoopsOverview> {
     horse7d: num(d.horse_7d),
     horseAll: num(d.horse_all),
     bones7d: num(d.bones_7d),
+    live: d.live
+      ? {
+          gamesHandsOn: num(d.live.games_hands_on),
+          people7d: num(d.live.people_7d),
+          shots7d: num(d.live.shots_7d),
+          makeRate7d: d.live.make_rate_7d == null ? null : Number(d.live.make_rate_7d),
+          autoMakeRate7d: d.live.auto_make_rate_7d == null ? null : Number(d.live.auto_make_rate_7d),
+          swish7d: num(d.live.swish_7d),
+        }
+      : null,
   };
 }
 
@@ -256,5 +394,6 @@ export async function setHoopsConfig(patch: Partial<HoopsConfig>): Promise<void>
 }
 
 export function hoopsSummary(o: HoopsOverview): string {
-  return `${o.hoopsLive} Hoops and ${o.horseLive} H-O-R-S-E on now · ${o.hoops7d + o.horse7d} this week`;
+  const byHand = o.live && o.live.shots7d > 0 ? ` · ${o.live.shots7d} shots by hand` : '';
+  return `${o.hoopsLive} Hoops and ${o.horseLive} H-O-R-S-E on now · ${o.hoops7d + o.horse7d} this week${byHand}`;
 }
