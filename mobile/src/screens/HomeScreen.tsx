@@ -2089,6 +2089,11 @@ export function HomeScreen({
             doorsShut: new Set([...doorsMap].filter(([, g]) => todaysDoor(g)?.state === 'ready').map(([id]) => id)),
             packsUnvoted: new Set([...packMap].filter(([, g]) => !g.settled && packDayNo(g) != null && g.myVote == null).map(([id]) => id)),
             hoopsUnpicked: new Set(hoopsEntries.filter(([, g]) => g && g.status === 'live' && g.me && g.myVote == null).map(([id]) => id)),
+            hoopsShotsReady: new Map(
+              hoopsEntries.flatMap(([id, g]) =>
+                g && g.handsOn && g.live && g.live.canShoot && g.live.ready > 0 ? [[id, g.live.ready] as const] : [],
+              ),
+            ),
             horseToSet: new Set(horseEntries.filter(([, g]) => g && g.status === 'live' && g.me && g.setter === g.me).map(([id]) => id)),
             // 30 yards is a short pitch; less than that and there's nothing to play yet.
             golfToPlay: new Map(

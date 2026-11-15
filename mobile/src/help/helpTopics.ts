@@ -225,6 +225,9 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Each day your team votes on defense: Pack the paint makes their drives harder, Guard the arc makes their threes harder. Most votes by midnight wins.',
         'Missed shots: the side that walked more that day gets the rebound, and one more try. Walk twice your defender’s steps (when they walked at least 1,000) and you’re fouled for two free throws. Over 15,000 steps, drives are dunks. Three makes in a row and you’re on fire.',
         'Teams of one to nine; bots fill a side to five. Each morning, tap Watch to replay last night’s quarter on the court, and see every play with why it went in or didn’t.',
+        'Take your own shots (on for new games; Create’s “Take my own shots”): as your steps earn shots during the day, tap Take your shots on the game’s card. Pick a Drive, Mid-range or Three, tap Shoot, then Release! as the marker crosses the green. Dark green is a swish.',
+        'Skill helps, steps still matter most: a good release adds a little to the shot’s odds, a bad one takes some away, and the more your defender has out-walked you so far today, the narrower the green. A miss can still bring a putback if your side gets the rebound.',
+        'Shots you take count when the day is played overnight, with the rest of the quarter; the score moves for everyone the next morning. Any you don’t take play for you with your picked shot. Plays you took yourself say “by hand” in the replay.',
       ],
     },
     {
