@@ -14,6 +14,7 @@ export type PendingActionKind =
   | 'doorsKnock'
   | 'packsVote'
   | 'hoopsPick'
+  | 'hoopsShoot'
   | 'horseSetShot'
   | 'golfPlay'
   | 'logProgress';
@@ -85,6 +86,9 @@ export interface PendingActionsInput {
   // Hoops where the caller hasn't voted on today's defense (0195), and
   // H-O-R-S-E where they're setting and haven't picked today's shot (0196).
   hoopsUnpicked?: Set<string>;
+  // Hoops where the caller takes their own shots and has some ready
+  // (0206): how many.
+  hoopsShotsReady?: Map<string, number>;
   horseToSet?: Set<string>;
   // Golf where the caller takes their own shots and has yards banked
   // (0200): what's banked and the hole they're on.
@@ -113,6 +117,7 @@ export function computePendingActions({
   doorsShut = new Set(),
   packsUnvoted = new Set(),
   hoopsUnpicked = new Set(),
+  hoopsShotsReady = new Map(),
   horseToSet = new Set(),
   golfToPlay = new Map(),
   loggedProgressToday,
@@ -194,6 +199,15 @@ export function computePendingActions({
         });
       }
     } else if (c.kind === 'hoops') {
+      const ready = hoopsShotsReady.get(c.id) ?? 0;
+      if (ready > 0) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'hoopsShoot',
+          label: `${ready} Hoops ${ready === 1 ? 'shot' : 'shots'} ready in ${c.name}`,
+        });
+      }
       if (hoopsUnpicked.has(c.id)) {
         actions.push({
           challengeId: c.id,

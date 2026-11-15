@@ -251,10 +251,13 @@ export function ChallengeDetailScreen({
   onRematch,
   initialTab,
   onPlayGolf,
+  onShootHoops,
 }: {
   challengeId: string;
   // Golf: opens the play screen for this challenge.
   onPlayGolf?: () => void;
+  // Hoops (hands-on): opens the shooting screen.
+  onShootHoops?: () => void;
   // Which tab to open on; a trash-talk notification opens Talk.
   initialTab?: ChallengeTab;
   onBack: () => void;
@@ -920,10 +923,11 @@ export function ChallengeDetailScreen({
   useEffect(() => {
     loadHoops();
   }, [loadHoops, challenge]);
-  // Back from the Golf play screen: the banks and the card have moved.
+  // Back from the Golf play / Hoops shooting screen: the banks and the
+  // card have moved.
   useFocusEffect(
     useCallback(() => {
-      if (challenge?.kind === 'golf') loadHoops();
+      if (challenge?.kind === 'golf' || challenge?.kind === 'hoops') loadHoops();
     }, [challenge?.kind, loadHoops]),
   );
 
@@ -2419,7 +2423,7 @@ export function ChallengeDetailScreen({
             />
           )}
 
-          {challenge.kind === 'hoops' && <HoopsCard challengeId={challengeId} game={hoopsGame} stepsToday={soccerSteps} onChanged={loadHoops} />}
+          {challenge.kind === 'hoops' && <HoopsCard challengeId={challengeId} game={hoopsGame} stepsToday={soccerSteps} onChanged={loadHoops} onShoot={() => onShootHoops?.()} />}
 
           {challenge.kind === 'golf' && isGlobal && (
             <OpenBoard challengeId={challengeId} name={challenge.name} game={golfGame} sponsor={sponsor} onPlay={() => onPlayGolf?.()} />

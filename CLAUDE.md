@@ -92,6 +92,10 @@ like a TV broadcast (Steve's pick, Nov 2026), so a replay can run the
 length of the floor. It's still `perspective.ts` and `project()`, with
 x along the court and the stand behind the far sideline
 (`HoopsCourt.tsx`).
+Taking your own shots (0206, `HoopsShootScreen.tsx`) is the other way
+round: seen from behind the shooter, facing the basket, still through
+`perspective.ts` and `project()` (y from the baseline out to 32 ft). The
+replays of those shots stay on the sideline court.
 
 ## Today screen layout
 

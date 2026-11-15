@@ -72,12 +72,21 @@ export function HoopsAdminCard({ onChanged }: { onChanged?: (o: HoopsOverview) =
     save(patch);
   };
 
+  const rate = (r: number | null) => (r == null ? '–' : `${Math.round(r * 100)}%`);
   const stats: [string, string][] = data
     ? [
         ['Hoops on now', `${data.hoopsLive}`],
         ['Hoops started', `${data.hoops7d} this week · ${data.hoopsAll} ever`],
         ['People playing Hoops this week', `${data.players7d}`],
         ['Shots this week', `${data.shots7d.toLocaleString()} · ${data.dunks7d} dunks · ${data.onFire7d} on fire`],
+        // 0206: shots taken by hand, against the ones walks played.
+        ...(data.live
+          ? ([
+              ['Games where people take their own shots', `${data.live.gamesHandsOn}`],
+              ['Took their own shots this week', `${data.live.people7d} people · ${data.live.shots7d.toLocaleString()} shots · ${data.live.swish7d} swishes`],
+              ['Make rate this week', `${rate(data.live.makeRate7d)} by hand · ${rate(data.live.autoMakeRate7d)} played for them`],
+            ] as [string, string][])
+          : []),
         ['H-O-R-S-E on now', `${data.horseLive}`],
         ['H-O-R-S-E started', `${data.horse7d} this week · ${data.horseAll} ever`],
         ['Bones given this week', `${data.bones7d.toLocaleString()}`],
