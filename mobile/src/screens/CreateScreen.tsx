@@ -83,6 +83,15 @@ import { setupBaseball, type BaseballSeat } from '../challenges/baseballApi';
 import { DEFAULT_HOOPS_SHOT_STEPS, HOOPS_MAX_SIDE, HOOPS_SHOT_OPTIONS, HORSE_DAYS, HORSE_LENGTHS, HORSE_SHOTS, HORSE_WORDS, spelled, type HorseWord } from '../challenges/hoops';
 import { setupHoops } from '../challenges/hoopsApi';
 import { setupHorse } from '../challenges/horseApi';
+
+// H-O-R-S-E stakes (0209): a treat_recipes id the loser bakes, or none.
+const HORSE_STAKES: { id: string | null; name: string }[] = [
+  { id: null, name: 'None' },
+  { id: 'pumpkin_biscuits', name: 'Pumpkin biscuits' },
+  { id: 'pb_pupcake', name: 'Peanut butter pupcake' },
+  { id: 'frosty_paws', name: 'Frosty paws' },
+  { id: 'birthday_cake', name: 'Birthday cake' },
+];
 import { setupGlobalGolf, setupGolf } from '../challenges/golfApi';
 import { SponsorEditor, emptySponsorDraft, sponsorDraftProblem, sponsorFromDraft, usesPlacements } from '../components/SponsorEditor';
 import { GOLF_COURSES, GOLF_FORMAT_NAME, GOLF_FORMAT_NOTE, GOLF_HOLES_PER_DAY, golfDays, type GolfCourseId, type GolfFormat } from '../challenges/golf';
@@ -272,6 +281,10 @@ export function CreateScreen({
   // 0207: Baseball, take your own at-bats during the day (off: walks bat
   // for you overnight).
   const [baseballHandsOn, setBaseballHandsOn] = useState(true);
+  // H-O-R-S-E (0209): call your own shots, turn by turn, and what the
+  // loser bakes the winner's hound.
+  const [horseHandsOn, setHorseHandsOn] = useState(true);
+  const [horseStakes, setHorseStakes] = useState<string | null>('pb_pupcake');
   // H-O-R-S-E (0196): the word.
   const [horseWord, setHorseWord] = useState<HorseWord>('HORSE');
   // Golf (0200): the course, 9 or 18, the format, whether you take every
@@ -1162,7 +1175,7 @@ export function CreateScreen({
       }
       if (draftType === 'horse') {
         try {
-          await setupHorse(created.id, horseWord);
+          await setupHorse(created.id, horseWord, { handsOn: horseHandsOn, stakes: horseStakes });
         } catch (e) {
           await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
           throw e;
@@ -1997,11 +2010,66 @@ export function CreateScreen({
                 value={Number(length) <= 7 ? '7' : '14'}
                 onChange={(v) => setLength(v)}
               />
-              <Text style={styles.huntBlockNote}>
-                Whoever&rsquo;s setting picks a shot: {HORSE_SHOTS.map((x) => `${x.name.toLowerCase()} ${x.target.toLocaleString()}`).join(', ')} steps.
-                Walk it by midnight and the other has to match it, or take a letter. Miss and they set the next one. Spell{' '}
-                {spelled(horseWord)} and you lose. If nobody has by the last day, fewer letters wins.
-              </Text>
+              {horseHandsOn ? (
+                <Text style={styles.huntBlockNote}>
+                  Turn by turn, 24 hours a turn. Call your shot from anywhere on the court (the bench too, and beyond the court once a big day
+                  unlocks it), chain your calls, and take one shot. Make it and the other has to match it, or take a letter. Tries come from
+                  steps, one per 2,000. Spell {spelled(horseWord)} and you lose; if nobody has by the last day, fewer letters wins.
+                </Text>
+              ) : (
+                <Text style={styles.huntBlockNote}>
+                  Whoever&rsquo;s setting picks a shot: {HORSE_SHOTS.map((x) => `${x.name.toLowerCase()} ${x.target.toLocaleString()}`).join(', ')} steps.
+                  Walk it by midnight and the other has to match it, or take a letter. Miss and they set the next one. Spell{' '}
+                  {spelled(horseWord)} and you lose. If nobody has by the last day, fewer letters wins.
+                </Text>
+              )}
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.friendName}>Take my own shots</Text>
+                  <Text style={styles.footNote}>
+                    {horseHandsOn
+                      ? 'You call and take every shot in the app: pick the spot, chain the calls, time the release.'
+                      : 'Off: the daily step targets play it (a layup is 6,000 steps, a three 10,000).'}
+                  </Text>
+                </View>
+                <Switch value={horseHandsOn} onValueChange={setHorseHandsOn} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+              </View>
+              {horseHandsOn && (
+                <View style={{ gap: 6 }}>
+                  <View style={styles.huntBlockHeader}>
+                    <Text style={styles.huntBlockLabel}>Stakes</Text>
+                    <Text style={styles.huntBlockValue}>{HORSE_STAKES.find((x) => x.id === horseStakes)?.name ?? 'None'}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {HORSE_STAKES.map((x) => {
+                      const on = x.id === horseStakes;
+                      return (
+                        <Pressable
+                          key={x.id ?? 'none'}
+                          onPress={() => setHorseStakes(x.id)}
+                          style={{
+                            borderRadius: 999,
+                            paddingHorizontal: 11,
+                            paddingVertical: 7,
+                            borderWidth: on ? 2 : 1,
+                            borderColor: on ? colors.accent : withAlpha(colors.text, 0.16),
+                            backgroundColor: on ? withAlpha(colors.accent, 0.14) : 'transparent',
+                          }}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: on }}
+                        >
+                          <Text style={{ fontSize: 13, color: colors.text }}>{x.name}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Text style={styles.huntBlockNote}>
+                    {horseStakes
+                      ? 'The loser bakes the winner’s hound this treat from the Kennel’s treat kitchen, and pays its Bones. A tie pays nothing.'
+                      : 'No stakes: just the bragging rights.'}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -2360,7 +2428,9 @@ export function CreateScreen({
           )}
           {draftType === 'horse' && (
             <Text style={styles.footNote}>
-              H-O-R-S-E is one on one. You set the first shot; the game starts the day after they accept.
+              {horseHandsOn
+                ? 'H-O-R-S-E is one on one. You set the first shot once they accept.'
+                : 'H-O-R-S-E is one on one. You set the first shot; the game starts the day after they accept.'}
             </Text>
           )}
           {draftType === 'hoops' && (

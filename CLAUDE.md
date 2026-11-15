@@ -103,6 +103,16 @@ behind home plate, facing the mound: the Baseball card's ground (560 ×
 and your hound with the bat are big and the outfield and the stand
 small. Every point still goes through `project()`.
 
+H-O-R-S-E's own shots (0209, `HorseShootScreen.tsx`) are on the half
+court seen from above half court, looking at the basket: u across (−1..1,
+`0.5 + u/2` on the ground) and v from the baseline (0) to half court (1),
+through `project()`, with the stand and the scoreboard (both players'
+letters) behind the basket, the bench on the right sideline and the day's
+chair in the lane. The parking lot and the rooftop have their own outside
+scene (the street, a HOUND billboard, the gym's lit window). The court
+never scrolls away: only the options under it scroll, and the meter and
+Shoot stay pinned (Steve's ask).
+
 ## Today screen layout
 
 Steve's agreed layout for Today (`mobile/src/screens/HomeScreen.tsx`,

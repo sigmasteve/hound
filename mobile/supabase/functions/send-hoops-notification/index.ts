@@ -6,6 +6,8 @@
 //   - 'pick'          afternoon, to a player who hasn't picked a shot or voted
 //   - 'horse_result'  a H-O-R-S-E day: made, matched, or a letter
 //   - 'horse_final'   the end of a H-O-R-S-E game
+//   - 'horse_turn'    a hands-on H-O-R-S-E turn (0209): `message` is the
+//                     whole push, already worded by the server
 // Every push carries { type: 'hoops' | 'horse', challengeId } so a tap opens
 // the game. A failure here never affects the game: the caller swallows it.
 //
@@ -16,8 +18,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
-type Kind = 'quarter' | 'final' | 'pick' | 'horse_result' | 'horse_final';
-const KINDS: Kind[] = ['quarter', 'final', 'pick', 'horse_result', 'horse_final'];
+type Kind = 'quarter' | 'final' | 'pick' | 'horse_result' | 'horse_final' | 'horse_turn';
+const KINDS: Kind[] = ['quarter', 'final', 'pick', 'horse_result', 'horse_final', 'horse_turn'];
 
 interface RequestBody {
   kind: Kind;
@@ -48,6 +50,8 @@ interface RequestBody {
   letters?: Record<string, number>;
   winner?: string | null;
   next_setter?: string;
+  // H-O-R-S-E by hand (0209).
+  message?: string;
 }
 
 const SHOT_NAME = { drive: 'driving', mid: 'shooting mid-range', three: 'shooting threes' } as const;
@@ -127,7 +131,7 @@ Deno.serve(async (req) => {
   if (!body?.challenge_id || !body?.recipient_id || !KINDS.includes(body.kind)) {
     return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
   }
-  const horse = body.kind === 'horse_result' || body.kind === 'horse_final';
+  const horse = body.kind === 'horse_result' || body.kind === 'horse_final' || body.kind === 'horse_turn';
 
   const [{ data: challenge }, { data: recipient }] = await Promise.all([
     supabase.from('challenges').select('name').eq('id', body.challenge_id).single(),
@@ -141,7 +145,12 @@ Deno.serve(async (req) => {
   }
 
   let messageBody: string;
-  if (horse) {
+  if (body.kind === 'horse_turn') {
+    if (!body.message) {
+      return new Response(JSON.stringify({ error: 'Missing message' }), { status: 400 });
+    }
+    messageBody = body.message.slice(0, 240);
+  } else if (horse) {
     messageBody = horseMessage(body, body.recipient_id, challenge.name);
   } else {
     const { data: seat } = await supabase

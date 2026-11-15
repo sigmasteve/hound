@@ -186,6 +186,7 @@ import { useGoalsTileStyle } from '../home/todayPrefs';
 import { useGoals } from '../goals/GoalsContext';
 import { advanceHoops, getHoops, type HoopsGame } from '../challenges/hoopsApi';
 import { advanceHorse, getHorse, type HorseGame } from '../challenges/horseApi';
+import { timeLeft } from '../challenges/horseLive';
 import { getGolfGame, type GolfGame } from '../challenges/golfApi';
 import { distanceText, toParText } from '../challenges/golf';
 import { GolfHole } from '../components/GolfHole';
@@ -2104,7 +2105,16 @@ export function HomeScreen({
             baseballAtBatsReady: new Map(
               baseballEntries.flatMap(([id, l]) => (l && l.handsOn && l.canBat && l.ready > 0 ? [[id, l.ready] as const] : [])),
             ),
-            horseToSet: new Set(horseEntries.filter(([, g]) => g && g.status === 'live' && g.me && g.setter === g.me).map(([id]) => id)),
+            horseToSet: new Set(horseEntries.filter(([, g]) => g && !g.handsOn && g.status === 'live' && g.me && g.setter === g.me).map(([id]) => id)),
+            // H-O-R-S-E, call your shot (0209): it's your turn to set or match.
+            horseTurns: new Map(
+              horseEntries.flatMap(([id, g]) => {
+                const l = g?.live;
+                if (!g || !g.handsOn || !l || l.status === 'final' || !l.turn?.mine) return [];
+                const them = l.them?.name.split(' ')[0] ?? 'them';
+                return [[id, { kind: l.turn.kind, them, left: timeLeft(l.turn.endsAt) }] as const];
+              }),
+            ),
             // 30 yards is a short pitch; less than that and there's nothing to play yet.
             golfToPlay: new Map(
               golfEntries.flatMap(([id, g]) => {

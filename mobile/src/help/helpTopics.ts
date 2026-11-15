@@ -238,12 +238,17 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       id: 'horse',
       section: 'challenges',
       title: 'H-O-R-S-E',
-      summary: 'One on one: set a shot, match it or take a letter.',
+      summary: 'One on one: call your shot, match it or take a letter.',
       steps: [
         'Two players. Whoever’s setting picks today’s shot: Layup 6,000 steps, Free throw 8,000, Three 10,000, Hook shot 12,000 or Half-court 15,000.',
         'At midnight: if the setter walked the target, they made it, and the other has to walk it too or take the next letter. Make it and you keep setting.',
         'If the setter misses, nobody takes a letter, and the other one sets tomorrow.',
         'Spell H-O-R-S-E (or P-I-G, if that’s what you picked) and you lose. If nobody has by the last day (a game runs a week or two), fewer letters wins.',
+        'Call your own shots (Create’s “Take my own shots”, on for new games): turn by turn, 24 hours a turn. On your turn to set, tap anywhere on the court (or up on the bench), chain your calls (off the floor, off the scoreboard, off the glass, behind the back, nothing but net), tap Shoot, then Release! in the green. One shot.',
+        'Every call narrows the green, and so does shooting over today’s chair in the lane. Nothing but net means only the dark green (a swish) counts. More steps today steady your hand: a slightly wider green.',
+        'Make your call and the other player has 24 hours to match it: the same spot, the same calls, one shot (two on their last letter). Miss it and they take a letter; a match not taken in time counts as a miss. Miss your own call and the turn passes, with no letter.',
+        'Tries come from steps: one per 2,000 today. A big day unlocks spots beyond the court for the rest of the game: the stands at 4,000, the rafters at 7,000, the parking lot (through the gym window) at 10,000, a rooftop across the street at 15,000. To match a shot from one, you need it unlocked too.',
+        'A 4 or 5 star make is a Highlight: it’s posted to the challenge’s Talk. And with stakes on, the loser bakes the winner’s hound the treat you picked, and pays its Bones.',
       ],
     },
     {
