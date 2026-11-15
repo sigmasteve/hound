@@ -26,7 +26,11 @@ select is(public.rally_bot_total('00000000-0000-0000-0000-0000000000a3', '000000
   3466::numeric, 'A quarter day matches too');
 
 -- Singles against the bot starts at setup: the bot is already in.
-update public.challenges set starts_at = now() - interval '1 day', ends_at = now() + interval '13 days' where id = '00000000-0000-0000-0000-0000000000a3';
+-- (start_day moves with it: it was set from the Nov 1 start above, and
+-- steps on a day past its 14 are dropped.)
+update public.challenges set starts_at = now() - interval '1 day', ends_at = now() + interval '13 days',
+  start_day = (now() at time zone 'America/New_York')::date - 1
+  where id = '00000000-0000-0000-0000-0000000000a3';
 select tests.sign_in(:'ann');
 set local role authenticated;
 select lives_ok($$select public.rally_setup('00000000-0000-0000-0000-0000000000a3', 250, 24, null, array['00000000-0000-0000-0000-0000000000b1']::uuid[])$$, 'A bot can be the opponent');

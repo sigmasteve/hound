@@ -5,7 +5,8 @@
 //   - 'your_turn' the actor claimed a square; the recipient's move now
 //   - 'timeout'   the actor's 24 hours ran out; the recipient's move now
 //   - 'won'       the actor got three in a row (the recipient lost)
-//   - 'draw'      the actor's move filled the board
+//   - 'draw'      the board filled up, or nobody can get three in a row
+//                 any more (0208); actor_id is left out when it ended on load
 // A failure here never affects the game: the calling side swallows it.
 //
 // Deploy with the Supabase CLI:
@@ -52,7 +53,7 @@ function messageFor(kind: Kind, actor: string, game: string): string {
     case 'won':
       return `${actor} got three in a row and won "${game}".`;
     case 'draw':
-      return `The board is full in "${game}" — it's a draw.`;
+      return `Nobody can get three in a row in "${game}" any more — it's a draw.`;
   }
 }
 

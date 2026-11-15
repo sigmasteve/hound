@@ -190,7 +190,12 @@ export function TicTacGoCard({
   } else if (game.status === 'won') {
     status = game.winnerUserId === userId ? 'You won with three in a row!' : `${nameOf(game.winnerUserId)} won with three in a row.`;
   } else if (game.status === 'draw') {
-    status = game.endedReason === 'time_up' ? 'Time ran out — it’s a draw.' : 'The board filled up — it’s a draw.';
+    status =
+      game.endedReason === 'time_up'
+        ? 'Time ran out — it’s a draw.'
+        : game.endedReason === 'no_win'
+          ? 'Nobody can get three in a row any more — it’s a draw.'
+          : 'The board filled up — it’s a draw.';
   } else if (!turnBegun) {
     status = `The game starts ${turnStart?.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}.`;
   } else if (myTurn) {
@@ -304,7 +309,7 @@ export function TicTacGoCard({
       <Text style={styles.footNote}>
         On your turn, claim one open square whose goal you&rsquo;ve met. Activity from the {game.activityWindowHours} hours
         before your turn started counts too. Each workout can claim only one square, and a steps square uses up the
-        steps behind it. Three in a row wins. You get {TICTACGO_TURN_HOURS} hours per turn, or the turn passes.
+        steps behind it. Three in a row wins; once nobody can, it’s a draw. You get {TICTACGO_TURN_HOURS} hours per turn, or the turn passes.
       </Text>
     </Card>
   );
