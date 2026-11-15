@@ -27,11 +27,11 @@ import { useTheme } from '../theme/ThemeContext';
 import { huntKindName } from '../challenges/present';
 import { useLabels } from '../labels/LabelsContext';
 import { font, TINT_N, withAlpha, type Palette } from '../theme/tokens';
-import { CHALLENGE_GROUPS, CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
+import { CHALLENGE_GROUPS, CHALLENGE_TYPES, GAME_TAGS, type ChallengeGroupId, type ChallengeKind, type GameTagTone } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { COURSES, courseById, formatMiles } from '../journeys/courses';
 import { JourneyMap } from '../journeys/JourneyMap';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
 import { supabaseChallengesProvider } from '../challenges/supabaseChallenges';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
@@ -175,9 +175,9 @@ const TAGLINES: Record<ChallengeKind, string> = {
   rally: 'Return the shuttle on your steps. To 21, best of three.',
   soccer: 'Forwards shoot, defenders block, the keeper saves. All on steps.',
   cricket: 'An over a day: your steps against the bowler’s. Then chase.',
-  baseball: 'An inning a day: aim, swing and run on your steps.',
-  hoops: 'A quarter a day: your steps take the shots.',
-  horse: 'One on one: match the shot or take a letter.',
+  baseball: 'An inning a day: step up, read the pitch and swing.',
+  hoops: 'A quarter a day: take your own shots as your steps earn them.',
+  horse: 'Call your shot from anywhere. Match it or take a letter.',
   golf: 'A shot at a time: steps are yards, workouts are power.',
   steps: 'Most steps wins.',
   tag: 'One hound is IT each day. Stay ahead, or be IT tomorrow.',
@@ -646,6 +646,61 @@ export function CreateScreen({
   // Whether a kind is still Bones-locked for this viewer — the picker
   // below disables locked rows, but a rematch skips the picker entirely,
   // so start() checks this too.
+  // "Pick the game" (Nov 2026): the groups that have something to show
+  // here (a global or community challenge offers fewer games), the jump
+  // chips that pin to the top, and Play again.
+  const kindShown = (k: ChallengeKind) =>
+    (!crowd || (GLOBAL_KINDS.includes(k) && (global || k !== 'golf'))) &&
+    // Pack Wars: invite-only games for admins while it's tested (global
+    // ones come from the templates above); never a community challenge.
+    (k !== 'packs' || (!!user?.isAdmin && !community));
+  const visibleGroups = CHALLENGE_GROUPS.map((g) => ({
+    ...g,
+    sections: g.sections.map((sec) => ({ ...sec, kinds: sec.kinds.filter(kindShown) })).filter((sec) => sec.kinds.length > 0),
+  })).filter((g) => g.sections.length > 0);
+  const scrollRef = useRef<ScrollView>(null);
+  const [scrollY, setScrollY] = useState(0);
+  const [step1Y, setStep1Y] = useState(0);
+  const [chipsY, setChipsY] = useState<number | null>(null);
+  const groupYs = useRef<Partial<Record<ChallengeGroupId, number>>>({});
+  const setGroupY = (id: ChallengeGroupId, y: number) => {
+    groupYs.current[id] = y;
+  };
+  const jumpTo = (id: ChallengeGroupId) => {
+    const y = groupYs.current[id];
+    if (y == null) return;
+    // Under the pinned chips.
+    scrollRef.current?.scrollTo({ y: Math.max(0, step1Y + y - 64), animated: true });
+  };
+  // Play again: the last three kinds of game you made yourself (not ones
+  // you were invited to), newest first, with the last one's name. Only
+  // for a friends' challenge, and only games this list offers.
+  const [recentKinds, setRecentKinds] = useState<{ kind: ChallengeKind; lastName: string }[]>([]);
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase || !user?.id) return;
+    let live = true;
+    supabase
+      .from('challenges')
+      .select('kind, name, created_at, is_global')
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: false })
+      .limit(40)
+      .then(({ data }) => {
+        if (!live || !data) return;
+        const seen = new Set<string>();
+        const out: { kind: ChallengeKind; lastName: string }[] = [];
+        for (const r of data as { kind: ChallengeKind; name: string; is_global: boolean | null }[]) {
+          if (r.is_global || seen.has(r.kind)) continue;
+          seen.add(r.kind);
+          out.push({ kind: r.kind, lastName: r.name });
+        }
+        setRecentKinds(out);
+      });
+    return () => {
+      live = false;
+    };
+  }, [user?.id]);
+
   const lockedAt = (kind: ChallengeKind): number | null => {
     // Unlock gates are about a player's own progress — they don't apply
     // to an admin publishing for everyone.
@@ -1272,9 +1327,18 @@ export function CreateScreen({
     }
   };
 
+  const playAgain =
+    crowd || rematch
+      ? []
+      : recentKinds.filter((r) => CHALLENGE_GROUPS.some((g) => g.sections.some((sec) => sec.kinds.includes(r.kind))) && kindShown(r.kind) && lockedAt(r.kind) === null).slice(0, 3);
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
     <ScrollView
+      ref={scrollRef}
+      onScroll={(e) => setScrollY(e.nativeEvent.contentOffset.y)}
+      scrollEventThrottle={32}
       contentContainerStyle={styles.container}
       // The list's "Or your own" field and the sponsor fields sit low on
       // the screen; without these the keyboard covers what's being typed.
@@ -1292,7 +1356,7 @@ export function CreateScreen({
       <Text style={text.eyebrow}>STEP {step} OF 3</Text>
 
       {step === 1 && (
-        <View style={{ gap: 20 }}>
+        <View style={{ gap: 20 }} onLayout={(e) => setStep1Y(e.nativeEvent.layout.y)}>
           {!global && !rematch && communityStatus?.enabled && (
             <View style={{ gap: 8 }}>
               <Text style={styles.fieldLabel}>Who can join</Text>
@@ -1347,16 +1411,57 @@ export function CreateScreen({
             </View>
           )}
           <Text style={text.h2}>{global ? 'Or pick the game' : 'Pick the game'}</Text>
-          {CHALLENGE_GROUPS.map((group, i) => (
-            <View key={group.label || i} style={{ gap: 10 }}>
-              {!!group.label && <Text style={styles.groupLabel}>{group.label}</Text>}
-              <View style={{ gap: 10 }}>
-                {group.kinds
-                  .filter((k) => !crowd || (GLOBAL_KINDS.includes(k) && (global || k !== 'golf')))
-                  // Pack Wars: invite-only games for admins while it's
-                  // tested (global ones come from the templates above);
-                  // never a community challenge.
-                  .filter((k) => k !== 'packs' || (!!user?.isAdmin && !community))
+          {playAgain.length > 0 && (
+            <View style={{ gap: 8 }}>
+              <Text style={styles.groupLabel}>Play again</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                {playAgain.map((r) => {
+                  const t = CHALLENGE_TYPES.find((ct) => ct.id === r.kind);
+                  if (!t) return null;
+                  const TypeIcon = CHALLENGE_KIND_ICON[t.id];
+                  const picked = draftType === t.id;
+                  return (
+                    <Pressable
+                      key={r.kind}
+                      onPress={() => setDraftType(t.id)}
+                      style={[styles.againCard, picked && styles.typeRowOn]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${t.name}, last: ${r.lastName}`}
+                    >
+                      <View style={[styles.againIcon, { backgroundColor: t.tint }]}>
+                        <TypeIcon size={16} color={t.iconColor} weight={t.id === 'hunt' ? 'fill' : 'regular'} />
+                      </View>
+                      <View style={{ gap: 1, maxWidth: 170 }}>
+                        <Text style={styles.typeName} numberOfLines={1}>
+                          {t.id === 'hunt' ? huntKindName() : t.name}
+                        </Text>
+                        <Text style={styles.againLast} numberOfLines={1}>
+                          Last: {r.lastName}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+          {visibleGroups.length > 1 && (
+            <View onLayout={(e) => setChipsY(e.nativeEvent.layout.y)}>
+              <GroupChips groups={visibleGroups} onJump={jumpTo} styles={styles} />
+            </View>
+          )}
+          {visibleGroups.map((group) => (
+            <View key={group.id} style={{ gap: 10 }} onLayout={(e) => setGroupY(group.id, e.nativeEvent.layout.y)}>
+              {visibleGroups.length > 1 && (
+                <View style={{ gap: 2 }}>
+                  <Text style={styles.groupLabel}>{group.label}</Text>
+                  <Text style={styles.groupSub}>{group.sub}</Text>
+                </View>
+              )}
+              {group.sections.map((section, si) => (
+              <View key={si} style={{ gap: 10 }}>
+                {!!section.title && <Text style={styles.sectionTitle}>{section.title}</Text>}
+                {section.kinds
                   .map((kindId) => {
                   const t = CHALLENGE_TYPES.find((ct) => ct.id === kindId);
                   if (!t) return null;
@@ -1379,6 +1484,15 @@ export function CreateScreen({
                         <Text style={styles.typeDesc}>
                           {locked ? `Unlocks at ${unlockBones} ${currencyName} earned` : picked ? t.desc : TAGLINES[t.id]}
                         </Text>
+                        {!locked && !!GAME_TAGS[t.id]?.length && (
+                          <View style={styles.tags}>
+                            {GAME_TAGS[t.id]!.map((tag) => (
+                              <Text key={tag.text} style={[styles.tag, { backgroundColor: withAlpha(TAG_TONE[tag.tone], 0.18) }]}>
+                                {tag.text}
+                              </Text>
+                            ))}
+                          </View>
+                        )}
                       </View>
                       {locked ? (
                         <LockSimpleIcon size={16} color={withAlpha(colors.text, 0.4)} />
@@ -1391,6 +1505,7 @@ export function CreateScreen({
                   );
                 })}
               </View>
+              ))}
             </View>
           ))}
         </View>
@@ -2893,6 +3008,13 @@ export function CreateScreen({
         />
       </View>
     </ScrollView>
+    {step === 1 && visibleGroups.length > 1 && chipsY != null && scrollY > step1Y + chipsY && (
+      // The chips, pinned to the top once the list's own row scrolls away.
+      <View style={styles.chipsPinned}>
+        <GroupChips groups={visibleGroups} onJump={jumpTo} styles={styles} />
+      </View>
+    )}
+    </View>
     </SafeAreaView>
   );
 }
@@ -2935,6 +3057,16 @@ function makeStyles(colors: Palette) {
       borderWidth: 1,
       borderColor: withAlpha(colors.accent, 0.4),
     },
+    groupSub: { fontSize: 13.5, color: withAlpha(colors.text, 0.68) },
+    sectionTitle: { fontSize: 12.5, fontFamily: font.headingSemibold, color: withAlpha(colors.text, 0.55), marginLeft: 2 },
+    tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 4 },
+    tag: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, fontSize: 12, fontFamily: font.headingSemibold, color: colors.text, overflow: 'hidden' },
+    chip: { borderRadius: 999, paddingHorizontal: 11, paddingVertical: 8 },
+    chipText: { fontSize: 13, fontFamily: font.headingSemibold, color: colors.text },
+    chipsPinned: { position: 'absolute', left: 0, right: 0, top: 0, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: colors.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: withAlpha(colors.text, 0.15) },
+    againCard: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 2, borderColor: 'transparent' },
+    againIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    againLast: { fontSize: 12, color: withAlpha(colors.text, 0.6) },
     groupLabel: {
       fontSize: 11,
       letterSpacing: 1,
@@ -3047,4 +3179,42 @@ function makeStyles(colors: Palette) {
 // "5×5 · H-O-U-N-D", for a card this size.
 function bingoCardLabel(size: CardSize): string {
   return size === 3 ? '3×3' : `${size}×${size} · ${CARD_COLUMNS[size].map((c) => c.letter).join('-')}`;
+}
+
+// The tags' tints (a wash behind the theme's own text, so they read in
+// light and dark).
+const TAG_TONE: Record<GameTagTone, string> = {
+  you: '#8b7fd6',
+  one: '#e07b28',
+  team: '#3fb37f',
+  group: '#4a8fd6',
+  solo: '#b39a5a',
+};
+const CHIP_TONE: Record<ChallengeGroupId, string> = { play: TAG_TONE.you, one: TAG_TONE.one, group: TAG_TONE.group, own: TAG_TONE.solo };
+
+// The jump chips over "Pick the game": tap one to scroll to its group.
+function GroupChips({
+  groups,
+  onJump,
+  styles,
+}: {
+  groups: { id: ChallengeGroupId; chip: string }[];
+  onJump: (id: ChallengeGroupId) => void;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+      {groups.map((g) => (
+        <Pressable
+          key={g.id}
+          onPress={() => onJump(g.id)}
+          style={[styles.chip, { backgroundColor: withAlpha(CHIP_TONE[g.id], 0.2) }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Jump to ${g.chip}`}
+        >
+          <Text style={styles.chipText}>{g.chip}</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
 }
