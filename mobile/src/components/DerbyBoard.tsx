@@ -147,7 +147,7 @@ export function DerbyBoard({
           <Text style={[styles.headCell, { width: 38 }]}>#</Text>
           <Text style={[styles.headCell, { flex: 1, marginLeft: 34 }]}>HOUND</Text>
           <Text style={[styles.headCell, { width: 40, textAlign: 'right' }]}>HR</Text>
-          <Text style={[styles.headCell, { width: 62, textAlign: 'right' }]}>LONGEST</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.headCell, { width: 78, textAlign: 'right' }]}>LONGEST</Text>
         </View>
         {tab === 'club' && board.club && (
           <Text style={styles.gap}>
@@ -414,7 +414,7 @@ function makeStyles(colors: Palette) {
     name: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text },
     where: { fontSize: 11.5, color: withAlpha(colors.text, 0.6) },
     hr: { width: 40, textAlign: 'right', fontFamily: font.headingSemibold, fontSize: 15, color: colors.text, fontVariant: ['tabular-nums'] },
-    ft: { width: 62, textAlign: 'right', fontSize: 12.5, color: withAlpha(colors.text, 0.72), fontVariant: ['tabular-nums'] },
+    ft: { width: 78, textAlign: 'right', fontSize: 12.5, color: withAlpha(colors.text, 0.72), fontVariant: ['tabular-nums'] },
     card: { gap: 6 },
     rowText: { flexShrink: 1, fontSize: 13.5, lineHeight: 19, color: colors.text },
     small: { flexShrink: 1, fontSize: 12, color: withAlpha(colors.text, 0.65) },
