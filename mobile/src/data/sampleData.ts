@@ -276,11 +276,59 @@ export const CHALLENGE_TYPES: {
 // CHALLENGE_TYPES — CreateScreen renders by walking this list, not
 // CHALLENGE_TYPES directly, so a kind left out here would silently never
 // appear in the picker at all.
-export const CHALLENGE_GROUPS: { label: string; kinds: ChallengeKind[] }[] = [
-  { label: 'Races', kinds: ['steps', 'distance', 'journey'] },
-  { label: 'Games', kinds: ['hunt', 'tag', 'tictacgo', 'rally', 'soccer', 'cricket', 'baseball', 'hoops', 'horse', 'golf', 'bingo', 'houndopoly', 'packs'] },
-  { label: 'Habits', kinds: ['streak', 'seventyfive', 'checklist'] },
+//
+// Nov 2026 (Steve's pick): four groups by how you play, each with a line
+// under its label and a jump chip at the top of the list; "With your
+// group" splits into its races and its games. Every kind sits in exactly
+// one group (H-O-R-S-E is 1 on 1 too, but it's under Play it yourself,
+// with a "1 on 1" tag on its card).
+export type ChallengeGroupId = 'play' | 'one' | 'group' | 'own';
+export const CHALLENGE_GROUPS: {
+  id: ChallengeGroupId;
+  label: string;
+  // The jump chip's label.
+  chip: string;
+  sub: string;
+  sections: { title?: string; kinds: ChallengeKind[] }[];
+}[] = [
+  { id: 'play', label: 'Play it yourself', chip: 'Play it yourself', sub: 'Your steps earn the shots. You aim, time it and let it go.', sections: [{ kinds: ['golf', 'hoops', 'baseball', 'horse'] }] },
+  { id: 'one', label: 'One on one', chip: '1 on 1', sub: 'You against one friend, turn by turn.', sections: [{ kinds: ['tictacgo', 'rally'] }] },
+  {
+    id: 'group',
+    label: 'With your group',
+    chip: 'Group',
+    sub: 'Friends, family or your club, all at once.',
+    sections: [
+      { title: 'Races', kinds: ['steps', 'distance', 'journey'] },
+      { title: 'Games and team sports', kinds: ['hunt', 'tag', 'bingo', 'houndopoly', 'soccer', 'cricket', 'packs'] },
+    ],
+  },
+  { id: 'own', label: 'On your own', chip: 'On your own', sub: 'Keep yourself honest. Friends can watch and cheer.', sections: [{ kinds: ['streak', 'seventyfive', 'checklist'] }] },
 ];
+
+// The small tags on each card in "Pick the game": who plays, and how.
+export type GameTagTone = 'you' | 'one' | 'team' | 'group' | 'solo';
+export const GAME_TAGS: Partial<Record<ChallengeKind, { text: string; tone: GameTagTone }[]>> = {
+  golf: [{ text: 'You take every shot', tone: 'you' }, { text: 'Just you or any group', tone: 'group' }],
+  hoops: [{ text: 'You shoot', tone: 'you' }, { text: 'Teams of 1–9', tone: 'team' }],
+  baseball: [{ text: 'You bat', tone: 'you' }, { text: 'Teams of 1–9', tone: 'team' }],
+  horse: [{ text: 'Call your shot', tone: 'you' }, { text: '1 on 1', tone: 'one' }],
+  tictacgo: [{ text: '1 on 1', tone: 'one' }],
+  rally: [{ text: '1 on 1', tone: 'one' }],
+  steps: [{ text: 'Any group', tone: 'group' }],
+  distance: [{ text: 'Any group', tone: 'group' }, { text: 'Together', tone: 'solo' }],
+  journey: [{ text: 'Any group', tone: 'group' }],
+  hunt: [{ text: 'Any group', tone: 'group' }],
+  tag: [{ text: 'Any group', tone: 'group' }],
+  bingo: [{ text: 'Any group', tone: 'group' }],
+  houndopoly: [{ text: 'Any group', tone: 'group' }],
+  soccer: [{ text: 'Teams of 1–9', tone: 'team' }],
+  cricket: [{ text: 'Teams of 1–9', tone: 'team' }],
+  packs: [{ text: 'Four packs', tone: 'team' }],
+  streak: [{ text: 'Just you or a group', tone: 'solo' }],
+  seventyfive: [{ text: 'Just you', tone: 'solo' }],
+  checklist: [{ text: 'Just you or with friends', tone: 'solo' }],
+};
 
 export interface DataSource {
   name: string;
