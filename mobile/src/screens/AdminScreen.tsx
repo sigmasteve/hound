@@ -66,6 +66,8 @@ import { SponsorAdminCard } from '../components/SponsorAdminCard';
 import { getGolfOverview, golfSummary } from '../challenges/golfApi';
 import { SportBonusAdminCard } from '../components/SportBonusAdminCard';
 import { LoggedWorkoutsAdminCard } from '../components/LoggedWorkoutsAdminCard';
+import { HealthZeroAdminCard } from '../components/HealthZeroAdminCard';
+import { healthZeroSummary } from '../admin/adminApi';
 import { getWorkoutLogOverview, workoutLogSummary } from '../workouts/loggedWorkouts';
 import { getSportBonusOverview, sportBonusSummary } from '../challenges/sportBonusApi';
 import { DoorsAdminCard } from '../components/DoorsAdminCard';
@@ -225,6 +227,8 @@ export function AdminScreen({
   const [sportBonusLine, setSportBonusLine] = useState<string | null>(null);
   // The Logged workouts fold's line (0204).
   const [workoutLogLine, setWorkoutLogLine] = useState<string | null>(null);
+  // The Not seeing steps fold's line (0205).
+  const [healthZeroLine, setHealthZeroLine] = useState<string | null>(null);
   const [doorsSummary, setDoorsSummary] = useState<string | null>(null);
   const [packsSummary, setPacksSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
@@ -858,6 +862,9 @@ export function AdminScreen({
                   </AdminFold>
                   <AdminFold title="Holiday themes" summary={holidaySummaryLine ?? 'Decorations on Today'}>
                     <HolidayAdminCard onChanged={(o) => setHolidaySummaryLine(holidaySummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Not seeing steps" summary={healthZeroLine ?? 'Phones sending 0 steps for days'}>
+                    <HealthZeroAdminCard onChanged={(o) => setHealthZeroLine(healthZeroSummary(o))} />
                   </AdminFold>
                   </>
                 )}

@@ -53,6 +53,7 @@ import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { UpdateReadyBanner } from '../components/UpdateReadyBanner';
 import { MaintenanceHeadsUp } from '../maintenance/MaintenanceHeadsUp';
+import { HealthZeroBanner } from '../health/HealthZeroBanner';
 import { ShareSheet } from '../share/ShareSheet';
 import { WidgetHound } from '../widgets/WidgetHound';
 import { Confetti } from '../celebrate/Confetti';
@@ -1663,12 +1664,18 @@ export function HomeScreen({
       // phone's health data once between them instead of once each.
       const toSync = challenges.filter(isWorthSyncing);
       const sharedHealth = sharedHealthReads(health, toSync);
-      toSync.forEach((c) => {
-        syncChallengeProgressFromDevice(c, sharedHealth);
+      const stepSyncs = toSync.map((c) => {
         syncBingoProgressFromDevice(c, sharedHealth);
         syncSeventyFiveFromDevice(c, sharedHealth);
         syncChecklistFromDevice(c, sharedHealth);
+        return syncChallengeProgressFromDevice(c, sharedHealth);
       });
+      // Wait for the steps to land before reading the boards below (a few
+      // seconds at most): read at the same time, the boards came back
+      // from before the sync, so Today showed 0 steps until a challenge
+      // was opened (that screen already waits for its own sync).
+      await Promise.race([Promise.allSettled(stepSyncs), new Promise((r) => setTimeout(r, 4000))]);
+      if (cancelled) return;
 
       // One board per challenge, not just the primary one — needed for
       // the "N active · N finished" summary below the hero. Built from
@@ -2396,6 +2403,9 @@ export function HomeScreen({
       {/* Admin's maintenance window (0190), from a few hours before:
           above the announcement banner. */}
       <MaintenanceHeadsUp />
+      {/* Health has shown no steps for days: Hound probably can't read
+          them (Steps off for Hound in Health). Says how to fix it. */}
+      <HealthZeroBanner />
       {announcementBar}
       <ScrollView contentContainerStyle={styles.container}>
       {/* A holiday theme (0184), when one's on: its countdown and garland
