@@ -1,5 +1,8 @@
 -- 0096: personal challenges pay alone; one-player game-event challenges close.
 select plan(4);
+-- 0213: the job only settles challenges ending after settle_config.since;
+-- these test the rules before that, so open the window fully.
+update public.settle_config set since = '-infinity' where id;
 
 select tests.new_user('Dee') as dee \gset
 
