@@ -57,6 +57,8 @@ alter table public.horse_games
 -- Every live shot, and every turn that ran out (timeout).
 create table public.horse_shots (
   id uuid primary key default gen_random_uuid(),
+  -- In the order they happened (several can share a transaction's now()).
+  seq bigserial,
   challenge_id uuid not null references public.challenges (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
   kind text not null check (kind in ('set', 'match')),
@@ -73,7 +75,7 @@ create table public.horse_shots (
   timeout boolean not null default false,
   created_at timestamptz not null default now()
 );
-create index horse_shots_challenge on public.horse_shots (challenge_id, created_at desc);
+create index horse_shots_challenge on public.horse_shots (challenge_id, seq desc);
 create index horse_shots_user_day on public.horse_shots (user_id, day);
 create index horse_shots_created on public.horse_shots (created_at);
 alter table public.horse_shots enable row level security;
@@ -671,7 +673,7 @@ begin
   if g.stakes is not null then
     select * into r from public.treat_recipes t where t.id = g.stakes;
   end if;
-  select * into last_shot from public.horse_shots s where s.challenge_id = p_challenge_id order by s.created_at desc limit 1;
+  select * into last_shot from public.horse_shots s where s.challenge_id = p_challenge_id order by s.seq desc limit 1;
 
   reason := case
     when not g.hands_on then 'This game plays itself.'
@@ -1081,9 +1083,9 @@ begin
     'live', live,
     'recent', (select coalesce(jsonb_agg(x.j order by x.at desc), '[]'::jsonb) from (
         select public.horse_shot_json(s, coalesce((s.spot is not null and public.horse_over_chair(s.spot, public.horse_obstacle(p_challenge_id, s.day))), false)) as j,
-               s.created_at as at
+               s.seq as at
         from public.horse_shots s where s.challenge_id = p_challenge_id
-        order by s.created_at desc limit 10) x)
+        order by s.seq desc limit 10) x)
   );
 end;
 $$;

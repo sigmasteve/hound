@@ -5,7 +5,7 @@
 -- match, calls checked against the scene, highlights to Talk at 4-5 stars
 -- only, the stakes (once, Bones floored at 0, none on a tie), hands-off
 -- games as before, the view, and Admin.
-select plan(70);
+select plan(82);
 
 select tests.new_user('Ann') as ann \gset
 select tests.new_user('Bob') as bob \gset
