@@ -35,6 +35,9 @@ export interface BaseballGame {
   status: 'active' | 'final';
   winnerTeam: BaseballTeam | null;
   players: BaseballPlayer[];
+  // 0207: everyone takes their own at-bats during the day (Create's "Take
+  // my own at-bats"); the game uses them when their turn comes.
+  handsOn: boolean;
 }
 
 export interface BaseballInning {
@@ -73,6 +76,9 @@ export interface BaseballPlay {
   fielderSteps: number | null;
   catcherSteps: number | null;
   runnerSteps: number | null;
+  // Batted by hand on the batting screen (0207), and the plays that
+  // followed from it in the same at-bat.
+  byHand: boolean;
 }
 
 export interface BaseballPicks {
@@ -128,6 +134,7 @@ export async function getBaseballGame(challengeId: string): Promise<BaseballGame
     hitsB: data.hits_b,
     status: data.status as 'active' | 'final',
     winnerTeam: (data.winner_team as BaseballTeam | null) ?? null,
+    handsOn: !!data.hands_on,
     players: (playerRows ?? []).map((r: any) => ({
       playerId: (r.user_id ?? r.bot_id) as string,
       userId: r.user_id ?? null,
@@ -196,6 +203,7 @@ export async function listBaseballPlays(challengeId: string): Promise<BaseballPl
     fielderSteps: r.fielder_steps ?? null,
     catcherSteps: r.catcher_steps ?? null,
     runnerSteps: r.runner_steps ?? null,
+    byHand: !!r.by_hand,
   }));
 }
 
@@ -236,8 +244,12 @@ export interface BaseballSeat {
 
 // The creator stores both sides right after creating the challenge, in
 // batting order. Positions follow from the order.
-export async function setupBaseball(challengeId: string, seats: BaseballSeat[]): Promise<void> {
-  const { error } = await requireClient().rpc('baseball_setup', { p_challenge_id: challengeId, p_players: seats });
+export async function setupBaseball(challengeId: string, seats: BaseballSeat[], opts?: { handsOn?: boolean }): Promise<void> {
+  // p_hands_on (0207) only when it's on, so a server without it still
+  // takes the call.
+  const args: Record<string, unknown> = { p_challenge_id: challengeId, p_players: seats };
+  if (opts?.handsOn) args.p_hands_on = true;
+  const { error } = await requireClient().rpc('baseball_setup', args);
   if (error) throw new Error(error.message);
 }
 
@@ -270,6 +282,8 @@ export interface BaseballOverview {
   doublePlays: number;
   picks7d: { aim: number; shift: number; approach: number; steal: number };
   pickers7d: number;
+  // 0207: at-bats taken by hand.
+  live: { gamesHandsOn: number; people7d: number; atBats7d: number; pitches7d: number; avg7d: number | null; autoAvg7d: number | null; hr7d: number } | null;
 }
 
 export async function getBaseballOverview(): Promise<BaseballOverview> {
@@ -292,5 +306,177 @@ export async function getBaseballOverview(): Promise<BaseballOverview> {
     doublePlays: n(d.double_plays),
     picks7d: { aim: n(d.picks_7d?.aim), shift: n(d.picks_7d?.shift), approach: n(d.picks_7d?.approach), steal: n(d.picks_7d?.steal) },
     pickers7d: n(d.pickers_7d),
+    live: d.live
+      ? {
+          gamesHandsOn: n(d.live.games_hands_on),
+          people7d: n(d.live.people_7d),
+          atBats7d: n(d.live.at_bats_7d),
+          pitches7d: n(d.live.pitches_7d),
+          avg7d: d.live.avg_7d == null ? null : Number(d.live.avg_7d),
+          autoAvg7d: d.live.auto_avg_7d == null ? null : Number(d.live.auto_avg_7d),
+          hr7d: n(d.live.hr_7d),
+        }
+      : null,
+  };
+}
+
+// ── Taking your own at-bats (0207) ──
+
+export type BaseballContact = 'barrel' | 'solid' | 'weak';
+export type BaseballPitchKind = 'fastball' | 'changeup';
+export type BaseballCall = 'ball' | 'strike' | 'foul' | 'whiff' | 'in_play';
+export type BaseballLiveResult = 'strikeout' | 'walk' | 'home_run' | 'single' | 'double' | 'triple' | 'ground_out' | 'fly_out';
+
+export interface BaseballPitch {
+  kind: BaseballPitchKind;
+  mph: number;
+  inZone: boolean;
+  // How long the ball takes from the pitcher's hand to the zone.
+  ms: number;
+}
+
+export interface BaseballLiveAtBat {
+  n: number;
+  day: string;
+  result: BaseballLiveResult;
+  contact: BaseballContact | null;
+  aim: BaseballZone | null;
+  fielderPos: BaseballPos | null;
+  pitches: number;
+  // Used by the game (in `inning`), or waiting for your turn in the order.
+  used: boolean;
+  inning: number | null;
+}
+
+export interface BaseballLive {
+  handsOn: boolean;
+  canBat: boolean;
+  // Why not, in the server's sentence: shown as is.
+  reason: string | null;
+  day: string | null;
+  inning: number;
+  team: BaseballTeam | null;
+  steps: number;
+  abSteps: number;
+  earned: number;
+  taken: number;
+  waiting: number;
+  ready: number;
+  // Steps at which the next at-bat comes; null at the day's 3.
+  nextAt: number | null;
+  pitcher: { name: string; steps: number } | null;
+  pressure: number;
+  // The timing bands, in ms either side of the moment the ball reaches
+  // the zone (a pitch out of the zone halves them).
+  bands: { barrel: number; solid: number; weak: number; foul: number };
+  power: { strength: number; pw: number };
+  // An at-bat in progress: its count, and a pitch thrown but not yet
+  // swung at.
+  open: { ab: number; pitchNo: number; balls: number; strikes: number; pending: BaseballPitch | null } | null;
+  abs: BaseballLiveAtBat[];
+}
+
+export interface BaseballThrown extends BaseballPitch {
+  ab: number;
+  pitchNo: number;
+  balls: number;
+  strikes: number;
+}
+
+export interface BaseballSwing {
+  call: BaseballCall;
+  contact: BaseballContact | null;
+  balls: number;
+  strikes: number;
+  // The at-bat's over (a walk, a strikeout or the ball in play).
+  done: boolean;
+  result: { kind: BaseballLiveResult; aim: BaseballZone | null; fielderPos: BaseballPos | null; contact: BaseballContact | null; late: boolean } | null;
+  message: string;
+  ready: number;
+  waiting: number;
+}
+
+const num = (v: unknown) => Number(v ?? 0);
+
+function toPitch(d: any): BaseballPitch {
+  return { kind: d?.kind === 'changeup' ? 'changeup' : 'fastball', mph: num(d?.mph), inZone: !!d?.in_zone, ms: num(d?.ms) || 700 };
+}
+
+export function toBaseballLive(d: any): BaseballLive {
+  const b = d?.bands ?? {};
+  return {
+    handsOn: d?.hands_on !== false,
+    canBat: !!d?.can_bat,
+    reason: d?.reason ?? null,
+    day: d?.day ?? null,
+    inning: num(d?.inning),
+    team: d?.team ?? null,
+    steps: num(d?.steps),
+    abSteps: num(d?.ab_steps) || 3000,
+    earned: num(d?.earned),
+    taken: num(d?.taken),
+    waiting: num(d?.waiting),
+    ready: num(d?.ready),
+    nextAt: d?.next_at == null ? null : num(d.next_at),
+    pitcher: d?.pitcher ? { name: d.pitcher.name ?? 'The pitcher', steps: num(d.pitcher.steps) } : null,
+    pressure: num(d?.pressure),
+    bands: { barrel: num(b.barrel) || 45, solid: num(b.solid) || 85, weak: num(b.weak) || 135, foul: num(b.foul) || 210 },
+    power: { strength: num(d?.power?.strength), pw: num(d?.power?.pw) || 1 },
+    open: d?.open
+      ? {
+          ab: num(d.open.ab),
+          pitchNo: num(d.open.pitch_no),
+          balls: num(d.open.balls),
+          strikes: num(d.open.strikes),
+          pending: d.open.pending ? toPitch(d.open.pending) : null,
+        }
+      : null,
+    abs: ((d?.abs ?? []) as any[]).map((x) => ({
+      n: num(x.n),
+      day: x.day ?? '',
+      result: x.result,
+      contact: x.contact ?? null,
+      aim: x.aim ?? null,
+      fielderPos: x.fielder_pos ?? null,
+      pitches: num(x.pitches),
+      used: !!x.used,
+      inning: x.inning == null ? null : num(x.inning),
+    })),
+  };
+}
+
+async function rpc<T = any>(fn: string, args?: Record<string, unknown>): Promise<T> {
+  const { data, error } = await requireClient().rpc(fn, args);
+  if (error) throw new Error(error.message);
+  return data as T;
+}
+
+export async function getBaseballLive(challengeId: string): Promise<BaseballLive> {
+  return toBaseballLive(await rpc<any>('baseball_live', { p_challenge_id: challengeId }));
+}
+
+// Opens an at-bat if none is open and throws the next pitch; called again
+// before a swing, it returns the same pitch.
+export async function throwBaseballPitch(challengeId: string): Promise<BaseballThrown> {
+  const d = await rpc<any>('baseball_pitch', { p_challenge_id: challengeId });
+  return { ...toPitch(d), ab: num(d?.ab), pitchNo: num(d?.pitch_no), balls: num(d?.balls), strikes: num(d?.strikes) };
+}
+
+// The swing: when you swung, in ms, against when the ball reached the
+// zone (− early, + late); null when you took the pitch.
+export async function swingBaseball(challengeId: string, timingMs: number | null): Promise<BaseballSwing> {
+  const t = timingMs == null ? null : Math.round(Math.max(-1000, Math.min(1000, timingMs)));
+  const d = await rpc<any>('baseball_swing', { p_challenge_id: challengeId, p_timing_ms: t });
+  const r = d?.result;
+  return {
+    call: d?.call ?? 'strike',
+    contact: d?.contact ?? null,
+    balls: num(d?.balls),
+    strikes: num(d?.strikes),
+    done: !!d?.done,
+    result: r ? { kind: r.kind, aim: r.aim ?? null, fielderPos: r.fielder_pos ?? null, contact: r.contact ?? null, late: !!r.late } : null,
+    message: d?.message ?? '',
+    ready: num(d?.ready),
+    waiting: num(d?.waiting),
   };
 }

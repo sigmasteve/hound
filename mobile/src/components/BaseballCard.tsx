@@ -16,6 +16,8 @@ import {
   inningLabel,
   isAtBat,
   isHit,
+  LIVE_RESULT_SHORT,
+  liveAtBatWhen,
   ordinal,
   PLAY_SHORT,
   playWords,
@@ -33,6 +35,7 @@ import {
   otherTeam,
   type BaseballGame,
   type BaseballInning,
+  type BaseballLive,
   type BaseballPickField,
   type BaseballPicks,
   type BaseballPlay,
@@ -439,6 +442,8 @@ export function BaseballCard({
   userId,
   stepsToday,
   onShowField,
+  live,
+  onBat,
 }: {
   game: BaseballGame | null;
   innings: BaseballInning[];
@@ -450,6 +455,9 @@ export function BaseballCard({
   stepsToday: number | null;
   // A replay started from a card further down: bring the field into view.
   onShowField?: (field: View | null) => void;
+  // A hands-on game (0207): your at-bats to take, and the batting screen.
+  live?: BaseballLive | null;
+  onBat?: () => void;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -617,6 +625,7 @@ export function BaseballCard({
           </Text>
           <Text style={styles.playNowText}>
             {nameOf(playerOf(showing))} {playWords(showing.kind, showing.fielderPos, showing.aim, showing.lateThrow, showing.runs, seedOf(showing.id))}
+            {showing.byHand ? <Text style={styles.byHand}>{'  '}by hand</Text> : null}
           </Text>
         </View>
       )}
@@ -648,6 +657,30 @@ export function BaseballCard({
         </Text>
       )}
       {me && game.status === 'active' && <SportBonusRow challengeId={game.challengeId} kind="baseball" userId={userId} />}
+
+      {/* Taking your own at-bats (0207). */}
+      {game.handsOn && game.status === 'active' && me?.joined && live && !showing && (
+        <View style={{ gap: 6 }}>
+          <Pressable onPress={onBat} style={[styles.bat, live.ready > 0 || live.open ? { backgroundColor: colors.green } : styles.batOff]} accessibilityRole="button">
+            <Text style={[styles.batText, !(live.ready > 0 || live.open) && { color: colors.text }]}>
+              {live.open ? 'Finish your at-bat' : live.ready > 0 ? `Take your at-bats · ${live.ready} ready` : 'Take your at-bats'}
+            </Text>
+          </Pressable>
+          {live.abs.length > 0 ? (
+            <Text style={styles.note}>
+              Your at-bats:{' '}
+              {live.abs.map((a) => `${LIVE_RESULT_SHORT[a.result] ?? a.result} (${liveAtBatWhen(a.used, a.inning)})`).join(' · ')}.
+              {live.abs.some((a) => !a.used) ? ' The game uses each one the next time you come up.' : ''}
+            </Text>
+          ) : (
+            <Text style={styles.note}>
+              {live.canBat || live.ready > 0
+                ? 'Bat yourself: time the swing as the pitch crosses the plate. At-bats you don’t take play for you as usual.'
+                : live.reason || 'At-bats you don’t take play for you as usual.'}
+            </Text>
+          )}
+        </View>
+      )}
 
       {game.status === 'active' && me?.joined && !showing && (
         <PickRow
@@ -758,6 +791,7 @@ export function BaseballCard({
                           </View>
                           <Text style={styles.playText} numberOfLines={2}>
                             {nameOf(playerOf(p))} {playWords(p.kind, p.fielderPos, p.aim, p.lateThrow, p.runs, seedOf(p.id))}
+                            {p.byHand ? <Text style={styles.byHand}>{'  '}by hand</Text> : null}
                             {p.batterSteps != null && p.pitcherSteps != null && p.kind !== 'out_at_home' ? (
                               <Text style={styles.playSteps}>
                                 {'  '}
@@ -892,6 +926,10 @@ function makeStyles(colors: Palette) {
     boxRow: { flexDirection: 'row', alignItems: 'center' },
     boxName: { flex: 1, fontSize: 13, color: colors.text },
     boxPos: { fontSize: 11, color: withAlpha(colors.text, 0.5) },
+    byHand: { fontSize: 11.5, fontFamily: font.headingSemibold, color: colors.accentActive },
+    bat: { minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+    batOff: { backgroundColor: withAlpha(colors.text, 0.1) },
+    batText: { fontFamily: font.headingSemibold, fontSize: 16, color: '#161826' },
     boxNum: { width: 32, textAlign: 'center', fontSize: 13, color: colors.text, fontVariant: ['tabular-nums'] },
   });
 }

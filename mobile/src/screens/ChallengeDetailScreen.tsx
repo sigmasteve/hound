@@ -139,6 +139,8 @@ import {
   advanceBaseball,
   baseballTeamOf,
   getBaseballGame,
+  getBaseballLive,
+  type BaseballLive,
   getMyBaseballPicks,
   listBaseballInnings,
   listBaseballPlays,
@@ -252,12 +254,15 @@ export function ChallengeDetailScreen({
   initialTab,
   onPlayGolf,
   onShootHoops,
+  onBatBaseball,
 }: {
   challengeId: string;
   // Golf: opens the play screen for this challenge.
   onPlayGolf?: () => void;
   // Hoops (hands-on): opens the shooting screen.
   onShootHoops?: () => void;
+  // Baseball (hands-on): opens the batting screen.
+  onBatBaseball?: () => void;
   // Which tab to open on; a trash-talk notification opens Talk.
   initialTab?: ChallengeTab;
   onBack: () => void;
@@ -488,6 +493,7 @@ export function ChallengeDetailScreen({
   const [horseGame, setHorseGame] = useState<HorseGame | null>(null);
   // Golf (0200): the course, the field and my banks.
   const [golfGame, setGolfGame] = useState<GolfGame | null>(null);
+  const [baseballLive, setBaseballLive] = useState<BaseballLive | null>(null);
   const [baseball, setBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[]; plays: BaseballPlay[]; picks: BaseballPicks }>({
     game: null,
     innings: [],
@@ -894,6 +900,9 @@ export function ChallengeDetailScreen({
       user?.id ? getMyBaseballPicks(challengeId, user.id, dateKey(new Date())).catch(() => NO_PICKS) : Promise.resolve(NO_PICKS),
     ]);
     setBaseball({ game, innings, plays, picks });
+    // 0207: a hands-on game's at-bats to take, for the card's button.
+    const mine = game?.players.some((p) => p.userId === user?.id && p.joined);
+    setBaseballLive(game?.handsOn && game.status === 'active' && mine ? await getBaseballLive(challengeId).catch(() => null) : null);
   }, [challenge?.kind, challengeId, user?.id]);
   useEffect(() => {
     loadBaseball();
@@ -928,7 +937,8 @@ export function ChallengeDetailScreen({
   useFocusEffect(
     useCallback(() => {
       if (challenge?.kind === 'golf' || challenge?.kind === 'hoops') loadHoops();
-    }, [challenge?.kind, loadHoops]),
+      if (challenge?.kind === 'baseball') loadBaseball();
+    }, [challenge?.kind, loadHoops, loadBaseball]),
   );
 
   // Soccer and Cricket: today's steps so far, for what they're worth.
@@ -2420,6 +2430,8 @@ export function ChallengeDetailScreen({
               userId={user?.id}
               stepsToday={soccerSteps}
               onShowField={showOnPage}
+              live={baseballLive}
+              onBat={() => onBatBaseball?.()}
             />
           )}
 

@@ -122,7 +122,7 @@ import { SoccerPitch, SoccerScore } from '../components/SoccerCard';
 import { advanceCricket, battingNow, cricketTeamOf, getCricketGame, getCricketOnStrike, otherSide, type CricketGame, type CricketOnStrike } from '../challenges/cricketApi';
 import { CricketGround, CricketScore, cricketResultLine } from '../components/CricketCard';
 import { oversLabel } from '../challenges/cricket';
-import { advanceBaseball, awayTeam, getBaseballGame, listBaseballInnings, type BaseballGame, type BaseballInning } from '../challenges/baseballApi';
+import { advanceBaseball, awayTeam, getBaseballGame, getBaseballLive, listBaseballInnings, type BaseballGame, type BaseballInning, type BaseballLive } from '../challenges/baseballApi';
 import { BaseballField, BaseballLineScore, baseballHeadline } from '../components/BaseballCard';
 import { soccerClock } from '../challenges/soccer';
 import { settleChallengeScore } from '../challenges/scoreApi';
@@ -1977,7 +1977,7 @@ export function HomeScreen({
       const activeResults = results.filter((r) => !r.finished);
       if (user?.id) {
         const myId = user.id;
-        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries, hoopsEntries, horseEntries, golfEntries] = await Promise.all([
+        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries, hoopsEntries, horseEntries, golfEntries, baseballEntries] = await Promise.all([
           Promise.all(
             activeResults
               .filter((r) => r.challenge.kind === 'tag' && r.challenge.tagMode !== 'chase')
@@ -2072,6 +2072,13 @@ export function HomeScreen({
               .filter((r) => r.challenge.kind === 'golf')
               .map(async (r): Promise<readonly [string, GolfGame | null]> => [r.challenge.id, await getGolfGame(r.challenge.id).catch(() => null)]),
           ),
+          // Baseball (0207): at-bats ready in a hands-on game (fails toward
+          // nothing waiting; a hands-off game says so and has none ready).
+          Promise.all(
+            activeResults
+              .filter((r) => r.challenge.kind === 'baseball')
+              .map(async (r): Promise<readonly [string, BaseballLive | null]> => [r.challenge.id, await getBaseballLive(r.challenge.id).catch(() => null)]),
+          ),
         ]);
         const packMap = new Map(packEntries.filter((e): e is readonly [string, PackWarsGame] => e[1] !== null));
         const doorsMap = new Map(doorsEntries.filter((e): e is readonly [string, DoorsGame] => e[1] !== null));
@@ -2093,6 +2100,9 @@ export function HomeScreen({
               hoopsEntries.flatMap(([id, g]) =>
                 g && g.handsOn && g.live && g.live.canShoot && g.live.ready > 0 ? [[id, g.live.ready] as const] : [],
               ),
+            ),
+            baseballAtBatsReady: new Map(
+              baseballEntries.flatMap(([id, l]) => (l && l.handsOn && l.canBat && l.ready > 0 ? [[id, l.ready] as const] : [])),
             ),
             horseToSet: new Set(horseEntries.filter(([, g]) => g && g.status === 'live' && g.me && g.setter === g.me).map(([id]) => id)),
             // 30 yards is a short pitch; less than that and there's nothing to play yet.

@@ -313,7 +313,11 @@ export function AdminScreen({
         .then((o) => setSponsorLine(sponsorSummary(o)))
         .catch(() => {});
       getBaseballOverview()
-        .then((b) => setBaseballSummary(`${b.active} ${b.active === 1 ? 'game' : 'games'} on now, ${b.finished} played`))
+        .then((b) =>
+          setBaseballSummary(
+            `${b.active} ${b.active === 1 ? 'game' : 'games'} on now, ${b.finished} played${b.live && b.live.atBats7d > 0 ? ` · ${b.live.atBats7d} at-bats by hand` : ''}`,
+          ),
+        )
         .catch(() => {});
       getShopOverview()
         .then((d) => setShopSummary(`${dollars(d.revenue30d)} this month · ${d.buyers30d} ${d.buyers30d === 1 ? 'buyer' : 'buyers'}`))

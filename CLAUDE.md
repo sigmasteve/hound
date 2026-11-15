@@ -97,6 +97,12 @@ round: seen from behind the shooter, facing the basket, still through
 `perspective.ts` and `project()` (y from the baseline out to 32 ft). The
 replays of those shots stay on the sideline court.
 
+Baseball's batting screen (0207, `BaseballBatScreen.tsx`) is seen from
+behind home plate, facing the mound: the Baseball card's ground (560 ×
+400, home at the bottom middle) in a steeper perspective, so the plate
+and your hound with the bat are big and the outfield and the stand
+small. Every point still goes through `project()`.
+
 ## Today screen layout
 
 Steve's agreed layout for Today (`mobile/src/screens/HomeScreen.tsx`,
