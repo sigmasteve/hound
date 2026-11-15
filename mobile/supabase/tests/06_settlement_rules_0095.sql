@@ -1,5 +1,8 @@
 -- 0095: who may settle, how many players it takes, and the 24-hour grace.
 select plan(7);
+-- 0213: the job only settles challenges ending after settle_config.since;
+-- these test the rules before that, so open the window fully.
+update public.settle_config set since = '-infinity' where id;
 
 select tests.new_user('Ann') as ann \gset
 select tests.new_user('Ben') as ben \gset
