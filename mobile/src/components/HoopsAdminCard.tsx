@@ -89,6 +89,19 @@ export function HoopsAdminCard({ onChanged }: { onChanged?: (o: HoopsOverview) =
           : []),
         ['H-O-R-S-E on now', `${data.horseLive}`],
         ['H-O-R-S-E started', `${data.horse7d} this week · ${data.horseAll} ever`],
+        // 0209: H-O-R-S-E with your own called shots.
+        ...(data.horseHandsOn
+          ? ([
+              ['H-O-R-S-E games calling their own shots', `${data.horseHandsOn.gamesHandsOn}`],
+              [
+                'Called shots this week',
+                `${data.horseHandsOn.shots7d.toLocaleString()} · ${rate(data.horseHandsOn.madeRate7d)} made · ${data.horseHandsOn.farShots7d} from beyond the court`,
+              ],
+              ['Highlights posted to Talk this week', `${data.horseHandsOn.highlights7d}`],
+              ['Turns run out this week', `${data.horseHandsOn.timeouts7d}`],
+              ['Stakes paid (treats baked)', `${data.horseHandsOn.stakesPaidAll} ever`],
+            ] as [string, string][])
+          : []),
         ['Bones given this week', `${data.bones7d.toLocaleString()}`],
       ]
     : [];

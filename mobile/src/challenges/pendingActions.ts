@@ -17,6 +17,7 @@ export type PendingActionKind =
   | 'hoopsShoot'
   | 'baseballBat'
   | 'horseSetShot'
+  | 'horseTurn'
   | 'golfPlay'
   | 'logProgress';
 
@@ -93,6 +94,10 @@ export interface PendingActionsInput {
   // Baseball (0207): at-bats ready to take in a hands-on game.
   baseballAtBatsReady?: Map<string, number>;
   horseToSet?: Set<string>;
+  // H-O-R-S-E, call your shot (0209): games where it's the caller's turn,
+  // what it's for (setting or matching), the other player's first name,
+  // and the time left ("21h 14m").
+  horseTurns?: Map<string, { kind: 'set' | 'match'; them: string; left: string }>;
   // Golf where the caller takes their own shots and has yards banked
   // (0200): what's banked and the hole they're on.
   golfToPlay?: Map<string, { yards: number; hole: number }>;
@@ -123,6 +128,7 @@ export function computePendingActions({
   hoopsShotsReady = new Map(),
   baseballAtBatsReady = new Map(),
   horseToSet = new Set(),
+  horseTurns = new Map(),
   golfToPlay = new Map(),
   loggedProgressToday,
 }: PendingActionsInput): PendingAction[] {
@@ -231,6 +237,15 @@ export function computePendingActions({
         });
       }
     } else if (c.kind === 'horse') {
+      const turn = horseTurns.get(c.id);
+      if (turn) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'horseTurn',
+          label: `Your turn in ${c.name}: ${turn.kind === 'match' ? `match ${turn.them}'s shot` : 'set a shot'}${turn.left ? ` (${turn.left} left)` : ''}`,
+        });
+      }
       if (horseToSet.has(c.id)) {
         actions.push({
           challengeId: c.id,

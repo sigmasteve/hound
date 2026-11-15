@@ -359,6 +359,29 @@ export interface HoopsOverview {
   bones7d: number;
   // 0206: shots taken by hand.
   live: { gamesHandsOn: number; people7d: number; shots7d: number; makeRate7d: number | null; autoMakeRate7d: number | null; swish7d: number } | null;
+  // 0209: H-O-R-S-E, calling your own shots.
+  horseHandsOn: {
+    gamesHandsOn: number;
+    shots7d: number;
+    madeRate7d: number | null;
+    highlights7d: number;
+    farShots7d: number;
+    stakesPaidAll: number;
+    timeouts7d: number;
+  } | null;
+}
+
+function toHorseHandsOn(h: any): HoopsOverview['horseHandsOn'] {
+  if (!h || typeof h !== 'object') return null;
+  return {
+    gamesHandsOn: num(h.games_hands_on),
+    shots7d: num(h.shots_7d),
+    madeRate7d: h.made_rate_7d == null ? null : Number(h.made_rate_7d),
+    highlights7d: num(h.highlights_7d),
+    farShots7d: num(h.far_shots_7d),
+    stakesPaidAll: num(h.stakes_paid_all),
+    timeouts7d: num(h.timeouts_7d),
+  };
 }
 
 export async function getHoopsOverview(): Promise<HoopsOverview> {
@@ -377,7 +400,9 @@ export async function getHoopsOverview(): Promise<HoopsOverview> {
     shots7d: num(d.shots_7d),
     dunks7d: num(d.dunks_7d),
     onFire7d: num(d.on_fire_7d),
-    horseLive: num(d.horse_live),
+    // horse_live is the count of games on now; 0209's numbers come as an
+    // object (under horse_hands_on, or horse_live itself if it's one).
+    horseLive: typeof d.horse_live === 'object' && d.horse_live !== null ? num(d.horse_live_count ?? d.horse_on_now) : num(d.horse_live),
     horse7d: num(d.horse_7d),
     horseAll: num(d.horse_all),
     bones7d: num(d.bones_7d),
@@ -391,6 +416,7 @@ export async function getHoopsOverview(): Promise<HoopsOverview> {
           swish7d: num(d.live.swish_7d),
         }
       : null,
+    horseHandsOn: toHorseHandsOn(d.horse_hands_on ?? d.horse_live_play ?? (typeof d.horse_live === 'object' ? d.horse_live : null)),
   };
 }
 
@@ -400,5 +426,6 @@ export async function setHoopsConfig(patch: Partial<HoopsConfig>): Promise<void>
 
 export function hoopsSummary(o: HoopsOverview): string {
   const byHand = o.live && o.live.shots7d > 0 ? ` · ${o.live.shots7d} shots by hand` : '';
-  return `${o.hoopsLive} Hoops and ${o.horseLive} H-O-R-S-E on now · ${o.hoops7d + o.horse7d} this week${byHand}`;
+  const called = o.horseHandsOn && o.horseHandsOn.shots7d > 0 ? ` · ${o.horseHandsOn.shots7d} called shots` : '';
+  return `${o.hoopsLive} Hoops and ${o.horseLive} H-O-R-S-E on now · ${o.hoops7d + o.horse7d} this week${byHand}${called}`;
 }
