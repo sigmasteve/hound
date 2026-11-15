@@ -130,6 +130,8 @@ import { advanceHoops, getHoops, type HoopsGame } from '../challenges/hoopsApi';
 import { advanceHorse, getHorse, type HorseGame } from '../challenges/horseApi';
 import { GolfCard } from '../components/GolfCard';
 import { OpenBoard } from '../components/OpenBoard';
+import { DerbyBoard } from '../components/DerbyBoard';
+import { getDerbyLive, type DerbyLive } from '../challenges/derbyApi';
 import { getGolfGame, type GolfGame } from '../challenges/golfApi';
 import { toParText, golfCourseName } from '../challenges/golf';
 import { useFocusEffect } from '@react-navigation/native';
@@ -256,6 +258,7 @@ export function ChallengeDetailScreen({
   onShootHoops,
   onBatBaseball,
   onShootHorse,
+  onBatDerby,
 }: {
   challengeId: string;
   // Golf: opens the play screen for this challenge.
@@ -266,6 +269,8 @@ export function ChallengeDetailScreen({
   onBatBaseball?: () => void;
   // H-O-R-S-E (hands-on, 0209): opens the shooting screen.
   onShootHorse?: () => void;
+  // The Home Run Derby (0211): opens the batting screen.
+  onBatDerby?: () => void;
   // Which tab to open on; a trash-talk notification opens Talk.
   initialTab?: ChallengeTab;
   onBack: () => void;
@@ -496,6 +501,8 @@ export function ChallengeDetailScreen({
   const [horseGame, setHorseGame] = useState<HorseGame | null>(null);
   // Golf (0200): the course, the field and my banks.
   const [golfGame, setGolfGame] = useState<GolfGame | null>(null);
+  // The Home Run Derby (0211): your day at the plate.
+  const [derbyLive, setDerbyLive] = useState<DerbyLive | null>(null);
   const [baseballLive, setBaseballLive] = useState<BaseballLive | null>(null);
   const [baseball, setBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[]; plays: BaseballPlay[]; picks: BaseballPicks }>({
     game: null,
@@ -930,6 +937,8 @@ export function ChallengeDetailScreen({
       setHorseGame(await getHorse(challengeId).catch(() => null));
     } else if (challenge?.kind === 'golf') {
       setGolfGame(await getGolfGame(challengeId).catch(() => null));
+    } else if (challenge?.kind === 'derby') {
+      setDerbyLive(await getDerbyLive(challengeId).catch(() => null));
     }
   }, [challenge?.kind, challengeId]);
   useEffect(() => {
@@ -939,7 +948,7 @@ export function ChallengeDetailScreen({
   // card have moved.
   useFocusEffect(
     useCallback(() => {
-      if (challenge?.kind === 'golf' || challenge?.kind === 'hoops' || challenge?.kind === 'horse') loadHoops();
+      if (challenge?.kind === 'golf' || challenge?.kind === 'hoops' || challenge?.kind === 'horse' || challenge?.kind === 'derby') loadHoops();
       if (challenge?.kind === 'baseball') loadBaseball();
     }, [challenge?.kind, loadHoops, loadBaseball]),
   );
@@ -1683,7 +1692,8 @@ export function ChallengeDetailScreen({
     challenge.kind === 'baseball' ||
     challenge.kind === 'hoops' ||
     challenge.kind === 'horse' ||
-    challenge.kind === 'golf'
+    challenge.kind === 'golf' ||
+    challenge.kind === 'derby'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
         ? isHound
@@ -2147,7 +2157,7 @@ export function ChallengeDetailScreen({
       </View>
 
       {/* The Hound Open shows its sponsor in its own board ("presented by", the prizes). */}
-      {sponsor && !(challenge.kind === 'golf' && isGlobal && (sponsor.presented || sponsor.prizes)) && (
+      {sponsor && !((challenge.kind === 'golf' || challenge.kind === 'derby') && isGlobal && (sponsor.presented || sponsor.prizes)) && (
         <SponsorBanner challengeId={challengeId} sponsor={sponsor} />
       )}
 
@@ -2442,6 +2452,9 @@ export function ChallengeDetailScreen({
 
           {challenge.kind === 'golf' && isGlobal && (
             <OpenBoard challengeId={challengeId} name={challenge.name} game={golfGame} sponsor={sponsor} onPlay={() => onPlayGolf?.()} />
+          )}
+          {challenge.kind === 'derby' && (
+            <DerbyBoard challengeId={challengeId} name={challenge.name} live={derbyLive} sponsor={sponsor} onBat={() => onBatDerby?.()} />
           )}
           {challenge.kind === 'golf' && !isGlobal && <GolfCard challengeId={challengeId} game={golfGame} onPlay={() => onPlayGolf?.()} />}
 
@@ -2891,7 +2904,7 @@ export function ChallengeDetailScreen({
             </>
           )}
 
-          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && (
+          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && challenge.kind !== 'derby' && (
             <Card style={{ gap: 12 }} elevated={false}>
               <View style={styles.leaderboardHeader}>
                 <TrophyIcon size={16} color={colors.accent} />

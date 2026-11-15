@@ -123,6 +123,7 @@ import { advanceCricket, battingNow, cricketTeamOf, getCricketGame, getCricketOn
 import { CricketGround, CricketScore, cricketResultLine } from '../components/CricketCard';
 import { oversLabel } from '../challenges/cricket';
 import { advanceBaseball, awayTeam, getBaseballGame, getBaseballLive, listBaseballInnings, type BaseballGame, type BaseballInning, type BaseballLive } from '../challenges/baseballApi';
+import { getDerbyLive, type DerbyLive } from '../challenges/derbyApi';
 import { BaseballField, BaseballLineScore, baseballHeadline } from '../components/BaseballCard';
 import { soccerClock } from '../challenges/soccer';
 import { settleChallengeScore } from '../challenges/scoreApi';
@@ -552,6 +553,9 @@ function heroCopy(
   }
   if (challenge.kind === 'golf') {
     return { eyebrow, headline: golfHeadline(challenge.name, golfGame) };
+  }
+  if (challenge.kind === 'derby') {
+    return { eyebrow, headline: `Step up to the plate in ${challenge.name}: your steps buy the swings.` };
   }
   if (challenge.kind === 'doors') {
     return { eyebrow, headline: doorsHeadline(challenge.name, doorsGame) };
@@ -1978,7 +1982,7 @@ export function HomeScreen({
       const activeResults = results.filter((r) => !r.finished);
       if (user?.id) {
         const myId = user.id;
-        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries, hoopsEntries, horseEntries, golfEntries, baseballEntries] = await Promise.all([
+        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries, hoopsEntries, horseEntries, golfEntries, baseballEntries, derbyEntries] = await Promise.all([
           Promise.all(
             activeResults
               .filter((r) => r.challenge.kind === 'tag' && r.challenge.tagMode !== 'chase')
@@ -2080,6 +2084,13 @@ export function HomeScreen({
               .filter((r) => r.challenge.kind === 'baseball')
               .map(async (r): Promise<readonly [string, BaseballLive | null]> => [r.challenge.id, await getBaseballLive(r.challenge.id).catch(() => null)]),
           ),
+          // The Home Run Derby (0211): swings ready once you've joined
+          // (fails toward nothing waiting).
+          Promise.all(
+            activeResults
+              .filter((r) => r.challenge.kind === 'derby')
+              .map(async (r): Promise<readonly [string, DerbyLive | null]> => [r.challenge.id, await getDerbyLive(r.challenge.id).catch(() => null)]),
+          ),
         ]);
         const packMap = new Map(packEntries.filter((e): e is readonly [string, PackWarsGame] => e[1] !== null));
         const doorsMap = new Map(doorsEntries.filter((e): e is readonly [string, DoorsGame] => e[1] !== null));
@@ -2104,6 +2115,9 @@ export function HomeScreen({
             ),
             baseballAtBatsReady: new Map(
               baseballEntries.flatMap(([id, l]) => (l && l.handsOn && l.canBat && l.ready > 0 ? [[id, l.ready] as const] : [])),
+            ),
+            derbySwingsReady: new Map(
+              derbyEntries.flatMap(([id, l]) => (l && l.joined && l.canSwing && l.swingsLeft > 0 ? [[id, l.swingsLeft] as const] : [])),
             ),
             horseToSet: new Set(horseEntries.filter(([, g]) => g && !g.handsOn && g.status === 'live' && g.me && g.setter === g.me).map(([id]) => id)),
             // H-O-R-S-E, call your shot (0209): it's your turn to set or match.

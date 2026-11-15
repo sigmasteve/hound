@@ -16,6 +16,7 @@ export type PendingActionKind =
   | 'hoopsPick'
   | 'hoopsShoot'
   | 'baseballBat'
+  | 'derbySwing'
   | 'horseSetShot'
   | 'horseTurn'
   | 'golfPlay'
@@ -49,7 +50,8 @@ export function needsManualEntry(challenge: Challenge): boolean {
     challenge.kind !== 'baseball' &&
     challenge.kind !== 'hoops' &&
     challenge.kind !== 'horse' &&
-    challenge.kind !== 'golf'
+    challenge.kind !== 'golf' &&
+    challenge.kind !== 'derby'
   );
 }
 
@@ -93,6 +95,9 @@ export interface PendingActionsInput {
   hoopsShotsReady?: Map<string, number>;
   // Baseball (0207): at-bats ready to take in a hands-on game.
   baseballAtBatsReady?: Map<string, number>;
+  // The Home Run Derby (0211): swings ready to take, for a derby you've
+  // joined.
+  derbySwingsReady?: Map<string, number>;
   horseToSet?: Set<string>;
   // H-O-R-S-E, call your shot (0209): games where it's the caller's turn,
   // what it's for (setting or matching), the other player's first name,
@@ -127,6 +132,7 @@ export function computePendingActions({
   hoopsUnpicked = new Set(),
   hoopsShotsReady = new Map(),
   baseballAtBatsReady = new Map(),
+  derbySwingsReady = new Map(),
   horseToSet = new Set(),
   horseTurns = new Map(),
   golfToPlay = new Map(),
@@ -234,6 +240,16 @@ export function computePendingActions({
           challengeName: c.name,
           kind: 'baseballBat',
           label: `${ready} ${ready === 1 ? 'at-bat' : 'at-bats'} ready in ${c.name}`,
+        });
+      }
+    } else if (c.kind === 'derby') {
+      const ready = derbySwingsReady.get(c.id) ?? 0;
+      if (ready > 0) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'derbySwing',
+          label: `${ready} ${ready === 1 ? 'swing' : 'swings'} ready in the Home Run Derby`,
         });
       }
     } else if (c.kind === 'horse') {

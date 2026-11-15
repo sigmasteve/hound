@@ -113,6 +113,14 @@ scene (the street, a HOUND billboard, the gym's lit window). The court
 never scrolls away: only the options under it scroll, and the meter and
 Shoot stay pinned (Steve's ask).
 
+The Home Run Derby's at-bat (0211, `DerbyBatScreen.tsx`) reuses Baseball
+batting's view and drawing (`FieldArt`, `Batter`, `Figure` and `P()`,
+exported from `BaseballBatScreen.tsx`): behind home plate, facing the
+mound, with the distance markers (330 / 375 / 410) and the sponsor's sign
+on the center-field wall, and the outfielders playing deep. Like
+H-O-R-S-E, the ballpark never scrolls away: only the message and today's
+swings under it scroll, and the bar and Pitch / Swing! stay pinned.
+
 ## Today screen layout
 
 Steve's agreed layout for Today (`mobile/src/screens/HomeScreen.tsx`,

@@ -93,6 +93,7 @@ const HORSE_STAKES: { id: string | null; name: string }[] = [
   { id: 'birthday_cake', name: 'Birthday cake' },
 ];
 import { setupGlobalGolf, setupGolf } from '../challenges/golfApi';
+import { DEFAULT_DERBY_PRIZES, setupGlobalDerby } from '../challenges/derbyApi';
 import { SponsorEditor, emptySponsorDraft, sponsorDraftProblem, sponsorFromDraft, usesPlacements } from '../components/SponsorEditor';
 import { GOLF_COURSES, GOLF_FORMAT_NAME, GOLF_FORMAT_NOTE, GOLF_HOLES_PER_DAY, golfDays, type GolfCourseId, type GolfFormat } from '../challenges/golf';
 import {
@@ -451,6 +452,14 @@ export function CreateScreen({
   const [golfFinishText, setGolfFinishText] = useState('10');
   const golfFinishBones = Math.max(0, Math.min(500, Math.round(Number(golfFinishText.replace(/[^0-9]/g, '')) || 0)));
   const globalGolf = global && draftType === 'golf';
+  // The Home Run Derby (0211): Bones past the top three, for the longest
+  // home run, for 10+ home runs, and for hitting the sponsor's sign.
+  const [derbyTop10Text, setDerbyTop10Text] = useState(String(DEFAULT_DERBY_PRIZES.top10));
+  const [derbyLongestText, setDerbyLongestText] = useState(String(DEFAULT_DERBY_PRIZES.longest));
+  const [derbyTenPlusText, setDerbyTenPlusText] = useState(String(DEFAULT_DERBY_PRIZES.tenPlus));
+  const [derbySignText, setDerbySignText] = useState('25');
+  const [derbySignCapText, setDerbySignCapText] = useState('5');
+  const bonesOf = (t: string, max: number) => Math.max(0, Math.min(max, Math.round(Number(t.replace(/[^0-9]/g, '')) || 0)));
   const canHavePot = !crowd && POT_KINDS.includes(draftType);
   const canHavePrizes = global && draftType !== 'seventyfive' && draftType !== 'checklist';
   const [saving, setSaving] = useState(false);
@@ -572,6 +581,12 @@ export function CreateScreen({
       setJoinWindow('3');
       setPrizeText(['500', '250', '100']);
     }
+    // The Home Run Derby: a week, joining closes 3 days in, 500 / 300 / 200.
+    if (draftType === 'derby') {
+      setLength('7');
+      setJoinWindow('3');
+      setPrizeText(['500', '300', '200']);
+    }
     if (draftType === 'journey') setLength(String(journeyDefaultDays(course.miles)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftType]);
@@ -660,6 +675,7 @@ export function CreateScreen({
       setGolfHoles(t.durationDays >= 7 ? 18 : 9);
       setPrizeText(['500', '250', '100']);
     }
+    if (t.kind === 'derby') setPrizeText(['500', '300', '200']);
     setPoolCourseId(t.kind === 'distance' ? (t.courseId ?? null) : null);
     setNameError(null);
     setStep(2);
@@ -884,6 +900,27 @@ export function CreateScreen({
               holes: golfHoles,
               holesPerDay: golfDailyCap ? GOLF_HOLES_PER_DAY : 0,
               finishBones: golfFinishBones,
+            });
+          } catch (e) {
+            await deleteGlobalChallenge(globalId).catch(() => {});
+            throw e;
+          }
+        }
+        // The Home Run Derby: its prizes and the sponsor's sign, right away.
+        // Without it nobody could swing, so a failure takes it back down.
+        if (draftType === 'derby') {
+          try {
+            await setupGlobalDerby(globalId, {
+              prizes: {
+                first: prizes[0],
+                second: prizes[1],
+                third: prizes[2],
+                top10: bonesOf(derbyTop10Text, 500),
+                longest: bonesOf(derbyLongestText, 1000),
+                tenPlus: bonesOf(derbyTenPlusText, 200),
+              },
+              signBones: bonesOf(derbySignText, 100),
+              signCap: Math.max(1, bonesOf(derbySignCapText, 20)),
             });
           } catch (e) {
             await deleteGlobalChallenge(globalId).catch(() => {});
@@ -1521,7 +1558,7 @@ export function CreateScreen({
             <Slider
               // A Hound'opoly game needs a week to go anywhere.
               minimumValue={
-                draftType === 'tag'
+                draftType === 'tag' || draftType === 'derby'
                   ? 3
                   : community
                   ? draftType === 'seventyfive'
@@ -1539,7 +1576,7 @@ export function CreateScreen({
                 draftType === 'tag'
                   ? 14
                   : // A community challenge runs 3 to 30 days (75 Day: 75).
-                    community || draftType === 'packs'
+                    community || draftType === 'packs' || draftType === 'derby'
                   ? draftType === 'seventyfive'
                     ? 75
                     : 30
@@ -2333,6 +2370,11 @@ export function CreateScreen({
                   'Prizes',
                   prizes.some((b) => b > 0) ? prizes.map((b) => `${b}`).join(' / ') + ` ${currencyName}` : 'None',
                 ]);
+              if (draftType === 'derby') {
+                rows.push(['Swings', '1 per 1,000 steps, up to 20 a day']);
+                rows.push(['Also', `4th–10th ${bonesOf(derbyTop10Text, 500)} · longest ${bonesOf(derbyLongestText, 1000)} · 10+ HR ${bonesOf(derbyTenPlusText, 200)}`]);
+                if (sponsorName.trim()) rows.push(['Sign', `${bonesOf(derbySignText, 100)} a hit, up to ${Math.max(1, bonesOf(derbySignCapText, 20))} each`]);
+              }
               if (draftType === 'golf') {
                 rows.push(['Course', GOLF_COURSES.find((c) => c.id === golfCourse)?.name ?? golfCourse]);
                 rows.push(['Holes', `${golfHoles}, stroke play`]);
@@ -2368,6 +2410,8 @@ export function CreateScreen({
               <Text style={styles.footNote}>
                 {draftType === 'golf'
                   ? 'Lowest score wins. Ties share the Bones of the places they cover'
+                  : draftType === 'derby'
+                  ? 'Most home runs wins; ties go to the longest home run, then share the Bones of the places they cover'
                   : draftType === 'bingo'
                   ? 'BINGOs place in the order they come in, then most squares'
                   : draftType === 'streak'
@@ -2377,8 +2421,50 @@ export function CreateScreen({
                       : draftType === 'distance' && distanceGoalUnit === 'miles'
                         ? 'Most miles wins'
                         : 'Most steps wins'}
-                {draftType === 'golf' ? '' : '. Ties share a place'}. 0 means no prize for that place; up to 1,000 each.
+                {draftType === 'golf' || draftType === 'derby' ? '' : '. Ties share a place'}. 0 means no prize for that place; up to 1,000 each.
               </Text>
+              {draftType === 'derby' && (
+                <>
+                  <TextField
+                    label={`${currencyName} each for 4th to 10th`}
+                    value={derbyTop10Text}
+                    onChangeText={setDerbyTop10Text}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+                  <TextField
+                    label={`${currencyName} for the longest home run`}
+                    value={derbyLongestText}
+                    onChangeText={setDerbyLongestText}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                  />
+                  <TextField
+                    label={`${currencyName} for 10 or more home runs`}
+                    value={derbyTenPlusText}
+                    onChangeText={setDerbyTenPlusText}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <TextField
+                        label={`Sign hit (${currencyName})`}
+                        value={derbySignText}
+                        onChangeText={setDerbySignText}
+                        keyboardType="number-pad"
+                        maxLength={3}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <TextField label="Hits paid each" value={derbySignCapText} onChangeText={setDerbySignCapText} keyboardType="number-pad" maxLength={2} />
+                    </View>
+                  </View>
+                  <Text style={styles.footNote}>
+                    The sign sits on the center-field wall and only shows with a sponsor. A center home run of 410 to 445 feet can hit it.
+                  </Text>
+                </>
+              )}
               {draftType === 'golf' && (
                 <TextField
                   label={`${currencyName} for finishing every hole`}
