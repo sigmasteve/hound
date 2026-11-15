@@ -24,6 +24,7 @@ import {
   farOf,
   feetOf,
   isOutside,
+  overChair,
   spotName,
   starText,
   starsOf,
@@ -161,7 +162,8 @@ export function HorseShootScreen({ challengeId, onBack }: { challengeId: string;
   const obstacle = live?.obstacle ?? null;
   const steady = live?.steady ?? 1;
   const key = JSON.stringify([shot.spot, [...shot.calls].sort()]);
-  const localW = windowOf(shot.spot, shot.calls, obstacle, steady);
+  // Matching: the chair is the one from when the shot was set.
+  const localW = windowOf(shot.spot, shot.calls, obstacle, steady, matching ? live?.pending?.overChair : undefined);
   const w = preview && preview.key === key ? preview.p.window || localW : localW;
   const stars = starsOf(w);
   const description = matching && live?.pending?.description ? live.pending.description : preview && preview.key === key && preview.p.description ? preview.p.description : describeShot(shot.spot, shot.calls, obstacle);
@@ -170,6 +172,7 @@ export function HorseShootScreen({ challengeId, onBack }: { challengeId: string;
   const unlocked = (kind: string) => unlocks.find((u) => u.kind === kind)?.unlocked ?? false;
   const far = farOf(shot.spot.kind);
   const spotLocked = !!far && !unlocked(far.kind);
+  const fresh = preview && preview.key === key ? preview.p : null;
 
   // The server's window for the call (debounced), so the meter matches it.
   useEffect(() => {
@@ -254,7 +257,8 @@ export function HorseShootScreen({ challengeId, onBack }: { challengeId: string;
       const farSpot = !f;
       const side = f ? (f.u < -0.05 ? -1 : 1) : s.kind === 'stands' ? -1 : 1;
       const ft = Math.min(60, feetOf(s));
-      const h = s.kind === 'rafters' ? 24 : 46 + ft * 1.4 + (f && obstacle && describeShot(s, [], obstacle).includes('over the chair') ? 30 : 0);
+      const chair = matching && live?.pending ? live.pending.overChair : overChair(s, obstacle);
+      const h = s.kind === 'rafters' ? 24 : 46 + ft * 1.4 + (f && chair ? 30 : 0);
       const has = (c: HorseCall) => cs.includes(c);
       if (has('floor')) {
         const b = f ? P(v, f.u / 2, (f.v + BASKET_V) / 2 + 0.02) : P(v, side * 0.3, 0.3);
@@ -276,7 +280,7 @@ export function HorseShootScreen({ challengeId, onBack }: { challengeId: string;
       }
       return out;
     },
-    [handsOf, kx, ky, v, rim, obstacle],
+    [handsOf, kx, ky, v, rim, obstacle, matching, live?.pending],
   );
 
   const ballD = (outside ? 10 : 12) * kx;
@@ -334,7 +338,10 @@ export function HorseShootScreen({ challengeId, onBack }: { challengeId: string;
 
   const onCourtPress = (e: GestureResponderEvent) => {
     if (!live || matching || !myTurn || phase !== 'aim') return;
-    const { locationX: sx, locationY: sy } = e.nativeEvent;
+    const ne = e.nativeEvent as typeof e.nativeEvent & { offsetX?: number; offsetY?: number };
+    const sx = Number.isFinite(ne.locationX) ? ne.locationX : (ne.offsetX ?? NaN);
+    const sy = Number.isFinite(ne.locationY) ? ne.locationY : (ne.offsetY ?? NaN);
+    if (!Number.isFinite(sx) || !Number.isFinite(sy)) return;
     // The spots beyond the court you can tap where they are.
     if (!outside) {
       for (const kind of ['stands', 'rafters'] as const) {
@@ -469,7 +476,7 @@ export function HorseShootScreen({ challengeId, onBack }: { challengeId: string;
           : !myTurn || !live.canShoot
             ? live.reason || (live.status === 'final' ? 'This game is over.' : `${themName}’s turn.`)
             : spotLocked && far
-              ? `A ${far.need / 1000}K day unlocks this spot`
+              ? fresh?.locked || `A ${far.need / 1000}K day unlocks this spot`
               : matching
                 ? live.turn && live.turn.shotsLeft > 1
                   ? 'Shoot (match it · 2 tries)'
@@ -589,7 +596,7 @@ export function HorseShootScreen({ challengeId, onBack }: { challengeId: string;
           {!outside && <RimFront rim={rim} ky={ky} w={courtW} h={courtH} />}
 
           <Text style={[styles.chip, { left: 8 }]} numberOfLines={2}>
-            {`${spotName(shot.spot).replace(/^From the /, '').replace(/^From /, '').replace(', through the gym window', '').replace(/^./, (c) => c.toUpperCase())} · ${Math.round(preview && preview.key === key ? preview.p.feet || feetOf(shot.spot) : feetOf(shot.spot))} ft`}
+            {`${fresh?.spotName || spotName(shot.spot).replace(/^From the /, '').replace(/^From /, '').replace(', through the gym window', '').replace(/^./, (c) => c.toUpperCase())} · ${Math.round(fresh?.feet || feetOf(shot.spot))} ft`}
           </Text>
           <Text style={[styles.chip, { right: 8, color: '#ffd8b0' }]}>{starText(stars)}</Text>
           {banner && (
@@ -917,7 +924,7 @@ function makeStyles(colors: Palette) {
     note: { fontSize: 14.5, color: withAlpha(colors.text, 0.7), textAlign: 'center' },
     head: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
     kicker: { fontFamily: font.headingSemibold, fontSize: 11, letterSpacing: 0.8, color: withAlpha(colors.text, 0.6) },
-    titleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+    titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 8 },
     title: { fontFamily: font.headingSemibold, fontSize: 19, color: colors.text, flexShrink: 1 },
     turn: { fontFamily: font.headingSemibold, fontSize: 11.5, color: '#3fb37f', flexShrink: 1 },
     tries: { fontFamily: font.headingSemibold, fontSize: 18, color: colors.text },

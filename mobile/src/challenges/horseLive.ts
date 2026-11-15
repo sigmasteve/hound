@@ -83,12 +83,14 @@ export function steadyOf(stepsToday: number): number {
 }
 
 // The green's width, as a share of the meter.
-export function windowOf(spot: HorseSpot, calls: HorseCall[], obstacle: { u: number; v: number } | null, steady: number): number {
+// When matching, the chair is the one from when the shot was set
+// (overChairFixed); otherwise today's.
+export function windowOf(spot: HorseSpot, calls: HorseCall[], obstacle: { u: number; v: number } | null, steady: number, overChairFixed?: boolean): number {
   const far = farOf(spot.kind);
   let w = far ? far.base : Math.max(0.06, Math.min(0.4, 0.42 - 0.0085 * feetOf(spot)));
   if (spot.kind === 'bench') w *= 0.85;
   for (const c of HORSE_CALLS) if (calls.includes(c.id)) w *= c.mult;
-  if (overChair(spot, obstacle)) w *= 0.85;
+  if (overChairFixed ?? overChair(spot, obstacle)) w *= 0.85;
   return Math.max(0.025, w * steady);
 }
 

@@ -67,6 +67,9 @@ export interface HorseLiveShot {
   spot: HorseSpot;
   calls: HorseCall[];
   made: boolean;
+  swish: boolean;
+  // A turn that ran out (a match not taken counts as a miss).
+  timeout: boolean;
   stars: number;
   description: string;
   highlight: boolean;
@@ -83,7 +86,8 @@ export interface HorseLive {
   them: { id: string; name: string } | null;
   turn: { user: string | null; kind: 'set' | 'match'; endsAt: string | null; mine: boolean; shotsLeft: number } | null;
   // The shot to match, once one's set.
-  pending: { by: string; spot: HorseSpot; calls: HorseCall[]; stars: number; description: string; at: string | null } | null;
+  // overChair is fixed when it's set: the matcher shoots over the same chair.
+  pending: { by: string; spot: HorseSpot; calls: HorseCall[]; overChair: boolean; stars: number; description: string; at: string | null } | null;
   steps: number;
   bestDay: number;
   tries: number;
@@ -91,7 +95,8 @@ export interface HorseLive {
   unlocks: { kind: string; name: string; need: number; unlocked: boolean; feet: number }[];
   obstacle: { u: number; v: number } | null;
   steady: number;
-  stakes: { recipe: string; name: string; bones: number } | null;
+  stakes: { recipe: string; name: string; bones: number; paid: boolean } | null;
+  winner: string | null;
   last: HorseLiveShot | null;
   canShoot: boolean;
   // Why not, in the server's words ("Ann's turn.", "No tries ready: the
@@ -121,6 +126,11 @@ export interface HorsePreview {
   feet: number;
   overChair: boolean;
   description: string;
+  // The server's name for the spot ("Free-throw line", "Deep top of the
+  // key"), its scene, and why it can't be shot from yet (or null).
+  spotName: string;
+  scene: 'in' | 'out';
+  locked: string | null;
 }
 
 function toLiveShot(x: any): HorseLiveShot {
@@ -130,6 +140,8 @@ function toLiveShot(x: any): HorseLiveShot {
     spot: parseSpot(x?.spot),
     calls: parseCalls(x?.calls),
     made: !!x?.made,
+    swish: !!x?.swish,
+    timeout: !!x?.timeout,
     stars: num(x?.stars),
     description: x?.description ?? '',
     highlight: !!x?.highlight,
@@ -164,6 +176,7 @@ export function toHorseLive(d: any): HorseLive {
           by: d.pending.by ?? '',
           spot: parseSpot(d.pending.spot),
           calls: parseCalls(d.pending.calls),
+          overChair: !!d.pending.over_chair,
           stars: num(d.pending.stars),
           description: d.pending.description ?? '',
           at: d.pending.at ?? null,
@@ -176,7 +189,8 @@ export function toHorseLive(d: any): HorseLive {
     unlocks: ((d?.unlocks ?? []) as any[]).map((u) => ({ kind: u.kind, name: u.name ?? u.kind, need: num(u.need), unlocked: !!u.unlocked, feet: num(u.feet) })),
     obstacle: d?.obstacle ? { u: num(d.obstacle.u), v: num(d.obstacle.v) } : null,
     steady: num(d?.steady) || 1,
-    stakes: d?.stakes ? { recipe: d.stakes.recipe, name: d.stakes.name ?? 'a treat', bones: num(d.stakes.bones) } : null,
+    stakes: d?.stakes ? { recipe: d.stakes.recipe, name: d.stakes.name ?? 'a treat', bones: num(d.stakes.bones), paid: !!d.stakes.paid } : null,
+    winner: d?.winner ?? null,
     last: d?.last ? toLiveShot(d.last) : null,
     canShoot: !!d?.can_shoot,
     reason: d?.reason ?? null,
@@ -193,7 +207,16 @@ function spotArg(spot: HorseSpot): Record<string, unknown> {
 
 export async function previewHorseShot(challengeId: string, spot: HorseSpot, calls: HorseCall[]): Promise<HorsePreview> {
   const d = await rpc<any>('horse_preview', { p_challenge_id: challengeId, p_spot: spotArg(spot), p_calls: calls });
-  return { window: num(d?.window), stars: num(d?.stars), feet: num(d?.feet), overChair: !!d?.over_chair, description: d?.description ?? '' };
+  return {
+    window: num(d?.window),
+    stars: num(d?.stars),
+    feet: num(d?.feet),
+    overChair: !!d?.over_chair,
+    description: d?.description ?? '',
+    spotName: d?.spot_name ?? '',
+    scene: d?.scene === 'out' ? 'out' : 'in',
+    locked: d?.locked ?? null,
+  };
 }
 
 // One shot: the meter's offset from the middle (−0.5 early/short … 0.5
