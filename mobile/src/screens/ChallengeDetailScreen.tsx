@@ -255,6 +255,7 @@ export function ChallengeDetailScreen({
   onPlayGolf,
   onShootHoops,
   onBatBaseball,
+  onShootHorse,
 }: {
   challengeId: string;
   // Golf: opens the play screen for this challenge.
@@ -263,6 +264,8 @@ export function ChallengeDetailScreen({
   onShootHoops?: () => void;
   // Baseball (hands-on): opens the batting screen.
   onBatBaseball?: () => void;
+  // H-O-R-S-E (hands-on, 0209): opens the shooting screen.
+  onShootHorse?: () => void;
   // Which tab to open on; a trash-talk notification opens Talk.
   initialTab?: ChallengeTab;
   onBack: () => void;
@@ -936,7 +939,7 @@ export function ChallengeDetailScreen({
   // card have moved.
   useFocusEffect(
     useCallback(() => {
-      if (challenge?.kind === 'golf' || challenge?.kind === 'hoops') loadHoops();
+      if (challenge?.kind === 'golf' || challenge?.kind === 'hoops' || challenge?.kind === 'horse') loadHoops();
       if (challenge?.kind === 'baseball') loadBaseball();
     }, [challenge?.kind, loadHoops, loadBaseball]),
   );
@@ -2442,7 +2445,7 @@ export function ChallengeDetailScreen({
           )}
           {challenge.kind === 'golf' && !isGlobal && <GolfCard challengeId={challengeId} game={golfGame} onPlay={() => onPlayGolf?.()} />}
 
-          {challenge.kind === 'horse' && <HorseCard challengeId={challengeId} game={horseGame} stepsToday={soccerSteps} onChanged={loadHoops} />}
+          {challenge.kind === 'horse' && <HorseCard challengeId={challengeId} game={horseGame} stepsToday={soccerSteps} onChanged={loadHoops} onShoot={() => onShootHorse?.()} />}
 
           {challenge.kind === 'cricket' && (
             <CricketCard

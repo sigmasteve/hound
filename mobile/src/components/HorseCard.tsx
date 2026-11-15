@@ -8,6 +8,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { formatSteps, spelled, type HorseShotId } from '../challenges/hoops';
 import { setHorseShot, type HorseGame, type HorsePlayer } from '../challenges/horseApi';
+import { starText, timeLeft } from '../challenges/horseLive';
 import type { HoopsGame } from '../challenges/hoopsApi';
 import { GameDayLine, SportBonusRow, useGameDayIds } from './SportBonusRow';
 
@@ -30,11 +31,14 @@ export function HorseCard({
   game,
   stepsToday,
   onChanged,
+  onShoot,
 }: {
   challengeId: string;
   game: HorseGame | null;
   stepsToday: number | null;
   onChanged: () => void;
+  // A hands-on game (0209): opens the shooting screen.
+  onShoot?: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -124,7 +128,17 @@ export function HorseCard({
             </View>
             <Text style={styles.playerName} numberOfLines={1}>
               {p.userId === game.me ? 'You' : p.name.split(' ')[0]}
-              {game.setter === p.userId && game.status !== 'final' ? ' · setting' : ''}
+              {game.status === 'final'
+                ? ''
+                : game.handsOn && game.live
+                  ? game.live.turn?.user === p.userId
+                    ? game.live.turn.kind === 'match'
+                      ? ' · matching'
+                      : ' · setting'
+                    : ''
+                  : game.setter === p.userId
+                    ? ' · setting'
+                    : ''}
             </Text>
             <View style={styles.letters} accessible accessibilityLabel={`${p.letters.length} of ${game.word.length} letters: ${p.letters || 'none'}`}>
               {game.word.split('').map((l, k) => {
@@ -139,6 +153,10 @@ export function HorseCard({
           </View>
         ))}
       </View>
+      {game.handsOn && game.live ? (
+        <HandsOn game={game} styles={styles} nameOf={nameOf} onShoot={onShoot} colors={colors} />
+      ) : (
+      <>
       <Text style={styles.status}>
         {game.status === 'final'
           ? game.winner
@@ -226,7 +244,105 @@ export function HorseCard({
           })}
         </Card>
       )}
+      </>
+      )}
     </View>
+  );
+}
+
+// A hands-on game (0209): turn by turn, 24 hours a turn. Whose turn it is,
+// the shot to match (once one's set), the stakes, Take your turn, and the
+// last few shots.
+function HandsOn({
+  game,
+  styles,
+  nameOf,
+  onShoot,
+  colors,
+}: {
+  game: HorseGame;
+  styles: ReturnType<typeof makeStyles>;
+  nameOf: (id: string | null) => string;
+  onShoot?: () => void;
+  colors: Palette;
+}) {
+  const live = game.live!;
+  const them = live.them?.name.split(' ')[0] ?? nameOf(game.players.find((p) => p.userId !== game.me)?.userId ?? null);
+  const mine = !!live.turn?.mine;
+  const left = timeLeft(live.turn?.endsAt ?? null);
+  const final = game.status === 'final' || live.status === 'final';
+  const status = final
+    ? game.winner
+      ? `${nameOf(game.winner)} ${game.winner === game.me ? 'win' : 'wins'}.${live.stakes ? ` ${game.winner === game.me ? `${them} bakes your hound` : `You bake ${them}’s hound`} a ${live.stakes.name}.` : ''}`
+      : 'A tie.'
+    : mine
+      ? live.turn?.kind === 'match'
+        ? `Your turn: match ${them}’s shot${left ? ` · ${left} left` : ''}.`
+        : `Your turn to set a shot${left ? ` · ${left} left` : ''}.`
+      : live.turn?.kind === 'match'
+        ? `${them} is matching your shot${left ? ` · ${left} left` : ''}.`
+        : `${them} is setting a shot${left ? ` · ${left} left` : ''}.`;
+  return (
+    <>
+      <Text style={styles.status}>{status}</Text>
+      {!final && (
+        <Card style={styles.card} elevated={false}>
+          {live.pending && live.turn?.kind === 'match' ? (
+            <>
+              <Text style={styles.kicker}>{live.pending.by === game.me ? 'YOUR SHOT TO MATCH' : 'THE SHOT TO MATCH'}</Text>
+              <Text style={styles.big}>{live.pending.description}</Text>
+              <Text style={[styles.small, { color: '#e0a94f' }]}>{starText(live.pending.stars)}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.kicker}>CALL YOUR SHOT</Text>
+              <Text style={styles.note}>
+                Pick any spot (the bench too, or beyond the court once a big day unlocks it), chain your calls, and take one shot. Make it and the other
+                player has 24 hours to match it, or takes a letter.
+              </Text>
+            </>
+          )}
+          <Text style={styles.small}>
+            {live.tries} {live.tries === 1 ? 'try' : 'tries'} ready (1 per 2,000 steps) · best day {formatSteps(Math.max(live.bestDay, live.steps))}
+          </Text>
+          {live.stakes && (
+            <Text style={styles.note}>
+              🧁 Stakes: the loser bakes the winner’s hound a {live.stakes.name}.
+            </Text>
+          )}
+          <Pressable
+            onPress={onShoot}
+            disabled={!onShoot}
+            style={[styles.shoot, mine && live.canShoot ? { backgroundColor: '#7fd39b' } : { backgroundColor: withAlpha(colors.text, 0.1) }]}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.shootText, !(mine && live.canShoot) && { color: colors.text }]}>
+              {mine ? (live.canShoot ? (live.turn?.kind === 'match' ? 'Take your turn: match it' : 'Take your turn: set a shot') : live.reason || 'Take your turn') : 'See the court'}
+            </Text>
+          </Pressable>
+        </Card>
+      )}
+      {game.recent.length > 0 && (
+        <Card style={styles.card} elevated={false}>
+          <Text style={styles.kicker}>LATELY</Text>
+          {game.recent.slice(0, 6).map((r, i) => (
+            <View key={`${r.at}-${i}`} style={styles.hist}>
+              <Text style={styles.histDay}>{r.by === game.me ? 'You' : nameOf(r.by)}</Text>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.rowText}>
+                  {r.kind === 'match' ? (r.made ? 'Matched: ' : 'Missed the match: ') : r.made ? 'Set: ' : 'Missed the call: '}
+                  {r.description}
+                </Text>
+                <Text style={styles.small}>
+                  {starText(r.stars)}
+                  {r.highlight ? ' · Highlight, posted to Talk' : ''}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </Card>
+      )}
+    </>
   );
 }
 
@@ -259,6 +375,8 @@ function makeStyles(colors: Palette) {
     hist: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: withAlpha(colors.text, 0.08) },
     histDay: { width: 44, fontFamily: font.headingSemibold, fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
     histLetter: { fontFamily: font.headingSemibold, fontSize: 12.5 },
+    shoot: { minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+    shootText: { fontFamily: font.headingSemibold, fontSize: 16, color: '#161826', textAlign: 'center' },
   });
 }
 
