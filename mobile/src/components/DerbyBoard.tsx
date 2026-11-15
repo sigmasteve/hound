@@ -361,11 +361,7 @@ export function DerbyBoard({
             </Pressable>
           )}
         </View>
-      ) : (
-        !!prizeLine && (
-          <Text style={styles.small}>{prizeLine}. Ties go to the longest home run.</Text>
-        )
-      )}
+      ) : null}
 
       {final && (
         <View style={{ flexDirection: 'row', gap: 8 }}>
