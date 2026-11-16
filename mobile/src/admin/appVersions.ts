@@ -48,27 +48,21 @@ export function currentApp(): RunningApp {
   };
 }
 
-// Never throws — a failed report (offline, or before 0076 has run) just
-// leaves the last one in place.
-export async function reportAppVersion(userId: string): Promise<void> {
-  if (!supabase || Platform.OS === 'web') return;
+// The profile columns for this open (0076), sent with the rest of the
+// launch report (src/auth/launchReport.ts). Null on web, which isn't
+// tracked.
+export function appVersionFields(): Record<string, string | null> | null {
+  if (Platform.OS === 'web') return null;
   const app = currentApp();
-  try {
-    await supabase
-      .from('profiles')
-      .update({
-        app_platform: app.platform,
-        os_version: app.osVersion,
-        app_version: app.appVersion,
-        app_build: app.appBuild,
-        ota_update_id: app.otaUpdateId,
-        code_published_at: app.codePublishedAt,
-        app_reported_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
-  } catch {
-    // See above.
-  }
+  return {
+    app_platform: app.platform,
+    os_version: app.osVersion,
+    app_version: app.appVersion,
+    app_build: app.appBuild,
+    ota_update_id: app.otaUpdateId,
+    code_published_at: app.codePublishedAt,
+    app_reported_at: new Date().toISOString(),
+  };
 }
 
 // ── Where an Android app came from (0163) ───────────────────────────
@@ -102,19 +96,14 @@ async function androidInstallSource(): Promise<{ source: InstallSource; referrer
   return found;
 }
 
-// Its own write, so it can't break the version report before 0163 has
-// run. Never throws.
-export async function reportInstallSource(userId: string): Promise<void> {
-  if (!supabase) return;
+// The profile columns (0163), sent with the rest of the launch report.
+// Null off Android, or when it isn't known yet. Never throws.
+export async function installSourceFields(): Promise<Record<string, string> | null> {
   try {
     const found = await androidInstallSource();
-    if (!found) return;
-    await supabase
-      .from('profiles')
-      .update({ app_install_source: found.source, app_install_referrer: found.referrer })
-      .eq('id', userId);
+    return found ? { app_install_source: found.source, app_install_referrer: found.referrer } : null;
   } catch {
-    // Next open.
+    return null;
   }
 }
 

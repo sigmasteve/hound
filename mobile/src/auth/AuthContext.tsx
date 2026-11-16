@@ -1,9 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
-import { touchLastActive } from '../notifications/supabaseNotifications';
-import { reportAppVersion, reportInstallSource } from '../admin/appVersions';
-import { syncPushRegistration } from '../notifications/pushPermission';
-import { reportTimeZone } from '../notifications/timeZone';
+import { reportLaunch } from './launchReport';
 import { MisconfiguredScreen } from '../components/MisconfiguredScreen';
 import * as mockAuth from './mockAuth';
 import * as supabaseAuth from './supabaseAuth';
@@ -99,17 +96,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // reminder job won't see this open.
   useEffect(() => {
     if (!isSupabaseConfigured || !user) return;
-    touchLastActive(user.id).catch(() => {});
-    // Which build and update this open is running, for Admin → App
-    // versions (0076_app_version_tracking.sql).
-    reportAppVersion(user.id);
-    reportInstallSource(user.id);
-    // Registers this phone for push once notifications are allowed, and
-    // reports the phone's setting (0081_push_permission.sql).
-    syncPushRegistration(user.id);
-    // So reminders and alerts arrive in this person's own evening
-    // (0088_local_time_alerts.sql).
-    reportTimeZone(user.id);
+    // One profile update: last active, the app version and install
+    // source for Admin, the push setting and the time zone. Then it
+    // registers this phone for push once notifications are allowed.
+    reportLaunch(user.id);
   }, [user?.id]);
 
   // Every method re-throws whatever the backend rejects with, so screens
