@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, Ellipse, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, Ellipse, G, Line, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { perspective, project, type Perspective } from './perspective';
 import { Text } from './Text';
 import { font } from '../theme/tokens';
@@ -8,6 +8,7 @@ import { HoundArt } from '../kennel/HoundArt';
 import { parseHoundAvatar } from '../kennel/houndAvatar';
 import type { GolfHole as Hole, GolfSpot } from '../challenges/golfApi';
 import type { GolfCourseId } from '../challenges/golf';
+import { PUTT_CUP_YD } from '../challenges/golfPutt';
 
 // One hole in perspective (perspective.ts), seen from just behind the
 // ball and looking at the pin, like the prototype Steve played: the
@@ -107,6 +108,8 @@ export function GolfHole({
   compact,
   cameraAt,
   sponsor,
+  putt,
+  holed,
 }: {
   hole: Hole;
   course: GolfCourseId;
@@ -125,6 +128,11 @@ export function GolfHole({
   // where the last shot was played).
   cameraAt?: GolfSpot | null;
   sponsor?: GolfSponsorArt | null;
+  // A putt being lined up (0214): the line out to the meter's end, the
+  // roll and where it stops once there's a length, and whether it drops.
+  putt?: { line: GolfSpot[]; roll: GolfSpot[] | null; rest: GolfSpot | null; drops: boolean } | null;
+  // In the cup: no ball to draw.
+  holed?: boolean;
 }) {
   const [w, setW] = useState(0);
   const h = height;
@@ -352,7 +360,6 @@ export function GolfHole({
       greenArrows,
       greenTilt: tilt,
       cup: ellipse(hole.pin.d, hole.pin.lat, 0.55, 0.55),
-      cupRim: ellipse(hole.pin.d, hole.pin.lat, 0.8, 0.8),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [w, h, hole, cam.d, cam.lat, cam.len, cam.fd, cam.fl, putting, sponsor?.boards, sponsor?.holeSign, sponsor?.color, sponsor?.name]);
@@ -368,9 +375,17 @@ export function GolfHole({
   // The ball: flying, rolling, or lying.
   let pos = ball;
   let lift = 0;
-  if (flight && t != null) {
+  if (flight && t != null && flight.putt) {
+    // A putt rolls out and slows, the break taking it more as it does.
+    const k = 1 - (1 - t) * (1 - t);
+    const brk = hole.green.break * Math.hypot(flight.to.d - flight.from.d, flight.to.lat - flight.from.lat);
+    pos = {
+      d: flight.from.d + (flight.to.d - flight.from.d) * k,
+      lat: flight.from.lat + (flight.to.lat - brk - flight.from.lat) * k + brk * k * k,
+    };
+  } else if (flight && t != null) {
     pos = { d: flight.from.d + (flight.to.d - flight.from.d) * t, lat: flight.from.lat + (flight.to.lat - flight.from.lat) * t };
-    lift = flight.putt ? 0 : Math.sin(Math.PI * t) * (30 + 120 * Math.min(1, flight.carry / 250)) * (1 - 0.45 * t);
+    lift = Math.sin(Math.PI * t) * (30 + 120 * Math.min(1, flight.carry / 250)) * (1 - 0.45 * t);
   }
   const bq = P(pos.d, pos.lat);
   const ballR = Math.max(2.2, 6 * bq.s + (lift > 0 ? 1.5 : 0));
@@ -387,6 +402,30 @@ export function GolfHole({
     preview = path(pts);
     landing = ellipse(plan.to.d, plan.to.lat, plan.putt ? 1.5 : 8, plan.putt ? 1.5 : 7);
   }
+  // Putting: a real cup (white liner, the far wall lit, the bottom dark) and
+  // a ring where the ball has to stop to drop, gold when this putt will.
+  let cup3d: { cx: number; cy: number; rx: number; ry: number; irx: number; iry: number; wall: number; lip: string } | null = null;
+  if (putting) {
+    const r = 0.55;
+    const c = P(hole.pin.d, hole.pin.lat);
+    const side = P(hole.pin.d - cam.fl * r, hole.pin.lat + cam.fd * r);
+    const far = P(hole.pin.d + cam.fd * r, hole.pin.lat + cam.fl * r);
+    const near = P(hole.pin.d - cam.fd * r, hole.pin.lat - cam.fl * r);
+    const rx = Math.max(3, Math.hypot(side.x - c.x, side.y - c.y));
+    const ry = Math.max(1.5, Math.abs(near.y - far.y) / 2);
+    const cy = (near.y + far.y) / 2;
+    cup3d = {
+      cx: c.x, cy, rx, ry, irx: rx * 0.9, iry: ry * 0.86, wall: ry * 1.2,
+      lip: `M${f(c.x - rx)} ${f(cy)} A${f(rx)} ${f(ry)} 0 0 0 ${f(c.x + rx)} ${f(cy)}`,
+    };
+  }
+  const dropRing = putting ? ellipse(hole.pin.d, hole.pin.lat, PUTT_CUP_YD, PUTT_CUP_YD) : '';
+  const puttLine = putt && !flight ? path(putt.line.map((q) => [q.d, q.lat] as [number, number])) : '';
+  const puttRoll = putt?.roll && !flight ? path(putt.roll.map((q) => [q.d, q.lat] as [number, number])) : '';
+  const ghost = putt?.rest && !flight ? P(putt.rest.d, putt.rest.lat) : null;
+  const ringGold = !!putt?.drops && !!putt?.rest && !flight;
+  const showBall = !(holed && !flight);
+
   const trailPath = (trail ?? []).map((s) => path([[s.from.d, s.from.lat], [s.to.d, s.to.lat]])).join(' ');
 
   // Your hound, beside the ball (not while it flies).
@@ -407,6 +446,21 @@ export function GolfHole({
             <Stop offset="0" stopColor="#ffffff" stopOpacity="0.35" />
             <Stop offset="0.35" stopColor="#ffffff" stopOpacity="0" />
           </LinearGradient>
+          <LinearGradient id="golfCupWall" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#fbfaf4" />
+            <Stop offset="0.3" stopColor="#d8d4c4" />
+            <Stop offset="0.34" stopColor="#6b5238" />
+            <Stop offset="1" stopColor="#241810" />
+          </LinearGradient>
+          <RadialGradient id="golfCupPit" cx="0.5" cy="0.35" r="0.75">
+            <Stop offset="0" stopColor="#1d2a20" />
+            <Stop offset="1" stopColor="#050806" />
+          </RadialGradient>
+          {cup3d ? (
+            <ClipPath id="golfCupClip">
+              <Ellipse cx={cup3d.cx} cy={cup3d.cy} rx={cup3d.irx} ry={cup3d.iry} />
+            </ClipPath>
+          ) : null}
         </Defs>
         <Rect x={0} y={0} width={w} height={horizon} fill="url(#golfSky)" />
         {/* Far scenery: hills (mesas in the desert, peaks in the mountains), the sea on the links. */}
@@ -436,8 +490,31 @@ export function GolfHole({
         {art.greenArrows ? (
           <Path d={art.greenArrows} fill="none" stroke="#ffffff" strokeOpacity={0.4 + 0.4 * art.greenTilt} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
         ) : null}
-        {putting ? <Path d={art.cupRim} fill="none" stroke="#ffffff" strokeWidth={2} strokeOpacity={0.9} /> : null}
-        <Path d={art.cup} fill="#16241a" />
+        {cup3d ? (
+          <>
+            <Ellipse cx={cup3d.cx} cy={cup3d.cy + cup3d.ry * 0.1} rx={cup3d.rx * 1.2} ry={cup3d.ry * 1.2} fill="rgba(30,80,20,0.28)" />
+            <Ellipse cx={cup3d.cx} cy={cup3d.cy} rx={cup3d.rx} ry={cup3d.ry} fill="#f6f5ee" />
+            <G clipPath="url(#golfCupClip)">
+              <Ellipse cx={cup3d.cx} cy={cup3d.cy} rx={cup3d.irx} ry={cup3d.iry} fill="#070b08" />
+              <Rect x={cup3d.cx - cup3d.irx} y={cup3d.cy - cup3d.iry} width={cup3d.irx * 2} height={cup3d.wall} fill="url(#golfCupWall)" />
+              <Ellipse cx={cup3d.cx} cy={cup3d.cy + cup3d.wall * 0.9} rx={cup3d.irx} ry={cup3d.iry} fill="url(#golfCupPit)" />
+            </G>
+            <Path d={cup3d.lip} fill="none" stroke="#ffffff" strokeWidth={1.6} />
+          </>
+        ) : (
+          <Path d={art.cup} fill="#16241a" />
+        )}
+        {dropRing && ringGold ? <Path d={dropRing} fill="none" stroke="rgba(255,211,107,0.45)" strokeWidth={9} /> : null}
+        {dropRing ? (
+          <Path
+            d={dropRing}
+            fill={ringGold ? 'rgba(255,211,107,0.18)' : 'rgba(255,255,255,0.06)'}
+            stroke={ringGold ? '#ffd36b' : '#ffffff'}
+            strokeWidth={ringGold ? 2.5 : 1.5}
+            strokeDasharray={ringGold ? undefined : '4 4'}
+            strokeOpacity={ringGold ? 1 : 0.75}
+          />
+        ) : null}
         {art.boards.map((b, i) => (
           <Path key={`board${i}`} d={b.d} fill={b.fill} stroke="rgba(0,0,0,0.25)" strokeWidth={0.6} />
         ))}
@@ -447,6 +524,14 @@ export function GolfHole({
         {art.markerLines ? <Path d={art.markerLines} stroke="#ffffff" strokeWidth={1.5} strokeLinecap="round" /> : null}
         {preview ? <Path d={preview} fill="none" stroke="#ffffff" strokeWidth={2} strokeDasharray="3 5" strokeLinecap="round" /> : null}
         {landing ? <Path d={landing} fill="rgba(255,255,255,0.18)" stroke="#ffffff" strokeWidth={1.5} /> : null}
+        {puttLine ? <Path d={puttLine} fill="none" stroke="#ffffff" strokeWidth={1.6} strokeDasharray="3 6" strokeOpacity={0.6} strokeLinecap="round" /> : null}
+        {puttRoll ? <Path d={puttRoll} fill="none" stroke="#ffffff" strokeWidth={2.4} strokeLinecap="round" /> : null}
+        {ghost ? (
+          <>
+            <Ellipse cx={ghost.x} cy={ghost.y} rx={Math.max(2.5, 5 * ghost.s + 2)} ry={Math.max(1, 1.8 * ghost.s + 0.8)} fill="rgba(0,0,0,0.2)" />
+            <Circle cx={ghost.x} cy={ghost.y - Math.max(2.2, 4.5 * ghost.s + 1.5)} r={Math.max(2.2, 4.5 * ghost.s + 1.5)} fill="rgba(255,255,255,0.7)" stroke="#ffffff" strokeWidth={1.2} />
+          </>
+        ) : null}
         {trailPath ? <Path d={trailPath} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth={1.5} strokeLinecap="round" /> : null}
         {!putting ? (
           <>
@@ -454,7 +539,7 @@ export function GolfHole({
             <Path d={`M${f(pinQ.x)} ${f(pinQ.y - poleH)} l${f(9 * pinQ.s + 4)} ${f(3 * pinQ.s + 1.5)} l${f(-(9 * pinQ.s + 4))} ${f(3 * pinQ.s + 1.5)} Z`} fill="#e5484d" />
           </>
         ) : null}
-        <Ellipse cx={bq.x} cy={bq.y} rx={ballR * 0.9} ry={ballR * 0.35} fill="rgba(0,0,0,0.3)" />
+        {showBall ? <Ellipse cx={bq.x} cy={bq.y} rx={ballR * 0.9} ry={ballR * 0.35} fill="rgba(0,0,0,0.3)" /> : null}
       </Svg>
       {art.markers.map((m) => (
         <Text
@@ -515,7 +600,7 @@ export function GolfHole({
         </View>
       )}
       <Svg width={w} height={h} style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Circle cx={bq.x} cy={bq.y - lift - ballR * 0.6} r={ballR} fill="#ffffff" stroke="rgba(0,0,0,0.35)" strokeWidth={0.8} />
+        {showBall ? <Circle cx={bq.x} cy={bq.y - lift - ballR * 0.6} r={ballR} fill="#ffffff" stroke="rgba(0,0,0,0.35)" strokeWidth={0.8} /> : null}
       </Svg>
     </View>
   );
