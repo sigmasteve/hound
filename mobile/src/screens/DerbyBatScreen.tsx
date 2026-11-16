@@ -73,13 +73,13 @@ const FR: Pt = { x: 492, y: 160 };
 const FENCE_R = 300;
 const A0 = Math.atan2(FL.y - HOME.y, FL.x - HOME.x);
 const A1 = Math.atan2(FR.y - HOME.y, FR.x - HOME.x);
-const onFence = (t: number, r = FENCE_R): Pt => {
+export const onFence = (t: number, r = FENCE_R): Pt => {
   const a = A0 + (A1 - A0) * t;
   return { x: HOME.x + Math.cos(a) * r, y: HOME.y + Math.sin(a) * r };
 };
-const WALL_H = 16;
+export const WALL_H = 16;
 // Distance markers on the wall: share along the fence and its feet.
-const MARKERS: { t: number; ft: number }[] = [
+export const MARKERS: { t: number; ft: number }[] = [
   { t: 0.07, ft: 330 },
   { t: 0.27, ft: 375 },
   { t: 0.5, ft: 410 },
