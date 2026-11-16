@@ -348,7 +348,11 @@ export function HoopsShootScreen({ challengeId, onBack }: { challengeId: string;
     }
     if (phase !== 'meter') return;
     loop.current?.stop();
-    const m = meterAt.current;
+    // Where the marker is now, from the animation itself.
+    let m = meterAt.current;
+    meter.stopAnimation((x) => {
+      m = x;
+    });
     const timing = m - 0.5;
     setLastM(m);
     buzz('light');
@@ -558,8 +562,10 @@ export function HoopsShootScreen({ challengeId, onBack }: { challengeId: string;
           ) : null}
         </View>
 
+        {/* A timing tap counts when the finger lands, not when it lifts: a tap is about a tenth of a second, and the marker crosses a third of the bar in that time near the middle (Steve, Nov 2026: every Hoops shot came up long). */}
         <Pressable
-          onPress={act}
+          onPressIn={phase === 'meter' ? act : undefined}
+          onPress={phase === 'meter' ? undefined : act}
           disabled={!actOn}
           style={[styles.act, actOn ? { backgroundColor: phase === 'meter' ? '#f08a24' : colors.green } : styles.actOff]}
           accessibilityRole="button"
