@@ -14,6 +14,7 @@ import type {
   Participant,
 } from './types';
 import { addChecklistItems } from './checklistApi';
+import { daysToSend, rememberSent } from './sentDays';
 
 function localDateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -421,21 +422,29 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     if (error) throw new Error(error.message);
   },
 
-  async recordProgressDays(challengeId, days) {
-    if (days.length === 0) return;
+  async recordProgressDays(challengeId, allDays) {
+    if (allDays.length === 0) return;
     const client = requireClient();
     const userId = await requireUserId();
+    // Only today and the past days whose numbers changed (sentDays.ts).
+    const today = localDateKey(new Date());
+    const days = await daysToSend(userId, challengeId, allDays, today);
+    if (days.length === 0) return;
     const { error } = await client.from('progress_snapshots').upsert(
       days.map((d) => ({ challenge_id: challengeId, user_id: userId, day: d.day, steps: d.steps, distance_mi: d.distanceMi })),
       { onConflict: 'challenge_id,user_id,day' },
     );
-    if (!error) return;
+    if (!error) {
+      await rememberSent(userId, challengeId, days, today);
+      return;
+    }
     // One request is all or nothing: if any day is refused (say, the
     // server thinks it's outside the challenge), fall back to a request
     // per day so the rest still land, the way this always worked.
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       days.map((d) => supabaseChallengesProvider.recordProgress(challengeId, d.steps, d.distanceMi, d.day)),
     );
+    await rememberSent(userId, challengeId, days.filter((_, i) => results[i].status === 'fulfilled'), today);
   },
 
   async deleteChallenge(challengeId: string): Promise<void> {

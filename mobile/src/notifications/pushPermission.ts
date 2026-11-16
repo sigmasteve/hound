@@ -44,8 +44,9 @@ async function reportPermission(userId: string, permission: PushPermission): Pro
   }
 }
 
-// On every app open (src/auth/AuthContext.tsx). Never prompts, never
-// throws.
+// When the phone's setting may have changed (Settings, the daily bonus).
+// App opens report it with the rest of the launch report instead
+// (src/auth/launchReport.ts). Never prompts, never throws.
 export async function syncPushRegistration(userId: string): Promise<void> {
   const permission = await getPushPermission();
   if (!permission) return;
