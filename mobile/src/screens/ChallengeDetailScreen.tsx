@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
+import { Toast, type ToastMessage } from '../components/Toast';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -11,6 +12,7 @@ import {
   FlagCheckeredIcon,
   GlobeHemisphereWestIcon,
   InfoIcon,
+  PushPinIcon,
   RobotIcon,
   ShareNetworkIcon,
   TrashIcon,
@@ -1156,11 +1158,13 @@ export function ChallengeDetailScreen({
 
   const [deleting, setDeleting] = useState(false);
   const [togglingHighlight, setTogglingHighlight] = useState(false);
+  const [pinToast, setPinToast] = useState<ToastMessage | null>(null);
 
   const toggleHighlight = async (next: boolean) => {
     setTogglingHighlight(true);
     try {
       await supabaseChallengesProvider.setHighlighted(challengeId, next);
+      setPinToast({ id: `pin-${Date.now()}`, text: next ? 'Pinned to Today' : 'Unpinned from Today', Icon: PushPinIcon });
       await load();
     } catch (e) {
       Alert.alert('Could not update', e instanceof Error ? e.message : 'Try again.');
@@ -2145,6 +2149,19 @@ export function ChallengeDetailScreen({
             </Text>
           </View>
         </View>
+        {/* Pin to Today, from the header on every tab (Steve, Nov 2026: the
+            switch at the bottom of Details was too hard to find). Filled
+            when this is the one on Today. */}
+        <Pressable
+          onPress={() => (togglingHighlight ? undefined : toggleHighlight(!myHighlighted))}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={myHighlighted ? 'Unpin from Today' : 'Pin to Today'}
+          accessibilityState={{ selected: myHighlighted }}
+          style={[styles.pinButton, myHighlighted && { backgroundColor: withAlpha(colors.accent, 0.16) }]}
+        >
+          <PushPinIcon size={20} color={colors.accent} weight={myHighlighted ? 'fill' : 'regular'} />
+        </Pressable>
         <Pressable
           onPress={() => {
             Keyboard.dismiss();
@@ -3403,6 +3420,7 @@ export function ChallengeDetailScreen({
         </>
       )}
     </ScrollView>
+    {pinToast && <Toast key={pinToast.id} message={pinToast} onDone={() => setPinToast(null)} />}
     </SafeAreaView>
   );
 }
@@ -3507,6 +3525,7 @@ function makeStyles(colors: Palette) {
     centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     headerRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
     headerIcon: { width: 46, height: 46, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+    pinButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
     headerMeta: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
     detailsLine: { fontFamily: font.heading, fontSize: 14, color: colors.text },
     rulesHint: {
