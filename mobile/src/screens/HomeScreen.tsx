@@ -123,7 +123,8 @@ import { advanceCricket, battingNow, cricketTeamOf, getCricketGame, getCricketOn
 import { CricketGround, CricketScore, cricketResultLine } from '../components/CricketCard';
 import { oversLabel } from '../challenges/cricket';
 import { advanceBaseball, awayTeam, getBaseballGame, getBaseballLive, listBaseballInnings, type BaseballGame, type BaseballInning, type BaseballLive } from '../challenges/baseballApi';
-import { getDerbyLive, type DerbyLive } from '../challenges/derbyApi';
+import { derbyPos, getDerbyBoard, getDerbyLive, type DerbyBoard, type DerbyLive } from '../challenges/derbyApi';
+import { DerbyLongBalls } from '../components/DerbyLongBalls';
 import { BaseballField, BaseballLineScore, baseballHeadline } from '../components/BaseballCard';
 import { soccerClock } from '../challenges/soccer';
 import { settleChallengeScore } from '../challenges/scoreApi';
@@ -477,6 +478,23 @@ function houndopolyHeadline(name: string, game: HoundopolyGame | null, userId: s
 // however many kinds of standing a real challenge can actually be in: a
 // two-way gap (hunt, in whatever unit it's scored on), a rank in a bigger
 // field, or nobody having logged anything yet.
+// The Derby's line on Today: where you stand, your longest, and the swings
+// waiting (0211).
+function derbyHeadline(name: string, derby: { board: DerbyBoard | null; live: DerbyLive | null } | null): string {
+  const b = derby?.board;
+  const ready = derby?.live?.swingsLeft ?? 0;
+  const swings = ready > 0 ? ` ${ready} ${ready === 1 ? 'swing' : 'swings'} ready.` : '';
+  if (b?.status === 'final') {
+    const top = b.podium[0];
+    const mine = b.me?.pos != null ? ` You finished ${derbyPos(b.me.pos, b.me.tied)}.` : '';
+    return top ? `${top.name} won ${name} with ${top.hrs} home runs.${mine}` : `${name} is over.${mine}`;
+  }
+  if (b?.me && b.me.hrs > 0 && b.me.pos != null) {
+    return `You're ${derbyPos(b.me.pos, b.me.tied)} of ${b.field.toLocaleString()} with ${b.me.hrs} home ${b.me.hrs === 1 ? 'run' : 'runs'}, longest ${b.me.longestFt} ft.${swings}`;
+  }
+  return `Step up to the plate in ${name}: your steps buy the swings.${swings}`;
+}
+
 function heroCopy(
   primary: PrimaryChallenge,
   userId: string | null,
@@ -495,6 +513,7 @@ function heroCopy(
   hoopsGame: HoopsGame | null = null,
   horseGame: HorseGame | null = null,
   golfGame: GolfGame | null = null,
+  derby: { board: DerbyBoard | null; live: DerbyLive | null } | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -555,7 +574,7 @@ function heroCopy(
     return { eyebrow, headline: golfHeadline(challenge.name, golfGame) };
   }
   if (challenge.kind === 'derby') {
-    return { eyebrow, headline: `Step up to the plate in ${challenge.name}: your steps buy the swings.` };
+    return { eyebrow, headline: derbyHeadline(challenge.name, derby) };
   }
   if (challenge.kind === 'doors') {
     return { eyebrow, headline: doorsHeadline(challenge.name, doorsGame) };
@@ -1117,6 +1136,7 @@ export function HomeScreen({
   const [primaryHoops, setPrimaryHoops] = useState<HoopsGame | null>(null);
   const [primaryHorse, setPrimaryHorse] = useState<HorseGame | null>(null);
   const [primaryGolf, setPrimaryGolf] = useState<GolfGame | null>(null);
+  const [primaryDerby, setPrimaryDerby] = useState<{ board: DerbyBoard | null; live: DerbyLive | null } | null>(null);
   const [primaryCricket, setPrimaryCricket] = useState<{ game: CricketGame | null; onStrike: CricketOnStrike | null }>({
     game: null,
     onStrike: null,
@@ -1943,6 +1963,14 @@ export function HomeScreen({
       } else {
         setPrimaryHorse(null);
       }
+      if (primaryResult?.challenge.kind === 'derby') {
+        const dId = primaryResult.challenge.id;
+        Promise.all([getDerbyBoard(dId, 'top').catch(() => null), getDerbyLive(dId).catch(() => null)]).then(([board, live]) => {
+          if (!cancelled) setPrimaryDerby({ board, live });
+        });
+      } else {
+        setPrimaryDerby(null);
+      }
       if (primaryResult?.challenge.kind === 'golf') {
         getGolfGame(primaryResult.challenge.id)
           .then((g) => {
@@ -2210,6 +2238,7 @@ export function HomeScreen({
         primaryHoops,
         primaryHorse,
         primaryGolf,
+        primaryDerby,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -2757,6 +2786,8 @@ export function HomeScreen({
               <HorsePreview primary={primary} game={primaryHorse} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'golf' ? (
               <GolfPreview primary={primary} game={primaryGolf} onOpen={sheetOpenPrimary} styles={styles} />
+            ) : primary.challenge.kind === 'derby' ? (
+              <DerbyPreview primary={primary} derby={primaryDerby} onOpen={sheetOpenPrimary} styles={styles} colors={colors} />
             ) : primary.challenge.kind === 'baseball' ? (
               <BaseballPreview primary={primary} game={primaryBaseball.game} innings={primaryBaseball.innings} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'houndopoly' ? (
@@ -3498,6 +3529,68 @@ function GolfPreview({ primary, game, onOpen, styles }: { primary: PrimaryChalle
       )}
       <Text style={styles.tileSub}>{golfHeadline(challenge.name, game)}</Text>
       <Button label="Open game" variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+// The Home Run Derby pinned (0211): the ballpark with the Top 5's longest
+// home runs in the stands, then the Top 5 by home runs with each one's
+// longest, and you underneath if you're further down.
+function DerbyPreview({
+  primary,
+  derby,
+  onOpen,
+  styles,
+  colors,
+}: {
+  primary: PrimaryChallenge;
+  derby: { board: DerbyBoard | null; live: DerbyLive | null } | null;
+  onOpen: () => void;
+  styles: HomeStyles;
+  colors: Palette;
+}) {
+  const { challenge } = primary;
+  const b = derby?.board ?? null;
+  const top = (b?.rows ?? []).slice(0, 5);
+  const meRow = b?.rows.find((r) => r.isMe) ?? null;
+  const meBelow = b?.me && b.me.pos != null && !top.some((r) => r.isMe) ? b.me : null;
+  const ready = derby?.live?.swingsLeft ?? 0;
+  const row = (key: string, pos: string, isMe: boolean, name: string, initials: string, iconId: string | null, frameId: string | null, backgroundId: string | null, hrs: number, ft: number) => (
+    <View key={key} style={styles.raceRow}>
+      <Text style={styles.raceRank}>{pos}</Text>
+      <Avatar initials={initials} tint={isMe ? TINT_A : TINT_N} size={24} fontSize={10} frameId={frameId} backgroundId={backgroundId} iconId={iconId} />
+      <Text style={[styles.raceName, { flex: 1 }]} numberOfLines={1}>
+        {isMe ? 'You' : name}
+      </Text>
+      <Text style={[styles.raceSteps, isMe && { color: colors.accentActive }]}>
+        {hrs} HR{ft > 0 ? ` · ${ft} ft` : ''}
+      </Text>
+    </View>
+  );
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+        {b ? (
+          <Text style={styles.raceMeta}>
+            {b.field.toLocaleString()} playing · day {b.dayNo} of {b.days}
+          </Text>
+        ) : null}
+      </View>
+      {b && top.length > 0 ? (
+        <>
+          <DerbyLongBalls rows={top} />
+          {top.map((r) => row(r.userId, derbyPos(r.pos, r.tied), r.isMe, r.name, r.initials, r.iconId, r.frameId, r.backgroundId, r.hrs, r.longestFt))}
+          {meBelow && meRow == null
+            ? row('me', derbyPos(meBelow.pos, meBelow.tied), true, 'You', '', null, null, null, meBelow.hrs, meBelow.longestFt)
+            : null}
+          {b.longestWeek ? <Text style={styles.tileSub}>Longest this week: {b.longestWeek.name}, {b.longestWeek.ft} ft</Text> : null}
+        </>
+      ) : (
+        <Text style={styles.tileSub}>{b ? 'No home runs yet. Be the first on the board.' : 'Loading the board…'}</Text>
+      )}
+      <Button label={ready > 0 ? `Step up to the plate · ${ready} ${ready === 1 ? 'swing' : 'swings'}` : 'Open the Derby'} variant="ghost" small onPress={onOpen} />
     </Card>
   );
 }
