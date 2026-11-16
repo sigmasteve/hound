@@ -267,7 +267,11 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
       }
       if (phase === 'meter') {
         loop.current?.stop();
-        const yards = Math.max(0.34, Math.round(paceAt.current * putt.range * 100) / 100);
+        let at = paceAt.current;
+        paceAnim.stopAnimation((x) => {
+          at = x;
+        });
+        const yards = Math.max(0.34, Math.round(at * putt.range * 100) / 100);
         buzz('light');
         setPhase('waiting');
         try {
@@ -298,7 +302,11 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
     }
     if (phase === 'meter' && plan && game) {
       loop.current?.stop();
-      const timing = meterAt.current - 0.5;
+      let at = meterAt.current;
+      meter.stopAnimation((x) => {
+        at = x;
+      });
+      const timing = at - 0.5;
       buzz('light');
       setPhase('waiting');
       try {
@@ -660,8 +668,10 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
           </View>
         )}
 
+        {/* A timing tap counts when the finger lands, not when it lifts: a tap is about a tenth of a second, and the marker crosses a third of the bar in that time near the middle (Steve, Nov 2026: every Hoops shot came up long). */}
         <Pressable
-          onPress={finished && phase !== 'meter' && phase !== 'waiting' && phase !== 'flying' ? onBack : swing}
+          onPressIn={phase === 'meter' ? swing : undefined}
+          onPress={phase === 'meter' ? undefined : finished && phase !== 'waiting' && phase !== 'flying' ? onBack : swing}
           disabled={!swingReady}
           style={[styles.swing, swingReady ? { backgroundColor: phase === 'meter' ? '#f08a24' : colors.green } : styles.swingOff]}
           accessibilityRole="button"

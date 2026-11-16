@@ -567,8 +567,10 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
           <Text style={[styles.meterWord, { right: 10 }]}>LATE</Text>
           {mark != null && <View style={[styles.markerBar, { left: `${mark * 100}%` }, !liveMark && { borderColor: ME_COLOR }]} />}
         </View>
+        {/* A timing tap counts when the finger lands, not when it lifts: a tap is about a tenth of a second, and the marker crosses a third of the bar in that time near the middle (Steve, Nov 2026: every Hoops shot came up long). */}
         <Pressable
-          onPress={act}
+          onPressIn={phase === 'pitch' ? act : undefined}
+          onPress={phase === 'pitch' ? undefined : act}
           disabled={!actOn}
           style={[styles.act, actOn ? { backgroundColor: phase === 'pitch' ? '#f08a24' : colors.green } : styles.actOff]}
           accessibilityRole="button"

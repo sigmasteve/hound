@@ -533,8 +533,10 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
           {mark != null && <View style={[styles.marker, { left: `${mark * 100}%` }, !liveMark && { borderColor: '#ffd8b0' }]} />}
         </View>
 
+        {/* A timing tap counts when the finger lands, not when it lifts: a tap is about a tenth of a second, and the marker crosses a third of the bar in that time near the middle (Steve, Nov 2026: every Hoops shot came up long). */}
         <Pressable
-          onPress={act}
+          onPressIn={phase === 'pitch' ? act : undefined}
+          onPress={phase === 'pitch' ? undefined : act}
           disabled={!actOn}
           style={[styles.act, actOn ? { backgroundColor: phase === 'pitch' ? '#f08a24' : colors.green } : styles.actOff]}
           accessibilityRole="button"
