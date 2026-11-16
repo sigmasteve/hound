@@ -6,7 +6,7 @@ import { Card } from './Card';
 import { Button } from './Button';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { getGolfOverview, setGolfConfig, type GolfConfig, type GolfOverview } from '../challenges/golfApi';
+import { getGolfOverview, getGolfPuttingOverview, setGolfConfig, type GolfConfig, type GolfOverview, type GolfPuttingOverview } from '../challenges/golfApi';
 import { golfCourseName } from '../challenges/golf';
 
 // Admin → Golf (0200): how it's played, and the numbers behind the
@@ -26,6 +26,8 @@ export function GolfAdminCard({ onChanged }: { onChanged?: (o: GolfOverview) => 
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [data, setData] = useState<GolfOverview | null>(null);
+  // Putting (0214); null before it's run.
+  const [putting, setPutting] = useState<GolfPuttingOverview | null>(null);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -33,6 +35,9 @@ export function GolfAdminCard({ onChanged }: { onChanged?: (o: GolfOverview) => 
   changed.current = onChanged;
 
   const load = useCallback(() => {
+    getGolfPuttingOverview()
+      .then(setPutting)
+      .catch(() => setPutting(null));
     getGolfOverview()
       .then((o) => {
         setData(o);
@@ -102,6 +107,28 @@ export function GolfAdminCard({ onChanged }: { onChanged?: (o: GolfOverview) => 
                 .join(' · ')
             : 'None yet',
         ],
+        ...(putting
+          ? ([
+              [
+                'Putts this week',
+                putting.putts7d
+                  ? `${putting.putts7d.toLocaleString()} by ${putting.putters7d} · ${Math.round((putting.made7d / putting.putts7d) * 100)}% dropped`
+                  : 'None yet',
+              ],
+              [
+                'With the pace meter',
+                putting.putts7d ? `${Math.round((putting.pacePutts7d / putting.putts7d) * 100)}% of putts · ${putting.pacePlayers7d} people` : '–',
+              ],
+              [
+                'Putts a hole',
+                putting.avgPuttsPerHole7d == null ? '–' : `${putting.avgPuttsPerHole7d.toFixed(2)} · ${putting.threePutts7d} three-putts`,
+              ],
+              [
+                'Made, by length',
+                putting.byLength.map((b) => `${b.label} ${b.putts ? Math.round((b.made / b.putts) * 100) : 0}% of ${b.putts}`).join(' · '),
+              ],
+            ] as [string, string][])
+          : []),
       ]
     : [];
 

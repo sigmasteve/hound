@@ -328,6 +328,35 @@ export async function getGolfOverview(): Promise<GolfOverview> {
   };
 }
 
+// Putting (0214), for Admin: this week's putts, how many dropped and from
+// how far, and how many used the pace meter.
+export interface GolfPuttingOverview {
+  putts7d: number;
+  putters7d: number;
+  made7d: number;
+  pacePutts7d: number;
+  pacePlayers7d: number;
+  holes7d: number;
+  avgPuttsPerHole7d: number | null;
+  threePutts7d: number;
+  byLength: { label: string; putts: number; made: number }[];
+}
+
+export async function getGolfPuttingOverview(): Promise<GolfPuttingOverview> {
+  const d = await rpc<any>('admin_golf_putting_overview');
+  return {
+    putts7d: num(d.putts_7d),
+    putters7d: num(d.putters_7d),
+    made7d: num(d.made_7d),
+    pacePutts7d: num(d.pace_putts_7d),
+    pacePlayers7d: num(d.pace_players_7d),
+    holes7d: num(d.holes_7d),
+    avgPuttsPerHole7d: d.avg_putts_per_hole_7d == null ? null : Number(d.avg_putts_per_hole_7d),
+    threePutts7d: num(d.three_putts_7d),
+    byLength: (d.by_length ?? []).map((b: any) => ({ label: String(b.label), putts: num(b.putts), made: num(b.made) })),
+  };
+}
+
 export async function setGolfConfig(patch: Partial<GolfConfig>): Promise<void> {
   await rpc('admin_set_golf_config', { p: patch });
 }
