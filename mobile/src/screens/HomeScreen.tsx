@@ -7,6 +7,7 @@ import {
   BellRingingIcon,
   BoneIcon,
   CaretRightIcon,
+  PushPinIcon,
   CrosshairIcon,
   EnvelopeOpenIcon,
   FireIcon,
@@ -918,6 +919,22 @@ export function HomeScreen({
     setToasts((cur) => (cur.length >= 4 ? cur : [...cur, t]));
     notifyBonesChanged();
   }, []);
+  // A challenge from the Your challenges sheet becomes the one pinned on
+  // Today (the old one is unpinned), and the sheet shows it at once.
+  const pinning = useRef(false);
+  const pinFromToday = async (id: string, name: string) => {
+    if (pinning.current) return;
+    pinning.current = true;
+    try {
+      await supabaseChallengesProvider.setHighlighted(id, true);
+      setRefreshKey((k) => k + 1);
+      setToasts((cur) => [...cur.slice(0, 3), { id: `pin-${id}-${Date.now()}`, text: `${name} is pinned to Today`, Icon: PushPinIcon }]);
+    } catch (e) {
+      Alert.alert('Could not pin it', e instanceof Error ? e.message : 'Try again.');
+    } finally {
+      pinning.current = false;
+    }
+  };
 
   // Goal days in a row, and the Bones for hitting every daily (or
   // weekly) goal, claimed as soon as the card shows them done.
@@ -2849,6 +2866,16 @@ export function HomeScreen({
                     {' · '}
                     {c.rank ? `${ordinal(c.rank)} of ${c.total}` : typeName} · {timeLeftLabel(c.endsAt)}
                   </Text>
+                  {/* Pin this one to Today instead, right here (Steve, Nov 2026). */}
+                  <Pressable
+                    onPress={() => pinFromToday(c.id, c.name)}
+                    hitSlop={8}
+                    style={styles.pinOther}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Pin ${c.name} to Today`}
+                  >
+                    <PushPinIcon size={16} color={colors.accentActive} />
+                  </Pressable>
                   <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
                 </Pressable>
               );
@@ -3834,6 +3861,7 @@ function makeStyles(colors: Palette) {
     // Same shape as ChallengesScreen's own inviteCard/inviteTitle/inviteSub.
     // Same accent-wash look the separate invite cards had, now one card.
     otherText: { flex: 1, fontSize: 13.5, color: withAlpha(colors.text, 0.7) },
+    pinOther: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
     otherName: { fontFamily: font.heading, color: colors.text },
     needsCard: {
       gap: 0,
