@@ -310,7 +310,9 @@ export function RootNavigator() {
             </Stack.Screen>
             <Stack.Screen name="Locker" options={{ animation: 'slide_from_right' }}>
               {/* Opened from the You tab — goBack() returns there. */}
-              {({ navigation }) => <LockerScreen onBack={() => navigation.goBack()} />}
+              {({ navigation }) => (
+                <LockerScreen onBack={() => navigation.goBack()} onOpenGames={() => navigation.navigate('Create', {})} />
+              )}
             </Stack.Screen>
             <Stack.Screen name="Kennel" options={{ animation: 'slide_from_right' }}>
               {/* Opened from Today or the You tab — goBack() returns there. */}

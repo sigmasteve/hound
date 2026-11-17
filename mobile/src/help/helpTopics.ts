@@ -102,7 +102,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Name it and choose when it starts and how long it runs.',
         'Invite friends, then create it — they’ll get an invite to join.',
       ],
-      tip: `A type with a lock on it unlocks once you’ve earned enough ${currency} — the lock shows how many.`,
+      tip: `A game with a lock opens once you’ve earned enough ${currency} by playing; it shows how close you are. Tap it for ways to earn. You can always join a locked game you’re invited to.`,
     },
     {
       id: 'join',
@@ -365,7 +365,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         `Opening the app each day adds a daily bonus, and hitting your goals pays too (see below).`,
         `Spend ${currency} on your hound (its wardrobe, yard, Porch, tricks and treats), garden seeds, Streak Shields, bounties, and looks in the Shop tab of Your look.`,
         'Limited-time drops (like Halloween) sit at the top of the Shop until they end — anything you buy from one is yours to keep afterward.',
-        `Some challenge types unlock after you’ve earned enough ${currency} through play. Spending never re-locks them.`,
+        `Your look shows two numbers: ${currency} to spend, and ${currency} earned by playing (goal days and weeks, the daily bonus, Bone Dig, badges, challenges and level ups). Some games open once you’ve earned enough by playing. Bought ${currency} don’t count, and spending never re-locks a game.`,
       ],
     },
     {

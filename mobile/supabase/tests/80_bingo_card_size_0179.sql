@@ -5,6 +5,7 @@ select plan(16);
 
 select tests.new_user('Ann', true) as ann \gset
 select tests.new_user('Bob') as bob \gset
+update public.profiles set bones_earned_total = 1000 where id in (:'ann', :'bob'); -- Bingo can be a locked game (0217)
 
 -- A week with a 5x5 card, published by an admin.
 select tests.sign_in(:'ann');
@@ -48,6 +49,7 @@ reset role;
 
 -- The creator's card: dealt on the Create screen, theirs when they join.
 select tests.new_user('Cat') as cat \gset
+update public.profiles set bones_earned_total = 1000 where id = :'cat'; -- Bingo can be a locked game (0217)
 select tests.sign_in(:'cat');
 set local role authenticated;
 select public.deal_bingo_card_draft(4);
