@@ -7,7 +7,8 @@
       "namespace": "android_app",
       "package_name": "app.hound.mobile",
       "sha256_cert_fingerprints": [
-        "CE:4D:D4:CA:EB:AE:8B:61:69:05:76:CD:05:21:E6:D4:09:6B:C7:05:C7:CA:6C:90:2D:D6:57:39:D7:92:E1:DC"
+        "CE:4D:D4:CA:EB:AE:8B:61:69:05:76:CD:05:21:E6:D4:09:6B:C7:05:C7:CA:6C:90:2D:D6:57:39:D7:92:E1:DC",
+        "4B:4B:8B:ED:35:F9:8B:FC:EF:76:CF:17:C7:05:74:32:B7:5F:AB:AB:5E:1F:F5:B2:A5:A5:12:26:08:C1:44:E5"
       ]
     }
   }
