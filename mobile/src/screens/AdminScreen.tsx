@@ -53,6 +53,8 @@ import { localDayKey } from '../water/water';
 import { TagAdminCard } from '../components/TagAdminCard';
 import { getTagOverview } from '../tag/tagChaseApi';
 import { getChallengesOverview } from '../admin/challengesOverview';
+import { challengeUnlocksSummary, getChallengeUnlocksOverview } from '../admin/challengeUnlocksOverview';
+import { ChallengeUnlocksAdminCard } from '../components/ChallengeUnlocksAdminCard';
 import { RoomAdminCard } from '../components/RoomAdminCard';
 import { TogetherAdminCard } from '../components/TogetherAdminCard';
 import { getTogetherOverview } from '../together/together';
@@ -200,6 +202,7 @@ export function AdminScreen({
   const [bathSummary, setBathSummary] = useState<string | null>(null);
   // The Challenges fold's line: running now and made this week (0180).
   const [challengesSummary, setChallengesSummary] = useState<string | null>(null);
+  const [gameUnlocksLine, setGameUnlocksLine] = useState<string | null>(null);
   // The Holiday themes fold's line (0184).
   const [holidaySummaryLine, setHolidaySummaryLine] = useState<string | null>(null);
   // The Apple Watch fold's line (0189).
@@ -260,6 +263,9 @@ export function AdminScreen({
         .catch(() => {});
       getTagOverview()
         .then((t) => setTagSummary(`${t.running} ${t.running === 1 ? 'chase' : 'chases'} running · ${t.tags7d} tags this week`))
+        .catch(() => {});
+      getChallengeUnlocksOverview()
+        .then((o) => setGameUnlocksLine(challengeUnlocksSummary(o)))
         .catch(() => {});
       getChallengesOverview()
         .then((c) => setChallengesSummary(`${c.running} running now · ${c.created7d} new this week`))
@@ -888,6 +894,9 @@ export function AdminScreen({
                   <>
                   <AdminFold title="Challenges" summary={challengesSummary ?? 'What’s running, by game'}>
                     <ChallengesAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Game unlocks" summary={gameUnlocksLine ?? 'Who has earned each locked game'}>
+                    <ChallengeUnlocksAdminCard />
                   </AdminFold>
                   <AdminFold title="Pack Wars" summary={packsSummary ?? 'Packs, votes and the map'}>
                     <PacksAdminCard />

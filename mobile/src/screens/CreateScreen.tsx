@@ -14,6 +14,7 @@ import {
   DevicesIcon,
   GlobeHemisphereWestIcon,
   LockSimpleIcon,
+  TrophyIcon,
   RobotIcon,
   XIcon,
 } from 'phosphor-react-native';
@@ -117,6 +118,9 @@ import type { RematchDraft } from '../challenges/rematch';
 import { useAuth } from '../auth/AuthContext';
 import { getMyHoundScore } from '../challenges/scoreApi';
 import { listChallengeUnlockGates, type ChallengeUnlockGates } from '../challenges/unlockGatesApi';
+import { earnedGreen, unlockShare } from '../challenges/unlockProgress';
+import { LockedGameSheet } from '../components/LockedGameSheet';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { ShareWithClubs } from '../clubs/ShareWithClubs';
 import { CLUB_KINDS, postToClubs } from '../clubs/clubsApi';
@@ -165,6 +169,10 @@ function startsAtFor(option: StartOption): Date {
 // one save path (start()), so this single constant is the whole rule —
 // there's no per-kind name validation to keep in sync.
 const NAME_MIN_LENGTH = 4;
+
+// The games that were locked last time "Pick the game" showed, so one
+// that has opened since gets a "New" tag.
+const LOCKED_GAMES_KEY = 'hound.create.lockedGames';
 
 // One short line per game in "Pick the game"; the full description shows
 // only for the one you've picked. The list ran well past one screen with
@@ -520,6 +528,28 @@ export function CreateScreen({
         // Keep the default; the server enforces the real cap anyway.
       });
   }, []);
+
+  // A locked game tapped in "Pick the game": its sheet (how close you
+  // are, ways to earn). Games that were locked the last time you looked
+  // and are open now get a "New" tag.
+  const [lockedSheet, setLockedSheet] = useState<ChallengeKind | null>(null);
+  const [newlyOpen, setNewlyOpen] = useState<Set<ChallengeKind>>(new Set());
+  useEffect(() => {
+    if (global || bonesEarnedTotal === null || Object.keys(unlockGates).length === 0) return;
+    const lockedNow = (Object.entries(unlockGates) as [ChallengeKind, number][])
+      .filter(([, bones]) => bonesEarnedTotal < bones)
+      .map(([kind]) => kind);
+    AsyncStorage.getItem(LOCKED_GAMES_KEY)
+      .then((raw) => {
+        const before: ChallengeKind[] = raw ? JSON.parse(raw) : [];
+        const opened = before.filter((k) => unlockGates[k] !== undefined && !lockedNow.includes(k));
+        if (opened.length > 0) setNewlyOpen(new Set(opened));
+      })
+      .catch(() => {})
+      .finally(() => {
+        AsyncStorage.setItem(LOCKED_GAMES_KEY, JSON.stringify(lockedNow)).catch(() => {});
+      });
+  }, [global, bonesEarnedTotal, unlockGates]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -1012,7 +1042,7 @@ export function CreateScreen({
     }
     const lockedAtBones = lockedAt(draftType);
     if (lockedAtBones !== null) {
-      setSaveError(`This game unlocks at ${lockedAtBones} ${currencyName} earned — pick another one.`);
+      setSaveError(`This game opens at ${lockedAtBones} ${currencyName} earned by playing. Pick another one.`);
       setStep(1);
       return;
     }
@@ -1411,6 +1441,18 @@ export function CreateScreen({
             </View>
           )}
           <Text style={text.h2}>{global ? 'Or pick the game' : 'Pick the game'}</Text>
+          {!global && bonesEarnedTotal !== null && Object.keys(unlockGates).length > 0 && (
+            <View style={styles.earnedStrip}>
+              <TrophyIcon size={22} color={earnedGreen(colors)} weight="fill" />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.earnedStripTitle}>
+                  <Text style={{ color: earnedGreen(colors) }}>{bonesEarnedTotal.toLocaleString()}</Text> {currencyName} earned by
+                  playing
+                </Text>
+                <Text style={styles.earnedStripSub}>More games open as you earn. Bought {currencyName} don&rsquo;t count.</Text>
+              </View>
+            </View>
+          )}
           {playAgain.length > 0 && (
             <View style={{ gap: 8 }}>
               <Text style={styles.groupLabel}>Play again</Text>
@@ -1472,18 +1514,41 @@ export function CreateScreen({
                   return (
                     <Pressable
                       key={t.id}
-                      disabled={locked}
-                      onPress={() => setDraftType(t.id)}
-                      style={[styles.typeRow, picked && styles.typeRowOn, locked && styles.typeRowLocked]}
+                      onPress={() => (locked ? setLockedSheet(t.id) : setDraftType(t.id))}
+                      style={[styles.typeRow, picked && styles.typeRowOn]}
+                      accessibilityRole="button"
+                      accessibilityLabel={locked ? `${t.name}, locked: opens at ${unlockBones} ${currencyName} earned` : t.name}
                     >
                       <View style={[styles.typeIcon, { backgroundColor: t.tint }, locked && styles.typeIconLocked]}>
                         <TypeIcon size={19} color={t.iconColor} weight={t.id === 'hunt' ? 'fill' : 'regular'} />
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={styles.typeName}>{t.id === 'hunt' ? huntKindName() : t.name}</Text>
-                        <Text style={styles.typeDesc}>
-                          {locked ? `Unlocks at ${unlockBones} ${currencyName} earned` : picked ? t.desc : TAGLINES[t.id]}
-                        </Text>
+                        <View style={styles.typeNameRow}>
+                          <Text style={[styles.typeName, { flexShrink: 1 }]}>{t.id === 'hunt' ? huntKindName() : t.name}</Text>
+                          {!locked && newlyOpen.has(t.id) && <Text style={styles.newTag}>New</Text>}
+                          {locked && unlockBones !== undefined && bonesEarnedTotal !== null && (
+                            <Text style={[styles.toGo, { color: earnedGreen(colors) }]}>
+                              {Math.max(0, unlockBones - bonesEarnedTotal).toLocaleString()} to go
+                            </Text>
+                          )}
+                        </View>
+                        {locked && unlockBones !== undefined ? (
+                          <View style={{ gap: 5, marginTop: 2 }}>
+                            <View style={styles.lockTrack}>
+                              <View
+                                style={[
+                                  styles.lockFill,
+                                  { width: `${Math.round(unlockShare(bonesEarnedTotal ?? 0, unlockBones) * 100)}%` },
+                                ]}
+                              />
+                            </View>
+                            <Text style={styles.typeDesc}>
+                              {(bonesEarnedTotal ?? 0).toLocaleString()} of {unlockBones.toLocaleString()} {currencyName} earned
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.typeDesc}>{picked ? t.desc : TAGLINES[t.id]}</Text>
+                        )}
                         {!locked && !!GAME_TAGS[t.id]?.length && (
                           <View style={styles.tags}>
                             {GAME_TAGS[t.id]!.map((tag) => (
@@ -1508,6 +1573,9 @@ export function CreateScreen({
               ))}
             </View>
           ))}
+          {!global && Object.keys(unlockGates).length > 0 && (
+            <Text style={styles.typeDesc}>Invited to a locked game? You can always join it.</Text>
+          )}
         </View>
       )}
 
@@ -3008,6 +3076,16 @@ export function CreateScreen({
         />
       </View>
     </ScrollView>
+    {lockedSheet && unlockGates[lockedSheet] !== undefined && (
+      <LockedGameSheet
+        name={CHALLENGE_TYPES.find((ct) => ct.id === lockedSheet)?.name ?? 'This game'}
+        tagline={TAGLINES[lockedSheet] ?? ''}
+        bones={unlockGates[lockedSheet]!}
+        earned={bonesEarnedTotal ?? 0}
+        currencyName={currencyName}
+        onClose={() => setLockedSheet(null)}
+      />
+    )}
     {step === 1 && visibleGroups.length > 1 && chipsY != null && scrollY > step1Y + chipsY && (
       // The chips, pinned to the top once the list's own row scrolls away.
       <View style={styles.chipsPinned}>
@@ -3042,6 +3120,32 @@ function makeStyles(colors: Palette) {
     },
     typeRowOn: { borderWidth: 1, borderColor: colors.accent },
     typeRowLocked: { opacity: 0.5 },
+    typeNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    newTag: {
+      borderRadius: 6,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      fontSize: 11,
+      fontFamily: font.headingSemibold,
+      color: '#1b1d29',
+      backgroundColor: colors.green,
+      overflow: 'hidden',
+    },
+    toGo: { marginLeft: 'auto', fontSize: 12.5, fontFamily: font.headingSemibold },
+    lockTrack: { height: 6, borderRadius: 3, backgroundColor: withAlpha(colors.text, 0.08), overflow: 'hidden' },
+    lockFill: { height: 6, borderRadius: 3, backgroundColor: colors.green },
+    earnedStrip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 12,
+      borderRadius: 14,
+      backgroundColor: withAlpha(colors.green, 0.1),
+      borderWidth: 1,
+      borderColor: withAlpha(colors.green, 0.3),
+    },
+    earnedStripTitle: { fontFamily: font.headingSemibold, fontSize: 15, color: colors.text },
+    earnedStripSub: { fontSize: 12.5, color: withAlpha(colors.text, 0.65) },
     typeIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
     courseThumb: { borderRadius: 11, overflow: 'hidden' },
     typeIconLocked: { opacity: 0.6 },

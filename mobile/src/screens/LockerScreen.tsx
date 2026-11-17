@@ -4,7 +4,7 @@ import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ArrowLeftIcon, BoneIcon, CheckCircleIcon, GhostIcon,
-  LeafIcon, LockSimpleIcon, PlusIcon, ShovelIcon } from 'phosphor-react-native';
+  LeafIcon, LockSimpleIcon, PlusIcon, ShovelIcon, TrophyIcon } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -32,6 +32,9 @@ import {
   type EquippedCosmetics,
 } from '../cosmetics/cosmeticsApi';
 import { getMyHoundScore, type HoundScore } from '../challenges/scoreApi';
+import { listChallengeUnlockGates, type ChallengeUnlockGates } from '../challenges/unlockGatesApi';
+import { earnedGreen, nextUnlock, unlockShare } from '../challenges/unlockProgress';
+import { CHALLENGE_TYPES } from '../data/sampleData';
 import { getBoneDig } from '../goals/boneDigApi';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { levelProgressForXp } from '../challenges/leveling';
@@ -44,7 +47,7 @@ import { notifyBonesChanged } from '../bones/bonesChanged';
 
 type LockerTab = 'locker' | 'shop';
 
-export function LockerScreen({ onBack }: { onBack: () => void }) {
+export function LockerScreen({ onBack, onOpenGames }: { onBack: () => void; onOpenGames?: () => void }) {
   const { user } = useAuth();
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -62,6 +65,8 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
   // Bone Dig pieces found in all, for the Dig items' notes.
   const [digPieces, setDigPieces] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // The locked games (0067), for "Next game" under Earned by playing.
+  const [unlockGates, setUnlockGates] = useState<ChallengeUnlockGates>({});
   const [equippingId, setEquippingId] = useState<string | null>(null);
   const [buyingId, setBuyingId] = useState<string | null>(null);
 
@@ -99,6 +104,9 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
       })
       .catch((e) => setLoadError(e instanceof Error ? e.message : 'Could not load your locker.'));
     if (isSupabaseConfigured) {
+      listChallengeUnlockGates()
+        .then(setUnlockGates)
+        .catch(() => {});
       getBoneDig()
         .then((d) => setDigPieces(d.pieces))
         .catch(() => {});
@@ -160,6 +168,9 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
 
   const xpTotal = houndScore?.xpTotal ?? null;
   const bonesBalance = houndScore?.bonesBalance ?? null;
+  const bonesEarned = houndScore?.bonesEarnedTotal ?? null;
+  const nextGame = bonesEarned !== null ? nextUnlock(unlockGates, bonesEarned) : null;
+  const nextGameName = nextGame ? CHALLENGE_TYPES.find((t) => t.id === nextGame.kind)?.name ?? null : null;
 
   const renderItem = (item: FrameStyle | BackgroundStyle | IconStyle, slot: CosmeticSlot) => {
     const isShopItem = item.costBones !== null;
@@ -297,13 +308,9 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
         {/* Bones first, above the tabs, so topping up is one tap from
             Home's Bones chip whichever tab is up: the balance, watch an
             ad, and the packs. */}
-        <Card style={{ gap: 8 }} elevated={false}>
+        <Card style={{ gap: 14 }} elevated={false}>
           <View style={styles.balanceRow}>
-            <BoneIcon size={22} color={color.accent} weight="fill" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.balanceLabel}>{currencyName}</Text>
-              <Text style={styles.balanceValue}>{bonesBalance !== null ? bonesBalance.toLocaleString() : '—'}</Text>
-            </View>
+            <Text style={[styles.balanceTitle, { flex: 1 }]}>{currencyName}</Text>
             {canAddBones && (
               <Button
                 label={`Add ${currencyName}`}
@@ -314,7 +321,50 @@ export function LockerScreen({ onBack }: { onBack: () => void }) {
               />
             )}
           </View>
-          <Text style={styles.footNote}>Earned from finishing challenges and leveling up.</Text>
+          {/* Two numbers (Steve, Nov 2026): what you can spend, bought
+              Bones included, and what you've earned by playing, which
+              never goes down and is what opens locked games. */}
+          <View style={styles.balanceGrid}>
+            <View style={styles.balanceBox}>
+              <View style={styles.balanceBoxTop}>
+                <BoneIcon size={15} color={color.accent} weight="fill" />
+                <Text style={styles.balanceLabel}>To spend</Text>
+              </View>
+              <Text style={styles.balanceValue}>{bonesBalance !== null ? bonesBalance.toLocaleString() : '—'}</Text>
+              <Text style={styles.balanceSub}>Clothes, the yard, seeds and more</Text>
+            </View>
+            <View style={[styles.balanceBox, styles.earnedBox]}>
+              <View style={styles.balanceBoxTop}>
+                <TrophyIcon size={15} color={earnedGreen(colors)} weight="fill" />
+                <Text style={[styles.balanceLabel, { color: earnedGreen(colors) }]}>Earned by playing</Text>
+              </View>
+              <Text style={[styles.balanceValue, { color: earnedGreen(colors) }]}>
+                {bonesEarned !== null ? bonesEarned.toLocaleString() : '—'}
+              </Text>
+              <Text style={styles.balanceSub}>All time. Opens new games.</Text>
+            </View>
+          </View>
+          {nextGame && nextGameName && bonesEarned !== null && (
+            <View style={{ gap: 6 }}>
+              <View style={styles.nextRow}>
+                <Text style={styles.nextText}>
+                  Next game: <Text style={styles.nextName}>{nextGameName}</Text> at {nextGame.bones.toLocaleString()} earned
+                </Text>
+                <Text style={styles.nextToGo}>{nextGame.toGo.toLocaleString()} to go</Text>
+              </View>
+              <View style={styles.nextTrack}>
+                <View style={[styles.nextFill, { width: `${Math.round(unlockShare(bonesEarned, nextGame.bones) * 100)}%` }]} />
+              </View>
+            </View>
+          )}
+          <Text style={styles.footNote}>
+            Bought {currencyName} are for spending. Only {currencyName} earned by playing open games.
+          </Text>
+          {onOpenGames && Object.keys(unlockGates).length > 0 && (
+            <Pressable onPress={onOpenGames} accessibilityRole="link" hitSlop={6}>
+              <Text style={styles.gamesLink}>See the games you can open ›</Text>
+            </Pressable>
+          )}
         </Card>
 
         <WatchAdCard ads={rewardedBones} currencyName={currencyName} />
@@ -470,8 +520,21 @@ function makeStyles(colors: Palette) {
     tabLabel: { fontSize: 13.5, fontFamily: font.heading, color: withAlpha(colors.text, 0.55) },
     tabLabelActive: { color: colors.text },
     balanceRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    balanceLabel: { fontSize: 12, letterSpacing: 0.5, color: withAlpha(colors.text, 0.55) },
-    balanceValue: { fontFamily: font.headingSemibold, fontSize: 20, color: colors.text },
+    balanceTitle: { fontFamily: font.headingSemibold, fontSize: 17, color: colors.text },
+    balanceLabel: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
+    balanceValue: { fontFamily: font.headingSemibold, fontSize: 26, color: colors.text },
+    balanceSub: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    balanceGrid: { flexDirection: 'row', gap: 10 },
+    balanceBox: { flex: 1, gap: 3, padding: 12, borderRadius: 12, backgroundColor: withAlpha(colors.text, 0.05) },
+    balanceBoxTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    earnedBox: { backgroundColor: withAlpha(color.green, 0.1), borderWidth: 1, borderColor: withAlpha(color.green, 0.3) },
+    nextRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+    nextText: { flex: 1, fontSize: 13, color: colors.text },
+    nextName: { fontFamily: font.headingSemibold },
+    nextToGo: { fontFamily: font.headingSemibold, fontSize: 13, color: earnedGreen(colors) },
+    nextTrack: { height: 8, borderRadius: 4, backgroundColor: withAlpha(colors.text, 0.08), overflow: 'hidden' },
+    nextFill: { height: 8, borderRadius: 4, backgroundColor: color.green },
+    gamesLink: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.accentActive },
     itemRow: {
       flexDirection: 'row',
       alignItems: 'center',
