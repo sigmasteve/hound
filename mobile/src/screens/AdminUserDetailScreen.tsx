@@ -11,6 +11,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { UserDogPhotoAdmin } from '../components/UserDogPhotoAdmin';
+import { GiveBonesCard } from '../components/GiveBonesCard';
 import { blockDogUploads } from '../dogPhotos/dogPhotos';
 import { banUser, deleteUser, getMemberItems, getUserOverview, giveItems, isBanned, takeItems, unbanUser, type AdminUserOverview, getUserStepsRecent, type UserStepsRecent } from '../admin/adminApi';
 import { PORCH_ITEMS, PORCH_UNLOCK } from '../kennel/yardItems';
@@ -293,6 +294,9 @@ export function AdminUserDetailScreen({
             </View>
           )}
         </Card>
+
+        {/* Give Bones (0218): spendable, never earned. */}
+        <GiveBonesCard userId={userId} name={name} />
 
         {/* Testing (0160): give a tester the Porch before they've earned it. */}
         {items && (
