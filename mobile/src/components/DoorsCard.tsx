@@ -328,6 +328,19 @@ function TodayDoor({
   );
 }
 
+// The door calendar on its own, for a pinned Daily Doors on Today.
+export function DoorsCalendar({ doors }: { doors: Door[] }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <View style={styles.grid}>
+      {doors.map((d) => (
+        <SmallDoor key={d.no} door={d} styles={styles} />
+      ))}
+    </View>
+  );
+}
+
 function SmallDoor({ door, styles }: { door: Door; styles: Styles }) {
   const { colors } = useTheme();
   const Icon = door.task ? TASK_ICON[door.task.kind] : null;
@@ -445,6 +458,8 @@ function makeStyles(colors: Palette) {
     small: {
       width: '15%',
       flexGrow: 1,
+      // A door alone on the last row stays door-sized.
+      maxWidth: '16%',
       aspectRatio: 0.78,
       borderRadius: 6,
       borderTopLeftRadius: 18,

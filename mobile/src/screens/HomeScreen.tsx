@@ -126,6 +126,18 @@ import { oversLabel } from '../challenges/cricket';
 import { advanceBaseball, awayTeam, getBaseballGame, getBaseballLive, listBaseballInnings, type BaseballGame, type BaseballInning, type BaseballLive } from '../challenges/baseballApi';
 import { derbyPos, getDerbyBoard, getDerbyLive, type DerbyBoard, type DerbyLive } from '../challenges/derbyApi';
 import { DerbyLongBalls } from '../components/DerbyLongBalls';
+import { HorseBoard, horseCourt } from '../components/HorseCard';
+import {
+  ChecklistPinned,
+  DistancePinned,
+  DoorsPinned,
+  JourneyPinned,
+  PacksPinned,
+  SeventyFivePinned,
+  StepRacePinned,
+  StreakPinned,
+  TagPinned,
+} from '../home/PinnedViews';
 import { BaseballField, BaseballLineScore, baseballHeadline } from '../components/BaseballCard';
 import { soccerClock } from '../challenges/soccer';
 import { settleChallengeScore } from '../challenges/scoreApi';
@@ -414,7 +426,14 @@ function horseHeadline(name: string, game: HorseGame | null): string {
   const me = game.players.find((p) => p.userId === game.me);
   const them = game.players.find((p) => p.userId !== game.me);
   if (game.status === 'final') return game.winner === game.me ? `You won ${name}!` : game.winner ? `${them?.name.split(' ')[0] ?? 'They'} won ${name}.` : `${name} ended in a tie.`;
-  const letters = `You ${me?.letters || '—'}, ${them?.name.split(' ')[0] ?? 'them'} ${them?.letters || '—'}`;
+  const themName = them?.name.split(' ')[0] ?? 'them';
+  if (game.handsOn && game.live) {
+    const t = game.live.turn;
+    if (t?.mine) return t.kind === 'match' ? `Your turn in ${name}: match ${themName}'s shot.` : `Your turn in ${name}: set a shot.`;
+    if (t) return t.kind === 'match' ? `${themName} is matching your shot in ${name}.` : `${themName} is setting a shot in ${name}.`;
+    return `${name}: first to spell ${game.word} loses.`;
+  }
+  const letters = `You ${me?.letters || 'none yet'}, ${themName} ${them?.letters || 'none yet'}`;
   return game.setter === game.me
     ? `You’re setting in ${name}: ${game.shot.name}, ${game.shot.target.toLocaleString()} steps. ${letters}.`
     : `Match the ${game.shot.name.toLowerCase()} in ${name}: ${game.shot.target.toLocaleString()} steps. ${letters}.`;
@@ -2817,6 +2836,37 @@ export function HomeScreen({
                 styles={styles}
                 colors={colors}
               />
+            ) : primary.challenge.kind === 'steps' ? (
+              <StepRacePinned challenge={primary.challenge} board={primary.board} userId={user?.id ?? null} onOpen={sheetOpenPrimary} />
+            ) : primary.challenge.kind === 'tag' && primary.challenge.tagMode === 'chase' ? (
+              <TagPinned challenge={primary.challenge} board={primary.board} userId={user?.id ?? null} onOpen={sheetOpenPrimary} />
+            ) : primary.challenge.kind === 'distance' ? (
+              <DistancePinned challenge={primary.challenge} board={primary.board} userId={user?.id ?? null} onOpen={sheetOpenPrimary} />
+            ) : primary.challenge.kind === 'streak' ? (
+              <StreakPinned
+                challenge={primary.challenge}
+                board={primary.board}
+                userId={user?.id ?? null}
+                onOpen={sheetOpenPrimary}
+                statuses={primaryStreakStatuses}
+                stepsToday={snap?.stepsToday ?? null}
+              />
+            ) : primary.challenge.kind === 'seventyfive' ? (
+              <SeventyFivePinned challenge={primary.challenge} board={primary.board} userId={user?.id ?? null} onOpen={sheetOpenPrimary} />
+            ) : primary.challenge.kind === 'journey' ? (
+              <JourneyPinned challenge={primary.challenge} board={primary.board} userId={user?.id ?? null} onOpen={sheetOpenPrimary} />
+            ) : primary.challenge.kind === 'checklist' ? (
+              <ChecklistPinned challenge={primary.challenge} board={primary.board} userId={user?.id ?? null} onOpen={sheetOpenPrimary} />
+            ) : primary.challenge.kind === 'doors' ? (
+              <DoorsPinned
+                challenge={primary.challenge}
+                board={primary.board}
+                userId={user?.id ?? null}
+                onOpen={sheetOpenPrimary}
+                houndName={kennel?.name ?? 'your hound'}
+              />
+            ) : primary.challenge.kind === 'packs' ? (
+              <PacksPinned challenge={primary.challenge} board={primary.board} userId={user?.id ?? null} onOpen={sheetOpenPrimary} />
             ) : (
               <LiveLeaderboardCard primary={primary} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} colors={colors} />
             )}
@@ -3554,8 +3604,36 @@ function GolfPreview({ primary, game, onOpen, styles }: { primary: PrimaryChalle
       {game && me && hole && !me.done && game.status !== 'final' && (
         <GolfHole hole={hole} course={game.course.id} ball={me.ball} plan={null} flight={null} houndIcon={me.iconId} height={170} compact />
       )}
-      <Text style={styles.tileSub}>{golfHeadline(challenge.name, game)}</Text>
-      <Button label="Open game" variant="ghost" small onPress={onOpen} />
+      {game && game.players.length > 1 &&
+        [...game.players]
+          .sort((a, b) => (game.format === 'skins' ? b.skins - a.skins : a.toPar - b.toPar))
+          .slice(0, 3)
+          .map((p, i) => (
+            <View key={p.userId} style={styles.raceRow}>
+              <Text style={styles.raceRank}>{i + 1}</Text>
+              <Text style={[styles.raceName, { flex: 1 }]} numberOfLines={1}>
+                {p.userId === game.me ? 'You' : p.name.split(' ')[0]}
+              </Text>
+              <Text style={styles.tileSub}>{p.done ? 'F' : `thru ${p.thru}`}</Text>
+              <Text style={styles.raceSteps}>{game.format === 'skins' ? `${p.skins} skins` : toParText(p.toPar)}</Text>
+            </View>
+          ))}
+      {game && me && (
+        <View style={{ flexDirection: 'row', gap: 3 }}>
+          {me.scores.slice(0, 18).map((sc, i) => (
+            <View key={i} style={{ flex: 1, alignItems: 'center', gap: 2 }}>
+              <Text style={[styles.tileSub, { fontSize: 10.5 }]}>{i + 1}</Text>
+              <Text style={[styles.raceName, { fontSize: 12.5 }]}>{sc ?? '–'}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {!game && <Text style={styles.tileSub}>Loading the course…</Text>}
+      {game && me && !me.done && game.status === 'live' && game.handsOn && (game.today.canStart || me.strokesOnHole > 0) ? (
+        <Button label={me.strokesOnHole > 0 ? `Play on: hole ${me.hole}` : `Play hole ${me.hole}`} variant="primary" block onPress={onOpen} />
+      ) : (
+        <Button label="Open game" variant="ghost" small onPress={onOpen} />
+      )}
     </Card>
   );
 }
@@ -3624,14 +3702,45 @@ function DerbyPreview({
 
 function HorsePreview({ primary, game, onOpen, styles }: { primary: PrimaryChallenge; game: HorseGame | null; onOpen: () => void; styles: HomeStyles }) {
   const { challenge } = primary;
+  const live = game?.handsOn ? game.live : null;
+  const them = game?.players.find((p) => p.userId !== game.me)?.name.split(' ')[0] ?? 'them';
+  const left = live?.turn?.endsAt ? Math.max(0, Math.round((Date.parse(live.turn.endsAt) - Date.now()) / 3_600_000)) : null;
+  const myTurn = !!live?.turn?.mine && live.canShoot && game?.status !== 'final';
   return (
     <Card style={styles.raceCard} elevated={false}>
       <View style={styles.raceHeader}>
         <TrophyIcon size={15} color={color.accent} />
         <Text style={styles.raceTitle}>{challenge.name}</Text>
+        {left != null && game?.status !== 'final' ? (
+          <Text style={styles.raceMeta}>
+            {left} h left in {live?.turn?.mine ? 'your' : 'their'} turn
+          </Text>
+        ) : null}
       </View>
-      <Text style={styles.tileSub}>{horseHeadline(challenge.name, game)}</Text>
-      <Button label="Open game" variant="ghost" small onPress={onOpen} />
+      {game ? (
+        <>
+          <HorseBoard game={game} />
+          <HoopsCourt game={horseCourt(game)} compact />
+          <Text style={styles.tileSub}>
+            {game.status === 'final'
+              ? horseHeadline(challenge.name, game)
+              : live
+                ? live.last
+                  ? `Last: ${live.last.by === game.me ? 'you' : them}, ${live.last.description}${live.last.made ? ', made' : ', missed'}. ${live.tries} ${live.tries === 1 ? 'try' : 'tries'} ready.`
+                  : `${live.tries} ${live.tries === 1 ? 'try' : 'tries'} ready (1 per 2,000 steps).`
+                : horseHeadline(challenge.name, game)}
+          </Text>
+        </>
+      ) : (
+        <Text style={styles.tileSub}>Loading the court…</Text>
+      )}
+      <Button
+        label={myTurn ? (live?.turn?.kind === 'match' ? 'Take your turn: match it' : 'Take your turn: set a shot') : 'Open game'}
+        variant={myTurn ? 'primary' : 'ghost'}
+        small={!myTurn}
+        block={myTurn}
+        onPress={onOpen}
+      />
     </Card>
   );
 }

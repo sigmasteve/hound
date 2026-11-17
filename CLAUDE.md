@@ -186,8 +186,11 @@ What each sheet holds:
   waiting" counts all of them (a Pack Activity when you're invited, it's
   your club's, or it's live).
 - Your challenges: the pinned (highlighted) challenge's headline and
-  board, then one line per other active challenge, then "All
-  challenges".
+  its game's own view (every kind has one: the court, the track, the
+  map, the doors...; `src/home/PinnedViews.tsx` and the *Preview cards
+  in HomeScreen), with one button for what you can do now; then one
+  line per other active challenge, then "All challenges". The card
+  doesn't repeat the headline.
 - Week in review: last week's recap.
 
 Pop-ups (a stop reached on a Journey, a level up, the daily bonus, an

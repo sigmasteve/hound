@@ -168,7 +168,7 @@ function formatDay(day: string): string {
 
 // A neighborhood: the same 24 territories as blocks between streets,
 // with a river, trees and houses.
-function HoodMap({ game, can, taken, onVote }: { game: PackWarsGame; can: Set<number>; taken: Set<number>; onVote: (idx: number) => void }) {
+export function HoodMap({ game, can, taken, onVote }: { game: PackWarsGame; can: Set<number>; taken: Set<number>; onVote: (idx: number) => void }) {
   const W = 600;
   const H = 440;
   const me = packOf(game.myPack);
