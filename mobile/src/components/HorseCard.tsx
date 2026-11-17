@@ -75,85 +75,12 @@ export function HorseCard({
     }
   };
 
-  // The court, with just the two of them on it.
-  const court: HoopsGame = {
-    status: game.status,
-    firstDay: game.firstDay,
-    dayNo: game.dayNo,
-    days: game.days,
-    daysPerQuarter: 1,
-    shotSteps: current.target,
-    teams: { home: { name: me?.name ?? '', score: 0 }, away: { name: them?.name ?? '', score: 0 } },
-    line: [],
-    winner: null,
-    me: game.me,
-    players: pair.map((p, i) => ({
-      id: p.userId,
-      userId: p.userId,
-      name: p.name,
-      initials: p.initials,
-      iconId: p.iconId,
-      frameId: p.frameId,
-      backgroundId: p.backgroundId,
-      bot: false,
-      joined: true,
-      team: i === 0 ? 'home' : 'away',
-      guarding: null,
-      shot: 'three',
-      stepsToday: p.stepsToday,
-      shotsToday: 0,
-      pts: 0,
-      fgMade: 0,
-      fgAtt: 0,
-      threeMade: 0,
-      threeAtt: 0,
-      ftMade: 0,
-      ftAtt: 0,
-    })),
-    myOdds: null,
-    myVote: null,
-    teamVotes: { paint: 0, arc: 0 },
-    last: null,
-    handsOn: false,
-    live: null,
-  };
+  const court = horseCourt(game);
 
   return (
     <View style={{ gap: 12 }}>
       {/* The two of them and their letters. */}
-      <View style={styles.board}>
-        {pair.map((p, i) => (
-          <View key={p.userId} style={styles.player}>
-            <View style={[styles.ring, { borderColor: i === 0 ? ME_COLOR : THEM_COLOR }]}>
-              <Avatar initials={p.initials} tint={i === 0 ? '#7a4416' : '#26407a'} size={48} fontSize={16} frameId={p.frameId} backgroundId={p.backgroundId} iconId={p.iconId} />
-            </View>
-            <Text style={styles.playerName} numberOfLines={1}>
-              {p.userId === game.me ? 'You' : p.name.split(' ')[0]}
-              {game.status === 'final'
-                ? ''
-                : game.handsOn && game.live
-                  ? game.live.turn?.user === p.userId
-                    ? game.live.turn.kind === 'match'
-                      ? ' · matching'
-                      : ' · setting'
-                    : ''
-                  : game.setter === p.userId
-                    ? ' · setting'
-                    : ''}
-            </Text>
-            <View style={styles.letters} accessible accessibilityLabel={`${p.letters.length} of ${game.word.length} letters: ${p.letters || 'none'}`}>
-              {game.word.split('').map((l, k) => {
-                const has = k < p.letters.length;
-                return (
-                  <View key={k} style={[styles.letter, has && styles.letterOn]}>
-                    <Text style={[styles.letterText, has && styles.letterTextOn]}>{l}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        ))}
-      </View>
+      <HorseBoard game={game} />
       {game.handsOn && game.live ? (
         <HandsOn game={game} styles={styles} nameOf={nameOf} onShoot={onShoot} colors={colors} />
       ) : (
@@ -349,6 +276,99 @@ function HandsOn({
         </Card>
       )}
     </>
+  );
+}
+
+// The court with just the two of them on it (H-O-R-S-E's card, and a
+// pinned H-O-R-S-E on Today).
+export function horseCourt(game: HorseGame): HoopsGame {
+  const me = game.players.find((p) => p.userId === game.me) ?? null;
+  const them = game.players.find((p) => p.userId !== game.me) ?? null;
+  const pair = [me ?? game.players[0], them ?? game.players[1]].filter(Boolean) as HorsePlayer[];
+  return {
+    status: game.status,
+    firstDay: game.firstDay,
+    dayNo: game.dayNo,
+    days: game.days,
+    daysPerQuarter: 1,
+    shotSteps: game.shot.target,
+    teams: { home: { name: me?.name ?? '', score: 0 }, away: { name: them?.name ?? '', score: 0 } },
+    line: [],
+    winner: null,
+    me: game.me,
+    players: pair.map((p, i) => ({
+      id: p.userId,
+      userId: p.userId,
+      name: p.name,
+      initials: p.initials,
+      iconId: p.iconId,
+      frameId: p.frameId,
+      backgroundId: p.backgroundId,
+      bot: false,
+      joined: true,
+      team: i === 0 ? 'home' : 'away',
+      guarding: null,
+      shot: 'three',
+      stepsToday: p.stepsToday,
+      shotsToday: 0,
+      pts: 0,
+      fgMade: 0,
+      fgAtt: 0,
+      threeMade: 0,
+      threeAtt: 0,
+      ftMade: 0,
+      ftAtt: 0,
+    })),
+    myOdds: null,
+    myVote: null,
+    teamVotes: { paint: 0, arc: 0 },
+    last: null,
+    handsOn: false,
+    live: null,
+  };
+}
+
+// The two of them and their letters.
+export function HorseBoard({ game }: { game: HorseGame }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const me = game.players.find((p) => p.userId === game.me) ?? null;
+  const them = game.players.find((p) => p.userId !== game.me) ?? null;
+  const pair = [me ?? game.players[0], them ?? game.players[1]].filter(Boolean) as HorsePlayer[];
+  return (
+      <View style={styles.board}>
+      {pair.map((p, i) => (
+        <View key={p.userId} style={styles.player}>
+          <View style={[styles.ring, { borderColor: i === 0 ? ME_COLOR : THEM_COLOR }]}>
+            <Avatar initials={p.initials} tint={i === 0 ? '#7a4416' : '#26407a'} size={48} fontSize={16} frameId={p.frameId} backgroundId={p.backgroundId} iconId={p.iconId} />
+          </View>
+          <Text style={styles.playerName} numberOfLines={1}>
+            {p.userId === game.me ? 'You' : p.name.split(' ')[0]}
+            {game.status === 'final'
+              ? ''
+              : game.handsOn && game.live
+                ? game.live.turn?.user === p.userId
+                  ? game.live.turn.kind === 'match'
+                    ? ' · matching'
+                    : ' · setting'
+                  : ''
+                : game.setter === p.userId
+                  ? ' · setting'
+                  : ''}
+          </Text>
+          <View style={styles.letters} accessible accessibilityLabel={`${p.letters.length} of ${game.word.length} letters: ${p.letters || 'none'}`}>
+            {game.word.split('').map((l, k) => {
+              const has = k < p.letters.length;
+              return (
+                <View key={k} style={[styles.letter, has && styles.letterOn]}>
+                  <Text style={[styles.letterText, has && styles.letterTextOn]}>{l}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 
