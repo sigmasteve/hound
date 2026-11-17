@@ -45,6 +45,16 @@ export interface Friend {
   // Their level, from profiles.xp_total (ranks.ts), for the badge on
   // their avatar. Missing where it wasn't read.
   level?: number | null;
+  // Their Hound username (0030), whether or not they show it instead of
+  // their name, so friend search finds them by it.
+  username?: string | null;
+}
+
+// Friend search: by name or by username, with or without the @.
+export function friendMatches(f: { name: string; username?: string | null }, query: string): boolean {
+  const q = query.trim().toLowerCase().replace(/^@/, '');
+  if (!q) return true;
+  return f.name.toLowerCase().includes(q) || (!!f.username && f.username.toLowerCase().includes(q));
 }
 
 export interface FriendsProvider {
