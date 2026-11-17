@@ -49,7 +49,7 @@ export function GiveBonesCard({ userId, name }: { userId: string; name: string }
 
   const give = () => {
     if (!valid) return;
-    Alert.alert(`Give ${first} ${n.toLocaleString()} Bones?`, 'They’re for spending. They don’t count as Bones earned by playing.', [
+    Alert.alert(`Give ${first} ${n.toLocaleString()} Bones?`, 'They’re for spending, not earned by playing. They’ll get a push: “Hound sent you Bones”.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Give',
@@ -110,7 +110,7 @@ export function GiveBonesCard({ userId, name }: { userId: string; name: string }
             onPress={give}
           />
           <Text style={styles.foot}>
-            They land in {first}&rsquo;s balance to spend. They don&rsquo;t count as earned, so they don&rsquo;t open locked games.
+            They land in {first}&rsquo;s balance to spend, with a push to tell them. They don&rsquo;t count as earned, so they don&rsquo;t open locked games.
           </Text>
           {data.grants.length > 0 && (
             <View style={{ gap: 6 }}>
