@@ -11,10 +11,10 @@ import type { AuthProviderId } from '../../auth/types';
 
 type Busy = Exclude<AuthProviderId, 'email'> | null;
 
-// Off until the Meta app is published: while it's unpublished, Facebook
-// Login only works for people with a role on it, so everyone else got an
-// error. Set back to true once Meta shows it as Live.
-const FACEBOOK_LOGIN_ON = false;
+// On since the Meta app was published (Nov 2026). While a Meta app is
+// unpublished, Facebook Login only works for people with a role on it,
+// so set this back to false if it's ever unpublished again.
+const FACEBOOK_LOGIN_ON = true;
 
 export function WelcomeScreen({
   onContinueWithEmail,
