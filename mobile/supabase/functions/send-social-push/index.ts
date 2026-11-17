@@ -23,6 +23,9 @@
 //                 0185_clubs.sql, applied mutes)
 //   'club_invite' "annruns invited you to Waffle House Crew. Tap to
 //                 join." — to the friends picked (invite_to_club, 0187)
+//   'bones_given' "Hound sent you 250 Bones 🦴" — to the member an admin
+//                 gave Bones (admin_give_bones, 0219). Not a social push,
+//                 so it doesn't wait on their social-push switch.
 //   'pack_fun'    a Pack Activities' own message (0192_pack_fun.sql): an
 //                 invite, a scent trail opening, a flash challenge, "wait
 //                 up!" — to the pack members in to_users, titled with the
@@ -49,6 +52,7 @@ type Kind =
   | 'yard_pawprint'
   | 'yard_treat'
   | 'gift'
+  | 'bones_given'
   | 'club_post'
   | 'club_invite'
   | 'pack_fun';
@@ -121,7 +125,7 @@ Deno.serve(async (req) => {
   if (
     !body?.from_user ||
     !body?.to_user ||
-    !['nudge', 'reaction', 'bounty_claimed', 'yard_pawprint', 'yard_treat', 'gift'].includes(body.kind) ||
+    !['nudge', 'reaction', 'bounty_claimed', 'yard_pawprint', 'yard_treat', 'gift', 'bones_given'].includes(body.kind) ||
     (body.kind === 'reaction' && (!body.challenge_id || !EMOJI.includes(body.emoji ?? '')))
   ) {
     return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
@@ -138,7 +142,7 @@ Deno.serve(async (req) => {
   if (!recipient || !sender) {
     return new Response(JSON.stringify({ sent: false, reason: 'Profile not found' }), { status: 404 });
   }
-  if (!recipient.alert_social_push_enabled) {
+  if (!recipient.alert_social_push_enabled && body.kind !== 'bones_given') {
     return new Response(JSON.stringify({ sent: false, reason: 'Turned off by the recipient' }));
   }
 
@@ -155,7 +159,9 @@ Deno.serve(async (req) => {
   const challengeName = challenge?.name ?? null;
   const hound = body.hound_name || 'your hound';
   const messageBody =
-    body.kind === 'gift'
+    body.kind === 'bones_given'
+      ? `Hound sent you ${(body.bones ?? 0).toLocaleString('en-US')} Bones 🦴 Spend them in Your look or the Kennel.`
+      : body.kind === 'gift'
       ? `${name} sent ${hound} ${body.item_name ? `a ${body.item_name}` : 'a gift'} 🎁`
       : body.kind === 'yard_pawprint'
       ? `${name} left a pawprint in ${hound}'s yard 🐾`

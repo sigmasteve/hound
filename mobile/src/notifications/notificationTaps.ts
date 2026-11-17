@@ -61,6 +61,8 @@ function routeFor(data: Record<string, unknown> | undefined): (() => [keyof Root
   }
   if (data.type === 'bounty_posted' || data.type === 'bounty_claimed') return () => ['Main', { tab: 'home' }];
   if (data.type === 'yard_pawprint' || data.type === 'yard_treat' || data.type === 'gift') return () => ['Kennel', undefined];
+  // Bones from Hound (0219): Your look, where the balance is.
+  if (data.type === 'bones_given') return () => ['Locker', undefined];
   if (data.type === 'club_post' && typeof data.clubId === 'string') return () => ['Club', { clubId: data.clubId }];
   if (data.type === 'club_invite') return () => ['Main', { tab: 'clubs' }];
   if ((data.type === 'hoops' || data.type === 'horse' || data.type === 'golf' || data.type === 'derby') && typeof data.challengeId === 'string') {
