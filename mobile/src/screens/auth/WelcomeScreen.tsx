@@ -11,10 +11,11 @@ import type { AuthProviderId } from '../../auth/types';
 
 type Busy = Exclude<AuthProviderId, 'email'> | null;
 
-// On since the Meta app was published (Nov 2026). While a Meta app is
-// unpublished, Facebook Login only works for people with a role on it,
-// so set this back to false if it's ever unpublished again.
-const FACEBOOK_LOGIN_ON = true;
+// Off again (Nov 2026): the Meta app is published, but Facebook Login
+// still says "Feature Unavailable" to anyone without a role on it until
+// Meta grants Advanced Access for public_profile and email. Set back to
+// true once someone with no role on the Meta app can log in.
+const FACEBOOK_LOGIN_ON = false;
 
 export function WelcomeScreen({
   onContinueWithEmail,
