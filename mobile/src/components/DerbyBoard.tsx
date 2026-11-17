@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, Share, StyleSheet, View } from 'react-nat
 import { ArrowSquareOutIcon } from 'phosphor-react-native';
 import { Text } from './Text';
 import { Card } from './Card';
+import { usePinnedAction } from './PinnedAction';
 import { Avatar } from './Avatar';
 import { PresentedBy, SponsorLogo, openSponsor } from './SponsorLine';
 import { useTheme } from '../theme/ThemeContext';
@@ -84,6 +85,19 @@ export function DerbyBoard({
     if (sponsor.prizes) seen.push('prizes');
     recordSponsorViews(challengeId, seen);
   }, [sponsor, challengeId]);
+
+  // Swings ready: pinned to the bottom of the page (PinnedAction.tsx).
+  const batNow = !!board && !!live && live.joined && board.status === 'live' && (live.canSwing || !!live.pending);
+  const batPinned = usePinnedAction(
+    batNow && live
+      ? {
+          label: live.pending
+            ? 'Finish your swing'
+            : `Step up to the plate · ${live.swingsLeft} ${live.swingsLeft === 1 ? 'swing' : 'swings'}`,
+          onPress: () => onBat(),
+        }
+      : null,
+  );
 
   if (!board) {
     return (
@@ -354,7 +368,7 @@ export function DerbyBoard({
                   ))}
                 </View>
               )}
-              {board.status === 'live' && (
+              {board.status === 'live' && !batPinned && (
                 <Pressable onPress={onBat} disabled={!canBat} style={[styles.play, !canBat && styles.playOff]} accessibilityRole="button">
                   <Text style={[styles.playText, !canBat && { color: withAlpha(colors.text, 0.6), fontSize: 13.5 }]}>{batLabel}</Text>
                 </Pressable>

@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { Card } from './Card';
+import { usePinnedAction } from './PinnedAction';
 import { Avatar } from './Avatar';
 import { Button } from './Button';
 import { GolfHole, type GolfFlight } from './GolfHole';
@@ -30,6 +31,16 @@ export function GolfCard({
   const [flight, setFlight] = useState<GolfFlight | null>(null);
   const watchRef = useRef(watch);
   watchRef.current = watch;
+
+  // Your hole: pinned to the bottom of the page (PinnedAction.tsx).
+  const meNow = game ? (game.players.find((p) => p.userId === game.me) ?? null) : null;
+  const holeReady =
+    !!game && !!meNow && !meNow.done && game.status === 'live' && game.handsOn && (game.today.canStart || meNow.strokesOnHole > 0);
+  const holePinned = usePinnedAction(
+    holeReady && meNow
+      ? { label: meNow.strokesOnHole > 0 ? `Play on: hole ${meNow.hole}` : `Play hole ${meNow.hole}`, onPress: () => onPlay() }
+      : null,
+  );
 
   if (!game) {
     return (
@@ -191,7 +202,7 @@ export function GolfCard({
             <Text style={styles.note}>Your walks play this one: each Kennel walk of 10 minutes or more is a shot, played tonight.</Text>
           ) : !canStart ? (
             <Text style={styles.note}>That&rsquo;s {game.holesPerDay} holes today. More tomorrow.</Text>
-          ) : (
+          ) : holePinned ? null : (
             <Button
               variant="primary"
               block

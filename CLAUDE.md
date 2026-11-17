@@ -121,6 +121,17 @@ on the center-field wall, and the outfielders playing deep. Like
 H-O-R-S-E, the ballpark never scrolls away: only the message and today's
 swings under it scroll, and the bar and Pitch / Swing! stay pinned.
 
+## Actions are on screen without scrolling
+
+Steve's rule (Nov 2026): every action a user can take is seen when the
+screen opens, without scrolling. On a challenge page, a game card with
+something ready for you (Take your shots, your at-bats, your H-O-R-S-E
+turn, your hole, the Derby) hands it to the page through
+`usePinnedAction` (`mobile/src/components/PinnedAction.tsx`), which pins
+it to the bottom; the card then leaves its own copy out. New games do the
+same, and other screens keep their main action in view (pinned, or above
+anything that scrolls).
+
 ## Today screen layout
 
 Steve's agreed layout for Today (`mobile/src/screens/HomeScreen.tsx`,

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PINNED_ACTION_SPACE, PinnedActionBar, PinnedActionProvider, type PinnedAction } from '../components/PinnedAction';
 import { ActivityIndicator, Alert, Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import { Toast, type ToastMessage } from '../components/Toast';
@@ -438,6 +439,8 @@ export function ChallengeDetailScreen({
   // dates, pinning, inviting, deleting). Testers found one long scroll
   // mixing all of it hard to read.
   const [tab, setTab] = useState<ChallengeTab>(initialTab ?? 'board');
+  // The game card's action when it's ready, pinned to the bottom.
+  const [pinnedAction, setPinnedAction] = useState<PinnedAction>(null);
   // A notification tap can re-open this screen with a different tab while
   // it's already showing.
   useEffect(() => {
@@ -2120,9 +2123,10 @@ export function ChallengeDetailScreen({
     {/* Talk's message box sits at the bottom of the page: on iOS this
         makes room for the keyboard and scrolls whatever field you're
         typing in back above it, instead of leaving it underneath. */}
+    <PinnedActionProvider value={setPinnedAction}>
     <ScrollView
       ref={pageRef}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[styles.container, pinnedAction && tab === 'board' ? { paddingBottom: PINNED_ACTION_SPACE + 48 } : null]}
       automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
@@ -3420,6 +3424,10 @@ export function ChallengeDetailScreen({
         </>
       )}
     </ScrollView>
+    </PinnedActionProvider>
+    {/* Your game's action (Take your shots, your at-bats, your turn, your
+        hole), on screen from the moment the page opens. */}
+    {tab === 'board' && <PinnedActionBar action={pinnedAction} />}
     {pinToast && <Toast key={pinToast.id} message={pinToast} onDone={() => setPinToast(null)} />}
     </SafeAreaView>
   );
