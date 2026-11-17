@@ -71,7 +71,7 @@ import { DerbyAdminCard } from '../components/DerbyAdminCard';
 import { SportBonusAdminCard } from '../components/SportBonusAdminCard';
 import { LoggedWorkoutsAdminCard } from '../components/LoggedWorkoutsAdminCard';
 import { HealthZeroAdminCard } from '../components/HealthZeroAdminCard';
-import { healthZeroSummary } from '../admin/adminApi';
+import { getBonesGrantsOverview, healthZeroSummary } from '../admin/adminApi';
 import { getWorkoutLogOverview, workoutLogSummary } from '../workouts/loggedWorkouts';
 import { getSportBonusOverview, sportBonusSummary } from '../challenges/sportBonusApi';
 import { DoorsAdminCard } from '../components/DoorsAdminCard';
@@ -83,6 +83,7 @@ import { getGrowthOverview } from '../growth/growth';
 import { getGardenOverview } from '../garden/garden';
 import { getWalksOverview } from '../admin/walksOverview';
 import { ShopAdminCard } from '../components/ShopAdminCard';
+import { BonesGivenAdminCard } from '../components/BonesGivenAdminCard';
 import { KennelUnlocksAdminCard } from '../components/KennelUnlocksAdminCard';
 import { getKennelUnlocksOverview, kennelUnlocksSummary } from '../admin/kennelUnlocksOverview';
 import { dollars, getShopOverview } from '../admin/shopOverview';
@@ -241,6 +242,7 @@ export function AdminScreen({
   const [packsSummary, setPacksSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
   const [shopSummary, setShopSummary] = useState<string | null>(null);
+  const [bonesGivenLine, setBonesGivenLine] = useState<string | null>(null);
   const [kennelUnlocksLine, setKennelUnlocksLine] = useState<string | null>(null);
   // Where the App versions fold sits, so "Versions" in Needs you can
   // scroll to it as it opens: it's below Engagement, off the screen.
@@ -336,6 +338,9 @@ export function AdminScreen({
         .catch(() => {});
       getKennelUnlocksOverview()
         .then((d) => setKennelUnlocksLine(kennelUnlocksSummary(d)))
+        .catch(() => {});
+      getBonesGrantsOverview()
+        .then((d) => setBonesGivenLine(`${d.bones30d.toLocaleString()} given this month · ${d.people30d} ${d.people30d === 1 ? 'person' : 'people'}`))
         .catch(() => {});
       getShopOverview()
         .then((d) => setShopSummary(`${dollars(d.revenue30d)} this month · ${d.buyers30d} ${d.buyers30d === 1 ? 'buyer' : 'buyers'}`))
@@ -977,6 +982,9 @@ export function AdminScreen({
                   </AdminFold>
                   <AdminFold title="Shop" summary={shopSummary ?? 'Packs sold and Bones spent'}>
                     <ShopAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Bones given" summary={bonesGivenLine ?? 'Bones admins gave members'}>
+                    <BonesGivenAdminCard />
                   </AdminFold>
                   </>
                 )}

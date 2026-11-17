@@ -213,6 +213,67 @@ export async function takeItems(userId: string, itemIds: string[]): Promise<numb
   return Number(data ?? 0);
 }
 
+// ── Giving Bones (0218) ──
+// Spendable only: they never count as Bones earned by playing.
+
+export interface MemberBonesGrant {
+  bones: number;
+  note: string | null;
+  by: string;
+  at: string;
+}
+
+export interface MemberBones {
+  balance: number;
+  earned: number;
+  givenTotal: number;
+  grants: MemberBonesGrant[];
+}
+
+const toGrant = (g: any): MemberBonesGrant => ({ bones: Number(g.bones ?? 0), note: g.note ?? null, by: String(g.by ?? 'An admin'), at: String(g.at) });
+
+export async function getMemberBones(userId: string): Promise<MemberBones> {
+  const { data, error } = await requireClient().rpc('admin_member_bones', { p_user: userId });
+  if (error) throw new Error(error.message);
+  const d = (data ?? {}) as any;
+  return {
+    balance: Number(d.balance ?? 0),
+    earned: Number(d.earned ?? 0),
+    givenTotal: Number(d.given_total ?? 0),
+    grants: ((d.grants ?? []) as any[]).map(toGrant),
+  };
+}
+
+// Gives them Bones; returns their new balance.
+export async function giveBones(userId: string, bones: number, note: string | null): Promise<number> {
+  const { data, error } = await requireClient().rpc('admin_give_bones', { p_user: userId, p_bones: bones, p_note: note });
+  if (error) throw new Error(error.message);
+  return Number(data ?? 0);
+}
+
+export interface BonesGrantsOverview {
+  bones30d: number;
+  grants30d: number;
+  people30d: number;
+  bonesAll: number;
+  peopleAll: number;
+  recent: (MemberBonesGrant & { name: string })[];
+}
+
+export async function getBonesGrantsOverview(): Promise<BonesGrantsOverview> {
+  const { data, error } = await requireClient().rpc('admin_bones_grants_overview');
+  if (error) throw new Error(error.message);
+  const d = (data ?? {}) as any;
+  return {
+    bones30d: Number(d.bones_30d ?? 0),
+    grants30d: Number(d.grants_30d ?? 0),
+    people30d: Number(d.people_30d ?? 0),
+    bonesAll: Number(d.bones_all ?? 0),
+    peopleAll: Number(d.people_all ?? 0),
+    recent: ((d.recent ?? []) as any[]).map((g) => ({ ...toGrant(g), name: String(g.name ?? 'Someone') })),
+  };
+}
+
 // ── Phones that sync but send 0 steps (0205) ──
 
 export interface HealthZeroPerson {
