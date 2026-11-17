@@ -81,6 +81,8 @@ import { getGrowthOverview } from '../growth/growth';
 import { getGardenOverview } from '../garden/garden';
 import { getWalksOverview } from '../admin/walksOverview';
 import { ShopAdminCard } from '../components/ShopAdminCard';
+import { KennelUnlocksAdminCard } from '../components/KennelUnlocksAdminCard';
+import { getKennelUnlocksOverview, kennelUnlocksSummary } from '../admin/kennelUnlocksOverview';
 import { dollars, getShopOverview } from '../admin/shopOverview';
 import { getWaterOverview } from '../admin/waterOverview';
 import { EngagementAdminCard } from '../components/EngagementAdminCard';
@@ -236,6 +238,7 @@ export function AdminScreen({
   const [packsSummary, setPacksSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
   const [shopSummary, setShopSummary] = useState<string | null>(null);
+  const [kennelUnlocksLine, setKennelUnlocksLine] = useState<string | null>(null);
   // Where the App versions fold sits, so "Versions" in Needs you can
   // scroll to it as it opens: it's below Engagement, off the screen.
   const scrollRef = useRef<ScrollView>(null);
@@ -324,6 +327,9 @@ export function AdminScreen({
             `${b.active} ${b.active === 1 ? 'game' : 'games'} on now, ${b.finished} played${b.live && b.live.atBats7d > 0 ? ` · ${b.live.atBats7d} at-bats by hand` : ''}`,
           ),
         )
+        .catch(() => {});
+      getKennelUnlocksOverview()
+        .then((d) => setKennelUnlocksLine(kennelUnlocksSummary(d)))
         .catch(() => {});
       getShopOverview()
         .then((d) => setShopSummary(`${dollars(d.revenue30d)} this month · ${d.buyers30d} ${d.buyers30d === 1 ? 'buyer' : 'buyers'}`))
@@ -933,6 +939,9 @@ export function AdminScreen({
                 )}
                 {overviewTab === 'hound' && (
                   <>
+                  <AdminFold title="Kennel unlocks" summary={kennelUnlocksLine ?? 'Who has reached each level of the Kennel'}>
+                    <KennelUnlocksAdminCard />
+                  </AdminFold>
                   <AdminFold title="Walks" summary={walksSummary ?? 'Walks, finds and the diary'}>
                     <WalksAdminCard />
                   </AdminFold>

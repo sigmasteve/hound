@@ -27,6 +27,7 @@ import { friendMoodLine, getFriendKennel, getKennel, type FriendKennel, type Ken
 import { YardScene } from '../kennel/YardArt';
 import { PorchScene } from '../kennel/PorchArt';
 import { GiftSheet } from '../kennel/GiftSheet';
+import { opens } from '../kennel/unlocks';
 import { RoomScene } from '../kennel/RoomArt';
 import { getFriendYard, leavePawprint, tossYardTreat, type Yard } from '../kennel/yardApi';
 import { TREAT_BONES } from '../kennel/kennelItems';
@@ -418,13 +419,16 @@ export function FriendDetailScreen({
                     disabled={yard.mine.treat || yardBusy !== null}
                     onPress={() => visit('treat')}
                   />
-                  <Button
-                    label="Send a gift"
-                    variant="ghost"
-                    small
-                    icon={<GiftIcon size={13} color={colors.accent} weight="fill" />}
-                    onPress={() => setGifting(true)}
-                  />
+                  {/* Gifting opens at level 9 (kennel/unlocks.ts). */}
+                  {myHound && opens('gifting', levelProgressForXp(myHound.xpTotal).level) && (
+                    <Button
+                      label="Send a gift"
+                      variant="ghost"
+                      small
+                      icon={<GiftIcon size={13} color={colors.accent} weight="fill" />}
+                      onPress={() => setGifting(true)}
+                    />
+                  )}
                 </View>
               )}
               {yard.trophies.some((t) => TROPHIES[t.kind]) && (

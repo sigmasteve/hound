@@ -1,6 +1,7 @@
 import { BACKGROUNDS, FRAMES, ICONS } from '../cosmetics/catalog';
 import { levelProgressForXp, xpForLevel } from './leveling';
 import { RANKS, type Rank } from './ranks';
+import { KENNEL_UNLOCKS } from '../kennel/unlocks';
 
 // The ladder ahead: every level where something changes, with what it
 // brings. Pure data from the ranks, the XP curve and the Locker catalog,
@@ -51,6 +52,8 @@ export function houndLadder(): LadderStep[] {
   // The two level achievements (achievements/achievementIcons.ts).
   at(5).unlocks.push('Level 5 badge');
   at(10).unlocks.push('Level 10 badge');
+  // What opens in the Kennel (kennel/unlocks.ts), first in each level's list.
+  for (const u of Object.values(KENNEL_UNLOCKS)) at(u.level).unlocks.unshift(u.name);
   cached = [...steps.values()].sort((a, b) => a.level - b.level);
   return cached;
 }

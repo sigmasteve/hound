@@ -4,7 +4,7 @@ select plan(3);
 
 select tests.new_user('Ann') as ann \gset
 select (now() at time zone 'utc')::date as today \gset
-update public.profiles set bones_balance = 300, xp_total = 350 where id = :'ann';
+update public.profiles set bones_balance = 300, xp_total = 800 where id = :'ann'; -- bought houses open at level 7 (0216)
 -- On sale for this test, whatever today is.
 update public.kennel_items set available_until = :'today'::date + 30 where id = 'house_gingerbread';
 

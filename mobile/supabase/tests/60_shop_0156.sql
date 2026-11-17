@@ -4,6 +4,7 @@ select plan(9);
 
 select tests.new_user('Ann', true) as ann \gset
 select tests.new_user('Bob') as bob \gset
+update public.profiles set xp_total = 1200 where xp_total < 1200; -- level 10: past the Kennel's ladder (0216)
 select (now() at time zone 'utc')::date as today \gset
 insert into public.friendships (requester_id, recipient_id, status) values (:'ann', :'bob', 'accepted');
 update public.profiles set bones_balance = 1000 where id = :'bob';

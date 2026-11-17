@@ -65,6 +65,7 @@ import { ParkList, WalksTab } from '../walks/WalksTab';
 import { DogParkScene } from '../together/ParkArt';
 import { AboutCard } from '../growth/AboutCard';
 import { useGarden } from '../garden/useGarden';
+import { KENNEL_UNLOCKS, LATER_WARDROBE, opens } from '../kennel/unlocks';
 import { GardenCard } from '../garden/GardenCard';
 import { plantStage } from '../garden/garden';
 import { useHoundProfile } from '../growth/useHoundProfile';
@@ -120,11 +121,14 @@ const CARE_MODES: { id: CareMode; name: string; detail: string }[] = [
 type KennelTab = 'today' | 'home' | 'style';
 const KENNEL_TABS: { id: KennelTab; label: string }[] = [
   { id: 'today', label: 'Today' },
-  { id: 'home', label: 'Home' },
   { id: 'style', label: 'Style' },
+  { id: 'home', label: 'Home' },
 ];
 // The places on the scene, in swipe order (0157, 0169, 0170).
-const PLACES = ['Yard', 'Porch', 'Room', 'Park'];
+// The places on the scene, in order: the Yard and the Park from day one,
+// the Porch and the Room as they open (kennel/unlocks.ts).
+type PlaceId = 'yard' | 'park' | 'porch' | 'room';
+const PLACE_NAMES: Record<PlaceId, string> = { yard: 'Yard', park: 'Park', porch: 'Porch', room: 'Room' };
 const MOOD_WORD: Record<Kennel['mood'], string> = { happy: 'Happy', okay: 'Okay', hungry: 'Hungry', sleepy: 'Sleepy' };
 type WardrobeChip = 'holiday' | 'head' | 'neck' | 'face' | 'body' | 'feet' | 'coat' | 'breed' | 'look';
 const WARDROBE_CHIPS: { id: WardrobeChip; label: string }[] = [
@@ -271,6 +275,19 @@ export function KennelScreen({
   const rank = rankForLevel(level);
   // Just the one step ahead; the ladder sheet has the rest.
   const nextStep = stepsAfter(level, 1)[0] ?? null;
+  // What's open at this level (kennel/unlocks.ts). Anyone already using
+  // something keeps it.
+  const open = {
+    tricks: opens('tricks', level, kennel.owned.some(isTrick)),
+    garden: opens('garden', level, !!garden.garden?.plots.some(Boolean)),
+    kitchen: opens('kitchen', level, !!care.care && (care.care.made > 0 || care.care.pantry.length > 0)),
+    porch: opens('porch', level, !!yard?.porch),
+    wardrobe: opens('wardrobe', level, !!(kennel.neckId || kennel.faceId || kennel.bodyId || kennel.feetId)),
+    houses: opens('houses', level, YARD_ITEMS.some((i) => i.slot === 'house' && i.costBones > 0 && kennel.owned.includes(i.id))),
+    room: opens('room', level, (yard?.room?.length ?? 0) > 0 || ROOM_ITEMS.some((i) => kennel.owned.includes(i.id))),
+  };
+  const places: PlaceId[] = ['yard', 'park', ...(open.porch ? (['porch'] as const) : []), ...(open.room ? (['room'] as const) : [])];
+  const place: PlaceId = places[Math.min(zone, places.length - 1)] ?? 'yard';
   const classic = kennel.careMode === 'classic';
   const equippedIn = (item: KennelItem) =>
     item.slot === 'neck'
@@ -502,15 +519,16 @@ export function KennelScreen({
     setZone(z);
     pagerRef.current?.scrollTo({ x: z * sceneWidth, animated: true });
   };
+  const showPlace = (id: PlaceId) => showZone(Math.max(0, places.indexOf(id)));
   const tryOn = (t: Trying) => {
     setTrying(t);
     // Back up to the scene, to see it there.
     pageRef.current?.scrollTo({ y: 0, animated: true });
-    if (t.kind === 'yard') showZone(0);
-    if (t.kind === 'porch') showZone(1);
-    if (t.kind === 'room') showZone(2);
+    if (t.kind === 'yard') showPlace('yard');
+    if (t.kind === 'porch') showPlace('porch');
+    if (t.kind === 'room') showPlace('room');
     if (t.kind === 'trick') {
-      showZone(0);
+      showPlace('yard');
       setTrickShow((cur) => ({ id: t.item.id, n: (cur?.n ?? 0) + 1 }));
     }
   };
@@ -727,8 +745,14 @@ export function KennelScreen({
 
   // The wardrobe: a chip per slot (Holiday first while a drop is on), and
   // the items as tiles with the hound wearing each.
-  const wardrobeChips = WARDROBE_CHIPS.filter((c) => c.id !== 'holiday' || seasonItems.length > 0);
-  const chip: WardrobeChip = wardrobe === 'holiday' && seasonItems.length === 0 ? 'head' : wardrobe;
+  const wardrobeChips = WARDROBE_CHIPS.filter(
+    (c) =>
+      (c.id !== 'holiday' || seasonItems.length > 0) &&
+      // Neck, face, body and feet open at level 6 (kennel/unlocks.ts).
+      (open.wardrobe || !(LATER_WARDROBE as readonly string[]).includes(c.id)),
+  );
+  const chip: WardrobeChip =
+    (wardrobe === 'holiday' && seasonItems.length === 0) || !wardrobeChips.some((c) => c.id === wardrobe) ? 'head' : wardrobe;
   const wardrobeItems =
     chip === 'holiday'
       ? seasonItems.filter((i) => i.slot !== 'coat' && i.slot !== 'breed')
@@ -921,12 +945,23 @@ export function KennelScreen({
                     />
 
                   </View>
+                  {/* The dog park (0170): friends' hounds out walking today. */}
+                  <View style={{ width: sceneWidth }}>
+                    <DogParkScene
+                      hounds={together.data?.park ?? []}
+                      me={together.data?.meWalked ? shownHound : null}
+                      width={sceneWidth}
+                      animate={focused && place === 'park'}
+                      onOpen={onOpenFriend}
+                    />
+                  </View>
+                  {open.porch && (
                   <View style={{ width: sceneWidth }}>
                     <PorchScene
                       items={shownPorch}
                       locked={!yard.porch}
                       width={sceneWidth}
-                      animate={focused && zone === 1}
+                      animate={focused && place === 'porch'}
                       hound={shownHound}
                     />
                     {!yard.porch && (
@@ -943,25 +978,18 @@ export function KennelScreen({
                               onPress={unlockPorch}
                             />
                           ) : (
-                            <Text style={styles.itemNote}>Opens at Hunter (level {PORCH_UNLOCK.minLevel}).</Text>
+                            <Text style={styles.itemNote}>Opens at Tracker (level {PORCH_UNLOCK.minLevel}).</Text>
                           )}
                         </View>
                       </View>
                     )}
                   </View>
+                  )}
+                  {open.room && (
                   <View style={{ width: sceneWidth }}>
-                    <RoomScene items={shownRoom} width={sceneWidth} animate={focused && zone === 2} hound={shownHound} houndProps={houndCare} />
+                    <RoomScene items={shownRoom} width={sceneWidth} animate={focused && place === 'room'} hound={shownHound} houndProps={houndCare} />
                   </View>
-                  {/* The dog park (0170): friends' hounds out walking today. */}
-                  <View style={{ width: sceneWidth }}>
-                    <DogParkScene
-                      hounds={together.data?.park ?? []}
-                      me={together.data?.meWalked ? shownHound : null}
-                      width={sceneWidth}
-                      animate={focused && zone === 3}
-                      onOpen={onOpenFriend}
-                    />
-                  </View>
+                  )}
                 </ScrollView>
                 </Animated.View>
 
@@ -970,16 +998,16 @@ export function KennelScreen({
                   <>
                     <View style={styles.placesBar} pointerEvents="box-none">
                       <View style={styles.places} accessibilityRole="tablist">
-                        {PLACES.map((name, i) => (
+                        {places.map((id, i) => (
                           <Pressable
-                            key={name}
+                            key={id}
                             onPress={() => showZone(i)}
-                            style={[styles.place, zone === i && styles.placeOn]}
+                            style={[styles.place, place === id && styles.placeOn]}
                             accessibilityRole="tab"
-                            accessibilityState={{ selected: zone === i }}
+                            accessibilityState={{ selected: place === id }}
                             hitSlop={4}
                           >
-                            <Text style={[styles.placeText, zone === i && styles.placeTextOn]}>{name}</Text>
+                            <Text style={[styles.placeText, place === id && styles.placeTextOn]}>{PLACE_NAMES[id]}</Text>
                           </Pressable>
                         ))}
                       </View>
@@ -1189,20 +1217,26 @@ export function KennelScreen({
             together={together}
             myHound={shownHound}
             onOpenFriend={onOpenFriend}
-            kitchen={<CareTab only="kitchen" state={careState} houndName={kennel.name} balance={kennel.bonesBalance} currencyName={currencyName} onShort={offerMore} />}
+            kitchen={
+              open.kitchen ? (
+                <CareTab only="kitchen" state={careState} houndName={kennel.name} balance={kennel.bonesBalance} currencyName={currencyName} onShort={offerMore} />
+              ) : null
+            }
             care={
               <>
                 <CareTab only="bath" state={careState} houndName={kennel.name} balance={kennel.bonesBalance} currencyName={currencyName} onShort={offerMore} />
-                <CareTab only="pantry" state={careState} houndName={kennel.name} balance={kennel.bonesBalance} currencyName={currencyName} onShort={offerMore} />
+                {open.kitchen && (
+                  <CareTab only="pantry" state={careState} houndName={kennel.name} balance={kennel.bonesBalance} currencyName={currencyName} onShort={offerMore} />
+                )}
               </>
             }
           />
         )}
 
         {/* Home follows the place on screen. */}
-        {tab === 'home' && zone === 0 && (
+        {tab === 'home' && place === 'yard' && (
           <>
-            <GardenCard state={garden} currencyName={currencyName} onShort={offerMore} />
+            {open.garden && <GardenCard state={garden} currencyName={currencyName} onShort={offerMore} />}
             {/* The Yard (0148): a fixed spot for everything, more spots as the
                 hound ranks up, and trophies that can only be won. */}
             {yard && (
@@ -1237,6 +1271,8 @@ export function KennelScreen({
                   {YARD_ITEMS.filter(
                     (i) =>
                       i.slot === spotSlot(yardSpot) &&
+                      // Bougie houses open at level 7 (kennel/unlocks.ts).
+                      (i.slot !== 'house' || i.costBones === 0 || open.houses || kennel.owned.includes(i.id)) &&
                       // Limited-time ones while they're on sale, then only if yours.
                       (!i.season || yardItemOnSale(i, today) || kennel.owned.includes(i.id)),
                   ).map((item) => {
@@ -1357,7 +1393,7 @@ export function KennelScreen({
 
           </>
         )}
-        {tab === 'home' && zone === 1 && (yard?.porch ? (
+        {tab === 'home' && place === 'porch' && (yard?.porch ? (
           <>
             {/* The Porch's shop (0157), once it's unlocked. */}
             {yard?.porch && (
@@ -1404,7 +1440,7 @@ export function KennelScreen({
                 <Text style={styles.itemNote}>A hot tub, a swing, a fire pit and more, round the back of the house. Unlock it on the Porch above.</Text>
               </Card>
         ))}
-        {tab === 'home' && zone === 2 && (
+        {tab === 'home' && place === 'room' && (
               <Card style={{ gap: 10 }} elevated={false}>
                 <View style={styles.seasonHeader}>
                   <Text style={text.h4}>Your room</Text>
@@ -1444,7 +1480,7 @@ export function KennelScreen({
                 </View>
               </Card>
         )}
-        {tab === 'home' && zone === 3 && <ParkList together={together} houndName={kennel.name} onOpenFriend={onOpenFriend} />}
+        {tab === 'home' && place === 'park' && <ParkList together={together} houndName={kennel.name} onOpenFriend={onOpenFriend} />}
 
         {/* Style: the wardrobe, then the coat, breed, ears and tail. */}
         {tab === 'style' && (
@@ -1462,6 +1498,11 @@ export function KennelScreen({
                 </Pressable>
               ))}
             </ScrollView>
+            {!open.wardrobe && (
+              <Text style={styles.itemNote}>
+                More of the wardrobe at level {KENNEL_UNLOCKS.wardrobe.level}: neck, glasses, outfits and shoes.
+              </Text>
+            )}
             {wardrobe === 'holiday' && seasons.length > 0 && (
               <Text style={styles.itemNote}>
                 {seasons.join(' and ')}: only around for a little while. Anything you get, you keep.
@@ -1615,7 +1656,8 @@ export function KennelScreen({
                   <AboutCard profile={growth.profile} today={localDayKey(new Date())} onSetBirthday={growth.setBirthday} busy={growth.busy} />
                 )}
             {/* Tricks (0158): tap one to see it; double-tap the hound in the
-                yard for the ones you have. */}
+                yard for the ones you have. From level 2 (kennel/unlocks.ts). */}
+            {open.tricks && (
             <Card style={{ gap: 10 }} elevated={false}>
               <View style={styles.seasonHeader}>
                 <Text style={text.h4}>Tricks</Text>
@@ -1645,6 +1687,7 @@ export function KennelScreen({
                 })}
               </View>
             </Card>
+            )}
             {nextStep && (
               <Card style={{ gap: 6, alignItems: 'center' }} elevated={false}>
               {nextStep && (
