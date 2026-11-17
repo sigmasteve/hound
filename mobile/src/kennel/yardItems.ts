@@ -5,7 +5,7 @@
 export type YardSlot = 'house' | 'bed' | 'bowl' | 'toy' | 'plant' | 'fence' | 'ground' | 'tree' | 'pond';
 
 // The Porch (0157): unlocked once, then each item has its own place on it.
-export const PORCH_UNLOCK = { id: 'zone_porch', name: 'The Porch', costBones: 1500, minLevel: 10 };
+export const PORCH_UNLOCK = { id: 'zone_porch', name: 'The Porch', costBones: 1500, minLevel: 5 };
 export const PORCH_ITEMS: { id: string; name: string; costBones: number; note: string }[] = [
   { id: 'porch_hottub', name: 'Hot Tub', costBones: 1200, note: 'Your hound sits in it, with bubbles' },
   { id: 'porch_lounge', name: 'Lounge Chair', costBones: 300, note: 'For naps in the sun' },

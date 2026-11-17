@@ -482,7 +482,8 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Open the Kennel from your hound on Today, or from the You tab. Tap the name to rename your hound.',
         'Their mood follows your goal days over the last week, and a goal day today always makes them happy. A quiet week just makes them sleepy.',
         `Give a treat once a day for ${currency} to cheer them up. Today’s Kennel card lists what’s left to do, and its Treat chip gives one right there.`,
-        'The Kennel has five tabs: Walks (what today’s walks found, the diary and the About card), Wardrobe, Look, Yard and More (tricks).',
+        'The Kennel has three tabs: Today (walks, finds and bath day), Style (the wardrobe and their look) and Home (the Yard and the Park). Tap the name for the About card.',
+        'More opens as you level up: Tricks at level 2, the Garden at 3, the Kitchen at 4, the Porch at 5, the rest of the wardrobe at 6, bougie houses at 7, the Room at 8 and gifting at 9. The level-up pop-up says what’s new, and anything you already had stays yours.',
         'Your friends see your hound on your friend page, and you see theirs.',
         'Turn on “Use as my avatar” in the Kennel and your hound replaces your initials everywhere: leaderboards, friends and chats. It keeps your frame and background, and picking an icon in Your look switches back.',
         'Care style: Gentle is the default. Classic pet adds 3 meal hearts; one empties each day they aren’t fed, and with none left they’re hungry until you feed them. Going up a level fills every heart. You can switch back any time.',
@@ -508,11 +509,11 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'Kennel → Yard: a spot for each thing, and more spots and a bigger yard as you rank up. Pick a spot (House, Bed, Bowl, Toy and more) to choose what goes there.',
         'Your hound strolls about, naps in bed or the hammock, and drinks from a bowl that fills with your water through the day.',
-        'Swipe the grass to throw their toy. Swipe the sky across to go round to the Porch, and again to go inside to the room.',
-        `Houses go from the free Hound House to an Igloo, a Beach Bungalow, a Modern Glass House, a Treehouse, a Castle and the Doghouse Mansion (2,500 ${currency}).`,
-        'The Porch opens at Hunter (level 10): a Hot Tub, Lounge Chair, Porch Swing, Fire Pit, Patio Umbrella and Grill.',
+        'Swipe the grass to throw their toy. Swipe the sky across to go to the Park, then (once they open) round to the Porch and inside to the Room.',
+        `Houses go from the free Hound House (bought houses open at level 7) to an Igloo, a Beach Bungalow, a Modern Glass House, a Treehouse, a Castle and the Doghouse Mansion (2,500 ${currency}).`,
+        'The Porch opens at Tracker (level 5): a Hot Tub, Lounge Chair, Porch Swing, Fire Pit, Patio Umbrella and Grill.',
         'Trophies you win in challenges stand in the yard. Choose which under Yard → Trophies.',
-        'Tricks (Kennel → More): High Five, Spin, Roll Over and Play Dead. Double-tap your hound to do one. Friends can do it in your yard too.',
+        'Tricks (from level 2, under the hound’s name): High Five, Spin, Roll Over and Play Dead. Double-tap your hound to do one. Friends can do it in your yard too.',
       ],
     },
     {
@@ -545,7 +546,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'The garden',
       summary: 'Plant a seed and your steps water it.',
       steps: [
-        'Kennel → Yard → Garden has 3 plots. Tap an empty one to plant a seed.',
+        'The garden opens at level 3. Kennel → Home → Garden has 3 plots. Tap an empty one to plant a seed.',
         'The steps you take after planting make it grow: seed, sprout, bud, then bloom. A daisy needs 20,000 steps; a giant sunflower 70,000.',
         'A day without steps just pauses it. Nothing wilts.',
         `One free seed a week (a daisy, sunflower or tulip). More come in packs of 2 or 3 for ${currency}, and some only in their season, like pumpkins in autumn.`,
@@ -573,9 +574,9 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'A long walk (30 minutes or 3,000 steps) brings your hound home muddy. Nothing bad comes of it: it just looks the part.',
         `One bath a day, earned by that long walk, 6,000 steps, your goals done or a ${currency} pack bought that day. Kennel → Care → Give a bath: scrub your hound with a finger, pop the bubbles (+1 ${currency} each, and more for the golden one), rinse with the shower, watch them shake dry, then pick a ’do: Fluffy, Curl, Spiky or Bow. They keep it until the next long walk, and friends see it too. Quick bath skips the game, with no ${currency}. They stay fresh until the next long walk.`,
-        `Kennel → Care → Kitchen bakes treats from the things your walks find, plus a few ${currency}: Pumpkin biscuits, a Peanut butter pupcake, Frosty paws and a Birthday cake. Your collection book still counts every find.`,
-        'Treats wait in the pantry. Feed one as today’s treat, with nothing to pay, or send one to a friend’s hound: open them in Friends and tap Send a gift.',
-        `The room is inside the house, a swipe on from the Porch, and open to everyone. Kennel → Yard → Room has a Fireplace, Sofa, Bookshelf, Photo Wall (with your hound’s portrait), Fireside Cushion, Cozy Rug, Floor Lamp and Potted Fern, from 150 to 900 ${currency}.`,
+        `From level 4, the Kitchen (Kennel → Today) bakes treats from the things your walks find, plus a few ${currency}: Pumpkin biscuits, a Peanut butter pupcake, Frosty paws and a Birthday cake. Your collection book still counts every find.`,
+        'Treats wait in the pantry. Feed one as today’s treat, with nothing to pay, or, from level 9, send one to a friend’s hound: open them in Friends and tap Send a gift.',
+        `The Room is inside the house, a swipe on from the Porch, and opens at level 8. Kennel → Home → Room has a Fireplace, Sofa, Bookshelf, Photo Wall (with your hound’s portrait), Fireside Cushion, Cozy Rug, Floor Lamp and Potted Fern, from 150 to 900 ${currency}.`,
       ],
     },
     {

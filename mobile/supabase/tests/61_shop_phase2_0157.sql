@@ -1,4 +1,4 @@
--- 0157: the Porch opens at Hunter and porch items need it; a bougie
+-- 0157: the Porch opens at Tracker (0216; was Hunter) and porch items need it; a bougie
 -- house is bought like any house; gifts go to friends only, once, with a
 -- clean note, and show up once; friends see the porch; admins see counts.
 select plan(16);
@@ -9,13 +9,14 @@ select tests.new_user('Cy') as cy \gset
 select (now() at time zone 'utc')::date as today \gset
 insert into public.friendships (requester_id, recipient_id, status) values (:'ann', :'bob', 'accepted');
 update public.profiles set bones_balance = 5000, xp_total = 0 where id in (:'ann', :'bob');
+update public.profiles set xp_total = 1200 where id = :'ann'; -- gifting opens at level 9 (0216)
 
 select tests.sign_in(:'bob');
 set local role authenticated;
 select throws_ok(format('select public.buy_kennel_item(%L, ''porch_hottub'')', :'today'), 'Unlock the Porch first.',
   'Porch items need the Porch');
-select throws_ok(format('select public.buy_kennel_item(%L, ''zone_porch'')', :'today'), 'The Porch opens at Hunter (level 10).',
-  'The Porch needs Hunter');
+select throws_ok(format('select public.buy_kennel_item(%L, ''zone_porch'')', :'today'), 'The Porch opens at Tracker (level 5).',
+  'The Porch needs Tracker');
 reset role;
 
 update public.profiles set xp_total = 100000 where id = :'bob';
@@ -24,7 +25,7 @@ select bones_balance as bob_bones from public.profiles where id = :'bob' \gset
 
 select tests.sign_in(:'bob');
 set local role authenticated;
-select lives_ok(format('select public.buy_kennel_item(%L, ''zone_porch'')', :'today'), 'At Hunter, the Porch unlocks');
+select lives_ok(format('select public.buy_kennel_item(%L, ''zone_porch'')', :'today'), 'At Tracker and up, the Porch unlocks');
 select lives_ok(format('select public.buy_kennel_item(%L, ''porch_hottub'')', :'today'), 'and a hot tub goes on it');
 select lives_ok(format('select public.buy_kennel_item(%L, ''house_mansion'')', :'today'), 'A mansion is bought like any house');
 select is((select bones_balance from public.profiles where id = :'bob'), :'bob_bones'::int - 1500 - 1200 - 2500, 'and they all cost Bones');

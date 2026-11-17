@@ -8,6 +8,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { RANKS, rankForLevel } from '../challenges/ranks';
 import { stepLabel, stepsAfter } from '../challenges/ladder';
+import { KENNEL_UNLOCKS } from '../kennel/unlocks';
 
 // Shown on Today the first time it opens after you've gone up a level:
 // your avatar pops in with its new level badge, and a new rank gets its
@@ -32,6 +33,8 @@ export function LevelUpModal({
   const newRank = rankForLevel(fromLevel).id !== rank.id;
   const next = RANKS.find((r) => r.minLevel > toLevel) ?? null;
   const nextStep = stepsAfter(toLevel, 1)[0] ?? null;
+  // What opened in the Kennel on the way here (kennel/unlocks.ts).
+  const kennelNew = Object.values(KENNEL_UNLOCKS).filter((u) => u.level > fromLevel && u.level <= toLevel);
   const pop = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -84,6 +87,12 @@ export function LevelUpModal({
             </Text>
           )}
 
+          {kennelNew.length > 0 && (
+            <View style={styles.unlocks}>
+              <Text style={styles.unlocksTitle}>New in the Kennel: {kennelNew.map((u) => u.name).join(' · ')}</Text>
+              <Text style={styles.unlocksList}>{kennelNew.map((u) => u.line).join(' ')}</Text>
+            </View>
+          )}
           {unlockedNames.length > 0 && (
             <View style={styles.unlocks}>
               <Text style={styles.unlocksTitle}>Unlocked in Your look</Text>

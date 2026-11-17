@@ -4,6 +4,7 @@
 select plan(5);
 
 select tests.new_user('Ann') as ann \gset
+update public.profiles set xp_total = 1200 where xp_total < 1200; -- level 10: past the Kennel's ladder (0216)
 select (now() at time zone 'utc')::date as today \gset
 update public.profiles set bones_balance = 1000 where id = :'ann';
 

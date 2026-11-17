@@ -5,6 +5,7 @@ select plan(16);
 
 select tests.new_user('Ann', true) as ann \gset
 select tests.new_user('Sis') as sis \gset
+update public.profiles set xp_total = 1200 where xp_total < 1200; -- level 10: past the Kennel's ladder (0216)
 select (now() at time zone 'utc')::date as today \gset
 select k.id as off_season from public.garden_seed_kinds k
   where k.season is not null and k.season <> public.walk_season((now() at time zone 'utc')::date) limit 1 \gset
