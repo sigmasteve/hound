@@ -21,6 +21,7 @@ interface ProfileRef {
   equipped_background_id: string | null;
   equipped_icon_id: string | null;
   xp_total: number | null;
+  username: string | null;
 }
 
 interface FriendshipRow {
@@ -34,8 +35,8 @@ interface FriendshipRow {
 
 const FRIENDSHIP_COLUMNS =
   'id, requester_id, recipient_id, status, ' +
-  'requester:profiles!friendships_requester_id_fkey(id, name, initials, organization_id, equipped_frame_id, equipped_background_id, equipped_icon_id, xp_total), ' +
-  'recipient:profiles!friendships_recipient_id_fkey(id, name, initials, organization_id, equipped_frame_id, equipped_background_id, equipped_icon_id, xp_total)';
+  'requester:profiles!friendships_requester_id_fkey(id, name, initials, organization_id, equipped_frame_id, equipped_background_id, equipped_icon_id, xp_total, username), ' +
+  'recipient:profiles!friendships_recipient_id_fkey(id, name, initials, organization_id, equipped_frame_id, equipped_background_id, equipped_icon_id, xp_total, username)';
 
 function rowToFriend(row: FriendshipRow, myUserId: string): Friend {
   const iAmRequester = row.requester_id === myUserId;
@@ -52,6 +53,45 @@ function rowToFriend(row: FriendshipRow, myUserId: string): Friend {
     backgroundId: other?.equipped_background_id ?? null,
     iconId: other?.equipped_icon_id ?? null,
     level: levelForXp(other?.xp_total),
+    username: other?.username ?? null,
+  };
+}
+
+// Someone on Hound by their exact username (any case, with or without
+// the @), for adding a friend from the search box. Exact only: no browsing
+// people by part of a name. Null when nobody has it, or it's you.
+export interface UsernameMatch {
+  userId: string;
+  name: string;
+  username: string;
+  initials: string;
+  iconId: string | null;
+  frameId: string | null;
+  backgroundId: string | null;
+}
+
+export async function findUserByUsername(raw: string): Promise<UsernameMatch | null> {
+  const client = requireClient();
+  const userId = await requireUserId();
+  const username = raw.trim().replace(/^@/, '');
+  if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) return null;
+  // ilike for any case; its wildcard _ is escaped, so it's an exact match.
+  const { data, error } = await client
+    .from('profiles')
+    .select('id, name, initials, username, equipped_icon_id, equipped_frame_id, equipped_background_id')
+    .ilike('username', username.replace(/_/g, '\\_'))
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data || data.id === userId || !data.username) return null;
+  return {
+    userId: data.id,
+    name: data.name,
+    username: data.username,
+    initials: data.initials,
+    iconId: data.equipped_icon_id ?? null,
+    frameId: data.equipped_frame_id ?? null,
+    backgroundId: data.equipped_background_id ?? null,
   };
 }
 

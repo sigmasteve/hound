@@ -1,3 +1,4 @@
+import { friendMatches } from '../friends/types';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { MagnifyingGlassIcon, XIcon } from 'phosphor-react-native';
@@ -12,7 +13,7 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 // past `scrollAfter` it scrolls inside its own box (about six rows tall)
 // with the picked ones shown as chips above it, so you can see who's in
 // without scrolling back; past `searchAfter` it gets a search field.
-export function FriendPickList<T extends { userId: string; name: string }>({
+export function FriendPickList<T extends { userId: string; name: string; username?: string | null }>({
   items,
   renderItem,
   pickedIds,
@@ -38,7 +39,7 @@ export function FriendPickList<T extends { userId: string; name: string }>({
   const long = items.length > scrollAfter;
   const searchable = items.length > searchAfter;
   const q = query.trim().toLowerCase();
-  const shown = searchable && q ? items.filter((f) => f.name.toLowerCase().includes(q)) : items;
+  const shown = searchable && q ? items.filter((f) => friendMatches(f, q)) : items;
   const picked = useMemo(() => {
     const ids = new Set(pickedIds ?? []);
     return items.filter((f) => ids.has(f.userId));

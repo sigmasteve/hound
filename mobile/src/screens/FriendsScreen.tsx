@@ -23,8 +23,8 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, TINT_A, TINT_N, withAlpha, type Palette } from '../theme/tokens';
 import { FRIENDS } from '../data/sampleData';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { supabaseFriendsProvider } from '../friends/supabaseFriends';
-import { KUDOS_LIMIT_MESSAGE, friendCodeUrl, type Friend } from '../friends/types';
+import { findUserByUsername, supabaseFriendsProvider, type UsernameMatch } from '../friends/supabaseFriends';
+import { KUDOS_LIMIT_MESSAGE, friendCodeUrl, friendMatches, type Friend } from '../friends/types';
 import { feedAction, getFriendActivityFeed, groupFeed, timeAgo, type FeedItem } from '../friends/activityFeed';
 import { useLabels } from '../labels/LabelsContext';
 import { useAuth } from '../auth/AuthContext';
@@ -68,6 +68,11 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
   // friends. Shown open while you have no friends yet.
   const [showAdd, setShowAdd] = useState(false);
   const [friendQuery, setFriendQuery] = useState('');
+  // Someone not yet a friend, found by their exact username in the
+  // search box (null: nobody; undefined: not looked up / looking).
+  const [byUsername, setByUsername] = useState<UsernameMatch | null | undefined>(undefined);
+  const [requesting, setRequesting] = useState(false);
+  const [requestNote, setRequestNote] = useState<string | null>(null);
   const [showAllFriends, setShowAllFriends] = useState(false);
 
   const [inviteEmail, setInviteEmail] = useState('');
@@ -188,6 +193,39 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
     }
   };
 
+  useEffect(() => {
+    setRequestNote(null);
+    if (!isSupabaseConfigured || !/^@?[A-Za-z0-9_]{3,20}$/.test(friendQuery.trim())) {
+      setByUsername(undefined);
+      return;
+    }
+    let live = true;
+    setByUsername(undefined);
+    const t = setTimeout(() => {
+      findUserByUsername(friendQuery)
+        .then((m) => live && setByUsername(m))
+        .catch(() => live && setByUsername(null));
+    }, 400);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [friendQuery]);
+
+  const requestByUsername = async (m: UsernameMatch) => {
+    setRequesting(true);
+    setRequestNote(null);
+    try {
+      await supabaseFriendsProvider.sendFriendRequest(m.userId);
+      setRequestNote(`Friend request sent to @${m.username}.`);
+      await load();
+    } catch (e) {
+      setRequestNote(e instanceof Error ? e.message : 'Could not send the request.');
+    } finally {
+      setRequesting(false);
+    }
+  };
+
   if (liveFriends === null) {
     // A real backend exists but its first fetch hasn't resolved yet —
     // same "one real spinner, then never again" shape as ChallengesScreen's
@@ -261,8 +299,13 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
   const sentInvites = liveFriends.filter((f) => f.status === 'pending' && f.requestedByMe);
   const query = friendQuery.trim().toLowerCase();
   const searching = query.length > 0;
-  const matchingFriends = searching ? accepted.filter((f) => f.name.toLowerCase().includes(query)) : accepted;
+  const matchingFriends = searching ? accepted.filter((f) => friendMatches(f, query)) : accepted;
   const shownFriends = searching || showAllFriends ? matchingFriends : matchingFriends.slice(0, FRIENDS_PREVIEW);
+  // When the search looks like a username and isn't already a friend,
+  // look it up across Hound (after a short pause in typing).
+  const handle = friendQuery.trim().replace(/^@/, '');
+  const looksLikeUsername = /^[A-Za-z0-9_]{3,20}$/.test(handle);
+  const alreadyFriend = accepted.some((f) => f.username?.toLowerCase() === handle.toLowerCase());
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -467,7 +510,7 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
             label=""
             value={friendQuery}
             onChangeText={setFriendQuery}
-            placeholder="Search your friends"
+            placeholder="Search by name or @username"
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
@@ -477,9 +520,11 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
         {accepted.length === 0 ? (
           <Text style={styles.footNote}>No friends yet. Pick a way to add someone above.</Text>
         ) : shownFriends.length === 0 ? (
-          <Text style={styles.footNote}>
-            No friends match &ldquo;{friendQuery.trim()}&rdquo;. To find someone new, tap Add friends.
-          </Text>
+          looksLikeUsername ? null : (
+            <Text style={styles.footNote}>
+              No friends match &ldquo;{friendQuery.trim()}&rdquo;. To find someone new, search their @username or tap Add friends.
+            </Text>
+          )
         ) : (
           <View>
             {shownFriends.map((f, i) => (
@@ -489,14 +534,45 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
                 style={[styles.friendListRow, i > 0 && styles.friendListRowDivider]}
               >
                 <Avatar initials={f.initials} tint={TINT_N} frameId={f.frameId} backgroundId={f.backgroundId} iconId={f.iconId} level={f.level} />
-                <Text style={[styles.friendName, { flex: 1 }]} numberOfLines={1}>
-                  {f.name}
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.friendName} numberOfLines={1}>
+                    {f.name}
+                  </Text>
+                  {!!f.username && f.username.toLowerCase() !== f.name.toLowerCase() && (
+                    <Text style={styles.footNote} numberOfLines={1}>
+                      @{f.username}
+                    </Text>
+                  )}
+                </View>
                 <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
               </Pressable>
             ))}
           </View>
         )}
+        {searching && looksLikeUsername && !alreadyFriend && byUsername && (
+          <View style={[styles.friendListRow, styles.friendListRowDivider]}>
+            <Avatar initials={byUsername.initials} tint={TINT_N} frameId={byUsername.frameId} backgroundId={byUsername.backgroundId} iconId={byUsername.iconId} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.friendName} numberOfLines={1}>
+                @{byUsername.username}
+              </Text>
+              <Text style={styles.footNote} numberOfLines={1}>
+                {byUsername.name} · on Hound
+              </Text>
+            </View>
+            <Button
+              label={requesting ? 'Sending…' : 'Add friend'}
+              variant="primary"
+              small
+              disabled={requesting || !!requestNote}
+              onPress={() => requestByUsername(byUsername)}
+            />
+          </View>
+        )}
+        {searching && looksLikeUsername && !alreadyFriend && byUsername === null && matchingFriends.length === 0 && (
+          <Text style={styles.footNote}>Nobody on Hound goes by @{handle}. Check the spelling, or ask them for their friend code.</Text>
+        )}
+        {requestNote && <Text style={styles.footNote}>{requestNote}</Text>}
         {!searching && accepted.length > FRIENDS_PREVIEW && (
           <Pressable onPress={() => setShowAllFriends((v) => !v)} hitSlop={6} style={styles.showAll}>
             <Text style={styles.showAllText}>{showAllFriends ? 'Show fewer' : `Show all ${accepted.length}`}</Text>
