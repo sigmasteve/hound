@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { Card } from './Card';
+import { usePinnedAction } from './PinnedAction';
 import { Avatar } from './Avatar';
 import { HoopsCourt } from './HoopsCourt';
 import { useTheme } from '../theme/ThemeContext';
@@ -271,6 +272,9 @@ function HandsOn({
   const mine = !!live.turn?.mine;
   const left = timeLeft(live.turn?.endsAt ?? null);
   const final = game.status === 'final' || live.status === 'final';
+  // Your turn: pinned to the bottom of the page (PinnedAction.tsx).
+  const turnLabel = live.turn?.kind === 'match' ? 'Take your turn: match it' : 'Take your turn: set a shot';
+  const turnPinned = usePinnedAction(mine && live.canShoot && !final && onShoot ? { label: turnLabel, onPress: () => onShoot() } : null);
   const status = final
     ? game.winner
       ? `${nameOf(game.winner)} ${game.winner === game.me ? 'win' : 'wins'}.${live.stakes ? ` ${game.winner === game.me ? `${them} bakes your hound` : `You bake ${them}’s hound`} a ${live.stakes.name}.` : ''}`
@@ -310,6 +314,7 @@ function HandsOn({
               🧁 Stakes: the loser bakes the winner’s hound a {live.stakes.name}.
             </Text>
           )}
+          {!turnPinned && (
           <Pressable
             onPress={onShoot}
             disabled={!onShoot}
@@ -317,9 +322,10 @@ function HandsOn({
             accessibilityRole="button"
           >
             <Text style={[styles.shootText, !(mine && live.canShoot) && { color: colors.text }]}>
-              {mine ? (live.canShoot ? (live.turn?.kind === 'match' ? 'Take your turn: match it' : 'Take your turn: set a shot') : live.reason || 'Take your turn') : 'See the court'}
+              {mine ? (live.canShoot ? turnLabel : live.reason || 'Take your turn') : 'See the court'}
             </Text>
           </Pressable>
+          )}
         </Card>
       )}
       {game.recent.length > 0 && (

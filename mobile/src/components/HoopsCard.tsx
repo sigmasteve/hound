@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { Card } from './Card';
+import { usePinnedAction } from './PinnedAction';
 import { Avatar } from './Avatar';
 import { HoopsCourt } from './HoopsCourt';
 import { useTheme } from '../theme/ThemeContext';
@@ -92,6 +93,13 @@ export function HoopsCard({
   const gameDayA = useGameDayIds(challengeId, lastDays[0]);
   const gameDayB = useGameDayIds(challengeId, lastDays[1]);
   const gameDayIds = useMemo(() => new Set([...gameDayA, ...gameDayB]), [gameDayA, gameDayB]);
+
+  // Shots ready: pinned to the bottom of the page (PinnedAction.tsx).
+  const shotsReady =
+    !!game && !!game.me && game.status !== 'final' && game.handsOn && !!game.live && game.live.ready > 0 && !!onShoot ? game.live.ready : 0;
+  const shootPinned = usePinnedAction(
+    shotsReady > 0 ? { label: `Take your shots · ${shotsReady} ready`, onPress: () => onShoot?.() } : null,
+  );
 
   if (!game) {
     return (
@@ -318,15 +326,17 @@ export function HoopsCard({
           {/* Taking your own shots (0206). */}
           {game.handsOn && game.live && (
             <View style={{ gap: 6 }}>
-              <Pressable
-                onPress={onShoot}
-                style={[styles.shoot, game.live.ready > 0 ? { backgroundColor: colors.green } : styles.shootOff]}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.shootText, game.live.ready <= 0 && { color: colors.text }]}>
-                  {game.live.ready > 0 ? `Take your shots · ${game.live.ready} ready` : 'Take your shots'}
-                </Text>
-              </Pressable>
+              {!shootPinned && (
+                <Pressable
+                  onPress={onShoot}
+                  style={[styles.shoot, game.live.ready > 0 ? { backgroundColor: colors.green } : styles.shootOff]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.shootText, game.live.ready <= 0 && { color: colors.text }]}>
+                    {game.live.ready > 0 ? `Take your shots · ${game.live.ready} ready` : 'Take your shots'}
+                  </Text>
+                </Pressable>
+              )}
               {game.live.shots.length > 0 ? (
                 <Text style={styles.small}>
                   Today you've taken {game.live.shots.length}{' '}

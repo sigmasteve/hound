@@ -6,6 +6,7 @@ import { PauseIcon, PlayIcon } from 'phosphor-react-native';
 import { Text } from './Text';
 import { Avatar } from './Avatar';
 import { Card } from './Card';
+import { usePinnedAction } from './PinnedAction';
 import { DayCard, groupLines } from './DayCard';
 import { PickRow } from './PickRow';
 import { useTheme } from '../theme/ThemeContext';
@@ -510,6 +511,13 @@ export function BaseballCard({
     };
   }, [playing, night.length, replayGo]);
 
+  // At-bats ready: pinned to the bottom of the page (PinnedAction.tsx).
+  const meJoined = !!game?.players.find((p) => p.playerId === userId)?.joined;
+  const batReady = !!game && game.handsOn && game.status === 'active' && meJoined && !!live && (live.ready > 0 || live.open) && !!onBat;
+  const batPinned = usePinnedAction(
+    batReady && live ? { label: live.open ? 'Finish your at-bat' : `Take your at-bats · ${live.ready} ready`, onPress: () => onBat?.() } : null,
+  );
+
   if (!game) {
     return (
       <Card style={{ gap: 8 }} elevated={false}>
@@ -661,11 +669,13 @@ export function BaseballCard({
       {/* Taking your own at-bats (0207). */}
       {game.handsOn && game.status === 'active' && me?.joined && live && !showing && (
         <View style={{ gap: 6 }}>
-          <Pressable onPress={onBat} style={[styles.bat, live.ready > 0 || live.open ? { backgroundColor: colors.green } : styles.batOff]} accessibilityRole="button">
-            <Text style={[styles.batText, !(live.ready > 0 || live.open) && { color: colors.text }]}>
-              {live.open ? 'Finish your at-bat' : live.ready > 0 ? `Take your at-bats · ${live.ready} ready` : 'Take your at-bats'}
-            </Text>
-          </Pressable>
+          {!batPinned && (
+            <Pressable onPress={onBat} style={[styles.bat, live.ready > 0 || live.open ? { backgroundColor: colors.green } : styles.batOff]} accessibilityRole="button">
+              <Text style={[styles.batText, !(live.ready > 0 || live.open) && { color: colors.text }]}>
+                {live.open ? 'Finish your at-bat' : live.ready > 0 ? `Take your at-bats · ${live.ready} ready` : 'Take your at-bats'}
+              </Text>
+            </Pressable>
+          )}
           {live.abs.length > 0 ? (
             <Text style={styles.note}>
               Your at-bats:{' '}

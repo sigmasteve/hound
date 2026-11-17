@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, View } from 're
 import { ArrowSquareOutIcon } from 'phosphor-react-native';
 import { Text } from './Text';
 import { Card } from './Card';
+import { usePinnedAction } from './PinnedAction';
 import { Avatar } from './Avatar';
 import { GolfHole, type GolfFlight } from './GolfHole';
 import { PresentedBy, SponsorLogo, openSponsor } from './SponsorLine';
@@ -116,6 +117,12 @@ export function OpenBoard({
     setWatch({ ...w, at });
     if (at < w.shots.length) setTimeout(() => setFlight({ ...w.shots[at], carry: 0, key: Date.now() }), 450);
   };
+
+  // Your hole: pinned to the bottom of the page (PinnedAction.tsx).
+  const openMine = game?.players.find((p) => p.userId === game.me) ?? null;
+  const openReady =
+    !!board && !!board.me && !board.me.finished && board.status === 'live' && !!game && (game.today.canStart || (openMine?.strokesOnHole ?? 0) > 0);
+  const holePinned = usePinnedAction(openReady ? { label: `Play hole ${board?.me?.hole ?? 1}`, onPress: () => onPlay() } : null);
 
   if (!board) {
     return (
@@ -376,14 +383,14 @@ export function OpenBoard({
               </View>
               {playable && (
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable
+                  {!holePinned && <Pressable
                     onPress={onPlay}
                     disabled={!canStart}
                     style={[styles.play, !canStart && styles.playOff]}
                     accessibilityRole="button"
                   >
                     <Text style={[styles.playText, !canStart && { color: withAlpha(colors.text, 0.6) }]}>{playLabel}</Text>
-                  </Pressable>
+                  </Pressable>}
                   <View style={styles.yards}>
                     <Text style={styles.yardsBig}>{(game?.banks.yards ?? 0).toLocaleString()} yd</Text>
                     <Text style={styles.yardsLabel}>banked</Text>
