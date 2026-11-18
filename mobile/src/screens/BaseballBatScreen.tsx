@@ -402,9 +402,8 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
     ball = { x: k.x, y: k.y, d: k.d };
   }
   const caught = !!after?.catcher && now - after.startAt >= after.landAt - 120 ? after.catcher : null;
-  const sw = swingAt ? clamp((now - swingAt) / 160, 0, 1) : 0;
   // The swing, then the follow-through held until the pitch is done.
-  const batAngle = swingAt ? -70 + 85 * sw : -70;
+  const batAngle = batAngleFor(swingAt, now);
   const liveMark = phase === 'pitch' && pitch && swingAt == null && !sent.current && now >= pitch.releaseAt;
   const mark = liveMark && pitch ? clamp(0.5 + (now - pitch.arriveAt) / BAR_MS, 0.02, 0.98) : lastMark;
 
@@ -622,9 +621,22 @@ export function Figure({ x, y, s, color, pose }: { x: number; y: number; s: numb
   );
 }
 
-// Your hound at the plate, the bat over the shoulder; the swing turns it
-// from −70° (up) to +15° (just through level, at the plate) about the
-// hands.
+// The bat's angle (0° points across the plate, negative turns it up).
+// Seen from behind the plate, the batter loads with the bat up and back
+// over the shoulder, away from the plate (−115°); the swing drops it
+// behind them, brings it level across the plate (−360°, the contact) and
+// follows through up toward the mound (−410°). Steve: the old swing,
+// −70° to +15°, chopped the wrong way round.
+export const BAT_REST = -115;
+export function batAngleFor(swingAt: number | null, now: number): number {
+  if (swingAt == null) return BAT_REST;
+  const t = Math.max(0, Math.min(1, (now - swingAt) / 200));
+  const e = 1 - Math.pow(1 - t, 3);
+  return BAT_REST - 295 * e;
+}
+
+// Your hound at the plate, the bat over the shoulder, turning about the
+// hands as batAngleFor says.
 export function Batter({ x, y, s, look, angle }: { x: number; y: number; s: number; look: ReturnType<typeof parseHoundAvatar>; angle: number }) {
   const size = HS * s;
   const L = size * 0.78; // the bat
