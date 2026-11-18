@@ -171,14 +171,14 @@
           if (ios && /testflight\.apple\.com/i.test(ios)) ios = 'https://apps.apple.com/app/id6816764199';
           var android = safeUrl(row && row.android_url);
           if (res.error || (!ios && !android)) {
-            box.innerHTML = '<p><a class="btn btn-primary btn-block" href="' + (isAndroid ? '/get' : 'https://apps.apple.com/app/id6816764199') + '" target="_blank" rel="noopener">' + (isAndroid ? 'Android: download the app' : 'iPhone: get it on the App Store') + '</a></p>' +
-            '<p><a class="btn btn-secondary btn-block" href="' + (isAndroid ? 'https://apps.apple.com/app/id6816764199' : '/get') + '" target="_blank" rel="noopener">' + (isAndroid ? 'iPhone: get it on the App Store' : 'Android: download the app') + '</a></p>';
+            box.innerHTML = '<p><a class="btn btn-primary btn-block" href="' + (isAndroid ? 'https://play.google.com/store/apps/details?id=app.hound.mobile' : 'https://apps.apple.com/app/id6816764199') + '" target="_blank" rel="noopener">' + (isAndroid ? 'Android: get it on Google Play' : 'iPhone: get it on the App Store') + '</a></p>' +
+            '<p><a class="btn btn-secondary btn-block" href="' + (isAndroid ? 'https://apps.apple.com/app/id6816764199' : 'https://play.google.com/store/apps/details?id=app.hound.mobile') + '" target="_blank" rel="noopener">' + (isAndroid ? 'iPhone: get it on the App Store' : 'Android: get it on Google Play') + '</a></p>';
             return;
           }
           // The button for the visitor's own phone first, and primary.
           var buttons = [];
           if (ios) buttons.push({ href: ios, label: 'iPhone: get it on the App Store', mine: isApple });
-          if (android) buttons.push({ href: android, label: 'Android: download the app', mine: isAndroid });
+          if (android) buttons.push({ href: android, label: 'Android: get it on Google Play', mine: isAndroid });
           buttons.sort(function (a, b) { return (b.mine ? 1 : 0) - (a.mine ? 1 : 0); });
           box.innerHTML = buttons.map(function (b, i) {
             var cls = (b.mine || (i === 0 && !buttons.some(function (x) { return x.mine; }))) ? 'btn btn-primary btn-block' : 'btn btn-secondary btn-block';
@@ -187,8 +187,8 @@
           (ios ? '<p class="sub">Free on the App Store as Hound: Fitness with Friends.</p>' : '');
         })
         .catch(function () {
-          box.innerHTML = '<p><a class="btn btn-primary btn-block" href="' + (isAndroid ? '/get' : 'https://apps.apple.com/app/id6816764199') + '" target="_blank" rel="noopener">' + (isAndroid ? 'Android: download the app' : 'iPhone: get it on the App Store') + '</a></p>' +
-            '<p><a class="btn btn-secondary btn-block" href="' + (isAndroid ? 'https://apps.apple.com/app/id6816764199' : '/get') + '" target="_blank" rel="noopener">' + (isAndroid ? 'iPhone: get it on the App Store' : 'Android: download the app') + '</a></p>';
+          box.innerHTML = '<p><a class="btn btn-primary btn-block" href="' + (isAndroid ? 'https://play.google.com/store/apps/details?id=app.hound.mobile' : 'https://apps.apple.com/app/id6816764199') + '" target="_blank" rel="noopener">' + (isAndroid ? 'Android: get it on Google Play' : 'iPhone: get it on the App Store') + '</a></p>' +
+            '<p><a class="btn btn-secondary btn-block" href="' + (isAndroid ? 'https://apps.apple.com/app/id6816764199' : 'https://play.google.com/store/apps/details?id=app.hound.mobile') + '" target="_blank" rel="noopener">' + (isAndroid ? 'iPhone: get it on the App Store' : 'Android: get it on Google Play') + '</a></p>';
         });
     }
   }

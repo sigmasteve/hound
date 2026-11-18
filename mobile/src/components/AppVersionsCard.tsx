@@ -151,7 +151,7 @@ export function AppVersionsCard() {
             <Text style={styles.footNote}>
               {min
                 ? `Anyone below ${min} sees “Time to update Hound” with the App Store or download link instead of the app (${blockedBy(min).length} right now). Admins can continue past it.`
-                : 'Off: every version can use Hound. Set it once a new build is released on the App Store and the new APK is on the website, to move everyone onto it.'}
+                : 'Off: every version can use Hound. Set it once a new build is released on the App Store and on Google Play, to move everyone onto it.'}
             </Text>
             <TextField
               label="Require at least"
