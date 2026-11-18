@@ -96,6 +96,16 @@ async function androidInstallSource(): Promise<{ source: InstallSource; referrer
   return found;
 }
 
+// Where this Android phone got Hound, or null when it isn't known (or
+// not Android). Never throws.
+export async function getInstallSource(): Promise<InstallSource | null> {
+  try {
+    return (await androidInstallSource())?.source ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // The profile columns (0163), sent with the rest of the launch report.
 // Null off Android, or when it isn't known yet. Never throws.
 export async function installSourceFields(): Promise<Record<string, string> | null> {

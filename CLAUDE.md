@@ -9,17 +9,18 @@ older versions see where to get the new one. Template, with the new
 version in place of `X.Y.Z`:
 
 ```
-{if version=X.Y.Z}{else}Hound X.Y.Z is here. iPhone: update in the App Store at https://apps.apple.com/app/id6816764199 · Android: download it at https://houndchallenge.net/get{/if}
+{if version=X.Y.Z}{else}Hound X.Y.Z is here. iPhone: update in the App Store at https://apps.apple.com/app/id6816764199 · Android: update on Google Play at https://play.google.com/store/apps/details?id=app.hound.mobile{/if}
 ```
 
 - The banner matches versions exactly, so this shows to every version
   except the new one.
 - Turn it on only once the builds are installable: released on the
-  App Store (approved by Apple and released, not just uploaded), and the
-  new APK live behind the website's download link
-  (`/downloads/hound.apk` in `site/vercel.json` points at the Google
-  Drive file; update its id if the APK is a new Drive file, and the
-  version on `site/download.html`'s button).
+  App Store (approved by Apple and released, not just uploaded), and
+  released to production on Google Play (live since Nov 2026; the app is
+  `app.hound.mobile`). The website's APK (`/downloads/hound.apk` in
+  `site/vercel.json`, a Google Drive file) is now only the fallback under
+  "Can't use Google Play?" on /get: update its Drive id and the version on
+  `site/download.html`'s button when there's a new one.
 - Remove it once most people have moved (Admin → App versions), or when
   the next version comes out.
 

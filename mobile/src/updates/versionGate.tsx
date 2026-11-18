@@ -8,7 +8,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { supabase } from '../lib/supabase';
-import { currentApp } from '../admin/appVersions';
+import { currentApp, getInstallSource, type InstallSource } from '../admin/appVersions';
 
 // The minimum app version (0188_min_app_version.sql). Below it, Hound
 // shows "Update Hound" with the App Store or download link instead of
@@ -18,6 +18,11 @@ import { currentApp } from '../admin/appVersions';
 
 export const APP_STORE_URL = 'https://apps.apple.com/app/id6816764199';
 export const ANDROID_DOWNLOAD_URL = 'https://houndchallenge.net/get';
+// Hound on Google Play (live since Nov 2026). Play installs update there;
+// a website APK can't be updated by Play, so it goes to /get, which says
+// how to move over.
+export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=app.hound.mobile';
+const PLAY_MARKET_URL = 'market://details?id=app.hound.mobile';
 
 // "0.11.0" < "0.12.0" < "0.12.1" < "1.0.0". Missing parts count as 0.
 export function compareVersions(a: string, b: string): number {
@@ -80,6 +85,16 @@ export function UpdateRequired({ installed, min, isAdmin, onSkip }: { installed:
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const ios = Platform.OS === 'ios';
+  const [source, setSource] = useState<InstallSource | null>(null);
+  useEffect(() => {
+    if (!ios) getInstallSource().then(setSource);
+  }, [ios]);
+  const fromPlay = !ios && source === 'play';
+  const open = () => {
+    if (ios) Linking.openURL(APP_STORE_URL).catch(() => {});
+    else if (fromPlay) Linking.openURL(PLAY_MARKET_URL).catch(() => Linking.openURL(PLAY_STORE_URL).catch(() => {}));
+    else Linking.openURL(ANDROID_DOWNLOAD_URL).catch(() => {});
+  };
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.body}>
@@ -92,12 +107,17 @@ export function UpdateRequired({ installed, min, isAdmin, onSkip }: { installed:
       </View>
       <View style={styles.buttons}>
         <Button
-          label={ios ? 'Update in the App Store' : 'Download the new version'}
+          label={ios ? 'Update in the App Store' : fromPlay ? 'Update on Google Play' : 'Get the new version'}
           variant="primary"
           block
-          onPress={() => Linking.openURL(ios ? APP_STORE_URL : ANDROID_DOWNLOAD_URL).catch(() => {})}
+          onPress={open}
         />
-        {!ios && <Text style={[styles.small, styles.center]}>Download it, open the file, and tap Update. Your account stays as it is.</Text>}
+        {!ios && !fromPlay && (
+          <Text style={[styles.small, styles.center]}>
+            Hound is on Google Play now. Uninstall this copy, install Hound from Google Play and sign in the same way as before:
+            everything is saved to your account.
+          </Text>
+        )}
         {isAdmin && <Button label="Continue anyway (admin)" variant="ghost" block onPress={onSkip} />}
       </View>
     </SafeAreaView>
