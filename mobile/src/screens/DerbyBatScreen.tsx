@@ -46,6 +46,7 @@ import {
   TAKE_MS,
   view,
   WINDUP_MS,
+  batAngleFor,
 } from './BaseballBatScreen';
 
 // The Hound Home Run Derby (0211), at the plate. Baseball batting's view
@@ -389,8 +390,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
     ball = { x: k.x, y: k.y, d: k.d };
   }
   const caught = !!after?.catcher && now - after.startAt >= after.landAt - 120 ? after.catcher : null;
-  const sw = swingAt ? clamp((now - swingAt) / 160, 0, 1) : 0;
-  const batAngle = swingAt ? -70 + 85 * sw : -70;
+  const batAngle = batAngleFor(swingAt, now);
   const liveMark = phase === 'pitch' && pitch && swingAt == null && !sent.current && now >= pitch.releaseAt;
   const mark = liveMark && pitch ? clamp(0.5 + (now - pitch.arriveAt) / BAR_MS, 0.02, 0.98) : lastMark;
 
