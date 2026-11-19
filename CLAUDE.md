@@ -155,8 +155,12 @@ Inside the scroll, in order:
    get a trim (snow, marigolds) and the Goals tile a corner piece, and
    snow / leaves / confetti drift over Today (off in Settings → Today,
    still with Reduce Motion).
-1. Global Hound Challenges you can still join (GlobalChallengesCard).
-   **Fixed: above the tiles, so it's seen without opening anything.**
+1. For a new account, "You're in" (YoureInCard, 0222): the Global
+   challenges it was put in (up to 3, once, on the first open after the
+   welcome wizard), each with what to do now and Leave / Undo, until
+   Got it. Then Global Hound Challenges you can still join
+   (GlobalChallengesCard). **Fixed: above the tiles, so they're seen
+   without opening anything.**
 2. Goal setup, while it's open (GoalSetupCard); it takes the goals
    tile's place.
 3. The tile grid:

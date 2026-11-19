@@ -73,6 +73,8 @@ import { ShootoutAdminCard } from '../components/ShootoutAdminCard';
 import { SportBonusAdminCard } from '../components/SportBonusAdminCard';
 import { LoggedWorkoutsAdminCard } from '../components/LoggedWorkoutsAdminCard';
 import { HealthZeroAdminCard } from '../components/HealthZeroAdminCard';
+import { AutoJoinAdminCard } from '../components/AutoJoinAdminCard';
+import { autoJoinSummary, getAutoJoinOverview } from '../challenges/autoJoinApi';
 import { getBonesGrantsOverview, healthZeroSummary } from '../admin/adminApi';
 import { getWorkoutLogOverview, workoutLogSummary } from '../workouts/loggedWorkouts';
 import { getSportBonusOverview, sportBonusSummary } from '../challenges/sportBonusApi';
@@ -241,6 +243,7 @@ export function AdminScreen({
   const [workoutLogLine, setWorkoutLogLine] = useState<string | null>(null);
   // The Not seeing steps fold's line (0205).
   const [healthZeroLine, setHealthZeroLine] = useState<string | null>(null);
+  const [autoJoinLine, setAutoJoinLine] = useState<string | null>(null);
   const [doorsSummary, setDoorsSummary] = useState<string | null>(null);
   const [packsSummary, setPacksSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
@@ -328,6 +331,9 @@ export function AdminScreen({
         .catch(() => {});
       getDerbyOverview()
         .then((o) => setDerbyLine(derbySummary(o)))
+        .catch(() => {});
+      getAutoJoinOverview()
+        .then((o) => setAutoJoinLine(autoJoinSummary(o)))
         .catch(() => {});
       getShootoutOverview()
         .then((o) => setShootoutLine(shootoutSummary(o)))
@@ -898,6 +904,9 @@ export function AdminScreen({
                   </AdminFold>
                   <AdminFold title="Not seeing steps" summary={healthZeroLine ?? 'Phones sending 0 steps for days'}>
                     <HealthZeroAdminCard onChanged={(o) => setHealthZeroLine(healthZeroSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="New users in Global challenges" summary={autoJoinLine ?? 'Auto-joined, played, left'}>
+                    <AutoJoinAdminCard onChanged={(o) => setAutoJoinLine(autoJoinSummary(o))} />
                   </AdminFold>
                   </>
                 )}
