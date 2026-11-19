@@ -97,6 +97,7 @@ const HORSE_STAKES: { id: string | null; name: string }[] = [
 import { setupGlobalGolf, setupGolf } from '../challenges/golfApi';
 import { DEFAULT_DERBY_PRIZES, setupGlobalDerby } from '../challenges/derbyApi';
 import { DEFAULT_SHOOTOUT_PRIZES, setupGlobalShootout } from '../challenges/shootoutApi';
+import { DEFAULT_TITLE_PRIZES, setupTitleBoutGlobal } from '../challenges/titleBoutApi';
 import { SponsorEditor, emptySponsorDraft, sponsorDraftProblem, sponsorFromDraft, usesPlacements } from '../components/SponsorEditor';
 import { GOLF_COURSES, GOLF_FORMAT_NAME, GOLF_FORMAT_NOTE, GOLF_HOLES_PER_DAY, golfDays, type GolfCourseId, type GolfFormat } from '../challenges/golf';
 import {
@@ -203,6 +204,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   derby: 'Every pitch a meatball: most home runs in a week wins.',
   shootout: 'Penalty kicks for a week: top corners count 2. Most goals wins.',
   bout: 'Boxing, one on one: punch, slip, set your guard. A round a day.',
+  titlebout: 'Hound Bout for everyone: a ladder, then the top two fight for the belt.',
 };
 
 // A Journey's default run: about two miles a day, at least three days,
@@ -476,6 +478,11 @@ export function CreateScreen({
   const [shootTop10Text, setShootTop10Text] = useState(String(DEFAULT_SHOOTOUT_PRIZES.top10));
   const [shootStreakText, setShootStreakText] = useState(String(DEFAULT_SHOOTOUT_PRIZES.streak));
   const [shootFifteenText, setShootFifteenText] = useState(String(DEFAULT_SHOOTOUT_PRIZES.fifteen));
+  // The Title Bout (0227): most KOs, five days fought, and a right pick
+  // (the champion, runner-up and 3rd-10th go in the top 3's boxes).
+  const [tbKosText, setTbKosText] = useState(String(DEFAULT_TITLE_PRIZES.mostKos));
+  const [tbFiveText, setTbFiveText] = useState(String(DEFAULT_TITLE_PRIZES.fiveDays));
+  const [tbPickText, setTbPickText] = useState('25');
   const bonesOf = (t: string, max: number) => Math.max(0, Math.min(max, Math.round(Number(t.replace(/[^0-9]/g, '')) || 0)));
   const canHavePot = !crowd && POT_KINDS.includes(draftType);
   const canHavePrizes = global && draftType !== 'seventyfive' && draftType !== 'checklist';
@@ -627,6 +634,12 @@ export function CreateScreen({
       setJoinWindow('3');
       setPrizeText(['500', '300', '200']);
     }
+    // The Title Bout: exactly a week, joining closes 3 days in.
+    if (draftType === 'titlebout') {
+      setLength('7');
+      setJoinWindow('3');
+      setPrizeText([String(DEFAULT_TITLE_PRIZES.champion), String(DEFAULT_TITLE_PRIZES.runnerUp), String(DEFAULT_TITLE_PRIZES.top10)]);
+    }
     if (draftType === 'journey') setLength(String(journeyDefaultDays(course.miles)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftType]);
@@ -771,6 +784,7 @@ export function CreateScreen({
       setPrizeText(['500', '250', '100']);
     }
     if (t.kind === 'derby' || t.kind === 'shootout') setPrizeText(['500', '300', '200']);
+    if (t.kind === 'titlebout') setPrizeText([String(DEFAULT_TITLE_PRIZES.champion), String(DEFAULT_TITLE_PRIZES.runnerUp), String(DEFAULT_TITLE_PRIZES.top10)]);
     setPoolCourseId(t.kind === 'distance' ? (t.courseId ?? null) : null);
     setNameError(null);
     setStep(2);
@@ -1034,6 +1048,20 @@ export function CreateScreen({
               streak: bonesOf(shootStreakText, 1000),
               fifteen: bonesOf(shootFifteenText, 200),
             });
+          } catch (e) {
+            await deleteGlobalChallenge(globalId).catch(() => {});
+            throw e;
+          }
+        }
+        // The Title Bout: its prizes and the pick's Bones, right away (as
+        // the Shootout's).
+        if (draftType === 'titlebout') {
+          try {
+            await setupTitleBoutGlobal(
+              globalId,
+              { champion: prizes[0], runnerUp: prizes[1], top10: prizes[2], mostKos: bonesOf(tbKosText, 5000), fiveDays: bonesOf(tbFiveText, 5000) },
+              bonesOf(tbPickText, 500),
+            );
           } catch (e) {
             await deleteGlobalChallenge(globalId).catch(() => {});
             throw e;
@@ -1753,7 +1781,7 @@ export function CreateScreen({
           )}
 
           {/* Hoops, H-O-R-S-E and Golf set their length in their own block below. */}
-          {draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'golf' && draftType !== 'bout' && (
+          {draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'golf' && draftType !== 'bout' && draftType !== 'titlebout' && (
           <View style={{ gap: 5 }}>
             <View style={styles.huntBlockHeader}>
               <Text style={styles.fieldLabel}>Runs for</Text>
@@ -2613,6 +2641,10 @@ export function CreateScreen({
                 rows.push(['Also', `4th–10th ${bonesOf(derbyTop10Text, 500)} · longest ${bonesOf(derbyLongestText, 1000)} · 10+ HR ${bonesOf(derbyTenPlusText, 200)}`]);
                 if (sponsorName.trim()) rows.push(['Sign', `${bonesOf(derbySignText, 100)} a hit, up to ${Math.max(1, bonesOf(derbySignCapText, 20))} each`]);
               }
+              if (draftType === 'titlebout') {
+                rows.push(['Fights', 'Days 1–5 on the ladder, then the top 2 for the belt']);
+                rows.push(['Also', `most KOs ${bonesOf(tbKosText, 5000)} · 5+ days ${bonesOf(tbFiveText, 5000)} · a right pick ${bonesOf(tbPickText, 500)} (double on the underdog)`]);
+              }
               if (draftType === 'shootout') {
                 rows.push(['Kicks', '1 per 1,000 steps, up to 20 a day']);
                 rows.push(['Also', `4th–10th ${bonesOf(shootTop10Text, 500)} · longest streak ${bonesOf(shootStreakText, 1000)} · 15+ goals ${bonesOf(shootFifteenText, 200)}`]);
@@ -2635,7 +2667,7 @@ export function CreateScreen({
             <View style={styles.huntBlock}>
               <Text style={styles.huntBlockLabel}>{currencyName} for the top 3</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                {(['1st', '2nd', '3rd'] as const).map((place, i) => (
+                {(draftType === 'titlebout' ? (['Champion', 'Runner-up', '3rd–10th each'] as const) : (['1st', '2nd', '3rd'] as const)).map((place, i) => (
                   <View key={place} style={{ flex: 1 }}>
                     <TextField
                       label={place}
@@ -2656,6 +2688,8 @@ export function CreateScreen({
                   ? 'Most home runs wins; ties go to the longest home run, then share the Bones of the places they cover'
                   : draftType === 'shootout'
                   ? 'Most goals wins (top bins count 2); ties go to the best conversion, then share the Bones of the places they cover'
+                  : draftType === 'titlebout'
+                  ? 'The title fight decides the champion and the runner-up; then the ladder'
                   : draftType === 'bingo'
                   ? 'BINGOs place in the order they come in, then most squares'
                   : draftType === 'streak'
@@ -2665,7 +2699,7 @@ export function CreateScreen({
                       : draftType === 'distance' && distanceGoalUnit === 'miles'
                         ? 'Most miles wins'
                         : 'Most steps wins'}
-                {draftType === 'golf' || draftType === 'derby' || draftType === 'shootout' ? '' : '. Ties share a place'}. 0 means no prize for that place; up to 1,000 each.
+                {draftType === 'golf' || draftType === 'derby' || draftType === 'shootout' || draftType === 'titlebout' ? '' : '. Ties share a place'}. 0 means no prize for that place; up to 1,000 each.
               </Text>
               {draftType === 'derby' && (
                 <>
@@ -2734,6 +2768,16 @@ export function CreateScreen({
                   />
                   <Text style={styles.footNote}>
                     A sponsor shows on the boards behind the goal and on the keeper’s shirt.
+                  </Text>
+                </>
+              )}
+              {draftType === 'titlebout' && (
+                <>
+                  <TextField label={`${currencyName} for the most KOs (ties split)`} value={tbKosText} onChangeText={setTbKosText} keyboardType="number-pad" maxLength={4} />
+                  <TextField label={`${currencyName} for fighting 5 or more days`} value={tbFiveText} onChangeText={setTbFiveText} keyboardType="number-pad" maxLength={4} />
+                  <TextField label={`${currencyName} for picking the champion`} value={tbPickText} onChangeText={setTbPickText} keyboardType="number-pad" maxLength={3} />
+                  <Text style={styles.footNote}>
+                    Picks are free: anyone in it picks who takes the belt once the title fight is set. A right pick on the one fewer picked earns double. A sponsor’s name goes on the belt and the ring’s apron.
                   </Text>
                 </>
               )}

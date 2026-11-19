@@ -83,7 +83,8 @@ export type ChallengeKind =
   | 'packs'
   | 'derby'
   | 'shootout'
-  | 'bout';
+  | 'bout'
+  | 'titlebout';
 
 export interface ChallengeCard {
   id: string;
@@ -279,6 +280,14 @@ export const CHALLENGE_TYPES: {
     desc: 'Everyone steps up to the penalty spot for a week. Your steps buy the kicks, one every 1,000, up to 20 a day. Aim at one of six spots, then stop the power meter in the green. The top corners count 2. The keeper learns your habits, and a strength workout puts pace on your kicks. Most goals wins.',
     tint: '#1f5a3a',
     iconColor: '#cdebd6',
+  },
+  // Global only (0227_titlebout.sql): a Global Hound Bout for the belt.
+  {
+    id: 'titlebout',
+    name: 'Title Bout',
+    desc: 'A week of Hound Bout for everyone, with a belt at the end. Five days on the ladder: a new opponent every day, matched by your place, one round each (a KO win 3, a win on points 2, a draw 1). Then the top two fight two rounds for the belt, and everyone picks who takes it. The champion’s hound wears the belt.',
+    tint: '#5a4a1f',
+    iconColor: '#f0dca0',
   },
   { id: 'journey', name: 'Journey', desc: 'Everyone walks the same famous course from the same start — Windy City 26.2, Route 66, the Appalachian Trail. Your walks, runs and hikes move you along the map. First to the end wins; if nobody gets there, furthest along does.', tint: '#2f5a3f', iconColor: '#cdebd6' },
 ];

@@ -198,6 +198,10 @@ export function toChallengeCard(
     // The rounds live in bout_rounds, on the detail screen.
     stat = String(challenge.durationDays);
     statLabel = 'rounds · one a day';
+  } else if (challenge.kind === 'titlebout') {
+    // The ladder and the title fight live in tb_players / tb_fights, on the detail screen.
+    stat = '7';
+    statLabel = 'days · then the top 2 fight for the belt';
   } else if (challenge.kind === 'shootout') {
     // The goals live in shootout_players, on the detail screen.
     stat = '20';

@@ -28,6 +28,7 @@ export type KennelItemKind =
   | 'puffer'
   | 'tutu'
   | 'cape'
+  | 'belt'
   | 'tux'
   | 'trench'
   | 'booties'
@@ -106,6 +107,9 @@ export const KENNEL_ITEMS: KennelItem[] = [
   { id: 'body_cape', slot: 'body', name: 'Superhero Cape', costBones: 300, kind: 'cape', color: '#d12f3f', accent: '#f2c430' },
   { id: 'body_tux', slot: 'body', name: 'Tuxedo', costBones: 400, kind: 'tux', color: '#1f2230', accent: '#ffffff' },
   { id: 'body_trench', slot: 'body', name: 'Designer Trench', costBones: 800, kind: 'trench', color: '#c9a77a', accent: '#8a6a3f' },
+  // The Title Bout's belt (0227): never sold, only won. Its champion's
+  // hound gets it, and wears it.
+  { id: 'title_belt', slot: 'body', name: 'Title Bout Belt', costBones: 0, kind: 'belt', color: '#f0c24a', accent: '#c98f12', season: 'Title Bout', availableUntil: '2000-01-01' },
   { id: 'booties_red', slot: 'feet', name: 'Red Booties', costBones: 80, kind: 'booties', color: '#d94a4a' },
   { id: 'booties_blue', slot: 'feet', name: 'Blue Booties', costBones: 80, kind: 'booties', color: '#4f7fd0' },
   { id: 'booties_pink', slot: 'feet', name: 'Pink Booties', costBones: 80, kind: 'booties', color: '#f08ab8' },

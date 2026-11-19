@@ -291,7 +291,7 @@ export function RootNavigator() {
                   onShootHorse={() => navigation.navigate('HorseShoot', { challengeId: route.params.challengeId })}
                   onBatDerby={() => navigation.navigate('DerbyBat', { challengeId: route.params.challengeId })}
                   onKickShootout={() => navigation.navigate('ShootoutKick', { challengeId: route.params.challengeId })}
-                  onBoutRing={(mode) => navigation.navigate('BoutRing', { challengeId: route.params.challengeId, mode })}
+                  onBoutRing={(mode, kind) => navigation.navigate('BoutRing', { challengeId: route.params.challengeId, mode, kind })}
                 />
               )}
             </Stack.Screen>
@@ -598,6 +598,7 @@ export function RootNavigator() {
                   key={route.params.challengeId}
                   challengeId={route.params.challengeId}
                   initialMode={route.params.mode}
+                  kind={route.params.kind}
                   onBack={() =>
                     navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ChallengeDetail', { challengeId: route.params.challengeId })
                   }

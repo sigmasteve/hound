@@ -56,7 +56,8 @@ export function needsManualEntry(challenge: Challenge): boolean {
     challenge.kind !== 'golf' &&
     challenge.kind !== 'derby' &&
     challenge.kind !== 'shootout' &&
-    challenge.kind !== 'bout'
+    challenge.kind !== 'bout' &&
+    challenge.kind !== 'titlebout'
   );
 }
 
@@ -263,7 +264,7 @@ export function computePendingActions({
           label: `${ready} ${ready === 1 ? 'swing' : 'swings'} ready in the Home Run Derby`,
         });
       }
-    } else if (c.kind === 'bout') {
+    } else if (c.kind === 'bout' || c.kind === 'titlebout') {
       const b = boutReady.get(c.id);
       if (b && b.incoming > 0) {
         actions.push({

@@ -137,6 +137,8 @@ import { DerbyBoard } from '../components/DerbyBoard';
 import { ShootoutBoard, shootoutPrizeRows } from '../components/ShootoutBoard';
 import { BoutCard } from '../components/BoutCard';
 import { getBoutLive, type BoutLive } from '../challenges/boutApi';
+import { TitleBoutCard } from '../components/TitleBoutCard';
+import { getTitleBout, titlePrizeRows, type TitleBout } from '../challenges/titleBoutApi';
 import { getShootoutLive, type ShootoutLive, type ShootoutPrizes } from '../challenges/shootoutApi';
 import { getDerbyLive, type DerbyLive, type DerbyBoard as DerbyBoardData } from '../challenges/derbyApi';
 import { getGolfGame, type GolfGame } from '../challenges/golfApi';
@@ -287,7 +289,8 @@ export function ChallengeDetailScreen({
   // The Hound Shootout (0221): opens the penalty spot.
   onKickShootout?: () => void;
   // Hound Bout (0225): opens the ring, on Throw or on Incoming.
-  onBoutRing?: (mode: 'throw' | 'slip') => void;
+  // The Title Bout (0227) opens the same ring with kind 'titlebout'.
+  onBoutRing?: (mode: 'throw' | 'slip', kind?: 'bout' | 'titlebout') => void;
   // Which tab to open on; a trash-talk notification opens Talk.
   initialTab?: ChallengeTab;
   onBack: () => void;
@@ -526,6 +529,7 @@ export function ChallengeDetailScreen({
   const [derbyPrizes, setDerbyPrizes] = useState<DerbyBoardData['prizes'] | null>(null);
   const [shootoutLive, setShootoutLive] = useState<ShootoutLive | null>(null);
   const [boutLive, setBoutLive] = useState<BoutLive | null>(null);
+  const [titleBout, setTitleBout] = useState<TitleBout | null>(null);
   const [shootoutPrizes, setShootoutPrizes] = useState<ShootoutPrizes | null>(null);
   const [baseballLive, setBaseballLive] = useState<BaseballLive | null>(null);
   const [baseball, setBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[]; plays: BaseballPlay[]; picks: BaseballPicks }>({
@@ -967,6 +971,10 @@ export function ChallengeDetailScreen({
       setShootoutLive(await getShootoutLive(challengeId).catch(() => null));
     } else if (challenge?.kind === 'bout') {
       setBoutLive(await getBoutLive(challengeId).catch(() => null));
+    } else if (challenge?.kind === 'titlebout') {
+      const r = await getTitleBout(challengeId).catch(() => null);
+      setBoutLive(r?.live ?? null);
+      setTitleBout(r?.tb ?? null);
     }
   }, [challenge?.kind, challengeId]);
   useEffect(() => {
@@ -976,7 +984,7 @@ export function ChallengeDetailScreen({
   // card have moved.
   useFocusEffect(
     useCallback(() => {
-      if (challenge?.kind === 'golf' || challenge?.kind === 'hoops' || challenge?.kind === 'horse' || challenge?.kind === 'derby' || challenge?.kind === 'shootout' || challenge?.kind === 'bout') loadHoops();
+      if (challenge?.kind === 'golf' || challenge?.kind === 'hoops' || challenge?.kind === 'horse' || challenge?.kind === 'derby' || challenge?.kind === 'shootout' || challenge?.kind === 'bout' || challenge?.kind === 'titlebout') loadHoops();
       if (challenge?.kind === 'baseball') loadBaseball();
     }, [challenge?.kind, loadHoops, loadBaseball]),
   );
@@ -1725,7 +1733,8 @@ export function ChallengeDetailScreen({
     challenge.kind === 'golf' ||
     challenge.kind === 'derby' ||
     challenge.kind === 'shootout' ||
-    challenge.kind === 'bout'
+    challenge.kind === 'bout' ||
+    challenge.kind === 'titlebout'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
         ? isHound
@@ -2349,14 +2358,18 @@ export function ChallengeDetailScreen({
                 ? derbyPrizeRows(derbyPrizes, currencyName)
                 : challenge.kind === 'shootout' && shootoutPrizes
                   ? shootoutPrizeRows(shootoutPrizes, currencyName)
-                  : null
+                  : challenge.kind === 'titlebout' && titleBout
+                    ? titlePrizeRows(titleBout.prizes, titleBout.pickBones, currencyName)
+                    : null
             }
             allPrizesNote={
               challenge.kind === 'derby'
                 ? 'Ties share the places they cover; ties at the top go to the longest home run. Paid by Hound when the Derby ends.'
                 : challenge.kind === 'shootout'
                   ? 'Ties on goals go to the best conversion; ties after that share the places they cover. Paid by Hound when the Shootout ends.'
-                  : undefined
+                  : challenge.kind === 'titlebout'
+                    ? 'The title fight decides 1st and 2nd; then the ladder, for everyone who fought. Paid by Hound the day after the Title Bout ends.'
+                    : undefined
             }
           />
 
@@ -2597,6 +2610,17 @@ export function ChallengeDetailScreen({
               live={boutLive}
               sponsorName={sponsor?.name ?? null}
               onRing={(mode) => onBoutRing?.(mode)}
+              onChanged={loadHoops}
+            />
+          )}
+          {challenge.kind === 'titlebout' && (
+            <TitleBoutCard
+              challengeId={challengeId}
+              name={challenge.name}
+              live={boutLive}
+              tb={titleBout}
+              currency={currencyName}
+              onRing={(mode) => onBoutRing?.(mode, 'titlebout')}
               onChanged={loadHoops}
             />
           )}
@@ -3051,7 +3075,7 @@ export function ChallengeDetailScreen({
             </>
           )}
 
-          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && challenge.kind !== 'derby' && challenge.kind !== 'shootout' && challenge.kind !== 'bout' && (
+          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && challenge.kind !== 'derby' && challenge.kind !== 'shootout' && challenge.kind !== 'bout' && challenge.kind !== 'titlebout' && (
             <Card style={{ gap: 12 }} elevated={false}>
               <View style={styles.leaderboardHeader}>
                 <TrophyIcon size={16} color={colors.accent} />

@@ -25,6 +25,11 @@ async function rpc<T = any>(fn: string, args?: Record<string, unknown>): Promise
 
 const num = (v: unknown) => Number(v ?? 0);
 
+// The Title Bout (0227) is fought in the same ring, through its own
+// functions (tb_live, tb_throw, tb_slip, tb_set_guard).
+export type BoutKind = 'bout' | 'titlebout';
+const fn = (kind: BoutKind, name: string) => (kind === 'titlebout' ? 'tb_' : 'bout_') + name;
+
 export type BoutPunchKind = 'jab' | 'hook' | 'up';
 export type BoutGuard = 'high' | 'body' | 'counter';
 export type BoutQuality = 'perfect' | 'clean' | 'miss';
@@ -116,6 +121,8 @@ export interface BoutLive {
   } | null;
   canAct: boolean;
   reason: string | null;
+  // The Title Bout's: which day of 7, and whether today's is the title fight.
+  titleBout: { dayNo: number; title: boolean; opponentIsBot: boolean } | null;
 }
 
 export function toPunch(p: any): BoutPunch {
@@ -199,11 +206,14 @@ export function toBoutLive(d: any): BoutLive {
       : null,
     canAct: !!d?.can_act,
     reason: d?.reason ?? null,
+    titleBout: d?.tb
+      ? { dayNo: num(d.tb.day_no), title: !!d.tb.fight?.title, opponentIsBot: !!d?.opponent && d.opponent.id == null }
+      : null,
   };
 }
 
-export async function getBoutLive(challengeId: string): Promise<BoutLive> {
-  return toBoutLive(await rpc('bout_live', { p_challenge_id: challengeId }));
+export async function getBoutLive(challengeId: string, kind: BoutKind = 'bout'): Promise<BoutLive> {
+  return toBoutLive(await rpc(fn(kind, 'live'), { p_challenge_id: challengeId }));
 }
 
 export interface BoutThrow {
@@ -222,8 +232,8 @@ export interface BoutThrow {
 }
 
 // pos: where the meter stopped, 0-100 (50 the middle).
-export async function throwPunch(challengeId: string, punch: BoutPunchKind, pos: number): Promise<BoutThrow> {
-  const d = await rpc<any>('bout_throw', { p_challenge_id: challengeId, p_punch: punch, p_pos: Math.round(pos * 10) / 10 });
+export async function throwPunch(challengeId: string, punch: BoutPunchKind, pos: number, kind: BoutKind = 'bout'): Promise<BoutThrow> {
+  const d = await rpc<any>(fn(kind, 'throw'), { p_challenge_id: challengeId, p_punch: punch, p_pos: Math.round(pos * 10) / 10 });
   return {
     id: num(d?.id),
     punch: (d?.punch ?? punch) as BoutPunchKind,
@@ -241,13 +251,18 @@ export async function throwPunch(challengeId: string, punch: BoutPunchKind, pos:
 }
 
 // Slip an incoming punch (pos 0-100), or take it (null: no action spent).
-export async function slipPunch(challengeId: string, punchId: number, pos: number | null): Promise<{ slip: 'slipped' | 'missed' | 'taken'; left: number; message: string }> {
-  const d = await rpc<any>('bout_slip', { p_challenge_id: challengeId, p_punch_id: punchId, p_pos: pos == null ? null : Math.round(pos * 10) / 10 });
+export async function slipPunch(
+  challengeId: string,
+  punchId: number,
+  pos: number | null,
+  kind: BoutKind = 'bout',
+): Promise<{ slip: 'slipped' | 'missed' | 'taken'; left: number; message: string }> {
+  const d = await rpc<any>(fn(kind, 'slip'), { p_challenge_id: challengeId, p_punch_id: punchId, p_pos: pos == null ? null : Math.round(pos * 10) / 10 });
   return { slip: d?.slip ?? 'taken', left: num(d?.left), message: d?.message ?? '' };
 }
 
-export async function setGuard(challengeId: string, guard: BoutGuard): Promise<void> {
-  await rpc('bout_set_guard', { p_challenge_id: challengeId, p_guard: guard });
+export async function setGuard(challengeId: string, guard: BoutGuard, kind: BoutKind = 'bout'): Promise<void> {
+  await rpc(fn(kind, 'set_guard'), { p_challenge_id: challengeId, p_guard: guard });
 }
 
 export async function setupBout(challengeId: string, rounds: number): Promise<void> {
