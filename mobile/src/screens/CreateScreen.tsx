@@ -84,6 +84,7 @@ import { setupBaseball, type BaseballSeat } from '../challenges/baseballApi';
 import { DEFAULT_HOOPS_SHOT_STEPS, HOOPS_MAX_SIDE, HOOPS_SHOT_OPTIONS, HORSE_DAYS, HORSE_LENGTHS, HORSE_SHOTS, HORSE_WORDS, spelled, type HorseWord } from '../challenges/hoops';
 import { setupHoops } from '../challenges/hoopsApi';
 import { setupHorse } from '../challenges/horseApi';
+import { setupBout } from '../challenges/boutApi';
 
 // H-O-R-S-E stakes (0209): a treat_recipes id the loser bakes, or none.
 const HORSE_STAKES: { id: string | null; name: string }[] = [
@@ -201,6 +202,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   packs: 'Four packs, one map. Vote your march; take the most ground.',
   derby: 'Every pitch a meatball: most home runs in a week wins.',
   shootout: 'Penalty kicks for a week: top corners count 2. Most goals wins.',
+  bout: 'Boxing, one on one: punch, slip, set your guard. A round a day.',
 };
 
 // A Journey's default run: about two miles a day, at least three days,
@@ -612,6 +614,7 @@ export function CreateScreen({
     if (draftType === 'baseball') setLength(String(DEFAULT_BASEBALL_INNINGS));
     if (draftType === 'hoops') setLength('4');
     if (draftType === 'horse') setLength(String(HORSE_DAYS));
+    if (draftType === 'bout') setLength('5');
     if (draftType === 'golf') setLength(String(golfDays(golfHoles)));
     // The Hound Open: joining closes 3 days in, and bigger prizes.
     if (draftType === 'golf' && global) {
@@ -785,7 +788,7 @@ export function CreateScreen({
   const toggleFriend = (userId: string) => {
     // Tic-Tac-Go and Rally singles are strictly 1v1 — picking someone
     // replaces the last pick.
-    if (draftType === 'tictacgo' || draftType === 'horse' || (draftType === 'golf' && golfFormat === 'match') || (draftType === 'rally' && !rallyDoubles)) {
+    if (draftType === 'tictacgo' || draftType === 'horse' || draftType === 'bout' || (draftType === 'golf' && golfFormat === 'match') || (draftType === 'rally' && !rallyDoubles)) {
       setInvited((cur) => (cur.includes(userId) ? [] : [userId]));
       setRallyPartnerId(null);
       return;
@@ -1070,8 +1073,8 @@ export function CreateScreen({
       setStep(1);
       return;
     }
-    if ((draftType === 'tictacgo' || draftType === 'horse' || (draftType === 'golf' && golfFormat === 'match') || (draftType === 'rally' && !rallyDoubles)) && invited.length !== 1) {
-      setSaveError(draftType === 'golf' ? 'Match play is one on one: pick one friend.' : 'Pick one friend to play against.');
+    if ((draftType === 'tictacgo' || draftType === 'horse' || draftType === 'bout' || (draftType === 'golf' && golfFormat === 'match') || (draftType === 'rally' && !rallyDoubles)) && invited.length !== 1) {
+      setSaveError(draftType === 'golf' ? 'Match play is one on one: pick one friend.' : draftType === 'bout' ? 'A Hound Bout is one on one: pick one friend to fight.' : 'Pick one friend to play against.');
       return;
     }
     if (draftType === 'rally' && rallyDoubles && (!rallyPartnerId || invited.length !== 3)) {
@@ -1197,6 +1200,7 @@ export function CreateScreen({
               draftType === 'packs' ||
               draftType === 'hoops' ||
               draftType === 'horse' ||
+              draftType === 'bout' ||
               draftType === 'golf'
             ? []
             : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
@@ -1315,6 +1319,14 @@ export function CreateScreen({
             holesPerDay: golfDailyCap ? GOLF_HOLES_PER_DAY : 0,
             players: [user?.id ?? '', ...invited],
           });
+        } catch (e) {
+          await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
+          throw e;
+        }
+      }
+      if (draftType === 'bout') {
+        try {
+          await setupBout(created.id, Number(length));
         } catch (e) {
           await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
           throw e;
@@ -1741,7 +1753,7 @@ export function CreateScreen({
           )}
 
           {/* Hoops, H-O-R-S-E and Golf set their length in their own block below. */}
-          {draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'golf' && (
+          {draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'golf' && draftType !== 'bout' && (
           <View style={{ gap: 5 }}>
             <View style={styles.huntBlockHeader}>
               <Text style={styles.fieldLabel}>Runs for</Text>
@@ -2231,6 +2243,25 @@ export function CreateScreen({
               <Text style={styles.huntBlockNote}>
                 Every 10 steps bank a yard, and workouts bank power (strength counts double, golf triple). Every shot
                 spends what it used.
+              </Text>
+            </View>
+          )}
+
+          {draftType === 'bout' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Rounds</Text>
+                <Text style={styles.huntBlockValue}>{length} rounds, one a day</Text>
+              </View>
+              <SegmentedControl
+                options={['3', '5', '7'].map((n) => ({ value: n, label: `${n} rounds` }))}
+                value={['3', '5', '7'].includes(length) ? length : '5'}
+                onChange={(v) => setLength(v)}
+              />
+              <Text style={styles.huntBlockNote}>
+                Every 1,000 steps is an action: throw a punch (jab 1, hook 2, uppercut 3) or slip one of theirs. Set your guard each day. Each
+                round is scored the next morning, 10-9; three power punches in a row is a knockdown, and three in a round is a KO. Strength
+                workouts add power, cardio adds actions, and a real boxing workout widens the green.
               </Text>
             </View>
           )}
@@ -2741,7 +2772,7 @@ export function CreateScreen({
       {step === 3 && !crowd && (
         <View style={{ gap: 14 }}>
           <Text style={text.h2}>
-            {draftType === 'tictacgo' || draftType === 'rally' || draftType === 'horse' || (draftType === 'golf' && golfFormat === 'match')
+            {draftType === 'tictacgo' || draftType === 'rally' || draftType === 'horse' || draftType === 'bout' || (draftType === 'golf' && golfFormat === 'match')
               ? 'Pick your opponent'
               : draftType === 'soccer' || draftType === 'cricket' || draftType === 'baseball' || draftType === 'hoops'
                 ? 'Pick the teams'
@@ -2753,6 +2784,9 @@ export function CreateScreen({
                 ? 'Match play is one on one, hole by hole.'
                 : 'Everyone plays their own ball. Friends tee off once they accept. Or play it alone.'}
             </Text>
+          )}
+          {draftType === 'bout' && (
+            <Text style={styles.footNote}>A Hound Bout is one on one. The first bell rings once they accept.</Text>
           )}
           {draftType === 'horse' && (
             <Text style={styles.footNote}>
@@ -2883,7 +2917,7 @@ export function CreateScreen({
               <Text style={[text.h4, { marginTop: 4 }]}>Friends</Text>
             </View>
           )}
-          {draftType !== 'tictacgo' && draftType !== 'rally' && draftType !== 'soccer' && draftType !== 'cricket' && draftType !== 'baseball' && draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (
+          {draftType !== 'tictacgo' && draftType !== 'rally' && draftType !== 'soccer' && draftType !== 'cricket' && draftType !== 'baseball' && draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'bout' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (
             <Text style={styles.footNote}>
               Rewards need at least one friend to join. Bots and pending invites don&rsquo;t count.
             </Text>
@@ -2978,6 +3012,7 @@ export function CreateScreen({
             draftType !== 'baseball' &&
             draftType !== 'hoops' &&
             draftType !== 'horse' &&
+            draftType !== 'bout' &&
             draftType !== 'golf' &&
             draftType !== 'seventyfive' &&
             draftType !== 'checklist' &&

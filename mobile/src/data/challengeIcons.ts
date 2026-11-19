@@ -23,6 +23,7 @@ import {
   RacquetIcon,
   SoccerBallIcon,
   CrosshairSimpleIcon,
+  BoxingGloveIcon,
 } from 'phosphor-react-native';
 import type { ChallengeKind } from './sampleData';
 
@@ -49,6 +50,7 @@ export const CHALLENGE_KIND_ICON: Record<ChallengeKind, React.ComponentType<any>
   packs: FlagBannerIcon,
   derby: BaseballHelmetIcon,
   shootout: CrosshairSimpleIcon,
+  bout: BoxingGloveIcon,
 };
 
 // A build only ever ships knowing the challenge kinds that existed when

@@ -82,7 +82,8 @@ export type ChallengeKind =
   | 'doors'
   | 'packs'
   | 'derby'
-  | 'shootout';
+  | 'shootout'
+  | 'bout';
 
 export interface ChallengeCard {
   id: string;
@@ -263,6 +264,14 @@ export const CHALLENGE_TYPES: {
     tint: '#1f4a5a',
     iconColor: '#cfe8f0',
   },
+  // One on one (0225_bout.sql).
+  {
+    id: 'bout',
+    name: 'Hound Bout',
+    desc: 'Boxing, one on one, a round a day. Every 1,000 steps is an action: throw a punch (a jab, a hook or an uppercut) on the timing meter, or slip one of theirs. Set your guard each day: it stops some punches and not others. Rounds are scored 10-9 the next morning; three power punches in a row is a knockdown, three knockdowns a KO.',
+    tint: '#5a2f2f',
+    iconColor: '#f0d0c8',
+  },
   // Global only (0221_shootout.sql), like the Derby.
   {
     id: 'shootout',
@@ -301,7 +310,7 @@ export const CHALLENGE_GROUPS: {
   sections: { title?: string; kinds: ChallengeKind[] }[];
 }[] = [
   { id: 'play', label: 'Play it yourself', chip: 'Play it yourself', sub: 'Your steps earn the shots. You aim, time it and let it go.', sections: [{ kinds: ['golf', 'hoops', 'baseball', 'horse'] }] },
-  { id: 'one', label: 'One on one', chip: '1 on 1', sub: 'You against one friend, turn by turn.', sections: [{ kinds: ['tictacgo', 'rally'] }] },
+  { id: 'one', label: 'One on one', chip: '1 on 1', sub: 'You against one friend, turn by turn.', sections: [{ kinds: ['tictacgo', 'rally', 'bout'] }] },
   {
     id: 'group',
     label: 'With your group',

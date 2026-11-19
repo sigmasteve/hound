@@ -8,8 +8,8 @@
 //   - 'final'     the round's over: who won, and your score
 //   - 'top10'     a Global Golf (the Hound Open): you've moved into the top
 //                 10, once (0202's golf_strike, once the field's 20+)
-//   - 'derby' / 'shootout'  the Home Run Derby (0211) and the Hound
-//                 Shootout (0221): worded by the server, sent to anyone in
+//   - 'derby' / 'shootout' / 'bout'  the Home Run Derby (0211), the Hound
+//                 Shootout (0221) and Hound Bout's rounds (0225): worded by the server, sent to anyone in
 //                 the challenge (they have no golf seat)
 // Every push carries { type: 'golf', challengeId } so a tap opens the game.
 // A failure here never affects the game: the caller swallows it.
@@ -23,10 +23,10 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 // 'derby' (0211) and 'shootout' (0221): the Home Run Derby's and the Hound
 // Shootout's pushes, worded by the server.
-type Kind = 'birdie' | 'ace' | 'reminder' | 'skin' | 'final' | 'top10' | 'derby' | 'shootout';
-const KINDS: Kind[] = ['birdie', 'ace', 'reminder', 'skin', 'final', 'top10', 'derby', 'shootout'];
+type Kind = 'birdie' | 'ace' | 'reminder' | 'skin' | 'final' | 'top10' | 'derby' | 'shootout' | 'bout';
+const KINDS: Kind[] = ['birdie', 'ace', 'reminder', 'skin', 'final', 'top10', 'derby', 'shootout', 'bout'];
 // Kinds for games with no golf seat: anyone in the challenge gets them.
-const NOT_GOLF: Kind[] = ['derby', 'shootout'];
+const NOT_GOLF: Kind[] = ['derby', 'shootout', 'bout'];
 
 interface RequestBody {
   kind: Kind;
@@ -94,6 +94,7 @@ function message(body: RequestBody, me: string, game: string): { title: string; 
     }
     case 'derby':
     case 'shootout':
+    case 'bout':
       return { title: body.title ?? game, text: body.message ?? `Something happened in "${game}".` };
     case 'final': {
       const score = body.total != null && body.to_par != null ? ` You shot ${body.total} (${toPar(body.to_par)}).` : '';

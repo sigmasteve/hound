@@ -34,6 +34,7 @@ import { BaseballBatScreen } from '../screens/BaseballBatScreen';
 import { HorseShootScreen } from '../screens/HorseShootScreen';
 import { DerbyBatScreen } from '../screens/DerbyBatScreen';
 import { ShootoutKickScreen } from '../screens/ShootoutKickScreen';
+import { BoutRingScreen } from '../screens/BoutRingScreen';
 import { useChallengeCodeLinks } from '../challenges/codeLinks';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { MetricsScreen } from '../screens/MetricsScreen';
@@ -290,6 +291,7 @@ export function RootNavigator() {
                   onShootHorse={() => navigation.navigate('HorseShoot', { challengeId: route.params.challengeId })}
                   onBatDerby={() => navigation.navigate('DerbyBat', { challengeId: route.params.challengeId })}
                   onKickShootout={() => navigation.navigate('ShootoutKick', { challengeId: route.params.challengeId })}
+                  onBoutRing={(mode) => navigation.navigate('BoutRing', { challengeId: route.params.challengeId, mode })}
                 />
               )}
             </Stack.Screen>
@@ -583,6 +585,19 @@ export function RootNavigator() {
                 <ShootoutKickScreen
                   key={route.params.challengeId}
                   challengeId={route.params.challengeId}
+                  onBack={() =>
+                    navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ChallengeDetail', { challengeId: route.params.challengeId })
+                  }
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="BoutRing" options={{ animation: 'slide_from_right', gestureEnabled: false }}>
+              {/* Hound Bout: in the ring, from the fight's card. */}
+              {({ navigation, route }) => (
+                <BoutRingScreen
+                  key={route.params.challengeId}
+                  challengeId={route.params.challengeId}
+                  initialMode={route.params.mode}
                   onBack={() =>
                     navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ChallengeDetail', { challengeId: route.params.challengeId })
                   }

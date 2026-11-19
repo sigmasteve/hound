@@ -135,6 +135,8 @@ import { GolfCard } from '../components/GolfCard';
 import { OpenBoard } from '../components/OpenBoard';
 import { DerbyBoard } from '../components/DerbyBoard';
 import { ShootoutBoard, shootoutPrizeRows } from '../components/ShootoutBoard';
+import { BoutCard } from '../components/BoutCard';
+import { getBoutLive, type BoutLive } from '../challenges/boutApi';
 import { getShootoutLive, type ShootoutLive, type ShootoutPrizes } from '../challenges/shootoutApi';
 import { getDerbyLive, type DerbyLive, type DerbyBoard as DerbyBoardData } from '../challenges/derbyApi';
 import { getGolfGame, type GolfGame } from '../challenges/golfApi';
@@ -269,6 +271,7 @@ export function ChallengeDetailScreen({
   onShootHorse,
   onBatDerby,
   onKickShootout,
+  onBoutRing,
 }: {
   challengeId: string;
   // Golf: opens the play screen for this challenge.
@@ -283,6 +286,8 @@ export function ChallengeDetailScreen({
   onBatDerby?: () => void;
   // The Hound Shootout (0221): opens the penalty spot.
   onKickShootout?: () => void;
+  // Hound Bout (0225): opens the ring, on Throw or on Incoming.
+  onBoutRing?: (mode: 'throw' | 'slip') => void;
   // Which tab to open on; a trash-talk notification opens Talk.
   initialTab?: ChallengeTab;
   onBack: () => void;
@@ -520,6 +525,7 @@ export function ChallengeDetailScreen({
   const [derbyLive, setDerbyLive] = useState<DerbyLive | null>(null);
   const [derbyPrizes, setDerbyPrizes] = useState<DerbyBoardData['prizes'] | null>(null);
   const [shootoutLive, setShootoutLive] = useState<ShootoutLive | null>(null);
+  const [boutLive, setBoutLive] = useState<BoutLive | null>(null);
   const [shootoutPrizes, setShootoutPrizes] = useState<ShootoutPrizes | null>(null);
   const [baseballLive, setBaseballLive] = useState<BaseballLive | null>(null);
   const [baseball, setBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[]; plays: BaseballPlay[]; picks: BaseballPicks }>({
@@ -959,6 +965,8 @@ export function ChallengeDetailScreen({
       setDerbyLive(await getDerbyLive(challengeId).catch(() => null));
     } else if (challenge?.kind === 'shootout') {
       setShootoutLive(await getShootoutLive(challengeId).catch(() => null));
+    } else if (challenge?.kind === 'bout') {
+      setBoutLive(await getBoutLive(challengeId).catch(() => null));
     }
   }, [challenge?.kind, challengeId]);
   useEffect(() => {
@@ -968,7 +976,7 @@ export function ChallengeDetailScreen({
   // card have moved.
   useFocusEffect(
     useCallback(() => {
-      if (challenge?.kind === 'golf' || challenge?.kind === 'hoops' || challenge?.kind === 'horse' || challenge?.kind === 'derby' || challenge?.kind === 'shootout') loadHoops();
+      if (challenge?.kind === 'golf' || challenge?.kind === 'hoops' || challenge?.kind === 'horse' || challenge?.kind === 'derby' || challenge?.kind === 'shootout' || challenge?.kind === 'bout') loadHoops();
       if (challenge?.kind === 'baseball') loadBaseball();
     }, [challenge?.kind, loadHoops, loadBaseball]),
   );
@@ -1716,7 +1724,8 @@ export function ChallengeDetailScreen({
     challenge.kind === 'horse' ||
     challenge.kind === 'golf' ||
     challenge.kind === 'derby' ||
-    challenge.kind === 'shootout'
+    challenge.kind === 'shootout' ||
+    challenge.kind === 'bout'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
         ? isHound
@@ -1889,7 +1898,8 @@ export function ChallengeDetailScreen({
     (challenge.kind === 'baseball' && baseball.game?.status === 'final') ||
     (challenge.kind === 'hoops' && hoopsGame?.status === 'final') ||
     (challenge.kind === 'horse' && horseGame?.status === 'final') ||
-    (challenge.kind === 'golf' && golfGame?.status === 'final');
+    (challenge.kind === 'golf' && golfGame?.status === 'final') ||
+    (challenge.kind === 'bout' && boutLive?.status === 'final');
 
   // How this challenge went for the viewer, for the wrap-up card's line
   // and the Share message — each kind reads its own outcome (see
@@ -2038,6 +2048,18 @@ export function ChallengeDetailScreen({
           course: g.course.name || golfCourseName(g.course.id),
           place,
           of: place ? g.players.length : undefined,
+        };
+      }
+      case 'bout': {
+        const b = boutLive;
+        if (!b || b.status !== 'final') return null;
+        const t = b.card.reduce((x, r) => ({ m: x.m + r.mine, o: x.o + r.theirs }), { m: 0, o: 0 });
+        const opp = b.opponent?.name.split(' ')[0] ?? 'them';
+        return {
+          type: 'bout',
+          result: b.method === 'draw' || !b.winner ? 'draw' : b.winner === b.me ? 'won' : 'lost',
+          how: b.method === 'ko' ? `by KO in round ${b.koRound}` : `against ${opp} on the cards`,
+          cards: `${t.m}–${t.o}`,
         };
       }
       case 'baseball': {
@@ -2569,6 +2591,15 @@ export function ChallengeDetailScreen({
           {challenge.kind === 'derby' && (
             <DerbyBoard challengeId={challengeId} name={challenge.name} live={derbyLive} sponsor={sponsor} onBat={() => onBatDerby?.()} onPrizes={setDerbyPrizes} onShare={setBoardShare} />
           )}
+          {challenge.kind === 'bout' && (
+            <BoutCard
+              challengeId={challengeId}
+              live={boutLive}
+              sponsorName={sponsor?.name ?? null}
+              onRing={(mode) => onBoutRing?.(mode)}
+              onChanged={loadHoops}
+            />
+          )}
           {challenge.kind === 'shootout' && (
             <ShootoutBoard challengeId={challengeId} name={challenge.name} live={shootoutLive} sponsor={sponsor} onKick={() => onKickShootout?.()} onPrizes={setShootoutPrizes} onShare={setBoardShare} />
           )}
@@ -3020,7 +3051,7 @@ export function ChallengeDetailScreen({
             </>
           )}
 
-          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && challenge.kind !== 'derby' && challenge.kind !== 'shootout' && (
+          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && challenge.kind !== 'derby' && challenge.kind !== 'shootout' && challenge.kind !== 'bout' && (
             <Card style={{ gap: 12 }} elevated={false}>
               <View style={styles.leaderboardHeader}>
                 <TrophyIcon size={16} color={colors.accent} />
