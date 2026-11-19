@@ -16,6 +16,7 @@ import {
 import { color as C, font, withAlpha } from '../theme/tokens';
 import { DarkTheme } from '../theme/ThemeContext';
 import { HoundArt } from '../kennel/HoundArt';
+import { Avatar } from '../components/Avatar';
 import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
 import type { Kennel } from '../kennel/kennelApi';
@@ -34,11 +35,41 @@ export type ShareContent =
   | { kind: 'goals'; progress: GoalProgress[]; streak: GoalStreak | null }
   // visual: the game's own picture (the court, the pitch, the board),
   // when the game has one; the card shows it with your hound beside it.
-  | { kind: 'challenge'; name: string; outcome: ResultOutcome; line: string; visual?: React.ReactNode }
+  // podium: the top three when the viewer finished in it (Golf, the Hound
+  // Open, the Home Run Derby); the card stands your hound on your step.
+  | { kind: 'challenge'; name: string; outcome: ResultOutcome; line: string; visual?: React.ReactNode; podium?: SharePodiumSpot[] | null }
   // id and name from the achievements catalog; earnedAt an ISO date.
   | { kind: 'badge'; id: string; name: string; description?: string; earnedAt?: string }
   // A community challenge's invite (K-04): its code, link and QR code.
   | { kind: 'invite'; name: string; code: string; line: string; description?: string | null };
+
+// A finished challenge's share (the card's 'challenge' kind).
+export type ChallengeShare = Extract<ShareContent, { kind: 'challenge' }>;
+
+// A step on the share card's podium. place is the finish (ties share
+// one); score what it was ("12 HR", "−4").
+export interface SharePodiumSpot {
+  place: number;
+  name: string;
+  initials: string;
+  iconId?: string | null;
+  score: string;
+  me: boolean;
+}
+
+// The three steps to draw, left to right (2nd, 1st, 3rd), from a
+// podium list that can hold ties: the first three by place, with the
+// viewer kept on it. null when the viewer isn't in the top 3.
+export function podiumSteps(spots: SharePodiumSpot[] | null | undefined): (SharePodiumSpot | null)[] | null {
+  if (!spots) return null;
+  const sorted = [...spots].filter((x) => x.place >= 1 && x.place <= 3).sort((a, b) => a.place - b.place || Number(b.me) - Number(a.me));
+  const mine = sorted.find((x) => x.me);
+  if (!mine) return null;
+  const top = sorted.slice(0, 3);
+  if (!top.includes(mine)) top[2] = mine;
+  top.sort((a, b) => a.place - b.place);
+  return [top[1] ?? null, top[0] ?? null, top[2] ?? null];
+}
 
 const EYEBROW: Record<ShareContent['kind'], string> = {
   week: 'MY WEEK',
@@ -117,7 +148,8 @@ export function ShareCard({
   inviteUrl: string | null;
   cardRef?: Ref<View>;
 }) {
-  const celebrate = (content.kind === 'challenge' && isWin(content.outcome)) || content.kind === 'badge';
+  const celebrate =
+    (content.kind === 'challenge' && (isWin(content.outcome) || !!podiumSteps(content.podium))) || content.kind === 'badge';
   // An invite carries its own link: the challenge, not your friend code.
   const link = content.kind === 'invite' ? codeLink(content.code) : (inviteUrl ?? 'https://houndchallenge.net');
   return (
@@ -143,6 +175,8 @@ export function ShareCard({
       <View style={styles.hero}>
         {content.kind === 'badge' ? (
           <BadgeHero id={content.id} kennel={kennel} />
+        ) : content.kind === 'challenge' && podiumSteps(content.podium) ? (
+          <PodiumHero steps={podiumSteps(content.podium)!} kennel={kennel} />
         ) : content.kind === 'challenge' && content.visual ? (
           <GameHero visual={content.visual} kennel={kennel} />
         ) : kennel ? (
@@ -280,14 +314,21 @@ function GoalsBody({ progress, streak }: { progress: GoalProgress[]; streak: Goa
 
 function ChallengeBody({ name, outcome, line }: { name: string; outcome: ResultOutcome; line: string }) {
   const win = isWin(outcome);
-  const medal = outcome.type === 'ranked' && outcome.rank <= 3 ? MEDALS[outcome.rank - 1] : null;
+  // Ranked, or a Golf round among three or more: your place, big.
+  const placed =
+    outcome.type === 'ranked'
+      ? { rank: outcome.rank, of: outcome.of }
+      : outcome.type === 'golf' && outcome.place && outcome.of && outcome.of >= 3
+        ? { rank: outcome.place, of: outcome.of }
+        : null;
+  const medal = placed && placed.rank <= 3 ? MEDALS[placed.rank - 1] : null;
   return (
     <View style={{ gap: 10 }}>
-      {outcome.type === 'ranked' ? (
+      {placed ? (
         <View style={[styles.row, { alignItems: 'flex-end' }]}>
           {medal && <TrophyIcon size={34} color={medal} weight="fill" />}
-          <Text style={[styles.bigNumber, medal ? { color: medal } : null]}>{ordinal(outcome.rank)}</Text>
-          <Text style={[styles.bigLabel, { marginBottom: 8 }]}>of {outcome.of}</Text>
+          <Text style={[styles.bigNumber, medal ? { color: medal } : null]}>{ordinal(placed.rank)}</Text>
+          <Text style={[styles.bigLabel, { marginBottom: 8 }]}>of {placed.of.toLocaleString()}</Text>
         </View>
       ) : (
         win && <TrophyIcon size={44} color={C.gold} weight="fill" />
@@ -330,6 +371,57 @@ function GameHero({ visual, kennel }: { visual: React.ReactNode; kennel: Kennel 
           />
         </View>
       )}
+    </View>
+  );
+}
+
+// Top 3: the podium, 2nd · 1st · 3rd, with your hound standing on your
+// step and the others' names on theirs.
+function PodiumHero({ steps, kennel }: { steps: (SharePodiumSpot | null)[]; kennel: Kennel | null }) {
+  const HEIGHT = [74, 104, 56];
+  return (
+    <View style={styles.podiumWrap}>
+      {steps.map((x, k) => {
+        if (!x) return <View key={k} style={styles.podiumCol} />;
+        const medal = MEDALS[Math.min(3, Math.max(1, x.place)) - 1];
+        return (
+          <View key={k} style={styles.podiumCol}>
+            {x.me && kennel ? (
+              <HoundArt
+                rank={rankForLevel(levelProgressForXp(kennel.xpTotal).level).id}
+                mood="happy"
+                neckId={kennel.neckId}
+                headId={kennel.headId}
+                faceId={kennel.faceId}
+                coatId={kennel.coatId}
+                ears={kennel.ears}
+                tail={kennel.tail}
+                markings={kennel.markings}
+                breedId={kennel.breedId}
+                bodyId={kennel.bodyId}
+                feetId={kennel.feetId}
+                size={x.place === 1 ? 132 : 116}
+                animate={false}
+              />
+            ) : (
+              <View style={{ alignItems: 'center', gap: 4, paddingBottom: 6 }}>
+                <View style={[styles.podiumRing, { borderColor: x.me ? C.accent300 : withAlpha(medal, 0.7) }]}>
+                  <Avatar initials={x.initials} tint="#33384f" size={44} fontSize={15} iconId={x.iconId ?? null} />
+                </View>
+              </View>
+            )}
+            <Text style={[styles.podiumName, x.me && { color: C.accent300 }]} numberOfLines={1}>
+              {x.me ? 'Me' : x.name.split(' ')[0]}
+            </Text>
+            <Text style={styles.podiumScore} numberOfLines={1}>
+              {x.score}
+            </Text>
+            <View style={[styles.podiumStep, { height: HEIGHT[k], backgroundColor: withAlpha(medal, x.me ? 0.95 : 0.55) }]}>
+              <Text style={[styles.podiumPlace, { color: x.me ? '#161826' : withAlpha('#161826', 0.8) }]}>{x.place}</Text>
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -462,6 +554,13 @@ const styles = StyleSheet.create({
   qr: { padding: 5, borderRadius: 8, backgroundColor: '#ffffff' },
   code: { fontFamily: font.headingSemibold, fontSize: 26, letterSpacing: 3, color: C.text },
   medalWrap: { width: 260, height: 220, alignItems: 'center', justifyContent: 'center' },
+  podiumWrap: { width: 312, flexDirection: 'row', alignItems: 'flex-end', gap: 6, paddingTop: 4 },
+  podiumCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  podiumRing: { borderWidth: 2.5, borderRadius: 999, padding: 2 },
+  podiumName: { fontFamily: font.headingSemibold, fontSize: 14, color: C.text, marginTop: 2 },
+  podiumScore: { fontSize: 12.5, color: withAlpha(C.text, 0.7), marginBottom: 6 },
+  podiumStep: { alignSelf: 'stretch', borderTopLeftRadius: 10, borderTopRightRadius: 10, alignItems: 'center', paddingTop: 6 },
+  podiumPlace: { fontFamily: font.headingSemibold, fontSize: 30 },
   gameWrap: { width: 312, paddingBottom: 26, alignItems: 'center' },
   gameFrame: {
     width: 312,

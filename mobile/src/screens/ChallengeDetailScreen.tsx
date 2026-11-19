@@ -224,6 +224,7 @@ import type { Friend } from '../friends/types';
 import { buildRematchDraft, type RematchDraft } from '../challenges/rematch';
 import { ordinal, resultLine, type ResultOutcome } from '../challenges/shareResult';
 import { ShareSheet } from '../share/ShareSheet';
+import type { ChallengeShare as BoardShare, SharePodiumSpot } from '../share/ShareCard';
 import { CommunityCard } from '../components/CommunityCard';
 import { getCommunityInfo, type CommunityInfo } from '../challenges/communityApi';
 import { friendEligible } from '../friends/eligibility';
@@ -293,6 +294,7 @@ export function ChallengeDetailScreen({
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   // The finished challenge's Share result sheet is open.
   const [sharingResult, setSharingResult] = useState(false);
+  const [boardShare, setBoardShare] = useState<BoardShare | null>(null);
   // A community challenge (K-04, 0152): its code and state. Null for any
   // other challenge.
   const [community, setCommunity] = useState<CommunityInfo | null>(null);
@@ -2016,11 +2018,16 @@ export function ChallengeDetailScreen({
         const mine = g.players.find((p) => p.userId === g.me);
         if (!mine) return null;
         const tied = !g.winner && g.players.length > 1;
+        // Stroke play among three or more: where you finished (a tie
+        // shares the place).
+        const place = g.format === 'stroke' && g.players.length >= 3 ? 1 + g.players.filter((p) => p.total < mine.total).length : undefined;
         return {
           type: 'golf',
           result: g.winner === g.me || (g.players.length === 1 && !g.winner) ? 'won' : tied ? 'tie' : 'lost',
           score: `${toParText(mine.toPar)} (${mine.total})`,
           course: g.course.name || golfCourseName(g.course.id),
+          place,
+          of: place ? g.players.length : undefined,
         };
       }
       case 'baseball': {
@@ -2096,6 +2103,20 @@ export function ChallengeDetailScreen({
       </>
     ) : null;
 
+  // Golf stroke play among three or more: the podium for the share card
+  // (it shows only when you're on it).
+  const sharePodium: SharePodiumSpot[] | null =
+    challenge.kind === 'golf' && !isGlobal && golfGame && golfGame.status === 'final' && golfGame.format === 'stroke' && golfGame.players.length >= 3
+      ? golfGame.players.map((p) => ({
+          place: 1 + golfGame.players.filter((q) => q.total < p.total).length,
+          name: p.name,
+          initials: p.initials,
+          iconId: p.iconId,
+          score: toParText(p.toPar),
+          me: p.userId === golfGame.me,
+        }))
+      : null;
+
   // Shares the result as a picture (ShareSheet), with the same line.
   const shareResult = () => {
     if (myResultLine) setSharingResult(true);
@@ -2159,10 +2180,13 @@ export function ChallengeDetailScreen({
     )}
     {sharingResult && myOutcome && myResultLine && (
       <ShareSheet
-        content={{ kind: 'challenge', name: challenge.name, outcome: myOutcome, line: myResultLine, visual: shareVisual }}
+        content={{ kind: 'challenge', name: challenge.name, outcome: myOutcome, line: myResultLine, visual: shareVisual, podium: sharePodium }}
         onClose={() => setSharingResult(false)}
       />
     )}
+    {/* The Hound Open's and the Derby's own Share: your finish, on the
+        podium when you're top 3. */}
+    {boardShare && <ShareSheet content={boardShare} onClose={() => setBoardShare(null)} />}
     {/* Talk's message box sits at the bottom of the page: on iOS this
         makes room for the keyboard and scrolls whatever field you're
         typing in back above it, instead of leaving it underneath. */}
@@ -2518,10 +2542,10 @@ export function ChallengeDetailScreen({
           {challenge.kind === 'hoops' && <HoopsCard challengeId={challengeId} game={hoopsGame} stepsToday={soccerSteps} onChanged={loadHoops} onShoot={() => onShootHoops?.()} />}
 
           {challenge.kind === 'golf' && isGlobal && (
-            <OpenBoard challengeId={challengeId} name={challenge.name} game={golfGame} sponsor={sponsor} onPlay={() => onPlayGolf?.()} />
+            <OpenBoard challengeId={challengeId} name={challenge.name} game={golfGame} sponsor={sponsor} onPlay={() => onPlayGolf?.()} onShare={setBoardShare} />
           )}
           {challenge.kind === 'derby' && (
-            <DerbyBoard challengeId={challengeId} name={challenge.name} live={derbyLive} sponsor={sponsor} onBat={() => onBatDerby?.()} onPrizes={setDerbyPrizes} />
+            <DerbyBoard challengeId={challengeId} name={challenge.name} live={derbyLive} sponsor={sponsor} onBat={() => onBatDerby?.()} onPrizes={setDerbyPrizes} onShare={setBoardShare} />
           )}
           {challenge.kind === 'golf' && !isGlobal && <GolfCard challengeId={challengeId} game={golfGame} onPlay={() => onPlayGolf?.()} />}
 

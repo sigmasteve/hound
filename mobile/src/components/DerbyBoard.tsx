@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, Share, StyleSheet, View } from 'react-native';
+import type { ChallengeShare } from '../share/ShareCard';
 import { ArrowSquareOutIcon } from 'phosphor-react-native';
 import { Text } from './Text';
 import { Card } from './Card';
@@ -39,6 +40,7 @@ export function DerbyBoard({
   sponsor,
   onBat,
   onPrizes,
+  onShare,
 }: {
   challengeId: string;
   name: string;
@@ -48,6 +50,8 @@ export function DerbyBoard({
   onBat: () => void;
   // Every prize, for the banner's "All prizes" sheet.
   onPrizes?: (prizes: Board['prizes']) => void;
+  // Share my finish as a picture (the share card); without it, text.
+  onShare?: (content: ChallengeShare) => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -160,10 +164,28 @@ export function DerbyBoard({
 
   const share = () => {
     if (!me) return;
+    const myId = board.rows.find((r) => r.isMe)?.userId ?? null;
     const where = me.pos != null ? `${derbyPos(me.pos, me.tied)} of ${board.field.toLocaleString()}` : 'the Derby';
-    Share.share({
-      message: `I hit ${me.hrs} ${me.hrs === 1 ? 'home run' : 'home runs'} in ${name} on Hound${me.longestFt ? `, the longest ${me.longestFt} ft` : ''}: ${where}.`,
-    }).catch(() => {});
+    const line = `I hit ${me.hrs} ${me.hrs === 1 ? 'home run' : 'home runs'} in ${name} on Hound${me.longestFt ? `, the longest ${me.longestFt} ft` : ''}: ${where}.`;
+    // The picture card: your place, on the podium when you're top 3.
+    if (onShare && me.pos != null) {
+      onShare({
+        kind: 'challenge',
+        name,
+        outcome: { type: 'ranked', rank: me.pos, of: Math.max(board.swung, me.pos), metric: `${me.hrs} ${me.hrs === 1 ? 'home run' : 'home runs'}` },
+        line: me.pos === 1 ? `I won ${name} on Hound with ${me.hrs} ${me.hrs === 1 ? 'home run' : 'home runs'}! ⚾🏆` : line,
+        podium: board.podium.map((p) => ({
+          place: p.place,
+          name: p.name,
+          initials: p.initials,
+          iconId: p.iconId,
+          score: `${p.hrs} HR`,
+          me: p.userId === myId,
+        })),
+      });
+      return;
+    }
+    Share.share({ message: line }).catch(() => {});
   };
 
   const note = (r: DerbyRow) => {

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, View } from 'react-native';
+import type { ChallengeShare } from '../share/ShareCard';
 import { ArrowSquareOutIcon } from 'phosphor-react-native';
 import { Text } from './Text';
 import { Card } from './Card';
@@ -45,6 +46,7 @@ export function OpenBoard({
   game,
   sponsor,
   onPlay,
+  onShare,
 }: {
   challengeId: string;
   name: string;
@@ -53,6 +55,8 @@ export function OpenBoard({
   game: GolfGame | null;
   sponsor: ChallengeSponsor | null;
   onPlay: () => void;
+  // Share my finish as a picture (the share card); without it, text.
+  onShare?: (content: ChallengeShare) => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -175,8 +179,28 @@ export function OpenBoard({
 
   const share = () => {
     if (!me) return;
+    const myId = board.rows.find((r) => r.isMe)?.userId ?? null;
     const where = me.pos != null ? `${openPos(me.pos, me.tied)} of ${board.swung.toLocaleString()}` : 'the course';
-    Share.share({ message: `I finished ${name} on Hound: ${where}, ${me.total} strokes (${toParText(me.toPar)}).` }).catch(() => {});
+    const line = `I finished ${name} on Hound: ${where}, ${me.total} strokes (${toParText(me.toPar)}).`;
+    // The picture card: your place, on the podium when you're top 3.
+    if (onShare && me.pos != null) {
+      onShare({
+        kind: 'challenge',
+        name,
+        outcome: { type: 'ranked', rank: me.pos, of: Math.max(board.swung, me.pos), metric: `${toParText(me.toPar)} (${me.total})` },
+        line: me.pos === 1 ? `I won ${name} on Hound, ${toParText(me.toPar)} (${me.total})! ⛳🏆` : line,
+        podium: board.podium.map((p) => ({
+          place: p.place,
+          name: p.name,
+          initials: p.initials,
+          iconId: p.iconId,
+          score: toParText(p.toPar),
+          me: p.userId === myId,
+        })),
+      });
+      return;
+    }
+    Share.share({ message: line }).catch(() => {});
   };
 
   const myBirdies = myGame
