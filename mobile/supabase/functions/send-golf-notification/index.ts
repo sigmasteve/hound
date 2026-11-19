@@ -8,6 +8,9 @@
 //   - 'final'     the round's over: who won, and your score
 //   - 'top10'     a Global Golf (the Hound Open): you've moved into the top
 //                 10, once (0202's golf_strike, once the field's 20+)
+//   - 'derby' / 'shootout'  the Home Run Derby (0211) and the Hound
+//                 Shootout (0221): worded by the server, sent to anyone in
+//                 the challenge (they have no golf seat)
 // Every push carries { type: 'golf', challengeId } so a tap opens the game.
 // A failure here never affects the game: the caller swallows it.
 //
@@ -18,9 +21,12 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
-// 'derby' (0211): the Home Run Derby's pushes, worded by the server.
-type Kind = 'birdie' | 'ace' | 'reminder' | 'skin' | 'final' | 'top10' | 'derby';
-const KINDS: Kind[] = ['birdie', 'ace', 'reminder', 'skin', 'final', 'top10', 'derby'];
+// 'derby' (0211) and 'shootout' (0221): the Home Run Derby's and the Hound
+// Shootout's pushes, worded by the server.
+type Kind = 'birdie' | 'ace' | 'reminder' | 'skin' | 'final' | 'top10' | 'derby' | 'shootout';
+const KINDS: Kind[] = ['birdie', 'ace', 'reminder', 'skin', 'final', 'top10', 'derby', 'shootout'];
+// Kinds for games with no golf seat: anyone in the challenge gets them.
+const NOT_GOLF: Kind[] = ['derby', 'shootout'];
 
 interface RequestBody {
   kind: Kind;
@@ -87,6 +93,7 @@ function message(body: RequestBody, me: string, game: string): { title: string; 
       return { title: game, text: `You're into the top 10: ${place}${thru}. Keep going.` };
     }
     case 'derby':
+    case 'shootout':
       return { title: body.title ?? game, text: body.message ?? `Something happened in "${game}".` };
     case 'final': {
       const score = body.total != null && body.to_par != null ? ` You shot ${body.total} (${toPar(body.to_par)}).` : '';
@@ -125,7 +132,15 @@ Deno.serve(async (req) => {
   const [{ data: challenge }, { data: recipient }, { data: seat }] = await Promise.all([
     supabase.from('challenges').select('name').eq('id', body.challenge_id).single(),
     supabase.from('profiles').select('notify_push_enabled').eq('id', body.recipient_id).single<{ notify_push_enabled: boolean }>(),
-    supabase.from('golf_players').select('joined').eq('challenge_id', body.challenge_id).eq('user_id', body.recipient_id).maybeSingle<{ joined: boolean }>(),
+    NOT_GOLF.includes(body.kind)
+      ? supabase
+          .from('challenge_participants')
+          .select('user_id')
+          .eq('challenge_id', body.challenge_id)
+          .eq('user_id', body.recipient_id)
+          .maybeSingle()
+          .then((r) => ({ data: r.data ? { joined: true } : null }))
+      : supabase.from('golf_players').select('joined').eq('challenge_id', body.challenge_id).eq('user_id', body.recipient_id).maybeSingle<{ joined: boolean }>(),
   ]);
   if (!challenge || !recipient) {
     return new Response(JSON.stringify({ sent: false, reason: 'Challenge or profile not found' }), { status: 404 });

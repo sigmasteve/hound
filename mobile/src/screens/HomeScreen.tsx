@@ -126,6 +126,8 @@ import { oversLabel } from '../challenges/cricket';
 import { advanceBaseball, awayTeam, getBaseballGame, getBaseballLive, listBaseballInnings, type BaseballGame, type BaseballInning, type BaseballLive } from '../challenges/baseballApi';
 import { derbyPos, getDerbyBoard, getDerbyLive, type DerbyBoard, type DerbyLive } from '../challenges/derbyApi';
 import { DerbyLongBalls } from '../components/DerbyLongBalls';
+import { ShootoutGoal } from '../components/ShootoutGoal';
+import { conversion, getShootoutBoard, getShootoutLive, shootoutPos, type ShootoutBoard, type ShootoutLive } from '../challenges/shootoutApi';
 import { HorseBoard, horseCourt } from '../components/HorseCard';
 import {
   ChecklistPinned,
@@ -515,6 +517,25 @@ function derbyHeadline(name: string, derby: { board: DerbyBoard | null; live: De
   return `Step up to the plate in ${name}: your steps buy the swings.${swings}`;
 }
 
+// The Shootout's line on Today: where you stand, how far behind the
+// leader, and the kicks waiting (0221).
+function shootoutHeadline(name: string, so: { board: ShootoutBoard | null; live: ShootoutLive | null } | null): string {
+  const b = so?.board;
+  const ready = so?.live && so.live.canKick ? so.live.kicksLeft : 0;
+  const kicks = ready > 0 ? ` ${ready} ${ready === 1 ? 'kick' : 'kicks'} ready.` : '';
+  if (b?.status === 'final') {
+    const top = b.podium[0];
+    const mine = b.me?.pos != null ? ` You finished ${shootoutPos(b.me.pos, b.me.tied)}.` : '';
+    return top ? `${top.name} won ${name} with ${top.points} goals.${mine}` : `${name} is over.${mine}`;
+  }
+  if (b?.me && b.me.pos != null && b.me.points > 0) {
+    const leader = b.rows.find((r) => r.pos === 1 && !r.isMe);
+    const behind = leader && b.me.pos > 1 ? `, ${leader.points - b.me.points} behind ${leader.name.split(' ')[0]}` : '';
+    return `You're ${shootoutPos(b.me.pos, b.me.tied)} with ${b.me.points} ${b.me.points === 1 ? 'goal' : 'goals'}${behind}.${kicks}`;
+  }
+  return `Step up to the spot in ${name}: your steps buy the kicks.${kicks}`;
+}
+
 function heroCopy(
   primary: PrimaryChallenge,
   userId: string | null,
@@ -534,6 +555,7 @@ function heroCopy(
   horseGame: HorseGame | null = null,
   golfGame: GolfGame | null = null,
   derby: { board: DerbyBoard | null; live: DerbyLive | null } | null = null,
+  shootout: { board: ShootoutBoard | null; live: ShootoutLive | null } | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -595,6 +617,9 @@ function heroCopy(
   }
   if (challenge.kind === 'derby') {
     return { eyebrow, headline: derbyHeadline(challenge.name, derby) };
+  }
+  if (challenge.kind === 'shootout') {
+    return { eyebrow, headline: shootoutHeadline(challenge.name, shootout) };
   }
   if (challenge.kind === 'doors') {
     return { eyebrow, headline: doorsHeadline(challenge.name, doorsGame) };
@@ -1173,6 +1198,7 @@ export function HomeScreen({
   const [primaryHorse, setPrimaryHorse] = useState<HorseGame | null>(null);
   const [primaryGolf, setPrimaryGolf] = useState<GolfGame | null>(null);
   const [primaryDerby, setPrimaryDerby] = useState<{ board: DerbyBoard | null; live: DerbyLive | null } | null>(null);
+  const [primaryShootout, setPrimaryShootout] = useState<{ board: ShootoutBoard | null; live: ShootoutLive | null } | null>(null);
   const [primaryCricket, setPrimaryCricket] = useState<{ game: CricketGame | null; onStrike: CricketOnStrike | null }>({
     game: null,
     onStrike: null,
@@ -2007,6 +2033,14 @@ export function HomeScreen({
       } else {
         setPrimaryDerby(null);
       }
+      if (primaryResult?.challenge.kind === 'shootout') {
+        const sId = primaryResult.challenge.id;
+        Promise.all([getShootoutBoard(sId, 'top').catch(() => null), getShootoutLive(sId).catch(() => null)]).then(([board, live]) => {
+          if (!cancelled) setPrimaryShootout({ board, live });
+        });
+      } else {
+        setPrimaryShootout(null);
+      }
       if (primaryResult?.challenge.kind === 'golf') {
         getGolfGame(primaryResult.challenge.id)
           .then((g) => {
@@ -2046,7 +2080,7 @@ export function HomeScreen({
       const activeResults = results.filter((r) => !r.finished);
       if (user?.id) {
         const myId = user.id;
-        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries, hoopsEntries, horseEntries, golfEntries, baseballEntries, derbyEntries] = await Promise.all([
+        const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries, hoopsEntries, horseEntries, golfEntries, baseballEntries, derbyEntries, shootoutEntries] = await Promise.all([
           Promise.all(
             activeResults
               .filter((r) => r.challenge.kind === 'tag' && r.challenge.tagMode !== 'chase')
@@ -2155,6 +2189,12 @@ export function HomeScreen({
               .filter((r) => r.challenge.kind === 'derby')
               .map(async (r): Promise<readonly [string, DerbyLive | null]> => [r.challenge.id, await getDerbyLive(r.challenge.id).catch(() => null)]),
           ),
+          // The Hound Shootout (0221): kicks ready once you've joined.
+          Promise.all(
+            activeResults
+              .filter((r) => r.challenge.kind === 'shootout')
+              .map(async (r): Promise<readonly [string, ShootoutLive | null]> => [r.challenge.id, await getShootoutLive(r.challenge.id).catch(() => null)]),
+          ),
         ]);
         const packMap = new Map(packEntries.filter((e): e is readonly [string, PackWarsGame] => e[1] !== null));
         const doorsMap = new Map(doorsEntries.filter((e): e is readonly [string, DoorsGame] => e[1] !== null));
@@ -2182,6 +2222,9 @@ export function HomeScreen({
             ),
             derbySwingsReady: new Map(
               derbyEntries.flatMap(([id, l]) => (l && l.joined && l.canSwing && l.swingsLeft > 0 ? [[id, l.swingsLeft] as const] : [])),
+            ),
+            shootoutKicksReady: new Map(
+              shootoutEntries.flatMap(([id, l]) => (l && l.joined && l.canKick && l.kicksLeft > 0 ? [[id, l.kicksLeft] as const] : [])),
             ),
             horseToSet: new Set(horseEntries.filter(([, g]) => g && !g.handsOn && g.status === 'live' && g.me && g.setter === g.me).map(([id]) => id)),
             // H-O-R-S-E, call your shot (0209): it's your turn to set or match.
@@ -2275,6 +2318,7 @@ export function HomeScreen({
         primaryHorse,
         primaryGolf,
         primaryDerby,
+        primaryShootout,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -2824,6 +2868,8 @@ export function HomeScreen({
               <GolfPreview primary={primary} game={primaryGolf} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'derby' ? (
               <DerbyPreview primary={primary} derby={primaryDerby} onOpen={sheetOpenPrimary} styles={styles} colors={colors} />
+            ) : primary.challenge.kind === 'shootout' ? (
+              <ShootoutPreview primary={primary} so={primaryShootout} onOpen={sheetOpenPrimary} styles={styles} colors={colors} />
             ) : primary.challenge.kind === 'baseball' ? (
               <BaseballPreview primary={primary} game={primaryBaseball.game} innings={primaryBaseball.innings} userId={user?.id ?? null} onOpen={sheetOpenPrimary} styles={styles} />
             ) : primary.challenge.kind === 'houndopoly' ? (
@@ -3696,6 +3742,70 @@ function DerbyPreview({
         <Text style={styles.tileSub}>{b ? 'No home runs yet. Be the first on the board.' : 'Loading the board…'}</Text>
       )}
       <Button label={ready > 0 ? `Step up to the plate · ${ready} ${ready === 1 ? 'swing' : 'swings'}` : 'Open the Derby'} variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+// The Hound Shootout pinned (0221): the goal with where the top five
+// score most, the Top 5 by goals with each one's conversion, and you
+// underneath if you're further down.
+function ShootoutPreview({
+  primary,
+  so,
+  onOpen,
+  styles,
+  colors,
+}: {
+  primary: PrimaryChallenge;
+  so: { board: ShootoutBoard | null; live: ShootoutLive | null } | null;
+  onOpen: () => void;
+  styles: HomeStyles;
+  colors: Palette;
+}) {
+  const { challenge } = primary;
+  const b = so?.board ?? null;
+  const top = (b?.rows ?? []).filter((r) => r.pos != null).slice(0, 5);
+  const meBelow = b?.me && b.me.pos != null && !top.some((r) => r.isMe) ? b.me : null;
+  const ready = so?.live && so.live.canKick ? so.live.kicksLeft : 0;
+  const dots = ['#f0892a', '#4f7be0', '#3f9a6b', '#c2410c', '#8b6fd6'];
+  const spots = top
+    .filter((r) => r.favZone != null)
+    .map((r, i) => ({ zone: r.favZone as number, initials: r.initials, me: r.isMe, color: r.isMe ? '#9184d9' : dots[i % dots.length] }));
+  const shirt = b?.sponsor?.color && /^#[0-9a-fA-F]{6}$/.test(b.sponsor.color) ? b.sponsor.color : '#e0a94f';
+  const row = (key: string, pos: string, isMe: boolean, name: string, initials: string, iconId: string | null, frameId: string | null, backgroundId: string | null, points: number, rate: string) => (
+    <View key={key} style={styles.raceRow}>
+      <Text style={styles.raceRank}>{pos}</Text>
+      <Avatar initials={initials} tint={isMe ? TINT_A : TINT_N} size={24} fontSize={10} frameId={frameId} backgroundId={backgroundId} iconId={iconId} />
+      <Text style={[styles.raceName, { flex: 1 }]} numberOfLines={1}>
+        {isMe ? 'You' : name}
+      </Text>
+      <Text style={[styles.raceSteps, isMe && { color: colors.accentActive }]}>
+        {points} {points === 1 ? 'goal' : 'goals'} · {rate}
+      </Text>
+    </View>
+  );
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TrophyIcon size={15} color={color.accent} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+        {b ? (
+          <Text style={styles.raceMeta}>
+            {b.field.toLocaleString()} kicking · day {b.dayNo} of {b.days}
+          </Text>
+        ) : null}
+      </View>
+      {b && top.length > 0 ? (
+        <>
+          {spots.length > 0 && <ShootoutGoal spots={spots} board={b.sponsor?.name ?? 'Hound'} keeperColor={shirt} height={150} />}
+          {top.map((r) => row(r.userId, shootoutPos(r.pos, r.tied), r.isMe, r.name, r.initials, r.iconId, r.frameId, r.backgroundId, r.points, conversion(r.goals, r.kicks)))}
+          {meBelow ? row('me', shootoutPos(meBelow.pos, meBelow.tied), true, 'You', '', null, null, null, meBelow.points, conversion(meBelow.goals, meBelow.kicks)) : null}
+          <Text style={styles.tileSub}>Most goals wins; ties go to the best conversion. Top bins count 2.</Text>
+        </>
+      ) : (
+        <Text style={styles.tileSub}>{b ? 'No goals yet. Be the first on the board.' : 'Loading the board…'}</Text>
+      )}
+      <Button label={ready > 0 ? `Step up to the spot · ${ready} ${ready === 1 ? 'kick' : 'kicks'}` : 'Open the Shootout'} variant="ghost" small onPress={onOpen} />
     </Card>
   );
 }

@@ -194,6 +194,10 @@ export function toChallengeCard(
     // The home runs live in derby_players, on the detail screen.
     stat = '20';
     statLabel = 'swings a day · most home runs wins';
+  } else if (challenge.kind === 'shootout') {
+    // The goals live in shootout_players, on the detail screen.
+    stat = '20';
+    statLabel = 'kicks a day · most goals wins';
   } else if (challenge.kind === 'packs') {
     // The map and the packs live in pack_territories, on the detail screen.
     stat = '4';

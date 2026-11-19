@@ -95,6 +95,7 @@ const HORSE_STAKES: { id: string | null; name: string }[] = [
 ];
 import { setupGlobalGolf, setupGolf } from '../challenges/golfApi';
 import { DEFAULT_DERBY_PRIZES, setupGlobalDerby } from '../challenges/derbyApi';
+import { DEFAULT_SHOOTOUT_PRIZES, setupGlobalShootout } from '../challenges/shootoutApi';
 import { SponsorEditor, emptySponsorDraft, sponsorDraftProblem, sponsorFromDraft, usesPlacements } from '../components/SponsorEditor';
 import { GOLF_COURSES, GOLF_FORMAT_NAME, GOLF_FORMAT_NOTE, GOLF_HOLES_PER_DAY, golfDays, type GolfCourseId, type GolfFormat } from '../challenges/golf';
 import {
@@ -199,6 +200,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   doors: 'A door a day: open it, then do what’s behind it.',
   packs: 'Four packs, one map. Vote your march; take the most ground.',
   derby: 'Every pitch a meatball: most home runs in a week wins.',
+  shootout: 'Penalty kicks for a week: top corners count 2. Most goals wins.',
 };
 
 // A Journey's default run: about two miles a day, at least three days,
@@ -467,6 +469,11 @@ export function CreateScreen({
   const [derbyTenPlusText, setDerbyTenPlusText] = useState(String(DEFAULT_DERBY_PRIZES.tenPlus));
   const [derbySignText, setDerbySignText] = useState('25');
   const [derbySignCapText, setDerbySignCapText] = useState('5');
+  // The Hound Shootout (0221): Bones past the top three, for the longest
+  // scoring streak, and for 15+ goals.
+  const [shootTop10Text, setShootTop10Text] = useState(String(DEFAULT_SHOOTOUT_PRIZES.top10));
+  const [shootStreakText, setShootStreakText] = useState(String(DEFAULT_SHOOTOUT_PRIZES.streak));
+  const [shootFifteenText, setShootFifteenText] = useState(String(DEFAULT_SHOOTOUT_PRIZES.fifteen));
   const bonesOf = (t: string, max: number) => Math.max(0, Math.min(max, Math.round(Number(t.replace(/[^0-9]/g, '')) || 0)));
   const canHavePot = !crowd && POT_KINDS.includes(draftType);
   const canHavePrizes = global && draftType !== 'seventyfive' && draftType !== 'checklist';
@@ -612,7 +619,7 @@ export function CreateScreen({
       setPrizeText(['500', '250', '100']);
     }
     // The Home Run Derby: a week, joining closes 3 days in, 500 / 300 / 200.
-    if (draftType === 'derby') {
+    if (draftType === 'derby' || draftType === 'shootout') {
       setLength('7');
       setJoinWindow('3');
       setPrizeText(['500', '300', '200']);
@@ -760,7 +767,7 @@ export function CreateScreen({
       setGolfHoles(t.durationDays >= 7 ? 18 : 9);
       setPrizeText(['500', '250', '100']);
     }
-    if (t.kind === 'derby') setPrizeText(['500', '300', '200']);
+    if (t.kind === 'derby' || t.kind === 'shootout') setPrizeText(['500', '300', '200']);
     setPoolCourseId(t.kind === 'distance' ? (t.courseId ?? null) : null);
     setNameError(null);
     setStep(2);
@@ -1006,6 +1013,23 @@ export function CreateScreen({
               },
               signBones: bonesOf(derbySignText, 100),
               signCap: Math.max(1, bonesOf(derbySignCapText, 20)),
+            });
+          } catch (e) {
+            await deleteGlobalChallenge(globalId).catch(() => {});
+            throw e;
+          }
+        }
+        // The Hound Shootout: its prizes, right away. Without them nobody
+        // could join, so a failure takes it back down.
+        if (draftType === 'shootout') {
+          try {
+            await setupGlobalShootout(globalId, {
+              first: prizes[0],
+              second: prizes[1],
+              third: prizes[2],
+              top10: bonesOf(shootTop10Text, 500),
+              streak: bonesOf(shootStreakText, 1000),
+              fifteen: bonesOf(shootFifteenText, 200),
             });
           } catch (e) {
             await deleteGlobalChallenge(globalId).catch(() => {});
@@ -1741,7 +1765,7 @@ export function CreateScreen({
             <Slider
               // A Hound'opoly game needs a week to go anywhere.
               minimumValue={
-                draftType === 'tag' || draftType === 'derby'
+                draftType === 'tag' || draftType === 'derby' || draftType === 'shootout'
                   ? 3
                   : community
                   ? draftType === 'seventyfive'
@@ -1759,7 +1783,7 @@ export function CreateScreen({
                 draftType === 'tag'
                   ? 14
                   : // A community challenge runs 3 to 30 days (75 Day: 75).
-                    community || draftType === 'packs' || draftType === 'derby'
+                    community || draftType === 'packs' || draftType === 'derby' || draftType === 'shootout'
                   ? draftType === 'seventyfive'
                     ? 75
                     : 30
@@ -2558,6 +2582,10 @@ export function CreateScreen({
                 rows.push(['Also', `4th–10th ${bonesOf(derbyTop10Text, 500)} · longest ${bonesOf(derbyLongestText, 1000)} · 10+ HR ${bonesOf(derbyTenPlusText, 200)}`]);
                 if (sponsorName.trim()) rows.push(['Sign', `${bonesOf(derbySignText, 100)} a hit, up to ${Math.max(1, bonesOf(derbySignCapText, 20))} each`]);
               }
+              if (draftType === 'shootout') {
+                rows.push(['Kicks', '1 per 1,000 steps, up to 20 a day']);
+                rows.push(['Also', `4th–10th ${bonesOf(shootTop10Text, 500)} · longest streak ${bonesOf(shootStreakText, 1000)} · 15+ goals ${bonesOf(shootFifteenText, 200)}`]);
+              }
               if (draftType === 'golf') {
                 rows.push(['Course', GOLF_COURSES.find((c) => c.id === golfCourse)?.name ?? golfCourse]);
                 rows.push(['Holes', `${golfHoles}, stroke play`]);
@@ -2595,6 +2623,8 @@ export function CreateScreen({
                   ? 'Lowest score wins. Ties share the Bones of the places they cover'
                   : draftType === 'derby'
                   ? 'Most home runs wins; ties go to the longest home run, then share the Bones of the places they cover'
+                  : draftType === 'shootout'
+                  ? 'Most goals wins (top bins count 2); ties go to the best conversion, then share the Bones of the places they cover'
                   : draftType === 'bingo'
                   ? 'BINGOs place in the order they come in, then most squares'
                   : draftType === 'streak'
@@ -2604,7 +2634,7 @@ export function CreateScreen({
                       : draftType === 'distance' && distanceGoalUnit === 'miles'
                         ? 'Most miles wins'
                         : 'Most steps wins'}
-                {draftType === 'golf' || draftType === 'derby' ? '' : '. Ties share a place'}. 0 means no prize for that place; up to 1,000 each.
+                {draftType === 'golf' || draftType === 'derby' || draftType === 'shootout' ? '' : '. Ties share a place'}. 0 means no prize for that place; up to 1,000 each.
               </Text>
               {draftType === 'derby' && (
                 <>
@@ -2645,6 +2675,34 @@ export function CreateScreen({
                   </View>
                   <Text style={styles.footNote}>
                     The sign sits on the center-field wall and only shows with a sponsor. A center home run of 410 to 445 feet can hit it.
+                  </Text>
+                </>
+              )}
+              {draftType === 'shootout' && (
+                <>
+                  <TextField
+                    label={`${currencyName} each for 4th to 10th`}
+                    value={shootTop10Text}
+                    onChangeText={setShootTop10Text}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+                  <TextField
+                    label={`${currencyName} for the longest scoring streak`}
+                    value={shootStreakText}
+                    onChangeText={setShootStreakText}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                  />
+                  <TextField
+                    label={`${currencyName} for 15 or more goals`}
+                    value={shootFifteenText}
+                    onChangeText={setShootFifteenText}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+                  <Text style={styles.footNote}>
+                    A sponsor shows on the boards behind the goal and on the keeper’s shirt.
                   </Text>
                 </>
               )}
