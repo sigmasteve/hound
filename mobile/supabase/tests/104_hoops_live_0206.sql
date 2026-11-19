@@ -3,7 +3,7 @@
 -- seeded roll, when you can't shoot, the putback, the day played with
 -- live shots first and the rest rolled, hands-off games as before, the
 -- view, the plays' by_hand, and Admin.
-select plan(45);
+select plan(46);
 
 select tests.new_user('Ann') as ann \gset
 select tests.new_user('Bob') as bob \gset
@@ -100,12 +100,17 @@ select id as old_seat from public.hoops_players where challenge_id = '00000000-0
 select md5('seat' || i)::uuid as ann_seat
 from generate_series(1, 500) i
 where public.rally_js_rand(public.rally_js_hash('00000000-0000-0000-0000-00000000b601:' || :'today' || ':' || md5('seat' || i)::uuid || ':live:1'))
-        >= least(0.97, greatest(0.03, public.hoops_chance('three', 8000, 3000, 'none', false, false) - 0.30))
+        >= 0.03
   and public.rally_js_rand(public.rally_js_hash('00000000-0000-0000-0000-00000000b601:' || :'today' || ':' || md5('seat' || i)::uuid || ':live:1:reb'))
         < 0.6 * 8000.0 / 11000
 order by i limit 1 \gset
 update public.hoops_players set id = :'ann_seat' where id = :'old_seat';
 update public.hoops_players set guarding = :'ann_seat' where guarding = :'old_seat';
+
+-- 0223: the release decides. Even steps: a drive is 0.55, a three 0.35.
+select is(array[public.hoops_release_chance(0.55, 'swish'), public.hoops_release_chance(0.55, 'green'), public.hoops_release_chance(0.35, 'green'),
+                public.hoops_release_chance(0.55, 'near'), public.hoops_release_chance(0.35, 'near'), public.hoops_release_chance(0.95, 'off')],
+  array[0.97, 0.90, 0.80, 0.25, 0.10, 0.03]::double precision[], 'Green goes in 80-95%, orange 10-25%, red almost never');
 
 -- ── Taking shots ──
 select tests.sign_in(:'ann');
@@ -121,8 +126,7 @@ select throws_ok($$select public.hoops_take_shot('00000000-0000-0000-0000-000000
 reset role;
 
 select is(:'s1'::jsonb ->> 'quality', 'off', 'A late release outside the window is off');
-select is((:'s1'::jsonb ->> 'chance')::numeric,
-  round(least(0.97, greatest(0.03, public.hoops_chance('three', 8000, 3000, 'none', false, false) - 0.30))::numeric, 2), 'and costs 0.30');
+select is((:'s1'::jsonb ->> 'chance')::numeric, 0.03, 'and almost never goes in (0223: the release decides)');
 select is(:'s1'::jsonb ->> 'made', 'false', 'It misses');
 select isnt(:'s1'::jsonb -> 'putback', 'null'::jsonb, 'Ann''s side grabs the rebound: a putback');
 select is((:'s1'::jsonb -> 'putback' ->> 'pts')::int, case when (:'s1'::jsonb -> 'putback' ->> 'made')::boolean then 2 else 0 end, 'worth two');
@@ -133,10 +137,10 @@ select is((select (l.rebound, l.putback_made is not null)::text from public.hoop
 select is(array[:'s2'::jsonb ->> 'quality', :'s3'::jsonb ->> 'quality', :'s4'::jsonb ->> 'quality'], array['swish', 'near', 'green'],
   'The middle is a swish, 0.2 late on a mid-range near, 0.15 early on a drive green');
 select is(array[(:'s2'::jsonb ->> 'chance')::numeric, (:'s3'::jsonb ->> 'chance')::numeric, (:'s4'::jsonb ->> 'chance')::numeric],
-  array[round(least(0.97, least(0.95, public.hoops_chance('mid', 8000, 3000, 'none', false, (:'s2'::jsonb ->> 'on_fire')::boolean)) + 0.20)::numeric, 2),
-        round((least(0.95, public.hoops_chance('mid', 8000, 3000, 'none', false, (:'s3'::jsonb ->> 'on_fire')::boolean)) - 0.10)::numeric, 2),
-        round(least(0.97, least(0.95, public.hoops_chance('drive', 8000, 3000, 'none', false, (:'s4'::jsonb ->> 'on_fire')::boolean)) + 0.10)::numeric, 2)],
-  'and move the chance +0.20, −0.10 and +0.10');
+  array[0.97,
+        round(least(0.25, greatest(0.10, least(0.95, public.hoops_chance('mid', 8000, 3000, 'none', false, (:'s3'::jsonb ->> 'on_fire')::boolean)) - 0.30))::numeric, 2),
+        round(least(0.95, greatest(0.80, least(0.95, public.hoops_chance('drive', 8000, 3000, 'none', false, (:'s4'::jsonb ->> 'on_fire')::boolean)) + 0.35))::numeric, 2)],
+  'and decide it (0223): a swish 97%, the orange 10-25%, the green 80-95%');
 select is(array(select l.made from public.hoops_live_shots l where l.seat = :'ann_seat' order by l.n),
   array(select public.rally_js_rand(public.rally_js_hash('00000000-0000-0000-0000-00000000b601:' || :'today' || ':' || :'ann_seat' || ':live:' || l.n)) < l.chance
         from public.hoops_live_shots l where l.seat = :'ann_seat' order by l.n),

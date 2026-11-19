@@ -28,8 +28,10 @@ import {
 // mid-range pulls up at the elbow, a three steps back), Release! stops it.
 // The green is the make zone and the dark green a swish; the more your
 // defender out-walks you, the narrower it gets (the server's
-// windows[kind]). The server decides the shot and keeps it; it counts when
-// the day is played overnight, with anything you didn't take.
+// windows[kind]). The release decides the shot (0223): dark green 97%,
+// green 80-95%, orange 10-25%, red 3%. The server rolls it and keeps it;
+// it counts when the day is played overnight, with anything you didn't
+// take.
 //
 // The court is seen from behind the shooter, facing the basket, drawn in
 // perspective (perspective.ts): on the ground, x runs across (0 the left
