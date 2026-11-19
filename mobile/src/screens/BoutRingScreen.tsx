@@ -74,6 +74,15 @@ export function BoutRingScreen({ challengeId, initialMode, onBack }: { challenge
       .catch(() => {});
   }, [load, challengeId]);
 
+  // Opened straight onto Incoming (Slip N incoming): start the slip meter
+  // as soon as the fight's loaded, as switching to the tab does.
+  const startedSlip = useRef(false);
+  useEffect(() => {
+    if (startedSlip.current || !live || mode !== 'slip') return;
+    startedSlip.current = true;
+    if (live.canAct && live.incoming.length > 0) setMeterFrom(Date.now());
+  }, [live, mode]);
+
   const now = useClock(meterFrom != null || anim != null);
   const rv = useMemo(() => (size.w > 0 ? ringView(size.w, size.h) : null), [size.w, size.h]);
   const incoming = live?.incoming[0] ?? null;
