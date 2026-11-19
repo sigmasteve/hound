@@ -30,7 +30,8 @@ export type ResultOutcome =
   // H-O-R-S-E: the result and the letters each ended with.
   | { type: 'horse'; result: 'won' | 'lost' | 'tie'; word: string; mine: string; theirs: string }
   // Golf: where the viewer finished, and their round, e.g. "−2 (34)".
-  | { type: 'golf'; result: 'won' | 'lost' | 'tie'; score: string; course: string }
+  // place / of: where you finished among three or more (stroke play).
+  | { type: 'golf'; result: 'won' | 'lost' | 'tie'; score: string; course: string; place?: number; of?: number }
   // A Journey: your place by miles, whether you reached the end of the
   // course, and the course's name.
   | { type: 'journey'; rank: number; of: number; miles: string; finished: boolean; courseName: string }
@@ -136,6 +137,8 @@ export function resultLine(challengeName: string, outcome: ResultOutcome, labels
           ? `${challengeName} ended level at ${outcome.word.split('').join('-')}.`
           : `I spelled ${outcome.word.split('').join('-')} first in ${challengeName} — rematch time.`;
     case 'golf':
+      if (outcome.result !== 'won' && outcome.place && outcome.of && outcome.of >= 3 && outcome.place <= 3)
+        return `I finished ${ordinal(outcome.place)} of ${outcome.of} in ${challengeName} at ${outcome.course}, ${outcome.score}! ⛳🏅`;
       return outcome.result === 'won'
         ? `I won ${challengeName} at ${outcome.course}, ${outcome.score}, all on my steps! ⛳🏆`
         : outcome.result === 'tie'

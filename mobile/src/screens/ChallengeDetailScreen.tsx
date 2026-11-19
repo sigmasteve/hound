@@ -37,7 +37,7 @@ import { HuntReplayCard, HuntStatusCard, type HuntRunner } from '../hunt/HuntTra
 import { getChallengeHounds } from '../hunt/huntApi';
 import { houndFromCode } from '../tag/tagChaseApi';
 import { TagStatusCard } from '../components/TagStatusCard';
-import { TicTacGoCard } from '../components/TicTacGoCard';
+import { TicTacGoBoard, TicTacGoCard } from '../components/TicTacGoCard';
 import { TextField } from '../components/TextField';
 import { ToggleRow } from '../components/Selectable';
 import { SegmentedControl } from '../components/SegmentedControl';
@@ -99,7 +99,7 @@ import {
 import { HoundBingoCard } from '../components/HoundBingoCard';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { checkRallyShot, getRallyGame, rallyTeamOf, settleRally, type RallyGame } from '../challenges/rallyApi';
-import { RallyCard } from '../components/RallyCard';
+import { RallyCard, RallyCourt, RallyScore } from '../components/RallyCard';
 import {
   addSoccerPlayer,
   advanceSoccer,
@@ -126,9 +126,9 @@ import {
   type CricketOnStrike,
   type CricketTeam,
 } from '../challenges/cricketApi';
-import { CricketCard, cricketResultLine } from '../components/CricketCard';
+import { CricketCard, CricketGround, CricketScore, cricketResultLine } from '../components/CricketCard';
 import { HoopsCard } from '../components/HoopsCard';
-import { HorseCard } from '../components/HorseCard';
+import { HorseBoard, HorseCard, horseCourt } from '../components/HorseCard';
 import { advanceHoops, getHoops, type HoopsGame } from '../challenges/hoopsApi';
 import { advanceHorse, getHorse, type HorseGame } from '../challenges/horseApi';
 import { GolfCard } from '../components/GolfCard';
@@ -138,7 +138,10 @@ import { getDerbyLive, type DerbyLive, type DerbyBoard as DerbyBoardData } from 
 import { getGolfGame, type GolfGame } from '../challenges/golfApi';
 import { toParText, golfCourseName } from '../challenges/golf';
 import { useFocusEffect } from '@react-navigation/native';
-import { BaseballCard } from '../components/BaseballCard';
+import { BaseballCard, BaseballField, BaseballLineScore } from '../components/BaseballCard';
+import { awayTeam as baseballAwayTeam } from '../challenges/baseballApi';
+import { SoccerPitch, SoccerScore } from '../components/SoccerCard';
+import { HoopsCourt } from '../components/HoopsCourt';
 import {
   addBaseballPlayer,
   advanceBaseball,
@@ -221,6 +224,7 @@ import type { Friend } from '../friends/types';
 import { buildRematchDraft, type RematchDraft } from '../challenges/rematch';
 import { ordinal, resultLine, type ResultOutcome } from '../challenges/shareResult';
 import { ShareSheet } from '../share/ShareSheet';
+import type { ChallengeShare as BoardShare, SharePodiumSpot } from '../share/ShareCard';
 import { CommunityCard } from '../components/CommunityCard';
 import { getCommunityInfo, type CommunityInfo } from '../challenges/communityApi';
 import { friendEligible } from '../friends/eligibility';
@@ -290,6 +294,7 @@ export function ChallengeDetailScreen({
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   // The finished challenge's Share result sheet is open.
   const [sharingResult, setSharingResult] = useState(false);
+  const [boardShare, setBoardShare] = useState<BoardShare | null>(null);
   // A community challenge (K-04, 0152): its code and state. Null for any
   // other challenge.
   const [community, setCommunity] = useState<CommunityInfo | null>(null);
@@ -2013,11 +2018,16 @@ export function ChallengeDetailScreen({
         const mine = g.players.find((p) => p.userId === g.me);
         if (!mine) return null;
         const tied = !g.winner && g.players.length > 1;
+        // Stroke play among three or more: where you finished (a tie
+        // shares the place).
+        const place = g.format === 'stroke' && g.players.length >= 3 ? 1 + g.players.filter((p) => p.total < mine.total).length : undefined;
         return {
           type: 'golf',
           result: g.winner === g.me || (g.players.length === 1 && !g.winner) ? 'won' : tied ? 'tie' : 'lost',
           score: `${toParText(mine.toPar)} (${mine.total})`,
           course: g.course.name || golfCourseName(g.course.id),
+          place,
+          of: place ? g.players.length : undefined,
         };
       }
       case 'baseball': {
@@ -2052,6 +2062,60 @@ export function ChallengeDetailScreen({
     }
   })();
   const myResultLine = myOutcome ? resultLine(challenge.name, myOutcome, labels) : null;
+  // The game's own picture for the share card (the court, the pitch, the
+  // board), for the games that have one; the rest share your hound alone.
+  const sharePeople = [...participants, ...bots.map(botToParticipant)];
+  const shareVisual: React.ReactNode =
+    challenge.kind === 'hoops' && hoopsGame ? (
+      <HoopsCourt game={hoopsGame} compact />
+    ) : challenge.kind === 'horse' && horseGame ? (
+      <>
+        <HorseBoard game={horseGame} />
+        <HoopsCourt game={horseCourt(horseGame)} compact />
+      </>
+    ) : challenge.kind === 'soccer' && soccerGame ? (
+      <>
+        <SoccerScore game={soccerGame} people={sharePeople} userId={user?.id} days={challenge.durationDays} compact />
+        <SoccerPitch game={soccerGame} people={sharePeople} userId={user?.id} compact />
+      </>
+    ) : challenge.kind === 'rally' && rallyGame ? (
+      <>
+        <RallyScore game={rallyGame} people={sharePeople} userId={user?.id} compact />
+        <RallyCourt game={rallyGame} people={sharePeople} userId={user?.id} compact />
+      </>
+    ) : challenge.kind === 'cricket' && cricketGame ? (
+      <>
+        <CricketScore game={cricketGame} people={sharePeople} userId={user?.id} compact />
+        <CricketGround game={cricketGame} onStrike={null} people={sharePeople} userId={user?.id} compact />
+      </>
+    ) : challenge.kind === 'tictacgo' && tttGame ? (
+      <TicTacGoBoard game={tttGame} compact />
+    ) : challenge.kind === 'baseball' && baseball.game ? (
+      <>
+        <BaseballLineScore game={baseball.game} innings={baseball.innings} people={sharePeople} userId={user?.id} />
+        <BaseballField
+          game={baseball.game}
+          people={sharePeople}
+          userId={user?.id}
+          moment={{ battingTeam: baseballAwayTeam(baseball.game), onFirst: null, onSecond: null, onThird: null }}
+          compact
+        />
+      </>
+    ) : null;
+
+  // Golf stroke play among three or more: the podium for the share card
+  // (it shows only when you're on it).
+  const sharePodium: SharePodiumSpot[] | null =
+    challenge.kind === 'golf' && !isGlobal && golfGame && golfGame.status === 'final' && golfGame.format === 'stroke' && golfGame.players.length >= 3
+      ? golfGame.players.map((p) => ({
+          place: 1 + golfGame.players.filter((q) => q.total < p.total).length,
+          name: p.name,
+          initials: p.initials,
+          iconId: p.iconId,
+          score: toParText(p.toPar),
+          me: p.userId === golfGame.me,
+        }))
+      : null;
 
   // Shares the result as a picture (ShareSheet), with the same line.
   const shareResult = () => {
@@ -2116,10 +2180,13 @@ export function ChallengeDetailScreen({
     )}
     {sharingResult && myOutcome && myResultLine && (
       <ShareSheet
-        content={{ kind: 'challenge', name: challenge.name, outcome: myOutcome, line: myResultLine }}
+        content={{ kind: 'challenge', name: challenge.name, outcome: myOutcome, line: myResultLine, visual: shareVisual, podium: sharePodium }}
         onClose={() => setSharingResult(false)}
       />
     )}
+    {/* The Hound Open's and the Derby's own Share: your finish, on the
+        podium when you're top 3. */}
+    {boardShare && <ShareSheet content={boardShare} onClose={() => setBoardShare(null)} />}
     {/* Talk's message box sits at the bottom of the page: on iOS this
         makes room for the keyboard and scrolls whatever field you're
         typing in back above it, instead of leaving it underneath. */}
@@ -2475,10 +2542,10 @@ export function ChallengeDetailScreen({
           {challenge.kind === 'hoops' && <HoopsCard challengeId={challengeId} game={hoopsGame} stepsToday={soccerSteps} onChanged={loadHoops} onShoot={() => onShootHoops?.()} />}
 
           {challenge.kind === 'golf' && isGlobal && (
-            <OpenBoard challengeId={challengeId} name={challenge.name} game={golfGame} sponsor={sponsor} onPlay={() => onPlayGolf?.()} />
+            <OpenBoard challengeId={challengeId} name={challenge.name} game={golfGame} sponsor={sponsor} onPlay={() => onPlayGolf?.()} onShare={setBoardShare} />
           )}
           {challenge.kind === 'derby' && (
-            <DerbyBoard challengeId={challengeId} name={challenge.name} live={derbyLive} sponsor={sponsor} onBat={() => onBatDerby?.()} onPrizes={setDerbyPrizes} />
+            <DerbyBoard challengeId={challengeId} name={challenge.name} live={derbyLive} sponsor={sponsor} onBat={() => onBatDerby?.()} onPrizes={setDerbyPrizes} onShare={setBoardShare} />
           )}
           {challenge.kind === 'golf' && !isGlobal && <GolfCard challengeId={challengeId} game={golfGame} onPlay={() => onPlayGolf?.()} />}
 
