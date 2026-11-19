@@ -164,6 +164,8 @@ import { checkAchievements, listAchievements, type NewlyEarnedAchievement } from
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
 import { GlobalChallengesCard } from '../components/GlobalChallengesCard';
+import { YoureInCard } from '../home/YoureInCard';
+import { autoJoinOpenGlobals, dismissAutoJoinCard, leaveAutoJoined, rejoinAutoJoined, type AutoJoinCard } from '../challenges/autoJoinApi';
 import {
   canJoin,
   joinGlobalChallenge,
@@ -1655,6 +1657,41 @@ export function HomeScreen({
     setRefreshKey((k) => k + 1);
   }, [reload]);
 
+  // New users join the open Global challenges (0222): the server does it
+  // once per account, on this first open after the welcome wizard, and
+  // after that this only reads the "You're in" card until Got it.
+  const [youreIn, setYoureIn] = useState<AutoJoinCard | null>(null);
+  const autoJoinTried = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id || autoJoinTried.current === user.id) return;
+    autoJoinTried.current = user.id;
+    autoJoinOpenGlobals()
+      .then((card) => {
+        setYoureIn(card);
+        // Just put in: the tiles and Needs you pick them up.
+        if (card.show && card.challenges.length > 0) refreshAll();
+      })
+      .catch(() => {});
+  }, [user?.id, refreshAll]);
+  const leaveYoureIn = (id: string) =>
+    leaveAutoJoined(id)
+      .then((card) => {
+        setYoureIn(card);
+        refreshAll();
+      })
+      .catch((e) => Alert.alert('Couldn’t leave', e instanceof Error ? e.message : 'Try again in a moment.'));
+  const undoYoureIn = (id: string) =>
+    rejoinAutoJoined(id)
+      .then((card) => {
+        setYoureIn(card);
+        refreshAll();
+      })
+      .catch((e) => Alert.alert('Couldn’t rejoin', e instanceof Error ? e.message : 'Try again in a moment.'));
+  const dismissYoureIn = () => {
+    setYoureIn((c) => (c ? { ...c, show: false } : c));
+    dismissAutoJoinCard().catch(() => {});
+  };
+
   // Joining opens the challenge straight away; coming back to Today
   // refreshes everything (see the focus effect below), so the row flips
   // to Joined and the challenge counts include it.
@@ -2559,6 +2596,18 @@ export function HomeScreen({
       {/* A holiday theme (0184), when one's on: its countdown and garland
           across the top. Decoration only; nothing moves. */}
       <HolidayHeader />
+      {/* A new account's Global challenges (0222): "You're in", with
+          Leave and Undo, until Got it. Where the Global challenges sit. */}
+      {youreIn?.show && youreIn.challenges.length > 0 && (
+        <YoureInCard
+          card={youreIn}
+          waiting={new Map(pendingActions.map((a) => [a.challengeId, a.label.replace(` in ${a.challengeName}`, '').replace(/ in the [A-Z][\w’' -]+$/, '')]))}
+          onLeave={(c) => leaveYoureIn(c.id)}
+          onUndo={(c) => undoYoureIn(c.id)}
+          onGotIt={dismissYoureIn}
+          onOpen={(c) => onOpenChallenge(c.id)}
+        />
+      )}
       {/* Global challenges you can still join stand apart, above the
           tiles, so they're seen without opening anything. */}
       {(upcomingGlobals.length > 0 || joinableGlobals.length > 0) && (
