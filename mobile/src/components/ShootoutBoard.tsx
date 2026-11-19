@@ -7,6 +7,7 @@ import { usePinnedAction } from './PinnedAction';
 import { Avatar } from './Avatar';
 import { PresentedBy, SponsorLogo, openSponsor } from './SponsorLine';
 import { ShootoutGoal } from './ShootoutGoal';
+import type { ChallengeShare } from '../share/ShareCard';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useCurrencyName } from '../organizations/useCurrencyName';
@@ -63,6 +64,7 @@ export function ShootoutBoard({
   sponsor,
   onKick,
   onPrizes,
+  onShare,
 }: {
   challengeId: string;
   name: string;
@@ -71,6 +73,8 @@ export function ShootoutBoard({
   sponsor: ChallengeSponsor | null;
   onKick: () => void;
   onPrizes?: (prizes: ShootoutPrizes) => void;
+  // Share my finish as a picture (the share card); without it, text.
+  onShare?: (content: ChallengeShare) => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -177,9 +181,28 @@ export function ShootoutBoard({
   const share = () => {
     if (!me) return;
     const where = me.pos != null ? `${shootoutPos(me.pos, me.tied)} of ${board.kicked.toLocaleString()}` : 'the Shootout';
-    Share.share({
-      message: `I scored ${me.points} ${me.points === 1 ? 'goal' : 'goals'} in ${name} on Hound (${conversion(me.goals, me.kicks)} of my penalties): ${where}.`,
-    }).catch(() => {});
+    const goals = `${me.points} ${me.points === 1 ? 'goal' : 'goals'}`;
+    const line = `I scored ${goals} in ${name} on Hound (${conversion(me.goals, me.kicks)} of my penalties): ${where}.`;
+    // The picture card: your place, on the podium when you're top 3.
+    if (onShare && me.pos != null) {
+      const myId = board.rows.find((r) => r.isMe)?.userId ?? null;
+      onShare({
+        kind: 'challenge',
+        name,
+        outcome: { type: 'ranked', rank: me.pos, of: Math.max(board.kicked, me.pos), metric: goals },
+        line: me.pos === 1 ? `I won ${name} on Hound with ${goals}! ⚽🏆` : line,
+        podium: board.podium.map((p) => ({
+          place: p.place,
+          name: p.name,
+          initials: p.initials,
+          iconId: p.iconId,
+          score: `${p.points} ${p.points === 1 ? 'goal' : 'goals'}`,
+          me: p.userId === myId,
+        })),
+      });
+      return;
+    }
+    Share.share({ message: line }).catch(() => {});
   };
 
   const note = (r: ShootoutRow) => {

@@ -2570,7 +2570,7 @@ export function ChallengeDetailScreen({
             <DerbyBoard challengeId={challengeId} name={challenge.name} live={derbyLive} sponsor={sponsor} onBat={() => onBatDerby?.()} onPrizes={setDerbyPrizes} onShare={setBoardShare} />
           )}
           {challenge.kind === 'shootout' && (
-            <ShootoutBoard challengeId={challengeId} name={challenge.name} live={shootoutLive} sponsor={sponsor} onKick={() => onKickShootout?.()} onPrizes={setShootoutPrizes} />
+            <ShootoutBoard challengeId={challengeId} name={challenge.name} live={shootoutLive} sponsor={sponsor} onKick={() => onKickShootout?.()} onPrizes={setShootoutPrizes} onShare={setBoardShare} />
           )}
           {challenge.kind === 'golf' && !isGlobal && <GolfCard challengeId={challengeId} game={golfGame} onPlay={() => onPlayGolf?.()} />}
 
