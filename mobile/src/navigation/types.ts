@@ -74,6 +74,8 @@ export type RootStackParamList = {
   HorseShoot: { challengeId: string };
   // The Home Run Derby, at the plate (0211).
   DerbyBat: { challengeId: string };
+  // The Hound Shootout, at the penalty spot (0221).
+  ShootoutKick: { challengeId: string };
   StartClub: { clubId?: string } | undefined;
   // Opened from the You tab (they used to be tabs or the top bar).
   Stats: undefined;

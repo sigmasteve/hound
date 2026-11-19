@@ -81,7 +81,8 @@ export type ChallengeKind =
   | 'golf'
   | 'doors'
   | 'packs'
-  | 'derby';
+  | 'derby'
+  | 'shootout';
 
 export interface ChallengeCard {
   id: string;
@@ -261,6 +262,14 @@ export const CHALLENGE_TYPES: {
     desc: 'Everyone steps up to the plate for a week. Your steps buy the swings, one every 1,000, up to 20 a day. Every pitch is a meatball: time it right and it’s gone. Steps and workouts add distance; 475 feet is a Moonshot and counts as two. Watch for the golden ball. Most home runs wins.',
     tint: '#1f4a5a',
     iconColor: '#cfe8f0',
+  },
+  // Global only (0221_shootout.sql), like the Derby.
+  {
+    id: 'shootout',
+    name: 'Hound Shootout',
+    desc: 'Everyone steps up to the penalty spot for a week. Your steps buy the kicks, one every 1,000, up to 20 a day. Aim at one of six spots, then stop the power meter in the green. The top corners count 2. The keeper learns your habits, and a strength workout puts pace on your kicks. Most goals wins.',
+    tint: '#1f5a3a',
+    iconColor: '#cdebd6',
   },
   { id: 'journey', name: 'Journey', desc: 'Everyone walks the same famous course from the same start — Windy City 26.2, Route 66, the Appalachian Trail. Your walks, runs and hikes move you along the map. First to the end wins; if nobody gets there, furthest along does.', tint: '#2f5a3f', iconColor: '#cdebd6' },
 ];
