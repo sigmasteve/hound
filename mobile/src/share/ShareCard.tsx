@@ -14,6 +14,7 @@ import {
   TrophyIcon,
 } from 'phosphor-react-native';
 import { color as C, font, withAlpha } from '../theme/tokens';
+import { DarkTheme } from '../theme/ThemeContext';
 import { HoundArt } from '../kennel/HoundArt';
 import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
@@ -31,7 +32,9 @@ import { codeLink, formatCode } from '../challenges/communityApi';
 export type ShareContent =
   | { kind: 'week'; recap: WeeklyRecap }
   | { kind: 'goals'; progress: GoalProgress[]; streak: GoalStreak | null }
-  | { kind: 'challenge'; name: string; outcome: ResultOutcome; line: string }
+  // visual: the game's own picture (the court, the pitch, the board),
+  // when the game has one; the card shows it with your hound beside it.
+  | { kind: 'challenge'; name: string; outcome: ResultOutcome; line: string; visual?: React.ReactNode }
   // id and name from the achievements catalog; earnedAt an ISO date.
   | { kind: 'badge'; id: string; name: string; description?: string; earnedAt?: string }
   // A community challenge's invite (K-04): its code, link and QR code.
@@ -140,6 +143,8 @@ export function ShareCard({
       <View style={styles.hero}>
         {content.kind === 'badge' ? (
           <BadgeHero id={content.id} kennel={kennel} />
+        ) : content.kind === 'challenge' && content.visual ? (
+          <GameHero visual={content.visual} kennel={kennel} />
         ) : kennel ? (
           <HoundArt
             rank={rankForLevel(levelProgressForXp(kennel.xpTotal).level).id}
@@ -297,6 +302,38 @@ function ChallengeBody({ name, outcome, line }: { name: string; outcome: ResultO
   );
 }
 
+// A game: its own picture (the court, the pitch, the board) in a frame,
+// drawn in the dark look, with your hound at its corner.
+function GameHero({ visual, kennel }: { visual: React.ReactNode; kennel: Kennel | null }) {
+  return (
+    <View style={styles.gameWrap}>
+      <View style={styles.gameFrame}>
+        <DarkTheme>{visual}</DarkTheme>
+      </View>
+      {kennel && (
+        <View style={styles.gameHound} pointerEvents="none">
+          <HoundArt
+            rank={rankForLevel(levelProgressForXp(kennel.xpTotal).level).id}
+            mood="happy"
+            neckId={kennel.neckId}
+            headId={kennel.headId}
+            faceId={kennel.faceId}
+            coatId={kennel.coatId}
+            ears={kennel.ears}
+            tail={kennel.tail}
+            markings={kennel.markings}
+            breedId={kennel.breedId}
+            bodyId={kennel.bodyId}
+            feetId={kennel.feetId}
+            size={92}
+            animate={false}
+          />
+        </View>
+      )}
+    </View>
+  );
+}
+
 // A badge: the medal itself, big, with your hound beside it.
 function BadgeHero({ id, kennel }: { id: string; kennel: Kennel | null }) {
   const Icon = achievementIcon(id);
@@ -425,6 +462,19 @@ const styles = StyleSheet.create({
   qr: { padding: 5, borderRadius: 8, backgroundColor: '#ffffff' },
   code: { fontFamily: font.headingSemibold, fontSize: 26, letterSpacing: 3, color: C.text },
   medalWrap: { width: 260, height: 220, alignItems: 'center', justifyContent: 'center' },
+  gameWrap: { width: 312, paddingBottom: 26, alignItems: 'center' },
+  gameFrame: {
+    width: 312,
+    maxHeight: 250,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#1d1f2e',
+    borderWidth: 1,
+    borderColor: withAlpha('#ffffff', 0.12),
+    padding: 8,
+    gap: 6,
+  },
+  gameHound: { position: 'absolute', right: -6, bottom: -14 },
   medalRing: {
     width: 188,
     height: 188,

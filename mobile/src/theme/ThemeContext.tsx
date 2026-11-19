@@ -62,6 +62,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   return <ThemeReactContext.Provider value={value}>{children}</ThemeReactContext.Provider>;
 }
 
+// Everything inside draws in the dark look whatever the phone is set to:
+// the share card is always dark, so a game picture on it must be too.
+const DARK_COLORS = buildPalette('dark');
+const DARK_TEXT = createTextStyles(DARK_COLORS);
+export function DarkTheme({ children }: { children: React.ReactNode }) {
+  const outer = useContext(ThemeReactContext);
+  const value = useMemo<ThemeContextValue>(
+    () => ({ mode: 'dark', colors: DARK_COLORS, text: DARK_TEXT, setMode: outer?.setMode ?? (() => {}), toggleMode: outer?.toggleMode ?? (() => {}) }),
+    [outer?.setMode, outer?.toggleMode],
+  );
+  return <ThemeReactContext.Provider value={value}>{children}</ThemeReactContext.Provider>;
+}
+
 export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeReactContext);
   if (!ctx) throw new Error('useTheme() must be called within a ThemeProvider');

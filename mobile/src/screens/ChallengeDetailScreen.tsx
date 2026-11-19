@@ -37,7 +37,7 @@ import { HuntReplayCard, HuntStatusCard, type HuntRunner } from '../hunt/HuntTra
 import { getChallengeHounds } from '../hunt/huntApi';
 import { houndFromCode } from '../tag/tagChaseApi';
 import { TagStatusCard } from '../components/TagStatusCard';
-import { TicTacGoCard } from '../components/TicTacGoCard';
+import { TicTacGoBoard, TicTacGoCard } from '../components/TicTacGoCard';
 import { TextField } from '../components/TextField';
 import { ToggleRow } from '../components/Selectable';
 import { SegmentedControl } from '../components/SegmentedControl';
@@ -99,7 +99,7 @@ import {
 import { HoundBingoCard } from '../components/HoundBingoCard';
 import { getTicTacGoGame, settleTicTacGo, type TicTacGoGame } from '../challenges/tictacgoApi';
 import { checkRallyShot, getRallyGame, rallyTeamOf, settleRally, type RallyGame } from '../challenges/rallyApi';
-import { RallyCard } from '../components/RallyCard';
+import { RallyCard, RallyCourt, RallyScore } from '../components/RallyCard';
 import {
   addSoccerPlayer,
   advanceSoccer,
@@ -126,9 +126,9 @@ import {
   type CricketOnStrike,
   type CricketTeam,
 } from '../challenges/cricketApi';
-import { CricketCard, cricketResultLine } from '../components/CricketCard';
+import { CricketCard, CricketGround, CricketScore, cricketResultLine } from '../components/CricketCard';
 import { HoopsCard } from '../components/HoopsCard';
-import { HorseCard } from '../components/HorseCard';
+import { HorseBoard, HorseCard, horseCourt } from '../components/HorseCard';
 import { advanceHoops, getHoops, type HoopsGame } from '../challenges/hoopsApi';
 import { advanceHorse, getHorse, type HorseGame } from '../challenges/horseApi';
 import { GolfCard } from '../components/GolfCard';
@@ -138,7 +138,10 @@ import { getDerbyLive, type DerbyLive, type DerbyBoard as DerbyBoardData } from 
 import { getGolfGame, type GolfGame } from '../challenges/golfApi';
 import { toParText, golfCourseName } from '../challenges/golf';
 import { useFocusEffect } from '@react-navigation/native';
-import { BaseballCard } from '../components/BaseballCard';
+import { BaseballCard, BaseballField, BaseballLineScore } from '../components/BaseballCard';
+import { awayTeam as baseballAwayTeam } from '../challenges/baseballApi';
+import { SoccerPitch, SoccerScore } from '../components/SoccerCard';
+import { HoopsCourt } from '../components/HoopsCourt';
 import {
   addBaseballPlayer,
   advanceBaseball,
@@ -2052,6 +2055,46 @@ export function ChallengeDetailScreen({
     }
   })();
   const myResultLine = myOutcome ? resultLine(challenge.name, myOutcome, labels) : null;
+  // The game's own picture for the share card (the court, the pitch, the
+  // board), for the games that have one; the rest share your hound alone.
+  const sharePeople = [...participants, ...bots.map(botToParticipant)];
+  const shareVisual: React.ReactNode =
+    challenge.kind === 'hoops' && hoopsGame ? (
+      <HoopsCourt game={hoopsGame} compact />
+    ) : challenge.kind === 'horse' && horseGame ? (
+      <>
+        <HorseBoard game={horseGame} />
+        <HoopsCourt game={horseCourt(horseGame)} compact />
+      </>
+    ) : challenge.kind === 'soccer' && soccerGame ? (
+      <>
+        <SoccerScore game={soccerGame} people={sharePeople} userId={user?.id} days={challenge.durationDays} compact />
+        <SoccerPitch game={soccerGame} people={sharePeople} userId={user?.id} compact />
+      </>
+    ) : challenge.kind === 'rally' && rallyGame ? (
+      <>
+        <RallyScore game={rallyGame} people={sharePeople} userId={user?.id} compact />
+        <RallyCourt game={rallyGame} people={sharePeople} userId={user?.id} compact />
+      </>
+    ) : challenge.kind === 'cricket' && cricketGame ? (
+      <>
+        <CricketScore game={cricketGame} people={sharePeople} userId={user?.id} compact />
+        <CricketGround game={cricketGame} onStrike={null} people={sharePeople} userId={user?.id} compact />
+      </>
+    ) : challenge.kind === 'tictacgo' && tttGame ? (
+      <TicTacGoBoard game={tttGame} compact />
+    ) : challenge.kind === 'baseball' && baseball.game ? (
+      <>
+        <BaseballLineScore game={baseball.game} innings={baseball.innings} people={sharePeople} userId={user?.id} />
+        <BaseballField
+          game={baseball.game}
+          people={sharePeople}
+          userId={user?.id}
+          moment={{ battingTeam: baseballAwayTeam(baseball.game), onFirst: null, onSecond: null, onThird: null }}
+          compact
+        />
+      </>
+    ) : null;
 
   // Shares the result as a picture (ShareSheet), with the same line.
   const shareResult = () => {
@@ -2116,7 +2159,7 @@ export function ChallengeDetailScreen({
     )}
     {sharingResult && myOutcome && myResultLine && (
       <ShareSheet
-        content={{ kind: 'challenge', name: challenge.name, outcome: myOutcome, line: myResultLine }}
+        content={{ kind: 'challenge', name: challenge.name, outcome: myOutcome, line: myResultLine, visual: shareVisual }}
         onClose={() => setSharingResult(false)}
       />
     )}
