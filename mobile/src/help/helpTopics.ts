@@ -300,6 +300,23 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'bout',
+      section: 'challenges',
+      title: 'Hound Bout',
+      summary: 'Boxing, one on one, a round a day: punch, slip, set your guard.',
+      steps: [
+        'Pick one friend to fight, and 3, 5 or 7 rounds. One round a day; the first bell rings once they accept.',
+        'Every 1,000 steps today is an action, up to 20 a day (and 2 more after 20 minutes of cardio). An action is a punch or a slip. Unused actions don’t carry over.',
+        'To punch: pick a jab (1 point), a hook (2) or an uppercut (3), then tap Throw! as the marker crosses the green. The more a punch scores, the narrower its green. The dark middle is a perfect punch.',
+        'Guards: each day you set yours on the fight’s page (it stays up until you change it). High stops hooks; body stops uppercuts; counter catches jabs and hits back for 1 each, but every other punch that gets through it scores 1 more. A perfect punch beats any guard.',
+        'A punch that gets through waits for your opponent as incoming. They can spend an action to slip it: Slip! in the green and it misses. Leave it, or take it, and it lands when the round is scored.',
+        'Each round is scored the next morning: whoever landed more points wins it 10-9, level is 10-10. Three power punches (hooks or uppercuts) landed in a row is a knockdown, and costs the one down a point. Three knockdowns in a round, or four in the fight, is a KO.',
+        'Workouts: a strength workout means a knockdown takes two power punches in a row, not three. A real boxing or kickboxing workout is a fight camp day: a wider green for your punches and your slips. Steps never widen the green.',
+        'Replay any scored round from the fight’s page: both hounds, punch by punch, attacking and defending.',
+        'The most on the cards after the last round wins; level is a draw. The winner gets the win Bones, both get Bones for playing.',
+      ],
+    },
+    {
       id: 'shootout',
       section: 'challenges',
       title: 'Hound Shootout',

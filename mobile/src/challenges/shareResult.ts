@@ -35,6 +35,8 @@ export type ResultOutcome =
   // A Journey: your place by miles, whether you reached the end of the
   // course, and the course's name.
   | { type: 'journey'; rank: number; of: number; miles: string; finished: boolean; courseName: string }
+  // Hound Bout: the result, how (by KO in a round, on the cards), and the cards.
+  | { type: 'bout'; result: 'won' | 'lost' | 'draw'; how: string; cards: string }
   // Hound'opoly: your place by net worth.
   | { type: 'houndopoly'; rank: number; of: number; worth: number };
 
@@ -144,6 +146,12 @@ export function resultLine(challengeName: string, outcome: ResultOutcome, labels
         : outcome.result === 'tie'
           ? `${challengeName} at ${outcome.course} finished level: I shot ${outcome.score}.`
           : `I shot ${outcome.score} at ${outcome.course} in ${challengeName} — rematch time.`;
+    case 'bout':
+      return outcome.result === 'won'
+        ? `I won ${challengeName} ${outcome.how}, ${outcome.cards}! 🥊🏆`
+        : outcome.result === 'draw'
+          ? `${challengeName} ended in a draw, ${outcome.cards}.`
+          : `I lost ${challengeName} ${outcome.how}, ${outcome.cards} — rematch time.`;
     case 'journey':
       if (outcome.rank === 1 && outcome.finished) return `I reached the end of the ${outcome.courseName} first in ${challengeName}! 🏆`;
       if (outcome.rank === 1) return `I won ${challengeName}, furthest along the ${outcome.courseName} with ${outcome.miles}! 🏆`;
@@ -191,6 +199,7 @@ export function isWin(outcome: ResultOutcome): boolean {
     case 'hoops':
     case 'horse':
     case 'golf':
+    case 'bout':
       return outcome.result === 'won';
     case 'journey':
       return outcome.rank === 1;

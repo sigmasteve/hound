@@ -18,6 +18,8 @@ export type PendingActionKind =
   | 'baseballBat'
   | 'derbySwing'
   | 'shootoutKick'
+  | 'boutIncoming'
+  | 'boutPunches'
   | 'horseSetShot'
   | 'horseTurn'
   | 'golfPlay'
@@ -53,7 +55,8 @@ export function needsManualEntry(challenge: Challenge): boolean {
     challenge.kind !== 'horse' &&
     challenge.kind !== 'golf' &&
     challenge.kind !== 'derby' &&
-    challenge.kind !== 'shootout'
+    challenge.kind !== 'shootout' &&
+    challenge.kind !== 'bout'
   );
 }
 
@@ -102,6 +105,8 @@ export interface PendingActionsInput {
   derbySwingsReady?: Map<string, number>;
   // The Hound Shootout (0221): kicks ready to take, for one you've joined.
   shootoutKicksReady?: Map<string, number>;
+  // Hound Bout (0225): punches waiting to be slipped, and actions left.
+  boutReady?: Map<string, { incoming: number; actions: number }>;
   horseToSet?: Set<string>;
   // H-O-R-S-E, call your shot (0209): games where it's the caller's turn,
   // what it's for (setting or matching), the other player's first name,
@@ -138,6 +143,7 @@ export function computePendingActions({
   baseballAtBatsReady = new Map(),
   derbySwingsReady = new Map(),
   shootoutKicksReady = new Map(),
+  boutReady = new Map(),
   horseToSet = new Set(),
   horseTurns = new Map(),
   golfToPlay = new Map(),
@@ -255,6 +261,23 @@ export function computePendingActions({
           challengeName: c.name,
           kind: 'derbySwing',
           label: `${ready} ${ready === 1 ? 'swing' : 'swings'} ready in the Home Run Derby`,
+        });
+      }
+    } else if (c.kind === 'bout') {
+      const b = boutReady.get(c.id);
+      if (b && b.incoming > 0) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'boutIncoming',
+          label: `${b.incoming} incoming to slip in ${c.name}`,
+        });
+      } else if (b && b.actions > 0) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'boutPunches',
+          label: `${b.actions} ${b.actions === 1 ? 'punch' : 'punches'} ready in ${c.name}`,
         });
       }
     } else if (c.kind === 'shootout') {
