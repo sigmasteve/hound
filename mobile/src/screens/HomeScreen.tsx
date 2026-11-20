@@ -2665,9 +2665,15 @@ export function HomeScreen({
                 }
               >
                 <TileValue
+                  inline={wide}
                   value={stepRank ? `#${stepRank.rank.toLocaleString()}` : '—'}
                   lines={
-                    stepRank
+                    stepRank && wide
+                      ? [
+                          `of ${stepRank.totalUsers.toLocaleString()} on Hound today · ${(snap?.stepsToday ?? 0).toLocaleString()} steps`,
+                          ...(rankMove ? [rankMove] : []),
+                        ]
+                      : stepRank
                       ? [
                           `of ${stepRank.totalUsers.toLocaleString()} on Hound today`,
                           ...(rankMove ? [rankMove] : []),
@@ -2688,6 +2694,7 @@ export function HomeScreen({
             render: (wide: boolean) => (
               <Tile label="Week in review" wide={wide} onPress={() => setOpenTile('week')} accessibilityLabel="Week in review. Open">
                 <TileValue
+                  inline={wide}
                   value={weeklyRecap.stepsLastWeek !== null ? weeklyRecap.stepsLastWeek.toLocaleString() : '—'}
                   lines={[
                     `steps${recapPct !== null ? ` · ${recapPct >= 0 ? '▲' : '▼'} ${Math.abs(recapPct)}%` : ''}`,
