@@ -37,6 +37,8 @@ export function usesDeviceSteps(challenge: Challenge): boolean {
     challenge.kind === 'shootout' ||
     // So do a Hound Bout's actions (0225).
     challenge.kind === 'bout' ||
+    // And the Title Bout's (0227).
+    challenge.kind === 'titlebout' ||
     (challenge.kind === 'hunt' && challenge.scoringMethod === 'device_steps') ||
     ((challenge.kind === 'distance' || challenge.kind === 'tag') && challenge.distanceGoalUnit === 'steps')
   );

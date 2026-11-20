@@ -129,6 +129,8 @@ import { DerbyLongBalls } from '../components/DerbyLongBalls';
 import { ShootoutGoal } from '../components/ShootoutGoal';
 import { Boxer, RingArt, ringView } from '../components/BoutRing';
 import { getBoutLive, type BoutLive } from '../challenges/boutApi';
+import { getTitleBout, type TitleBout } from '../challenges/titleBoutApi';
+import { TitleBeltBadge } from '../components/TitleBoutCard';
 import { conversion, getShootoutBoard, getShootoutLive, shootoutPos, type ShootoutBoard, type ShootoutLive } from '../challenges/shootoutApi';
 import { HorseBoard, horseCourt } from '../components/HorseCard';
 import {
@@ -559,6 +561,25 @@ function boutHeadline(name: string, b: BoutLive | null): string {
   return `${lead} after ${b.card.length} ${b.card.length === 1 ? 'round' : 'rounds'}.${waiting}`;
 }
 
+// The Title Bout's line on Today (0227): the belt, the title fight, or
+// your place and today's opponent.
+function titleBoutHeadline(name: string, t: { live: BoutLive; tb: TitleBout } | null): string {
+  if (!t) return `${name}: the first bell rings soon.`;
+  const { live, tb } = t;
+  const first = (n: string) => n.split(' ')[0];
+  const ti = tb.title;
+  if (ti?.winner) {
+    return ti.winner === live.me ? `You won the ${name} belt!` : `${first(ti.winner === ti.a.id ? ti.a.name : ti.b.name)} took the ${name} belt.`;
+  }
+  const waiting = live.incoming.length > 0 && live.canAct ? ` ${live.incoming.length} incoming to slip.` : live.canAct && live.day.left > 0 ? ` ${live.day.left} punches ready.` : '';
+  if (ti?.mine) return `You’re fighting for the belt against ${first(live.me === ti.a.id ? ti.b.name : ti.a.name)}.${waiting}`;
+  if (ti && tb.picks?.open && !tb.picks.mine) return `Title fight: ${first(ti.a.name)} vs ${first(ti.b.name)}. Pick your champion.`;
+  if (tb.phase === 'upcoming') return `${name} starts soon: a new opponent every day, the top 2 fight for the belt.`;
+  const place = tb.me && tb.me.daysFought > 0 ? `#${tb.me.pos} on the ladder with ${tb.me.pts} pts. ` : '';
+  const opp = live.opponent ? (live.opponent.id ? first(live.opponent.name) : 'a sparring hound') : null;
+  return `${place}${opp ? `Today: ${opp}.` : 'Your first fight is tomorrow.'}${waiting}`;
+}
+
 function heroCopy(
   primary: PrimaryChallenge,
   userId: string | null,
@@ -580,6 +601,7 @@ function heroCopy(
   derby: { board: DerbyBoard | null; live: DerbyLive | null } | null = null,
   shootout: { board: ShootoutBoard | null; live: ShootoutLive | null } | null = null,
   bout: BoutLive | null = null,
+  titleBout: { live: BoutLive; tb: TitleBout } | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -647,6 +669,9 @@ function heroCopy(
   }
   if (challenge.kind === 'bout') {
     return { eyebrow, headline: boutHeadline(challenge.name, bout) };
+  }
+  if (challenge.kind === 'titlebout') {
+    return { eyebrow, headline: titleBoutHeadline(challenge.name, titleBout) };
   }
   if (challenge.kind === 'doors') {
     return { eyebrow, headline: doorsHeadline(challenge.name, doorsGame) };
@@ -1227,6 +1252,7 @@ export function HomeScreen({
   const [primaryDerby, setPrimaryDerby] = useState<{ board: DerbyBoard | null; live: DerbyLive | null } | null>(null);
   const [primaryShootout, setPrimaryShootout] = useState<{ board: ShootoutBoard | null; live: ShootoutLive | null } | null>(null);
   const [primaryBout, setPrimaryBout] = useState<BoutLive | null>(null);
+  const [primaryTitleBout, setPrimaryTitleBout] = useState<{ live: BoutLive; tb: TitleBout } | null>(null);
   const [primaryCricket, setPrimaryCricket] = useState<{ game: CricketGame | null; onStrike: CricketOnStrike | null }>({
     game: null,
     onStrike: null,
@@ -2115,6 +2141,17 @@ export function HomeScreen({
       } else {
         setPrimaryBout(null);
       }
+      if (primaryResult?.challenge.kind === 'titlebout') {
+        getTitleBout(primaryResult.challenge.id)
+          .then((t) => {
+            if (!cancelled) setPrimaryTitleBout(t);
+          })
+          .catch(() => {
+            if (!cancelled) setPrimaryTitleBout(null);
+          });
+      } else {
+        setPrimaryTitleBout(null);
+      }
       if (primaryResult?.challenge.kind === 'golf') {
         getGolfGame(primaryResult.challenge.id)
           .then((g) => {
@@ -2272,8 +2309,13 @@ export function HomeScreen({
           // Hound Bout (0225): incoming to slip, punches ready.
           Promise.all(
             activeResults
-              .filter((r) => r.challenge.kind === 'bout')
-              .map(async (r): Promise<readonly [string, BoutLive | null]> => [r.challenge.id, await getBoutLive(r.challenge.id).catch(() => null)]),
+              .filter((r) => r.challenge.kind === 'bout' || r.challenge.kind === 'titlebout')
+              .map(async (r): Promise<readonly [string, BoutLive | null]> => [
+                r.challenge.id,
+                r.challenge.kind === 'titlebout'
+                  ? await getTitleBout(r.challenge.id).then((t) => t.live).catch(() => null)
+                  : await getBoutLive(r.challenge.id).catch(() => null),
+              ]),
           ),
         ]);
         const packMap = new Map(packEntries.filter((e): e is readonly [string, PackWarsGame] => e[1] !== null));
@@ -2405,6 +2447,7 @@ export function HomeScreen({
         primaryDerby,
         primaryShootout,
         primaryBout,
+        primaryTitleBout,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -2968,6 +3011,8 @@ export function HomeScreen({
               <DerbyPreview primary={primary} derby={primaryDerby} onOpen={sheetOpenPrimary} styles={styles} colors={colors} />
             ) : primary.challenge.kind === 'bout' ? (
               <BoutPreview primary={primary} bout={primaryBout} onOpen={sheetOpenPrimary} styles={styles} colors={colors} />
+            ) : primary.challenge.kind === 'titlebout' ? (
+              <TitleBoutPreview primary={primary} t={primaryTitleBout} onOpen={sheetOpenPrimary} styles={styles} colors={colors} />
             ) : primary.challenge.kind === 'shootout' ? (
               <ShootoutPreview primary={primary} so={primaryShootout} onOpen={sheetOpenPrimary} styles={styles} colors={colors} />
             ) : primary.challenge.kind === 'baseball' ? (
@@ -3955,6 +4000,61 @@ function BoutPreview({ primary, bout, onOpen, styles, colors }: { primary: Prima
         </View>
       ) : (
         <Text style={styles.tileSub}>{bout?.opponent ? `You vs ${bout.opponent.name}. Every 1,000 steps is a punch or a slip.` : 'Waiting for your opponent.'}</Text>
+      )}
+      <Button label={label} variant="ghost" small onPress={onOpen} />
+    </Card>
+  );
+}
+
+// The Title Bout pinned (0227): the ring with today's opponent (or the
+// title fight), the top of the ladder, and one button for what you can do.
+function TitleBoutPreview({ primary, t, onOpen, styles, colors }: { primary: PrimaryChallenge; t: { live: BoutLive; tb: TitleBout } | null; onOpen: () => void; styles: HomeStyles; colors: Palette }) {
+  const { challenge } = primary;
+  const [w, setW] = useState(0);
+  const H = 140;
+  const rv = useMemo(() => (w > 0 ? ringView(w, H) : null), [w]);
+  const live = t?.live ?? null;
+  const tb = t?.tb ?? null;
+  const ti = tb?.title ?? null;
+  const label = !live
+    ? 'Open the Title Bout'
+    : live.incoming.length > 0 && live.canAct
+      ? `Slip ${live.incoming.length} incoming`
+      : live.canAct && live.day.left > 0
+        ? `${tb?.fight?.title ? 'Fight for the belt' : 'Throw your punches'} · ${live.day.left}`
+        : tb?.picks?.open && !tb.picks.mine && !ti?.mine
+          ? 'Pick your champion'
+          : 'Open the Title Bout';
+  const top = (tb?.ladder ?? []).slice(0, 3);
+  return (
+    <Card style={styles.raceCard} elevated={false}>
+      <View style={styles.raceHeader}>
+        <TitleBeltBadge size={14} />
+        <Text style={styles.raceTitle}>{challenge.name}</Text>
+        {tb ? <Text style={styles.raceMeta}>{tb.phase === 'final' ? 'final' : ti ? 'title fight' : tb.dayNo >= 1 ? `day ${tb.dayNo} of 7` : 'soon'}</Text> : null}
+      </View>
+      <View style={{ height: H, borderRadius: 12, overflow: 'hidden', backgroundColor: '#1d2133' }} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+        {rv && (
+          <>
+            <RingArt rv={rv} apron={tb?.sponsor?.name ?? 'Title Bout'} compact />
+            <Boxer at={rv.opp} height={rv.v.h * 0.46 * rv.opp.s} facing="front" trunks="#e05b5b" gloves="#c2410c" act={{ pose: 'idle', k: 0 }} />
+            <Boxer at={{ x: rv.me.x, y: rv.v.h + rv.v.h * 0.05 }} height={rv.v.h * 0.5} facing="back" trunks="#4f7be0" gloves="#4f7be0" coat="#c08a52" act={{ pose: 'idle', k: 0 }} />
+          </>
+        )}
+      </View>
+      {top.map((r) => (
+        <View key={r.userId} style={styles.raceRow}>
+          <Text style={[styles.raceName, { flex: 1 }, r.isMe && { color: colors.accentActive }]} numberOfLines={1}>
+            {r.pos}. {r.isMe ? 'You' : r.name}
+          </Text>
+          <Text style={styles.raceSteps}>{r.pts} pts</Text>
+        </View>
+      ))}
+      {tb?.me && tb.me.pos > 3 && (
+        <View style={styles.raceRow}>
+          <Text style={[styles.raceName, { flex: 1, color: colors.accentActive }]}>{tb.me.pos}. You</Text>
+          <Text style={styles.raceSteps}>{tb.me.pts} pts</Text>
+        </View>
       )}
       <Button label={label} variant="ghost" small onPress={onOpen} />
     </Card>

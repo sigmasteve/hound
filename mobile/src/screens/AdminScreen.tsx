@@ -72,6 +72,8 @@ import { getShootoutOverview, shootoutSummary } from '../challenges/shootoutApi'
 import { ShootoutAdminCard } from '../components/ShootoutAdminCard';
 import { BoutAdminCard } from '../components/BoutAdminCard';
 import { boutSummary, getBoutOverview } from '../challenges/boutApi';
+import { TitleBoutAdminCard } from '../components/TitleBoutAdminCard';
+import { getTitleBoutOverview, titleBoutSummary } from '../challenges/titleBoutApi';
 import { SportBonusAdminCard } from '../components/SportBonusAdminCard';
 import { LoggedWorkoutsAdminCard } from '../components/LoggedWorkoutsAdminCard';
 import { HealthZeroAdminCard } from '../components/HealthZeroAdminCard';
@@ -238,6 +240,7 @@ export function AdminScreen({
   const [derbyLine, setDerbyLine] = useState<string | null>(null);
   const [shootoutLine, setShootoutLine] = useState<string | null>(null);
   const [boutLine, setBoutLine] = useState<string | null>(null);
+  const [titleBoutLine, setTitleBoutLine] = useState<string | null>(null);
   // The Sponsors fold's line (0203).
   const [sponsorLine, setSponsorLine] = useState<string | null>(null);
   // The Sports bonuses fold's line (0198).
@@ -343,6 +346,9 @@ export function AdminScreen({
         .catch(() => {});
       getBoutOverview()
         .then((o) => setBoutLine(boutSummary(o)))
+        .catch(() => {});
+      getTitleBoutOverview()
+        .then((o) => setTitleBoutLine(titleBoutSummary(o)))
         .catch(() => {});
       getSponsorOverview()
         .then((o) => setSponsorLine(sponsorSummary(o)))
@@ -951,6 +957,9 @@ export function AdminScreen({
                   <AdminFold title="Hound Bout" summary={boutLine ?? 'Fights, punches, slips and knockdowns'}>
                     <BoutAdminCard onChanged={(o) => setBoutLine(boutSummary(o))} />
                   </AdminFold>
+                  <AdminFold title="Title Bout" summary={titleBoutLine ?? 'The ladder, the title fight, picks and the belt'}>
+                    <TitleBoutAdminCard onChanged={(o) => setTitleBoutLine(titleBoutSummary(o))} />
+                  </AdminFold>
                   <AdminFold title="Sports bonuses" summary={sportBonusLine ?? 'Strength workouts and game days in the sports games'}>
                     <SportBonusAdminCard onChanged={(o) => setSportBonusLine(sportBonusSummary(o))} />
                   </AdminFold>
@@ -1362,7 +1371,7 @@ export function AdminScreen({
                       more="New players meet the core loop first and unlock the rest by sticking around. Bought Bones never count toward this. Leave a kind off to keep it always available."
                     />
                     <View style={{ gap: 12 }}>
-                      {CHALLENGE_TYPES.filter((t) => t.id !== 'doors' && t.id !== 'packs' && t.id !== 'derby' && t.id !== 'shootout').map((t) => {
+                      {CHALLENGE_TYPES.filter((t) => t.id !== 'doors' && t.id !== 'packs' && t.id !== 'derby' && t.id !== 'shootout' && t.id !== 'titlebout').map((t) => {
                         const gated = gatedKinds.has(t.id);
                         return (
                           <View key={t.id} style={{ gap: 8 }}>

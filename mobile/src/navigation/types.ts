@@ -77,7 +77,8 @@ export type RootStackParamList = {
   // The Hound Shootout, at the penalty spot (0221).
   ShootoutKick: { challengeId: string };
   // Hound Bout, in the ring (0225): throwing, or slipping what's incoming.
-  BoutRing: { challengeId: string; mode?: 'throw' | 'slip' };
+  // kind 'titlebout': the Title Bout (0227), in the same ring.
+  BoutRing: { challengeId: string; mode?: 'throw' | 'slip'; kind?: 'bout' | 'titlebout' };
   StartClub: { clubId?: string } | undefined;
   // Opened from the You tab (they used to be tabs or the top bar).
   Stats: undefined;

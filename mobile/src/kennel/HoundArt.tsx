@@ -962,6 +962,25 @@ function BodyItem({ item, g }: { item: KennelItem; g: Geometry }) {
     );
   }
 
+  if (item.kind === 'belt') {
+    // The Title Bout belt: a gold strap round the middle, the big plate in
+    // front with an H, a red and a blue stone either side.
+    const y = bodyCy + bodyRy * 0.12;
+    const w = bodyRx * 1.02;
+    return (
+      <G>
+        <Rect x={100 - w} y={y - 10} width={2 * w} height={20} rx={6} fill={c} stroke={a} strokeWidth={1.8} />
+        <Rect x={100 - w} y={y - 6} width={2 * w} height={2.5} fill={a} opacity={0.5} />
+        <Rect x={100 - w} y={y + 4} width={2 * w} height={2.5} fill={a} opacity={0.5} />
+        <Circle cx={100 - w * 0.62} cy={y} r={4.2} fill="#e05b5b" stroke={a} strokeWidth={1.2} />
+        <Circle cx={100 + w * 0.62} cy={y} r={4.2} fill="#4f7be0" stroke={a} strokeWidth={1.2} />
+        <Circle cx={100} cy={y} r={14} fill="#fff3c4" stroke={a} strokeWidth={2.2} />
+        <Circle cx={100} cy={y} r={9.5} fill={c} stroke={a} strokeWidth={1.2} />
+        <Path d={`M ${96.5} ${y - 4.5} L ${96.5} ${y + 4.5} M ${103.5} ${y - 4.5} L ${103.5} ${y + 4.5} M ${96.5} ${y} L ${103.5} ${y}`} stroke="#7a5a0a" strokeWidth={1.8} strokeLinecap="round" />
+      </G>
+    );
+  }
+
   if (item.kind === 'tutu') {
     // Layered net skirt round the middle, a band on top.
     const y = bodyCy + bodyRy * 0.28;

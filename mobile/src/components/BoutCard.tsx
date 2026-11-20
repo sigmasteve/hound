@@ -238,7 +238,25 @@ export function BoutCard({
 
 // A scored round, replayed in the ring: every punch either hound threw, in
 // order, and how it ended (missed, blocked, slipped, landed, down).
-export function BoutReplayView({ challengeId, round, oppName, apron }: { challengeId: string; round: number; oppName: string; apron: string }) {
+// The Title Bout (0227) passes its own loader (a fight by id), its label,
+// and, for a title fight you're watching, the near corner's name.
+export function BoutReplayView({
+  challengeId,
+  round,
+  oppName,
+  apron,
+  load,
+  meName = 'You',
+  label,
+}: {
+  challengeId: string;
+  round: number;
+  oppName: string;
+  apron: string;
+  load?: () => Promise<BoutReplay>;
+  meName?: string;
+  label?: string;
+}) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [rep, setRep] = useState<BoutReplay | null>(null);
@@ -247,13 +265,15 @@ export function BoutReplayView({ challengeId, round, oppName, apron }: { challen
   const [w, setW] = useState(0);
   useEffect(() => {
     setRep(null);
-    getBoutReplay(challengeId, round)
+    (load ? load() : getBoutReplay(challengeId, round))
       .then((r) => {
         setRep(r);
         setStartAt(Date.now());
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Could not load the replay.'));
-  }, [challengeId, round]);
+    // load is a new function each render; the round (or fight) is what changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challengeId, round, label]);
   const plan = useMemo(() => (rep ? replayBeats(rep.punches, rep.me) : null), [rep]);
   const playing = !!plan && startAt != null && Date.now() - startAt < plan.total;
   const now = useClock(playing);
@@ -294,18 +314,18 @@ export function BoutReplayView({ challengeId, round, oppName, apron }: { challen
           </>
         )}
         <Text style={styles.replayScore}>
-          You {mine} – {theirs} {oppName}
+          {meName} {mine} – {theirs} {oppName}
         </Text>
         {rep.punches.length === 0 && <Text style={styles.replayLine}>Nobody threw a punch this round.</Text>}
         {beat && acts && (
           <Text style={styles.replayLine}>
-            {beat.mine ? 'You' : oppName}: {acts.line}
+            {beat.mine ? meName : oppName}: {acts.line}
           </Text>
         )}
       </View>
       <View style={styles.rowBetween}>
         <Text style={styles.small}>
-          Round {round} · {rep.punches.length} {rep.punches.length === 1 ? 'punch' : 'punches'}
+          {label ?? `Round ${round}`} · {rep.punches.length} {rep.punches.length === 1 ? 'punch' : 'punches'}
         </Text>
         {done && (
           <Pressable onPress={() => setStartAt(Date.now())} hitSlop={8} accessibilityRole="button" style={styles.replayBtn}>

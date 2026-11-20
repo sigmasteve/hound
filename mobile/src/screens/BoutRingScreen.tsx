@@ -14,6 +14,7 @@ import {
   punchName,
   slipPunch,
   throwPunch,
+  type BoutKind,
   type BoutLive,
   type BoutPunchKind,
 } from '../challenges/boutApi';
@@ -38,7 +39,21 @@ function meterAt(ms: number): number {
 type Mode = 'throw' | 'slip';
 type Anim = { me: BoxerAct['pose']; opp: BoxerAct['pose']; startAt: number; banner: { text: string; good: boolean } };
 
-export function BoutRingScreen({ challengeId, initialMode, onBack }: { challengeId: string; initialMode?: Mode; onBack: () => void }) {
+// The Title Bout (0227) fights here too: kind 'titlebout' reads and acts
+// through its own functions, against the day's ladder opponent (or a
+// sparring hound), or in the title fight.
+export function BoutRingScreen({
+  challengeId,
+  initialMode,
+  kind = 'bout',
+  onBack,
+}: {
+  challengeId: string;
+  initialMode?: Mode;
+  kind?: BoutKind;
+  onBack: () => void;
+}) {
+  const gameName = kind === 'titlebout' ? 'Title Bout' : 'Hound Bout';
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [live, setLive] = useState<BoutLive | null>(null);
@@ -58,7 +73,7 @@ export function BoutRingScreen({ challengeId, initialMode, onBack }: { challenge
 
   const load = useCallback(async () => {
     try {
-      const l = await getBoutLive(challengeId);
+      const l = await getBoutLive(challengeId, kind);
       setLive(l);
       setError(null);
       return l;
@@ -66,7 +81,7 @@ export function BoutRingScreen({ challengeId, initialMode, onBack }: { challenge
       setError(e instanceof Error ? e.message : 'Could not load the fight.');
       return null;
     }
-  }, [challengeId]);
+  }, [challengeId, kind]);
   useEffect(() => {
     load();
     getChallengeSponsor(challengeId)
@@ -86,7 +101,7 @@ export function BoutRingScreen({ challengeId, initialMode, onBack }: { challenge
   const now = useClock(meterFrom != null || anim != null);
   const rv = useMemo(() => (size.w > 0 ? ringView(size.w, size.h) : null), [size.w, size.h]);
   const incoming = live?.incoming[0] ?? null;
-  const oppName = live?.opponent?.name.split(' ')[0] ?? 'Your opponent';
+  const oppName = live?.opponent ? (live.opponent.id ? live.opponent.name.split(' ')[0] : 'The sparring hound') : 'Your opponent';
 
   useEffect(() => {
     if (!live || msg) return;
@@ -136,7 +151,7 @@ export function BoutRingScreen({ challengeId, initialMode, onBack }: { challenge
     setBusy(true);
     buzz('light');
     try {
-      const r = await throwPunch(challengeId, punch, pos);
+      const r = await throwPunch(challengeId, punch, pos, kind);
       const landed = r.quality !== 'miss' && !r.blocked;
       setAnim({
         me: punch,
@@ -161,7 +176,7 @@ export function BoutRingScreen({ challengeId, initialMode, onBack }: { challenge
       );
     } catch (e) {
       setBusy(false);
-      Alert.alert('Hound Bout', e instanceof Error ? e.message : 'Try again.');
+      Alert.alert(gameName, e instanceof Error ? e.message : 'Try again.');
       load();
     }
   };
@@ -174,7 +189,7 @@ export function BoutRingScreen({ challengeId, initialMode, onBack }: { challenge
     setBusy(true);
     buzz('light');
     try {
-      const r = await slipPunch(challengeId, incoming.id, pos);
+      const r = await slipPunch(challengeId, incoming.id, pos, kind);
       setAnim({
         me: r.slip === 'slipped' ? 'slip' : 'hit',
         opp: incoming.punch,
@@ -196,7 +211,7 @@ export function BoutRingScreen({ challengeId, initialMode, onBack }: { challenge
       );
     } catch (e) {
       setBusy(false);
-      Alert.alert('Hound Bout', e instanceof Error ? e.message : 'Try again.');
+      Alert.alert(gameName, e instanceof Error ? e.message : 'Try again.');
       load();
     }
   };
@@ -241,7 +256,13 @@ export function BoutRingScreen({ challengeId, initialMode, onBack }: { challenge
           : !live.canAct
             ? live.reason ?? 'No actions to slip with'
             : 'Slip!';
-  const shirtApron = sponsor?.name ?? 'Hound Bout';
+  const shirtApron = sponsor?.name ?? gameName;
+  const tb = live.titleBout;
+  const kicker = !tb
+    ? `HOUND BOUT · ROUND ${Math.max(1, Math.min(live.rounds, live.round))} OF ${live.rounds}`
+    : tb.title
+      ? `TITLE FIGHT · ROUND ${live.round} OF 2`
+      : `TITLE BOUT · DAY ${Math.max(1, tb.dayNo)} OF 7${tb.opponentIsBot ? ' · SPARRING' : ''}`;
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
@@ -252,7 +273,7 @@ export function BoutRingScreen({ challengeId, initialMode, onBack }: { challenge
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.kicker} numberOfLines={1}>
-              HOUND BOUT · ROUND {Math.max(1, Math.min(live.rounds, live.round))} OF {live.rounds}
+              {kicker}
             </Text>
             <Text style={styles.title}>{mode === 'throw' ? 'In the ring' : 'Incoming'}</Text>
           </View>
@@ -302,6 +323,7 @@ export function BoutRingScreen({ challengeId, initialMode, onBack }: { challenge
           <Text style={[styles.chip, { left: 10, top: 10 }]}>
             {mode === 'slip' && incoming ? `${oppName} throws a ${punchName(incoming.punch).toLowerCase()} (+${incoming.points})` : `${oppName}’s guard: work it out`}
           </Text>
+          {tb?.title && <Text style={[styles.chip, { right: 10, top: 10, color: '#f0c24a' }]}>For the belt</Text>}
           {(live.day.camp || live.day.strength) && (
             <Text style={[styles.chip, { right: 10, top: 40, color: ME_COLOR }]}>
               {[live.day.camp ? 'Fight camp: wider green' : null, live.day.strength ? `Power: ${live.day.kdNeeds} for a knockdown` : null].filter(Boolean).join(' · ')}

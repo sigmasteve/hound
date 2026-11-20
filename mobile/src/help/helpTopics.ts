@@ -317,6 +317,22 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'titlebout',
+      section: 'challenges',
+      title: 'Title Bout',
+      summary: 'Hound Bout for everyone: a week on the ladder, then the top two fight for the belt, and you pick the champion.',
+      steps: [
+        'A Global Hound Challenge on Today, exactly 7 days. Join in its first 3 days. In the ring it’s Hound Bout: the same actions from steps, punches, guards, slips and knockdowns (see Hound Bout).',
+        'Days 1 to 5 are the ladder. Each day you get a new opponent, matched by where you are on it, and fight one round, scored the next morning. If there’s an odd one out, or you join after the day’s matches are made, you fight a sparring hound.',
+        'The ladder: a KO win is 3 points, a win on points 2, a draw 1, a loss 0. Ties go to knockdowns scored, then points landed. If you don’t throw a punch or try a slip all day, you lose that fight.',
+        'After day 5 is scored, the top two fight for the belt: two rounds, on days 6 and 7. A KO ends it early. Level on the cards, the higher seed keeps it. Everyone else keeps fighting the ladder.',
+        'Picks are free. Once the title fight is set, anyone in the Title Bout (except the two fighters) can pick who takes the belt, after looking at the tale of the tape: each fighter’s place, record, KOs, times knocked down, punches landed, slips, best punch, guard, steps a day and strength days. You can change your pick until round 1 is scored.',
+        'A right pick earns Bones when the Title Bout ends. Pick the underdog, the one fewer people picked, and get it right, and it’s double.',
+        'The champion’s hound gets the Title Bout Belt in the Kennel, and wears it. If there’s a sponsor, their name is on the belt and the ring.',
+        'Prizes at the end: the champion, the runner-up, 3rd to 10th on the ladder, the most KOs, and everyone who fought 5 or more days.',
+      ],
+    },
+    {
       id: 'shootout',
       section: 'challenges',
       title: 'Hound Shootout',
