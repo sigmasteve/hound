@@ -35,6 +35,7 @@ import { HorseShootScreen } from '../screens/HorseShootScreen';
 import { DerbyBatScreen } from '../screens/DerbyBatScreen';
 import { ShootoutKickScreen } from '../screens/ShootoutKickScreen';
 import { BoutRingScreen } from '../screens/BoutRingScreen';
+import { GlobalInviteScreen } from '../screens/GlobalInviteScreen';
 import { useChallengeCodeLinks } from '../challenges/codeLinks';
 import { ConnectScreen } from '../screens/ConnectScreen';
 import { MetricsScreen } from '../screens/MetricsScreen';
@@ -611,6 +612,17 @@ export function RootNavigator() {
                   clubId={route.params?.clubId}
                   onBack={() => navigation.goBack()}
                   onDone={(clubId) => (route.params?.clubId ? navigation.goBack() : navigation.replace('Club', { clubId }))}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="GlobalInvite" options={{ animation: 'slide_from_right' }}>
+              {/* A push from Hound inviting you to a Global challenge (0228). */}
+              {({ navigation, route }) => (
+                <GlobalInviteScreen
+                  key={route.params.challengeId}
+                  challengeId={route.params.challengeId}
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { tab: 'home' }))}
+                  onOpen={(challengeId) => navigation.replace('ChallengeDetail', { challengeId })}
                 />
               )}
             </Stack.Screen>

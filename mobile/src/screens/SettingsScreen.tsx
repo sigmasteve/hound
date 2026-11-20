@@ -33,7 +33,7 @@ import { getMyEquippedCosmetics, type EquippedCosmetics } from '../cosmetics/cos
 import type { Organization } from '../organizations/types';
 import { getDiscoverable, setDiscoverable } from '../friends/discovery';
 import { getFeatureNewest, setFeatureNewest } from '../challenges/todayFeature';
-import { getSocialPushEnabled, setSocialPushEnabled } from '../social/social';
+import { getNewsPushEnabled, getSocialPushEnabled, setNewsPushEnabled, setSocialPushEnabled } from '../social/social';
 import { WatchSettings } from '../watch/WatchSettings';
 import { AvatarSheet } from '../dogPhotos/AvatarSheet';
 import { photoTokenFromIcon } from '../dogPhotos/dogPhotos';
@@ -403,6 +403,29 @@ export function SettingsScreen({ onOpenLocker }: { onOpenLocker?: () => void } =
     }
   };
 
+  // News and challenge invites from Hound (0228): separate from game and
+  // friend pushes, so turning it off never stops those.
+  const [newsPushEnabled, setNewsPushEnabledState] = useState<boolean | null>(null);
+  const [savingNewsPush, setSavingNewsPush] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured || !user?.id) return;
+      getNewsPushEnabled(user.id).then(setNewsPushEnabledState);
+    }, [user?.id]),
+  );
+  const toggleNewsPush = async (next: boolean) => {
+    if (!user?.id) return;
+    setSavingNewsPush(true);
+    try {
+      await setNewsPushEnabled(user.id, next);
+      setNewsPushEnabledState(next);
+    } catch (err) {
+      Alert.alert('News and challenge invites', err instanceof Error ? err.message : 'Something went wrong.');
+    } finally {
+      setSavingNewsPush(false);
+    }
+  };
+
   const toggleStaleDataPush = async (next: boolean) => {
     if (!user?.id) return;
     setSavingAlert('staleDataPush');
@@ -504,7 +527,8 @@ export function SettingsScreen({ onOpenLocker }: { onOpenLocker?: () => void } =
     pushEnabled === true &&
     staleDataPushEnabled === true &&
     dailyStandingsPushEnabled === true &&
-    socialPushEnabled !== false;
+    socialPushEnabled !== false &&
+    newsPushEnabled !== false;
   const allEmailEnabled =
     emailEnabled === true && staleDataEmailEnabled === true && dailyStandingsEmailEnabled === true;
 
@@ -515,6 +539,7 @@ export function SettingsScreen({ onOpenLocker }: { onOpenLocker?: () => void } =
       toggleStaleDataPush(next),
       toggleDailyStandingsPush(next),
       socialPushEnabled !== null ? toggleSocialPush(next) : Promise.resolve(),
+      newsPushEnabled !== null ? toggleNewsPush(next) : Promise.resolve(),
     ]);
     setMasterToggling(null);
   };
@@ -867,6 +892,17 @@ export function SettingsScreen({ onOpenLocker }: { onOpenLocker?: () => void } =
                           title: 'Nudges, reactions & trash talk',
                           sub: 'When someone nudges you, reacts, or talks trash',
                           push: { on: socialPushEnabled, saving: savingSocialPush, toggle: toggleSocialPush },
+                          email: null,
+                        },
+                      ]
+                    : []),
+                  ...(newsPushEnabled !== null
+                    ? [
+                        {
+                          key: 'news',
+                          title: 'News and challenge invites',
+                          sub: 'From Hound, at most one a day: new Global challenges to join and what’s new',
+                          push: { on: newsPushEnabled, saving: savingNewsPush, toggle: toggleNewsPush },
                           email: null,
                         },
                       ]

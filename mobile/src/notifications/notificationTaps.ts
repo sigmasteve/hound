@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { NavigationContainerRefWithCurrent } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/types';
+import { markBroadcastOpened } from '../admin/broadcastApi';
 
 // Where tapping a push takes you. Pushes without one of these types just
 // open the app, as before.
@@ -22,6 +23,9 @@ import type { RootStackParamList } from '../navigation/types';
 //   club_invite          → the Clubs tab, where the invite waits (0187)
 //   pack_fun             → that Pack Activity (0192)
 //   hoops / horse        → that game's challenge (0195, 0196)
+//   broadcast            → a push from Hound (0228): the Global challenge
+//                          it invites to (with Join), or Today; the tap is
+//                          counted for Admin
 function routeFor(data: Record<string, unknown> | undefined): (() => [keyof RootStackParamList, any]) | null {
   if (!data) return null;
   if (data.type === 'admin_signup' && typeof data.userId === 'string') {
@@ -68,6 +72,10 @@ function routeFor(data: Record<string, unknown> | undefined): (() => [keyof Root
   if ((data.type === 'hoops' || data.type === 'horse' || data.type === 'golf' || data.type === 'derby' || data.type === 'shootout' || data.type === 'bout' || data.type === 'titlebout') && typeof data.challengeId === 'string') {
     return () => ['ChallengeDetail', { challengeId: data.challengeId }];
   }
+  if (data.type === 'broadcast') {
+    if (typeof data.challengeId === 'string') return () => ['GlobalInvite', { challengeId: data.challengeId }];
+    return () => ['Main', { tab: 'home' }];
+  }
   if (data.type === 'pack_fun' && typeof data.packId === 'string') return () => ['PackFun', { packId: data.packId }];
   if (data.type === 'nudge' || data.type === 'reaction') {
     if (typeof data.challengeId === 'string') return () => ['ChallengeDetail', { challengeId: data.challengeId }];
@@ -106,7 +114,9 @@ export function useNotificationTaps(
     const id = response.notification.request.identifier;
     if (handled.current === id) return;
     handled.current = id;
-    const route = routeFor(response.notification.request.content.data as Record<string, unknown> | undefined);
+    const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+    if (data?.type === 'broadcast' && typeof data.broadcastId === 'string') markBroadcastOpened(data.broadcastId).catch(() => {});
+    const route = routeFor(data);
     try {
       Notifications.clearLastNotificationResponse();
     } catch {
