@@ -86,9 +86,34 @@ export function Tile({
 // its own color, like the step rank's ▲ and ▼).
 export type TileLine = string | { text: string; color?: string };
 
-export function TileValue({ value, lines }: { value: string; lines: TileLine[] }) {
+export function TileValue({ value, lines, inline }: { value: string; lines: TileLine[]; inline?: boolean }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  // A tile spanning the row on its own (Step rank, Week in review): the
+  // number with its lines beside it, so it stays a slim strip rather than
+  // a half tile's height stretched across (Steve, Nov 2026).
+  if (inline) {
+    return (
+      <View style={styles.inlineRow}>
+        <Text style={[styles.value, { marginTop: 0 }]} numberOfLines={1}>
+          {value}
+        </Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          {lines.map((line, i) =>
+            typeof line === 'string' ? (
+              <Text key={i} style={styles.line} numberOfLines={1}>
+                {line}
+              </Text>
+            ) : (
+              <Text key={i} style={[styles.line, line.color ? { color: line.color, fontFamily: font.headingSemibold } : null]} numberOfLines={1}>
+                {line.text}
+              </Text>
+            ),
+          )}
+        </View>
+      </View>
+    );
+  }
   return (
     <>
       <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -420,6 +445,7 @@ function makeStyles(colors: Palette) {
     badgeText: { fontFamily: font.headingSemibold, fontSize: 11.5, color: '#1b1d29' },
     value: { fontFamily: font.headingSemibold, fontSize: 22, color: colors.text, marginTop: 2 },
     line: { fontSize: 12.5, lineHeight: 17, color: withAlpha(colors.text, 0.6) },
+    inlineRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 2 },
     hound: { position: 'absolute', right: -6, bottom: -4 },
     streak: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     streakText: { fontFamily: font.headingSemibold, fontSize: 12.5, color: colors.amber },

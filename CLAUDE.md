@@ -174,7 +174,9 @@ Inside the scroll, in order:
      rest (invites, friend requests, Bone Dig...), which opens the sheet.
      With nothing waiting it's a small "All caught up" tile in the pairs
      below.
-   - Then two to a row, an odd last one spanning the row: your hound
+   - Then two to a row, an odd last one spanning the row as a slim
+     strip (its number with its lines beside it, not a half tile's
+     height stretched across; Steve, Nov 2026): your hound
      (when the Kennel has loaded), Needs you (only when caught up), Your
      challenges, and either Week in review (Monday to Wednesday) or
      today's Step rank (the rest of the week).
