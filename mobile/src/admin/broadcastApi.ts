@@ -40,6 +40,12 @@ export async function sendBroadcast(title: string, message: string, challengeId:
   return rpc<string>('admin_send_broadcast', { p_title: title, p_message: message, p_challenge_id: challengeId, p_audience: audience });
 }
 
+// Send only to me (0229): the same push to the admin's own phone, to try
+// the wording. Doesn't use the day's push or show in the history.
+export async function sendBroadcastTest(title: string, message: string, challengeId: string | null): Promise<void> {
+  await rpc('admin_send_broadcast_test', { p_title: title, p_message: message, p_challenge_id: challengeId });
+}
+
 // Someone tapped it. Counted once; failures don't matter to them.
 export async function markBroadcastOpened(broadcastId: string): Promise<void> {
   await rpc('broadcast_opened', { p_broadcast_id: broadcastId });
