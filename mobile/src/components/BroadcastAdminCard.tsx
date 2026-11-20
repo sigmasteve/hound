@@ -16,6 +16,7 @@ import {
   pct,
   previewBroadcast,
   sendBroadcast,
+  sendBroadcastTest,
   TITLE_MAX,
   type BroadcastAudience,
   type BroadcastOverview,
@@ -26,7 +27,8 @@ import {
 // title and a message, pick what tapping it opens (Today, or a Global
 // challenge people can still join: an invite, which can go only to
 // people not in it yet), see how it looks and how many it reaches, then
-// check and send on a sheet. One a day. Under it, every push sent with
+// check and send on a sheet. One a day. Send only to me (0229) tries it on
+// your own phone first. Under it, every push sent with
 // how many it went to, opened it and joined.
 
 const ORANGE = '#f08a24';
@@ -73,6 +75,7 @@ export function BroadcastAdminCard({ onChanged }: { onChanged?: (o: BroadcastOve
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [sending, setSending] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   const load = useCallback(() => {
     getBroadcastOverview()
@@ -134,6 +137,16 @@ export function BroadcastAdminCard({ onChanged }: { onChanged?: (o: BroadcastOve
       })
       .catch((e) => Alert.alert('Send a push', e instanceof Error ? e.message : 'Try again.'))
       .finally(() => setSending(false));
+  };
+
+  // Send only to me (0229): try it on your own phone first.
+  const canTest = t.length > 0 && m.length > 0 && !testing;
+  const sendTest = () => {
+    setTesting(true);
+    sendBroadcastTest(t, m, opens)
+      .then(() => Alert.alert('Sent to your phone', 'It should arrive in a moment. It doesn’t use today’s push, and it won’t show in the history.'))
+      .catch((e) => Alert.alert('Send only to me', e instanceof Error ? e.message : 'Try again.'))
+      .finally(() => setTesting(false));
   };
 
   const chip = (on: boolean) => [styles.chip, on && styles.chipOn];
@@ -206,6 +219,9 @@ export function BroadcastAdminCard({ onChanged }: { onChanged?: (o: BroadcastOve
       )}
       <Pressable onPress={() => ready && setConfirming(true)} disabled={!ready} style={[styles.send, !ready && styles.sendOff]} accessibilityRole="button">
         <Text style={[styles.sendText, !ready && styles.sendTextOff]}>{sendLabel}</Text>
+      </Pressable>
+      <Pressable onPress={sendTest} disabled={!canTest} style={[styles.back, !canTest && { opacity: 0.45 }]} accessibilityRole="button">
+        <Text style={styles.backText}>{testing ? 'Sending to you…' : 'Send only to me'}</Text>
       </Pressable>
 
       {overview && overview.broadcasts.length > 0 && (
