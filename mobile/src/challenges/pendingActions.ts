@@ -30,6 +30,9 @@ export interface PendingAction {
   challengeName: string;
   kind: PendingActionKind;
   label: string;
+  // The challenge's kind, so Today's Needs you can open the game's own
+  // screen (a Hound Bout's ring or a Title Bout's) straight from the tile.
+  challengeKind?: Challenge['kind'];
 }
 
 // Same exclusion list ChallengeDetailScreen's own "Log your progress"
@@ -338,5 +341,6 @@ export function computePendingActions({
     }
   }
 
-  return actions;
+  const kinds = new Map(challenges.map((c) => [c.id, c.kind]));
+  return actions.map((a) => ({ ...a, challengeKind: kinds.get(a.challengeId) }));
 }

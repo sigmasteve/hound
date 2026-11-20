@@ -94,6 +94,8 @@ import { boardSortFor } from '../challenges/scoring';
 import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
 import { computePendingActions, needsManualEntry, type PendingAction } from '../challenges/pendingActions';
+import { NeedsYouWideTile } from '../home/NeedsYouTile';
+import { actionRoute, rankActions, type ActionRoute } from '../home/needsYouActions';
 import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
 import { isMyChecklistTodayComplete } from '../challenges/checklistApi';
 import { advanceHoundopoly, getHoundopolyGame, listMyHoundopolyPending } from '../challenges/houndopolyApi';
@@ -853,11 +855,14 @@ export function HomeScreen({
   onGoTab,
   onOpenAchievements,
   onOpenPackFun,
+  onOpenAction,
 }: {
   onOpenChallenge: (challengeId: string) => void;
   onGoTab: (dest: HomeDestination) => void;
   onOpenAchievements: () => void;
   onOpenPackFun: (packId: string) => void;
+  // A Needs you button: the game's own screen (the ring, the court...).
+  onOpenAction: (route: ActionRoute) => void;
 }) {
   const { user } = useAuth();
   const health = useHealthProvider();
@@ -2541,6 +2546,39 @@ export function HomeScreen({
     ...visibleNudges.map((n) => `${n.name} nudged you`),
     ...(bounties ?? []).filter((b) => !b.mine && b.status === 'open').map((b) => `${b.posterName}'s bounty`),
   ];
+  // Needs you, full width while anything's waiting (Nov 2026): the top two
+  // game actions with their own buttons, then "+N more: ..." for the rest.
+  const tileActions = rankActions(pendingActions, primary?.challenge.id ?? null).slice(0, 2);
+  const otherLines = needsLines.filter((l) => !pendingActions.some((a) => a.label === l));
+  const tileLines = otherLines.slice(0, Math.max(0, 2 - tileActions.length));
+  const restCount = needsLines.length - tileActions.length - tileLines.length;
+  const restParts = (() => {
+    if (restCount <= 0) return [];
+    const parts: string[] = [];
+    const moreActions = pendingActions.length - tileActions.length;
+    if (moreActions > 0) parts.push(moreActions === 1 ? 'another turn' : `${moreActions} more turns`);
+    let skip = tileLines.length;
+    const take = (n: number) => {
+      const used = Math.min(skip, n);
+      skip -= used;
+      return n - used;
+    };
+    const packsLeft = take(packLines.length);
+    if (packsLeft > 0) parts.push(packsLeft === 1 ? 'a Pack Activity' : `${packsLeft} Pack Activities`);
+    const invitesLeft = take(needsYou.filter((x) => x.type === 'invite').length);
+    if (invitesLeft > 0) parts.push(invitesLeft === 1 ? 'an invite' : `${invitesLeft} invites`);
+    const friendsLeft = take(needsYou.filter((x) => x.type === 'friend').length);
+    if (friendsLeft > 0) parts.push(friendsLeft === 1 ? 'a friend request' : `${friendsLeft} friend requests`);
+    if (take(digReady ? 1 : 0) > 0) parts.push('Bone Dig');
+    const nudgesLeft = take(visibleNudges.length);
+    if (nudgesLeft > 0) parts.push(nudgesLeft === 1 ? 'a nudge' : `${nudgesLeft} nudges`);
+    const bountiesLeft = take((bounties ?? []).filter((b) => !b.mine && b.status === 'open').length);
+    if (bountiesLeft > 0) parts.push(bountiesLeft === 1 ? 'a bounty' : `${bountiesLeft} bounties`);
+    return parts;
+  })();
+  const tileMore = restCount > 0 ? `+${restCount} more${restParts.length > 0 ? `: ${restParts.join(', ')}` : ''}` : null;
+  const needsWide = needsLines.length > 0;
+
   const recapPct = weeklyRecap ? stepsChangePct(weeklyRecap) : null;
   // Up or down from yesterday's rank: a smaller number is better.
   const rankDelta = stepRank?.yesterdayRank != null ? stepRank.yesterdayRank - stepRank.rank : null;
@@ -2559,6 +2597,11 @@ export function HomeScreen({
     // Straight to the Kennel: the sheet in between only held a card that
     // linked there.
     ...(kennel ? [{ key: 'hound', render: () => <HoundTile kennel={kennel} onPress={() => onGoTab('kennel')} /> }] : []),
+    // Small only when nothing's waiting ("All caught up"); otherwise it's
+    // the full-width tile above these.
+    ...(needsWide
+      ? []
+      : [
     {
       key: 'needs',
       render: (wide: boolean) => (
@@ -2576,6 +2619,7 @@ export function HomeScreen({
         </Tile>
       ),
     },
+        ]),
     {
       key: 'challenges',
       render: (wide: boolean) => (
@@ -2750,6 +2794,16 @@ export function HomeScreen({
                 }
               />
             }
+          />
+        )}
+        {needsWide && (
+          <NeedsYouWideTile
+            count={needsLines.length}
+            actions={tileActions}
+            lines={tileLines}
+            more={tileMore}
+            onAct={(a) => onOpenAction(actionRoute(a))}
+            onOpen={() => setOpenTile('needs')}
           />
         )}
         {/* Two to a row, in rows of their own: a wrapping row let a tile

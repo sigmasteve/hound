@@ -165,10 +165,19 @@ Inside the scroll, in order:
    tile's place.
 3. The tile grid:
    - Goals, full width across the top (rings or hound trails).
+   - Needs you, full width, while anything is waiting (Steve's pick,
+     Nov 2026; `src/home/NeedsYouTile.tsx`): the top two game actions,
+     each with its own button that opens the game's own screen (the
+     ring, the court, the plate; `src/home/needsYouActions.ts`), ranked
+     what goes away tonight first, then turns someone's waiting on, the
+     pinned challenge first among equals; then "+N more: ..." for the
+     rest (invites, friend requests, Bone Dig...), which opens the sheet.
+     With nothing waiting it's a small "All caught up" tile in the pairs
+     below.
    - Then two to a row, an odd last one spanning the row: your hound
-     (when the Kennel has loaded), Needs you, Your challenges, and
-     either Week in review (Monday to Wednesday) or today's Step rank
-     (the rest of the week).
+     (when the Kennel has loaded), Needs you (only when caught up), Your
+     challenges, and either Week in review (Monday to Wednesday) or
+     today's Step rank (the rest of the week).
    - Journey, full width, when you're on one.
 4. The notifications ask (PushAskCard), once you have a friend or a
    challenge.
