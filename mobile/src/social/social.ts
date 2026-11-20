@@ -182,3 +182,23 @@ export async function setSocialPushEnabled(userId: string, enabled: boolean): Pr
     .eq('id', userId);
   if (error) throw new Error(error.message);
 }
+
+// News and challenge invites (0228): pushes from Hound itself, at most one
+// a day. Null if it can't be read (before 0228 has run): Settings leaves
+// the row out.
+export async function getNewsPushEnabled(userId: string): Promise<boolean | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('alert_news_push_enabled')
+    .eq('id', userId)
+    .single<{ alert_news_push_enabled: boolean }>();
+  if (error || !data) return null;
+  return data.alert_news_push_enabled;
+}
+
+export async function setNewsPushEnabled(userId: string, enabled: boolean): Promise<void> {
+  if (enabled) await registerForPushNotifications(userId);
+  const { error } = await requireClient().from('profiles').update({ alert_news_push_enabled: enabled }).eq('id', userId);
+  if (error) throw new Error(error.message);
+}

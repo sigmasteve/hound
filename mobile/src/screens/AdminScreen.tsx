@@ -102,6 +102,8 @@ import { ChecklistAdminCard } from '../components/ChecklistAdminCard';
 import { HoundopolyAdminCard } from '../components/HoundopolyAdminCard';
 import { endChallengeEarly } from '../challenges/supabaseChallenges';
 import { PushReachCard } from '../components/PushReachCard';
+import { BroadcastAdminCard } from '../components/BroadcastAdminCard';
+import { broadcastSummary, getBroadcastOverview } from '../admin/broadcastApi';
 import { SignupAlertsCard } from '../components/SignupAlertsCard';
 import { FindPeopleAdminCard } from '../components/FindPeopleAdminCard';
 import { TrashTalkAdminCard } from '../components/TrashTalkAdminCard';
@@ -241,6 +243,7 @@ export function AdminScreen({
   const [shootoutLine, setShootoutLine] = useState<string | null>(null);
   const [boutLine, setBoutLine] = useState<string | null>(null);
   const [titleBoutLine, setTitleBoutLine] = useState<string | null>(null);
+  const [broadcastLine, setBroadcastLine] = useState<string | null>(null);
   // The Sponsors fold's line (0203).
   const [sponsorLine, setSponsorLine] = useState<string | null>(null);
   // The Sports bonuses fold's line (0198).
@@ -349,6 +352,9 @@ export function AdminScreen({
         .catch(() => {});
       getTitleBoutOverview()
         .then((o) => setTitleBoutLine(titleBoutSummary(o)))
+        .catch(() => {});
+      getBroadcastOverview()
+        .then((o) => setBroadcastLine(broadcastSummary(o)))
         .catch(() => {});
       getSponsorOverview()
         .then((o) => setSponsorLine(sponsorSummary(o)))
@@ -907,6 +913,9 @@ export function AdminScreen({
                   </AdminFold>
                   <AdminFold title="Push reach" summary="Who pushes can reach">
                     <PushReachCard />
+                  </AdminFold>
+                  <AdminFold title="Send a push" summary={broadcastLine ?? 'One push to everyone, or an invite to a Global challenge'}>
+                    <BroadcastAdminCard onChanged={(o) => setBroadcastLine(broadcastSummary(o))} />
                   </AdminFold>
                   <AdminFold title="Apple Watch" summary={watchSummaryLine ?? 'Hound on the wrist'}>
                     <WatchAdminCard />

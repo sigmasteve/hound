@@ -55,6 +55,8 @@ export type RootStackParamList = {
   Achievements: undefined;
   // K-01: search and filter challenges to join or start.
   Discover: undefined;
+  // A push from Hound inviting you to a Global challenge (0228).
+  GlobalInvite: { challengeId: string };
   // K-04: a community challenge's Join card, from its link (or a club's,
   // 0185, for a 6-character code).
   JoinCode: { code: string };
