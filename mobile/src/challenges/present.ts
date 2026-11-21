@@ -210,6 +210,10 @@ export function toChallengeCard(
     // The map and the packs live in pack_territories, on the detail screen.
     stat = '4';
     statLabel = 'packs · most ground wins';
+  } else if (challenge.kind === 'roulette') {
+    // The points live in roulette_players, on the detail screen.
+    stat = String(challenge.durationDays);
+    statLabel = 'spins · most banked wins';
   } else if (challenge.kind === 'doors') {
     // The calendar and points live in door_opens, on the detail screen.
     stat = String(challenge.durationDays);

@@ -58,6 +58,8 @@ export const KENNEL_ITEMS: KennelItem[] = [
   { id: 'bandana_purple', slot: 'neck', name: 'Purple Bandana', costBones: 60, kind: 'bandana', color: '#8b6fd6' },
   { id: 'bandana_red', slot: 'neck', name: 'Red Bandana', costBones: 60, kind: 'bandana', color: '#d94a4a' },
   { id: 'collar_gold', slot: 'neck', name: 'Gold Collar', costBones: 150, kind: 'collar', color: '#e0b84f' },
+  // Hound Roulette's prize (0236): never sold, only won by most banked.
+  { id: 'bandana_lucky', slot: 'neck', name: 'Lucky Bandana', costBones: 0, kind: 'bandana', color: '#2f9e5a', accent: '#f0c24a', season: 'Hound Roulette', availableUntil: '2000-01-01' },
   { id: 'hat_beanie', slot: 'head', name: 'Beanie', costBones: 80, kind: 'beanie', color: '#4fbf7a' },
   { id: 'hat_party', slot: 'head', name: 'Party Hat', costBones: 100, kind: 'party', color: '#e04fb0' },
   { id: 'hat_crown', slot: 'head', name: 'Crown', costBones: 300, kind: 'crown', color: '#e0b84f' },

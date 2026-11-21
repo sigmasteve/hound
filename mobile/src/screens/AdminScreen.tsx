@@ -27,6 +27,8 @@ import { getHuntLabels, setHuntLabels } from '../labels/supabaseLabels';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 import { StepStoryAdminCard } from '../components/StepStoryAdminCard';
 import { CricketAdminCard } from '../components/CricketAdminCard';
+import { RouletteAdminCard } from '../components/RouletteAdminCard';
+import { getRouletteOverview, rouletteSummary } from '../challenges/rouletteApi';
 import { cricketSummary, getCricketOverview } from '../challenges/cricketApi';
 import { getStepStoryOverview, stepStorySummary } from '../challenges/stepStoryApi';
 import { getTotalUserCount, searchUsers, USER_PAGE, type AdminUserSummary } from '../admin/adminApi';
@@ -259,6 +261,7 @@ export function AdminScreen({
   const [autoJoinLine, setAutoJoinLine] = useState<string | null>(null);
   const [stepStoryLine, setStepStoryLine] = useState<string | null>(null);
   const [cricketLine, setCricketLine] = useState<string | null>(null);
+  const [rouletteLine, setRouletteLine] = useState<string | null>(null);
   const [doorsSummary, setDoorsSummary] = useState<string | null>(null);
   const [packsSummary, setPacksSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
@@ -370,6 +373,9 @@ export function AdminScreen({
         .catch(() => {});
       getCricketOverview()
         .then((o) => setCricketLine(cricketSummary(o)))
+        .catch(() => {});
+      getRouletteOverview()
+        .then((o) => setRouletteLine(rouletteSummary(o)))
         .catch(() => {});
       getBaseballOverview()
         .then((b) =>
@@ -977,6 +983,9 @@ export function AdminScreen({
                   <>
                   <AdminFold title="Challenges" summary={challengesSummary ?? 'What’s running, by game'}>
                     <ChallengesAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Hound Roulette" summary={rouletteLine ?? 'Spins, stakes, Raids and Duels'}>
+                    <RouletteAdminCard onChanged={(o) => setRouletteLine(rouletteSummary(o))} />
                   </AdminFold>
                   <AdminFold title="Cricket" summary={cricketLine ?? 'Matches, and balls batted and bowled by hand'}>
                     <CricketAdminCard onChanged={(o) => setCricketLine(cricketSummary(o))} />

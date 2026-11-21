@@ -205,6 +205,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   shootout: 'Penalty kicks for a week: top corners count 2. Most goals wins.',
   bout: 'Boxing, one on one: punch, slip, set your guard. A round a day.',
   titlebout: 'Hound Bout for everyone: a ladder, then the top two fight for the belt.',
+  roulette: 'Spin for today’s task. Bank it, ride it, or raid a friend.',
 };
 
 // A Journey's default run: about two miles a day, at least three days,
@@ -627,6 +628,7 @@ export function CreateScreen({
     if (draftType === 'hoops') setLength('4');
     if (draftType === 'horse') setLength(String(HORSE_DAYS));
     if (draftType === 'bout') setLength('5');
+    if (draftType === 'roulette') setLength('7');
     if (draftType === 'golf') setLength(String(golfDays(golfHoles)));
     // The Hound Open: joining closes 3 days in, and bigger prizes.
     if (draftType === 'golf' && global) {
@@ -1234,6 +1236,7 @@ export function CreateScreen({
               draftType === 'hoops' ||
               draftType === 'horse' ||
               draftType === 'bout' ||
+              draftType === 'roulette' ||
               draftType === 'golf'
             ? []
             : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
@@ -1799,7 +1802,7 @@ export function CreateScreen({
             </View>
             <SegmentedControl
               options={
-                draftType === 'tag'
+                draftType === 'tag' || draftType === 'roulette'
                   ? [
                       { value: '7', label: '7 days' },
                       { value: '14', label: '14 days' },
@@ -1815,7 +1818,7 @@ export function CreateScreen({
             <Slider
               // A Hound'opoly game needs a week to go anywhere.
               minimumValue={
-                draftType === 'tag' || draftType === 'derby' || draftType === 'shootout'
+                draftType === 'tag' || draftType === 'derby' || draftType === 'shootout' || draftType === 'roulette'
                   ? 3
                   : community
                   ? draftType === 'seventyfive'
@@ -1832,6 +1835,9 @@ export function CreateScreen({
                 // A Tag chase runs 3 to 14 days (0181).
                 draftType === 'tag'
                   ? 14
+                  : // Hound Roulette: 3 to 21 spins (0236).
+                    draftType === 'roulette'
+                  ? 21
                   : // A community challenge runs 3 to 30 days (75 Day: 75).
                     community || draftType === 'packs' || draftType === 'derby' || draftType === 'shootout'
                   ? draftType === 'seventyfive'
@@ -3011,7 +3017,7 @@ export function CreateScreen({
               <Text style={[text.h4, { marginTop: 4 }]}>Friends</Text>
             </View>
           )}
-          {draftType !== 'tictacgo' && draftType !== 'rally' && draftType !== 'soccer' && draftType !== 'cricket' && draftType !== 'baseball' && draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'bout' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && (
+          {draftType !== 'tictacgo' && draftType !== 'rally' && draftType !== 'soccer' && draftType !== 'cricket' && draftType !== 'baseball' && draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'bout' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && draftType !== 'roulette' && (
             <Text style={styles.footNote}>
               Rewards need at least one friend to join. Bots and pending invites don&rsquo;t count.
             </Text>
@@ -3111,6 +3117,7 @@ export function CreateScreen({
             draftType !== 'seventyfive' &&
             draftType !== 'checklist' &&
             draftType !== 'houndopoly' &&
+            draftType !== 'roulette' &&
             draftType !== 'packs' && (
             <>
               <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>

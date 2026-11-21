@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import Svg, { Circle, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
 import { TrophyIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
@@ -28,6 +28,8 @@ import { getPackWars, heldBy, packDayNo, type PackWarsGame } from '../challenges
 import { PACKS, packOf } from '../challenges/packWars';
 import { HoodMap } from '../components/PackWarsCard';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { getRoulette, rouletteWaiting, type RouletteGame } from '../challenges/rouletteApi';
+import { SEGMENTS, stakeName, taskTitle as rouletteTaskTitle } from '../challenges/roulette';
 
 // A pinned challenge on Today's "Your challenges" sheet, for the games
 // that used to fall back to a plain list (Steve, Nov 2026: "each
@@ -586,6 +588,68 @@ export function DoorsPinned({ challenge, board, userId, onOpen, houndName }: Pin
       )}
       {game.board.slice(0, 3).map((r) => (
         <Row key={r.userId} rank={r.place} name={nameOf(r.userId)} value={`${r.points} pts`} me={r.userId === userId} styles={styles} />
+      ))}
+    </Frame>
+  );
+}
+
+// ── Hound Roulette: the wheel, today's task, the ride, the standings. ──
+
+function MiniWheel({ size }: { size: number }) {
+  const c = size / 2;
+  const r = c - 2;
+  const pt = (a: number) => `${(c + r * Math.sin((a * Math.PI) / 180)).toFixed(1)} ${(c - r * Math.cos((a * Math.PI) / 180)).toFixed(1)}`;
+  return (
+    <Svg width={size} height={size}>
+      {SEGMENTS.map((s, i) => (
+        <Path key={s.id} d={`M${c} ${c} L${pt(i * 36)} A${r} ${r} 0 0 1 ${pt(i * 36 + 36)} Z`} fill={s.fill} />
+      ))}
+      <Circle cx={c} cy={c} r={r} fill="none" stroke="#f0c24a" strokeWidth={2} />
+      <Circle cx={c} cy={c} r={r * 0.26} fill="#161826" stroke="#f0c24a" strokeWidth={2} />
+    </Svg>
+  );
+}
+
+export function RoulettePinned({ challenge, userId, onOpen }: PinnedProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const game = useLoad<RouletteGame>(`roulette:${challenge.id}`, () => getRoulette(challenge.id));
+  if (!game) {
+    return (
+      <Frame challenge={challenge} button="Open the wheel" onOpen={onOpen}>
+        <Text style={styles.note}>{game === undefined ? 'Loading the wheel…' : 'Open the challenge to see the wheel.'}</Text>
+      </Frame>
+    );
+  }
+  const w = rouletteWaiting(game);
+  const s = game.spin;
+  return (
+    <Frame
+      challenge={challenge}
+      meta={`${game.board.length} ${game.board.length === 1 ? 'player' : 'players'}`}
+      button={w.duel ? 'Answer the Duel' : w.spin ? 'Spin today’s wheel' : 'Open the wheel'}
+      primaryButton={!!w.duel || w.spin}
+      onOpen={onOpen}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <MiniWheel size={58} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.kicker}>{w.spin ? 'TODAY’S WHEEL IS WAITING' : s ? `TODAY · ${stakeName(s.stake).toUpperCase()}` : 'HOUND ROULETTE'}</Text>
+          <Text style={styles.big}>
+            {w.duel
+              ? `${first(w.duel.other)} called you out for ${w.duel.stake}`
+              : s
+                ? `${rouletteTaskTitle(s.task, s.target, s.double)}${s.status === 'done' ? ' · done' : ''}`
+                : game.reason ?? 'Spin to see today’s task.'}
+          </Text>
+          <Text style={styles.small}>
+            {game.banked} banked{game.ride > 0 ? ` · ${game.ride} riding × ${game.mult}` : ''}
+            {game.raidOnMe ? ` · ${first(game.raidOnMe.by)} is raiding you` : ''}
+          </Text>
+        </View>
+      </View>
+      {game.board.slice(0, 3).map((r, i) => (
+        <Row key={r.userId} rank={1 + game.board.filter((x) => x.banked > r.banked).length || i + 1} name={r.userId === userId ? 'You' : first(r.name)} value={`${r.banked} banked`} me={r.userId === userId} styles={styles} />
       ))}
     </Frame>
   );

@@ -147,6 +147,13 @@ reuses Baseball's `Batter` and `Figure`, and the 3-2-1 and tap marks from
 `baseballSwing.tsx`. The match card's ground (`CricketGround`) stays
 behind the batter.
 
+Hound Roulette's wheel (0236, `RouletteScreen.tsx`) is a flat wheel, not
+a field: the server picks the slot (`roulette_segment`, seeded) and the
+wheel only turns to it, so the slots' order in `challenges/roulette.ts`
+must match the server's. Points come only from doing tasks and leave only
+as Bones and the Lucky Bandana at the end: nothing in it may take Bones or
+money in (Steve, Nov 2026: playful, not gambling).
+
 ## Actions are on screen without scrolling
 
 Steve's rule (Nov 2026): every action a user can take is seen when the

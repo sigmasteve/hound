@@ -219,6 +219,20 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'roulette',
+      section: 'challenges',
+      title: 'Hound Roulette: spin, ride, raid',
+      summary: 'A task a day from the wheel, and how points become Bones and the Lucky Bandana.',
+      steps: [
+        'Each day, pick your stake and spin. Safe is an easy task for 1 point, Bold a harder one for 3, and All in the hardest, which doubles everything riding. The wheel picks the task: steps, a workout, water, all your goals, a hound walk, cheering friends, a Free Day, a Double (worth twice) or Pick Yours.',
+        'Tasks are sized for you: steps from your own last seven days, water from your water goal. Do it by midnight and it’s scored on its own from Health and the rest of Hound: nothing to tick.',
+        'Points you make go on your ride. Each day in a row riding adds ×0.5 when you bank (×1, ×1.5, ×2, ×2.5, up to ×3). Bank in the morning, before you spin, to keep them for good. Miss a task, or a day without a spin, and the whole ride is gone. Banked points are safe.',
+        'Raid: for 2 banked points, raid someone riding 2 or more who hasn’t made today’s task. If they miss, their ride comes to you (up to 25) with your 2 back. If they make it, your 2 go to them. If they bank before they lose it, your 2 come back. One Raid a day, and one on each person a day.',
+        'Duel: call someone out for 2 to 25 of your banked points (they need that many too). If they accept within a day, both stakes are held and tomorrow is a step-off on each person’s own day: whoever beats their own seven-day average by more takes both. Dead level and you both get yours back.',
+        'At the end, whatever’s riding is banked, and most banked wins. Everyone gets Bones for finishing plus a Bone for every banked point (up to 100), and the winner’s hound gets the Lucky Bandana, which can’t be bought. Points only come from doing tasks; nothing here can be bought with Bones or money.',
+      ],
+    },
+    {
       id: 'cricket',
       section: 'challenges',
       title: 'Cricket: bat and bowl yourself',

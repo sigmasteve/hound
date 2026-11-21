@@ -17,6 +17,8 @@ export type PendingActionKind =
   | 'hoopsShoot'
   | 'baseballBat'
   | 'cricketPlay'
+  | 'rouletteSpin'
+  | 'rouletteDuel'
   | 'derbySwing'
   | 'shootoutKick'
   | 'boutIncoming'
@@ -61,7 +63,8 @@ export function needsManualEntry(challenge: Challenge): boolean {
     challenge.kind !== 'derby' &&
     challenge.kind !== 'shootout' &&
     challenge.kind !== 'bout' &&
-    challenge.kind !== 'titlebout'
+    challenge.kind !== 'titlebout' &&
+    challenge.kind !== 'roulette'
   );
 }
 
@@ -107,6 +110,9 @@ export interface PendingActionsInput {
   baseballAtBatsReady?: Map<string, number>;
   // Cricket (0234): balls ready to bat or bowl by hand.
   cricketBallsReady?: Map<string, { n: number; role: 'bat' | 'bowl' }>;
+  // Hound Roulette (0236): today's spin not taken, and a Duel call to
+  // answer (from whom, for how much).
+  rouletteWaiting?: Map<string, { spin: boolean; duel: { from: string; stake: number } | null; ride: number }>;
   // The Home Run Derby (0211): swings ready to take, for a derby you've
   // joined.
   derbySwingsReady?: Map<string, number>;
@@ -149,6 +155,7 @@ export function computePendingActions({
   hoopsShotsReady = new Map(),
   baseballAtBatsReady = new Map(),
   cricketBallsReady = new Map(),
+  rouletteWaiting = new Map(),
   derbySwingsReady = new Map(),
   shootoutKicksReady = new Map(),
   boutReady = new Map(),
@@ -269,6 +276,24 @@ export function computePendingActions({
           challengeName: c.name,
           kind: 'cricketPlay',
           label: r.role === 'bowl' ? `Your over to bowl in ${c.name}` : `${r.n} ${r.n === 1 ? 'ball' : 'balls'} to bat in ${c.name}`,
+        });
+      }
+    } else if (c.kind === 'roulette') {
+      const w = rouletteWaiting.get(c.id);
+      if (w?.duel) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'rouletteDuel',
+          label: `${w.duel.from} called you out for ${w.duel.stake} in ${c.name}`,
+        });
+      }
+      if (w?.spin) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'rouletteSpin',
+          label: w.ride > 0 ? `Spin today’s wheel in ${c.name} · ${w.ride} riding` : `Spin today’s wheel in ${c.name}`,
         });
       }
     } else if (c.kind === 'derby') {
