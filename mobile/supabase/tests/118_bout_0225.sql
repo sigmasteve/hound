@@ -2,7 +2,7 @@
 -- a punch against the guard (blocked, perfect gets through, a miss, the
 -- counter), incoming and the slip, the round scored the morning after
 -- with knockdowns and a KO, a draw, the payout, and Admin.
-select plan(37);
+select plan(39);
 
 select tests.new_user('Ada', true) as ada \gset
 select tests.new_user('Ann') as ann \gset
@@ -57,36 +57,53 @@ select is(public.bout_set_guard('00000000-0000-0000-0000-0000000b0001', 'high'),
 select throws_ok($$select public.bout_set_guard('00000000-0000-0000-0000-0000000b0001', 'low')$$, 'Pick a high guard, a body guard or counter.', 'Three guards');
 reset role;
 
+-- 0230: the new ring. 10 actions a day, one per 1,500 steps; the old meter's gone.
 select tests.sign_in(:'ann');
 set local role authenticated;
-select is((public.bout_live('00000000-0000-0000-0000-0000000b0001') -> 'day' ->> 'left')::int, 5, '5,000 steps: five actions');
-select is(public.bout_throw('00000000-0000-0000-0000-0000000b0001', 'hook', 55) - array['id', 'run', 'downs', 'kd_needs', 'left', 'message'],
-  '{"punch":"hook","quality":"clean","blocked":true,"countered":false,"points":0,"guard":"high"}'::jsonb, 'A clean hook into a high guard: blocked');
-select is(public.bout_throw('00000000-0000-0000-0000-0000000b0001', 'up', 50) - array['id', 'message', 'left', 'guard'],
-  '{"punch":"up","quality":"perfect","blocked":false,"countered":false,"points":3,"run":1,"downs":0,"kd_needs":3}'::jsonb,
-  'A perfect uppercut gets through: 3, one of three to a knockdown');
-select is(public.bout_throw('00000000-0000-0000-0000-0000000b0001', 'jab', 80) ->> 'quality', 'miss', 'Late: a miss');
+select is((public.bout_live('00000000-0000-0000-0000-0000000b0001') -> 'day' ->> 'left')::int, 3, '5,000 steps: three actions');
+select throws_ok($$select public.bout_throw('00000000-0000-0000-0000-0000000b0001', 'jab', 50)$$,
+  'Hound Bout has a new ring: update Hound to fight.', 'The old meter asks for the update');
+select (x ->> 'id')::bigint as ex1 from (select public.ring_exchange_start('bout', '00000000-0000-0000-0000-0000000b0001') x) z \gset
+reset role;
+-- Fix the openings and give Ann a star, so the checks are exact.
+update public.ring_exchanges set openings = '["hookL","up","jab"]' where id = :ex1;
+select public.ring_set_stars('bout', '00000000-0000-0000-0000-0000000b0001', :'ann', 1);
+select tests.sign_in(:'ann');
+set local role authenticated;
+select is(public.ring_exchange_punch(:ex1, 0, 0.6) - array['message', 'stars'],
+  '{"seq":0,"punch":"hook","side":"L","quality":"clean","blocked":true,"countered":false,"points":0,"star":false}'::jsonb,
+  'A clean hook into a high guard: blocked');
+select is(public.ring_exchange_punch(:ex1, 1, 0.9, true) - array['message'],
+  '{"seq":1,"punch":"up","side":null,"quality":"perfect","blocked":false,"countered":false,"points":6,"star":true,"stars":0}'::jsonb,
+  'A perfect uppercut, starred: 6, and the star''s spent');
+select is(public.ring_exchange_punch(:ex1, 2, 0.3) ->> 'quality', 'miss', 'Too early: a miss');
+select throws_ok(format($q$select public.ring_exchange_punch(%s, 2, 0.9)$q$, :ex1), 'That exchange is over.', 'Each punch once');
+select is((public.bout_live('00000000-0000-0000-0000-0000000b0001') -> 'day' ->> 'left')::int, 2, 'An exchange is one action');
 reset role;
 
 select tests.sign_in(:'bob');
 set local role authenticated;
-select is(jsonb_array_length(public.bout_live('00000000-0000-0000-0000-0000000b0001') -> 'incoming'), 1, 'Only what got through waits for Bob');
-select bout_id from (select (public.bout_live('00000000-0000-0000-0000-0000000b0001') -> 'incoming' -> 0 ->> 'id')::bigint as bout_id) z \gset
-select is(public.bout_slip('00000000-0000-0000-0000-0000000b0001', :bout_id, 50) ->> 'slip', 'slipped', 'Bob slips it in the green');
-select throws_ok(format($q$select public.bout_slip('00000000-0000-0000-0000-0000000b0001', %s, 50)$q$, :bout_id),
-  'That one''s already dealt with.', 'Once');
-select is((public.bout_live('00000000-0000-0000-0000-0000000b0001') -> 'day' ->> 'left')::int, 2, 'A slip costs Bob one of his three actions');
+select is((public.ring_state('bout', '00000000-0000-0000-0000-0000000b0001') ->> 'combos')::int, 1, 'Ann''s combination waits for Bob');
+select d from (select public.ring_defend_start('bout', '00000000-0000-0000-0000-0000000b0001') d) z \gset
+select is(jsonb_array_length(:'d'::jsonb -> 'punches'), 1, 'Only what got through: the uppercut');
+select is(public.ring_defend_finish((:'d'::jsonb ->> 'id')::bigint, '[{"dir":"left","dt":-100}]', 1) -> 'results' -> 0 ->> 'slipped', 'false',
+  'Slipping sideways from an uppercut: caught');
+select is((public.bout_live('00000000-0000-0000-0000-0000000b0001') -> 'day' ->> 'left')::int, 1, 'Facing it was one of Bob''s two actions');
+select is((public.bout_live('00000000-0000-0000-0000-0000000b0001') -> 'tally'), '{"mine": 0, "theirs": 6}'::jsonb, 'So far today: 0–6');
 select public.bout_set_guard('00000000-0000-0000-0000-0000000b0001', 'counter');
 reset role;
 
 select tests.sign_in(:'ann');
 set local role authenticated;
-select is(public.bout_throw('00000000-0000-0000-0000-0000000b0001', 'jab', 55) ->> 'countered', 'true', 'A clean jab into a counter guard: caught, and Bob hits back');
-select is(public.bout_live('00000000-0000-0000-0000-0000000b0001') -> 'tally', '{"mine": 0, "theirs": 1}'::jsonb, 'So far today: 0–1');
-select is((public.bout_live('00000000-0000-0000-0000-0000000b0001') ->> 'run')::int, 0, 'The slip broke Ann''s run');
-select public.bout_throw('00000000-0000-0000-0000-0000000b0001', 'hook', 50);
-select throws_ok($$select public.bout_throw('00000000-0000-0000-0000-0000000b0001', 'jab', 50)$$,
-  'No actions ready: your next comes at 6,000 steps.', 'Five actions used');
+select (x ->> 'id')::bigint as ex2 from (select public.ring_exchange_start('bout', '00000000-0000-0000-0000-0000000b0001') x) z \gset
+reset role;
+update public.ring_exchanges set openings = '["jab","jab","jab"]' where id = :ex2;
+select tests.sign_in(:'ann');
+set local role authenticated;
+select is(public.ring_exchange_punch(:ex2, 0, 0.6) ->> 'countered', 'true', 'A clean jab into a counter guard: caught');
+select public.ring_exchange_start('bout', '00000000-0000-0000-0000-0000000b0001');
+select throws_ok($$select public.ring_exchange_start('bout', '00000000-0000-0000-0000-0000000b0001')$$,
+  'No actions ready: your next comes at 6,000 steps.', 'Three actions used');
 reset role;
 
 -- ── A fight already fought: knockdowns, then a KO ──

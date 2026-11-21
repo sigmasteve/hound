@@ -28,7 +28,7 @@ const DO_NOW: Partial<Record<string, string>> = {
   golf: 'Your steps are yards: play a hole',
   derby: 'Your steps buy the swings: 1 per 1,000',
   shootout: 'Your steps buy the kicks: 1 per 1,000',
-  titlebout: 'A new opponent every day: 1 action per 1,000 steps',
+  titlebout: 'A new opponent every day: 1 action per 1,500 steps',
 };
 
 function weekday(iso: string): string {

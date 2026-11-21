@@ -556,9 +556,9 @@ function boutHeadline(name: string, b: BoutLive | null): string {
       ? won ? `You knocked ${opp} out in round ${b.koRound}!` : `${opp} knocked you out in round ${b.koRound}. Rematch?`
       : won ? `You beat ${opp} on the cards, ${t.m}–${t.o}.` : `${opp} beat you on the cards, ${t.o}–${t.m}.`;
   }
-  const waiting = b.incoming.length > 0 ? ` ${b.incoming.length} incoming to slip.` : b.day.left > 0 && b.canAct ? ` ${b.day.left} punches ready.` : '';
+  const waiting = b.combos > 0 ? ` ${b.combos} combinations to face.` : b.day.left > 0 && b.canAct ? ` ${b.day.left} exchanges ready.` : '';
   if (!b.opponent) return `Waiting for your opponent to accept ${name}.`;
-  if (b.card.length === 0) return `Round 1 against ${opp}: every 1,000 steps is a punch.${waiting}`;
+  if (b.card.length === 0) return `Round 1 against ${opp}: every 1,500 steps is an exchange.${waiting}`;
   const lead = t.m > t.o ? `You lead ${opp} ${t.m}–${t.o}` : t.m < t.o ? `${opp} leads you ${t.o}–${t.m}` : `Level with ${opp}, ${t.m}–${t.o}`;
   return `${lead} after ${b.card.length} ${b.card.length === 1 ? 'round' : 'rounds'}.${waiting}`;
 }
@@ -573,7 +573,7 @@ function titleBoutHeadline(name: string, t: { live: BoutLive; tb: TitleBout } | 
   if (ti?.winner) {
     return ti.winner === live.me ? `You won the ${name} belt!` : `${first(ti.winner === ti.a.id ? ti.a.name : ti.b.name)} took the ${name} belt.`;
   }
-  const waiting = live.incoming.length > 0 && live.canAct ? ` ${live.incoming.length} incoming to slip.` : live.canAct && live.day.left > 0 ? ` ${live.day.left} punches ready.` : '';
+  const waiting = live.combos > 0 && live.canAct ? ` ${live.combos} combinations to face.` : live.canAct && live.day.left > 0 ? ` ${live.day.left} exchanges ready.` : '';
   if (ti?.mine) return `You’re fighting for the belt against ${first(live.me === ti.a.id ? ti.b.name : ti.a.name)}.${waiting}`;
   if (ti && tb.picks?.open && !tb.picks.mine) return `Title fight: ${first(ti.a.name)} vs ${first(ti.b.name)}. Pick your champion.`;
   if (tb.phase === 'upcoming') return `${name} starts soon: a new opponent every day, the top 2 fight for the belt.`;
@@ -2311,7 +2311,7 @@ export function HomeScreen({
               .filter((r) => r.challenge.kind === 'shootout')
               .map(async (r): Promise<readonly [string, ShootoutLive | null]> => [r.challenge.id, await getShootoutLive(r.challenge.id).catch(() => null)]),
           ),
-          // Hound Bout (0225): incoming to slip, punches ready.
+          // Hound Bout (0225): incoming to slip, exchanges ready.
           Promise.all(
             activeResults
               .filter((r) => r.challenge.kind === 'bout' || r.challenge.kind === 'titlebout')
@@ -2352,7 +2352,7 @@ export function HomeScreen({
             ),
             boutReady: new Map(
               boutEntries.flatMap(([id, b]) =>
-                b && b.status === 'active' && b.canAct ? [[id, { incoming: b.incoming.length, actions: b.day.left }] as const] : [],
+                b && b.status === 'active' && b.canAct ? [[id, { incoming: b.combos, actions: b.day.left }] as const] : [],
               ),
             ),
             shootoutKicksReady: new Map(
@@ -4027,10 +4027,10 @@ function BoutPreview({ primary, bout, onOpen, styles, colors }: { primary: Prima
   const t = (bout?.card ?? []).reduce((x, r) => ({ m: x.m + r.mine, o: x.o + r.theirs }), { m: 0, o: 0 });
   const label = !bout
     ? 'Open the fight'
-    : bout.incoming.length > 0 && bout.canAct
-      ? `Slip ${bout.incoming.length} incoming`
+    : bout.combos > 0 && bout.canAct
+      ? `Face ${bout.combos} incoming`
       : bout.canAct && bout.day.left > 0
-        ? `Throw your punches · ${bout.day.left}`
+        ? `Throw an exchange · ${bout.day.left} left`
         : 'Open the fight';
   return (
     <Card style={styles.raceCard} elevated={false}>
@@ -4060,7 +4060,7 @@ function BoutPreview({ primary, bout, onOpen, styles, colors }: { primary: Prima
           <Text style={[styles.raceSteps, { color: colors.accentActive }]}>{bout.card.map((r) => `${r.mine}-${r.theirs}`).join(' · ')}</Text>
         </View>
       ) : (
-        <Text style={styles.tileSub}>{bout?.opponent ? `You vs ${bout.opponent.name}. Every 1,000 steps is a punch or a slip.` : 'Waiting for your opponent.'}</Text>
+        <Text style={styles.tileSub}>{bout?.opponent ? `You vs ${bout.opponent.name}. Every 1,500 steps is an exchange or a defense.` : 'Waiting for your opponent.'}</Text>
       )}
       <Button label={label} variant="ghost" small onPress={onOpen} />
     </Card>
@@ -4079,10 +4079,10 @@ function TitleBoutPreview({ primary, t, onOpen, styles, colors }: { primary: Pri
   const ti = tb?.title ?? null;
   const label = !live
     ? 'Open the Title Bout'
-    : live.incoming.length > 0 && live.canAct
-      ? `Slip ${live.incoming.length} incoming`
+    : live.combos > 0 && live.canAct
+      ? `Face ${live.combos} incoming`
       : live.canAct && live.day.left > 0
-        ? `${tb?.fight?.title ? 'Fight for the belt' : 'Throw your punches'} · ${live.day.left}`
+        ? `${tb?.fight?.title ? 'Fight for the belt' : 'Throw an exchange'} · ${live.day.left} left`
         : tb?.picks?.open && !tb.picks.mine && !ti?.mine
           ? 'Pick your champion'
           : 'Open the Title Bout';

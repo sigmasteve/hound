@@ -20,6 +20,8 @@ export interface BoxerAct {
   pose: BoxerPose;
   // How far into it, 0..1 (a punch goes out and back).
   k: number;
+  // A slip's way (0230): the boxer's own left or right, a duck, or leaning back.
+  dir?: 'left' | 'right' | 'duck' | 'back' | null;
 }
 
 export interface RingView {
@@ -149,9 +151,20 @@ export function Boxer({
   let ty = 0;
   let rot = 0;
   if (pose === 'slip') {
-    tx = -W * 0.28 * e;
-    ty = H * 0.04 * e;
-    rot = -14 * e;
+    // Their own left is your right when they face you.
+    const d = act.dir ?? 'left';
+    const flip = facing === 'front' ? -1 : 1;
+    if (d === 'duck') {
+      ty = H * 0.2 * e;
+    } else if (d === 'back') {
+      ty = (facing === 'back' ? H * 0.07 : -H * 0.05) * e;
+      rot = (facing === 'back' ? 0 : -4) * e;
+    } else {
+      const s = (d === 'left' ? -1 : 1) * flip;
+      tx = s * W * 0.28 * e;
+      ty = H * 0.04 * e;
+      rot = s * 14 * e;
+    }
   } else if (pose === 'hit') {
     tx = (facing === 'front' ? W * 0.06 : W * 0.04) * e;
     ty = (facing === 'front' ? -H * 0.03 : H * 0.03) * e;

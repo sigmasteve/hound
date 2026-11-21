@@ -5,7 +5,7 @@ import { Text } from './Text';
 import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { getBoutOverview, type BoutOverview } from '../challenges/boutApi';
+import { getBoutOverview, getRingOverview, type BoutOverview, type RingOverview } from '../challenges/boutApi';
 
 function pct(part: number, whole: number): string {
   return whole > 0 ? `${Math.round((part / whole) * 100)}%` : '–';
@@ -20,9 +20,14 @@ export function BoutAdminCard({ onChanged }: { onChanged?: (o: BoutOverview) => 
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [data, setData] = useState<BoutOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The new ring (0230): exchanges, combinations faced, counters, Star punches.
+  const [ring, setRing] = useState<RingOverview | null>(null);
 
   useFocusEffect(
     useCallback(() => {
+      getRingOverview()
+        .then(setRing)
+        .catch(() => setRing(null));
       getBoutOverview()
         .then((d) => {
           setData(d);
@@ -60,6 +65,13 @@ export function BoutAdminCard({ onChanged }: { onChanged?: (o: BoutOverview) => 
           'Guards picked this week',
           guards > 0 ? `High ${pct(data.guards7d.high ?? 0, guards)} · Body ${pct(data.guards7d.body ?? 0, guards)} · Counter ${pct(data.guards7d.counter ?? 0, guards)}` : '–',
         ],
+        ...(ring
+          ? ([
+              ['The new ring this week', `${ring.exchanges7d.toLocaleString()} exchanges by ${ring.attackers7d.toLocaleString()} · ${ring.attackersEver.toLocaleString()} have tried it`],
+              ['Combinations faced', `${ring.defenses7d.toLocaleString()} by ${ring.defenders7d.toLocaleString()} · ${pct(ring.slipped7d, ring.faced7d)} of punches slipped`],
+              ['Counters and stars', `${ring.counters7d.toLocaleString()} counters · ${ring.starPunches7d.toLocaleString()} Star punches · ${ring.comboKnockdowns7d.toLocaleString()} knockdowns from combinations`],
+            ] as [string, string][])
+          : []),
       ]
     : [];
 

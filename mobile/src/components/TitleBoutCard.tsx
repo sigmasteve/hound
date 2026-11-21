@@ -16,7 +16,7 @@ import { getTitleReplay, pickChampion, type TitleBout, type TitleTape } from '..
 // tale of the tape and your free pick (the fans' split shown); today's
 // fight (who you're matched with, last night's result and its replay);
 // your guard; the ladder with the belt line under #2; and the action
-// pinned to the bottom (Slip N incoming, Throw your punches, or Pick your
+// pinned to the bottom (Face N incoming, Throw an exchange, or Pick your
 // champion).
 
 const ME_COLOR = '#ffd8b0';
@@ -85,13 +85,13 @@ export function TitleBoutCard({
   };
 
   const fighting = !!live && !!tb && live.status === 'active' && !!tb.fight;
-  const incoming = live?.incoming.length ?? 0;
+  const incoming = live?.combos ?? 0;
   const pinned = usePinnedAction(
     fighting && live && live.canAct
       ? incoming > 0
-        ? { label: `Slip ${incoming} incoming`, onPress: () => onRing('slip') }
+        ? { label: `Face ${incoming} incoming`, onPress: () => onRing('slip') }
         : live.day.left > 0
-          ? { label: `${tb?.fight?.title ? 'Fight for the belt' : 'Throw your punches'} · ${live.day.left} ${live.day.left === 1 ? 'action' : 'actions'}`, onPress: () => onRing('throw') }
+          ? { label: `${tb?.fight?.title ? 'Fight for the belt' : 'Throw an exchange'} · ${live.day.left} left`, onPress: () => onRing('throw') }
           : null
       : pickable && t && !k?.mine
         ? {
@@ -306,7 +306,7 @@ export function TitleBoutCard({
               )}
             </View>
           )}
-          {!lastLine && <Text style={styles.body}>Every 1,000 steps is an action: throw a punch or slip one of theirs.</Text>}
+          {!lastLine && <Text style={styles.body}>Every 1,500 steps is an action, up to 10: throw an exchange or face one of their combinations.</Text>}
         </Card>
       )}
 
@@ -394,7 +394,7 @@ export function TitleBoutCard({
           )}
           <Pressable onPress={() => onRing('throw')} disabled={!live.canAct} style={[styles.play, !live.canAct && styles.playOff]} accessibilityRole="button">
             <Text style={[styles.playText, !live.canAct && { color: withAlpha(colors.text, 0.6), fontSize: 13.5 }]}>
-              {live.canAct ? `Throw your punches · ${live.day.left} ${live.day.left === 1 ? 'action' : 'actions'}` : (live.reason ?? 'Not now')}
+              {live.canAct ? `Throw an exchange · ${live.day.left} left` : (live.reason ?? 'Not now')}
             </Text>
           </Pressable>
         </View>
