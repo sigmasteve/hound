@@ -35,6 +35,8 @@ import { TagChaseSection } from '../tag/TagChaseSection';
 import { raceSceneFor } from '../components/RaceCourse';
 import { HuntReplayCard, HuntStatusCard, type HuntRunner } from '../hunt/HuntTrack';
 import { getChallengeHounds } from '../hunt/huntApi';
+import { blackoutActive, PoolTrailCard, StepStoryPanel } from '../components/StepStoryPanel';
+import { DEFAULT_STEP_OPTIONS, getStepOptions, type StepOptions } from '../challenges/stepStoryApi';
 import { houndFromCode } from '../tag/tagChaseApi';
 import { TagStatusCard } from '../components/TagStatusCard';
 import { TicTacGoBoard, TicTacGoCard } from '../components/TicTacGoCard';
@@ -388,12 +390,19 @@ export function ChallengeDetailScreen({
   const TAG_EXPLAINER_SEEN_KEY = 'tagExplainerSeen';
   // Chase (0182): each player's hound, to draw them on the scene.
   const [raceHounds, setRaceHounds] = useState<Map<string, string | null>>(new Map());
+  // 0233: Most steps and the Distance pool draw everyone's hound too, and
+  // Most steps reads its creator's options (rival, bounties, Blackout).
+  const [stepOptions, setStepOptions] = useState<StepOptions | null>(null);
   useEffect(() => {
-    if (challenge?.kind !== 'hunt') return;
+    if (challenge?.kind !== 'hunt' && challenge?.kind !== 'steps' && challenge?.kind !== 'distance') return;
     let cancelled = false;
     getChallengeHounds(challenge.id).then((m) => {
       if (!cancelled) setRaceHounds(m);
     });
+    if (challenge.kind === 'steps')
+      getStepOptions(challenge.id)
+        .then((o) => !cancelled && setStepOptions(o))
+        .catch(() => !cancelled && setStepOptions(DEFAULT_STEP_OPTIONS));
     return () => {
       cancelled = true;
     };
@@ -1622,7 +1631,10 @@ export function ChallengeDetailScreen({
           if (aAlive !== bAlive) return aAlive ? -1 : 1;
           return (sb?.streakDays ?? 0) - (sa?.streakDays ?? 0);
         })
-      : board;
+      : // 0233: a Blackout's last day shows only your own row.
+        challenge.kind === 'steps' && blackoutActive(challenge, stepOptions, isChallengeFinished(challenge, board))
+        ? board.filter((r) => r.userId === user?.id)
+        : board;
 
   // How many places each row has moved since yesterday ended (positive =
   // up) — the same board rebuilt from yesterday's totals, bots included
@@ -3073,6 +3085,30 @@ export function ChallengeDetailScreen({
               />
               )}
             </>
+          )}
+
+          {/* 0233: Most steps' race, rival, bounty, yesterday and the
+              finish; the Distance pool's trail. Above the Leaderboard. */}
+          {challenge.kind === 'steps' && stepOptions && new Date(challenge.startsAt) <= new Date() && board.length > 0 && (
+            <StepStoryPanel
+              challenge={challenge}
+              board={board}
+              bots={bots}
+              userId={user?.id}
+              hounds={raceHounds}
+              options={stepOptions}
+              finished={finished}
+            />
+          )}
+          {challenge.kind === 'distance' && !!distanceGoal && !challenge.courseId && board.length > 0 && (
+            <PoolTrailCard
+              challenge={challenge}
+              board={board}
+              userId={user?.id}
+              hounds={raceHounds}
+              goal={distanceGoal}
+              unit={challenge.distanceGoalUnit === 'steps' ? 'steps' : 'mi'}
+            />
           )}
 
           {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && challenge.kind !== 'derby' && challenge.kind !== 'shootout' && challenge.kind !== 'bout' && challenge.kind !== 'titlebout' && (
