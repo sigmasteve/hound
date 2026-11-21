@@ -23,6 +23,20 @@ begin
 end;
 $$;
 
+-- The same with a fixed id, for a test whose outcomes are seeded by who's
+-- playing (Baseball's pitches hash the player's id): the same every run.
+create or replace function tests.new_user_with_id(p_id uuid, p_name text)
+returns uuid
+language plpgsql
+as $$
+begin
+  insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at)
+  values (p_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          lower(p_name) || '-' || left(p_id::text, 8) || '@test.hound', jsonb_build_object('name', p_name), now(), now());
+  return p_id;
+end;
+$$;
+
 -- Make auth.uid() return this user, the way a signed-in request does.
 -- Follow with `set local role authenticated;` and end with `reset role;`.
 create or replace function tests.sign_in(p_user uuid)
