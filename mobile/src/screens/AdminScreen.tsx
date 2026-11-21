@@ -25,7 +25,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useLabels } from '../labels/LabelsContext';
 import { getHuntLabels, setHuntLabels } from '../labels/supabaseLabels';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
-import { getTotalUserCount, searchUsers, type AdminUserSummary } from '../admin/adminApi';
+import { getTotalUserCount, searchUsers, USER_PAGE, type AdminUserSummary } from '../admin/adminApi';
 import { getAppBanner, setAppBanner, type AppBanner } from '../banner/supabaseBanner';
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { huntKindName } from '../challenges/present';
@@ -400,14 +400,44 @@ export function AdminScreen({
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
+  // More pages to load (0232): the last page came back full.
+  const [moreUsers, setMoreUsers] = useState(false);
+  const loadingMore = useRef(false);
+  const searchSeq = useRef(0);
+
   const runSearch = useCallback((q: string) => {
+    const seq = ++searchSeq.current;
     setSearching(true);
     setSearchError(null);
     searchUsers(q)
-      .then(setResults)
+      .then((rows) => {
+        if (seq !== searchSeq.current) return;
+        setResults(rows);
+        setMoreUsers(rows.length >= USER_PAGE);
+      })
       .catch((e) => setSearchError(e instanceof Error ? e.message : 'Could not load users.'))
       .finally(() => setSearching(false));
   }, []);
+
+  // The next page, when the list is scrolled near its end.
+  const loadMoreUsers = useCallback(() => {
+    if (!moreUsers || loadingMore.current) return;
+    loadingMore.current = true;
+    const seq = searchSeq.current;
+    searchUsers(query, results.length)
+      .then((rows) => {
+        if (seq !== searchSeq.current) return;
+        setResults((r) => {
+          const seen = new Set(r.map((u) => u.id));
+          return [...r, ...rows.filter((u) => !seen.has(u.id))];
+        });
+        setMoreUsers(rows.length >= USER_PAGE);
+      })
+      .catch(() => {})
+      .finally(() => {
+        loadingMore.current = false;
+      });
+  }, [moreUsers, query, results.length]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1057,11 +1087,19 @@ export function AdminScreen({
                   ) : results.length === 0 ? (
                     <Text style={styles.footNote}>No users match that search.</Text>
                   ) : (
-                    // Fixed to roughly 10 rows tall so a long directory (up
-                    // to searchUsers' own 25-row server cap) doesn't push
-                    // the rest of this screen's cards further and further
-                    // down — scroll within the box to see the rest instead.
-                    <ScrollView style={styles.directoryScroll} nestedScrollEnabled>
+                    // Fixed to roughly 10 rows tall so a long directory doesn't
+                    // push the rest of this screen's cards further and
+                    // further down — scroll within the box to see the rest,
+                    // and the next page loads as you near the end (0232).
+                    <ScrollView
+                      style={styles.directoryScroll}
+                      nestedScrollEnabled
+                      scrollEventThrottle={100}
+                      onScroll={(e) => {
+                        const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+                        if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 240) loadMoreUsers();
+                      }}
+                    >
                       {results.map((u) => (
                         <Pressable key={u.id} onPress={() => onOpenUser(u)} style={styles.userRow}>
                           <Avatar
@@ -1083,6 +1121,11 @@ export function AdminScreen({
                           <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
                         </Pressable>
                       ))}
+                      {moreUsers && (
+                        <Pressable onPress={loadMoreUsers} style={styles.moreUsers} accessibilityRole="button">
+                          <Text style={styles.moreUsersText}>Show more</Text>
+                        </Pressable>
+                      )}
                     </ScrollView>
                   )}
                 </Card>
@@ -1426,6 +1469,8 @@ function makeStyles(colors: Palette) {
     successNote: { fontSize: 12.5, color: colors.green },
     directoryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     directoryScroll: { maxHeight: 520 },
+    moreUsers: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+    moreUsersText: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.accentActive },
     userRow: {
       flexDirection: 'row',
       alignItems: 'center',
