@@ -145,7 +145,38 @@ export function suggestedEnd(id: HolidayThemeId, from: string): string {
   return daysBetween(from, end) < 0 ? plus(from, 2) : end;
 }
 
-// A day key as "Nov 12".
-export function shortDay(dayKey: string): string {
-  return new Date(`${dayKey}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+// A day key as "Nov 12", or "Nov 12, 2027" when it isn't in `thisYear`'s
+// year (Admin's schedule: a run a year out looked like this year's).
+export function shortDay(dayKey: string, thisYear?: string): string {
+  const other = !!thisYear && dayKey.slice(0, 4) !== thisYear.slice(0, 4);
+  return new Date(`${dayKey}T12:00:00`).toLocaleDateString(undefined, other ? { month: 'short', day: 'numeric', year: 'numeric' } : { month: 'short', day: 'numeric' });
+}
+
+// How many days before the holiday Admin suggests starting its run.
+const LEAD: Record<HolidayThemeId, number> = { diwali: 2, thanksgiving: 6, christmas: 24, newyear: 5, lunarnewyear: 3 };
+
+// Admin's suggested run for a theme: its next date from today (this
+// year's while it's still to come), from a few days before it (never
+// before today) to when it's usually over.
+export function suggestedRun(id: HolidayThemeId, today: string): { startsOn: string; endsOn: string } {
+  const y = Number(today.slice(0, 4));
+  let day: string | null = null;
+  for (const yy of [y, y + 1]) {
+    const d = holidayDay(id, yy);
+    if (d && daysBetween(today, d) >= 0) {
+      day = d;
+      break;
+    }
+  }
+  if (!day) return { startsOn: today, endsOn: suggestedEnd(id, today) };
+  const x = new Date(`${day}T12:00:00`);
+  x.setDate(x.getDate() - LEAD[id]);
+  const lead = key(x.getFullYear(), x.getMonth() + 1, x.getDate());
+  const startsOn = lead < today ? today : lead;
+  return { startsOn, endsOn: suggestedEnd(id, startsOn) };
+}
+
+// Days from a to b (day keys).
+export function daysApart(a: string, b: string): number {
+  return daysBetween(a, b);
 }
