@@ -210,6 +210,10 @@ export function toChallengeCard(
     // The map and the packs live in pack_territories, on the detail screen.
     stat = '4';
     statLabel = 'packs · most ground wins';
+  } else if (challenge.kind === 'chess') {
+    // The board lives in chess_games, on the detail screen.
+    stat = '1';
+    statLabel = 'on 1 · your steps free your pieces';
   } else if (challenge.kind === 'roulette') {
     // The points live in roulette_players, on the detail screen.
     stat = String(challenge.durationDays);

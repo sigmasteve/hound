@@ -41,6 +41,8 @@ export function usesDeviceSteps(challenge: Challenge): boolean {
     challenge.kind === 'titlebout' ||
     // Hound Roulette's step tasks and Duels (0236).
     challenge.kind === 'roulette' ||
+    // Hound Chess's pieces are freed by today's synced steps (0238).
+    challenge.kind === 'chess' ||
     (challenge.kind === 'hunt' && challenge.scoringMethod === 'device_steps') ||
     ((challenge.kind === 'distance' || challenge.kind === 'tag') && challenge.distanceGoalUnit === 'steps')
   );

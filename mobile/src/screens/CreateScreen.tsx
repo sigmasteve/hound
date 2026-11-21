@@ -85,6 +85,8 @@ import { DEFAULT_HOOPS_SHOT_STEPS, HOOPS_MAX_SIDE, HOOPS_SHOT_OPTIONS, HORSE_DAY
 import { setupHoops } from '../challenges/hoopsApi';
 import { setupHorse } from '../challenges/horseApi';
 import { setupBout } from '../challenges/boutApi';
+import { setupChess } from '../challenges/chessApi';
+import { BOT_NAME as CHESS_BOT_NAME, type ChessBotLevel } from '../challenges/chess';
 
 // H-O-R-S-E stakes (0209): a treat_recipes id the loser bakes, or none.
 const HORSE_STAKES: { id: string | null; name: string }[] = [
@@ -206,6 +208,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   bout: 'Boxing, one on one: punch, slip, set your guard. A round a day.',
   titlebout: 'Hound Bout for everyone: a ladder, then the top two fight for the belt.',
   roulette: 'Spin for today’s task. Bank it, ride it, or raid a friend.',
+  chess: 'Real chess with hounds. Your steps free your pieces.',
 };
 
 // A Journey's default run: about two miles a day, at least three days,
@@ -309,6 +312,8 @@ export function CreateScreen({
   const [horseStakes, setHorseStakes] = useState<string | null>('pb_pupcake');
   // H-O-R-S-E (0196): the word.
   const [horseWord, setHorseWord] = useState<HorseWord>('HORSE');
+  // Hound Chess (0238): a friend, or the Hound bot at a level.
+  const [chessOpp, setChessOpp] = useState<'friend' | ChessBotLevel>('friend');
   // Golf (0200): the course, 9 or 18, the format, whether you take every
   // shot yourself, and the daily cap on holes started.
   const [golfCourse, setGolfCourse] = useState<GolfCourseId>('links');
@@ -629,6 +634,7 @@ export function CreateScreen({
     if (draftType === 'horse') setLength(String(HORSE_DAYS));
     if (draftType === 'bout') setLength('5');
     if (draftType === 'roulette') setLength('7');
+    if (draftType === 'chess') setLength('7');
     if (draftType === 'golf') setLength(String(golfDays(golfHoles)));
     // The Hound Open: joining closes 3 days in, and bigger prizes.
     if (draftType === 'golf' && global) {
@@ -809,7 +815,7 @@ export function CreateScreen({
   const toggleFriend = (userId: string) => {
     // Tic-Tac-Go and Rally singles are strictly 1v1 — picking someone
     // replaces the last pick.
-    if (draftType === 'tictacgo' || draftType === 'horse' || draftType === 'bout' || (draftType === 'golf' && golfFormat === 'match') || (draftType === 'rally' && !rallyDoubles)) {
+    if (draftType === 'tictacgo' || draftType === 'horse' || draftType === 'bout' || draftType === 'chess' || (draftType === 'golf' && golfFormat === 'match') || (draftType === 'rally' && !rallyDoubles)) {
       setInvited((cur) => (cur.includes(userId) ? [] : [userId]));
       setRallyPartnerId(null);
       return;
@@ -1108,8 +1114,8 @@ export function CreateScreen({
       setStep(1);
       return;
     }
-    if ((draftType === 'tictacgo' || draftType === 'horse' || draftType === 'bout' || (draftType === 'golf' && golfFormat === 'match') || (draftType === 'rally' && !rallyDoubles)) && invited.length !== 1) {
-      setSaveError(draftType === 'golf' ? 'Match play is one on one: pick one friend.' : draftType === 'bout' ? 'A Hound Bout is one on one: pick one friend to fight.' : 'Pick one friend to play against.');
+    if ((draftType === 'tictacgo' || draftType === 'horse' || draftType === 'bout' || (draftType === 'chess' && chessOpp === 'friend') || (draftType === 'golf' && golfFormat === 'match') || (draftType === 'rally' && !rallyDoubles)) && invited.length !== 1) {
+      setSaveError(draftType === 'golf' ? 'Match play is one on one: pick one friend.' : draftType === 'bout' ? 'A Hound Bout is one on one: pick one friend to fight.' : draftType === 'chess' ? 'Hound Chess is one on one: pick one friend, or play the Hound bot.' : 'Pick one friend to play against.');
       return;
     }
     if (draftType === 'rally' && rallyDoubles && (!rallyPartnerId || invited.length !== 3)) {
@@ -1237,6 +1243,7 @@ export function CreateScreen({
               draftType === 'horse' ||
               draftType === 'bout' ||
               draftType === 'roulette' ||
+              draftType === 'chess' ||
               draftType === 'golf'
             ? []
             : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
@@ -1365,6 +1372,14 @@ export function CreateScreen({
           throw e;
         }
       }
+      if (draftType === 'chess') {
+        try {
+          await setupChess(created.id, chessOpp === 'friend' ? null : chessOpp);
+        } catch (e) {
+          await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
+          throw e;
+        }
+      }
       if (draftType === 'bout') {
         try {
           await setupBout(created.id, Number(length));
@@ -1417,6 +1432,8 @@ export function CreateScreen({
       await Promise.allSettled(
         invited
           .filter((id) => !BOT_PRESETS.some((b) => b.id === id))
+          // A game against the Hound bot has nobody else in it.
+          .filter(() => !(draftType === 'chess' && chessOpp !== 'friend'))
           .map((friendUserId) =>
             supabaseChallengesProvider.inviteFriendToChallenge(created.id, friendUserId, roleFor(friendUserId)),
           ),
@@ -1794,7 +1811,7 @@ export function CreateScreen({
           )}
 
           {/* Hoops, H-O-R-S-E and Golf set their length in their own block below. */}
-          {draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'golf' && draftType !== 'bout' && draftType !== 'titlebout' && (
+          {draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'golf' && draftType !== 'bout' && draftType !== 'titlebout' && draftType !== 'chess' && (
           <View style={{ gap: 5 }}>
             <View style={styles.huntBlockHeader}>
               <Text style={styles.fieldLabel}>Runs for</Text>
@@ -2326,6 +2343,40 @@ export function CreateScreen({
               <Text style={styles.huntBlockNote}>
                 Every 10 steps bank a yard, and workouts bank power (strength counts double, golf triple). Every shot
                 spends what it used.
+              </Text>
+            </View>
+          )}
+
+          {draftType === 'chess' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Play</Text>
+                <Text style={styles.huntBlockValue}>{chessOpp === 'friend' ? 'A friend' : `The Hound bot · ${CHESS_BOT_NAME[chessOpp]}`}</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: 'friend', label: 'A friend' },
+                  { value: 'easy', label: 'Bot: Easy' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'hard', label: 'Hard' },
+                ]}
+                value={chessOpp}
+                onChange={(v) => setChessOpp(v as 'friend' | ChessBotLevel)}
+              />
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Up to</Text>
+                <Text style={styles.huntBlockValue}>{length} days</Text>
+              </View>
+              <SegmentedControl
+                options={['3', '7', '14'].map((n) => ({ value: n, label: `${n} days` }))}
+                value={['3', '7', '14'].includes(length) ? length : '7'}
+                onChange={(v) => setLength(v)}
+              />
+              <Text style={styles.huntBlockNote}>
+                Real chess, and you’re White. Your steps today free your pieces: pawns and the king always, knights and bishops at 3,000, rooks at
+                6,000, the queen at 9,000 or after a 20-minute workout. In check, every piece is free. 24 hours a move: run out and Hound moves for
+                you; miss two in a row and the game’s lost. Still going on the last day? It’s decided on the pieces left. Plus a mate-in-one puzzle
+                every day at 5,000 steps.
               </Text>
             </View>
           )}
@@ -2872,7 +2923,7 @@ export function CreateScreen({
       {step === 3 && !crowd && (
         <View style={{ gap: 14 }}>
           <Text style={text.h2}>
-            {draftType === 'tictacgo' || draftType === 'rally' || draftType === 'horse' || draftType === 'bout' || (draftType === 'golf' && golfFormat === 'match')
+            {draftType === 'tictacgo' || draftType === 'rally' || draftType === 'horse' || draftType === 'bout' || draftType === 'chess' || (draftType === 'golf' && golfFormat === 'match')
               ? 'Pick your opponent'
               : draftType === 'soccer' || draftType === 'cricket' || draftType === 'baseball' || draftType === 'hoops'
                 ? 'Pick the teams'
@@ -2887,6 +2938,13 @@ export function CreateScreen({
           )}
           {draftType === 'bout' && (
             <Text style={styles.footNote}>A Hound Bout is one on one. The first bell rings once they accept.</Text>
+          )}
+          {draftType === 'chess' && (
+            <Text style={styles.footNote}>
+              {chessOpp === 'friend'
+                ? 'Hound Chess is one on one. You’re White, so you move first once they accept.'
+                : `You’re playing the Hound bot (${CHESS_BOT_NAME[chessOpp]}): nobody to invite. Start, and make your first move.`}
+            </Text>
           )}
           {draftType === 'horse' && (
             <Text style={styles.footNote}>
@@ -3017,7 +3075,7 @@ export function CreateScreen({
               <Text style={[text.h4, { marginTop: 4 }]}>Friends</Text>
             </View>
           )}
-          {draftType !== 'tictacgo' && draftType !== 'rally' && draftType !== 'soccer' && draftType !== 'cricket' && draftType !== 'baseball' && draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'bout' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && draftType !== 'roulette' && (
+          {draftType !== 'tictacgo' && draftType !== 'rally' && draftType !== 'soccer' && draftType !== 'cricket' && draftType !== 'baseball' && draftType !== 'hoops' && draftType !== 'horse' && draftType !== 'bout' && draftType !== 'bingo' && draftType !== 'seventyfive' && draftType !== 'checklist' && draftType !== 'roulette' && draftType !== 'chess' && (
             <Text style={styles.footNote}>
               Rewards need at least one friend to join. Bots and pending invites don&rsquo;t count.
             </Text>
@@ -3118,6 +3176,7 @@ export function CreateScreen({
             draftType !== 'checklist' &&
             draftType !== 'houndopoly' &&
             draftType !== 'roulette' &&
+            draftType !== 'chess' &&
             draftType !== 'packs' && (
             <>
               <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>

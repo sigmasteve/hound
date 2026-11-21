@@ -17,6 +17,7 @@ export type ResultOutcome =
   // An Accountability challenge: complete days out of the run, and the best streak.
   | { type: 'checklist'; completeDays: number; longestStreak: number; days: number }
   | { type: 'tictacgo'; result: 'won' | 'lost' | 'draw' }
+  | { type: 'chess'; result: 'won' | 'lost' | 'draw' }
   // A Rally: the match result and the games score, e.g. "2–1".
   | { type: 'rally'; result: 'won' | 'lost' | 'draw'; games: string }
   // Soccer: the result and the score from the viewer's side, e.g. "3–1".
@@ -102,6 +103,12 @@ export function resultLine(challengeName: string, outcome: ResultOutcome, labels
         : outcome.result === 'draw'
           ? `${challengeName} ended in a draw on Tic-Tac-Go.`
           : `I lost ${challengeName} on Tic-Tac-Go — rematch time.`;
+    case 'chess':
+      return outcome.result === 'won'
+        ? `I won ${challengeName} at Hound Chess! ♞`
+        : outcome.result === 'draw'
+          ? `${challengeName} ended in a draw at Hound Chess.`
+          : `I lost ${challengeName} at Hound Chess. Rematch?`;
     case 'rally':
       return outcome.result === 'won'
         ? `I won ${challengeName} at Rally, ${outcome.games} in games! 🏸🏆`
@@ -192,6 +199,7 @@ export function isWin(outcome: ResultOutcome): boolean {
     case 'checklist':
       return outcome.completeDays >= outcome.days;
     case 'tictacgo':
+    case 'chess':
     case 'rally':
     case 'soccer':
     case 'cricket':

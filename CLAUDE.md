@@ -154,6 +154,14 @@ must match the server's. Points come only from doing tasks and leave only
 as Bones and the Lucky Bandana at the end: nothing in it may take Bones or
 money in (Steve, Nov 2026: playful, not gambling).
 
+Hound Chess (0238, `ChessScreen.tsx`) is a board, but drawn like a field:
+seen from behind your side through `perspective.ts` and `project()` (the
+board on the ground with a small margin, the stand past the far end), the
+pieces drawn as hounds standing on their squares and hit-tested before the
+square under them. The server holds the rules (`chess_legal`, a PL/pgSQL
+engine checked against the standard perft counts in test 128) and sends
+the moves you may make; the app never decides what's legal.
+
 ## Actions are on screen without scrolling
 
 Steve's rule (Nov 2026): every action a user can take is seen when the

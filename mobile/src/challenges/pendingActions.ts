@@ -18,6 +18,7 @@ export type PendingActionKind =
   | 'baseballBat'
   | 'cricketPlay'
   | 'rouletteSpin'
+  | 'chessMove'
   | 'rouletteDuel'
   | 'derbySwing'
   | 'shootoutKick'
@@ -64,7 +65,8 @@ export function needsManualEntry(challenge: Challenge): boolean {
     challenge.kind !== 'shootout' &&
     challenge.kind !== 'bout' &&
     challenge.kind !== 'titlebout' &&
-    challenge.kind !== 'roulette'
+    challenge.kind !== 'roulette' &&
+    challenge.kind !== 'chess'
   );
 }
 
@@ -113,6 +115,9 @@ export interface PendingActionsInput {
   // Hound Roulette (0236): today's spin not taken, and a Duel call to
   // answer (from whom, for how much).
   rouletteWaiting?: Map<string, { spin: boolean; duel: { from: string; stake: number } | null; ride: number }>;
+  // Hound Chess (0238): games where it's the caller's move: against whom,
+  // and whether they're in check.
+  chessYourMove?: Map<string, { them: string; check: boolean }>;
   // The Home Run Derby (0211): swings ready to take, for a derby you've
   // joined.
   derbySwingsReady?: Map<string, number>;
@@ -156,6 +161,7 @@ export function computePendingActions({
   baseballAtBatsReady = new Map(),
   cricketBallsReady = new Map(),
   rouletteWaiting = new Map(),
+  chessYourMove = new Map(),
   derbySwingsReady = new Map(),
   shootoutKicksReady = new Map(),
   boutReady = new Map(),
@@ -276,6 +282,16 @@ export function computePendingActions({
           challengeName: c.name,
           kind: 'cricketPlay',
           label: r.role === 'bowl' ? `Your over to bowl in ${c.name}` : `${r.n} ${r.n === 1 ? 'ball' : 'balls'} to bat in ${c.name}`,
+        });
+      }
+    } else if (c.kind === 'chess') {
+      const m = chessYourMove.get(c.id);
+      if (m) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'chessMove',
+          label: m.check ? `You’re in check against ${m.them} in ${c.name}` : `Your move against ${m.them} in ${c.name}`,
         });
       }
     } else if (c.kind === 'roulette') {

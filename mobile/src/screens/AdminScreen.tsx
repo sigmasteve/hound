@@ -28,6 +28,8 @@ import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 import { StepStoryAdminCard } from '../components/StepStoryAdminCard';
 import { CricketAdminCard } from '../components/CricketAdminCard';
 import { RouletteAdminCard } from '../components/RouletteAdminCard';
+import { ChessAdminCard } from '../components/ChessAdminCard';
+import { chessSummary, getChessOverview } from '../challenges/chessApi';
 import { getRouletteOverview, rouletteSummary } from '../challenges/rouletteApi';
 import { cricketSummary, getCricketOverview } from '../challenges/cricketApi';
 import { getStepStoryOverview, stepStorySummary } from '../challenges/stepStoryApi';
@@ -262,6 +264,7 @@ export function AdminScreen({
   const [stepStoryLine, setStepStoryLine] = useState<string | null>(null);
   const [cricketLine, setCricketLine] = useState<string | null>(null);
   const [rouletteLine, setRouletteLine] = useState<string | null>(null);
+  const [chessLine, setChessLine] = useState<string | null>(null);
   const [doorsSummary, setDoorsSummary] = useState<string | null>(null);
   const [packsSummary, setPacksSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
@@ -376,6 +379,9 @@ export function AdminScreen({
         .catch(() => {});
       getRouletteOverview()
         .then((o) => setRouletteLine(rouletteSummary(o)))
+        .catch(() => {});
+      getChessOverview()
+        .then((o) => setChessLine(chessSummary(o)))
         .catch(() => {});
       getBaseballOverview()
         .then((b) =>
@@ -983,6 +989,9 @@ export function AdminScreen({
                   <>
                   <AdminFold title="Challenges" summary={challengesSummary ?? 'What’s running, by game'}>
                     <ChallengesAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Hound Chess" summary={chessLine ?? 'Games, the bot, and the puzzle of the day'}>
+                    <ChessAdminCard onChanged={(o) => setChessLine(chessSummary(o))} />
                   </AdminFold>
                   <AdminFold title="Hound Roulette" summary={rouletteLine ?? 'Spins, stakes, Raids and Duels'}>
                     <RouletteAdminCard onChanged={(o) => setRouletteLine(rouletteSummary(o))} />

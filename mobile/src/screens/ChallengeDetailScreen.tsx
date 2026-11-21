@@ -220,6 +220,8 @@ import { netWorth as houndopolyNetWorth, type HoundopolyGame } from '../challeng
 import { HoundopolySection } from '../components/HoundopolySection';
 import { DoorsCard } from '../components/DoorsCard';
 import { RouletteCard } from '../components/RouletteCard';
+import { ChessCard } from '../components/ChessCard';
+import { getChess, type ChessGame } from '../challenges/chessApi';
 import { getRoulette, type RouletteGame } from '../challenges/rouletteApi';
 import { claimDoorSteps, getDoors, openDoor, todaysDoor, type DoorsGame } from '../challenges/doorsApi';
 import { getKennel } from '../kennel/kennelApi';
@@ -278,6 +280,7 @@ export function ChallengeDetailScreen({
   onBatBaseball,
   onPlayCricket,
   onSpinRoulette,
+  onPlayChess,
   onShootHorse,
   onBatDerby,
   onKickShootout,
@@ -294,6 +297,8 @@ export function ChallengeDetailScreen({
   onPlayCricket?: () => void;
   // Hound Roulette (0236): opens the wheel.
   onSpinRoulette?: () => void;
+  // Hound Chess (0238): the board, or the puzzle of the day.
+  onPlayChess?: (mode: 'game' | 'puzzle') => void;
   // H-O-R-S-E (hands-on, 0209): opens the shooting screen.
   onShootHorse?: () => void;
   // The Home Run Derby (0211): opens the batting screen.
@@ -520,6 +525,8 @@ export function ChallengeDetailScreen({
   const [doors, setDoors] = useState<DoorsGame | null>(null);
   // Hound Roulette (0236): the standings, Raids and Duels.
   const [roulette, setRoulette] = useState<RouletteGame | null>(null);
+  // Hound Chess (0238): the board and whose move.
+  const [chessGame, setChessGame] = useState<ChessGame | null>(null);
   const [houndName, setHoundName] = useState('your hound');
   // Pack Wars (0174): the map, and a vote on its way.
   const [packWars, setPackWars] = useState<PackWarsGame | null>(null);
@@ -1018,6 +1025,19 @@ export function ChallengeDetailScreen({
     useCallback(() => {
       if (challenge?.kind === 'roulette') loadRoulette();
     }, [challenge?.kind, loadRoulette]),
+  );
+  // Hound Chess: on every visit (back from the board, a move was made).
+  const loadChess = useCallback(async () => {
+    try {
+      setChessGame(await getChess(challengeId));
+    } catch {
+      // Not joined yet, or offline: the card waits.
+    }
+  }, [challengeId]);
+  useFocusEffect(
+    useCallback(() => {
+      if (challenge?.kind === 'chess') loadChess();
+    }, [challenge?.kind, loadChess]),
   );
   useFocusEffect(
     useCallback(() => {
@@ -1775,7 +1795,8 @@ export function ChallengeDetailScreen({
     challenge.kind === 'shootout' ||
     challenge.kind === 'bout' ||
     challenge.kind === 'titlebout' ||
-    challenge.kind === 'roulette'
+    challenge.kind === 'roulette' ||
+    challenge.kind === 'chess'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
         ? isHound
@@ -2099,6 +2120,12 @@ export function ChallengeDetailScreen({
           place,
           of: place ? g.players.length : undefined,
         };
+      }
+      case 'chess': {
+        const g = chessGame;
+        if (!g || g.status !== 'final' || !g.me) return null;
+        const won = g.result !== 'draw' && (g.result === 'white') === (g.me === 'w');
+        return { type: 'chess', result: g.result === 'draw' ? 'draw' : won ? 'won' : 'lost' };
       }
       case 'roulette': {
         const g = roulette;
@@ -2946,6 +2973,10 @@ export function ChallengeDetailScreen({
             <PackWarsCard name={challenge.name} game={packWars} voting={packVoting} onVote={votePack} />
           )}
 
+          {challenge.kind === 'chess' && (
+            <ChessCard game={chessGame} onPlay={() => onPlayChess?.('game')} onPuzzle={() => onPlayChess?.('puzzle')} />
+          )}
+
           {challenge.kind === 'roulette' && (
             <RouletteCard
               challengeId={challengeId}
@@ -3158,7 +3189,7 @@ export function ChallengeDetailScreen({
             />
           )}
 
-          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && challenge.kind !== 'derby' && challenge.kind !== 'shootout' && challenge.kind !== 'bout' && challenge.kind !== 'titlebout' && challenge.kind !== 'roulette' && (
+          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && challenge.kind !== 'derby' && challenge.kind !== 'shootout' && challenge.kind !== 'bout' && challenge.kind !== 'titlebout' && challenge.kind !== 'roulette' && challenge.kind !== 'chess' && (
             <Card style={{ gap: 12 }} elevated={false}>
               <View style={styles.leaderboardHeader}>
                 <TrophyIcon size={16} color={colors.accent} />

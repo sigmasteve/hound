@@ -85,7 +85,8 @@ export type ChallengeKind =
   | 'shootout'
   | 'bout'
   | 'titlebout'
-  | 'roulette';
+  | 'roulette'
+  | 'chess';
 
 export interface ChallengeCard {
   id: string;
@@ -290,6 +291,14 @@ export const CHALLENGE_TYPES: {
     tint: '#5a4a1f',
     iconColor: '#f0dca0',
   },
+  // One on one, with a friend or the Hound bot (0238).
+  {
+    id: 'chess',
+    name: 'Hound Chess',
+    desc: 'Real chess, one on one with a friend or the Hound bot, played with hounds: puppy pawns, leaping knights, doghouse rooks, a crowned queen and king. Your steps today free your pieces: knights and bishops at 3,000, rooks at 6,000, the queen at 9,000 or after a 20-minute workout. In check, everything’s free. 24 hours a move. Plus a mate-in-one puzzle every day once you reach 5,000 steps.',
+    tint: '#3a3226',
+    iconColor: '#ecdcb8',
+  },
   // Solo, one on one or a group (0236).
   {
     id: 'roulette',
@@ -328,7 +337,7 @@ export const CHALLENGE_GROUPS: {
   sections: { title?: string; kinds: ChallengeKind[] }[];
 }[] = [
   { id: 'play', label: 'Play it yourself', chip: 'Play it yourself', sub: 'Your steps earn the shots. You aim, time it and let it go.', sections: [{ kinds: ['golf', 'hoops', 'baseball', 'horse'] }] },
-  { id: 'one', label: 'One on one', chip: '1 on 1', sub: 'You against one friend, turn by turn.', sections: [{ kinds: ['tictacgo', 'rally', 'bout'] }] },
+  { id: 'one', label: 'One on one', chip: '1 on 1', sub: 'You against one friend, turn by turn.', sections: [{ kinds: ['chess', 'tictacgo', 'rally', 'bout'] }] },
   {
     id: 'group',
     label: 'With your group',
@@ -359,6 +368,7 @@ export const GAME_TAGS: Partial<Record<ChallengeKind, { text: string; tone: Game
   bingo: [{ text: 'Any group', tone: 'group' }],
   houndopoly: [{ text: 'Any group', tone: 'group' }],
   roulette: [{ text: 'A task a day', tone: 'you' }, { text: 'Solo, 1 on 1 or a group', tone: 'group' }],
+  chess: [{ text: 'You move every piece', tone: 'you' }, { text: 'A friend or the bot', tone: 'one' }],
   soccer: [{ text: 'Teams of 1–9', tone: 'team' }],
   cricket: [{ text: 'Teams of 1–9', tone: 'team' }],
   packs: [{ text: 'Four packs', tone: 'team' }],
