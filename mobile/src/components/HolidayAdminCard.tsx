@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, AppState, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { CaretLeftIcon, CaretRightIcon } from 'phosphor-react-native';
 import { Text } from './Text';
@@ -92,6 +92,15 @@ export function HolidayAdminCard({ onChanged }: { onChanged?: (o: HolidayOvervie
       load(true);
     }, [load]),
   );
+  // Admin left open overnight: back in the app, read the schedule again
+  // for the new day (the focus above doesn't fire on a return from the
+  // background, so "today" stayed yesterday's).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') load(false);
+    });
+    return () => sub.remove();
+  }, [load]);
 
   const pickTheme = (t: HolidayThemeId) => {
     setTheme(t);
