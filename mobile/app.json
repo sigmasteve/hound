@@ -44,6 +44,8 @@
           "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
+      "allowBackup": false,
+      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"],
       "permissions": [
         "android.permission.health.READ_STEPS",
         "android.permission.health.READ_DISTANCE",
