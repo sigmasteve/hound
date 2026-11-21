@@ -86,6 +86,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         `New here? A short setup walks you through it one step at a time: connect your health app, say how you’ll use Hound, set goals, turn on notifications, add a friend, join a challenge and meet your hound. Connect health, add a friend and join a challenge for a ${currency} reward. Skipped something? Today’s “Finish setting up” picks up where you left off.`,
         'Below your challenges list is one featured challenge: the one you’ve pinned with Pin to Today, or otherwise your newest active one. To only feature one you pin, turn off Newest challenge on Today in Settings.',
         'Needs you lists anything waiting on you: challenge invites, friend requests, your move in Tic-Tac-Go, picking a target when you’re It in an older game of Tag, today’s 75 Day checklist, or progress to log.',
+        'Need a break? Tap the bell on Needs you to mute it for 2 hours, 4 hours, half a day or until tomorrow morning. It shrinks to a small tile until then, with everything still inside; tap it and Unmute to bring it back. Notifications still come.',
         `Your Hound Score, level and ${currency} balance are on the You tab.`,
         `Early in each week (Monday to Wednesday), a recap card shows last week’s steps, challenges finished, Hound Score, and ${currency} earned. Tap the X to hide it until next week.`,
       ],

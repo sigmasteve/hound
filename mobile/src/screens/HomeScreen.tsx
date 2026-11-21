@@ -95,6 +95,7 @@ import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
 import { computePendingActions, needsManualEntry, type PendingAction } from '../challenges/pendingActions';
 import { NeedsYouWideTile } from '../home/NeedsYouTile';
+import { MUTE_CHOICES, getMutedUntil, muteNeedsYou, unmuteNeedsYou, untilLabel } from '../home/needsYouMute';
 import { actionRoute, rankActions, type ActionRoute } from '../home/needsYouActions';
 import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
 import { isMyChecklistTodayComplete } from '../challenges/checklistApi';
@@ -1096,6 +1097,22 @@ export function HomeScreen({
 
   // "Needs you" shows three things until expanded.
   const [needsYouExpanded, setNeedsYouExpanded] = useState(false);
+  // Needs you muted for a while (Steve, Nov 2026): this phone only, until
+  // then; read again when the app comes back, and cleared when it runs out.
+  const [needsMutedUntil, setNeedsMutedUntil] = useState<Date | null>(null);
+  useEffect(() => {
+    getMutedUntil().then(setNeedsMutedUntil);
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') getMutedUntil().then(setNeedsMutedUntil);
+    });
+    return () => sub.remove();
+  }, []);
+  useEffect(() => {
+    if (!needsMutedUntil) return;
+    const ms = needsMutedUntil.getTime() - Date.now();
+    const timer = setTimeout(() => setNeedsMutedUntil(null), Math.max(0, Math.min(ms, 2_147_000_000)));
+    return () => clearTimeout(timer);
+  }, [needsMutedUntil]);
 
   // Set only when claim_daily_bonus actually awards today's bonus (see
   // 0070_daily_bonus.sql) — drives the one-per-day popup; every later
@@ -2637,7 +2654,22 @@ export function HomeScreen({
     return parts;
   })();
   const tileMore = restCount > 0 ? `+${restCount} more${restParts.length > 0 ? `: ${restParts.join(', ')}` : ''}` : null;
-  const needsWide = needsLines.length > 0;
+  const needsMuted = !!needsMutedUntil && needsLines.length > 0;
+  const needsWide = needsLines.length > 0 && !needsMuted;
+  const muteNeeds = () =>
+    Alert.alert('Mute Needs you?', 'It shrinks to a small tile until then. Everything’s still there when you open it, and notifications still come.', [
+      ...MUTE_CHOICES.map((c) => ({
+        text: c.label,
+        onPress: () => {
+          muteNeedsYou(c.length, needsLines.length).then(setNeedsMutedUntil);
+        },
+      })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  const unmuteNeeds = () => {
+    setNeedsMutedUntil(null);
+    unmuteNeedsYou();
+  };
 
   const recapPct = weeklyRecap ? stepsChangePct(weeklyRecap) : null;
   // Up or down from yesterday's rank: a smaller number is better.
@@ -2670,11 +2702,17 @@ export function HomeScreen({
           badge={needsLines.length}
           wide={wide}
           onPress={() => setOpenTile('needs')}
-          accessibilityLabel={`Needs you, ${needsLines.length} waiting. Open`}
+          accessibilityLabel={needsMuted ? `Needs you, muted, ${needsLines.length} waiting. Open` : `Needs you, ${needsLines.length} waiting. Open`}
         >
           <TileValue
-            value={needsLines.length > 0 ? `${needsLines.length} waiting` : 'All caught up'}
-            lines={needsLines.length > 0 ? needsLines.slice(0, 3) : ['Nothing waiting on you']}
+            value={needsMuted ? 'Muted' : needsLines.length > 0 ? `${needsLines.length} waiting` : 'All caught up'}
+            lines={
+              needsMuted && needsMutedUntil
+                ? [`${needsLines.length} waiting`, `Back ${untilLabel(needsMutedUntil)}`]
+                : needsLines.length > 0
+                  ? needsLines.slice(0, 3)
+                  : ['Nothing waiting on you']
+            }
           />
         </Tile>
       ),
@@ -2871,6 +2909,7 @@ export function HomeScreen({
             more={tileMore}
             onAct={(a) => onOpenAction(actionRoute(a))}
             onOpen={() => setOpenTile('needs')}
+            onMute={muteNeeds}
           />
         )}
         {/* Two to a row, in rows of their own: a wrapping row let a tile
@@ -2949,6 +2988,14 @@ export function HomeScreen({
     {openTile === 'needs' && (
       <TileSheet title="Needs you" onClose={closeTile}>
         {needsLines.length === 0 && <Text style={styles.caughtUp}>All caught up. Nothing is waiting on you.</Text>}
+        {needsMuted && needsMutedUntil && (
+          <View style={styles.mutedRow}>
+            <Text style={styles.mutedText}>Muted on Today until {untilLabel(needsMutedUntil)}.</Text>
+            <Pressable onPress={unmuteNeeds} hitSlop={8} style={styles.mutedBtn} accessibilityRole="button">
+              <Text style={styles.mutedBtnText}>Unmute</Text>
+            </Pressable>
+          </View>
+        )}
         {/* Only Pack Activities waiting on you (invited, your club's, or on
             now). Starting one lives on the Clubs tab, not here. */}
         {packActivities.length > 0 && (
@@ -4420,6 +4467,10 @@ function makeStyles(colors: Palette) {
   return StyleSheet.create({
     container: { padding: 16, gap: 20, paddingBottom: 48 },
     caughtUp: { fontSize: 14, color: withAlpha(colors.text, 0.65), textAlign: 'center', paddingVertical: 8 },
+    mutedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, padding: 12, backgroundColor: withAlpha(colors.text, 0.06) },
+    mutedText: { flex: 1, fontSize: 13.5, color: colors.text },
+    mutedBtn: { minHeight: 36, borderRadius: 10, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accent400 },
+    mutedBtnText: { fontFamily: font.headingSemibold, fontSize: 14, color: '#1b1d29' },
     challengesLoading: { paddingVertical: 18 },
     featuredLoading: { gap: 4 },
     announcementBar: {
