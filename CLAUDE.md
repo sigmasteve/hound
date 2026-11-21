@@ -132,6 +132,13 @@ on the center-field wall, and the outfielders playing deep. Like
 H-O-R-S-E, the ballpark never scrolls away: only the message and today's
 swings under it scroll, and the bar and Pitch / Swing! stay pinned.
 
+A Most steps challenge is a race too (0233, `StepRace.tsx`): a straight
+track seen from behind the start, one lane each, the finish under the
+stand, through `perspective.ts` and `project()`. Its story (yesterday's
+replay, the daily rival, bounties, checkpoints, the Blackout and the
+finish) is worked out in the app from daily steps (`stepStory.ts`,
+`StepStoryPanel.tsx`); the Distance pool's trail is `PoolTrail.tsx`.
+
 ## Actions are on screen without scrolling
 
 Steve's rule (Nov 2026): every action a user can take is seen when the

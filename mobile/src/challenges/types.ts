@@ -254,6 +254,10 @@ export interface CreateChallengeInput {
   tagHeadStart?: number;
   // Tag and Chase: the scene (0182).
   raceScene?: 'track' | 'woods' | 'mountains' | 'beach';
+  // Most steps (0233): a daily rival, daily bounties, the Blackout.
+  stepRivals?: boolean;
+  stepBounties?: boolean;
+  blackoutLastDay?: boolean;
   // Only meaningful for a miles Distance pool — see Challenge.distanceSource.
   distanceSource?: DistanceSource;
   // Only meaningful for kind 'bingo' — see Challenge.bingoCardType.

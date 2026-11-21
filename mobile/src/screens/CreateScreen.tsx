@@ -297,6 +297,10 @@ export function CreateScreen({
   // 0207: Baseball, take your own at-bats during the day (off: walks bat
   // for you overnight).
   const [baseballHandsOn, setBaseballHandsOn] = useState(true);
+  // 0233: a Most steps challenge's extras.
+  const [stepRivals, setStepRivals] = useState(true);
+  const [stepBounties, setStepBounties] = useState(true);
+  const [stepBlackout, setStepBlackout] = useState(false);
   // H-O-R-S-E (0209): call your own shots, turn by turn, and what the
   // loser bakes the winner's hound.
   const [horseHandsOn, setHorseHandsOn] = useState(true);
@@ -1262,6 +1266,9 @@ export function CreateScreen({
         tagHeadStart: draftType === 'tag' ? Number(tagHeadStart) : undefined,
         raceScene: draftType === 'tag' || draftType === 'hunt' ? raceScene : undefined,
         dailyGoalSteps: draftType === 'streak' ? dailyGoalSteps : undefined,
+        stepRivals: draftType === 'steps' ? stepRivals : undefined,
+        stepBounties: draftType === 'steps' ? stepBounties : undefined,
+        blackoutLastDay: draftType === 'steps' ? stepBlackout : undefined,
         distanceSource: draftType === 'distance' && distanceGoalUnit === 'miles' ? distanceSource : undefined,
         bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
         bingoSize: draftType === 'bingo' ? bingoSize : undefined,
@@ -2157,6 +2164,34 @@ export function CreateScreen({
                   </Text>
                 </View>
                 <Switch value={baseballHandsOn} onValueChange={setBaseballHandsOn} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+              </View>
+            </View>
+          )}
+
+          {draftType === 'steps' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.friendName}>A rival every day</Text>
+                  <Text style={styles.footNote}>Each morning, catch the person just ahead of you (or hold off the one behind). Out-walk them that day for a rival badge.</Text>
+                </View>
+                <Switch value={stepRivals} onValueChange={setStepRivals} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+              </View>
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.friendName}>Daily bounties</Text>
+                  <Text style={styles.footNote}>One small goal a day for everyone (10,000 steps, the biggest day, beat your yesterday...). Stars show on the board; they don’t change the score.</Text>
+                </View>
+                <Switch value={stepBounties} onValueChange={setStepBounties} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+              </View>
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.friendName}>Blackout the last day</Text>
+                  <Text style={styles.footNote}>
+                    {stepBlackout ? 'For the last 24 hours the standings go dark: everyone sees only their own steps, until the finish is revealed.' : 'Off: the standings show the whole way.'}
+                  </Text>
+                </View>
+                <Switch value={stepBlackout} onValueChange={setStepBlackout} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
               </View>
             </View>
           )}

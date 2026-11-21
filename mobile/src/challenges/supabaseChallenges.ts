@@ -314,6 +314,9 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     tagMode,
     tagHeadStart,
     raceScene,
+    stepRivals,
+    stepBounties,
+    blackoutLastDay,
     distanceSource,
     bingoCardType,
     bingoSize,
@@ -343,6 +346,10 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         distance_goal_steps: distanceGoalSteps ?? null,
         distance_goal_unit: distanceGoalUnit ?? null,
         ...((kind === 'tag' || kind === 'hunt') && raceScene ? { race_scene: raceScene } : {}),
+        // 0233: only when not the defaults, so a server before 0233 still takes it.
+        ...(kind === 'steps' && (stepRivals === false || stepBounties === false || blackoutLastDay)
+          ? { step_rivals: stepRivals !== false, step_bounties: stepBounties !== false, blackout_last_day: !!blackoutLastDay }
+          : {}),
         ...(kind === 'tag'
           ? tagMode === 'chase'
             ? { tag_mode: 'chase', tag_head_start: tagHeadStart ?? 2000 }

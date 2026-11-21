@@ -25,6 +25,8 @@ import { useAuth } from '../auth/AuthContext';
 import { useLabels } from '../labels/LabelsContext';
 import { getHuntLabels, setHuntLabels } from '../labels/supabaseLabels';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
+import { StepStoryAdminCard } from '../components/StepStoryAdminCard';
+import { getStepStoryOverview, stepStorySummary } from '../challenges/stepStoryApi';
 import { getTotalUserCount, searchUsers, USER_PAGE, type AdminUserSummary } from '../admin/adminApi';
 import { getAppBanner, setAppBanner, type AppBanner } from '../banner/supabaseBanner';
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
@@ -253,6 +255,7 @@ export function AdminScreen({
   // The Not seeing steps fold's line (0205).
   const [healthZeroLine, setHealthZeroLine] = useState<string | null>(null);
   const [autoJoinLine, setAutoJoinLine] = useState<string | null>(null);
+  const [stepStoryLine, setStepStoryLine] = useState<string | null>(null);
   const [doorsSummary, setDoorsSummary] = useState<string | null>(null);
   const [packsSummary, setPacksSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
@@ -358,6 +361,9 @@ export function AdminScreen({
         .catch(() => {});
       getSponsorOverview()
         .then((o) => setSponsorLine(sponsorSummary(o)))
+        .catch(() => {});
+      getStepStoryOverview()
+        .then((o) => setStepStoryLine(stepStorySummary(o)))
         .catch(() => {});
       getBaseballOverview()
         .then((b) =>
@@ -965,6 +971,9 @@ export function AdminScreen({
                   <>
                   <AdminFold title="Challenges" summary={challengesSummary ?? 'What’s running, by game'}>
                     <ChallengesAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Step challenges" summary={stepStoryLine ?? 'The race, rivals, bounties and the finish'}>
+                    <StepStoryAdminCard onChanged={(o) => setStepStoryLine(stepStorySummary(o))} />
                   </AdminFold>
                   <AdminFold title="Game unlocks" summary={gameUnlocksLine ?? 'Who has earned each locked game'}>
                     <ChallengeUnlocksAdminCard />

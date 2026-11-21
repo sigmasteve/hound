@@ -36,6 +36,8 @@ const DEFAULT_TIME_ZONE = 'America/New_York';
 interface ChallengeRow {
   id: string;
   name: string;
+  ends_at: string;
+  blackout_last_day: boolean | null;
 }
 
 interface ParticipantRow {
@@ -160,7 +162,7 @@ Deno.serve(async (req) => {
 
   const { data: challenges, error: challengesError } = await supabase
     .from('challenges')
-    .select('id, name')
+    .select('id, name, ends_at, blackout_last_day')
     .eq('kind', 'steps')
     .gt('ends_at', now)
     .returns<ChallengeRow[]>();
@@ -172,6 +174,9 @@ Deno.serve(async (req) => {
   const errors: string[] = [];
 
   for (const challenge of challenges ?? []) {
+    // 0233: a Blackout keeps the standings dark for the last 24 hours, so
+    // the 8 PM rank push stays quiet then too.
+    if (challenge.blackout_last_day && new Date(challenge.ends_at).getTime() - nowDate.getTime() < 24 * 3_600_000) continue;
     const [{ data: participants, error: participantsError }, { data: snapshots, error: snapshotsError }] =
       await Promise.all([
         supabase

@@ -110,12 +110,15 @@ select is(public.baseball_pitch('00000000-0000-0000-0000-00000000ba01'), :'p1'::
 reset role;
 select is((:'p1'::jsonb) - 'bands' - 'mph' - 'px' - 'py',
   jsonb_build_object('ab', 1, 'pitch_no', 1, 'balls', 0, 'strikes', 0,
-    'kind', case when public.baseball_rand('00000000-0000-0000-0000-00000000ba01:' || :'ann' || ':live:1:1:change') < 0.30 then 'changeup' else 'fastball' end,
+    'kind', case when public.baseball_rand('00000000-0000-0000-0000-00000000ba01:' || :'ann' || ':live:1:1:change') < 0.30 then 'changeup'
+                 when public.baseball_rand('00000000-0000-0000-0000-00000000ba01:' || :'ann' || ':live:1:1:curve') < 0.25 then 'curveball' else 'fastball' end,
     'in_zone', public.baseball_rand('00000000-0000-0000-0000-00000000ba01:' || :'ann' || ':live:1:1:zone') < 0.50,
     'ms', case when public.baseball_rand('00000000-0000-0000-0000-00000000ba01:' || :'ann' || ':live:1:1:change') < 0.30 then 1000
+          when public.baseball_rand('00000000-0000-0000-0000-00000000ba01:' || :'ann' || ':live:1:1:curve') < 0.25 then round(880 * (1 - 0.2 * (1.0 / 3)))::int
           else round(700 * (1 - 0.3 * (1.0 / 3)))::int end),
   'The pitch is seeded: kind, zone, and a quicker fastball against a pitcher who out-walks you');
-select is(((:'p1'::jsonb) ->> 'mph')::int, case when (:'p1'::jsonb) ->> 'kind' = 'changeup' then 80 else 95 end, 'mph: 88 + 20 x pressure, a changeup 80');
+select is(((:'p1'::jsonb) ->> 'mph')::int, case (:'p1'::jsonb) ->> 'kind' when 'changeup' then 80 when 'curveball' then 79 else 95 end,
+  'mph: 88 + 20 x pressure, a changeup 80, a curveball 76 + 8 x pressure (0231)');
 select tests.sign_in(:'ann');
 set local role authenticated;
 select is(public.baseball_live('00000000-0000-0000-0000-00000000ba01') -> 'open' #- '{pending,px}' #- '{pending,py}',
