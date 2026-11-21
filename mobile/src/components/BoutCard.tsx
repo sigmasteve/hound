@@ -4,7 +4,7 @@ import { BoxingGloveIcon, PlayIcon } from 'phosphor-react-native';
 import { Text } from './Text';
 import { Card } from './Card';
 import { usePinnedAction } from './PinnedAction';
-import { Boxer, Referee, RingArt, beatActs, replayBeats, ringView, useClock } from './BoutRing';
+import { RingReplay } from './RingReplay';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { getBoutReplay, GUARDS, punchName, setGuard, type BoutGuard, type BoutLive, type BoutReplay } from '../challenges/boutApi';
@@ -39,13 +39,13 @@ export function BoutCard({
   }, [live]);
 
   const active = !!live && live.status === 'active';
-  const incoming = live?.incoming.length ?? 0;
+  const incoming = live?.combos ?? 0;
   const pinned = usePinnedAction(
     active && live && live.canAct
       ? incoming > 0
-        ? { label: `Slip ${incoming} incoming`, onPress: () => onRing('slip') }
+        ? { label: `Face ${incoming} incoming`, onPress: () => onRing('slip') }
         : live.day.left > 0
-          ? { label: `Throw your punches · ${live.day.left} ${live.day.left === 1 ? 'action' : 'actions'}`, onPress: () => onRing('throw') }
+          ? { label: `Throw an exchange · ${live.day.left} left`, onPress: () => onRing('throw') }
           : null
       : null,
   );
@@ -197,13 +197,13 @@ export function BoutCard({
         </Card>
       )}
 
-      {active && (live.day.strength || live.day.camp || live.day.cardio) && (
+      {active && (live.day.strength || live.day.cardio || live.stars > 0) && (
         <Card style={styles.powerCard} elevated={false}>
           <BoxingGloveIcon size={22} color={ME_COLOR} />
           <Text style={[styles.body, { flex: 1 }]}>
             {[
-              live.day.strength ? `Power today: a knockdown takes ${live.day.kdNeeds} clean power punches in a row, not 3.` : null,
-              live.day.camp ? `Fight camp${live.day.campWorkout ? ` (${live.day.campWorkout})` : ''}: a wider green all round.` : null,
+              live.stars > 0 ? `${live.stars} ${live.stars === 1 ? 'star' : 'stars'}: arm a Star punch in the ring for double points.` : null,
+              live.day.strength ? 'Power today: two power punches that land in one combination is a knockdown.' : null,
               live.day.cardio ? 'Cardio: 2 extra actions today.' : null,
             ]
               .filter(Boolean)
@@ -221,7 +221,7 @@ export function BoutCard({
           )}
           <Pressable onPress={() => onRing('throw')} disabled={!live.canAct} style={[styles.play, !live.canAct && styles.playOff]} accessibilityRole="button">
             <Text style={[styles.playText, !live.canAct && { color: withAlpha(colors.text, 0.6), fontSize: 13.5 }]}>
-              {live.canAct ? `Throw your punches · ${live.day.left} ${live.day.left === 1 ? 'action' : 'actions'}` : (live.reason ?? 'Not now')}
+              {live.canAct ? `Throw an exchange · ${live.day.left} left` : (live.reason ?? 'Not now')}
             </Text>
           </Pressable>
         </View>
@@ -261,81 +261,18 @@ export function BoutReplayView({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [rep, setRep] = useState<BoutReplay | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [startAt, setStartAt] = useState<number | null>(null);
-  const [w, setW] = useState(0);
   useEffect(() => {
     setRep(null);
     (load ? load() : getBoutReplay(challengeId, round))
-      .then((r) => {
-        setRep(r);
-        setStartAt(Date.now());
-      })
+      .then(setRep)
       .catch((e) => setError(e instanceof Error ? e.message : 'Could not load the replay.'));
     // load is a new function each render; the round (or fight) is what changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challengeId, round, label]);
-  const plan = useMemo(() => (rep ? replayBeats(rep.punches, rep.me) : null), [rep]);
-  const playing = !!plan && startAt != null && Date.now() - startAt < plan.total;
-  const now = useClock(playing);
-  const H = 260;
-  const rv = useMemo(() => (w > 0 ? ringView(w, H) : null), [w]);
-
   if (error) return <Text style={styles.small}>{error}</Text>;
-  if (!rep || !plan) return <ActivityIndicator color={colors.accent} />;
-
-  const t = startAt == null ? plan.total : now - startAt;
-  const beat = plan.beats.find((b) => t >= b.start && t < b.end + 150) ?? null;
-  const acts = beat ? beatActs(beat, t) : null;
-  // The score as it stands at this point in the round.
-  let mine = 0;
-  let theirs = 0;
-  for (const b of plan.beats) {
-    if (b.start + 600 > t) break;
-    const p = b.p;
-    if (p.landed) {
-      if (b.mine) mine += p.points;
-      else theirs += p.points;
-    }
-    if (p.countered) {
-      if (b.mine) theirs += 1;
-      else mine += 1;
-    }
-  }
-  const done = t >= plan.total;
-  return (
-    <View style={{ gap: 8 }}>
-      <View style={[styles.replayRing, { height: H }]} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-        {rv && (
-          <>
-            <RingArt rv={rv} apron={apron} compact />
-            <Referee rv={rv} counting={acts?.counting ?? null} />
-            <Boxer at={rv.opp} height={rv.v.h * 0.46 * rv.opp.s} facing="front" trunks="#e05b5b" gloves="#c2410c" act={acts?.opp ?? { pose: 'idle', k: 0 }} />
-            <Boxer at={{ x: rv.me.x, y: rv.v.h + rv.v.h * 0.05 }} height={rv.v.h * 0.5} facing="back" trunks="#4f7be0" gloves="#4f7be0" coat="#c08a52" act={acts?.me ?? { pose: 'idle', k: 0 }} />
-          </>
-        )}
-        <Text style={styles.replayScore}>
-          {meName} {mine} – {theirs} {oppName}
-        </Text>
-        {rep.punches.length === 0 && <Text style={styles.replayLine}>Nobody threw a punch this round.</Text>}
-        {beat && acts && (
-          <Text style={styles.replayLine}>
-            {beat.mine ? meName : oppName}: {acts.line}
-          </Text>
-        )}
-      </View>
-      <View style={styles.rowBetween}>
-        <Text style={styles.small}>
-          {label ?? `Round ${round}`} · {rep.punches.length} {rep.punches.length === 1 ? 'punch' : 'punches'}
-        </Text>
-        {done && (
-          <Pressable onPress={() => setStartAt(Date.now())} hitSlop={8} accessibilityRole="button" style={styles.replayBtn}>
-            <PlayIcon size={13} color={colors.accentActive} weight="fill" />
-            <Text style={styles.link}>Play again</Text>
-          </Pressable>
-        )}
-      </View>
-    </View>
-  );
+  if (!rep) return <ActivityIndicator color={colors.accent} />;
+  // The new ring (0230): both hounds moving, combinations, slips, counters, the count.
+  return <RingReplay punches={rep.punches} me={rep.me} meName={meName} oppName={oppName} apron={apron} label={label ?? `Round ${round}`} />;
 }
 
 function makeStyles(colors: Palette) {

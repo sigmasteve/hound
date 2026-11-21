@@ -49,6 +49,15 @@ export const GUARDS: { id: BoutGuard; name: string; line: string }[] = [
 
 export interface BoutPunch {
   id: number;
+  // The new ring (0230): its combination, place in it (counters 11+),
+  // which side a hook came from, a Star punch, a counter, and how the
+  // other hound moved ('left' | 'right' | 'duck' | 'back' | 'none').
+  exchange: number | null;
+  seq: number | null;
+  side: 'L' | 'R' | null;
+  star: boolean;
+  counter: boolean;
+  slipDir: string | null;
   by: string;
   round: number;
   punch: BoutPunchKind;
@@ -121,6 +130,9 @@ export interface BoutLive {
   } | null;
   canAct: boolean;
   reason: string | null;
+  // The new ring (0230): stars held (0-3) and combinations waiting to be faced.
+  stars: number;
+  combos: number;
   // The Title Bout's: which day of 7, and whether today's is the title fight.
   titleBout: { dayNo: number; title: boolean; opponentIsBot: boolean } | null;
 }
@@ -139,6 +151,12 @@ export function toPunch(p: any): BoutPunch {
     landed: p?.landed == null ? null : !!p.landed,
     knockdown: !!p?.knockdown,
     at: p?.at ?? '',
+    exchange: p?.exchange == null ? null : num(p.exchange),
+    seq: p?.seq == null ? null : num(p.seq),
+    side: p?.side ?? null,
+    star: !!p?.star,
+    counter: !!p?.counter,
+    slipDir: p?.slip_dir ?? null,
   };
 }
 
@@ -206,6 +224,8 @@ export function toBoutLive(d: any): BoutLive {
       : null,
     canAct: !!d?.can_act,
     reason: d?.reason ?? null,
+    stars: 0,
+    combos: 0,
     titleBout: d?.tb
       ? { dayNo: num(d.tb.day_no), title: !!d.tb.fight?.title, opponentIsBot: !!d?.opponent && d.opponent.id == null }
       : null,
@@ -213,7 +233,145 @@ export function toBoutLive(d: any): BoutLive {
 }
 
 export async function getBoutLive(challengeId: string, kind: BoutKind = 'bout'): Promise<BoutLive> {
-  return toBoutLive(await rpc(fn(kind, 'live'), { p_challenge_id: challengeId }));
+  const [d, ring] = await Promise.all([rpc(fn(kind, 'live'), { p_challenge_id: challengeId }), getRingState(kind, challengeId)]);
+  return withRing(toBoutLive(d), ring);
+}
+
+// ── The new ring (0230_bout_real_boxing.sql) ──
+// 10 actions a day (one per 1,500 steps, 2 more after cardio). An action
+// is an exchange: three openings light up on the opponent and you tap each
+// as its ring closes (the spot picks the punch: face jab, side of the head
+// hook, chin uppercut); or facing one of their combinations: each punch
+// is telegraphed, and you move the right way (jab: either side; hook: away
+// or duck; uppercut: lean back). A tight slip opens a counter (+2, a
+// star); a star arms a Star punch (double). The server decides each result.
+
+export type OpeningKind = 'jab' | 'hookL' | 'hookR' | 'up';
+export type SlipDir = 'left' | 'right' | 'duck' | 'back';
+
+export interface RingState {
+  stars: number;
+  combos: number;
+}
+
+export async function getRingState(kind: BoutKind, challengeId: string): Promise<RingState> {
+  const d = await rpc<any>('ring_state', { p_game: kind, p_challenge_id: challengeId }).catch(() => null);
+  return { stars: num(d?.stars), combos: num(d?.combos) };
+}
+
+export function withRing(live: BoutLive, ring: RingState): BoutLive {
+  return { ...live, stars: ring.stars, combos: ring.combos };
+}
+
+export async function startExchange(kind: BoutKind, challengeId: string): Promise<{ id: number; openings: OpeningKind[]; stars: number }> {
+  const d = await rpc<any>('ring_exchange_start', { p_game: kind, p_challenge_id: challengeId });
+  return { id: num(d?.id), openings: ((d?.openings ?? []) as OpeningKind[]).slice(0, 3), stars: num(d?.stars) };
+}
+
+export interface RingPunchResult {
+  seq: number;
+  punch: BoutPunchKind;
+  side: 'L' | 'R' | null;
+  quality: BoutQuality;
+  blocked: boolean;
+  countered: boolean;
+  points: number;
+  star: boolean;
+  stars: number;
+  message: string;
+}
+
+// progress: how far the opening's ring had closed (0..1+), or null for a
+// swing at the wrong spot or no tap.
+export async function throwRingPunch(exchangeId: number, index: number, progress: number | null, star: boolean): Promise<RingPunchResult> {
+  const d = await rpc<any>('ring_exchange_punch', {
+    p_exchange_id: exchangeId,
+    p_index: index,
+    p_progress: progress == null ? null : Math.round(progress * 1000) / 1000,
+    p_star: star,
+  });
+  return {
+    seq: num(d?.seq),
+    punch: (d?.punch ?? 'jab') as BoutPunchKind,
+    side: d?.side ?? null,
+    quality: (d?.quality ?? 'miss') as BoutQuality,
+    blocked: !!d?.blocked,
+    countered: !!d?.countered,
+    points: num(d?.points),
+    star: !!d?.star,
+    stars: num(d?.stars),
+    message: d?.message ?? '',
+  };
+}
+
+export interface IncomingPunch {
+  seq: number;
+  punch: BoutPunchKind;
+  side: 'L' | 'R' | null;
+  points: number;
+  star: boolean;
+}
+
+export async function startDefense(kind: BoutKind, challengeId: string): Promise<{ id: number; from: string; stars: number; punches: IncomingPunch[] }> {
+  const d = await rpc<any>('ring_defend_start', { p_game: kind, p_challenge_id: challengeId });
+  return {
+    id: num(d?.id),
+    from: d?.from ?? 'Your opponent',
+    stars: num(d?.stars),
+    punches: ((d?.punches ?? []) as any[]).map((p) => ({ seq: num(p.seq), punch: (p.punch ?? 'jab') as BoutPunchKind, side: p.side ?? null, points: num(p.points), star: !!p.star })),
+  };
+}
+
+export async function finishDefense(
+  exchangeId: number,
+  moves: ({ dir: SlipDir; dt: number } | null)[],
+  counters: number,
+): Promise<{ slipped: boolean[]; counters: number; stars: number; message: string }> {
+  const d = await rpc<any>('ring_defend_finish', { p_exchange_id: exchangeId, p_moves: moves, p_counters: counters });
+  return {
+    slipped: ((d?.results ?? []) as any[]).map((r) => !!r.slipped),
+    counters: num(d?.counters),
+    stars: num(d?.stars),
+    message: d?.message ?? '',
+  };
+}
+
+// Moving the right way (the server's ring_dodge_ok): a jab, either side;
+// an uppercut, lean back; a hook from their left hand (side 'L', coming
+// at your right), slip left or duck, and from the right, slip right or duck.
+export function dodgeOk(punch: BoutPunchKind, side: 'L' | 'R' | null, dir: SlipDir): boolean {
+  if (punch === 'jab') return dir === 'left' || dir === 'right';
+  if (punch === 'up') return dir === 'back';
+  return side === 'L' ? dir === 'left' || dir === 'duck' : dir === 'right' || dir === 'duck';
+}
+
+export interface RingOverview {
+  exchanges7d: number;
+  attackers7d: number;
+  attackersEver: number;
+  defenses7d: number;
+  defenders7d: number;
+  slipped7d: number;
+  faced7d: number;
+  counters7d: number;
+  starPunches7d: number;
+  comboKnockdowns7d: number;
+}
+
+export async function getRingOverview(): Promise<RingOverview> {
+  const d = await rpc<any>('admin_ring_overview');
+  return {
+    exchanges7d: num(d?.exchanges_7d),
+    attackers7d: num(d?.attackers_7d),
+    attackersEver: num(d?.attackers_ever),
+    defenses7d: num(d?.defenses_7d),
+    defenders7d: num(d?.defenders_7d),
+    slipped7d: num(d?.slipped_7d),
+    faced7d: num(d?.faced_7d),
+    counters7d: num(d?.counters_7d),
+    starPunches7d: num(d?.star_punches_7d),
+    comboKnockdowns7d: num(d?.combo_knockdowns_7d),
+  };
 }
 
 export interface BoutThrow {

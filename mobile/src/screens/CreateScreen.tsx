@@ -2287,9 +2287,10 @@ export function CreateScreen({
                 onChange={(v) => setLength(v)}
               />
               <Text style={styles.huntBlockNote}>
-                Every 1,000 steps is an action: throw a punch (jab 1, hook 2, uppercut 3) or slip one of theirs. Set your guard each day. Each
-                round is scored the next morning, 10-9; three power punches in a row is a knockdown, and three in a round is a KO. Strength
-                workouts add power, cardio adds actions, and a real boxing workout widens the green.
+                Every 1,500 steps is an action, up to 10 a day: throw an exchange (tap the openings on their hound: face jab 1, side of the head
+                hook 2, chin uppercut 3) or face one of their combinations (move the right way to slip it; a tight slip lets you counter and earns
+                a star for a Star punch). Set your guard each day. Each round is scored the next morning, 10-9; a combination that lands three
+                with two power punches is a knockdown, and three in a round is a KO. Strength workouts add power, cardio adds actions.
               </Text>
             </View>
           )}

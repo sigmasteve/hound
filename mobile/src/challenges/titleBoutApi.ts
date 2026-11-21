@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { toBoutLive, toPunch, type BoutLive, type BoutPunchKind, type BoutGuard, type BoutReplay } from './boutApi';
+import { getRingState, toBoutLive, toPunch, withRing, type BoutLive, type BoutPunchKind, type BoutGuard, type BoutReplay } from './boutApi';
 
 // The Title Bout (0226_titlebout_kind.sql, 0227_titlebout.sql): a Global
 // Hound Bout for the belt. Seven days: on days 1-5 everyone fights a new
@@ -216,8 +216,8 @@ export function toTitleBout(d: any): TitleBout {
 
 // The fight (for the ring's numbers) and the Title Bout's own state, in one call.
 export async function getTitleBout(challengeId: string): Promise<{ live: BoutLive; tb: TitleBout }> {
-  const d = await rpc<any>('tb_live', { p_challenge_id: challengeId });
-  return { live: toBoutLive(d), tb: toTitleBout(d) };
+  const [d, ring] = await Promise.all([rpc<any>('tb_live', { p_challenge_id: challengeId }), getRingState('titlebout', challengeId)]);
+  return { live: withRing(toBoutLive(d), ring), tb: toTitleBout(d) };
 }
 
 export async function pickChampion(challengeId: string, userId: string): Promise<{ a: number; b: number }> {

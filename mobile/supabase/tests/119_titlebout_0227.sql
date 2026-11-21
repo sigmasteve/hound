@@ -62,16 +62,20 @@ select a as p1, b as p2 from public.tb_fights where challenge_id = :'tb' and b i
 select tests.sign_in(:'p1');
 set local role authenticated;
 select is((public.tb_live(:'tb') -> 'opponent' ->> 'id')::uuid, :'p2'::uuid, 'Your opponent today');
-select is(public.tb_throw(:'tb', 'up', 50) - array['id', 'message', 'guard', 'left'],
-  '{"punch":"up","quality":"perfect","blocked":false,"countered":false,"points":3,"run":1,"downs":0,"kd_needs":3}'::jsonb,
-  'A perfect uppercut gets through');
-select is((public.tb_live(:'tb') -> 'day' ->> 'left')::int, 4, 'Five actions from 5,000 steps, one used');
+select (x ->> 'id')::bigint as ex1 from (select public.ring_exchange_start('titlebout', :'tb') x) z \gset
+select is(public.ring_exchange_punch(:ex1, 0, 0.9) ->> 'quality', 'perfect', 'A perfect punch gets through any guard');
+select is((public.tb_live(:'tb') -> 'day' ->> 'left')::int, 2, '5,000 steps: three actions, one used');
+select public.ring_exchange_punch(:ex1, 1, 0.9);
+select public.ring_exchange_punch(:ex1, 2, 0.9);
 reset role;
 
 select tests.sign_in(:'p2');
 set local role authenticated;
-select tb_pid from (select (public.tb_live(:'tb') -> 'incoming' -> 0 ->> 'id')::bigint as tb_pid) z \gset
-select is(public.tb_slip(:'tb', :tb_pid, 50) ->> 'slip', 'slipped', 'Slipped in the green');
+select d from (select public.ring_defend_start('titlebout', :'tb') d) z \gset
+select is((public.ring_defend_finish((:'d'::jsonb ->> 'id')::bigint,
+    (select jsonb_agg(jsonb_build_object('dir', case p ->> 'punch' when 'jab' then 'left' when 'up' then 'back' else 'duck' end, 'dt', -100)
+       order by (p ->> 'seq')::int) from jsonb_array_elements(:'d'::jsonb -> 'punches') p), 1) ->> 'stars')::int, 1,
+  'Slipped all three tight and countered: a star');
 select is(public.tb_set_guard(:'tb', 'body'), 'body', 'A body guard up');
 select throws_ok($q$select public.tb_pick('$q$ || :'tb' || $q$', '$q$ || :'p1' || $q$')$q$, 'Picks are closed.', 'No picks before the title fight');
 reset role;

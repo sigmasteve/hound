@@ -274,14 +274,14 @@ export function computePendingActions({
           challengeId: c.id,
           challengeName: c.name,
           kind: 'boutIncoming',
-          label: `${b.incoming} incoming to slip in ${c.name}`,
+          label: `${b.incoming} ${b.incoming === 1 ? 'combination' : 'combinations'} to face in ${c.name}`,
         });
       } else if (b && b.actions > 0) {
         actions.push({
           challengeId: c.id,
           challengeName: c.name,
           kind: 'boutPunches',
-          label: `${b.actions} ${b.actions === 1 ? 'punch' : 'punches'} ready in ${c.name}`,
+          label: `${b.actions} ${b.actions === 1 ? 'exchange' : 'exchanges'} ready in ${c.name}`,
         });
       }
     } else if (c.kind === 'shootout') {

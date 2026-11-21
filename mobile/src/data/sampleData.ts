@@ -269,7 +269,7 @@ export const CHALLENGE_TYPES: {
   {
     id: 'bout',
     name: 'Hound Bout',
-    desc: 'Boxing, one on one, a round a day. Every 1,000 steps is an action: throw a punch (a jab, a hook or an uppercut) on the timing meter, or slip one of theirs. Set your guard each day: it stops some punches and not others. Rounds are scored 10-9 the next morning; three power punches in a row is a knockdown, three knockdowns a KO.',
+    desc: 'Boxing, one on one, a round a day. Every 1,500 steps is an action, up to 10: throw an exchange, tapping the openings on their hound as they light up (face jab, side of the head hook, chin uppercut), or face their combination, moving the right way as each punch comes. Slip tight and counter for a star; a star buys a Star punch. Rounds are scored 10-9 the next morning; a combination that lands three with two power punches is a knockdown, three knockdowns a KO.',
     tint: '#5a2f2f',
     iconColor: '#f0d0c8',
   },
