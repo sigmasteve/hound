@@ -64,9 +64,16 @@ export function isBanned(bannedUntil: string | null): boolean {
 // users (0092_hide_private_profile_columns.sql), so this goes through
 // admin_search_users() (0091), which checks for an admin; before 0091 has
 // run, the old direct query still works.
-export async function searchUsers(query: string): Promise<AdminUserSummary[]> {
+// 0232: a page at a time (offset, page size); before 0232 has run, the
+// one-argument call (its first 25) still answers.
+export const USER_PAGE = 50;
+export async function searchUsers(query: string, offset = 0, limit = USER_PAGE): Promise<AdminUserSummary[]> {
   const client = requireClient();
   const trimmed = query.trim();
+  const paged = await client.rpc('admin_search_users', { p_query: trimmed, p_limit: limit, p_offset: offset });
+  if (!paged.error) return ((paged.data ?? []) as AdminUserRow[]).map(rowToSummary);
+  if (!isMissingFunction(paged.error)) throw new Error(paged.error.message);
+  if (offset > 0) return [];
   const { data: rpcRows, error: rpcError } = await client.rpc('admin_search_users', { p_query: trimmed });
   if (!rpcError) return ((rpcRows ?? []) as AdminUserRow[]).map(rowToSummary);
   if (!isMissingFunction(rpcError)) throw new Error(rpcError.message);
