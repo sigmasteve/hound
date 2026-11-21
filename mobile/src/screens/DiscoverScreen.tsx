@@ -12,7 +12,8 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
-import { canJoin, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
+import { canJoin, globalTimingLine, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
+import { SlotsJoinSheet } from '../components/SlotsJoinSheet';
 import { getMyInterests, type Interest } from '../onboarding/interests';
 import {
   COUNTS_NAMES,
@@ -91,6 +92,8 @@ export function DiscoverContent({
   const [interests, setInterests] = useState<Interest[]>([]);
   const [globals, setGlobals] = useState<GlobalChallenge[]>([]);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  // Paw Slots: what you're about to do, before Join (0242).
+  const [slotsPreview, setSlotsPreview] = useState<GlobalChallenge | null>(null);
   const [detail, setDetail] = useState<KindInfo | null>(null);
   // The four rows of filter chips, folded behind "Filters" so the search
   // and the challenges come first.
@@ -199,10 +202,24 @@ export function DiscoverContent({
             <GlobalChallengesCard
               challenges={openGlobals}
               joiningId={joiningId}
-              onJoin={join}
+              onJoin={(c) => (c.kind === 'slots' ? setSlotsPreview(c) : join(c))}
               onOpen={(c) => onOpenChallenge(c.id)}
               where="challenges"
             />
+            {slotsPreview && (
+              <SlotsJoinSheet
+                challengeId={slotsPreview.id}
+                name={slotsPreview.name}
+                when={globalTimingLine(slotsPreview)}
+                joining={joiningId === slotsPreview.id}
+                onJoin={() => {
+                  const c = slotsPreview;
+                  setSlotsPreview(null);
+                  join(c);
+                }}
+                onClose={() => setSlotsPreview(null)}
+              />
+            )}
           </View>
         )}
 

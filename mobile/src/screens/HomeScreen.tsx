@@ -178,6 +178,7 @@ import { checkAchievements, listAchievements, type NewlyEarnedAchievement } from
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
 import { GlobalChallengesCard } from '../components/GlobalChallengesCard';
+import { SlotsJoinSheet } from '../components/SlotsJoinSheet';
 import { YoureInCard } from '../home/YoureInCard';
 import { autoJoinOpenGlobals, dismissAutoJoinCard, leaveAutoJoined, rejoinAutoJoined, type AutoJoinCard } from '../challenges/autoJoinApi';
 import {
@@ -185,6 +186,7 @@ import {
   joinGlobalChallenge,
   listGlobalChallenges,
   type GlobalChallenge,
+  globalTimingLine,
 } from '../challenges/globalChallenges';
 import { fetchWeeklyRecap, isRecapWindow, recapWeekKey, stepsChangePct, type WeeklyRecap } from '../home/weeklyRecap';
 import {
@@ -1350,6 +1352,8 @@ export function HomeScreen({
   // is just noise.
   const [globalChallenges, setGlobalChallenges] = useState<GlobalChallenge[]>([]);
   const [joiningGlobalId, setJoiningGlobalId] = useState<string | null>(null);
+  // Paw Slots: what you're about to do, before Join (0242).
+  const [slotsPreview, setSlotsPreview] = useState<GlobalChallenge | null>(null);
   const loadGlobalChallenges = useCallback(() => {
     if (!isSupabaseConfigured || !user?.id) return;
     listGlobalChallenges()
@@ -2873,8 +2877,22 @@ export function HomeScreen({
         <GlobalChallengesCard
           challenges={[...upcomingGlobals, ...joinableGlobals]}
           joiningId={joiningGlobalId}
-          onJoin={joinGlobal}
+          onJoin={(c) => (c.kind === 'slots' ? setSlotsPreview(c) : joinGlobal(c))}
           onOpen={(c) => onOpenChallenge(c.id)}
+        />
+      )}
+      {slotsPreview && (
+        <SlotsJoinSheet
+          challengeId={slotsPreview.id}
+          name={slotsPreview.name}
+          when={globalTimingLine(slotsPreview)}
+          joining={joiningGlobalId === slotsPreview.id}
+          onJoin={() => {
+            const c = slotsPreview;
+            setSlotsPreview(null);
+            joinGlobal(c);
+          }}
+          onClose={() => setSlotsPreview(null)}
         />
       )}
 

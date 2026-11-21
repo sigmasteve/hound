@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeftIcon, EnvelopeSimpleOpenIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
@@ -9,6 +9,7 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES } from '../data/sampleData';
 import { canJoin, globalTimingLine, joinDeadlineLine, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
 import { useCurrencyName } from '../organizations/useCurrencyName';
+import { SlotsHowItWorks, SlotsMachinePicture } from '../components/SlotsPromo';
 
 // Where a push from Hound inviting you to a Global challenge opens (0228,
 // Send a push): the challenge, what it is, its prizes and how many are
@@ -27,6 +28,7 @@ export function GlobalInviteScreen({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const currency = useCurrencyName();
   const [c, setC] = useState<GlobalChallenge | null | undefined>(undefined);
+  const { width: winW } = useWindowDimensions();
   const [joining, setJoining] = useState(false);
 
   useEffect(() => {
@@ -86,7 +88,17 @@ export function GlobalInviteScreen({
               </Text>
             </View>
 
-            {type && (
+            {c.kind === 'slots' && (
+              <Card style={{ gap: 12 }} elevated={false}>
+                <View style={{ alignItems: 'center' }}>
+                  <SlotsMachinePicture width={Math.min(330, winW - 64)} />
+                </View>
+                <Text style={styles.cardTitle}>A slot machine you play with your steps</Text>
+                <SlotsHowItWorks pool={null} />
+              </Card>
+            )}
+
+            {type && c.kind !== 'slots' && (
               <Card style={{ gap: 6 }} elevated={false}>
                 <Text style={styles.cardTitle}>{type.name}</Text>
                 <Text style={styles.body}>{type.desc}</Text>
