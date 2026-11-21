@@ -2152,7 +2152,7 @@ export function CreateScreen({
                   <Text style={styles.friendName}>Take my own at-bats</Text>
                   <Text style={styles.footNote}>
                     {baseballHandsOn
-                      ? 'Your steps earn at-bats (one every 3,000, up to 3 a day); take them in the app and time the swing. The game uses each one when your turn comes; the rest play for you.'
+                      ? 'Your steps earn at-bats (one every 3,000, up to 6 a day): bat, pitch to their batters and steal second in the app. The game uses each one when its turn comes; the rest play for you.'
                       : 'Off: your steps bat for you overnight.'}
                   </Text>
                 </View>

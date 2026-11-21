@@ -114,6 +114,16 @@ scene (the street, a HOUND billboard, the gym's lit window). The court
 never scrolls away: only the options under it scroll, and the meter and
 Shoot stay pinned (Steve's ask).
 
+Since 0231 batting is for real: the pitch crosses somewhere (px, py in
+half-widths of the zone; `components/baseballSwing.tsx`) and you tap where
+it crosses as it gets there, after a quick 3-2-1 (the Pitch button is
+pinned at the bottom, so the countdown says look up). The Derby swings the
+same way. The batting screen has three tabs: At bat, On the mound
+(`BaseballMound.tsx`: seen from behind the mound facing home, its own
+ground from the backstop (y 0) to the mound (y 1) through `project()`,
+the zone and everyone at the plate sized to the zone so a thumb can aim)
+and Steal (`BaseballSteal.tsx`: the batting view, you leading off first).
+
 The Home Run Derby's at-bat (0211, `DerbyBatScreen.tsx`) reuses Baseball
 batting's view and drawing (`FieldArt`, `Batter`, `Figure` and `P()`,
 exported from `BaseballBatScreen.tsx`): behind home plate, facing the

@@ -62,6 +62,21 @@ export function BaseballAdminCard() {
                 `${data.live.people7d} ${data.live.people7d === 1 ? 'person' : 'people'} · ${data.live.atBats7d} at-bats · ${data.live.pitches7d} pitches · ${data.live.hr7d} home runs`,
               ],
               ['Batting average this week', data.live.avg7d == null ? 'No at-bats by hand yet' : `${avg(data.live.avg7d)} by hand · ${data.live.autoAvg7d == null ? '–' : avg(data.live.autoAvg7d)} played for them`],
+              // 0231: hit the ball, pitch to them, steal second.
+              [
+                'Swings tapped on the ball this week',
+                `${data.live.tapped7d}${data.live.avgMiss7d == null ? '' : ` · ${data.live.avgMiss7d.toFixed(2)} off the ball on average`} · ${data.live.curveballs7d} curveballs thrown`,
+              ],
+              [
+                'Pitched by hand this week',
+                `${data.live.pitchers7d} ${data.live.pitchers7d === 1 ? 'pitcher' : 'pitchers'} · ${data.live.pitched7d} at-bats · ${data.live.pitchedK7d} strikeouts · ${data.live.pitchedHits7d} hits`,
+              ],
+              ['Corners painted this week', `${data.live.painted7d} of ${data.live.moundPitches7d} pitches${pct(data.live.painted7d, data.live.moundPitches7d)}`],
+              [
+                'Steal jumps this week',
+                `${data.live.jumps7d} set · ${data.live.greatJumps7d} great · ${data.live.jumpSteals7d} run tonight, ${data.live.jumpSafe7d} safe`,
+              ],
+              ['Derby swings tapped on the ball this week', `${data.live.derbyTapped7d}`],
             ] as [string, string][])
           : []),
       ]

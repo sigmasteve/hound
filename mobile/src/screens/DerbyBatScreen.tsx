@@ -13,11 +13,9 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { buzz } from '../celebrate/feedback';
 import { getChallengeSponsor, sponsorColor, type ChallengeSponsor } from '../challenges/globalChallenges';
 import {
-  bandsFor,
   getDerbyLive,
   swingDerby,
   throwDerbyPitch,
-  type DerbyBands,
   type DerbyLive,
   type DerbyPitch,
   type DerbySwing,
@@ -28,9 +26,7 @@ import {
   at,
   BALL,
   BaseballBall,
-  BAR_MS,
   Batter,
-  clamp,
   FH,
   FieldArt,
   Figure,
@@ -38,7 +34,6 @@ import {
   HOME,
   HS,
   type Key,
-  lerp,
   MOUND,
   P,
   PITCHER_COLOR,
@@ -48,20 +43,23 @@ import {
   WINDUP_MS,
   batAngleFor,
 } from './BaseballBatScreen';
+import { COUNT_MS, COUNT_STEP, Countdown, feelLine, pitchPoint, TapMark, tapToZone, zoneBox, zonePoint } from '../components/baseballSwing';
 
 // The Hound Home Run Derby (0211), at the plate. Baseball batting's view
 // (0207): the ballpark from behind home plate, facing the mound, every
 // point through project(). Every pitch is a meatball from the batting
-// practice pitcher; the timing bar runs EARLY → LATE and crosses the
-// middle the moment the ball reaches the plate. Swing! sends how early or
-// late you were (no swing is a take: an out), and the server decides the
-// distance: your timing, your steps today and a strength workout. Over
+// practice pitcher, crossing somewhere near the middle (0231). The same
+// swing as an at-bat (mockup claude.ai/artifact/HGso1dZWWMbsHBxMMfSxP5):
+// Pitch, a quick 3-2-1, then tap where the ball crosses as it gets there.
+// Where you tap and when go to the server (no swing is a take: an out),
+// and it decides the distance: how close you were in both, your steps
+// today and a strength workout. Over
 // the wall is a home run, 475+ ft a Moonshot (counts as 2), a golden ball
 // doubles it, and the sponsor's sign on the center-field wall pays Bones.
 //
 // The ballpark never scrolls away (Steve's ask, as H-O-R-S-E): only the
-// message and today's swings under it scroll; the bar and the button stay
-// pinned at the bottom.
+// message and today's swings under it scroll; the button stays pinned at
+// the bottom.
 
 type Phase = 'ready' | 'waiting' | 'pitch' | 'result';
 
@@ -176,9 +174,9 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
   const [msg, setMsg] = useState('');
   const [banner, setBanner] = useState<{ text: string; tone: 'gold' | 'good' | 'out' } | null>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
-  const [pitch, setPitch] = useState<{ p: DerbyPitch; startAt: number; releaseAt: number; arriveAt: number } | null>(null);
+  const [pitch, setPitch] = useState<{ p: DerbyPitch; countEnd: number; releaseAt: number; arriveAt: number } | null>(null);
   const [swingAt, setSwingAt] = useState<number | null>(null);
-  const [lastMark, setLastMark] = useState<number | null>(null);
+  const [tap, setTap] = useState<{ x: number; y: number } | null>(null);
   const [after, setAfter] = useState<{ keys: Key[]; startAt: number; landAt: number; catcher: 'lf' | 'cf' | 'rf' | null; golden: boolean } | null>(null);
   const [signLit, setSignLit] = useState(false);
   const [mine, setMine] = useState<DerbySwingRow[]>([]);
@@ -227,7 +225,6 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
 
   const v = useMemo(() => (size.w > 0 ? view(size.w, size.h) : null), [size.w, size.h]);
   const factor = live?.factor ?? 1;
-  const bands: DerbyBands = pitch?.p.bands ?? live?.bands ?? bandsFor(factor);
   const signName = live?.sponsor?.name ?? sponsor?.name ?? null;
   const signColor = sponsorColor(sponsor);
 
@@ -235,7 +232,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
     if (!live || msg) return;
     const extra = live.power.stepsFt + live.power.workoutFt;
     setMsg(
-      `Every pitch is a meatball: it’s a derby. Tap Pitch, then Swing! as it crosses the plate. Barrel it and it’s gone.${
+      `Every pitch is a meatball: it’s a derby. Tap Pitch, then tap the ball where it crosses the plate, as it gets there. Right on it and right on time and it’s gone.${
         extra > 0 ? ` Your steps and workouts add ${extra} feet today.` : ''
       }`,
     );
@@ -248,6 +245,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
     const batter = P(v, { x: HOME.x - 38, y: HOME.y + 2 });
     const zone = { x: home.x, y: home.y - HS * home.s * 0.5, d: 22 };
     const hand = { x: mound.x + FW * 0.25 * mound.s, y: mound.y - FH * 0.78 * mound.s, d: 12 * mound.s };
+    const zb = zoneBox(zone, home.s, HS);
     const c = P(v, onFence(0.5));
     const signW = Math.min(190, v.w * 0.44);
     const signH = Math.max(16, signW * 0.16);
@@ -256,11 +254,11 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
       const q = P(v, onFence(m.t));
       return { ft: m.ft, x: q.x, y: q.y - WALL_H * q.s };
     });
-    return { home, mound, batter, zone, hand, sign, markers };
+    return { home, mound, batter, zone, hand, zb, sign, markers };
   }, [v]);
 
   const finish = (s: DerbySwing) => {
-    setMsg(s.message);
+    setMsg(s.message + feelLine(s.timing, s.miss));
     setLive((l) =>
       l
         ? {
@@ -274,14 +272,15 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
     setMine((m) => [{ n: Date.now(), day: null, golden: s.golden, result: s.result, ft: s.ft, moonshot: s.moonshot, sign: s.sign, counts: s.counts }, ...m].slice(0, 8));
   };
 
-  const send = async (timing: number | null, p: NonNullable<typeof pitch>) => {
+  const send = async (timing: number | null, at0: { x: number; y: number } | null, p: NonNullable<typeof pitch>) => {
     if (sent.current || !v || !spots) return;
     sent.current = true;
     setPhase('waiting');
     try {
-      const s = await swingDerby(challengeId, timing);
+      const s = await swingDerby(challengeId, timing, at0);
       const start = Math.max(Date.now(), p.arriveAt);
-      const a = afterKeys(v, spots.zone, s, spots.sign);
+      const cross = zonePoint(spots.zb, p.p.px, p.p.py);
+      const a = afterKeys(v, { x: cross.x, y: cross.y, d: spots.zone.d }, s, spots.sign);
       setAfter({ keys: a.keys, startAt: start, landAt: a.landAt, catcher: a.catcher, golden: p.p.golden });
       setPhase('result');
       const total = a.keys[a.keys.length - 1].t;
@@ -297,6 +296,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
           setPitch(null);
           setAfter(null);
           setSwingAt(null);
+          setTap(null);
           setSignLit(false);
           setPhase('ready');
           getDerbyLive(challengeId)
@@ -321,10 +321,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
   // No swing by the time the ball's past you: a take, an out.
   useEffect(() => {
     if (phase !== 'pitch' || !pitch || swingAt != null || sent.current) return;
-    if (now > pitch.arriveAt + TAKE_MS) {
-      setLastMark(null);
-      send(null, pitch);
-    }
+    if (now > pitch.arriveAt + TAKE_MS) send(null, null, pitch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [now, phase, pitch, swingAt]);
 
@@ -335,7 +332,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
     if (phase === 'ready') {
       if (!canPitch) return;
       setBanner(null);
-      setLastMark(null);
+      setTap(null);
       setSwingAt(null);
       setAfter(null);
       setPhase('waiting');
@@ -343,10 +340,11 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
         const p = await throwDerbyPitch(challengeId, factor);
         const t = Date.now();
         sent.current = false;
-        setPitch({ p, startAt: t, releaseAt: t + WINDUP_MS, arriveAt: t + WINDUP_MS + p.ms });
+        const countEnd = t + COUNT_MS;
+        setPitch({ p, countEnd, releaseAt: countEnd + WINDUP_MS, arriveAt: countEnd + WINDUP_MS + p.ms });
         setNow(t);
         setPhase('pitch');
-        setMsg(p.golden ? 'A golden ball! Hit it out and it counts double.' : 'Here it comes…');
+        setMsg(p.golden ? 'A golden ball! Hit it out and it counts double.' : 'Eyes up: here it comes…');
         if (p.golden) buzz('light');
       } catch (e) {
         setPhase('ready');
@@ -355,14 +353,17 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
       }
       return;
     }
-    if (phase !== 'pitch' || !pitch || swingAt != null || sent.current) return;
+  };
+
+  // The swing is a tap on the field, counted when the finger lands.
+  const swingAtPoint = (x: number, y: number) => {
+    if (phase !== 'pitch' || !pitch || swingAt != null || sent.current || !spots) return;
     const t = Date.now();
     if (t < pitch.releaseAt) return;
-    const timing = t - pitch.arriveAt;
     setSwingAt(t);
-    setLastMark(clamp(0.5 + timing / BAR_MS, 0.02, 0.98));
+    setTap({ x, y });
     buzz('light');
-    send(timing, pitch);
+    send(t - pitch.arriveAt, tapToZone(spots.zb, x, y), pitch);
   };
 
   if (!live) {
@@ -379,25 +380,25 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
   }
 
   // ── This frame ──
-  const winding = phase === 'pitch' && pitch != null && now < pitch.releaseAt;
+  const counting = phase === 'pitch' && pitch != null && now < pitch.countEnd;
+  const winding = phase === 'pitch' && pitch != null && now >= pitch.countEnd && now < pitch.releaseAt;
   const golden = !!pitch?.p.golden && (phase !== 'ready' || !!after);
   let ball: { x: number; y: number; d: number } | null = null;
   if (spots && pitch && !after && now >= pitch.releaseAt) {
-    const k = Math.min(1.15, (now - pitch.releaseAt) / pitch.p.ms);
-    ball = { x: lerp(spots.hand.x, spots.zone.x, k), y: lerp(spots.hand.y, spots.zone.y, k), d: lerp(spots.hand.d, spots.zone.d, Math.min(1, k)) };
+    ball = pitchPoint(spots.hand, spots.zb, { kind: 'fastball', px: pitch.p.px, py: pitch.p.py }, spots.zone.d, Math.min(1.15, (now - pitch.releaseAt) / pitch.p.ms));
   } else if (after) {
     const k = at(after.keys, now - after.startAt);
     ball = { x: k.x, y: k.y, d: k.d };
   }
   const caught = !!after?.catcher && now - after.startAt >= after.landAt - 120 ? after.catcher : null;
   const batAngle = batAngleFor(swingAt, now);
-  const liveMark = phase === 'pitch' && pitch && swingAt == null && !sent.current && now >= pitch.releaseAt;
-  const mark = liveMark && pitch ? clamp(0.5 + (now - pitch.arriveAt) / BAR_MS, 0.02, 0.98) : lastMark;
 
   const busy = phase === 'waiting' || phase === 'result';
   const actLabel =
     phase === 'pitch'
-      ? 'Swing!'
+      ? counting
+        ? 'Eyes on the plate…'
+        : 'Tap where it crosses'
       : busy
         ? '…'
         : canPitch
@@ -405,7 +406,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
             ? 'Next pitch'
             : 'Pitch'
           : live.reason || (live.nextSwingAt != null ? `No swings ready: your next comes at ${live.nextSwingAt.toLocaleString()} steps` : 'That’s 20 swings today. Back tomorrow.');
-  const actOn = phase === 'pitch' || (phase === 'ready' && canPitch);
+  const actOn = phase === 'ready' && canPitch;
   const leftChip = golden
     ? '★ Golden ball · worth 2'
     : pitch && phase !== 'ready'
@@ -416,10 +417,6 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
       ? [live.power.stepsFt > 0 ? `+${live.power.stepsFt} ft steps` : null, live.power.workoutFt > 0 ? `+${live.power.workoutFt} ft workout` : null].filter(Boolean).join(' · ')
       : null;
 
-  const share = (ms: number) => clamp(ms / BAR_MS, 0, 0.5);
-  const band = (ms: number, color: string) => (
-    <View style={[styles.band, { backgroundColor: color, left: `${(0.5 - share(ms)) * 100}%`, width: `${2 * share(ms) * 100}%` }]} />
-  );
   const swings = mine.length ? [...mine, ...live.recent].slice(0, 8) : live.recent;
 
   return (
@@ -501,10 +498,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
               <Figure x={spots.mound.x} y={spots.mound.y} s={spots.mound.s} color="#7fb3dd" pose={winding ? 'windup' : pitch && phase === 'pitch' ? 'thrown' : 'set'} />
               <View
                 pointerEvents="none"
-                style={[
-                  styles.zone,
-                  { left: spots.zone.x - HS * spots.home.s * 0.2, top: spots.zone.y - HS * spots.home.s * 0.22, width: HS * spots.home.s * 0.4, height: HS * spots.home.s * 0.44 },
-                ]}
+                style={[styles.zone, { left: spots.zb.x - spots.zb.hw, top: spots.zb.y - spots.zb.hh, width: spots.zb.hw * 2, height: spots.zb.hh * 2 }]}
               />
               <Batter x={spots.batter.x} y={spots.batter.y} s={spots.batter.s} look={look} angle={batAngle} />
               {ball && (
@@ -512,8 +506,18 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
                   {golden ? <GoldenBall size={Math.max(4, ball.d)} /> : <BaseballBall size={Math.max(4, ball.d)} />}
                 </View>
               )}
+              {tap && swingAt != null && now - swingAt < 900 && <TapMark x={tap.x} y={tap.y} />}
             </>
           )}
+          {/* The swing: tap where the ball crosses, counted when the finger lands. */}
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPressIn={(e) => swingAtPoint(e.nativeEvent.locationX, e.nativeEvent.locationY)}
+            disabled={phase !== 'pitch'}
+            accessibilityRole="button"
+            accessibilityLabel="Swing: tap where the ball crosses the plate"
+          />
+          {counting && pitch && <Countdown n={Math.max(1, Math.ceil((pitch.countEnd - now) / COUNT_STEP))} color={GOLD} />}
           <Text style={[styles.chip, { left: 10 }, golden && { color: GOLD }]}>{leftChip}</Text>
           {powerChip && <Text style={[styles.chip, { right: 10, color: ME_COLOR }]}>{powerChip}</Text>}
           {banner && (
@@ -555,27 +559,13 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
       </ScrollView>
 
       <View style={styles.pinned}>
-        <View style={styles.meter} accessibilityLabel={`Timing: on time is the middle; contact within ${Math.round(bands.b70)} milliseconds`}>
-          <View style={[styles.band, { backgroundColor: '#e5484d', left: 0, width: '100%' }]} />
-          {band(bands.warning, '#c97a3a')}
-          {band(bands.b70, '#e0a94f')}
-          {band(bands.b45, '#bfe8cb')}
-          {band(bands.b30, '#7fd39b')}
-          {band(bands.b20, '#4fc48c')}
-          {band(bands.b10, '#2f9e6b')}
-          <Text style={[styles.meterWord, { left: 10 }]}>EARLY</Text>
-          <Text style={[styles.meterWord, { right: 10 }]}>LATE</Text>
-          {mark != null && <View style={[styles.markerBar, { left: `${mark * 100}%` }, !liveMark && { borderColor: ME_COLOR }]} />}
-        </View>
-        {/* A timing tap counts when the finger lands, not when it lifts: a tap is about a tenth of a second, and the marker crosses a third of the bar in that time near the middle (Steve, Nov 2026: every Hoops shot came up long). */}
         <Pressable
-          onPressIn={phase === 'pitch' ? act : undefined}
-          onPress={phase === 'pitch' ? undefined : act}
+          onPress={act}
           disabled={!actOn}
-          style={[styles.act, actOn ? { backgroundColor: phase === 'pitch' ? '#f08a24' : colors.green } : styles.actOff]}
+          style={[styles.act, actOn ? { backgroundColor: colors.green } : phase === 'pitch' ? { backgroundColor: '#2a2c38' } : styles.actOff]}
           accessibilityRole="button"
         >
-          <Text style={[styles.actText, !actOn && { color: withAlpha(colors.text, 0.6), fontSize: 14 }]}>{actLabel}</Text>
+          <Text style={[styles.actText, !actOn && { color: phase === 'pitch' ? ME_COLOR : withAlpha(colors.text, 0.6), fontSize: 14 }]}>{actLabel}</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -662,10 +652,6 @@ function makeStyles(colors: Palette) {
     pillHit: { color: ME_COLOR, backgroundColor: withAlpha(ME_COLOR, 0.16) },
     pillGold: { color: '#161826', backgroundColor: GOLD },
     pinned: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, gap: 8 },
-    meter: { height: 32, borderRadius: 16, overflow: 'hidden', position: 'relative' },
-    band: { position: 'absolute', top: 0, bottom: 0 },
-    meterWord: { position: 'absolute', top: 8, fontSize: 11, fontFamily: font.headingSemibold, color: '#161826' },
-    markerBar: { position: 'absolute', top: 0, bottom: 0, width: 6, marginLeft: -3, borderRadius: 3, backgroundColor: '#161826', borderWidth: 2, borderColor: '#ffffff' },
     act: { minHeight: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
     actOff: { backgroundColor: withAlpha(colors.text, 0.1) },
     actText: { fontFamily: font.headingSemibold, fontSize: 17, color: '#161826', textAlign: 'center' },
