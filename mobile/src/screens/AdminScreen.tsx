@@ -26,6 +26,8 @@ import { useLabels } from '../labels/LabelsContext';
 import { getHuntLabels, setHuntLabels } from '../labels/supabaseLabels';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 import { StepStoryAdminCard } from '../components/StepStoryAdminCard';
+import { CricketAdminCard } from '../components/CricketAdminCard';
+import { cricketSummary, getCricketOverview } from '../challenges/cricketApi';
 import { getStepStoryOverview, stepStorySummary } from '../challenges/stepStoryApi';
 import { getTotalUserCount, searchUsers, USER_PAGE, type AdminUserSummary } from '../admin/adminApi';
 import { getAppBanner, setAppBanner, type AppBanner } from '../banner/supabaseBanner';
@@ -256,6 +258,7 @@ export function AdminScreen({
   const [healthZeroLine, setHealthZeroLine] = useState<string | null>(null);
   const [autoJoinLine, setAutoJoinLine] = useState<string | null>(null);
   const [stepStoryLine, setStepStoryLine] = useState<string | null>(null);
+  const [cricketLine, setCricketLine] = useState<string | null>(null);
   const [doorsSummary, setDoorsSummary] = useState<string | null>(null);
   const [packsSummary, setPacksSummary] = useState<string | null>(null);
   // The Shop fold's line: this month's packs and buyers (0156).
@@ -364,6 +367,9 @@ export function AdminScreen({
         .catch(() => {});
       getStepStoryOverview()
         .then((o) => setStepStoryLine(stepStorySummary(o)))
+        .catch(() => {});
+      getCricketOverview()
+        .then((o) => setCricketLine(cricketSummary(o)))
         .catch(() => {});
       getBaseballOverview()
         .then((b) =>
@@ -971,6 +977,9 @@ export function AdminScreen({
                   <>
                   <AdminFold title="Challenges" summary={challengesSummary ?? 'What’s running, by game'}>
                     <ChallengesAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Cricket" summary={cricketLine ?? 'Matches, and balls batted and bowled by hand'}>
+                    <CricketAdminCard onChanged={(o) => setCricketLine(cricketSummary(o))} />
                   </AdminFold>
                   <AdminFold title="Step challenges" summary={stepStoryLine ?? 'The race, rivals, bounties and the finish'}>
                     <StepStoryAdminCard onChanged={(o) => setStepStoryLine(stepStorySummary(o))} />

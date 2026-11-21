@@ -31,6 +31,7 @@ import { PackFunScreen } from '../packFun/PackFunScreen';
 import { GolfPlayScreen } from '../screens/GolfPlayScreen';
 import { HoopsShootScreen } from '../screens/HoopsShootScreen';
 import { BaseballBatScreen } from '../screens/BaseballBatScreen';
+import { CricketPlayScreen } from '../screens/CricketPlayScreen';
 import { HorseShootScreen } from '../screens/HorseShootScreen';
 import { DerbyBatScreen } from '../screens/DerbyBatScreen';
 import { ShootoutKickScreen } from '../screens/ShootoutKickScreen';
@@ -289,6 +290,7 @@ export function RootNavigator() {
                   onPlayGolf={() => navigation.navigate('GolfPlay', { challengeId: route.params.challengeId })}
                   onShootHoops={() => navigation.navigate('HoopsShoot', { challengeId: route.params.challengeId })}
                   onBatBaseball={() => navigation.navigate('BaseballBat', { challengeId: route.params.challengeId })}
+                  onPlayCricket={() => navigation.navigate('CricketPlay', { challengeId: route.params.challengeId })}
                   onShootHorse={() => navigation.navigate('HorseShoot', { challengeId: route.params.challengeId })}
                   onBatDerby={() => navigation.navigate('DerbyBat', { challengeId: route.params.challengeId })}
                   onKickShootout={() => navigation.navigate('ShootoutKick', { challengeId: route.params.challengeId })}
@@ -548,6 +550,18 @@ export function RootNavigator() {
               {/* Baseball: take your own at-bats, from the challenge's card. */}
               {({ navigation, route }) => (
                 <BaseballBatScreen
+                  key={route.params.challengeId}
+                  challengeId={route.params.challengeId}
+                  onBack={() =>
+                    navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ChallengeDetail', { challengeId: route.params.challengeId })
+                  }
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="CricketPlay" options={{ animation: 'slide_from_right', gestureEnabled: false }}>
+              {/* Cricket: bat and bowl yourself (0234), from the challenge's card. */}
+              {({ navigation, route }) => (
+                <CricketPlayScreen
                   key={route.params.challengeId}
                   challengeId={route.params.challengeId}
                   onBack={() =>

@@ -219,6 +219,19 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'cricket',
+      section: 'challenges',
+      title: 'Cricket: bat and bowl yourself',
+      summary: 'One over a day, and playing your own balls.',
+      steps: [
+        'Limited overs, one over a day, played that night: each ball is the batter’s steps against the bowler’s. Out-walk the bowler for boundaries; fall behind and wickets fall.',
+        'Bat and bowl yourself (on for new matches; Create’s “Bat and bowl yourself”): every 1,000 steps readies a ball, up to the six in the day’s over. Tap the button on the match’s card when they’re ready.',
+        'Batting: tap Bowl it, look up for the 3-2-1, and watch where it pitches. Tap the ball as it reaches the bat. Right on it and on time goes for four, or six off a short or full one; a bit off is one or two, and a weak one can be caught. Early plays it to the leg side, late through the off side; further off it takes the edge (sometimes caught behind), and way off you’re beaten. Don’t tap and you leave it: fine outside off, bowled if it’s on the stumps. A yorker is the hardest to get away.',
+        'Bowling (the day you have the ball): pick Pace, Spin or a Yorker, tap your spot on the pitch, and a ring closes on it: let it go as it meets the gold circle. Right on it lands on your spot; off and it drifts, often short. A good length on the stumps is mostly dots and can bowl them; short can go for six.',
+        'Steps still matter: the more your opponent has out-walked you today, the tougher it is. Tonight’s over uses the batter’s balls first, then the bowler’s, and rolls the rest. The over says “by hand” on balls you played.',
+      ],
+    },
+    {
       id: 'hoops',
       section: 'challenges',
       title: 'Hoops: shots, matchups and defense',

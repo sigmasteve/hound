@@ -125,6 +125,7 @@ import { SoccerPitch, SoccerScore } from '../components/SoccerCard';
 import { advanceCricket, battingNow, cricketTeamOf, getCricketGame, getCricketOnStrike, otherSide, type CricketGame, type CricketOnStrike } from '../challenges/cricketApi';
 import { CricketGround, CricketScore, cricketResultLine } from '../components/CricketCard';
 import { oversLabel } from '../challenges/cricket';
+import { getCricketHand, type CricketHand } from '../challenges/cricketApi';
 import { advanceBaseball, awayTeam, getBaseballGame, getBaseballLive, listBaseballInnings, type BaseballGame, type BaseballInning, type BaseballLive } from '../challenges/baseballApi';
 import { derbyPos, getDerbyBoard, getDerbyLive, type DerbyBoard, type DerbyLive } from '../challenges/derbyApi';
 import { DerbyLongBalls } from '../components/DerbyLongBalls';
@@ -2196,6 +2197,13 @@ export function HomeScreen({
       const activeResults = results.filter((r) => !r.finished);
       if (user?.id) {
         const myId = user.id;
+        // Cricket (0234): balls ready to bat or bowl by hand (fails
+        // toward nothing waiting).
+        const cricketEntriesP = Promise.all(
+          activeResults
+            .filter((r) => r.challenge.kind === 'cricket')
+            .map(async (r): Promise<readonly [string, CricketHand | null]> => [r.challenge.id, await getCricketHand(r.challenge.id).catch(() => null)]),
+        );
         const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries, hoopsEntries, horseEntries, golfEntries, baseballEntries, derbyEntries, shootoutEntries, boutEntries] = await Promise.all([
           Promise.all(
             activeResults
@@ -2323,6 +2331,7 @@ export function HomeScreen({
               ]),
           ),
         ]);
+        const cricketEntries = await cricketEntriesP;
         const packMap = new Map(packEntries.filter((e): e is readonly [string, PackWarsGame] => e[1] !== null));
         const doorsMap = new Map(doorsEntries.filter((e): e is readonly [string, DoorsGame] => e[1] !== null));
         if (!cancelled) {
@@ -2342,6 +2351,11 @@ export function HomeScreen({
             hoopsShotsReady: new Map(
               hoopsEntries.flatMap(([id, g]) =>
                 g && g.handsOn && g.live && g.live.canShoot && g.live.ready > 0 ? [[id, g.live.ready] as const] : [],
+              ),
+            ),
+            cricketBallsReady: new Map(
+              cricketEntries.flatMap(([id, h]) =>
+                h && h.handsOn && h.role && h.canPlay && (h.ready > 0 || h.pending) ? [[id, { n: Math.max(1, h.ready), role: h.role }] as const] : [],
               ),
             ),
             baseballAtBatsReady: new Map(

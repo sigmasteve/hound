@@ -19,6 +19,7 @@ export const ACTION_VERB: Record<PendingActionKind, string> = {
   hoopsPick: 'Pick',
   hoopsShoot: 'Shoot',
   baseballBat: 'Bat',
+  cricketPlay: 'Play',
   derbySwing: 'Swing',
   shootoutKick: 'Kick',
   boutIncoming: 'Slip',
@@ -75,6 +76,8 @@ export function actionRoute(a: PendingAction): ActionRoute {
       return ['HoopsShoot', { challengeId: c }];
     case 'baseballBat':
       return ['BaseballBat', { challengeId: c }];
+    case 'cricketPlay':
+      return ['CricketPlay', { challengeId: c }];
     case 'derbySwing':
       return ['DerbyBat', { challengeId: c }];
     case 'shootoutKick':
