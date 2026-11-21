@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { BellRingingIcon, CaretRightIcon } from 'phosphor-react-native';
+import { BellRingingIcon, BellSlashIcon, CaretRightIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
@@ -24,6 +24,7 @@ export function NeedsYouWideTile({
   more,
   onAct,
   onOpen,
+  onMute,
 }: {
   // Everything waiting, for the badge.
   count: number;
@@ -36,12 +37,33 @@ export function NeedsYouWideTile({
   more: string | null;
   onAct: (a: PendingAction) => void;
   onOpen: () => void;
+  // Mute it for a while (Steve, Nov 2026): the tile shrinks to the small one.
+  onMute?: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.ring}>
-      <Tile label="Needs you" badge={count} wide onPress={onOpen} accessibilityLabel={`Needs you, ${count} waiting. Open`}>
+      <Tile
+        label="Needs you"
+        badge={count}
+        wide
+        onPress={onOpen}
+        accessibilityLabel={`Needs you, ${count} waiting. Open`}
+        accessory={
+          onMute ? (
+            <Pressable
+              onPress={onMute}
+              hitSlop={10}
+              style={({ pressed }) => [styles.mute, pressed && { opacity: 0.6 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Mute Needs you for a while"
+            >
+              <BellSlashIcon size={18} color={withAlpha(colors.text, 0.55)} />
+            </Pressable>
+          ) : undefined
+        }
+      >
         {actions.map((a, i) => {
           const Icon = (a.challengeKind && CHALLENGE_KIND_ICON[a.challengeKind]) || DEFAULT_CHALLENGE_ICON;
           return (
@@ -94,6 +116,7 @@ export function NeedsYouWideTile({
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    mute: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: withAlpha(colors.text, 0.06) },
     ring: { borderRadius: 19.5, borderWidth: 1.5, borderColor: withAlpha('#f0a35a', 0.45) },
     row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: withAlpha(colors.text, 0.14) },

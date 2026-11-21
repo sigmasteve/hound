@@ -213,11 +213,15 @@ Inside the scroll, in order:
      pinned challenge first among equals; then "+N more: ..." for the
      rest (invites, friend requests, Bone Dig...), which opens the sheet.
      With nothing waiting it's a small "All caught up" tile in the pairs
-     below.
+     below. Its bell-off button mutes it for 2 hours, 4 hours, half a day
+     or till morning (Steve, Nov 2026; this phone only, `home/needsYouMute.ts`,
+     logged for Admin by 0240): while muted it's the small tile ("Muted",
+     how many are waiting, when it's back) and the sheet has Unmute.
+     Pushes aren't muted.
    - Then two to a row, an odd last one spanning the row as a slim
      strip (its number with its lines beside it, not a half tile's
      height stretched across; Steve, Nov 2026): your hound
-     (when the Kennel has loaded), Needs you (only when caught up), Your
+     (when the Kennel has loaded), Needs you (only when caught up or muted), Your
      challenges, and either Week in review (Monday to Wednesday) or
      today's Step rank (the rest of the week).
    - Journey, full width, when you're on one.
