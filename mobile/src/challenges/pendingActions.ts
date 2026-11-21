@@ -16,6 +16,7 @@ export type PendingActionKind =
   | 'hoopsPick'
   | 'hoopsShoot'
   | 'baseballBat'
+  | 'cricketPlay'
   | 'derbySwing'
   | 'shootoutKick'
   | 'boutIncoming'
@@ -104,6 +105,8 @@ export interface PendingActionsInput {
   hoopsShotsReady?: Map<string, number>;
   // Baseball (0207): at-bats ready to take in a hands-on game.
   baseballAtBatsReady?: Map<string, number>;
+  // Cricket (0234): balls ready to bat or bowl by hand.
+  cricketBallsReady?: Map<string, { n: number; role: 'bat' | 'bowl' }>;
   // The Home Run Derby (0211): swings ready to take, for a derby you've
   // joined.
   derbySwingsReady?: Map<string, number>;
@@ -145,6 +148,7 @@ export function computePendingActions({
   hoopsUnpicked = new Set(),
   hoopsShotsReady = new Map(),
   baseballAtBatsReady = new Map(),
+  cricketBallsReady = new Map(),
   derbySwingsReady = new Map(),
   shootoutKicksReady = new Map(),
   boutReady = new Map(),
@@ -255,6 +259,16 @@ export function computePendingActions({
           challengeName: c.name,
           kind: 'baseballBat',
           label: `${ready} ${ready === 1 ? 'at-bat' : 'at-bats'} ready in ${c.name}`,
+        });
+      }
+    } else if (c.kind === 'cricket') {
+      const r = cricketBallsReady.get(c.id);
+      if (r && r.n > 0) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'cricketPlay',
+          label: r.role === 'bowl' ? `Your over to bowl in ${c.name}` : `${r.n} ${r.n === 1 ? 'ball' : 'balls'} to bat in ${c.name}`,
         });
       }
     } else if (c.kind === 'derby') {

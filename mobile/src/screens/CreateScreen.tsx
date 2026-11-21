@@ -78,7 +78,7 @@ import {
 } from '../challenges/soccer';
 import { setupSoccer, type SoccerSeat } from '../challenges/soccerApi';
 import { CRICKET_MAX_SIDE, DEFAULT_CRICKET_DAYS, oversPerInnings } from '../challenges/cricket';
-import { setupCricket, type CricketSeat } from '../challenges/cricketApi';
+import { setCricketHandsOn, setupCricket, type CricketSeat } from '../challenges/cricketApi';
 import { BASEBALL_INNINGS, BASEBALL_MAX_SIDE, DEFAULT_BASEBALL_INNINGS, POSITION_SHORT, positionsFor } from '../challenges/baseball';
 import { setupBaseball, type BaseballSeat } from '../challenges/baseballApi';
 import { DEFAULT_HOOPS_SHOT_STEPS, HOOPS_MAX_SIDE, HOOPS_SHOT_OPTIONS, HORSE_DAYS, HORSE_LENGTHS, HORSE_SHOTS, HORSE_WORDS, spelled, type HorseWord } from '../challenges/hoops';
@@ -297,6 +297,7 @@ export function CreateScreen({
   // 0207: Baseball, take your own at-bats during the day (off: walks bat
   // for you overnight).
   const [baseballHandsOn, setBaseballHandsOn] = useState(true);
+  const [cricketHandsOn, setCricketHandsOnPick] = useState(true);
   // 0233: a Most steps challenge's extras.
   const [stepRivals, setStepRivals] = useState(true);
   const [stepBounties, setStepBounties] = useState(true);
@@ -1307,6 +1308,8 @@ export function CreateScreen({
             ...invited.map((id) => ({ id: resolve(id), team: soccerSeats.get(id)?.team ?? ('b' as const) })),
           ];
           await setupCricket(created.id, seats);
+          // 0234: bat and bowl yourself; an older server just plays itself.
+          if (cricketHandsOn) await setCricketHandsOn(created.id, true).catch(() => {});
         } catch (e) {
           // A match with no sides can't be played — don't leave it behind.
           await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
@@ -2134,6 +2137,17 @@ export function CreateScreen({
                 fall. A side is all out after as many wickets as it has players, at least three. Then the other side
                 chases the total.
               </Text>
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.friendName}>Bat and bowl yourself</Text>
+                  <Text style={styles.footNote}>
+                    {cricketHandsOn
+                      ? 'Your steps earn balls (one every 1,000, up to an over a day): bat by tapping the ball as it reaches you, or bowl your over by picking where it pitches. Tonight’s over uses them; the rest play for you.'
+                      : 'Off: every ball plays itself overnight.'}
+                  </Text>
+                </View>
+                <Switch value={cricketHandsOn} onValueChange={setCricketHandsOnPick} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+              </View>
             </View>
           )}
 

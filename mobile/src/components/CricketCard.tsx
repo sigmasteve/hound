@@ -20,8 +20,10 @@ import {
   type CricketOnStrike,
   type CricketPlayer,
   type CricketTeam,
+  type CricketHand,
 } from '../challenges/cricketApi';
 import { GameDayLine, SportBadge, SportBonusRow, useGameDayIds } from './SportBonusRow';
+import { usePinnedAction } from './PinnedAction';
 
 // Whoever's on the ground: the fields Participant and BoardEntry both
 // carry, so the detail screen and Home can each hand over what they have.
@@ -351,6 +353,8 @@ export function CricketCard({
   participants,
   userId,
   stepsToday,
+  hand = null,
+  onPlay,
 }: {
   game: CricketGame | null;
   onStrike: CricketOnStrike | null;
@@ -359,6 +363,9 @@ export function CricketCard({
   userId: string | undefined;
   // The viewer's steps so far today, from the phone; null while loading.
   stepsToday: number | null;
+  // Bat and bowl yourself (0234): today's balls by hand, and the screen.
+  hand?: CricketHand | null;
+  onPlay?: () => void;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -366,6 +373,11 @@ export function CricketCard({
   const [allOvers, setAllOvers] = useState(false);
   // Who's played real cricket today (0198), for the ground's badges.
   const gameDayIds = useGameDayIds(game?.challengeId, null);
+  // Balls ready to play by hand: pinned to the bottom of the page
+  // (PinnedAction.tsx).
+  const handReady = !!hand && hand.handsOn && !!hand.role && hand.canPlay && (hand.ready > 0 || !!hand.pending) && !!onPlay;
+  const handLabel = hand?.role === 'bowl' ? `Bowl your over · ${hand.ready} ready` : `Bat · ${hand?.ready ?? 0} ${hand?.ready === 1 ? 'ball' : 'balls'} ready`;
+  const handPinned = usePinnedAction(handReady ? { label: handLabel, onPress: () => onPlay?.() } : null);
 
   if (!game) {
     return (
@@ -444,6 +456,23 @@ export function CricketCard({
       {game.status === 'active' && (iBat || iBowl || game.players.some((p) => p.playerId === userId)) && (
         <SportBonusRow challengeId={game.challengeId} kind="cricket" userId={userId} />
       )}
+      {/* Bat and bowl yourself (0234). */}
+      {game.status === 'active' && hand?.handsOn && hand.role && (
+        <View style={{ gap: 6 }}>
+          {!handPinned && (
+            <Pressable onPress={onPlay} style={[styles.play, handReady ? { backgroundColor: colors.green } : styles.playOff]} accessibilityRole="button">
+              <Text style={[styles.playText, !handReady && { color: colors.text }]}>{handReady ? handLabel : hand.role === 'bowl' ? 'Bowl your over' : 'Bat'}</Text>
+            </Pressable>
+          )}
+          <Text style={styles.note}>
+            {hand.role === 'bowl'
+              ? `You bowl today’s over: pick the ball and where it pitches.`
+              : `You bat today: tap the ball as it reaches your bat.`}{' '}
+            {hand.balls.length > 0 ? `So far: ${hand.balls.map((b) => ballLabel(b.outcome)).join(' ')}. ` : ''}
+            {hand.canPlay || hand.balls.length > 0 ? 'Tonight’s over uses them; the rest play for you.' : hand.reason}
+          </Text>
+        </View>
+      )}
       {game.status === 'final' && <Text style={styles.result}>{cricketResultLine(game, participants, userId)}</Text>}
 
       {overs.length > 0 && (
@@ -518,6 +547,9 @@ function makeStyles(colors: Palette) {
   return StyleSheet.create({
     meta: { fontSize: 12, color: withAlpha(colors.text, 0.55) },
     note: { fontSize: 12.5, color: withAlpha(colors.text, 0.7), lineHeight: 18 },
+    play: { minHeight: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+    playOff: { backgroundColor: withAlpha(colors.text, 0.08) },
+    playText: { fontFamily: font.headingSemibold, fontSize: 15, color: '#161826' },
     chase: { fontFamily: font.heading, fontSize: 14, color: colors.accentActive },
     result: { fontFamily: font.heading, fontSize: 15, color: colors.text },
     ground: { width: '100%', borderRadius: 12, overflow: 'hidden', backgroundColor: GRASS_OUT },

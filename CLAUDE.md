@@ -139,6 +139,14 @@ replay, the daily rival, bounties, checkpoints, the Blackout and the
 finish) is worked out in the app from daily steps (`stepStory.ts`,
 `StepStoryPanel.tsx`); the Distance pool's trail is `PoolTrail.tsx`.
 
+Cricket by hand (0234, `CricketPlayScreen.tsx`) is seen from behind the
+bowler, facing the batter: the pitch down the middle of its own ground
+(x = 0.5 + line × 0.1, y from the bowler's end to the batter's) through
+`project()`, with the sight screen and the stand behind the batter. It
+reuses Baseball's `Batter` and `Figure`, and the 3-2-1 and tap marks from
+`baseballSwing.tsx`. The match card's ground (`CricketGround`) stays
+behind the batter.
+
 ## Actions are on screen without scrolling
 
 Steve's rule (Nov 2026): every action a user can take is seen when the

@@ -122,6 +122,8 @@ import {
   cricketTeamOf,
   getCricketGame,
   getCricketOnStrike,
+  getCricketHand,
+  type CricketHand,
   listCricketBalls,
   type CricketBall,
   type CricketGame,
@@ -272,6 +274,7 @@ export function ChallengeDetailScreen({
   onPlayGolf,
   onShootHoops,
   onBatBaseball,
+  onPlayCricket,
   onShootHorse,
   onBatDerby,
   onKickShootout,
@@ -284,6 +287,8 @@ export function ChallengeDetailScreen({
   onShootHoops?: () => void;
   // Baseball (hands-on): opens the batting screen.
   onBatBaseball?: () => void;
+  // Cricket (hands-on, 0234): opens the batting / bowling screen.
+  onPlayCricket?: () => void;
   // H-O-R-S-E (hands-on, 0209): opens the shooting screen.
   onShootHorse?: () => void;
   // The Home Run Derby (0211): opens the batting screen.
@@ -541,6 +546,8 @@ export function ChallengeDetailScreen({
   const [titleBout, setTitleBout] = useState<TitleBout | null>(null);
   const [shootoutPrizes, setShootoutPrizes] = useState<ShootoutPrizes | null>(null);
   const [baseballLive, setBaseballLive] = useState<BaseballLive | null>(null);
+  // Cricket (0234): today's balls by hand, for a hands-on match.
+  const [cricketHand, setCricketHand] = useState<CricketHand | null>(null);
   const [baseball, setBaseball] = useState<{ game: BaseballGame | null; innings: BaseballInning[]; plays: BaseballPlay[]; picks: BaseballPicks }>({
     game: null,
     innings: [],
@@ -894,6 +901,7 @@ export function ChallengeDetailScreen({
       setCricketGame(cricketResult);
       setCricketBalls(cricketBallsResult);
       setCricketOnStrike(cricketOnStrikeResult);
+      setCricketHand(needsCricket && cricketResult?.status === 'active' ? await getCricketHand(challengeId).catch(() => null) : null);
       setParticipants(p);
       setLeaderboard(l);
       setBots(b);
@@ -2651,6 +2659,8 @@ export function ChallengeDetailScreen({
               participants={[...participants, ...bots.map(botToParticipant)]}
               userId={user?.id}
               stepsToday={soccerSteps}
+              hand={cricketHand}
+              onPlay={() => onPlayCricket?.()}
             />
           )}
 
