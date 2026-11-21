@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { Card } from './Card';
@@ -7,6 +7,7 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { usePinnedAction } from './PinnedAction';
 import { TEAM_COLOR, ordinal, teamName, winName, type SlotTeam } from '../challenges/slots';
 import { slotsWaiting, type SlotsGame } from '../challenges/slotsApi';
+import { SlotsHowItWorks, SlotsMachinePicture } from './SlotsPromo';
 
 // Paw Slots on the challenge page (0242): the prize pool and what each
 // place (or team) would win, the standings (or the teams and your pack),
@@ -18,6 +19,7 @@ export function SlotsCard({ game, onPlay }: { game: SlotsGame | null; onPlay: ()
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const ready = slotsWaiting(game);
+  const [picW, setPicW] = useState(0);
   const live = !!game && !game.over && game.dayNo >= 1 && game.dayNo <= game.days;
 
   const pinned = usePinnedAction(ready > 0 ? { label: `Play · ${ready} ${ready === 1 ? 'spin' : 'spins'} ready`, onPress: onPlay } : null);
@@ -34,16 +36,23 @@ export function SlotsCard({ game, onPlay }: { game: SlotsGame | null; onPlay: ()
   const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
   const team = game.teams >= 2;
   const p = game.prizes;
+  // Under 11 hounds the server shares the pool among the places there
+  // are; until it's over, show the ladder it's built for.
+  const full = !team && game.players < 11 && !game.over;
+  const places = full ? [30, 18, 12, 4, 4, 4, 4, 4, 4, 4].map((w) => Math.floor((game.pool * w) / 100)) : p.places;
+  const rest = full ? Math.floor((game.pool * 12) / 100) : p.rest;
   const ladder = team
     ? game.teamPrizes.map((b, i) => ({ place: `${ordinal(i + 1).toUpperCase()} TEAM`, bones: b })).filter((x, i) => i < 3 || x.bones > 0)
     : [
-        ...p.places.slice(0, 3).map((b, i) => ({ place: ordinal(i + 1).toUpperCase(), bones: b })),
-        ...(p.places.length > 3 ? [{ place: p.places.length > 4 ? `4TH–${ordinal(p.places.length).toUpperCase()}` : '4TH', bones: p.places[3] }] : []),
+        ...places.slice(0, 3).map((b, i) => ({ place: ordinal(i + 1).toUpperCase(), bones: b })),
+        ...(places.length > 3 ? [{ place: places.length > 4 ? `4TH–${ordinal(places.length).toUpperCase()}` : '4TH', bones: places[3] }] : []),
       ];
   const note = team
     ? `Teams are ranked by Paw Coins per hound, so a small team can win. A team’s Bones are split by what each hound won. Anyone who spins on ${game.settings.finishDays} days gets at least ${p.restMin}.`
-    : p.rest != null
-      ? `${fmt(p.rest)} more shared by everyone else who spins on ${game.settings.finishDays} days (at least ${p.restMin} each). Paw Coins never turn into Bones: only your place counts.`
+    : full
+      ? `With 11 or more hounds, and ${fmt(rest ?? 0)} more shared by everyone else who spins on ${game.settings.finishDays} days. With fewer, the whole pool goes to the places there are. Paw Coins never turn into Bones: only your place counts.`
+      : rest != null
+      ? `${fmt(rest)} more shared by everyone else who spins on ${game.settings.finishDays} days (at least ${p.restMin} each). Paw Coins never turn into Bones: only your place counts.`
       : `Paid by place when it ends. Paw Coins never turn into Bones: only your place counts.`;
 
   return (
@@ -61,6 +70,24 @@ export function SlotsCard({ game, onPlay }: { game: SlotsGame | null; onPlay: ()
           <Text style={styles.small}>{team ? `Paw Coins · ${teamName(game.me.team)}` : `Paw Coins · ${ordinal(game.me.rank)}`}</Text>
         </View>
       </View>
+
+      <Pressable
+        onPress={onPlay}
+        disabled={!(live && game.me.joined)}
+        onLayout={(e) => setPicW(Math.round(e.nativeEvent.layout.width))}
+        style={{ alignItems: 'center' }}
+        accessibilityRole="button"
+        accessibilityLabel="The Paw Slots machine"
+      >
+        {picW > 0 && <SlotsMachinePicture width={Math.min(picW, 420)} />}
+      </Pressable>
+
+      {(game.dayNo < 1 || game.me.presses === 0) && !game.over && (
+        <View style={styles.how}>
+          <Text style={styles.howHead}>{game.dayNo < 1 ? 'How it works, once it starts' : 'How it works'}</Text>
+          <SlotsHowItWorks pool={game.pool} />
+        </View>
+      )}
 
       <View style={styles.prize}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
@@ -83,12 +110,12 @@ export function SlotsCard({ game, onPlay }: { game: SlotsGame | null; onPlay: ()
           <View style={styles.thead}>
             <Text style={[styles.th, { width: 34 }]}>#</Text>
             <Text style={[styles.th, { flex: 1 }]}>HOUND</Text>
-            <Text style={[styles.th, { width: 78, textAlign: 'right' }]}>PAW COINS</Text>
+            <Text style={[styles.th, { width: 78, textAlign: 'right' }]}>COINS</Text>
             <Text style={[styles.th, { width: 56, textAlign: 'right' }]}>BONES</Text>
           </View>
           {game.board.map((r, i) => {
             const gap = i > 0 && r.rank > game.board[i - 1].rank + 1 && game.board[i - 1].rank <= 10;
-            const bones = r.rank <= p.places.length ? fmt(p.places[r.rank - 1]) : p.rest != null ? `${p.restMin}+` : '';
+            const bones = r.rank <= places.length ? fmt(places[r.rank - 1]) : rest != null ? `${p.restMin}+` : '';
             return (
               <React.Fragment key={r.userId}>
                 {gap && <Text style={styles.gap}>…</Text>}
@@ -190,6 +217,8 @@ function makeStyles(colors: Palette) {
     headRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
     small: { fontSize: 12, lineHeight: 17, color: withAlpha(colors.text, 0.65) },
     coins: { fontFamily: font.headingSemibold, fontSize: 20, color: colors.text },
+    how: { borderRadius: 14, padding: 12, gap: 10, backgroundColor: withAlpha(colors.text, 0.04) },
+    howHead: { fontFamily: font.headingSemibold, fontSize: 14.5, color: colors.text },
     prize: { borderRadius: 14, padding: 12, gap: 8, backgroundColor: withAlpha('#f0c24a', 0.12), borderWidth: 1, borderColor: withAlpha('#f0c24a', 0.35) },
     pool: { fontFamily: font.headingSemibold, fontSize: 19, color: '#c99a1a' },
     prizeSub: { fontSize: 12, fontFamily: font.headingSemibold, color: withAlpha(colors.text, 0.7) },
