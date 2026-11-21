@@ -55,17 +55,20 @@ export interface ChessNeeds {
   moveHours: number;
 }
 
-// The four unlock steps, for the chips under the board.
-export function unlockRows(free: string, steps: number, needs: ChessNeeds): { name: string; on: boolean; sub: string }[] {
+// The four unlock steps, for the chips under the board. `free` counts
+// yesterday too (0239); `freeToday` is today alone, so a piece still free
+// from yesterday says so.
+export function unlockRows(free: string, steps: number, needs: ChessNeeds, freeToday: string = free): { name: string; on: boolean; sub: string }[] {
   const left = (n: number) => `${Math.max(0, n - steps).toLocaleString('en-US')} to go`;
+  const on = (l: string, today: string) => (freeToday.includes(l) ? today : 'from yesterday');
   return [
     { name: 'Pawns, king', on: true, sub: 'always' },
-    { name: 'Knights, bishops', on: free.includes('N'), sub: free.includes('N') ? 'free' : left(needs.knightBishop) },
-    { name: 'Rooks', on: free.includes('R'), sub: free.includes('R') ? 'free' : left(needs.rook) },
+    { name: 'Knights, bishops', on: free.includes('N'), sub: free.includes('N') ? on('N', 'free') : left(needs.knightBishop) },
+    { name: 'Rooks', on: free.includes('R'), sub: free.includes('R') ? on('R', 'free') : left(needs.rook) },
     {
       name: 'Queen',
       on: free.includes('Q'),
-      sub: free.includes('Q') ? (steps >= needs.queen ? 'free' : 'free: workout') : `${left(needs.queen)}, or a workout`,
+      sub: free.includes('Q') ? on('Q', steps >= needs.queen ? 'free' : 'free: workout') : `${left(needs.queen)}, or a workout`,
     },
   ];
 }

@@ -43,6 +43,10 @@ export interface ChessGame {
   material: number;
   steps: number;
   workoutMin: number;
+  // 0239: yesterday counts too. What today alone frees, and yesterday's numbers.
+  stepsYesterday: number;
+  workoutMinYesterday: number;
+  freeToday: string;
   free: string;
   allFree: boolean;
   theirSteps: number | null;
@@ -72,6 +76,9 @@ export function toChessGame(d: any): ChessGame {
     material: num(d.material),
     steps: num(d.steps),
     workoutMin: num(d.workoutMin),
+    stepsYesterday: num(d.stepsYesterday),
+    workoutMinYesterday: num(d.workoutMinYesterday),
+    freeToday: d.freeToday ?? d.free ?? 'PK',
     free: d.free ?? 'PK',
     allFree: !!d.allFree,
     theirSteps: d.theirSteps == null ? null : num(d.theirSteps),
@@ -89,9 +96,9 @@ export function toChessGame(d: any): ChessGame {
       auto: !!m.auto,
     })),
     needs: {
-      knightBishop: num(d.needs?.knightBishop) || 3000,
-      rook: num(d.needs?.rook) || 6000,
-      queen: num(d.needs?.queen) || 9000,
+      knightBishop: num(d.needs?.knightBishop) || 2500,
+      rook: num(d.needs?.rook) || 5000,
+      queen: num(d.needs?.queen) || 7500,
       queenWorkout: num(d.needs?.queenWorkout) || 20,
       moveHours: num(d.needs?.moveHours) || 24,
     },

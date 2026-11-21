@@ -505,7 +505,7 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
         : game?.allFree && game.myTurn
           ? `${game.inCheck ? 'You’re in check: ' : 'Nothing free could move: '}every piece is free this move.`
           : lastLine ?? `You’re White. Your steps today free your pieces: walk more and the rest join in.`);
-  const rows = game ? unlockRows(game.free, game.steps, game.needs) : [];
+  const rows = game ? unlockRows(game.free, game.steps, game.needs, game.freeToday) : [];
   const actOn = mode === 'puzzle' ? canAct : !!game?.myTurn;
 
   return (

@@ -2373,8 +2373,9 @@ export function CreateScreen({
                 onChange={(v) => setLength(v)}
               />
               <Text style={styles.huntBlockNote}>
-                Real chess, and you’re White. Your steps today free your pieces: pawns and the king always, knights and bishops at 3,000, rooks at
-                6,000, the queen at 9,000 or after a 20-minute workout. In check, every piece is free. 24 hours a move: run out and Hound moves for
+                Real chess, and you’re White. Your steps free your pieces: pawns and the king always, knights and bishops at 2,500, rooks at
+                5,000, the queen at 7,500 or after a 20-minute workout, on today’s steps or yesterday’s, whichever is more. In check, every
+                piece is free. 24 hours a move: run out and Hound moves for
                 you; miss two in a row and the game’s lost. Still going on the last day? It’s decided on the pieces left. Plus a mate-in-one puzzle
                 every day at 5,000 steps.
               </Text>

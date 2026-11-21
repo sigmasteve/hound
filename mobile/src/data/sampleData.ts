@@ -295,7 +295,7 @@ export const CHALLENGE_TYPES: {
   {
     id: 'chess',
     name: 'Hound Chess',
-    desc: 'Real chess, one on one with a friend or the Hound bot, played with hounds: puppy pawns, leaping knights, doghouse rooks, a crowned queen and king. Your steps today free your pieces: knights and bishops at 3,000, rooks at 6,000, the queen at 9,000 or after a 20-minute workout. In check, everything’s free. 24 hours a move. Plus a mate-in-one puzzle every day once you reach 5,000 steps.',
+    desc: 'Real chess, one on one with a friend or the Hound bot, played with hounds: puppy pawns, leaping knights, doghouse rooks, a crowned queen and king. Your steps free your pieces: knights and bishops at 2,500, rooks at 5,000, the queen at 7,500 or after a 20-minute workout (today’s or yesterday’s, whichever is more). In check, everything’s free. 24 hours a move. Plus a mate-in-one puzzle every day once you reach 5,000 steps.',
     tint: '#3a3226',
     iconColor: '#ecdcb8',
   },
