@@ -220,6 +220,8 @@ import { netWorth as houndopolyNetWorth, type HoundopolyGame } from '../challeng
 import { HoundopolySection } from '../components/HoundopolySection';
 import { DoorsCard } from '../components/DoorsCard';
 import { RouletteCard } from '../components/RouletteCard';
+import { SlotsCard } from '../components/SlotsCard';
+import { getSlots, type SlotsGame } from '../challenges/slotsApi';
 import { ChessCard } from '../components/ChessCard';
 import { getChess, type ChessGame } from '../challenges/chessApi';
 import { getRoulette, type RouletteGame } from '../challenges/rouletteApi';
@@ -280,6 +282,7 @@ export function ChallengeDetailScreen({
   onBatBaseball,
   onPlayCricket,
   onSpinRoulette,
+  onPlaySlots,
   onPlayChess,
   onShootHorse,
   onBatDerby,
@@ -297,6 +300,8 @@ export function ChallengeDetailScreen({
   onPlayCricket?: () => void;
   // Hound Roulette (0236): opens the wheel.
   onSpinRoulette?: () => void;
+  // Paw Slots (0242): opens the machine.
+  onPlaySlots?: () => void;
   // Hound Chess (0238): the board, or the puzzle of the day.
   onPlayChess?: (mode: 'game' | 'puzzle') => void;
   // H-O-R-S-E (hands-on, 0209): opens the shooting screen.
@@ -525,6 +530,8 @@ export function ChallengeDetailScreen({
   const [doors, setDoors] = useState<DoorsGame | null>(null);
   // Hound Roulette (0236): the standings, Raids and Duels.
   const [roulette, setRoulette] = useState<RouletteGame | null>(null);
+  // Paw Slots (0242): the pool, the standings, the packs.
+  const [slots, setSlots] = useState<SlotsGame | null>(null);
   // Hound Chess (0238): the board and whose move.
   const [chessGame, setChessGame] = useState<ChessGame | null>(null);
   const [houndName, setHoundName] = useState('your hound');
@@ -1025,6 +1032,19 @@ export function ChallengeDetailScreen({
     useCallback(() => {
       if (challenge?.kind === 'roulette') loadRoulette();
     }, [challenge?.kind, loadRoulette]),
+  );
+  // Paw Slots: on every visit (back from the machine, the coins moved).
+  const loadSlots = useCallback(async () => {
+    try {
+      setSlots(await getSlots(challengeId));
+    } catch {
+      // Offline, or not open to us: the card waits.
+    }
+  }, [challengeId]);
+  useFocusEffect(
+    useCallback(() => {
+      if (challenge?.kind === 'slots') loadSlots();
+    }, [challenge?.kind, loadSlots]),
   );
   // Hound Chess: on every visit (back from the board, a move was made).
   const loadChess = useCallback(async () => {
@@ -1796,6 +1816,7 @@ export function ChallengeDetailScreen({
     challenge.kind === 'bout' ||
     challenge.kind === 'titlebout' ||
     challenge.kind === 'roulette' ||
+    challenge.kind === 'slots' ||
     challenge.kind === 'chess'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
@@ -2126,6 +2147,11 @@ export function ChallengeDetailScreen({
         if (!g || g.status !== 'final' || !g.me) return null;
         const won = g.result !== 'draw' && (g.result === 'white') === (g.me === 'w');
         return { type: 'chess', result: g.result === 'draw' ? 'draw' : won ? 'won' : 'lost' };
+      }
+      case 'slots': {
+        const g = slots;
+        if (!g || !g.me.joined || g.me.presses === 0) return null;
+        return { type: 'ranked', rank: g.me.rank, of: g.players, metric: `${g.me.coins.toLocaleString('en-US')} Paw Coins` };
       }
       case 'roulette': {
         const g = roulette;
@@ -2976,6 +3002,8 @@ export function ChallengeDetailScreen({
           {challenge.kind === 'chess' && (
             <ChessCard game={chessGame} onPlay={() => onPlayChess?.('game')} onPuzzle={() => onPlayChess?.('puzzle')} />
           )}
+
+          {challenge.kind === 'slots' && <SlotsCard game={slots} onPlay={() => onPlaySlots?.()} />}
 
           {challenge.kind === 'roulette' && (
             <RouletteCard

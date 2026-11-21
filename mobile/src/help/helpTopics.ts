@@ -250,6 +250,20 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'slots',
+      section: 'challenges',
+      title: 'Paw Slots: spins from steps',
+      summary: 'How spins are earned, lines and bets, what pays, and how Paw Coins become Bones.',
+      steps: [
+        'Every 500 steps on your own day is a spin, up to 20 a day, plus 2 for a 20-minute workout. Spins you don’t use carry over to tomorrow, up to 10.',
+        'Out of spins? Buy more with Paw Coins: 3 a spin, up to 10 a day. A spin wins back about 3 coins on average, so buying is roughly even: it’s for the thrill of a jackpot, not a way up the board. Spins can’t be bought with money, and Bones never go in.',
+        'Pick 1, 3 or 5 lines (the middle; then the top and bottom; then the two diagonals) and a bet of ×1, ×2, ×3 or ×5 a line. A press uses lines × bet spins, and each line pays on its own, times your bet.',
+        'What a line pays: three Golden Hounds 250, three Collars 100, three Bones 50, Balls 25, Treats 15, Hydrants 10, Paws 5, and any two matching on the left 2. The Collar is wild (not for the Golden Hound) and doubles a win.',
+        'How often: some win comes up about 3 presses in 8 on one line, 7 in 9 on three lines and 17 in 20 on five. Three Golden Hounds is about 1 in 8,000 a line. Where the reels stop is set by Hound when you press Spin: tapping a reel only stops it sooner, and no near misses are put in.',
+        'When it ends, the prize pool is paid by place: 2,500 Bones with 11 or more hounds, 200 a hound below that (a Global can have its own). Solo: 1st 30%, 2nd 18%, 3rd 12%, 4th to 10th 4% each, and the rest shared by everyone else who spun on 5 days. In packs: packs are ranked by Paw Coins per hound (60%, 26%, 14%), and a pack’s share is split by what each hound won. Anyone who spun on 5 days gets at least 5. Paw Coins never turn into Bones one for one: only your place counts.',
+      ],
+    },
+    {
       id: 'cricket',
       section: 'challenges',
       title: 'Cricket: bat and bowl yourself',

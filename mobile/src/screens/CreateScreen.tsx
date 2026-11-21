@@ -86,6 +86,7 @@ import { setupHoops } from '../challenges/hoopsApi';
 import { setupHorse } from '../challenges/horseApi';
 import { setupBout } from '../challenges/boutApi';
 import { setupChess } from '../challenges/chessApi';
+import { setupSlots } from '../challenges/slotsApi';
 import { BOT_NAME as CHESS_BOT_NAME, type ChessBotLevel } from '../challenges/chess';
 
 // H-O-R-S-E stakes (0209): a treat_recipes id the loser bakes, or none.
@@ -209,6 +210,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   titlebout: 'Hound Bout for everyone: a ladder, then the top two fight for the belt.',
   roulette: 'Spin for today’s task. Bank it, ride it, or raid a friend.',
   chess: 'Real chess with hounds. Your steps free your pieces.',
+  slots: 'A slot machine on your steps. Most Paw Coins wins the Bones.',
 };
 
 // A Journey's default run: about two miles a day, at least three days,
@@ -314,6 +316,9 @@ export function CreateScreen({
   const [horseWord, setHorseWord] = useState<HorseWord>('HORSE');
   // Hound Chess (0238): a friend, or the Hound bot at a level.
   const [chessOpp, setChessOpp] = useState<'friend' | ChessBotLevel>('friend');
+  // Paw Slots (0242): solo or 2 to 4 packs, and a Global's pool.
+  const [slotsTeams, setSlotsTeams] = useState<'0' | '2' | '3' | '4'>('0');
+  const [slotsPoolText, setSlotsPoolText] = useState('2500');
   // Golf (0200): the course, 9 or 18, the format, whether you take every
   // shot yourself, and the daily cap on holes started.
   const [golfCourse, setGolfCourse] = useState<GolfCourseId>('links');
@@ -496,7 +501,8 @@ export function CreateScreen({
   const [tbPickText, setTbPickText] = useState('25');
   const bonesOf = (t: string, max: number) => Math.max(0, Math.min(max, Math.round(Number(t.replace(/[^0-9]/g, '')) || 0)));
   const canHavePot = !crowd && POT_KINDS.includes(draftType);
-  const canHavePrizes = global && draftType !== 'seventyfive' && draftType !== 'checklist';
+  // Paw Slots has its own pool.
+  const canHavePrizes = global && draftType !== 'seventyfive' && draftType !== 'checklist' && draftType !== 'slots';
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -635,6 +641,7 @@ export function CreateScreen({
     if (draftType === 'bout') setLength('5');
     if (draftType === 'roulette') setLength('7');
     if (draftType === 'chess') setLength('7');
+    if (draftType === 'slots') setLength('7');
     if (draftType === 'golf') setLength(String(golfDays(golfHoles)));
     // The Hound Open: joining closes 3 days in, and bigger prizes.
     if (draftType === 'golf' && global) {
@@ -1080,6 +1087,15 @@ export function CreateScreen({
             throw e;
           }
         }
+        // Paw Slots: solo or packs, and its pool, right away.
+        if (draftType === 'slots') {
+          try {
+            await setupSlots(globalId, Number(slotsTeams), bonesOf(slotsPoolText, 20000));
+          } catch (e) {
+            await deleteGlobalChallenge(globalId).catch(() => {});
+            throw e;
+          }
+        }
         if (draftType === 'checklist') {
           await addChecklistItems(globalId, checklistToSave).catch((e: Error) =>
             Alert.alert('Published, but the list didn’t save', `${e.message} Take it down from the Admin screen and publish again.`),
@@ -1244,6 +1260,7 @@ export function CreateScreen({
               draftType === 'bout' ||
               draftType === 'roulette' ||
               draftType === 'chess' ||
+              draftType === 'slots' ||
               draftType === 'golf'
             ? []
             : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
@@ -1375,6 +1392,15 @@ export function CreateScreen({
       if (draftType === 'chess') {
         try {
           await setupChess(created.id, chessOpp === 'friend' ? null : chessOpp);
+        } catch (e) {
+          await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
+          throw e;
+        }
+      }
+      // Paw Slots: solo or packs, before anyone joins.
+      if (draftType === 'slots') {
+        try {
+          await setupSlots(created.id, Number(slotsTeams));
         } catch (e) {
           await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
           throw e;
@@ -1819,7 +1845,7 @@ export function CreateScreen({
             </View>
             <SegmentedControl
               options={
-                draftType === 'tag' || draftType === 'roulette'
+                draftType === 'tag' || draftType === 'roulette' || draftType === 'slots'
                   ? [
                       { value: '7', label: '7 days' },
                       { value: '14', label: '14 days' },
@@ -1835,7 +1861,7 @@ export function CreateScreen({
             <Slider
               // A Hound'opoly game needs a week to go anywhere.
               minimumValue={
-                draftType === 'tag' || draftType === 'derby' || draftType === 'shootout' || draftType === 'roulette'
+                draftType === 'tag' || draftType === 'derby' || draftType === 'shootout' || draftType === 'roulette' || draftType === 'slots'
                   ? 3
                   : community
                   ? draftType === 'seventyfive'
@@ -1852,6 +1878,11 @@ export function CreateScreen({
                 // A Tag chase runs 3 to 14 days (0181).
                 draftType === 'tag'
                   ? 14
+                  : // Paw Slots: 3 to 21 days, a Global up to 30 (0242).
+                    draftType === 'slots'
+                  ? global
+                    ? 30
+                    : 21
                   : // Hound Roulette: 3 to 21 spins (0236).
                     draftType === 'roulette'
                   ? 21
@@ -2378,6 +2409,43 @@ export function CreateScreen({
                 piece is free. 24 hours a move: run out and Hound moves for
                 you; miss two in a row and the game’s lost. Still going on the last day? It’s decided on the pieces left. Plus a mate-in-one puzzle
                 every day at 5,000 steps.
+              </Text>
+            </View>
+          )}
+
+          {draftType === 'slots' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Play</Text>
+                <Text style={styles.huntBlockValue}>{slotsTeams === '0' ? 'Everyone for themselves' : `In ${slotsTeams} packs`}</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: '0', label: 'Solo' },
+                  { value: '2', label: '2 packs' },
+                  { value: '3', label: '3 packs' },
+                  { value: '4', label: '4 packs' },
+                ]}
+                value={slotsTeams}
+                onChange={(v) => setSlotsTeams(v as '0' | '2' | '3' | '4')}
+              />
+              {global && (
+                <TextField
+                  label="Prize pool (Bones)"
+                  value={slotsPoolText}
+                  onChangeText={setSlotsPoolText}
+                  keyboardType="number-pad"
+                  maxLength={5}
+                />
+              )}
+              <Text style={styles.huntBlockNote}>
+                Every 500 steps is a spin, up to 20 a day, plus 2 for a 20-minute workout; more can be bought with Paw Coins. 1, 3 or 5 lines at up to
+                ×5 a line. {global ? `The pool is ${bonesOf(slotsPoolText, 20000).toLocaleString('en-US')} Bones` : 'The pool is 200 Bones a hound, 2,500 with 11 or more'},
+                paid by place when it ends
+                {slotsTeams === '0'
+                  ? ': 1st 30%, 2nd 18%, 3rd 12%, 4th to 10th 4% each, and the rest shared by everyone else who spins on 5 days.'
+                  : ': packs are filled evenly as hounds join and ranked by Paw Coins per hound; 60%, 26% and 14%, split by what each hound won.'}{' '}
+                Nothing here takes money or Bones in.
               </Text>
             </View>
           )}
@@ -3178,6 +3246,7 @@ export function CreateScreen({
             draftType !== 'houndopoly' &&
             draftType !== 'roulette' &&
             draftType !== 'chess' &&
+            draftType !== 'slots' &&
             draftType !== 'packs' && (
             <>
               <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>

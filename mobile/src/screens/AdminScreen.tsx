@@ -28,6 +28,8 @@ import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 import { StepStoryAdminCard } from '../components/StepStoryAdminCard';
 import { CricketAdminCard } from '../components/CricketAdminCard';
 import { RouletteAdminCard } from '../components/RouletteAdminCard';
+import { SlotsAdminCard } from '../components/SlotsAdminCard';
+import { getSlotsOverview, slotsSummary } from '../challenges/slotsApi';
 import { ChessAdminCard } from '../components/ChessAdminCard';
 import { NeedsYouAdminCard } from '../components/NeedsYouAdminCard';
 import { getNeedsYouOverview, needsYouSummary } from '../home/needsYouMute';
@@ -266,6 +268,7 @@ export function AdminScreen({
   const [stepStoryLine, setStepStoryLine] = useState<string | null>(null);
   const [cricketLine, setCricketLine] = useState<string | null>(null);
   const [rouletteLine, setRouletteLine] = useState<string | null>(null);
+  const [slotsLine, setSlotsLine] = useState<string | null>(null);
   const [chessLine, setChessLine] = useState<string | null>(null);
   const [needsYouLine, setNeedsYouLine] = useState<string | null>(null);
   const [doorsSummary, setDoorsSummary] = useState<string | null>(null);
@@ -379,6 +382,9 @@ export function AdminScreen({
         .catch(() => {});
       getCricketOverview()
         .then((o) => setCricketLine(cricketSummary(o)))
+        .catch(() => {});
+      getSlotsOverview()
+        .then((o) => setSlotsLine(slotsSummary(o)))
         .catch(() => {});
       getRouletteOverview()
         .then((o) => setRouletteLine(rouletteSummary(o)))
@@ -1004,6 +1010,9 @@ export function AdminScreen({
                   </AdminFold>
                   <AdminFold title="Hound Roulette" summary={rouletteLine ?? 'Spins, stakes, Raids and Duels'}>
                     <RouletteAdminCard onChanged={(o) => setRouletteLine(rouletteSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Paw Slots" summary={slotsLine ?? 'Presses, lines and bets, spins bought, Bones paid'}>
+                    <SlotsAdminCard onChanged={(o) => setSlotsLine(slotsSummary(o))} />
                   </AdminFold>
                   <AdminFold title="Cricket" summary={cricketLine ?? 'Matches, and balls batted and bowled by hand'}>
                     <CricketAdminCard onChanged={(o) => setCricketLine(cricketSummary(o))} />

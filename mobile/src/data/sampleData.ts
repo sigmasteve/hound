@@ -86,7 +86,8 @@ export type ChallengeKind =
   | 'bout'
   | 'titlebout'
   | 'roulette'
-  | 'chess';
+  | 'chess'
+  | 'slots';
 
 export interface ChallengeCard {
   id: string;
@@ -299,6 +300,14 @@ export const CHALLENGE_TYPES: {
     tint: '#3a3226',
     iconColor: '#ecdcb8',
   },
+  // A group or packs (0242).
+  {
+    id: 'slots',
+    name: 'Paw Slots',
+    desc: 'A slot machine played on your steps: every 500 steps is a spin, up to 20 a day, plus 2 for a 20-minute workout. Play 1, 3 or 5 lines and bet up to ×5 a line for Paw Coins: three Golden Hounds pays 250, and the Collar is wild and doubles a win. Out of spins? Trade Paw Coins for more. Solo or in packs, and the prize pool (2,500 Bones with 11 or more hounds) is paid by place when it ends.',
+    tint: '#3a2f14',
+    iconColor: '#f0c24a',
+  },
   // Solo, one on one or a group (0236).
   {
     id: 'roulette',
@@ -345,7 +354,7 @@ export const CHALLENGE_GROUPS: {
     sub: 'Friends, family or your club, all at once.',
     sections: [
       { title: 'Races', kinds: ['steps', 'distance', 'journey'] },
-      { title: 'Games and team sports', kinds: ['roulette', 'hunt', 'tag', 'bingo', 'houndopoly', 'soccer', 'cricket', 'packs'] },
+      { title: 'Games and team sports', kinds: ['roulette', 'slots', 'hunt', 'tag', 'bingo', 'houndopoly', 'soccer', 'cricket', 'packs'] },
     ],
   },
   { id: 'own', label: 'On your own', chip: 'On your own', sub: 'Keep yourself honest. Friends can watch and cheer.', sections: [{ kinds: ['streak', 'seventyfive', 'checklist'] }] },
@@ -369,6 +378,7 @@ export const GAME_TAGS: Partial<Record<ChallengeKind, { text: string; tone: Game
   houndopoly: [{ text: 'Any group', tone: 'group' }],
   roulette: [{ text: 'A task a day', tone: 'you' }, { text: 'Solo, 1 on 1 or a group', tone: 'group' }],
   chess: [{ text: 'You move every piece', tone: 'you' }, { text: 'A friend or the bot', tone: 'one' }],
+  slots: [{ text: 'Spins from steps', tone: 'you' }, { text: 'Solo or packs', tone: 'team' }],
   soccer: [{ text: 'Teams of 1–9', tone: 'team' }],
   cricket: [{ text: 'Teams of 1–9', tone: 'team' }],
   packs: [{ text: 'Four packs', tone: 'team' }],
