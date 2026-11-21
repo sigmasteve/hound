@@ -76,6 +76,8 @@ export type RootStackParamList = {
   CricketPlay: { challengeId: string };
   // Hound Roulette's wheel (0236).
   Roulette: { challengeId: string };
+  // Hound Chess's board (0238), or the puzzle of the day.
+  Chess: { challengeId?: string; mode?: 'game' | 'puzzle' };
   // H-O-R-S-E, calling your own shots (0209).
   HorseShoot: { challengeId: string };
   // The Home Run Derby, at the plate (0211).

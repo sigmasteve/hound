@@ -33,6 +33,7 @@ import { HoopsShootScreen } from '../screens/HoopsShootScreen';
 import { BaseballBatScreen } from '../screens/BaseballBatScreen';
 import { CricketPlayScreen } from '../screens/CricketPlayScreen';
 import { RouletteScreen } from '../screens/RouletteScreen';
+import { ChessScreen } from '../screens/ChessScreen';
 import { HorseShootScreen } from '../screens/HorseShootScreen';
 import { DerbyBatScreen } from '../screens/DerbyBatScreen';
 import { ShootoutKickScreen } from '../screens/ShootoutKickScreen';
@@ -293,6 +294,7 @@ export function RootNavigator() {
                   onBatBaseball={() => navigation.navigate('BaseballBat', { challengeId: route.params.challengeId })}
                   onPlayCricket={() => navigation.navigate('CricketPlay', { challengeId: route.params.challengeId })}
                   onSpinRoulette={() => navigation.navigate('Roulette', { challengeId: route.params.challengeId })}
+                  onPlayChess={(mode) => navigation.navigate('Chess', { challengeId: route.params.challengeId, mode })}
                   onShootHorse={() => navigation.navigate('HorseShoot', { challengeId: route.params.challengeId })}
                   onBatDerby={() => navigation.navigate('DerbyBat', { challengeId: route.params.challengeId })}
                   onKickShootout={() => navigation.navigate('ShootoutKick', { challengeId: route.params.challengeId })}
@@ -568,6 +570,23 @@ export function RootNavigator() {
                   challengeId={route.params.challengeId}
                   onBack={() =>
                     navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ChallengeDetail', { challengeId: route.params.challengeId })
+                  }
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Chess" options={{ animation: 'slide_from_right', gestureEnabled: false }}>
+              {/* Hound Chess (0238): the board, or the puzzle of the day. */}
+              {({ navigation, route }) => (
+                <ChessScreen
+                  key={`${route.params.challengeId ?? 'puzzle'}:${route.params.mode ?? 'game'}`}
+                  challengeId={route.params.challengeId}
+                  mode={route.params.mode ?? 'game'}
+                  onBack={() =>
+                    navigation.canGoBack()
+                      ? navigation.goBack()
+                      : route.params.challengeId
+                        ? navigation.navigate('ChallengeDetail', { challengeId: route.params.challengeId })
+                        : navigation.navigate('Main', { tab: 'home' })
                   }
                 />
               )}

@@ -10,7 +10,8 @@
 //                 10, once (0202's golf_strike, once the field's 20+)
 //   - 'derby' / 'shootout' / 'bout'  the Home Run Derby (0211), the Hound
 //                 Shootout (0221), Hound Bout's rounds (0225) and Hound Roulette's Raids,
-//                 Duels and morning spin (0236, 'roulette'): worded by the server, sent to anyone in
+//                 Duels and morning spin (0236, 'roulette') and Hound Chess's moves and results
+//                 (0238, 'chess'): worded by the server, sent to anyone in
 //                 the challenge (they have no golf seat)
 // Every push carries { type: 'golf', challengeId } so a tap opens the game.
 // A failure here never affects the game: the caller swallows it.
@@ -24,10 +25,10 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 // 'derby' (0211) and 'shootout' (0221): the Home Run Derby's and the Hound
 // Shootout's pushes, worded by the server.
-type Kind = 'birdie' | 'ace' | 'reminder' | 'skin' | 'final' | 'top10' | 'derby' | 'shootout' | 'bout' | 'roulette';
-const KINDS: Kind[] = ['birdie', 'ace', 'reminder', 'skin', 'final', 'top10', 'derby', 'shootout', 'bout', 'roulette'];
+type Kind = 'birdie' | 'ace' | 'reminder' | 'skin' | 'final' | 'top10' | 'derby' | 'shootout' | 'bout' | 'roulette' | 'chess';
+const KINDS: Kind[] = ['birdie', 'ace', 'reminder', 'skin', 'final', 'top10', 'derby', 'shootout', 'bout', 'roulette', 'chess'];
 // Kinds for games with no golf seat: anyone in the challenge gets them.
-const NOT_GOLF: Kind[] = ['derby', 'shootout', 'bout', 'roulette'];
+const NOT_GOLF: Kind[] = ['derby', 'shootout', 'bout', 'roulette', 'chess'];
 
 interface RequestBody {
   kind: Kind;
@@ -97,6 +98,7 @@ function message(body: RequestBody, me: string, game: string): { title: string; 
     case 'shootout':
     case 'bout':
     case 'roulette':
+    case 'chess':
       return { title: body.title ?? game, text: body.message ?? `Something happened in "${game}".` };
     case 'final': {
       const score = body.total != null && body.to_par != null ? ` You shot ${body.total} (${toPar(body.to_par)}).` : '';

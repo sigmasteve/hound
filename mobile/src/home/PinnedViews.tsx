@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { TrophyIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
@@ -30,6 +30,8 @@ import { HoodMap } from '../components/PackWarsCard';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getRoulette, rouletteWaiting, type RouletteGame } from '../challenges/rouletteApi';
 import { SEGMENTS, stakeName, taskTitle as rouletteTaskTitle } from '../challenges/roulette';
+import { chessHeadline, getChess, type ChessGame } from '../challenges/chessApi';
+import { parseFen } from '../challenges/chess';
 
 // A pinned challenge on Today's "Your challenges" sheet, for the games
 // that used to fall back to a plain list (Steve, Nov 2026: "each
@@ -651,6 +653,69 @@ export function RoulettePinned({ challenge, userId, onOpen }: PinnedProps) {
       {game.board.slice(0, 3).map((r, i) => (
         <Row key={r.userId} rank={1 + game.board.filter((x) => x.banked > r.banked).length || i + 1} name={r.userId === userId ? 'You' : first(r.name)} value={`${r.banked} banked`} me={r.userId === userId} styles={styles} />
       ))}
+    </Frame>
+  );
+}
+
+// ── Hound Chess: the position, whose move, the pieces freed today. ──
+
+function MiniBoard({ fen, me, size }: { fen: string; me: 'w' | 'b'; size: number }) {
+  const cell = size / 8;
+  const { pieces } = parseFen(fen);
+  const at = (sq: number) => {
+    const col = me === 'b' ? 7 - (sq % 8) : sq % 8;
+    const row = me === 'b' ? Math.floor(sq / 8) : 7 - Math.floor(sq / 8);
+    return { x: col * cell, y: row * cell };
+  };
+  return (
+    <Svg width={size} height={size}>
+      {Array.from({ length: 64 }, (_, sq) => {
+        const p = at(sq);
+        return <Rect key={sq} x={p.x} y={p.y} width={cell} height={cell} fill={(Math.floor(sq / 8) + (sq % 8)) % 2 === 0 ? '#9c7752' : '#ecdcb8'} />;
+      })}
+      {pieces.map((pc) => {
+        const p = at(pc.sq);
+        const r = cell * (pc.type === 'P' ? 0.24 : 0.34);
+        return (
+          <Circle
+            key={`${pc.color}${pc.sq}`}
+            cx={p.x + cell / 2}
+            cy={p.y + cell / 2}
+            r={r}
+            fill={pc.color === 'w' ? '#f6efe2' : '#373c58'}
+            stroke={pc.type === 'K' || pc.type === 'Q' ? '#f0c24a' : pc.color === 'w' ? '#5a4a3a' : '#0f111a'}
+            strokeWidth={pc.type === 'K' || pc.type === 'Q' ? 1.6 : 0.8}
+          />
+        );
+      })}
+    </Svg>
+  );
+}
+
+export function ChessPinned({ challenge, onOpen }: PinnedProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const game = useLoad<ChessGame>(`chess:${challenge.id}`, () => getChess(challenge.id));
+  if (!game) {
+    return (
+      <Frame challenge={challenge} button="Open the board" onOpen={onOpen}>
+        <Text style={styles.note}>{game === undefined ? 'Loading the board…' : 'Open the challenge to see the board.'}</Text>
+      </Frame>
+    );
+  }
+  const free = ['knights, bishops', 'rooks', 'the queen'].filter((_, i) => game.free.includes(['N', 'R', 'Q'][i]));
+  return (
+    <Frame challenge={challenge} button={game.myTurn ? 'Your move' : 'Open the board'} primaryButton={game.myTurn} onOpen={onOpen}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <MiniBoard fen={game.fen} me={game.me ?? 'w'} size={84} />
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={styles.kicker}>{game.status === 'final' ? 'GAME OVER' : game.myTurn ? 'YOUR MOVE' : 'HOUND CHESS'}</Text>
+          <Text style={styles.big}>{chessHeadline(challenge.name, game)}</Text>
+          <Text style={styles.small}>
+            {game.steps.toLocaleString('en-US')} steps today · {free.length ? `${free.join(', ')} free` : 'pawns and king only'}
+          </Text>
+        </View>
+      </View>
     </Frame>
   );
 }

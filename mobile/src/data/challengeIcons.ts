@@ -26,6 +26,7 @@ import {
   BoxingGloveIcon,
   CrownIcon,
   SpinnerBallIcon,
+  CastleTurretIcon,
 } from 'phosphor-react-native';
 import type { ChallengeKind } from './sampleData';
 
@@ -55,6 +56,7 @@ export const CHALLENGE_KIND_ICON: Record<ChallengeKind, React.ComponentType<any>
   bout: BoxingGloveIcon,
   titlebout: CrownIcon,
   roulette: SpinnerBallIcon,
+  chess: CastleTurretIcon,
 };
 
 // A build only ever ships knowing the challenge kinds that existed when

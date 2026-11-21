@@ -219,6 +219,22 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'chess',
+      section: 'challenges',
+      title: 'Hound Chess: steps free your pieces',
+      summary: 'Real chess with hounds, what unlocks your pieces, the 24-hour clock and the puzzle of the day.',
+      steps: [
+        'Real chess, one on one with a friend or against the Hound bot (Easy, Medium or Hard). Whoever makes the game plays White. The pieces are hounds: puppy pawns, leaping-hound knights, doghouse rooks, and a queen and king with gold crowns.',
+        'Your steps today decide which pieces can move: your pawns and king always; knights and bishops from 3,000 steps; rooks from 6,000; your queen from 9,000, or after a 20-minute workout. Resting pieces are dimmed, with what they need. It starts again each morning.',
+        'In check, every piece is free, so you can always get out. If none of your free pieces has a move, they’re all free for that move too.',
+        'To move, tap a piece and then one of the dots. Every move is checked by Hound, so only legal ones count. Castling, en passant and promotion all work (a pawn that reaches the end becomes a queen).',
+        'You have 24 hours a move. Run out and Hound makes a careful move for you; run out again on your next move and the game is lost. Against the bot, it answers straight away.',
+        'The game ends on checkmate, a resignation, stalemate, not enough left to mate, or fifty moves without a capture. Still going on the challenge’s last day? It’s decided on the pieces left (queen 9, rook 5, bishop and knight 3, pawn 1); level is a draw.',
+        'A win is 35 points and 25 Bones (10 against the bot), a draw 15, a loss 5.',
+        'Puzzle of the day: once you reach 5,000 steps, a mate in one opens on the game’s card. Find the move that checks the king with nowhere to go. Three tries; 5 Bones for the first try, 2 after. Solve it on days in a row for a streak.',
+      ],
+    },
+    {
       id: 'roulette',
       section: 'challenges',
       title: 'Hound Roulette: spin, ride, raid',
