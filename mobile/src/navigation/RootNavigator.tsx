@@ -32,6 +32,7 @@ import { GolfPlayScreen } from '../screens/GolfPlayScreen';
 import { HoopsShootScreen } from '../screens/HoopsShootScreen';
 import { BaseballBatScreen } from '../screens/BaseballBatScreen';
 import { CricketPlayScreen } from '../screens/CricketPlayScreen';
+import { RouletteScreen } from '../screens/RouletteScreen';
 import { HorseShootScreen } from '../screens/HorseShootScreen';
 import { DerbyBatScreen } from '../screens/DerbyBatScreen';
 import { ShootoutKickScreen } from '../screens/ShootoutKickScreen';
@@ -291,6 +292,7 @@ export function RootNavigator() {
                   onShootHoops={() => navigation.navigate('HoopsShoot', { challengeId: route.params.challengeId })}
                   onBatBaseball={() => navigation.navigate('BaseballBat', { challengeId: route.params.challengeId })}
                   onPlayCricket={() => navigation.navigate('CricketPlay', { challengeId: route.params.challengeId })}
+                  onSpinRoulette={() => navigation.navigate('Roulette', { challengeId: route.params.challengeId })}
                   onShootHorse={() => navigation.navigate('HorseShoot', { challengeId: route.params.challengeId })}
                   onBatDerby={() => navigation.navigate('DerbyBat', { challengeId: route.params.challengeId })}
                   onKickShootout={() => navigation.navigate('ShootoutKick', { challengeId: route.params.challengeId })}
@@ -562,6 +564,18 @@ export function RootNavigator() {
               {/* Cricket: bat and bowl yourself (0234), from the challenge's card. */}
               {({ navigation, route }) => (
                 <CricketPlayScreen
+                  key={route.params.challengeId}
+                  challengeId={route.params.challengeId}
+                  onBack={() =>
+                    navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ChallengeDetail', { challengeId: route.params.challengeId })
+                  }
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Roulette" options={{ animation: 'slide_from_right' }}>
+              {/* Hound Roulette's wheel (0236), from the challenge's card. */}
+              {({ navigation, route }) => (
+                <RouletteScreen
                   key={route.params.challengeId}
                   challengeId={route.params.challengeId}
                   onBack={() =>

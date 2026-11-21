@@ -74,6 +74,8 @@ export type RootStackParamList = {
   BaseballBat: { challengeId: string };
   // Cricket, bat and bowl yourself (0234).
   CricketPlay: { challengeId: string };
+  // Hound Roulette's wheel (0236).
+  Roulette: { challengeId: string };
   // H-O-R-S-E, calling your own shots (0209).
   HorseShoot: { challengeId: string };
   // The Home Run Derby, at the plate (0211).

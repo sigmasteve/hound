@@ -18,7 +18,7 @@ select throws_ok(format($q$select public.buy_kennel_item(%L::date, (select id fr
   'The Room opens at level 8.', 'No Room at level 4');
 select throws_ok(format($q$select public.buy_kennel_item(%L::date, (select id from public.kennel_items where slot = 'house' and cost_bones > 0 order by cost_bones limit 1))$q$, :'today'),
   'Bougie houses open at level 7.', 'No bougie house at level 4');
-select throws_ok(format($q$select public.buy_kennel_item(%L::date, (select id from public.kennel_items where slot = 'neck' order by cost_bones limit 1))$q$, :'today'),
+select throws_ok(format($q$select public.buy_kennel_item(%L::date, (select id from public.kennel_items where slot = 'neck' and cost_bones > 0 order by cost_bones limit 1))$q$, :'today'),
   'The rest of the wardrobe opens at level 6.', 'No neckwear at level 4');
 select lives_ok(format($q$select public.buy_kennel_item(%L::date, (select id from public.kennel_items where slot = 'trick' order by cost_bones limit 1))$q$, :'today'),
   'Tricks at level 4');

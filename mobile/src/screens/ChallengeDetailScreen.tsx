@@ -219,6 +219,8 @@ import { advanceHoundopoly, decideHoundopoly, getHoundopolyGame } from '../chall
 import { netWorth as houndopolyNetWorth, type HoundopolyGame } from '../challenges/houndopoly';
 import { HoundopolySection } from '../components/HoundopolySection';
 import { DoorsCard } from '../components/DoorsCard';
+import { RouletteCard } from '../components/RouletteCard';
+import { getRoulette, type RouletteGame } from '../challenges/rouletteApi';
 import { claimDoorSteps, getDoors, openDoor, todaysDoor, type DoorsGame } from '../challenges/doorsApi';
 import { getKennel } from '../kennel/kennelApi';
 import { PackWarsCard } from '../components/PackWarsCard';
@@ -275,6 +277,7 @@ export function ChallengeDetailScreen({
   onShootHoops,
   onBatBaseball,
   onPlayCricket,
+  onSpinRoulette,
   onShootHorse,
   onBatDerby,
   onKickShootout,
@@ -289,6 +292,8 @@ export function ChallengeDetailScreen({
   onBatBaseball?: () => void;
   // Cricket (hands-on, 0234): opens the batting / bowling screen.
   onPlayCricket?: () => void;
+  // Hound Roulette (0236): opens the wheel.
+  onSpinRoulette?: () => void;
   // H-O-R-S-E (hands-on, 0209): opens the shooting screen.
   onShootHorse?: () => void;
   // The Home Run Derby (0211): opens the batting screen.
@@ -513,6 +518,8 @@ export function ChallengeDetailScreen({
   const [houndopolyDeciding, setHoundopolyDeciding] = useState(false);
   // Daily Doors (0172): the calendar, and the hound's name for its tasks.
   const [doors, setDoors] = useState<DoorsGame | null>(null);
+  // Hound Roulette (0236): the standings, Raids and Duels.
+  const [roulette, setRoulette] = useState<RouletteGame | null>(null);
   const [houndName, setHoundName] = useState('your hound');
   // Pack Wars (0174): the map, and a vote on its way.
   const [packWars, setPackWars] = useState<PackWarsGame | null>(null);
@@ -999,6 +1006,19 @@ export function ChallengeDetailScreen({
   }, [loadHoops, challenge]);
   // Back from the Golf play / Hoops shooting screen: the banks and the
   // card have moved.
+  // Hound Roulette: on every visit (back from the wheel, the points moved).
+  const loadRoulette = useCallback(async () => {
+    try {
+      setRoulette(await getRoulette(challengeId));
+    } catch {
+      // Not joined yet, or offline: the card waits.
+    }
+  }, [challengeId]);
+  useFocusEffect(
+    useCallback(() => {
+      if (challenge?.kind === 'roulette') loadRoulette();
+    }, [challenge?.kind, loadRoulette]),
+  );
   useFocusEffect(
     useCallback(() => {
       if (challenge?.kind === 'golf' || challenge?.kind === 'hoops' || challenge?.kind === 'horse' || challenge?.kind === 'derby' || challenge?.kind === 'shootout' || challenge?.kind === 'bout' || challenge?.kind === 'titlebout') loadHoops();
@@ -1754,7 +1774,8 @@ export function ChallengeDetailScreen({
     challenge.kind === 'derby' ||
     challenge.kind === 'shootout' ||
     challenge.kind === 'bout' ||
-    challenge.kind === 'titlebout'
+    challenge.kind === 'titlebout' ||
+    challenge.kind === 'roulette'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
         ? isHound
@@ -2078,6 +2099,12 @@ export function ChallengeDetailScreen({
           place,
           of: place ? g.players.length : undefined,
         };
+      }
+      case 'roulette': {
+        const g = roulette;
+        const mine = g?.board.find((r) => r.userId === me);
+        if (!g || !mine) return null;
+        return { type: 'ranked', rank: 1 + g.board.filter((r) => r.banked > mine.banked).length, of: g.board.length, metric: `${mine.banked} points banked` };
       }
       case 'bout': {
         const b = boutLive;
@@ -2919,6 +2946,16 @@ export function ChallengeDetailScreen({
             <PackWarsCard name={challenge.name} game={packWars} voting={packVoting} onVote={votePack} />
           )}
 
+          {challenge.kind === 'roulette' && (
+            <RouletteCard
+              challengeId={challengeId}
+              game={roulette}
+              userId={user?.id ?? null}
+              onSpin={() => onSpinRoulette?.()}
+              onChanged={setRoulette}
+            />
+          )}
+
           {challenge.kind === 'doors' && doors && (
             <DoorsCard
               name={challenge.name}
@@ -3121,7 +3158,7 @@ export function ChallengeDetailScreen({
             />
           )}
 
-          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && challenge.kind !== 'derby' && challenge.kind !== 'shootout' && challenge.kind !== 'bout' && challenge.kind !== 'titlebout' && (
+          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && challenge.kind !== 'derby' && challenge.kind !== 'shootout' && challenge.kind !== 'bout' && challenge.kind !== 'titlebout' && challenge.kind !== 'roulette' && (
             <Card style={{ gap: 12 }} elevated={false}>
               <View style={styles.leaderboardHeader}>
                 <TrophyIcon size={16} color={colors.accent} />

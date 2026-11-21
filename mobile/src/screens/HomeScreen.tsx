@@ -100,6 +100,7 @@ import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
 import { isMyChecklistTodayComplete } from '../challenges/checklistApi';
 import { advanceHoundopoly, getHoundopolyGame, listMyHoundopolyPending } from '../challenges/houndopolyApi';
 import { doorsHeadline, getDoors, todaysDoor, type DoorsGame } from '../challenges/doorsApi';
+import { getRoulette, rouletteHeadline, rouletteWaiting, type RouletteGame } from '../challenges/rouletteApi';
 import { getPackWars, packDayNo, packWarsHeadline, type PackWarsGame } from '../challenges/packWarsApi';
 import { diceFor, netWorth as houndopolyNetWorth, nextTurn as houndopolyNextTurn, squareAt, type HoundopolyGame } from '../challenges/houndopoly';
 import { challengeDayNumber, getChallengeDays, localDayKey } from '../challenges/challengeDays';
@@ -142,6 +143,7 @@ import {
   DoorsPinned,
   JourneyPinned,
   PacksPinned,
+  RoulettePinned,
   SeventyFivePinned,
   StepRacePinned,
   StreakPinned,
@@ -605,6 +607,7 @@ function heroCopy(
   shootout: { board: ShootoutBoard | null; live: ShootoutLive | null } | null = null,
   bout: BoutLive | null = null,
   titleBout: { live: BoutLive; tb: TitleBout } | null = null,
+  roulette: RouletteGame | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -678,6 +681,9 @@ function heroCopy(
   }
   if (challenge.kind === 'doors') {
     return { eyebrow, headline: doorsHeadline(challenge.name, doorsGame) };
+  }
+  if (challenge.kind === 'roulette') {
+    return { eyebrow, headline: rouletteHeadline(challenge.name, roulette) };
   }
   if (challenge.kind === 'packs') {
     return { eyebrow, headline: packWarsHeadline(challenge.name, packGame) };
@@ -1248,6 +1254,8 @@ export function HomeScreen({
   const [primaryHoundopoly, setPrimaryHoundopoly] = useState<HoundopolyGame | null>(null);
   // Every active Daily Doors, for Needs you and the pinned challenge's line.
   const [doorsGames, setDoorsGames] = useState<Map<string, DoorsGame>>(new Map());
+  // Every active Hound Roulette (0236), for Needs you and the headline.
+  const [rouletteGames, setRouletteGames] = useState<Map<string, RouletteGame>>(new Map());
   const [packGames, setPackGames] = useState<Map<string, PackWarsGame>>(new Map());
   // Only populated when `primary` is a Cricket match.
   // Only populated when `primary` is a Baseball game.
@@ -2204,6 +2212,12 @@ export function HomeScreen({
             .filter((r) => r.challenge.kind === 'cricket')
             .map(async (r): Promise<readonly [string, CricketHand | null]> => [r.challenge.id, await getCricketHand(r.challenge.id).catch(() => null)]),
         );
+        // Hound Roulette (0236): today's spin, and Duel calls to answer.
+        const rouletteEntriesP = Promise.all(
+          activeResults
+            .filter((r) => r.challenge.kind === 'roulette')
+            .map(async (r): Promise<readonly [string, RouletteGame | null]> => [r.challenge.id, await getRoulette(r.challenge.id).catch(() => null)]),
+        );
         const [tagEntries, tictacgoEntries, seventyfiveEntries, checklistEntries, manualEntries, houndopolyPending, rallyShots, doorsEntries, packEntries, hoopsEntries, horseEntries, golfEntries, baseballEntries, derbyEntries, shootoutEntries, boutEntries] = await Promise.all([
           Promise.all(
             activeResults
@@ -2332,6 +2346,7 @@ export function HomeScreen({
           ),
         ]);
         const cricketEntries = await cricketEntriesP;
+        const rouletteMap = new Map((await rouletteEntriesP).filter((e): e is readonly [string, RouletteGame] => e[1] !== null));
         const packMap = new Map(packEntries.filter((e): e is readonly [string, PackWarsGame] => e[1] !== null));
         const doorsMap = new Map(doorsEntries.filter((e): e is readonly [string, DoorsGame] => e[1] !== null));
         if (!cancelled) {
@@ -2352,6 +2367,12 @@ export function HomeScreen({
               hoopsEntries.flatMap(([id, g]) =>
                 g && g.handsOn && g.live && g.live.canShoot && g.live.ready > 0 ? [[id, g.live.ready] as const] : [],
               ),
+            ),
+            rouletteWaiting: new Map(
+              [...rouletteMap].map(([id, g]) => {
+                const w = rouletteWaiting(g);
+                return [id, { spin: w.spin, duel: w.duel ? { from: w.duel.other.split(' ')[0], stake: w.duel.stake } : null, ride: g.ride }] as const;
+              }),
             ),
             cricketBallsReady: new Map(
               cricketEntries.flatMap(([id, h]) =>
@@ -2394,6 +2415,7 @@ export function HomeScreen({
             loggedProgressToday: new Map(manualEntries),
           });
           setDoorsGames(doorsMap);
+          setRouletteGames(rouletteMap);
           setPackGames(packMap);
           setPendingActions(actions);
           // Tonight's local "still on your list" reminder tracks this same
@@ -2467,6 +2489,7 @@ export function HomeScreen({
         primaryShootout,
         primaryBout,
         primaryTitleBout,
+        rouletteGames.get(primary.challenge.id) ?? null,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -3131,6 +3154,8 @@ export function HomeScreen({
                 onOpen={sheetOpenPrimary}
                 houndName={kennel?.name ?? 'your hound'}
               />
+            ) : primary.challenge.kind === 'roulette' ? (
+              <RoulettePinned challenge={primary.challenge} board={primary.board} userId={user?.id ?? null} onOpen={sheetOpenPrimary} />
             ) : primary.challenge.kind === 'packs' ? (
               <PacksPinned challenge={primary.challenge} board={primary.board} userId={user?.id ?? null} onOpen={sheetOpenPrimary} />
             ) : (

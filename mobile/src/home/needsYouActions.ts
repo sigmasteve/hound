@@ -20,6 +20,8 @@ export const ACTION_VERB: Record<PendingActionKind, string> = {
   hoopsShoot: 'Shoot',
   baseballBat: 'Bat',
   cricketPlay: 'Play',
+  rouletteSpin: 'Spin',
+  rouletteDuel: 'Answer',
   derbySwing: 'Swing',
   shootoutKick: 'Kick',
   boutIncoming: 'Slip',
@@ -35,6 +37,9 @@ export const ACTION_VERB: Record<PendingActionKind, string> = {
 // among equals.
 const URGENCY: Partial<Record<PendingActionKind, number>> = {
   boutIncoming: 0,
+  // A day without a spin loses the ride.
+  rouletteSpin: 0,
+  rouletteDuel: 1,
   tagPickTarget: 1,
   tictacgoYourMove: 1,
   rallyYourShot: 1,
@@ -78,6 +83,8 @@ export function actionRoute(a: PendingAction): ActionRoute {
       return ['BaseballBat', { challengeId: c }];
     case 'cricketPlay':
       return ['CricketPlay', { challengeId: c }];
+    case 'rouletteSpin':
+      return ['Roulette', { challengeId: c }];
     case 'derbySwing':
       return ['DerbyBat', { challengeId: c }];
     case 'shootoutKick':

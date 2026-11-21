@@ -84,7 +84,8 @@ export type ChallengeKind =
   | 'derby'
   | 'shootout'
   | 'bout'
-  | 'titlebout';
+  | 'titlebout'
+  | 'roulette';
 
 export interface ChallengeCard {
   id: string;
@@ -289,6 +290,14 @@ export const CHALLENGE_TYPES: {
     tint: '#5a4a1f',
     iconColor: '#f0dca0',
   },
+  // Solo, one on one or a group (0236).
+  {
+    id: 'roulette',
+    name: 'Hound Roulette',
+    desc: 'Pick your stake (Safe, Bold or All in), then spin: the wheel tells you exactly what to do today, sized to you. Steps, a workout, water, your goals, a hound walk, cheering friends, or a Free Day. Do it and the points ride; bank them before you spin, or let them ride for a bigger multiplier. Miss and the ride is gone. Raid a friend riding high, or call them out to a Duel for your points. Most banked wins the Lucky Bandana, and every banked point is a Bone.',
+    tint: '#4a2f5a',
+    iconColor: '#e8d0f0',
+  },
   { id: 'journey', name: 'Journey', desc: 'Everyone walks the same famous course from the same start — Windy City 26.2, Route 66, the Appalachian Trail. Your walks, runs and hikes move you along the map. First to the end wins; if nobody gets there, furthest along does.', tint: '#2f5a3f', iconColor: '#cdebd6' },
 ];
 
@@ -327,7 +336,7 @@ export const CHALLENGE_GROUPS: {
     sub: 'Friends, family or your club, all at once.',
     sections: [
       { title: 'Races', kinds: ['steps', 'distance', 'journey'] },
-      { title: 'Games and team sports', kinds: ['hunt', 'tag', 'bingo', 'houndopoly', 'soccer', 'cricket', 'packs'] },
+      { title: 'Games and team sports', kinds: ['roulette', 'hunt', 'tag', 'bingo', 'houndopoly', 'soccer', 'cricket', 'packs'] },
     ],
   },
   { id: 'own', label: 'On your own', chip: 'On your own', sub: 'Keep yourself honest. Friends can watch and cheer.', sections: [{ kinds: ['streak', 'seventyfive', 'checklist'] }] },
@@ -349,6 +358,7 @@ export const GAME_TAGS: Partial<Record<ChallengeKind, { text: string; tone: Game
   tag: [{ text: 'Any group', tone: 'group' }],
   bingo: [{ text: 'Any group', tone: 'group' }],
   houndopoly: [{ text: 'Any group', tone: 'group' }],
+  roulette: [{ text: 'A task a day', tone: 'you' }, { text: 'Solo, 1 on 1 or a group', tone: 'group' }],
   soccer: [{ text: 'Teams of 1–9', tone: 'team' }],
   cricket: [{ text: 'Teams of 1–9', tone: 'team' }],
   packs: [{ text: 'Four packs', tone: 'team' }],
