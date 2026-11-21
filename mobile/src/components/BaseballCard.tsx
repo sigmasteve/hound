@@ -102,6 +102,11 @@ export interface FieldMoment {
   onThird: string | null;
   // The ball's path in a replay: to a fielder, or over the fence.
   ball?: { to: BaseballPos | null; aim: BaseballZone | null; kind: BaseballPlay['kind'] } | null;
+  // 0231: a steal in a replay: the runner runs from the base before, and
+  // slides in safe or is tagged out.
+  steal?: { runner: string; to: 2 | 3; safe: boolean } | null;
+  // Changes for each play, to start its animation over.
+  key?: string;
 }
 
 // The field from behind home plate: the three zones (today's aim lit),
@@ -213,6 +218,26 @@ export function BaseballField({
   }, [v, width, compact]);
   const stripes = Array.from({ length: 12 }, (_, i) => 72 + i * 26);
 
+  // 0231: each play in a replay moves: the ball flies along its path, the
+  // camera follows it in (ringside, as the Bout's replay), and a steal runs
+  // base to base. A frame clock for the first 1.3 s of each.
+  const [playAt, setPlayAt] = useState(0);
+  const [tick, setTick] = useState(0);
+  const animated = !compact && (!!moment.ball || !!moment.steal);
+  useEffect(() => {
+    if (!animated) return;
+    const t0 = Date.now();
+    setPlayAt(t0);
+    let raf = 0;
+    const step = () => {
+      setTick(Date.now());
+      if (Date.now() - t0 < 1300) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [animated, moment.key]);
+  const pk = animated ? Math.max(0, Math.min(1, ((tick || playAt) - playAt) / 1100)) : 1;
+
   const ball = moment.ball;
   const ballEnd = ball
     ? ball.kind === 'home_run' && !ball.to
@@ -223,11 +248,33 @@ export function BaseballField({
     : null;
   const home = P(HOME.x, HOME.y);
   const end = ballEnd ? P(ballEnd.x, ballEnd.y) : null;
+  const lift = ball ? (ball.kind === 'home_run' ? 70 : 24) : 0;
+  const ctrl = end ? { x: (home.x + end.x) / 2, y: Math.min(home.y, end.y) - lift * end.s } : null;
+  const flyAt = (k: number) =>
+    end && ctrl
+      ? {
+          x: (1 - k) * (1 - k) * home.x + 2 * (1 - k) * k * ctrl.x + k * k * end.x,
+          y: (1 - k) * (1 - k) * (home.y - 6) + 2 * (1 - k) * k * ctrl.y + k * k * end.y,
+        }
+      : null;
+  const flying = flyAt(pk);
+  // The steal: from the base before to the one taken.
+  const stealFrom = moment.steal ? (moment.steal.to === 3 ? BASE.second : BASE.first) : null;
+  const stealTo = moment.steal ? (moment.steal.to === 3 ? BASE.third : BASE.second) : null;
+  const stealPt = stealFrom && stealTo ? P(stealFrom.x + (stealTo.x - stealFrom.x) * pk, stealFrom.y + (stealTo.y - stealFrom.y) * pk) : null;
+  // The camera: in toward the ball (or the runner) and back out.
+  const camK = animated ? Math.sin(Math.PI * Math.min(1, pk * 1.05)) * (pk < 1 ? 1 : 0) : 0;
+  const focus = flying ?? stealPt;
+  const zs = 1 + 0.28 * camK;
+  const cam =
+    focus && camK > 0
+      ? [{ translateX: zs * (width / 2 - focus.x) * camK }, { translateY: zs * (hgt / 2 - focus.y) * camK }, { scale: zs }]
+      : [];
 
   return (
-    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ width: '100%', aspectRatio: 1 / (compact ? 0.82 : 0.9) }}>
+    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ width: '100%', aspectRatio: 1 / (compact ? 0.82 : 0.9), overflow: 'hidden', borderRadius: 16 }}>
       {width > 0 && (
-        <>
+        <View style={[StyleSheet.absoluteFill, { transform: cam }]}>
           <Svg width={width} height={hgt}>
             <Defs>
               <ClipPath id="fair">
@@ -295,16 +342,17 @@ export function BaseballField({
                   </SvgText>
                 );
               })}
-            {ball && end && (
+            {ball && end && ctrl && flying && (
               <G>
                 <Path
-                  d={`M ${home.x} ${home.y - 6} Q ${(home.x + end.x) / 2} ${Math.min(home.y, end.y) - (ball.kind === 'home_run' ? 70 : 24) * end.s} ${end.x} ${end.y}`}
+                  d={`M ${home.x} ${home.y - 6} Q ${ctrl.x} ${ctrl.y} ${end.x} ${end.y}`}
                   stroke="#ffffff"
                   strokeWidth={2.5}
                   strokeDasharray="6 5"
                   fill="none"
+                  opacity={0.35 + 0.65 * pk}
                 />
-                <Circle cx={end.x} cy={end.y} r={6 * end.s} fill="#ffffff" stroke="#c0392b" strokeWidth={1.5} />
+                <Circle cx={flying.x} cy={flying.y} r={(6 + 3 * Math.sin(Math.PI * pk)) * end.s} fill="#ffffff" stroke="#c0392b" strokeWidth={1.5} />
               </G>
             )}
           </Svg>
@@ -327,7 +375,7 @@ export function BaseballField({
               [moment.onThird, BASE.third],
             ] as [string | null, { x: number; y: number }][]
           ).map(([id, at], i) => {
-            if (!id) return null;
+            if (!id || (moment.steal && moment.steal.runner === id && pk < 1)) return null;
             const q = P(at.x, at.y);
             const s = sizeAt(v, q.s, compact ? 16 : 22);
             return (
@@ -336,8 +384,18 @@ export function BaseballField({
               </View>
             );
           })}
-        </>
+          {moment.steal && stealPt && (pk < 1 || !moment.steal.safe) && (
+            <View pointerEvents="none" style={[styles.spot, { left: stealPt.x - 15, top: stealPt.y - 30 }]}>
+              <View style={{ transform: [{ rotate: pk > 0.8 ? '-35deg' : '0deg' }] }}>{avatar(runner(moment.steal.runner), sizeAt(v, stealPt.s, 22), true)}</View>
+              {pk >= 1 && <Text style={styles.posTag}>OUT</Text>}
+            </View>
+          )}
+          {moment.steal && pk >= 1 && moment.steal.safe && stealTo && (
+            <Text style={[styles.posTag, { position: 'absolute', left: P(stealTo.x, stealTo.y).x - 18, top: P(stealTo.x, stealTo.y).y + 6 }]}>SAFE</Text>
+          )}
+        </View>
       )}
+      {!compact && camK > 0.45 && <Text style={styles.camChip}>FOLLOW CAM</Text>}
     </View>
   );
 }
@@ -543,6 +601,15 @@ export function BaseballCard({
         onFirst: showing.onFirst,
         onSecond: showing.onSecond,
         onThird: showing.onThird,
+        key: showing.id,
+        steal:
+          (showing.kind === 'stolen_base' || showing.kind === 'caught_stealing') && showing.runnerId
+            ? {
+                runner: showing.runnerId,
+                to: showing.onThird === showing.runnerId ? 3 : showing.onSecond === showing.runnerId ? 2 : showing.onSecond ? 3 : 2,
+                safe: showing.kind === 'stolen_base',
+              }
+            : null,
         ball:
           showing.aim || showing.fielderPos
             ? {
@@ -633,6 +700,12 @@ export function BaseballCard({
           </Text>
           <Text style={styles.playNowText}>
             {nameOf(playerOf(showing))} {playWords(showing.kind, showing.fielderPos, showing.aim, showing.lateThrow, showing.runs, seedOf(showing.id))}
+            {showing.stealJump != null ? (
+              <Text style={styles.byHand}>
+                {'  '}
+                {showing.stealJump < 0 ? 'went early' : `${showing.stealJump} ms jump`}
+              </Text>
+            ) : null}
             {showing.byHand ? <Text style={styles.byHand}>{'  '}by hand</Text> : null}
           </Text>
         </View>
@@ -685,7 +758,7 @@ export function BaseballCard({
           ) : (
             <Text style={styles.note}>
               {live.canBat || live.ready > 0
-                ? 'Bat yourself: time the swing as the pitch crosses the plate. At-bats you don’t take play for you as usual.'
+                ? 'Bat, pitch and steal yourself: tap where the pitch crosses as it gets there, pitch to their batters from the mound, and set your jump off first. At-bats you don’t take play for you as usual.'
                 : live.reason || 'At-bats you don’t take play for you as usual.'}
             </Text>
           )}
@@ -873,6 +946,19 @@ function makeStyles(colors: Palette) {
     note: { fontSize: 12.5, color: withAlpha(colors.text, 0.7), lineHeight: 18, flexShrink: 1 },
     result: { fontFamily: font.heading, fontSize: 15, color: colors.text },
     spot: { position: 'absolute', alignItems: 'center' },
+    camChip: {
+      position: 'absolute',
+      left: 8,
+      top: 8,
+      backgroundColor: 'rgba(15,17,28,0.8)',
+      color: '#fff',
+      borderRadius: 999,
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+      fontSize: 10.5,
+      fontFamily: font.headingSemibold,
+      overflow: 'hidden',
+    },
     shadow: { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.2)' },
     ring: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
     ringOn: { borderColor: colors.amber },

@@ -23,16 +23,23 @@ import {
   type BaseballSwing,
   type BaseballThrown,
 } from '../challenges/baseballApi';
+import { COUNT_MS, COUNT_STEP, Countdown, feelLine, GripTell, PITCH_NAMES, pitchPoint, TapMark, tapToZone, zoneBox, zonePoint } from '../components/baseballSwing';
+import { BaseballMoundMode } from '../components/BaseballMound';
+import { BaseballStealMode } from '../components/BaseballSteal';
 
 // Baseball, pitch by pitch (0207), for a game made with "Take my own
-// at-bats": your steps so far today earn the at-bats (one per 3,000, up
-// to 3), and you take them here. Pitch: the other side's pitcher winds up
-// (450 ms) and the ball comes in (a fastball in about 700 ms, quicker the
-// more they've out-walked you; a changeup in a second, dropping). The
-// timing bar runs EARLY → LATE and crosses the middle the moment the ball
-// reaches the zone; Swing! sends how early or late you were, and no swing
-// takes the pitch. The server calls every pitch and decides the at-bat;
-// the game uses it the next time you come up in the batting order.
+// at-bats", made real in 0231 (mockup claude.ai/artifact/HGso1dZWWMbsHBxMMfSxP5):
+// your steps so far today earn the at-bats (one per 3,000, up to 6, shared
+// with pitching), and you take them here. Three tabs:
+//   At bat     Pitch, a quick 3-2-1 (the button's at the bottom: look up),
+//              the wind-up with the grip in the glove (two lines a
+//              fastball, an arc a curveball, a circle a changeup), then
+//              the ball comes in to its spot. Tap where it crosses, as it
+//              gets there: where you tap is your swing, when is your
+//              timing. No tap takes the pitch. The server calls it.
+//   On the mound  pitch to the other side's next batter (BaseballMound.tsx).
+//   Steal      your jump off first for tonight (BaseballSteal.tsx).
+// The game uses each at-bat the next time that batter comes up.
 //
 // The field is seen from behind home plate, facing the mound, drawn in
 // perspective (perspective.ts) on the Baseball card's ground (560 × 400,
@@ -57,7 +64,7 @@ export const AT: Record<Exclude<BaseballPos, 'c' | 'p'>, Pt> = {
   cf: { x: 280, y: 162 },
   rf: { x: 383, y: 198 },
 };
-const BASES: Pt[] = [
+export const BASES: Pt[] = [
   { x: 351, y: 301 },
   { x: 280, y: 231 },
   { x: 209, y: 301 },
@@ -181,7 +188,54 @@ function bannerFor(s: BaseballSwing): { text: string; good: boolean } {
   }
 }
 
+type Mode = 'bat' | 'mound' | 'steal';
+// The real pitcher's wind-up (0231): long enough to read the grip.
+const WINDUP_REAL = 900;
+
 export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string; onBack: () => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [mode, setMode] = useState<Mode>('bat');
+  const [lock, setLock] = useState(false);
+  const tabs: { key: Mode; label: string }[] = [
+    { key: 'bat', label: 'At bat' },
+    { key: 'mound', label: 'On the mound' },
+    { key: 'steal', label: 'Steal' },
+  ];
+  return (
+    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+      <View style={styles.tabsRow}>
+        <Pressable onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
+          <ArrowLeftIcon size={20} color={colors.accentActive} />
+        </Pressable>
+        <View style={styles.tabs} accessibilityRole="tablist">
+          {tabs.map((t) => (
+            <Pressable
+              key={t.key}
+              onPress={() => !lock && setMode(t.key)}
+              style={[styles.tab, mode === t.key && styles.tabOn]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: mode === t.key, disabled: lock && mode !== t.key }}
+            >
+              <Text style={[styles.tabText, mode === t.key && styles.tabTextOn]}>{t.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+      {mode === 'bat' ? (
+        <BatMode challengeId={challengeId} onBusy={setLock} />
+      ) : mode === 'mound' ? (
+        <BaseballMoundMode challengeId={challengeId} onBusy={setLock} />
+      ) : (
+        <BaseballStealMode challengeId={challengeId} onBusy={setLock} />
+      )}
+    </SafeAreaView>
+  );
+}
+
+// At bat (0207, and 0231's real swing): Pitch, a quick 3-2-1, the wind-up
+// with the grip showing, then tap where the ball crosses as it gets there.
+function BatMode({ challengeId, onBusy }: { challengeId: string; onBusy: (b: boolean) => void }) {
   const { colors } = useTheme();
   const { user } = useAuth();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -195,18 +249,19 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
   const [count, setCount] = useState({ balls: 0, strikes: 0 });
   const [abOpen, setAbOpen] = useState(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
-  // The pitch in the air, the swing, and what happened after.
-  const [pitch, setPitch] = useState<{ p: BaseballThrown; startAt: number; releaseAt: number; arriveAt: number } | null>(null);
+  // The pitch: the countdown ends, the wind-up, the release, the plate.
+  const [pitch, setPitch] = useState<{ p: BaseballThrown; countEnd: number; releaseAt: number; arriveAt: number } | null>(null);
   const [swingAt, setSwingAt] = useState<number | null>(null);
-  const [lastMark, setLastMark] = useState<number | null>(null);
+  const [tap, setTap] = useState<{ x: number; y: number } | null>(null);
   const [after, setAfter] = useState<{ keys: Key[]; startAt: number; landAt: number; catcher: string | null } | null>(null);
   const [now, setNow] = useState(Date.now());
   const sent = useRef(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const later = (fn: () => void, ms: number) => {
-    timers.current.push(setTimeout(fn, ms));
+    timers.current.push(setTimeout(fn, Math.max(0, ms)));
   };
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  useEffect(() => onBusy(phase !== 'ready'), [phase, onBusy]);
 
   const load = useCallback(async () => {
     try {
@@ -233,7 +288,6 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
   }, [user?.id]);
   const look = parseHoundAvatar(iconId);
 
-  // A frame clock while anything's moving.
   const moving = phase === 'pitch' || phase === 'waiting' || phase === 'result';
   useEffect(() => {
     if (!moving) return;
@@ -249,23 +303,17 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
   const v = useMemo(() => (size.w > 0 ? view(size.w, size.h) : null), [size.w, size.h]);
   const pitcherName = live?.pitcher?.name ?? null;
   const pressure = live?.pressure ?? 0;
-  const bands = live?.bands ?? { barrel: 45, solid: 85, weak: 135, foul: 210 };
 
   useEffect(() => {
     if (!live || msg || !live.handsOn) return;
     const pw = live.power.strength > 0 ? ` Your workout power (×${live.power.pw.toFixed(2)}) helps the ball carry.` : '';
     setMsg(
-      `Your steps give you at-bats. Tap Pitch, then Swing as the ball crosses the zone. ${
-        pitcherName && pressure > 0
-          ? `${pitcherName} walked more today, so the fastball is quicker.`
-          : pitcherName
-            ? `You've out-walked ${pitcherName} today: the fastball's as slow as it gets.`
-            : ''
+      `Tap Pitch, watch the grip in ${pitcherName ?? 'the pitcher'}’s glove, then tap where the ball crosses the plate as it gets there. Where you tap is your swing; when you tap is your timing.${
+        pitcherName && pressure > 0 ? ` ${pitcherName} walked more today, so the fastball is quicker.` : ''
       }${pw}`,
     );
   }, [live, msg, pitcherName, pressure]);
 
-  // Where things are on the field.
   const spots = useMemo(() => {
     if (!v) return null;
     const home = P(v, HOME);
@@ -273,26 +321,28 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
     const batter = P(v, { x: HOME.x - 38, y: HOME.y + 2 });
     const zone = { x: home.x, y: home.y - HS * home.s * 0.5, d: 22 };
     const hand = { x: mound.x + FW * 0.25 * mound.s, y: mound.y - FH * 0.78 * mound.s, d: 12 * mound.s };
-    return { home, mound, batter, zone, hand };
+    const zb = zoneBox(zone, home.s, HS);
+    return { home, mound, batter, zone, hand, zb };
   }, [v]);
 
   const finish = (s: BaseballSwing) => {
     setCount({ balls: s.balls, strikes: s.strikes });
-    setMsg(s.message);
+    setMsg(s.message + feelLine(s.timing, s.miss));
     setAbOpen(!s.done);
     setLive((l) => (l ? { ...l, ready: s.ready, waiting: s.waiting } : l));
   };
 
-  // The swing (timing in ms against the ball reaching the zone), or a
-  // take (null): the server calls it, then the ball goes where it went.
-  const send = async (timing: number | null, p: NonNullable<typeof pitch>) => {
+  // The swing (timing in ms against the ball reaching the plate, and
+  // where you tapped), or a take (null).
+  const send = async (timing: number | null, at0: { x: number; y: number } | null, p: NonNullable<typeof pitch>) => {
     if (sent.current || !v || !spots) return;
     sent.current = true;
     setPhase('waiting');
     try {
-      const s = await swingBaseball(challengeId, timing);
+      const s = await swingBaseball(challengeId, timing, at0);
       const start = Math.max(Date.now(), p.arriveAt);
-      const zoneAt = { x: spots.zone.x + (p.p.inZone ? 0 : 26), y: spots.zone.y + (p.p.kind === 'changeup' ? 10 : 0), d: spots.zone.d };
+      const cross = zonePoint(spots.zb, p.p.px, p.p.py);
+      const zoneAt = { x: cross.x, y: cross.y, d: spots.zone.d };
       const a = afterKeys(v, zoneAt, s, timing);
       setAfter({ keys: a.keys, startAt: start, landAt: a.landAt, catcher: a.catcher });
       setPhase('result');
@@ -308,6 +358,7 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
           setPitch(null);
           setAfter(null);
           setSwingAt(null);
+          setTap(null);
           if (s.done) setCount({ balls: 0, strikes: 0 });
           setPhase('ready');
           getBaseballLive(challengeId)
@@ -320,6 +371,7 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
       setPitch(null);
       setAfter(null);
       setSwingAt(null);
+      setTap(null);
       setPhase('ready');
       Alert.alert('Baseball', e instanceof Error ? e.message : 'Try again.');
       load();
@@ -329,88 +381,73 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
   // No swing by the time the ball's past you: you took it.
   useEffect(() => {
     if (phase !== 'pitch' || !pitch || swingAt != null || sent.current) return;
-    if (now > pitch.arriveAt + TAKE_MS) {
-      setLastMark(null);
-      send(null, pitch);
-    }
+    if (now > pitch.arriveAt + TAKE_MS) send(null, null, pitch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [now, phase, pitch, swingAt]);
 
   const canPitch = !!live && live.handsOn && (abOpen || (live.canBat && live.ready > 0));
 
-  const act = async () => {
-    if (!live || !v) return;
-    if (phase === 'ready') {
-      if (!canPitch) return;
-      setBanner(null);
-      setLastMark(null);
-      setSwingAt(null);
-      setAfter(null);
-      setPhase('waiting');
-      try {
-        const p = await throwBaseballPitch(challengeId);
-        setCount({ balls: p.balls, strikes: p.strikes });
-        setAbOpen(true);
-        const t = Date.now();
-        sent.current = false;
-        setPitch({ p, startAt: t, releaseAt: t + WINDUP_MS, arriveAt: t + WINDUP_MS + p.ms });
-        setNow(t);
-        setPhase('pitch');
-        setMsg('Here it comes…');
-      } catch (e) {
-        setPhase('ready');
-        Alert.alert('Baseball', e instanceof Error ? e.message : 'Try again.');
-        load();
-      }
-      return;
+  const throwPitch = async () => {
+    if (!live || !v || phase !== 'ready' || !canPitch) return;
+    setBanner(null);
+    setSwingAt(null);
+    setTap(null);
+    setAfter(null);
+    setPhase('waiting');
+    try {
+      const p = await throwBaseballPitch(challengeId);
+      setCount({ balls: p.balls, strikes: p.strikes });
+      setAbOpen(true);
+      const t = Date.now();
+      sent.current = false;
+      const countEnd = t + COUNT_MS;
+      const releaseAt = countEnd + WINDUP_REAL;
+      setPitch({ p, countEnd, releaseAt, arriveAt: releaseAt + p.ms });
+      setNow(t);
+      setPhase('pitch');
+      setMsg('Eyes up: watch the grip…');
+    } catch (e) {
+      setPhase('ready');
+      Alert.alert('Baseball', e instanceof Error ? e.message : 'Try again.');
+      load();
     }
-    if (phase !== 'pitch' || !pitch || swingAt != null || sent.current) return;
+  };
+
+  // The swing is a tap on the field, counted when the finger lands.
+  const swingAtPoint = (x: number, y: number) => {
+    if (phase !== 'pitch' || !pitch || swingAt != null || sent.current || !spots) return;
     const t = Date.now();
     if (t < pitch.releaseAt) return; // still winding up
-    const timing = t - pitch.arriveAt;
     setSwingAt(t);
-    setLastMark(clamp(0.5 + timing / BAR_MS, 0.02, 0.98));
+    setTap({ x, y });
     buzz('light');
-    send(timing, pitch);
+    send(t - pitch.arriveAt, tapToZone(spots.zb, x, y), pitch);
   };
 
   if (!live) {
-    return (
-      <SafeAreaView style={styles.root} edges={['top']}>
-        <View style={styles.top}>
-          <Pressable onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
-            <ArrowLeftIcon size={20} color={colors.accentActive} />
-          </Pressable>
-        </View>
-        <View style={styles.center}>{error ? <Text style={styles.note}>{error}</Text> : <ActivityIndicator color={colors.accent} />}</View>
-      </SafeAreaView>
-    );
+    return <View style={styles.center}>{error ? <Text style={styles.note}>{error}</Text> : <ActivityIndicator color={colors.accent} />}</View>;
   }
 
   // ── This frame ──
-  const winding = phase === 'pitch' && pitch != null && now < pitch.releaseAt;
+  const counting = phase === 'pitch' && pitch != null && now < pitch.countEnd;
+  const winding = phase === 'pitch' && pitch != null && now >= pitch.countEnd && now < pitch.releaseAt;
+  const windK = pitch ? (now - pitch.countEnd) / WINDUP_REAL : 0;
   let ball: { x: number; y: number; d: number } | null = null;
   if (spots && pitch && !after && now >= pitch.releaseAt) {
-    const p = Math.min(1.15, (now - pitch.releaseAt) / pitch.p.ms);
-    ball = {
-      x: lerp(spots.hand.x, spots.zone.x, p) + (pitch.p.inZone ? 0 : 26 * p),
-      y: lerp(spots.hand.y, spots.zone.y, p) + (pitch.p.kind === 'changeup' ? 10 * p * p : 0),
-      d: lerp(spots.hand.d, spots.zone.d, Math.min(1, p)),
-    };
+    ball = pitchPoint(spots.hand, spots.zb, pitch.p, spots.zone.d, Math.min(1.15, (now - pitch.releaseAt) / pitch.p.ms));
   } else if (after) {
     const k = at(after.keys, now - after.startAt);
     ball = { x: k.x, y: k.y, d: k.d };
   }
   const caught = !!after?.catcher && now - after.startAt >= after.landAt - 120 ? after.catcher : null;
-  // The swing, then the follow-through held until the pitch is done.
   const batAngle = batAngleFor(swingAt, now);
-  const liveMark = phase === 'pitch' && pitch && swingAt == null && !sent.current && now >= pitch.releaseAt;
-  const mark = liveMark && pitch ? clamp(0.5 + (now - pitch.arriveAt) / BAR_MS, 0.02, 0.98) : lastMark;
 
   const busy = phase === 'waiting' || phase === 'result';
   const actLabel =
     phase === 'pitch'
-      ? 'Swing!'
+      ? counting
+        ? 'Eyes on the plate…'
+        : 'Tap where it crosses'
       : busy
         ? '…'
         : !live.handsOn
@@ -420,29 +457,19 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
               ? 'Next pitch'
               : 'Pitch'
             : live.reason || (live.nextAt != null ? `No at-bats ready: next at ${formatSteps(live.nextAt)}` : "That's all your at-bats today.");
-  const actOn = phase === 'pitch' || (phase === 'ready' && canPitch);
+  const actOn = phase === 'ready' && canPitch;
   const pitchChip =
-    pitch && (phase === 'pitch' || phase === 'waiting' || phase === 'result')
-      ? `${pitch.p.kind === 'changeup' ? 'Changeup' : 'Fastball'} · ${pitch.p.mph}`
+    pitch && (phase === 'pitch' || phase === 'waiting' || phase === 'result') && now >= pitch.releaseAt
+      ? `${PITCH_NAMES[pitch.p.kind] ?? 'Fastball'} · ${pitch.p.mph}`
       : pitcherName
         ? `${pitcherName} on the mound`
         : 'On the mound';
   const innings = game?.innings ?? 9;
 
-  // The bar: whiff at the ends, then foul, weak, solid and the barrel in
-  // the middle, each the server's band (ms) either side of on time.
-  const share = (ms: number) => clamp(ms / BAR_MS, 0, 0.5);
-  const band = (ms: number, color: string) => (
-    <View style={[styles.band, { backgroundColor: color, left: `${(0.5 - share(ms)) * 100}%`, width: `${2 * share(ms) * 100}%` }]} />
-  );
-
   return (
-    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.body}>
+    <>
+      <View style={styles.fixed}>
         <View style={styles.head}>
-          <Pressable onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
-            <ArrowLeftIcon size={20} color={colors.accentActive} />
-          </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={styles.kicker} numberOfLines={1}>
               BASEBALL{live.inning ? ` · ${inningLabel(live.inning, innings).toUpperCase()}` : ''}
@@ -492,14 +519,11 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
                 const q = P(v, AT[pos]);
                 return <Figure key={pos} x={q.x} y={q.y} s={q.s} color={PITCHER_COLOR} pose={caught === pos ? 'catch' : 'ready'} />;
               })}
-              <Figure x={spots.mound.x} y={spots.mound.y} s={spots.mound.s} color={PITCHER_COLOR} pose={winding ? 'windup' : pitch && phase === 'pitch' ? 'thrown' : 'set'} />
-              {/* The strike zone over the plate. */}
+              <Figure x={spots.mound.x} y={spots.mound.y} s={spots.mound.s} color={PITCHER_COLOR} pose={winding ? 'windup' : pitch && phase === 'pitch' && !counting ? 'thrown' : 'set'} />
+              {winding && pitch && windK > 0.4 && windK < 0.95 && <GripTell kind={pitch.p.kind} x={spots.hand.x + 14} y={spots.hand.y - 6} />}
               <View
                 pointerEvents="none"
-                style={[
-                  styles.zone,
-                  { left: spots.zone.x - HS * spots.home.s * 0.2, top: spots.zone.y - HS * spots.home.s * 0.22, width: HS * spots.home.s * 0.4, height: HS * spots.home.s * 0.44 },
-                ]}
+                style={[styles.zone, { left: spots.zb.x - spots.zb.hw, top: spots.zb.y - spots.zb.hh, width: spots.zb.hw * 2, height: spots.zb.hh * 2 }]}
               />
               <Batter x={spots.batter.x} y={spots.batter.y} s={spots.batter.s} look={look} angle={batAngle} />
               {ball && (
@@ -507,43 +531,36 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
                   <BaseballBall size={Math.max(4, ball.d)} />
                 </View>
               )}
+              {tap && swingAt != null && now - swingAt < 900 && <TapMark x={tap.x} y={tap.y} />}
             </>
           )}
-          <Text style={[styles.chip, { left: 10 }]}>{pitchChip}</Text>
-          {live.power.strength > 0 && <Text style={[styles.chip, { right: 10, color: '#ffd8b0' }]}>Power ×{live.power.pw.toFixed(2)}</Text>}
+          {/* The swing: tap where the ball crosses, counted when the finger lands. */}
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPressIn={(e) => swingAtPoint(e.nativeEvent.locationX, e.nativeEvent.locationY)}
+            disabled={phase !== 'pitch'}
+            accessibilityRole="button"
+            accessibilityLabel="Swing: tap where the ball crosses the plate"
+          />
+          <Text style={[styles.chip, { left: 10 }]} pointerEvents="none">
+            {pitchChip}
+          </Text>
+          {live.power.strength > 0 && (
+            <Text style={[styles.chip, { right: 10, color: '#ffd8b0' }]} pointerEvents="none">
+              Power ×{live.power.pw.toFixed(2)}
+            </Text>
+          )}
+          {counting && pitch && <Countdown n={Math.max(1, Math.ceil((pitch.countEnd - now) / COUNT_STEP))} />}
           {banner && (
-            <View style={[styles.banner, { backgroundColor: banner.good ? '#ffd8b0' : '#e9e9ed' }]}>
+            <View pointerEvents="none" style={[styles.banner, { backgroundColor: banner.good ? '#ffd8b0' : '#e9e9ed' }]}>
               <Text style={styles.bannerText}>{banner.text}</Text>
             </View>
           )}
         </View>
+      </View>
 
-        <View
-          style={styles.meter}
-          accessibilityLabel={`Timing: on time is the middle; a barrel is within ${bands.barrel} milliseconds, a foul within ${bands.foul}`}
-        >
-          <View style={[styles.band, { backgroundColor: '#e5484d', left: 0, width: '100%' }]} />
-          {band(bands.foul, '#e0a94f')}
-          {band(bands.weak, '#bfe8cb')}
-          {band(bands.solid, '#7fd39b')}
-          {band(bands.barrel, '#3fb37f')}
-          <Text style={[styles.meterWord, { left: 10 }]}>EARLY</Text>
-          <Text style={[styles.meterWord, { right: 10 }]}>LATE</Text>
-          {mark != null && <View style={[styles.marker, { left: `${mark * 100}%` }, !liveMark && { borderColor: '#ffd8b0' }]} />}
-        </View>
-
-        {/* A timing tap counts when the finger lands, not when it lifts: a tap is about a tenth of a second, and the marker crosses a third of the bar in that time near the middle (Steve, Nov 2026: every Hoops shot came up long). */}
-        <Pressable
-          onPressIn={phase === 'pitch' ? act : undefined}
-          onPress={phase === 'pitch' ? undefined : act}
-          disabled={!actOn}
-          style={[styles.act, actOn ? { backgroundColor: phase === 'pitch' ? '#f08a24' : colors.green } : styles.actOff]}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.actText, !actOn && { color: withAlpha(colors.text, 0.6), fontSize: 14 }]}>{actLabel}</Text>
-        </Pressable>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollBody}>
         <Text style={styles.msg}>{msg}</Text>
-
         {live.abs.length > 0 && (
           <View style={styles.today}>
             <Text style={styles.small}>Your at-bats:</Text>
@@ -554,9 +571,22 @@ export function BaseballBatScreen({ challengeId, onBack }: { challengeId: string
             ))}
           </View>
         )}
-        {live.abs.some((a) => !a.used) && <Text style={styles.small}>The game uses each one the next time you come up in the order. At-bats you don’t take play for you.</Text>}
+        <Text style={styles.small}>
+          One at-bat per 3,000 steps, up to {live.cap} a day, shared with pitching. The game uses each one the next time you come up. At-bats you don’t take play for you.
+        </Text>
       </ScrollView>
-    </SafeAreaView>
+
+      <View style={styles.pinned}>
+        <Pressable
+          onPress={throwPitch}
+          disabled={!actOn}
+          style={[styles.act, actOn ? { backgroundColor: colors.green } : phase === 'pitch' ? { backgroundColor: '#2a2c38' } : styles.actOff]}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.actText, !actOn && { color: phase === 'pitch' ? '#ffd8b0' : withAlpha(colors.text, 0.6), fontSize: 14 }]}>{actLabel}</Text>
+        </Pressable>
+      </View>
+    </>
   );
 }
 
@@ -757,6 +787,16 @@ const styles0 = StyleSheet.create({
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.bg },
+    tabsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 6 },
+    tabs: { flex: 1, flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 12, padding: 3, gap: 3 },
+    tab: { flex: 1, minHeight: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+    tabOn: { backgroundColor: colors.accent },
+    tabText: { fontFamily: font.headingSemibold, fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
+    tabTextOn: { color: '#161826' },
+    fixed: { flex: 1, paddingHorizontal: 16, gap: 8 },
+    scroll: { flexGrow: 0, maxHeight: 112, marginTop: 8 },
+    scrollBody: { paddingHorizontal: 16, gap: 6, paddingBottom: 6 },
+    pinned: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8 },
     top: { paddingHorizontal: 16, paddingVertical: 6, minHeight: 36 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
     body: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10, gap: 9 },

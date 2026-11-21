@@ -362,7 +362,7 @@ export function AdminScreen({
       getBaseballOverview()
         .then((b) =>
           setBaseballSummary(
-            `${b.active} ${b.active === 1 ? 'game' : 'games'} on now, ${b.finished} played${b.live && b.live.atBats7d > 0 ? ` · ${b.live.atBats7d} at-bats by hand` : ''}`,
+            `${b.active} ${b.active === 1 ? 'game' : 'games'} on now, ${b.finished} played${b.live && b.live.atBats7d > 0 ? ` · ${b.live.atBats7d} at-bats by hand` : ''}${b.live && b.live.pitched7d > 0 ? ` · ${b.live.pitched7d} pitched` : ''}`,
           ),
         )
         .catch(() => {});

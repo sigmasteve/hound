@@ -108,7 +108,7 @@ select is((select jsonb_build_object('can_bat', l -> 'can_bat', 'earned', l -> '
 select public.baseball_pitch('00000000-0000-0000-0000-00000000ba01') as p1 \gset
 select is(public.baseball_pitch('00000000-0000-0000-0000-00000000ba01'), :'p1'::jsonb, 'Asking again before the swing: the same pitch');
 reset role;
-select is((:'p1'::jsonb) - 'bands' - 'mph',
+select is((:'p1'::jsonb) - 'bands' - 'mph' - 'px' - 'py',
   jsonb_build_object('ab', 1, 'pitch_no', 1, 'balls', 0, 'strikes', 0,
     'kind', case when public.baseball_rand('00000000-0000-0000-0000-00000000ba01:' || :'ann' || ':live:1:1:change') < 0.30 then 'changeup' else 'fastball' end,
     'in_zone', public.baseball_rand('00000000-0000-0000-0000-00000000ba01:' || :'ann' || ':live:1:1:zone') < 0.50,
@@ -118,7 +118,7 @@ select is((:'p1'::jsonb) - 'bands' - 'mph',
 select is(((:'p1'::jsonb) ->> 'mph')::int, case when (:'p1'::jsonb) ->> 'kind' = 'changeup' then 80 else 95 end, 'mph: 88 + 20 x pressure, a changeup 80');
 select tests.sign_in(:'ann');
 set local role authenticated;
-select is(public.baseball_live('00000000-0000-0000-0000-00000000ba01') -> 'open',
+select is(public.baseball_live('00000000-0000-0000-0000-00000000ba01') -> 'open' #- '{pending,px}' #- '{pending,py}',
   jsonb_build_object('ab', 1, 'pitch_no', 1, 'balls', 0, 'strikes', 0,
     'pending', jsonb_build_object('kind', (:'p1'::jsonb) ->> 'kind', 'mph', ((:'p1'::jsonb) ->> 'mph')::int,
       'in_zone', ((:'p1'::jsonb) ->> 'in_zone')::boolean, 'ms', ((:'p1'::jsonb) ->> 'ms')::int)),
@@ -126,7 +126,7 @@ select is(public.baseball_live('00000000-0000-0000-0000-00000000ba01') -> 'open'
 
 -- Took it: a ball out of the zone, a strike in it.
 select public.baseball_swing('00000000-0000-0000-0000-00000000ba01', null) as s1 \gset
-select is((:'s1'::jsonb) - 'ready' - 'waiting',
+select is((:'s1'::jsonb) - array['ready', 'waiting', 'px', 'py', 'kind', 'miss', 'timing'],
   case when ((:'p1'::jsonb) ->> 'in_zone')::boolean
     then jsonb_build_object('call', 'strike', 'contact', null, 'balls', 0, 'strikes', 1, 'done', false, 'result', null, 'message', 'It caught the zone.')
     else jsonb_build_object('call', 'ball', 'contact', null, 'balls', 1, 'strikes', 0, 'done', false, 'result', null, 'message', 'Good eye.') end,
@@ -213,7 +213,8 @@ select is((select jsonb_build_object('call', s -> 'call', 'done', s -> 'done', '
   from public.baseball_swing('00000000-0000-0000-0000-00000000ba01', 110) s),
   jsonb_build_object('call', 'foul', 'done', true, 'result', 'strikeout', 'message', 'Foul tip, caught: strike three.'),
   'From the tenth pitch on, a two-strike foul is a foul tip, caught');
-select is(public.baseball_live('00000000-0000-0000-0000-00000000ba01') ->> 'reason', 'That''s all your at-bats today.', 'Three a day');
+select is(public.baseball_live('00000000-0000-0000-0000-00000000ba01') ->> 'reason', 'No at-bats ready: your next one comes at 12,000 steps.',
+  'Three taken by 9,000 steps: the next at 12,000 (up to six a day since 0231)');
 reset role;
 
 -- In play: a perfectly timed swing is barrel contact (or a foul, by the
@@ -341,7 +342,8 @@ select throws_ok($$select public.admin_baseball_overview()$$, 'not authorized', 
 reset role;
 select tests.sign_in(:'ada');
 set local role authenticated;
-select is((select (o -> 'live') - 'auto_avg_7d' - 'avg_7d' from public.admin_baseball_overview() o),
+select is((select (o -> 'live') - array['auto_avg_7d', 'avg_7d', 'tapped_7d', 'avg_miss_7d', 'curveballs_7d', 'pitchers_7d', 'pitched_7d', 'pitched_k_7d',
+    'pitched_hits_7d', 'painted_7d', 'mound_pitches_7d', 'jumps_7d', 'great_jumps_7d', 'jump_steals_7d', 'jump_safe_7d', 'derby_tapped_7d'] from public.admin_baseball_overview() o),
   jsonb_build_object('games_hands_on', 3, 'people_7d', 4, 'at_bats_7d', :'done_abs'::int, 'pitches_7d', :'pitches'::int, 'hr_7d', :'hrs'::int),
   'Admin: hands-on games, people, at-bats, pitches and home runs this week');
 select ok((select (o -> 'live' ->> 'avg_7d')::numeric between 0 and 1 from public.admin_baseball_overview() o),

@@ -108,7 +108,7 @@ select tests.sign_in(:'ann');
 set local role authenticated;
 select is(public.derby_swing(:'derby', 0) ->> 'message', 'Gone! 435 ft.', 'Dead on: 435 ft, over the center-field wall');
 select public.derby_pitch(:'derby');
-select is(public.derby_swing(:'derby', -50) - array['hrs', 'longest_ft', 'rank', 'swings_left', 'power', 'golden', 'sign', 'sign_paid', 'message', 'moonshot'],
+select is(public.derby_swing(:'derby', -50) - array['hrs', 'longest_ft', 'rank', 'swings_left', 'power', 'golden', 'sign', 'sign_paid', 'message', 'moonshot', 'px', 'py', 'miss', 'timing'],
   '{"result":"hr","ft":350,"dir":"left","counts":1}'::jsonb, '50 ms early: 350 ft, pulled down the line, and out');
 select public.derby_pitch(:'derby');
 select is(public.derby_swing(:'derby', -90) ->> 'message', 'Caught at the wall: a little early.', '90 ms early: caught at the wall');
@@ -125,7 +125,7 @@ select tests.sign_in(:'dan');
 set local role authenticated;
 select is((public.derby_live(:'derby') -> 'power')::jsonb, '{"steps_ft": 40, "workout_ft": 25}'::jsonb, '+40 for steps, +25 for workouts');
 select public.derby_pitch(:'derby');
-select is(public.derby_swing(:'derby', 0) - array['hrs', 'longest_ft', 'rank', 'swings_left', 'power', 'golden', 'sign', 'sign_paid', 'dir', 'result'],
+select is(public.derby_swing(:'derby', 0) - array['hrs', 'longest_ft', 'rank', 'swings_left', 'power', 'golden', 'sign', 'sign_paid', 'dir', 'result', 'px', 'py', 'miss', 'timing'],
   '{"ft":500,"moonshot":true,"counts":2,"message":"Moonshot! 500 ft: that counts as two."}'::jsonb, 'A 500 ft Moonshot counts as two');
 select public.derby_pitch(:'derby');
 select is(public.derby_swing(:'derby', null) ->> 'message', 'You have to swing in a derby. That one''s an out.', 'Taking one is an out');

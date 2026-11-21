@@ -96,6 +96,9 @@ export interface DerbyPitch {
   ms: number;
   bands: DerbyBands;
   swingsLeft: number;
+  // 0231: where the meatball crosses, in half-widths of the zone.
+  px: number;
+  py: number;
 }
 
 export interface DerbyLive {
@@ -134,6 +137,8 @@ function toPitch(d: any, factor: number): DerbyPitch {
     ms: num(d?.ms) || 700,
     bands: toBands(d?.bands, factor),
     swingsLeft: num(d?.swings_left),
+    px: num(d?.px),
+    py: num(d?.py),
   };
 }
 
@@ -222,12 +227,22 @@ export interface DerbySwing {
   rank: number | null;
   swingsLeft: number;
   message: string;
+  // 0231: how far your tap was from the ball (half-widths), and the timing.
+  miss: number | null;
+  timing: number | null;
 }
 
 // timing: ms against the ball reaching the plate (− early, + late); null
-// means you took it, which is an out in a derby.
-export async function swingDerby(challengeId: string, timing: number | null): Promise<DerbySwing> {
-  const d = await rpc<any>('derby_swing', { p_challenge_id: challengeId, p_timing_ms: timing == null ? null : Math.round(timing) });
+// means you took it, which is an out in a derby. tap: where you tapped
+// (0231), in half-widths of the zone.
+export async function swingDerby(challengeId: string, timing: number | null, tap?: { x: number; y: number } | null): Promise<DerbySwing> {
+  const t = timing == null ? null : Math.round(timing);
+  const d = await rpc<any>(
+    'derby_swing',
+    t != null && tap
+      ? { p_challenge_id: challengeId, p_timing_ms: t, p_tap_x: Math.round(tap.x * 1000) / 1000, p_tap_y: Math.round(tap.y * 1000) / 1000 }
+      : { p_challenge_id: challengeId, p_timing_ms: t },
+  );
   const result: DerbyResult = d?.result === 'hr' || d?.result === 'fly_out' || d?.result === 'take' ? d.result : 'whiff';
   const dir: DerbyDir = d?.dir === 'left' || d?.dir === 'right' ? d.dir : 'center';
   return {
@@ -244,6 +259,8 @@ export async function swingDerby(challengeId: string, timing: number | null): Pr
     rank: numOrNull(d?.rank),
     swingsLeft: num(d?.swings_left),
     message: d?.message ?? '',
+    miss: numOrNull(d?.miss),
+    timing: numOrNull(d?.timing),
   };
 }
 
