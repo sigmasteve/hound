@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import Svg, { Circle, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, G, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { TrophyIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
@@ -29,6 +29,9 @@ import { PACKS, packOf } from '../challenges/packWars';
 import { HoodMap } from '../components/PackWarsCard';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getRoulette, rouletteWaiting, type RouletteGame } from '../challenges/rouletteApi';
+import { getSlots, slotsWaiting, type SlotsGame } from '../challenges/slotsApi';
+import { teamName } from '../challenges/slots';
+import { SlotSymbolArt } from '../components/SlotSymbol';
 import { SEGMENTS, stakeName, taskTitle as rouletteTaskTitle } from '../challenges/roulette';
 import { chessHeadline, getChess, type ChessGame } from '../challenges/chessApi';
 import { parseFen } from '../challenges/chess';
@@ -653,6 +656,60 @@ export function RoulettePinned({ challenge, userId, onOpen }: PinnedProps) {
       {game.board.slice(0, 3).map((r, i) => (
         <Row key={r.userId} rank={1 + game.board.filter((x) => x.banked > r.banked).length || i + 1} name={r.userId === userId ? 'You' : first(r.name)} value={`${r.banked} banked`} me={r.userId === userId} styles={styles} />
       ))}
+    </Frame>
+  );
+}
+
+// ── Paw Slots: three reels, your Paw Coins and place, spins ready. ──
+
+export function SlotsPinned({ challenge, userId, onOpen }: PinnedProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const game = useLoad<SlotsGame>(`slots:${challenge.id}`, () => getSlots(challenge.id));
+  if (!game) {
+    return (
+      <Frame challenge={challenge} button="Open the machine" onOpen={onOpen}>
+        <Text style={styles.note}>{game === undefined ? 'Loading the machine…' : 'Open the challenge to see the machine.'}</Text>
+      </Frame>
+    );
+  }
+  const ready = slotsWaiting(game);
+  const team = game.teams >= 2;
+  return (
+    <Frame
+      challenge={challenge}
+      meta={`${game.pool.toLocaleString('en-US')} Bones in the pool`}
+      button={ready > 0 ? `Play · ${ready} ${ready === 1 ? 'spin' : 'spins'} ready` : 'Open the machine'}
+      primaryButton={ready > 0}
+      onOpen={onOpen}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <Svg width={84} height={30} viewBox="0 0 176 60">
+          {(['bone', 'gold', 'collar'] as const).map((s, i) => (
+            <G key={s} transform={`translate(${i * 60} 2)`}>
+              <Rect x={0} y={0} width={56} height={56} rx={10} fill="#f6f1e4" />
+              <SlotSymbolArt sym={s} />
+            </G>
+          ))}
+        </Svg>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.kicker}>{ready > 0 ? 'SPINS READY' : 'PAW SLOTS'}</Text>
+          <Text style={styles.big}>
+            {game.me.coins.toLocaleString('en-US')} Paw Coins{team ? '' : ` · ${ordinal(game.me.rank)}`}
+          </Text>
+          <Text style={styles.small}>
+            {team ? `The ${teamName(game.me.team)} · ` : ''}
+            {game.today.nextAt != null ? `${Math.max(0, game.today.nextAt - game.today.steps).toLocaleString('en-US')} steps to the next spin` : 'All of today’s spins from steps are in'}
+          </Text>
+        </View>
+      </View>
+      {team
+        ? game.teamBoard.slice(0, 3).map((t) => (
+            <Row key={t.team} rank={t.rank} name={teamName(t.team)} value={`${Math.round(t.avg).toLocaleString('en-US')} a hound`} me={t.mine} styles={styles} />
+          ))
+        : game.board.slice(0, 3).map((r) => (
+            <Row key={r.userId} rank={r.rank} name={r.userId === userId ? 'You' : first(r.name)} value={`${r.coins.toLocaleString('en-US')}`} me={r.userId === userId} styles={styles} />
+          ))}
     </Frame>
   );
 }

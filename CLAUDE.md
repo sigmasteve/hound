@@ -154,6 +154,14 @@ must match the server's. Points come only from doing tasks and leave only
 as Bones and the Lucky Bandana at the end: nothing in it may take Bones or
 money in (Steve, Nov 2026: playful, not gambling).
 
+Paw Slots (0242, `SlotsScreen.tsx`) is a machine, not a field: the server
+picks where the reels stop (`slots_spin`, random) and pays every line; the
+reels only turn to it, so the strips in `challenges/slots.ts` must match
+`slots_strip`, in the same order (the order also sets how often 3 and 5
+lines win: Steve's 3 in 8, 7 in 9 and 17 in 20). Spins come from steps, a
+workout and Paw Coins only; Paw Coins leave only as the pool paid by place
+at the end: nothing in it may take Bones or money in.
+
 Hound Chess (0238, `ChessScreen.tsx`) is a board, but drawn like a field:
 seen from behind your side through `perspective.ts` and `project()` (the
 board on the ground with a small margin, the stand past the far end), the

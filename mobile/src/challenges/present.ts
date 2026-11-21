@@ -214,6 +214,10 @@ export function toChallengeCard(
     // The board lives in chess_games, on the detail screen.
     stat = '1';
     statLabel = 'on 1 · your steps free your pieces';
+  } else if (challenge.kind === 'slots') {
+    // The Paw Coins live in slots_players, on the detail screen.
+    stat = String(challenge.durationDays);
+    statLabel = 'days · most Paw Coins wins';
   } else if (challenge.kind === 'roulette') {
     // The points live in roulette_players, on the detail screen.
     stat = String(challenge.durationDays);
