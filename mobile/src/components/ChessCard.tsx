@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { Card } from './Card';
@@ -7,14 +7,16 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { usePinnedAction } from './PinnedAction';
 import { BOT_NAME, moveLine, resultLine } from '../challenges/chess';
 import type { ChessGame } from '../challenges/chessApi';
+import { ChessBoardPicture } from '../screens/ChessScreen';
 
 // Hound Chess on the challenge page (0238): whose move, both sides' steps
 // and the pieces they've freed today, the last few moves, and the puzzle
-// of the day. "Your move" pins to the bottom of the page; the board is
-// ChessScreen.
+// of the day, under the board as it stands (tap it to play). "Your move"
+// pins to the bottom of the page; the board to play on is ChessScreen.
 export function ChessCard({ game, onPlay, onPuzzle }: { game: ChessGame | null; onPlay: () => void; onPuzzle: () => void }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [boardW, setBoardW] = useState(0);
   const pinned = usePinnedAction(game?.myTurn ? { label: game.inCheck ? 'You’re in check: your move' : 'Your move', onPress: onPlay } : null);
 
   if (!game) {
@@ -58,6 +60,19 @@ export function ChessCard({ game, onPlay, onPuzzle }: { game: ChessGame | null; 
       {game.status === 'final' && <Text style={styles.result}>{resultLine(game.result, game.method, game.me)}</Text>}
       {myMisses > 0 && game.status === 'active' && (
         <Text style={styles.warn}>Hound moved for you once when your 24 hours ran out. Miss the next one and the game’s lost.</Text>
+      )}
+
+      {game.status !== 'waiting' && (
+        <Pressable
+          onPress={onPlay}
+          onLayout={(e) => setBoardW(Math.round(e.nativeEvent.layout.width))}
+          accessibilityRole="button"
+          accessibilityLabel={game.myTurn ? 'The board: your move' : 'The board: open it'}
+        >
+          {boardW > 0 && (
+            <ChessBoardPicture fen={game.fen} me={game.me === 'b' ? 'b' : 'w'} last={game.history.slice(-1)[0] ?? null} inCheck={game.inCheck} width={boardW} />
+          )}
+        </Pressable>
       )}
 
       {game.status !== 'waiting' && (

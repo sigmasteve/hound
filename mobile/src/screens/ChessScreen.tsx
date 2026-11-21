@@ -241,6 +241,29 @@ const Board = React.memo(function Board({
   );
 });
 
+// The same board as a picture, for the game's card on the challenge page:
+// the position from your side, the last move and a king in check marked.
+// Nothing on it is tappable; the card opens ChessScreen.
+const NO_DOTS: { sq: number; cap: boolean }[] = [];
+const NOT_RESTING = () => false;
+const NO_TAG = () => null;
+export function ChessBoardPicture({ fen, me, last, inCheck, width }: { fen: string; me: ChessColor; last: { from: string; to: string } | null; inCheck: boolean; width: number }) {
+  const h = Math.round(width * 0.87);
+  const v = useMemo(() => boardView(width, h), [width, h]);
+  const parsed = useMemo(() => parseFen(fen), [fen]);
+  const marks: { sq: number; fill: string }[] = [];
+  if (last) [last.from, last.to].forEach((s) => marks.push({ sq: sqIndex(s), fill: 'rgba(240,194,74,0.45)' }));
+  if (inCheck) {
+    const k = parsed.pieces.find((p) => p.type === 'K' && p.color === parsed.turn);
+    if (k) marks.push({ sq: k.sq, fill: 'rgba(224,91,91,0.6)' });
+  }
+  return (
+    <View style={{ width, height: h, borderRadius: 14, overflow: 'hidden', backgroundColor: '#1a1e30' }}>
+      <Board v={v} me={me} pieces={parsed.pieces} marks={marks} dots={NO_DOTS} resting={NOT_RESTING} restTag={NO_TAG} />
+    </View>
+  );
+}
+
 export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeId?: string; mode?: 'game' | 'puzzle'; onBack: () => void }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
