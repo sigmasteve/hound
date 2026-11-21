@@ -96,9 +96,9 @@ export function ChessCard({ game, onPlay, onPuzzle }: { game: ChessGame | null; 
       </Pressable>
 
       <Text style={styles.small}>
-        Your steps today free your pieces: knights and bishops at {game.needs.knightBishop.toLocaleString('en-US')}, rooks at{' '}
-        {game.needs.rook.toLocaleString('en-US')}, the queen at {game.needs.queen.toLocaleString('en-US')} or after a {game.needs.queenWorkout}-minute workout.
-        In check, everything’s free. {game.needs.moveHours} hours a move: miss it and Hound moves for you; miss two in a row and the game’s lost.
+        Your steps free your pieces: knights and bishops at {game.needs.knightBishop.toLocaleString('en-US')}, rooks at{' '}
+        {game.needs.rook.toLocaleString('en-US')}, the queen at {game.needs.queen.toLocaleString('en-US')} or after a {game.needs.queenWorkout}-minute workout,
+        on today’s steps or yesterday’s, whichever is more. In check, everything’s free. {game.needs.moveHours} hours a move: miss it and Hound moves for you; miss two in a row and the game’s lost.
       </Text>
     </Card>
   );

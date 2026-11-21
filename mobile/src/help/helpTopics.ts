@@ -225,7 +225,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'Real chess with hounds, what unlocks your pieces, the 24-hour clock and the puzzle of the day.',
       steps: [
         'Real chess, one on one with a friend or against the Hound bot (Easy, Medium or Hard). Whoever makes the game plays White. The pieces are hounds: puppy pawns, leaping-hound knights, doghouse rooks, and a queen and king with gold crowns.',
-        'Your steps today decide which pieces can move: your pawns and king always; knights and bishops from 3,000 steps; rooks from 6,000; your queen from 9,000, or after a 20-minute workout. Resting pieces are dimmed, with what they need. It starts again each morning.',
+        'Your steps decide which pieces can move: your pawns and king always; knights and bishops from 2,500 steps; rooks from 5,000; your queen from 7,500, or after a 20-minute workout. Today’s steps or yesterday’s count, whichever is more, so a piece you freed yesterday is still free first thing this morning. Resting pieces are dimmed, with what they need.',
         'In check, every piece is free, so you can always get out. If none of your free pieces has a move, they’re all free for that move too.',
         'To move, tap a piece and then one of the dots. Every move is checked by Hound, so only legal ones count. Castling, en passant and promotion all work (a pawn that reaches the end becomes a queen).',
         'You have 24 hours a move. Run out and Hound makes a careful move for you; run out again on your next move and the game is lost. Against the bot, it answers straight away.',

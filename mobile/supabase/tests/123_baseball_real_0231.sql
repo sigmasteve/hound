@@ -8,7 +8,7 @@
 -- by the jump); the Derby's tap; and Admin.
 select plan(44);
 
-select tests.new_user('Ann') as ann \gset
+select tests.new_user_with_id('00000000-0000-0000-0000-0000000aa001', 'Ann') as ann \gset
 select tests.new_user('Bob') as bob \gset
 select tests.new_user('Cat') as cat \gset
 select tests.new_user('Ada', true) as ada \gset
