@@ -10,7 +10,10 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { localDayKey } from '../water/water';
 import { getHolidayOverview, saveHolidayRun, stopHolidayRun, type HolidayOverview, type HolidayRunStats } from '../holiday/holidayApi';
-import { HOLIDAY_THEME_IDS, HOLIDAY_THEMES, shortDay, suggestedEnd, type HolidayThemeId } from '../holiday/holidays';
+import { HOLIDAY_THEME_IDS, HOLIDAY_THEMES, daysApart, shortDay as dayOnly, suggestedEnd, suggestedRun, type HolidayThemeId } from '../holiday/holidays';
+
+// Dates show their year when it isn't this year's.
+const shortDay = (d: string) => dayOnly(d, localDayKey());
 
 // Admin → Holiday themes (0184): what's on Today now, the schedule of
 // themes (each a run of days; the one that started last shows where
@@ -42,8 +45,8 @@ export function HolidayAdminCard({ onChanged }: { onChanged?: (o: HolidayOvervie
   // The form: a new run (id null) or one being changed.
   const [editing, setEditing] = useState<number | null>(null);
   const [theme, setTheme] = useState<HolidayThemeId>('christmas');
-  const [startsOn, setStartsOn] = useState(today);
-  const [endsOn, setEndsOn] = useState(suggestedEnd('christmas', today));
+  const [startsOn, setStartsOn] = useState(() => suggestedRun('christmas', today).startsOn);
+  const [endsOn, setEndsOn] = useState(() => suggestedRun('christmas', today).endsOn);
   const [effects, setEffects] = useState(true);
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
@@ -52,15 +55,16 @@ export function HolidayAdminCard({ onChanged }: { onChanged?: (o: HolidayOvervie
   const changed = useRef(onChanged);
   changed.current = onChanged;
 
-  // A new run starts the day after the last one on now or to come ends.
+  // A new run: the theme's next date from today (it used to start the day
+  // after the last run ended, which after New Year meant next year's
+  // Thanksgiving).
   const freshForm = useCallback(
-    (o: HolidayOverview | null, t: HolidayThemeId = 'christmas') => {
-      const last = (o?.runs ?? []).filter((r) => r.endsOn >= today).reduce<string | null>((m, r) => (!m || r.endsOn > m ? r.endsOn : m), null);
-      const start = last ? plusDays(last, 1) : today;
+    (_o: HolidayOverview | null, t: HolidayThemeId = 'christmas') => {
+      const s = suggestedRun(t, today);
       setEditing(null);
       setTheme(t);
-      setStartsOn(start);
-      setEndsOn(suggestedEnd(t, start));
+      setStartsOn(s.startsOn);
+      setEndsOn(s.endsOn);
       setEffects(true);
     },
     [today],
@@ -104,7 +108,13 @@ export function HolidayAdminCard({ onChanged }: { onChanged?: (o: HolidayOvervie
 
   const pickTheme = (t: HolidayThemeId) => {
     setTheme(t);
-    setEndsOn(suggestedEnd(t, startsOn));
+    if (editing === null) {
+      const s = suggestedRun(t, today);
+      setStartsOn(s.startsOn);
+      setEndsOn(s.endsOn);
+    } else {
+      setEndsOn(suggestedEnd(t, startsOn));
+    }
     setNote(null);
   };
   const moveStart = (n: number) => {
@@ -121,7 +131,19 @@ export function HolidayAdminCard({ onChanged }: { onChanged?: (o: HolidayOvervie
     setNote(null);
   };
 
-  const save = async () => {
+  const save = () => {
+    // A run months away is almost always the wrong year.
+    if (daysApart(today, startsOn) > 200) {
+      Alert.alert(`Start ${shortDay(startsOn)}?`, `That's ${Math.round(daysApart(today, startsOn) / 30)} months away. Save it anyway?`, [
+        { text: 'Change it', style: 'cancel' },
+        { text: 'Save', onPress: () => void doSave() },
+      ]);
+      return;
+    }
+    void doSave();
+  };
+
+  const doSave = async () => {
     setSaving(true);
     setNote(null);
     try {
