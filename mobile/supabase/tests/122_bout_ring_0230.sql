@@ -14,8 +14,9 @@ select is(array[public.ring_dodge_ok('jab', null, 'left'), public.ring_dodge_ok(
                 public.ring_dodge_ok('hook', 'L', 'left'), public.ring_dodge_ok('hook', 'L', 'right'), public.ring_dodge_ok('hook', 'R', 'duck')],
   array[true, false, true, true, false, true], 'Jabs either side, uppercuts lean back, hooks away or under');
 select ok((select bool_and(public.ring_openings('high') ?| array['up', 'jab', 'hookL', 'hookR']) from generate_series(1, 20)), 'Three openings each time');
-select ok((select count(*) from generate_series(1, 200) g, jsonb_array_elements_text(public.ring_openings('body')) k where k like 'hook%')
-          > (select count(*) from generate_series(1, 200) g, jsonb_array_elements_text(public.ring_openings('high')) k where k like 'hook%'),
+-- A fresh draw for each g (an argument that doesn't depend on g is drawn once).
+select ok((select count(*) from generate_series(1, 200) g, jsonb_array_elements_text(public.ring_openings(case when g > 0 then 'body' end)) k where k like 'hook%')
+          > (select count(*) from generate_series(1, 200) g, jsonb_array_elements_text(public.ring_openings(case when g > 0 then 'high' end)) k where k like 'hook%'),
   'A body guard shows more hooks than a high guard');
 
 -- Round 1, already fought: Ann's combination of hook, uppercut, jab all
