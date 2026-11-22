@@ -478,9 +478,11 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
     const cx = fW / 2;
     const cy = fH * 0.53;
     const h = Math.min(6, shot.apex) * 4 * p * (1 - p);
-    const ixM = (shot.xCm - (shot.kind === 'balloon' || shot.kind === 'gold' ? shot.balloon.xCm : 0)) / 100;
-    const iyM = (shot.yCm - (shot.kind === 'balloon' || shot.kind === 'gold' ? shot.balloon.yCm : 0)) / 100;
     const clout = shot.kind === 'clout';
+    // At the clout the server gives metres from the flag (across, along);
+    // everywhere else cm from the middle of the target.
+    const ixM = clout ? shot.xCm : (shot.xCm - (shot.kind === 'balloon' || shot.kind === 'gold' ? shot.balloon.xCm : 0)) / 100;
+    const iyM = clout ? 0 : (shot.yCm - (shot.kind === 'balloon' || shot.kind === 'gold' ? shot.balloon.yCm : 0)) / 100;
     const lat = ixM * Math.pow(p, 1.5);
     const tx = fin(cx - lat * s);
     const ty = fin(cy + h * s + (clout ? 0 : iyM * p * s));
@@ -544,7 +546,17 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
               {stripes.map((st, i) => (
                 <Rect key={i} x={0} y={st.y} width={fW} height={st.hh} fill={moon ? '#9a9ca4' : '#7cca69'} />
               ))}
-              {clout ? (
+              {clout && landed ? (
+                <CloutLanding
+                  w={fW}
+                  h={fH}
+                  moon={moon}
+                  dist={dist}
+                  apex={shot.apex}
+                  mine={{ x: shot.xCm, along: shot.yCm }}
+                  others={(end?.arrows ?? []).filter((a) => a.target === 'clout' && !(Math.abs(a.xCm - shot.xCm) < 0.05 && Math.abs(a.yCm - shot.yCm) < 0.05)).map((a) => ({ x: a.xCm, along: a.yCm }))}
+                />
+              ) : clout ? (
                 <G>
                   {[1, 2, 3].map((k) => (
                     <Ellipse key={k} cx={tx} cy={ty + 30} rx={1.5 * k * s * 0.5} ry={1.5 * k * s * 0.12} fill="none" stroke="#ffffff" strokeWidth={1.2} />
@@ -578,10 +590,14 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
                   ))}
                 </G>
               )}
-              <Line x1={nock.x} y1={nock.y} x2={tip.x} y2={tip.y} stroke="#2b2b2b" strokeWidth={5} strokeLinecap="round" />
-              <Line x1={nock.x} y1={nock.y} x2={vanes[0].x} y2={vanes[0].y} stroke="#f08a24" strokeWidth={7} strokeLinecap="round" />
-              <Line x1={nock.x} y1={nock.y} x2={vanes[1].x} y2={vanes[1].y} stroke="#f08a24" strokeWidth={7} strokeLinecap="round" />
-              <Line x1={nock.x} y1={nock.y} x2={vanes[2].x} y2={vanes[2].y} stroke="#ffffff" strokeWidth={7} strokeLinecap="round" />
+              {!(clout && landed) && (
+                <G>
+                  <Line x1={nock.x} y1={nock.y} x2={tip.x} y2={tip.y} stroke="#2b2b2b" strokeWidth={5} strokeLinecap="round" />
+                  <Line x1={nock.x} y1={nock.y} x2={vanes[0].x} y2={vanes[0].y} stroke="#f08a24" strokeWidth={7} strokeLinecap="round" />
+                  <Line x1={nock.x} y1={nock.y} x2={vanes[1].x} y2={vanes[1].y} stroke="#f08a24" strokeWidth={7} strokeLinecap="round" />
+                  <Line x1={nock.x} y1={nock.y} x2={vanes[2].x} y2={vanes[2].y} stroke="#ffffff" strokeWidth={7} strokeLinecap="round" />
+                </G>
+              )}
               {landed && (
                 <G>
                   <Rect x={fW / 2 - 90} y={28} width={180} height={58} rx={16} fill="#12141c" opacity={0.92} />
@@ -655,6 +671,73 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
 // A safety net for the drawing: a NaN or infinity in an SVG coordinate
 // crashes react-native-svg on a phone, so anything not finite is drawn as 0.
 const fin = (n: number) => (Number.isFinite(n) ? n : 0);
+
+// Where clout arrows came down: the field seen from behind and above,
+// the flag in the middle, its five rings (1.5 m apart) and each arrow
+// stuck point-first in the grass, leaning back the way it came down
+// (steeper the higher its arc). Metres from the flag: x across, along
+// (+ is past the flag).
+function CloutLanding({
+  w,
+  h,
+  moon,
+  dist,
+  apex,
+  mine,
+  others,
+}: {
+  w: number;
+  h: number;
+  moon: boolean;
+  dist: number;
+  apex: number;
+  mine: { x: number; along: number };
+  others: { x: number; along: number }[];
+}) {
+  const cx = w / 2;
+  const gy = h * 0.6;
+  const far = Math.max(...[mine, ...others].map((a) => Math.hypot(a.x, a.along)), 1.5);
+  // Fit the rings out to 4.5 m and every arrow.
+  const m = fin(Math.min((w * 0.44) / 4.5, (w * 0.44) / (far + 0.8)));
+  const squash = 0.34;
+  const at = (a: { x: number; along: number }) => ({
+    x: fin(Math.max(14, Math.min(w - 14, cx + a.x * m))),
+    y: fin(Math.max(h * 0.32, Math.min(h - 14, gy - a.along * m * squash))),
+  });
+  // How steeply it came down (a parabola's end), drawn a little steeper
+  // so it reads as standing in the grass.
+  const fall = Math.atan((4 * Math.max(0.3, apex)) / Math.max(1, dist));
+  const lean = Math.min(1.35, Math.max(0.75, fall * 1.8));
+  const shaft = Math.max(40, 1.05 * m);
+  const arrow = (a: { x: number; along: number }, key: string, me: boolean) => {
+    const p = at(a);
+    // The nock sticks up out of the grass and back toward the line.
+    const nx = p.x + (a.x >= 0 ? 1 : -1) * shaft * 0.08;
+    const ny = p.y - shaft * Math.sin(lean) + shaft * Math.cos(lean) * squash;
+    return (
+      <G key={key} opacity={me ? 1 : 0.75}>
+        <Ellipse cx={p.x + shaft * 0.35} cy={p.y + 1.5} rx={shaft * 0.4} ry={2.2} fill="#000000" opacity={0.18} />
+        <Ellipse cx={p.x} cy={p.y} rx={6} ry={2.4} fill={moon ? '#6b6d75' : '#6b5a33'} />
+        <Line x1={p.x} y1={p.y} x2={nx} y2={ny} stroke="#2b2b2b" strokeWidth={me ? 3.5 : 3} strokeLinecap="round" />
+        <Line x1={nx} y1={ny} x2={nx - 7} y2={ny + 5} stroke={me ? '#f08a24' : '#c9a27a'} strokeWidth={5} strokeLinecap="round" />
+        <Line x1={nx} y1={ny} x2={nx + 7} y2={ny + 5} stroke={me ? '#f08a24' : '#c9a27a'} strokeWidth={5} strokeLinecap="round" />
+        <Line x1={nx} y1={ny} x2={nx} y2={ny - 7} stroke="#ffffff" strokeWidth={4} strokeLinecap="round" />
+      </G>
+    );
+  };
+  return (
+    <G>
+      <Rect x={0} y={h * 0.28} width={w} height={h * 0.72} fill={moon ? '#8b8d95' : '#6fbf5e'} />
+      {[5, 4, 3, 2, 1].map((k) => (
+        <Ellipse key={k} cx={cx} cy={gy} rx={1.5 * k * m} ry={1.5 * k * m * squash} fill={k % 2 ? (moon ? '#9a9ca4' : '#7cca69') : moon ? '#8b8d95' : '#6fbf5e'} stroke="#ffffff" strokeWidth={1.2} />
+      ))}
+      <Line x1={cx} y1={gy} x2={cx} y2={gy - 1.6 * m * 0.7} stroke="#5a4a33" strokeWidth={4} />
+      <Path d={`M${cx} ${gy - 1.6 * m * 0.7} L${cx + 0.7 * m} ${gy - 1.6 * m * 0.7 + 0.22 * m} L${cx} ${gy - 1.6 * m * 0.7 + 0.44 * m} Z`} fill="#e2412f" />
+      {others.map((a, i) => arrow(a, `o${i}`, false))}
+      {arrow(mine, 'me', true)}
+    </G>
+  );
+}
 
 function flightMs(tof: number): number {
   return Math.max(1500, Math.min(4500, tof * 1000 * SLOW));
