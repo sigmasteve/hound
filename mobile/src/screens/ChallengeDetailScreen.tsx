@@ -283,6 +283,7 @@ export function ChallengeDetailScreen({
   onPlayCricket,
   onSpinRoulette,
   onPlaySlots,
+  onOpenPrizes,
   onPlayChess,
   onShootHorse,
   onBatDerby,
@@ -302,6 +303,8 @@ export function ChallengeDetailScreen({
   onSpinRoulette?: () => void;
   // Paw Slots (0242): opens the machine.
   onPlaySlots?: () => void;
+  // Paw Slots over: the Kennel's Prize Counter (0243).
+  onOpenPrizes?: () => void;
   // Hound Chess (0238): the board, or the puzzle of the day.
   onPlayChess?: (mode: 'game' | 'puzzle') => void;
   // H-O-R-S-E (hands-on, 0209): opens the shooting screen.
@@ -3003,7 +3006,7 @@ export function ChallengeDetailScreen({
             <ChessCard game={chessGame} onPlay={() => onPlayChess?.('game')} onPuzzle={() => onPlayChess?.('puzzle')} />
           )}
 
-          {challenge.kind === 'slots' && <SlotsCard game={slots} onPlay={() => onPlaySlots?.()} />}
+          {challenge.kind === 'slots' && <SlotsCard challengeId={challengeId} game={slots} onPlay={() => onPlaySlots?.()} onOpenPrizes={() => onOpenPrizes?.()} />}
 
           {challenge.kind === 'roulette' && (
             <RouletteCard

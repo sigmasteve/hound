@@ -52,6 +52,7 @@ import { localDayKey } from '../goals/goals';
 import { YardScene, YardThumb, yardFocusPoint } from '../kennel/YardArt';
 import { PorchScene, porchFocusPoint } from '../kennel/PorchArt';
 import { RoomScene, RoomThumb, roomFocusPoint } from '../kennel/RoomArt';
+import { PrizeCounterTab } from '../kennel/PrizeCounterTab';
 import { ROOM_ITEMS } from '../kennel/roomItems';
 import { CareTab } from '../care/CareTab';
 import { BathScene } from '../care/BathScene';
@@ -118,11 +119,13 @@ const CARE_MODES: { id: CareMode; name: string; detail: string }[] = [
 // the place on screen (its shop, the garden, visitors, the park), and the
 // hound's style. Who the hound is (about, tricks, settings) is the sheet
 // behind its name.
-type KennelTab = 'today' | 'home' | 'style';
+type KennelTab = 'today' | 'home' | 'style' | 'prizes';
 const KENNEL_TABS: { id: KennelTab; label: string }[] = [
   { id: 'today', label: 'Today' },
   { id: 'style', label: 'Style' },
   { id: 'home', label: 'Home' },
+  // The Prize Counter (0243): what Paw Coins buy.
+  { id: 'prizes', label: 'Prizes' },
 ];
 // The places on the scene, in swipe order (0157, 0169, 0170).
 // The places on the scene, in order: the Yard and the Park from day one,
@@ -155,7 +158,10 @@ export function KennelScreen({
   onBack,
   onOpenLocker,
   onOpenFriend,
+  initialTab,
 }: {
+  // Open on a tab (Paw Slots' "Open the Prize Counter").
+  initialTab?: 'prizes';
   onBack: () => void;
   onOpenLocker: () => void;
   // A friend's hound tapped at the dog park (0170): their page.
@@ -185,7 +191,7 @@ export function KennelScreen({
   // The fitting room: which tab, which wardrobe chip, and what's being
   // tried on (shown on the hound or in the yard before it's bought).
   // Walks first (lifestyle phase 1, 0161): what today's walks found.
-  const [tab, setTab] = useState<KennelTab>('today');
+  const [tab, setTab] = useState<KennelTab>(initialTab ?? 'today');
   // The Hound sheet, and the mood's reason on the scene.
   const [sheetOpen, setSheetOpen] = useState(false);
   const [moodOpen, setMoodOpen] = useState(false);
@@ -1483,6 +1489,8 @@ export function KennelScreen({
         {tab === 'home' && place === 'park' && <ParkList together={together} houndName={kennel.name} onOpenFriend={onOpenFriend} />}
 
         {/* Style: the wardrobe, then the coat, breed, ears and tail. */}
+        {tab === 'prizes' && <PrizeCounterTab houndName={kennel.name} onChanged={reload} />}
+
         {tab === 'style' && (
           <>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>

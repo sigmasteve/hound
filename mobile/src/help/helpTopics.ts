@@ -261,6 +261,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'What a line pays: three Golden Hounds 250, three Collars 100, three Bones 50, Balls 25, Treats 15, Hydrants 10, Paws 5, and any two matching on the left 2. The Collar is wild (not for the Golden Hound) and doubles a win.',
         'How often: some win comes up about 3 presses in 8 on one line, 7 in 9 on three lines and 17 in 20 on five. Three Golden Hounds is about 1 in 8,000 a line. Where the reels stop is set by Hound when you press Spin: tapping a reel only stops it sooner, and no near misses are put in.',
         'When it ends, the prize pool is paid by place: 2,500 Bones with 11 or more hounds, 200 a hound below that (a Global can have its own). Solo: 1st 30%, 2nd 18%, 3rd 12%, 4th to 10th 4% each, and the rest shared by everyone else who spun on 5 days. In packs: packs are ranked by Paw Coins per hound (60%, 26%, 14%), and a pack’s share is split by what each hound won. Anyone who spun on 5 days gets at least 5. Paw Coins never turn into Bones one for one: only your place counts.',
+        'Your coins keep going: when a Paw Slots challenge is settled, every Paw Coin you finished with moves into your Paw Coin wallet, on top of your Bones by place. Spend them in the Kennel → Prizes: the Lucky 7 Tag, the Golden Hound Collar, the Gold Coin Bowl, Jackpot Confetti for the yard, a neon sign for the Room and the Arcade Doghouse. They can’t be bought with Bones, coins never turn into Bones, and they’re looks only.',
       ],
     },
     {
