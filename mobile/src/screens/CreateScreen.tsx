@@ -2520,13 +2520,13 @@ export function CreateScreen({
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
                 <Text style={styles.huntBlockLabel}>Farthest target</Text>
-                <Text style={styles.huntBlockValue}>{beFar === '30' ? '30 m: for little ones' : beFar === '70' ? '70 m: the Olympic distance' : '90 m and the clout at 150 m'}</Text>
+                <Text style={styles.huntBlockValue}>{beFar === '30' ? '30 m: for little ones' : beFar === '70' ? '70 m: the Olympic distance' : '90 m, and the flag at 150 m'}</Text>
               </View>
               <SegmentedControl
                 options={[
                   { value: '30', label: '30 m' },
                   { value: '70', label: '70 m' },
-                  { value: '150', label: '90 m + clout' },
+                  { value: '150', label: '90 m + flag' },
                 ]}
                 value={beFar}
                 onChange={(v) => setBeFar(v as '30' | '70' | '150')}
@@ -2581,8 +2581,8 @@ export function CreateScreen({
               />
               {global && <TextField label="Prize pool (Bones)" value={bePoolText} onChangeText={setBePoolText} keyboardType="number-pad" maxLength={5} />}
               <Text style={styles.huntBlockNote}>
-                Round targets from 18 m out to {beFar === '30' ? '30 m' : beFar === '70' ? '70 m' : '90 m, and the clout flag at 150 m'}. An end of 3 arrows every 1,500 steps,
-                up to 6 a day; a 20-minute workout steadies the hold. The breeze is the same for everyone each day. A ring times the target’s stars; a Robin Hood is +25.{' '}
+                Round targets from 18 m out to {beFar === '30' ? '30 m' : beFar === '70' ? '70 m' : '90 m, and a flag at 150 m to lob arrows at'}. A round of 3 arrows every 1,500 steps,
+                up to 6 a day; a 20-minute workout steadies the hold. The breeze is the same for everyone each day. Rings score 1 to 10 times the target’s ×, more the farther it is; a Robin Hood is +25.{' '}
                 {global ? `The pool is ${bonesOf(bePoolText, 20000).toLocaleString('en-US')} Bones` : 'The pool is 200 Bones a hound, 2,500 with 11 or more'}, paid by
                 points. Nothing here takes money or Bones in.
               </Text>

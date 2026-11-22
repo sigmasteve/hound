@@ -437,8 +437,8 @@ export function bullseyeHeadline(name: string, g: BullseyeGame | null): string {
 }
 
 export function targetName(t: { dist: number; kind: BullseyeTargetKind }): string {
-  if (t.kind === 'clout') return `Clout ${t.dist} m`;
-  if (t.kind === 'gold') return `Gold balloon ${t.dist} m`;
+  if (t.kind === 'clout') return `Flag ${t.dist} m`;
+  if (t.kind === 'gold') return `Gold balloon`;
   if (t.kind === 'balloon') return `Balloon ${t.dist} m`;
   return `${t.dist} m`;
 }

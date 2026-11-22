@@ -751,7 +751,7 @@ export function BullseyePinned({ challenge, userId, onOpen }: PinnedProps) {
             {game.me.points.toLocaleString('en-US')} points · {ordinal(game.me.rank)}
           </Text>
           <Text style={styles.small}>
-            {game.today.nextAt != null ? `${Math.max(0, game.today.nextAt - game.today.steps).toLocaleString('en-US')} steps to the next end` : 'All of today’s ends are in'}
+            {game.today.nextAt != null ? `${Math.max(0, game.today.nextAt - game.today.steps).toLocaleString('en-US')} steps to 3 more arrows` : 'All of today’s arrows are in'}
           </Text>
         </View>
       </View>
