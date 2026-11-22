@@ -48,8 +48,8 @@ const M = 0.035; // the board's margin on the ground
 
 type Sel = { sq: number } | null;
 
-function boardView(w: number, h: number): Perspective {
-  return perspective(w, h, { stand: h * 0.16, near: h * 0.02, gap: h * 0.02, botW: w * 0.98, a: 0.6, b: 0.78 });
+function boardView(w: number, h: number, near = 0.02): Perspective {
+  return perspective(w, h, { stand: h * 0.16, near: h * near, gap: h * 0.02, botW: w * 0.98, a: 0.6, b: 0.78 });
 }
 
 // A square's centre (or a point in it: fx, fy from 0 to 1) on screen, from
@@ -248,8 +248,10 @@ const NO_DOTS: { sq: number; cap: boolean }[] = [];
 const NOT_RESTING = () => false;
 const NO_TAG = () => null;
 export function ChessBoardPicture({ fen, me, last, inCheck, width }: { fen: string; me: ChessColor; last: { from: string; to: string } | null; inCheck: boolean; width: number }) {
-  const h = Math.round(width * 0.87);
-  const v = useMemo(() => boardView(width, h), [width, h]);
+  // A little more room under the near edge than the board screen, so the
+  // file letters (a to h) aren't cut off.
+  const h = Math.round(width * 0.9);
+  const v = useMemo(() => boardView(width, h, 0.07), [width, h]);
   const parsed = useMemo(() => parseFen(fen), [fen]);
   const marks: { sq: number; fill: string }[] = [];
   if (last) [last.from, last.to].forEach((s) => marks.push({ sq: sqIndex(s), fill: 'rgba(240,194,74,0.45)' }));
