@@ -118,7 +118,10 @@ Since 0231 batting is for real: the pitch crosses somewhere (px, py in
 half-widths of the zone; `components/baseballSwing.tsx`) and you tap where
 it crosses as it gets there, after a quick 3-2-1 (the Pitch button is
 pinned at the bottom, so the countdown says look up). The Derby swings the
-same way. The batting screen has three tabs: At bat, On the mound
+same way. Since 0245 that's a choice: "Swing with" over the button picks
+the timing meter (the default, timing only, no countdown) or tapping the
+ball, kept on the phone (`useSwingMode` in `baseballSwing.tsx`) and shared
+by the at-bat and the Derby (Steve, Nov 2026: tapping felt too hard). The batting screen has three tabs: At bat, On the mound
 (`BaseballMound.tsx`: seen from behind the mound facing home, its own
 ground from the backstop (y 0) to the mound (y 1) through `project()`,
 the zone and everyone at the plate sized to the zone so a thumb can aim)

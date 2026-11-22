@@ -1,5 +1,6 @@
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { Text } from './Text';
 import { font } from '../theme/tokens';
@@ -10,6 +11,85 @@ import { font } from '../theme/tokens';
 // strike zone: |px|, |py| <= 1 is in it). You tap where it crosses as it
 // gets there: where you tap is your swing, when you tap is your timing,
 // and the server judges both.
+
+// How you swing (Steve, Nov 2026: players found tapping the ball hard in
+// the Derby): the timing meter, as before 0231 (Swing! as the marker
+// crosses the middle; only your timing counts), or tapping where the ball
+// crosses (where and when both count). The meter is the default; the
+// pick is kept on this phone, for batting and the Derby alike.
+export type SwingMode = 'meter' | 'tap';
+const SWING_MODE_KEY = 'hound:swing-mode';
+
+export function useSwingMode(): [SwingMode, (m: SwingMode) => void] {
+  const [mode, setMode] = useState<SwingMode>('meter');
+  useEffect(() => {
+    let live = true;
+    AsyncStorage.getItem(SWING_MODE_KEY)
+      .then((v) => live && (v === 'tap' || v === 'meter') && setMode(v))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  const pick = useCallback((m: SwingMode) => {
+    setMode(m);
+    AsyncStorage.setItem(SWING_MODE_KEY, m).catch(() => {});
+  }, []);
+  return [mode, pick];
+}
+
+// "Swing with: Meter | Tap the ball", over the pinned button.
+export function SwingModeSwitch({ mode, onChange, disabled }: { mode: SwingMode; onChange: (m: SwingMode) => void; disabled?: boolean }) {
+  return (
+    <View style={[styles.switchRow, disabled && { opacity: 0.5 }]}>
+      <Text style={styles.switchLabel}>Swing with</Text>
+      {(['meter', 'tap'] as const).map((m) => {
+        const on = mode === m;
+        return (
+          <Pressable
+            key={m}
+            onPress={() => !disabled && onChange(m)}
+            disabled={disabled}
+            style={[styles.switchPill, on && styles.switchPillOn]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+          >
+            <Text style={[styles.switchText, on && styles.switchTextOn]}>{m === 'meter' ? 'Meter' : 'Tap the ball'}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+// The timing meter: EARLY on the left, LATE on the right, on time in the
+// middle; bands (ms either side, widest first) and the marker (0 to 1).
+export function TimingMeter({
+  bands,
+  barMs,
+  mark,
+  moving,
+  label,
+}: {
+  bands: { ms: number; color: string }[];
+  barMs: number;
+  mark: number | null;
+  moving: boolean;
+  label: string;
+}) {
+  const share = (ms: number) => Math.max(0, Math.min(0.5, ms / barMs));
+  return (
+    <View style={styles.meter} accessibilityLabel={label}>
+      <View style={[styles.band, { backgroundColor: '#e5484d', left: 0, width: '100%' }]} />
+      {bands.map((b) => (
+        <View key={`${b.ms}${b.color}`} style={[styles.band, { backgroundColor: b.color, left: `${(0.5 - share(b.ms)) * 100}%`, width: `${2 * share(b.ms) * 100}%` }]} />
+      ))}
+      <Text style={[styles.meterWord, { left: 10 }]}>EARLY</Text>
+      <Text style={[styles.meterWord, { right: 10 }]}>LATE</Text>
+      {mark != null && <View style={[styles.markerBar, { left: `${mark * 100}%` }, !moving && { borderColor: '#ffd8b0' }]} />}
+    </View>
+  );
+}
 
 // A quick 3, 2, 1 before the wind-up: Pitch is pinned at the bottom of
 // the screen, so this is the moment to look up at the plate (Steve).
@@ -110,4 +190,14 @@ const styles = StyleSheet.create({
   },
   countText: { fontFamily: font.headingSemibold, fontSize: 42, color: '#ffffff' },
   mark: { position: 'absolute', width: 18, height: 18, borderRadius: 9, borderWidth: 2.5, borderColor: '#ffd27a' },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  switchLabel: { fontFamily: font.headingSemibold, fontSize: 12, color: '#9a9ba6', marginRight: 2 },
+  switchPill: { paddingHorizontal: 12, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(150,150,170,0.18)' },
+  switchPillOn: { backgroundColor: '#f08a24' },
+  switchText: { fontFamily: font.headingSemibold, fontSize: 12.5, color: '#9a9ba6' },
+  switchTextOn: { color: '#161826' },
+  meter: { height: 32, borderRadius: 16, overflow: 'hidden', position: 'relative' },
+  band: { position: 'absolute', top: 0, bottom: 0 },
+  meterWord: { position: 'absolute', top: 8, fontSize: 11, fontFamily: font.headingSemibold, color: '#161826' },
+  markerBar: { position: 'absolute', top: 0, bottom: 0, width: 6, marginLeft: -3, borderRadius: 3, backgroundColor: '#161826', borderWidth: 2, borderColor: '#ffffff' },
 });
