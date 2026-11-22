@@ -69,7 +69,6 @@ as $$
     where m.user_id = p_user
       and not m.muted
       and cp.posted_by is distinct from p_user
-      and public.club_kind_ok(c.kind)
       and public.club_challenge_open(c)
       and not exists (select 1 from public.challenge_participants p where p.challenge_id = c.id and p.user_id = p_user)
       and not exists (select 1 from public.challenge_invites i where i.challenge_id = c.id and i.invitee_id = p_user)
