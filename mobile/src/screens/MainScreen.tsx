@@ -71,7 +71,19 @@ export function MainScreen({ route, navigation }: Props) {
             onGoTab={goFromHome}
             onOpenAchievements={() => navigation.navigate('Achievements')}
             onOpenPackFun={(packId) => navigation.navigate('PackFun', { packId })}
-            onOpenAction={(route) => (navigation.navigate as (n: string, p?: unknown) => void)(route[0], route[1])}
+            onOpenAction={(route) => {
+              // A game's own screen (the field, the ring, the plate) opens on
+              // top of its challenge page, so back lands on the leaderboard,
+              // not Today (Steve, Nov 2026: no way to the board from the field).
+              const go = navigation.navigate as (n: string, p?: unknown) => void;
+              const params = route[1] as { challengeId?: string } | undefined;
+              if (route[0] !== 'ChallengeDetail' && params?.challengeId) {
+                navigation.push('ChallengeDetail', { challengeId: params.challengeId });
+                (navigation.push as (n: string, p?: unknown) => void)(route[0], route[1]);
+              } else {
+                go(route[0], route[1]);
+              }
+            }}
           />
         )}
         {tab === 'challenges' && (
