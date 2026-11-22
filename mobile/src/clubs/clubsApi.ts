@@ -10,7 +10,7 @@ export type ClubColor = 'orange' | 'blue' | 'green' | 'purple' | 'red' | 'teal';
 export type ClubRole = 'owner' | 'organizer' | 'member';
 
 // The kinds that can be posted to a club (club_kind_ok on the server).
-export const CLUB_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly', 'hunt'];
+export const CLUB_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly', 'hunt', 'bullseye', 'longshot', 'slots', 'roulette'];
 
 export interface Club {
   id: string;
