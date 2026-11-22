@@ -3,7 +3,7 @@
 -- the gold balloon once a day, the sight tape learning, the clout, a
 -- miss, letting go early, bows that unlock (and the longbow's star), the
 -- payout through the settle, Global publishing and Admin.
-select plan(28);
+select plan(30);
 
 -- ── The flight ──
 select is(round(public.bullseye_mark(62, 0.0018, 70, 9.80665)::numeric), 98::numeric, 'A recurve at 70 m: 98 mils up (5.6°)');
@@ -37,7 +37,13 @@ select throws_ok(format('select public.bullseye_aim(%L, %L)', :'cid', '18'), 'No
 reset role;
 
 -- ── A perfect arrow ──
-update public.bullseye_settings set sway_mil = 0, spread_mil = 0, wind_noise = 0 where id;
+-- 0250: an unshot sight mark is the book give or take a guess.
+select ok(abs(public.bullseye_guess(:'ann', 'recurve', 'standard', 'earth', 70)) <= 4
+          and public.bullseye_guess(:'ann', 'recurve', 'standard', 'earth', 70) = public.bullseye_guess(:'ann', 'recurve', 'standard', 'earth', 70),
+  'A guessed mark is off by up to 4 mils, the same each time');
+select isnt(public.bullseye_sight(:'ann', 'recurve', 'standard', 'earth', 70)::numeric,
+  round((public.bullseye_book_get('recurve', 'standard', 'earth', 70)).mark::numeric, 1), 'so an unshot mark isn''t the book');
+update public.bullseye_settings set sway_mil = 0, spread_mil = 0, wind_noise = 0, guess_mil = 0 where id;
 insert into public.daily_step_totals (user_id, day, steps) values (:'ann', :'today', 4600), (:'bob', :'today', 1600);
 select public.bullseye_conditions(:'cid', :'today') as cond \gset
 -- The hold that cancels today's air and breeze at a distance.
