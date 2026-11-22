@@ -265,6 +265,23 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'bullseye',
+      section: 'challenges',
+      title: 'Bullseye: archery on your steps',
+      summary: 'Ends from steps, drawing and aiming, scoring, Robin Hoods, the gold balloon, Balloon and Moon days.',
+      steps: [
+        'Every 1,500 steps on your own day is an end of 3 arrows, up to 6 ends a day. Arrows you don’t shoot carry over to tomorrow, up to 18. A 20-minute workout steadies your hold for the day.',
+        'The field: round targets at 18, 30, 50, 70 and 90 m (out to the farthest the challenge’s maker picked), worth 1 to 5 stars, and the clout flag at 150 m (6 stars) on the longest field. An arrow scores its ring (10 in the gold down to 1) times the stars: a 9 at 70 m is 36. At the clout it’s 5 to 1 by how close to the flag it lands.',
+        'Shooting: your sight is set from your sight tape. Drag the pin to aim off for the breeze (read the windsocks). Then hold the button to draw: the pin shakes while you draw, is steadiest at full draw (the green part of the bar), and shakes more again as your hound’s arms tire. Let go to shoot. Let go too early and the arrow is slow and drops low.',
+        'Hound flies every arrow for real: its speed off the bow, gravity, drag, the breeze as it flies and your sway. Then watch it in: a slow-motion chase behind the arrow, the target growing as it closes in.',
+        'An arrow that lands in one of your own already in the same face this end is a Robin Hood: +25. The gold balloon (by the 70 m target) pays 100 Bones to the first hound to pop it each day, straight away.',
+        'Your sight tape: an arrow in the gold (9 or 10) sets the mark for that bow, those arrows and that target, and it goes with you. Until then it’s a guess.',
+        'Bows: the youth bow (easy to hold, big arcs), the longbow (no sight: you aim with the arrow’s tip, and it’s worth a star more) and the recurve from the start; the compound (fastest and flattest, but heavy to hold) at 80,000 steps in the game. Arrows: light (flatter, but the breeze takes them), standard, or heavy (steady in the breeze, but they drop more).',
+        'Balloon days (Wednesdays, if the maker picked them): balloons drift across the field on the breeze, so lead them; a pop is the stars × 5. Moon days (Saturdays): ⅙ gravity, no air and no breeze, targets out to 500 m, and an arrow can take 8 seconds to get there.',
+        'The aim helper, if the maker turns it on for everyone, shows where the breeze will take the arrow. When it ends, the prize pool is paid by points like Long Shot’s. Nothing in Bullseye takes money or Bones in.',
+      ],
+    },
+    {
       id: 'longshot',
       section: 'challenges',
       title: 'Long Shot: steel plates on your steps',

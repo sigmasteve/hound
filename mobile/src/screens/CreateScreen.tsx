@@ -88,6 +88,7 @@ import { setupBout } from '../challenges/boutApi';
 import { setupChess } from '../challenges/chessApi';
 import { setupSlots } from '../challenges/slotsApi';
 import { setupLongShot, type LongShotMoon, type LongShotPlace } from '../challenges/longshotApi';
+import { setupBullseye } from '../challenges/bullseyeApi';
 import { BOT_NAME as CHESS_BOT_NAME, type ChessBotLevel } from '../challenges/chess';
 
 // H-O-R-S-E stakes (0209): a treat_recipes id the loser bakes, or none.
@@ -213,6 +214,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   chess: 'Real chess with hounds. Your steps free your pieces.',
   slots: 'A slot machine on your steps. Most Paw Coins wins the Bones.',
   longshot: 'Long-range steel plates on your steps. Read the wind, hold, fire.',
+  bullseye: 'Archery for the whole family. Draw, aim off for the breeze, let go.',
 };
 
 // A Journey's default run: about two miles a day, at least three days,
@@ -327,6 +329,14 @@ export function CreateScreen({
   const [lsMoon, setLsMoon] = useState<LongShotMoon>('sat');
   const [lsGold, setLsGold] = useState<'on' | 'off'>('on');
   const [lsPoolText, setLsPoolText] = useState('2500');
+  // Bullseye (0249): the farthest target, Moon and Balloon days, the aim
+  // helper, the gold balloon, a Global's pool.
+  const [beFar, setBeFar] = useState<'30' | '70' | '150'>('150');
+  const [beMoon, setBeMoon] = useState<'none' | 'sat'>('sat');
+  const [beBalloons, setBeBalloons] = useState<'none' | 'wed'>('wed');
+  const [beHelper, setBeHelper] = useState<'on' | 'off'>('off');
+  const [beGold, setBeGold] = useState<'on' | 'off'>('on');
+  const [bePoolText, setBePoolText] = useState('2500');
   // Golf (0200): the course, 9 or 18, the format, whether you take every
   // shot yourself, and the daily cap on holes started.
   const [golfCourse, setGolfCourse] = useState<GolfCourseId>('links');
@@ -510,7 +520,7 @@ export function CreateScreen({
   const bonesOf = (t: string, max: number) => Math.max(0, Math.min(max, Math.round(Number(t.replace(/[^0-9]/g, '')) || 0)));
   const canHavePot = !crowd && POT_KINDS.includes(draftType);
   // Paw Slots has its own pool.
-  const canHavePrizes = global && draftType !== 'seventyfive' && draftType !== 'checklist' && draftType !== 'slots' && draftType !== 'longshot';
+  const canHavePrizes = global && draftType !== 'seventyfive' && draftType !== 'checklist' && draftType !== 'slots' && draftType !== 'longshot' && draftType !== 'bullseye';
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -651,6 +661,7 @@ export function CreateScreen({
     if (draftType === 'chess') setLength('7');
     if (draftType === 'slots') setLength('7');
     if (draftType === 'longshot') setLength('7');
+    if (draftType === 'bullseye') setLength('7');
     if (draftType === 'golf') setLength(String(golfDays(golfHoles)));
     // The Hound Open: joining closes 3 days in, and bigger prizes.
     if (draftType === 'golf' && global) {
@@ -1096,6 +1107,19 @@ export function CreateScreen({
             throw e;
           }
         }
+        // Bullseye: the field, and its pool, right away.
+        if (draftType === 'bullseye') {
+          try {
+            await setupBullseye(
+              globalId,
+              { far: Number(beFar) as 30 | 70 | 150, moon: beMoon, balloons: beBalloons, helper: beHelper === 'on', bounty: beGold === 'on' },
+              bonesOf(bePoolText, 20000),
+            );
+          } catch (e) {
+            await deleteGlobalChallenge(globalId).catch(() => {});
+            throw e;
+          }
+        }
         // Long Shot: the range, and its pool, right away.
         if (draftType === 'longshot') {
           try {
@@ -1284,6 +1308,7 @@ export function CreateScreen({
               draftType === 'chess' ||
               draftType === 'slots' ||
               draftType === 'longshot' ||
+              draftType === 'bullseye' ||
               draftType === 'golf'
             ? []
             : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
@@ -1415,6 +1440,15 @@ export function CreateScreen({
       if (draftType === 'chess') {
         try {
           await setupChess(created.id, chessOpp === 'friend' ? null : chessOpp);
+        } catch (e) {
+          await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
+          throw e;
+        }
+      }
+      // Bullseye: the field, before anyone shoots.
+      if (draftType === 'bullseye') {
+        try {
+          await setupBullseye(created.id, { far: Number(beFar) as 30 | 70 | 150, moon: beMoon, balloons: beBalloons, helper: beHelper === 'on', bounty: beGold === 'on' });
         } catch (e) {
           await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
           throw e;
@@ -1877,7 +1911,7 @@ export function CreateScreen({
             </View>
             <SegmentedControl
               options={
-                draftType === 'tag' || draftType === 'roulette' || draftType === 'slots' || draftType === 'longshot'
+                draftType === 'tag' || draftType === 'roulette' || draftType === 'slots' || draftType === 'longshot' || draftType === 'bullseye'
                   ? [
                       { value: '7', label: '7 days' },
                       { value: '14', label: '14 days' },
@@ -1893,7 +1927,7 @@ export function CreateScreen({
             <Slider
               // A Hound'opoly game needs a week to go anywhere.
               minimumValue={
-                draftType === 'tag' || draftType === 'derby' || draftType === 'shootout' || draftType === 'roulette' || draftType === 'slots' || draftType === 'longshot'
+                draftType === 'tag' || draftType === 'derby' || draftType === 'shootout' || draftType === 'roulette' || draftType === 'slots' || draftType === 'longshot' || draftType === 'bullseye'
                   ? 3
                   : community
                   ? draftType === 'seventyfive'
@@ -1908,7 +1942,7 @@ export function CreateScreen({
               // since its own default (seeded below) is 75.
               maximumValue={
                 // A Tag chase runs 3 to 14 days (0181), and Long Shot (0247).
-                draftType === 'tag' || draftType === 'longshot'
+                draftType === 'tag' || draftType === 'longshot' || draftType === 'bullseye'
                   ? 14
                   : // Paw Slots: 3 to 21 days, a Global up to 30 (0242).
                     draftType === 'slots'
@@ -2478,6 +2512,79 @@ export function CreateScreen({
                   ? ': 1st 30%, 2nd 18%, 3rd 12%, 4th to 10th 4% each, and the rest shared by everyone else who spins on 5 days.'
                   : ': packs are filled evenly as hounds join and ranked by Paw Coins per hound; 60%, 26% and 14%, split by what each hound won.'}{' '}
                 Nothing here takes money or Bones in.
+              </Text>
+            </View>
+          )}
+
+          {draftType === 'bullseye' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Farthest target</Text>
+                <Text style={styles.huntBlockValue}>{beFar === '30' ? '30 m: for little ones' : beFar === '70' ? '70 m: the Olympic distance' : '90 m and the clout at 150 m'}</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: '30', label: '30 m' },
+                  { value: '70', label: '70 m' },
+                  { value: '150', label: '90 m + clout' },
+                ]}
+                value={beFar}
+                onChange={(v) => setBeFar(v as '30' | '70' | '150')}
+              />
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Moon days</Text>
+                <Text style={styles.huntBlockValue}>{beMoon === 'sat' ? 'Saturdays' : 'None'}</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: 'sat', label: 'Saturdays' },
+                  { value: 'none', label: 'None' },
+                ]}
+                value={beMoon}
+                onChange={(v) => setBeMoon(v as 'none' | 'sat')}
+              />
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Balloon days</Text>
+                <Text style={styles.huntBlockValue}>{beBalloons === 'wed' ? 'Wednesdays' : 'None'}</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: 'wed', label: 'Wednesdays' },
+                  { value: 'none', label: 'None' },
+                ]}
+                value={beBalloons}
+                onChange={(v) => setBeBalloons(v as 'none' | 'wed')}
+              />
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Aim helper for everyone</Text>
+                <Text style={styles.huntBlockValue}>{beHelper === 'on' ? 'On: shows where the breeze takes it' : 'Off'}</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: 'off', label: 'Off' },
+                  { value: 'on', label: 'On' },
+                ]}
+                value={beHelper}
+                onChange={(v) => setBeHelper(v as 'on' | 'off')}
+              />
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>The gold balloon</Text>
+                <Text style={styles.huntBlockValue}>{beGold === 'on' ? '100 Bones a day to the first to pop it' : 'Off'}</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: 'on', label: 'On' },
+                  { value: 'off', label: 'Off' },
+                ]}
+                value={beGold}
+                onChange={(v) => setBeGold(v as 'on' | 'off')}
+              />
+              {global && <TextField label="Prize pool (Bones)" value={bePoolText} onChangeText={setBePoolText} keyboardType="number-pad" maxLength={5} />}
+              <Text style={styles.huntBlockNote}>
+                Round targets from 18 m out to {beFar === '30' ? '30 m' : beFar === '70' ? '70 m' : '90 m, and the clout flag at 150 m'}. An end of 3 arrows every 1,500 steps,
+                up to 6 a day; a 20-minute workout steadies the hold. The breeze is the same for everyone each day. A ring times the target’s stars; a Robin Hood is +25.{' '}
+                {global ? `The pool is ${bonesOf(bePoolText, 20000).toLocaleString('en-US')} Bones` : 'The pool is 200 Bones a hound, 2,500 with 11 or more'}, paid by
+                points. Nothing here takes money or Bones in.
               </Text>
             </View>
           )}
@@ -3347,6 +3454,7 @@ export function CreateScreen({
             draftType !== 'chess' &&
             draftType !== 'slots' &&
             draftType !== 'longshot' &&
+            draftType !== 'bullseye' &&
             draftType !== 'packs' && (
             <>
               <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>

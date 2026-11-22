@@ -23,6 +23,7 @@ export const ACTION_VERB: Record<PendingActionKind, string> = {
   rouletteSpin: 'Spin',
   slotsSpin: 'Play',
   longshotFire: 'Shoot',
+  bullseyeShoot: 'Shoot',
   chessMove: 'Move',
   rouletteDuel: 'Answer',
   derbySwing: 'Swing',
@@ -93,6 +94,8 @@ export function actionRoute(a: PendingAction): ActionRoute {
       return ['Slots', { challengeId: c }];
     case 'longshotFire':
       return ['LongShot', { challengeId: c }];
+    case 'bullseyeShoot':
+      return ['Bullseye', { challengeId: c }];
     case 'chessMove':
       return ['Chess', { challengeId: c, mode: 'game' }];
     case 'derbySwing':

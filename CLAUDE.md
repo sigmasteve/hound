@@ -174,8 +174,16 @@ sets each day's air and wind (`longshot_conditions`, the same for
 everyone); the app draws the flags and the reticle's sway with the same
 formulas (`longshotFlagWind`, `longshotSway` in `longshotApi.ts`, mirroring
 `longshot_wind_at` and `longshot_sway`), so change them together. Nothing
-in it takes money or Bones in. Archery (Bullseye) is the fast follow on
-the same engine.
+in it takes money or Bones in.
+
+Bullseye (0249, `BullseyeScreen.tsx`) is archery on the same idea, for
+families: a meadow seen from behind the shooting line (`BullseyeField.tsx`,
+targets at `targetY()` through `project()`, families beside the line), the
+arrow's flight drawn as a slow-motion chase behind it. The server flies
+each arrow (`bullseye_fly`: drag a = k v^2, the sight mark from
+`bullseye_mark`) and shares Long Shot's wind (`longshot_wind_at`); the app
+mirrors `bullseye_sway` and `bullseye_balloon` (`bullseyeApi.ts`), so
+change them together.
 
 Hound Chess (0238, `ChessScreen.tsx`) is a board, but drawn like a field:
 seen from behind your side through `perspective.ts` and `project()` (the

@@ -12,7 +12,7 @@
 //                 Shootout (0221), Hound Bout's rounds (0225) and Hound Roulette's Raids,
 //                 Duels and morning spin (0236, 'roulette') and Hound Chess's moves and results
 //                 (0238, 'chess') and Paw Slots' evening spins (0242, 'slots') and Long Shot's rounds waiting (0247,
-//                 'longshot'): worded by the server, sent to anyone in
+//                 'longshot') and Bullseye's arrows waiting (0249, 'bullseye'): worded by the server, sent to anyone in
 //                 the challenge (they have no golf seat)
 // Every push carries { type: 'golf', challengeId } so a tap opens the game.
 // A failure here never affects the game: the caller swallows it.
@@ -26,10 +26,10 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 // 'derby' (0211) and 'shootout' (0221): the Home Run Derby's and the Hound
 // Shootout's pushes, worded by the server.
-type Kind = 'birdie' | 'ace' | 'reminder' | 'skin' | 'final' | 'top10' | 'derby' | 'shootout' | 'bout' | 'roulette' | 'chess' | 'slots' | 'longshot';
-const KINDS: Kind[] = ['birdie', 'ace', 'reminder', 'skin', 'final', 'top10', 'derby', 'shootout', 'bout', 'roulette', 'chess', 'slots', 'longshot'];
+type Kind = 'birdie' | 'ace' | 'reminder' | 'skin' | 'final' | 'top10' | 'derby' | 'shootout' | 'bout' | 'roulette' | 'chess' | 'slots' | 'longshot' | 'bullseye';
+const KINDS: Kind[] = ['birdie', 'ace', 'reminder', 'skin', 'final', 'top10', 'derby', 'shootout', 'bout', 'roulette', 'chess', 'slots', 'longshot', 'bullseye'];
 // Kinds for games with no golf seat: anyone in the challenge gets them.
-const NOT_GOLF: Kind[] = ['derby', 'shootout', 'bout', 'roulette', 'chess', 'slots', 'longshot'];
+const NOT_GOLF: Kind[] = ['derby', 'shootout', 'bout', 'roulette', 'chess', 'slots', 'longshot', 'bullseye'];
 
 interface RequestBody {
   kind: Kind;
@@ -102,6 +102,7 @@ function message(body: RequestBody, me: string, game: string): { title: string; 
     case 'chess':
     case 'slots':
     case 'longshot':
+    case 'bullseye':
       return { title: body.title ?? game, text: body.message ?? `Something happened in "${game}".` };
     case 'final': {
       const score = body.total != null && body.to_par != null ? ` You shot ${body.total} (${toPar(body.to_par)}).` : '';

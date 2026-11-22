@@ -30,6 +30,8 @@ import { CricketAdminCard } from '../components/CricketAdminCard';
 import { RouletteAdminCard } from '../components/RouletteAdminCard';
 import { SlotsAdminCard } from '../components/SlotsAdminCard';
 import { LongShotAdminCard } from '../components/LongShotAdminCard';
+import { BullseyeAdminCard } from '../components/BullseyeAdminCard';
+import { bullseyeSummary, getBullseyeOverview } from '../challenges/bullseyeApi';
 import { getLongShotOverview, longshotSummary } from '../challenges/longshotApi';
 import { getSlotsOverview, slotsSummary } from '../challenges/slotsApi';
 import { ChessAdminCard } from '../components/ChessAdminCard';
@@ -274,6 +276,7 @@ export function AdminScreen({
   const [rouletteLine, setRouletteLine] = useState<string | null>(null);
   const [slotsLine, setSlotsLine] = useState<string | null>(null);
   const [longshotLine, setLongshotLine] = useState<string | null>(null);
+  const [bullseyeLine, setBullseyeLine] = useState<string | null>(null);
   const [prizeLine, setPrizeLine] = useState<string | null>(null);
   const [chessLine, setChessLine] = useState<string | null>(null);
   const [needsYouLine, setNeedsYouLine] = useState<string | null>(null);
@@ -394,6 +397,9 @@ export function AdminScreen({
         .catch(() => {});
       getLongShotOverview()
         .then((o) => setLongshotLine(longshotSummary(o)))
+        .catch(() => {});
+      getBullseyeOverview()
+        .then((o) => setBullseyeLine(bullseyeSummary(o)))
         .catch(() => {});
       getPrizeCounterOverview()
         .then((o) => setPrizeLine(prizeCounterSummary(o)))
@@ -1025,6 +1031,9 @@ export function AdminScreen({
                   </AdminFold>
                   <AdminFold title="Paw Slots" summary={slotsLine ?? 'Presses, lines and bets, spins bought, Bones paid'}>
                     <SlotsAdminCard onChanged={(o) => setSlotsLine(slotsSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Bullseye" summary={bullseyeLine ?? 'Archers, arrows and golds by target, bows, Robin Hoods, balloons'}>
+                    <BullseyeAdminCard onChanged={(o) => setBullseyeLine(bullseyeSummary(o))} />
                   </AdminFold>
                   <AdminFold title="Long Shot" summary={longshotLine ?? 'Shooters, rounds and hits by plate, rifles, gold plates'}>
                     <LongShotAdminCard onChanged={(o) => setLongshotLine(longshotSummary(o))} />
