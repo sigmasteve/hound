@@ -259,18 +259,26 @@ export function ShareCard({
               <View style={styles.storeIcon}>
                 <AppleLogoIcon size={17} color="#ffffff" weight="fill" />
               </View>
-              <View>
-                <Text style={styles.storeSmall}>Download on the</Text>
-                <Text style={styles.storeBig}>App Store</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.storeSmall} numberOfLines={1} adjustsFontSizeToFit>
+                  Download on the
+                </Text>
+                <Text style={styles.storeBig} numberOfLines={1} adjustsFontSizeToFit>
+                  App Store
+                </Text>
               </View>
             </View>
             <View style={styles.store}>
               <View style={styles.storeIcon}>
                 <GooglePlayLogoIcon size={16} color="#ffffff" weight="fill" />
               </View>
-              <View>
-                <Text style={styles.storeSmall}>Get it on</Text>
-                <Text style={styles.storeBig}>Google Play</Text>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.storeSmall} numberOfLines={1} adjustsFontSizeToFit>
+                  Get it on
+                </Text>
+                <Text style={styles.storeBig} numberOfLines={1} adjustsFontSizeToFit>
+                  Google Play
+                </Text>
               </View>
             </View>
           </View>
@@ -608,7 +616,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    width: 134,
+    width: 144,
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 8,
@@ -617,7 +625,7 @@ const styles = StyleSheet.create({
     borderColor: withAlpha('#ffffff', 0.35),
   },
   storeIcon: { flexShrink: 0 },
-  storeSmall: { fontSize: 8.5, lineHeight: 10, color: '#ffffff' },
+  storeSmall: { fontSize: 8, lineHeight: 10, color: '#ffffff' },
   storeBig: { fontFamily: font.headingSemibold, fontSize: 13, lineHeight: 15, color: '#ffffff' },
   code: { fontFamily: font.headingSemibold, fontSize: 26, letterSpacing: 3, color: C.text },
   medalWrap: { width: 260, height: 220, alignItems: 'center', justifyContent: 'center' },

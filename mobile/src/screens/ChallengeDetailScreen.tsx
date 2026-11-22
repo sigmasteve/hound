@@ -2246,7 +2246,7 @@ export function ChallengeDetailScreen({
           me={chessGame.me === 'b' ? 'b' : 'w'}
           last={chessGame.history.slice(-1)[0] ?? null}
           inCheck={chessGame.method === 'mate'}
-          width={266}
+          width={256}
         />
       </View>
     ) : challenge.kind === 'baseball' && baseball.game ? (
