@@ -174,7 +174,9 @@ export function resultLine(challengeName: string, outcome: ResultOutcome, labels
 // The full message handed to the OS share sheet: the result, then an
 // invite link (the viewer's own friend code) when there is one.
 export function shareMessage(line: string, inviteUrl: string | null): string {
-  return inviteUrl ? `${line}\n\nChallenge me on Hound: ${inviteUrl}` : `${line}\n\nChallenge me on Hound!`;
+  return inviteUrl
+    ? `${line}\n\nChallenge me on Hound: Fitness with Friends: ${inviteUrl}`
+    : `${line}\n\nChallenge me on Hound: Fitness with Friends, free on the App Store and Google Play.`;
 }
 
 // Whether the outcome is one to celebrate: the share card shows a trophy

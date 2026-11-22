@@ -4,7 +4,9 @@ import { Text } from '../components/Text';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import QRCode from 'react-native-qrcode-svg';
 import {
+  AppleLogoIcon,
   BarbellIcon,
+  GooglePlayLogoIcon,
   CheckCircleIcon,
   FireIcon,
   FlagCheckeredIcon,
@@ -137,16 +139,25 @@ export function shareText(content: ShareContent, inviteUrl: string | null): stri
 // The picture itself, 360×640, always in the app icon's dark look so it
 // reads the same wherever it's posted: the Hound logo, your hound, the
 // numbers, and how to find you on Hound. Only your own numbers are on it.
+// The app's name as the App Store and Google Play list it, so whoever
+// sees the card can search for it.
+export const STORE_NAME = 'Hound: Fitness with Friends';
+
+// The card's bottom: the QR code and link, or where to download it.
+export type ShareFooter = 'qr' | 'stores';
+
 export function ShareCard({
   content,
   kennel,
   inviteUrl,
   cardRef,
+  footer = 'qr',
 }: {
   content: ShareContent;
   kennel: Kennel | null;
   inviteUrl: string | null;
   cardRef?: Ref<View>;
+  footer?: ShareFooter;
 }) {
   const celebrate =
     (content.kind === 'challenge' && (isWin(content.outcome) || !!podiumSteps(content.podium))) || content.kind === 'badge';
@@ -167,9 +178,12 @@ export function ShareCard({
 
       <View style={styles.header}>
         <Image source={require('../../assets/icon.png')} style={styles.logo} />
-        <Text style={styles.brand}>Hound</Text>
-        <View style={{ flex: 1 }} />
-        <Text style={styles.eyebrow}>{EYEBROW[content.kind]}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.brand} numberOfLines={1}>
+            {STORE_NAME}
+          </Text>
+          <Text style={styles.eyebrow}>{EYEBROW[content.kind]}</Text>
+        </View>
       </View>
 
       <View style={styles.hero}>
@@ -225,6 +239,43 @@ export function ShareCard({
           picture, so the QR code carries it too: a phone camera opens it
           (the website's /f/ page for a friend code). Dark on white, which
           every scanner reads. */}
+      {footer === 'stores' ? (
+        <View style={styles.footer}>
+          <View style={{ flex: 1, gap: 2 }}>
+            {content.kind === 'invite' ? (
+              <>
+                <Text style={styles.footerHint}>CODE {formatCode(content.code)}</Text>
+                <Text style={styles.footerTitle}>Get {STORE_NAME}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.footerTitle}>Challenge me on Hound</Text>
+                <Text style={styles.footerHint}>Free on the App Store and Google Play</Text>
+              </>
+            )}
+          </View>
+          <View style={{ gap: 6 }}>
+            <View style={styles.store}>
+              <View style={styles.storeIcon}>
+                <AppleLogoIcon size={17} color="#ffffff" weight="fill" />
+              </View>
+              <View>
+                <Text style={styles.storeSmall}>Download on the</Text>
+                <Text style={styles.storeBig}>App Store</Text>
+              </View>
+            </View>
+            <View style={styles.store}>
+              <View style={styles.storeIcon}>
+                <GooglePlayLogoIcon size={16} color="#ffffff" weight="fill" />
+              </View>
+              <View>
+                <Text style={styles.storeSmall}>Get it on</Text>
+                <Text style={styles.storeBig}>Google Play</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      ) : (
       <View style={styles.footer}>
         {content.kind === 'invite' ? (
           <View style={{ flex: 1, gap: 2 }}>
@@ -235,7 +286,7 @@ export function ShareCard({
         ) : (
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={styles.footerTitle}>Challenge me on Hound</Text>
-            <Text style={styles.footerHint}>{inviteUrl ? 'Scan to add me' : 'Scan to get Hound'}</Text>
+            <Text style={styles.footerHint}>{inviteUrl ? 'Scan to add me' : `Scan to get ${STORE_NAME}`}</Text>
             <Text style={styles.footerUrl} numberOfLines={1}>
               {link.replace(/^https:\/\//, '')}
             </Text>
@@ -245,6 +296,7 @@ export function ShareCard({
           <QRCode value={link} size={64} color={C.bg} backgroundColor="#ffffff" quietZone={0} />
         </View>
       </View>
+      )}
     </View>
   );
 }
@@ -502,7 +554,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logo: { width: 30, height: 30, borderRadius: 8 },
   bigLogo: { width: 120, height: 120, borderRadius: 28 },
-  brand: { fontFamily: font.headingSemibold, fontSize: 19, color: C.text },
+  brand: { fontFamily: font.headingSemibold, fontSize: 16, color: C.text },
   eyebrow: { fontFamily: font.heading, fontSize: 11, letterSpacing: 1.6, color: withAlpha(C.text, 0.6) },
   hero: { flex: 1, minHeight: 150, alignItems: 'center', justifyContent: 'center' },
   body: { paddingBottom: 18 },
@@ -552,6 +604,21 @@ const styles = StyleSheet.create({
   footerHint: { fontSize: 12.5, color: withAlpha(C.text, 0.65) },
   footerUrl: { fontSize: 13, color: C.accent300 },
   qr: { padding: 5, borderRadius: 8, backgroundColor: '#ffffff' },
+  store: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    width: 134,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: withAlpha('#ffffff', 0.35),
+  },
+  storeIcon: { flexShrink: 0 },
+  storeSmall: { fontSize: 8.5, lineHeight: 10, color: '#ffffff' },
+  storeBig: { fontFamily: font.headingSemibold, fontSize: 13, lineHeight: 15, color: '#ffffff' },
   code: { fontFamily: font.headingSemibold, fontSize: 26, letterSpacing: 3, color: C.text },
   medalWrap: { width: 260, height: 220, alignItems: 'center', justifyContent: 'center' },
   podiumWrap: { width: 312, flexDirection: 'row', alignItems: 'flex-end', gap: 6, paddingTop: 4 },

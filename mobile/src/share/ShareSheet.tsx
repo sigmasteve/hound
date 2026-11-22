@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text } from '../components/Text';
+import { SegmentedControl } from '../components/SegmentedControl';
 import { ShareNetworkIcon } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { useTheme } from '../theme/ThemeContext';
@@ -8,13 +10,15 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { getKennel, type Kennel } from '../kennel/kennelApi';
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import { friendCodeUrl } from '../friends/types';
-import { ShareCard, shareText, type ShareContent } from './ShareCard';
+import { ShareCard, shareText, type ShareContent, type ShareFooter } from './ShareCard';
 import { CARD_HEIGHT, CARD_WIDTH, shareCardImage } from './shareImage';
 
 // The card you're about to share, shown first so you know what goes out,
 // with Share to open the phone's share sheet. Your hound and your friend
 // code (the "challenge me" link) are read when it opens; without them the
 // card still works, with the Hound logo and the website instead.
+const FOOTER_KEY = 'hound:share-footer';
+
 export function ShareSheet({ content, onClose }: { content: ShareContent; onClose: () => void }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -23,9 +27,15 @@ export function ShareSheet({ content, onClose }: { content: ShareContent; onClos
   const [kennel, setKennel] = useState<Kennel | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
+  // Two cards: the QR code and link, or the app stores. The pick is kept
+  // for next time on this phone.
+  const [footer, setFooter] = useState<ShareFooter>('qr');
 
   useEffect(() => {
     let cancelled = false;
+    AsyncStorage.getItem(FOOTER_KEY)
+      .then((v) => !cancelled && (v === 'stores' || v === 'qr') && setFooter(v))
+      .catch(() => {});
     getKennel()
       .then((k) => !cancelled && setKennel(k))
       .catch(() => {});
@@ -40,7 +50,12 @@ export function ShareSheet({ content, onClose }: { content: ShareContent; onClos
 
   // The card is always laid out full size (that's what gets saved) and
   // shrunk to fit here.
-  const scale = Math.min(1, (height * 0.62) / CARD_HEIGHT, 300 / CARD_WIDTH);
+  const scale = Math.min(1, (height * 0.56) / CARD_HEIGHT, 300 / CARD_WIDTH);
+  const pick = (v: string) => {
+    const f = v === 'stores' ? 'stores' : 'qr';
+    setFooter(f);
+    AsyncStorage.setItem(FOOTER_KEY, f).catch(() => {});
+  };
 
   const share = async () => {
     setSharing(true);
@@ -59,6 +74,16 @@ export function ShareSheet({ content, onClose }: { content: ShareContent; onClos
         {/* Behind the sheet, so a tap outside closes it without stealing the sheet's scrolling. */}
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.sheet}>
+          <View style={{ alignSelf: 'stretch' }}>
+            <SegmentedControl
+              options={[
+                { value: 'qr', label: 'QR code' },
+                { value: 'stores', label: 'App stores' },
+              ]}
+              value={footer}
+              onChange={pick}
+            />
+          </View>
           <View
             style={[styles.preview, { width: CARD_WIDTH * scale, height: CARD_HEIGHT * scale }]}
             accessible
@@ -72,7 +97,7 @@ export function ShareSheet({ content, onClose }: { content: ShareContent; onClos
                 transform: [{ scale }],
               }}
             >
-              <ShareCard content={content} kennel={kennel} inviteUrl={inviteUrl} cardRef={cardRef} />
+              <ShareCard content={content} kennel={kennel} inviteUrl={inviteUrl} cardRef={cardRef} footer={footer} />
             </View>
           </View>
           <Text style={styles.note}>Only your own numbers are on it.</Text>
