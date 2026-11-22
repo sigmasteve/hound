@@ -25,6 +25,7 @@ import {
   type CricketHandBall,
   type CricketShot,
 } from '../challenges/cricketApi';
+import { BoardLink } from '../components/BoardLink';
 
 // Cricket, bat and bowl yourself (0234; mockup claude.ai/artifact/QUXJkAEQntumiEYV7kafn5).
 // The ground seen from behind the bowler, down the pitch to the batter,
@@ -436,9 +437,11 @@ export function CricketPlayScreen({ challengeId, onBack }: { challengeId: string
             <ArrowLeftIcon size={20} color={colors.accentActive} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker} numberOfLines={1}>
-              CRICKET{hand.overNo ? ` · OVER ${hand.overNo} OF ${hand.overs}` : ''} · {innings.toUpperCase()}
-            </Text>
+            <BoardLink challengeId={challengeId}>
+              <Text style={styles.kicker} numberOfLines={1}>
+                CRICKET{hand.overNo ? ` · OVER ${hand.overNo} OF ${hand.overs}` : ''} · {innings.toUpperCase()}
+              </Text>
+            </BoardLink>
             <Text style={styles.title}>{bat ? 'At the crease' : hand.role === 'bowl' ? 'Your over' : 'Today’s over'}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>

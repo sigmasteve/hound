@@ -24,6 +24,7 @@ import {
   type ShootoutLive,
 } from '../challenges/shootoutApi';
 import { arcKeys, at, clamp, type Key } from './BaseballBatScreen';
+import { BoardLink } from '../components/BoardLink';
 
 // The Hound Shootout (0221), at the spot. Seen from behind the penalty
 // spot, facing the goal (ShootoutGoal: every point through project()).
@@ -317,9 +318,11 @@ export function ShootoutKickScreen({ challengeId, onBack }: { challengeId: strin
             <ArrowLeftIcon size={20} color={colors.accentActive} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker} numberOfLines={1}>
-              HOUND SHOOTOUT{live.dayNo > 0 ? ` · DAY ${live.dayNo} OF ${live.days}` : ''}
-            </Text>
+            <BoardLink challengeId={challengeId}>
+              <Text style={styles.kicker} numberOfLines={1}>
+                HOUND SHOOTOUT{live.dayNo > 0 ? ` · DAY ${live.dayNo} OF ${live.days}` : ''}
+              </Text>
+            </BoardLink>
             <Text style={styles.title}>At the spot</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }} accessible accessibilityLabel={`${live.me.points} goals`}>

@@ -23,6 +23,7 @@ import {
   type RouletteTask,
 } from '../challenges/roulette';
 import { bankRoulette, claimRouletteSteps, getRoulette, pickRouletteTask, spinRoulette, type RouletteGame } from '../challenges/rouletteApi';
+import { BoardLink } from '../components/BoardLink';
 
 // Hound Roulette's wheel (0236; mockup claude.ai/artifact/HfDqdw7FaXZmCeDy68pJcX).
 // Bank the ride (before you spin), pick a stake, spin: the server has
@@ -208,9 +209,11 @@ export function RouletteScreen({ challengeId, onBack }: { challengeId: string; o
             <ArrowLeftIcon size={20} color={colors.accentActive} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker} numberOfLines={1}>
-              HOUND ROULETTE{game.dayNo >= 1 && game.dayNo <= game.days ? ` · DAY ${game.dayNo} OF ${game.days}` : ''}
-            </Text>
+            <BoardLink challengeId={challengeId}>
+              <Text style={styles.kicker} numberOfLines={1}>
+                HOUND ROULETTE{game.dayNo >= 1 && game.dayNo <= game.days ? ` · DAY ${game.dayNo} OF ${game.days}` : ''}
+              </Text>
+            </BoardLink>
             <Text style={styles.title}>Today’s spin</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>

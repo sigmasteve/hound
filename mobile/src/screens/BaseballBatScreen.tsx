@@ -41,6 +41,7 @@ import {
 } from '../components/baseballSwing';
 import { BaseballMoundMode } from '../components/BaseballMound';
 import { BaseballStealMode } from '../components/BaseballSteal';
+import { BoardLink } from '../components/BoardLink';
 
 // Baseball, pitch by pitch (0207), for a game made with "Take my own
 // at-bats", made real in 0231 (mockup claude.ai/artifact/HGso1dZWWMbsHBxMMfSxP5):
@@ -512,10 +513,12 @@ function BatMode({ challengeId, onBusy }: { challengeId: string; onBusy: (b: boo
       <View style={styles.fixed}>
         <View style={styles.head}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker} numberOfLines={1}>
-              BASEBALL{live.inning ? ` · ${inningLabel(live.inning, innings).toUpperCase()}` : ''}
-              {pitcherName ? ` · YOU VS ${pitcherName.toUpperCase()}` : ''}
-            </Text>
+            <BoardLink challengeId={challengeId}>
+              <Text style={styles.kicker} numberOfLines={1}>
+                BASEBALL{live.inning ? ` · ${inningLabel(live.inning, innings).toUpperCase()}` : ''}
+                {pitcherName ? ` · YOU VS ${pitcherName.toUpperCase()}` : ''}
+              </Text>
+            </BoardLink>
             <Text style={styles.title}>Your at-bats</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }} accessible accessibilityLabel={`${count.balls} balls, ${count.strikes} strikes`}>
