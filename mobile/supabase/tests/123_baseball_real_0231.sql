@@ -5,8 +5,8 @@
 -- the ring, a painted corner, the at-bat finished and waiting, the shared
 -- cap and the waiting cap); the inning using a pitched at-bat after the
 -- batter's own; steal jumps (once a day, the pickoff, the steal decided
--- by the jump); the Derby's tap; and Admin.
-select plan(44);
+-- by the jump); the Derby's tap (and, 0245, its meter); and Admin.
+select plan(46);
 
 select tests.new_user_with_id('00000000-0000-0000-0000-0000000aa001', 'Ann') as ann \gset
 select tests.new_user('Bob') as bob \gset
@@ -253,6 +253,9 @@ select is((select jsonb_build_object('result', s -> 'result', 'message', s -> 'm
   from public.derby_swing(:'derby', 0, ((:'dp2'::jsonb) ->> 'px')::double precision + 1.5, ((:'dp2'::jsonb) ->> 'py')::double precision) s),
   jsonb_build_object('result', 'fly_out', 'message', 'Off the end of the bat, caught at the wall: tap right on the ball.'),
   'On time but 1.5 off the ball: 78 ms, caught at the wall');
+-- 0245: the meter swings with the timing alone.
+select public.derby_pitch(:'derby') as dp3 \gset
+select is(public.derby_swing(:'derby', 0) ->> 'result', 'hr', 'The meter: dead on, with no tap, is gone');
 reset role;
 
 -- ── Admin ──
@@ -263,6 +266,10 @@ select is((select jsonb_build_object('pitched', l -> 'pitched_7d', 'pitchers', l
   from (select o -> 'live' l from public.admin_baseball_overview() o) x),
   jsonb_build_object('pitched', 4, 'pitchers', 1, 'jumps', 4, 'great', 2, 'tapped', 2, 'derby', 2, 'painted', 1),
   'Admin: pitched at-bats, pitchers, jumps, the tap and painted corners');
+select is((select jsonb_build_object('metered', l -> 'metered_7d', 'derby', l -> 'derby_metered_7d', 'meter_people', l -> 'meter_people_7d', 'tap_people', l -> 'tap_people_7d')
+  from (select o -> 'live' l from public.admin_baseball_overview() o) x),
+  jsonb_build_object('metered', 1, 'derby', 1, 'meter_people', 2, 'tap_people', 2),
+  'Admin (0245): swings with the meter and by tapping, and who');
 reset role;
 
 select * from finish();

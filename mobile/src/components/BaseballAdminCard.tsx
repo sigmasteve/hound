@@ -76,7 +76,12 @@ export function BaseballAdminCard() {
                 'Steal jumps this week',
                 `${data.live.jumps7d} set · ${data.live.greatJumps7d} great · ${data.live.jumpSteals7d} run tonight, ${data.live.jumpSafe7d} safe`,
               ],
-              ['Derby swings tapped on the ball this week', `${data.live.derbyTapped7d}`],
+              [
+                'Swung with the meter / by tapping this week',
+                `At bat ${data.live.metered7d} / ${data.live.tapped7d} · Derby ${data.live.derbyMetered7d} / ${data.live.derbyTapped7d} · ${data.live.meterPeople7d} ${
+                  data.live.meterPeople7d === 1 ? 'person' : 'people'
+                } on the meter, ${data.live.tapPeople7d} tapping`,
+              ],
             ] as [string, string][])
           : []),
       ]

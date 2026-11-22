@@ -346,7 +346,8 @@ reset role;
 select tests.sign_in(:'ada');
 set local role authenticated;
 select is((select (o -> 'live') - array['auto_avg_7d', 'avg_7d', 'tapped_7d', 'avg_miss_7d', 'curveballs_7d', 'pitchers_7d', 'pitched_7d', 'pitched_k_7d',
-    'pitched_hits_7d', 'painted_7d', 'mound_pitches_7d', 'jumps_7d', 'great_jumps_7d', 'jump_steals_7d', 'jump_safe_7d', 'derby_tapped_7d'] from public.admin_baseball_overview() o),
+    'pitched_hits_7d', 'painted_7d', 'mound_pitches_7d', 'jumps_7d', 'great_jumps_7d', 'jump_steals_7d', 'jump_safe_7d', 'derby_tapped_7d',
+    'metered_7d', 'derby_metered_7d', 'meter_people_7d', 'tap_people_7d'] from public.admin_baseball_overview() o),
   jsonb_build_object('games_hands_on', 3, 'people_7d', 4, 'at_bats_7d', :'done_abs'::int, 'pitches_7d', :'pitches'::int, 'hr_7d', :'hrs'::int),
   'Admin: hands-on games, people, at-bats, pitches and home runs this week');
 select ok((select (o -> 'live' ->> 'avg_7d')::numeric between 0 and 1 from public.admin_baseball_overview() o),

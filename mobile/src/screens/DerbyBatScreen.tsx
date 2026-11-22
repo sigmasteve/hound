@@ -13,9 +13,11 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { buzz } from '../celebrate/feedback';
 import { getChallengeSponsor, sponsorColor, type ChallengeSponsor } from '../challenges/globalChallenges';
 import {
+  bandsFor,
   getDerbyLive,
   swingDerby,
   throwDerbyPitch,
+  type DerbyBands,
   type DerbyLive,
   type DerbyPitch,
   type DerbySwing,
@@ -26,6 +28,7 @@ import {
   at,
   BALL,
   BaseballBall,
+  BAR_MS,
   Batter,
   FH,
   FieldArt,
@@ -43,7 +46,20 @@ import {
   WINDUP_MS,
   batAngleFor,
 } from './BaseballBatScreen';
-import { COUNT_MS, COUNT_STEP, Countdown, feelLine, pitchPoint, TapMark, tapToZone, zoneBox, zonePoint } from '../components/baseballSwing';
+import {
+  COUNT_MS,
+  COUNT_STEP,
+  Countdown,
+  feelLine,
+  pitchPoint,
+  SwingModeSwitch,
+  TapMark,
+  tapToZone,
+  TimingMeter,
+  useSwingMode,
+  zoneBox,
+  zonePoint,
+} from '../components/baseballSwing';
 
 // The Hound Home Run Derby (0211), at the plate. Baseball batting's view
 // (0207): the ballpark from behind home plate, facing the mound, every
@@ -177,6 +193,9 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
   const [pitch, setPitch] = useState<{ p: DerbyPitch; countEnd: number; releaseAt: number; arriveAt: number } | null>(null);
   const [swingAt, setSwingAt] = useState<number | null>(null);
   const [tap, setTap] = useState<{ x: number; y: number } | null>(null);
+  // Meter (the default) or tap the ball; the meter's last mark.
+  const [mode, setMode] = useSwingMode();
+  const [lastMark, setLastMark] = useState<number | null>(null);
   const [after, setAfter] = useState<{ keys: Key[]; startAt: number; landAt: number; catcher: 'lf' | 'cf' | 'rf' | null; golden: boolean } | null>(null);
   const [signLit, setSignLit] = useState(false);
   const [mine, setMine] = useState<DerbySwingRow[]>([]);
@@ -225,6 +244,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
 
   const v = useMemo(() => (size.w > 0 ? view(size.w, size.h) : null), [size.w, size.h]);
   const factor = live?.factor ?? 1;
+  const bands: DerbyBands = pitch?.p.bands ?? live?.bands ?? bandsFor(factor);
   const signName = live?.sponsor?.name ?? sponsor?.name ?? null;
   const signColor = sponsorColor(sponsor);
 
@@ -232,11 +252,15 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
     if (!live || msg) return;
     const extra = live.power.stepsFt + live.power.workoutFt;
     setMsg(
-      `Every pitch is a meatball: it’s a derby. Tap Pitch, then tap the ball where it crosses the plate, as it gets there. Right on it and right on time and it’s gone.${
+      `Every pitch is a meatball: it’s a derby. ${
+        mode === 'meter'
+          ? 'Tap Pitch, then Swing! as the marker crosses the middle of the meter.'
+          : 'Tap Pitch, then tap the ball where it crosses the plate, as it gets there.'
+      } Barrel it and it’s gone.${
         extra > 0 ? ` Your steps and workouts add ${extra} feet today.` : ''
       }`,
     );
-  }, [live, msg]);
+  }, [live, msg, mode]);
 
   const spots = useMemo(() => {
     if (!v) return null;
@@ -333,6 +357,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
       if (!canPitch) return;
       setBanner(null);
       setTap(null);
+      setLastMark(null);
       setSwingAt(null);
       setAfter(null);
       setPhase('waiting');
@@ -340,11 +365,13 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
         const p = await throwDerbyPitch(challengeId, factor);
         const t = Date.now();
         sent.current = false;
-        const countEnd = t + COUNT_MS;
+        // The 3-2-1 is for looking up at the plate; the meter is right
+        // by the button, so it starts straight away.
+        const countEnd = t + (mode === 'tap' ? COUNT_MS : 0);
         setPitch({ p, countEnd, releaseAt: countEnd + WINDUP_MS, arriveAt: countEnd + WINDUP_MS + p.ms });
         setNow(t);
         setPhase('pitch');
-        setMsg(p.golden ? 'A golden ball! Hit it out and it counts double.' : 'Eyes up: here it comes…');
+        setMsg(p.golden ? 'A golden ball! Hit it out and it counts double.' : mode === 'tap' ? 'Eyes up: here it comes…' : 'Here it comes…');
         if (p.golden) buzz('light');
       } catch (e) {
         setPhase('ready');
@@ -353,11 +380,20 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
       }
       return;
     }
+    // The meter's Swing!: only the timing counts.
+    if (mode !== 'meter' || phase !== 'pitch' || !pitch || swingAt != null || sent.current) return;
+    const t = Date.now();
+    if (t < pitch.releaseAt) return;
+    const timing = t - pitch.arriveAt;
+    setSwingAt(t);
+    setLastMark(Math.max(0.02, Math.min(0.98, 0.5 + timing / BAR_MS)));
+    buzz('light');
+    send(timing, null, pitch);
   };
 
   // The swing is a tap on the field, counted when the finger lands.
   const swingAtPoint = (x: number, y: number) => {
-    if (phase !== 'pitch' || !pitch || swingAt != null || sent.current || !spots) return;
+    if (mode !== 'tap' || phase !== 'pitch' || !pitch || swingAt != null || sent.current || !spots) return;
     const t = Date.now();
     if (t < pitch.releaseAt) return;
     setSwingAt(t);
@@ -396,9 +432,11 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
   const busy = phase === 'waiting' || phase === 'result';
   const actLabel =
     phase === 'pitch'
-      ? counting
-        ? 'Eyes on the plate…'
-        : 'Tap where it crosses'
+      ? mode === 'meter'
+        ? 'Swing!'
+        : counting
+          ? 'Eyes on the plate…'
+          : 'Tap where it crosses'
       : busy
         ? '…'
         : canPitch
@@ -406,7 +444,9 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
             ? 'Next pitch'
             : 'Pitch'
           : live.reason || (live.nextSwingAt != null ? `No swings ready: your next comes at ${live.nextSwingAt.toLocaleString()} steps` : 'That’s 20 swings today. Back tomorrow.');
-  const actOn = phase === 'ready' && canPitch;
+  const actOn = (phase === 'ready' && canPitch) || (mode === 'meter' && phase === 'pitch' && swingAt == null);
+  const liveMark = mode === 'meter' && phase === 'pitch' && pitch && swingAt == null && !sent.current && now >= pitch.releaseAt;
+  const mark = liveMark && pitch ? Math.max(0.02, Math.min(0.98, 0.5 + (now - pitch.arriveAt) / BAR_MS)) : lastMark;
   const leftChip = golden
     ? '★ Golden ball · worth 2'
     : pitch && phase !== 'ready'
@@ -513,7 +553,7 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
           <Pressable
             style={StyleSheet.absoluteFill}
             onPressIn={(e) => swingAtPoint(e.nativeEvent.locationX, e.nativeEvent.locationY)}
-            disabled={phase !== 'pitch'}
+            disabled={phase !== 'pitch' || mode !== 'tap'}
             accessibilityRole="button"
             accessibilityLabel="Swing: tap where the ball crosses the plate"
           />
@@ -559,10 +599,29 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
       </ScrollView>
 
       <View style={styles.pinned}>
+        <SwingModeSwitch mode={mode} onChange={(m) => { setMode(m); setMsg(''); }} disabled={phase !== 'ready'} />
+        {mode === 'meter' && (
+          <TimingMeter
+            barMs={BAR_MS}
+            bands={[
+              { ms: bands.warning, color: '#c97a3a' },
+              { ms: bands.b70, color: '#e0a94f' },
+              { ms: bands.b45, color: '#bfe8cb' },
+              { ms: bands.b30, color: '#7fd39b' },
+              { ms: bands.b20, color: '#4fc48c' },
+              { ms: bands.b10, color: '#2f9e6b' },
+            ]}
+            mark={mark}
+            moving={!!liveMark}
+            label={`Timing: on time is the middle; contact within ${Math.round(bands.b70)} milliseconds`}
+          />
+        )}
+        {/* The meter's Swing! counts when the finger lands, not when it lifts. */}
         <Pressable
-          onPress={act}
+          onPressIn={phase === 'pitch' && mode === 'meter' ? act : undefined}
+          onPress={phase === 'pitch' ? undefined : act}
           disabled={!actOn}
-          style={[styles.act, actOn ? { backgroundColor: colors.green } : phase === 'pitch' ? { backgroundColor: '#2a2c38' } : styles.actOff]}
+          style={[styles.act, actOn ? { backgroundColor: phase === 'pitch' ? '#f08a24' : colors.green } : phase === 'pitch' ? { backgroundColor: '#2a2c38' } : styles.actOff]}
           accessibilityRole="button"
         >
           <Text style={[styles.actText, !actOn && { color: phase === 'pitch' ? ME_COLOR : withAlpha(colors.text, 0.6), fontSize: 14 }]}>{actLabel}</Text>

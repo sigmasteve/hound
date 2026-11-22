@@ -309,6 +309,11 @@ export interface BaseballOverview {
     jumpSteals7d: number;
     jumpSafe7d: number;
     derbyTapped7d: number;
+    // 0245: swung with the meter (timing only) or by tapping the ball.
+    metered7d: number;
+    derbyMetered7d: number;
+    meterPeople7d: number;
+    tapPeople7d: number;
   } | null;
 }
 
@@ -355,6 +360,10 @@ export async function getBaseballOverview(): Promise<BaseballOverview> {
           jumpSteals7d: n(d.live.jump_steals_7d),
           jumpSafe7d: n(d.live.jump_safe_7d),
           derbyTapped7d: n(d.live.derby_tapped_7d),
+          metered7d: n(d.live.metered_7d),
+          derbyMetered7d: n(d.live.derby_metered_7d),
+          meterPeople7d: n(d.live.meter_people_7d),
+          tapPeople7d: n(d.live.tap_people_7d),
         }
       : null,
   };

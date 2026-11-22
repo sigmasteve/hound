@@ -23,7 +23,22 @@ import {
   type BaseballSwing,
   type BaseballThrown,
 } from '../challenges/baseballApi';
-import { COUNT_MS, COUNT_STEP, Countdown, feelLine, GripTell, PITCH_NAMES, pitchPoint, TapMark, tapToZone, zoneBox, zonePoint } from '../components/baseballSwing';
+import {
+  COUNT_MS,
+  COUNT_STEP,
+  Countdown,
+  feelLine,
+  GripTell,
+  PITCH_NAMES,
+  pitchPoint,
+  SwingModeSwitch,
+  TapMark,
+  tapToZone,
+  TimingMeter,
+  useSwingMode,
+  zoneBox,
+  zonePoint,
+} from '../components/baseballSwing';
 import { BaseballMoundMode } from '../components/BaseballMound';
 import { BaseballStealMode } from '../components/BaseballSteal';
 
@@ -253,6 +268,9 @@ function BatMode({ challengeId, onBusy }: { challengeId: string; onBusy: (b: boo
   const [pitch, setPitch] = useState<{ p: BaseballThrown; countEnd: number; releaseAt: number; arriveAt: number } | null>(null);
   const [swingAt, setSwingAt] = useState<number | null>(null);
   const [tap, setTap] = useState<{ x: number; y: number } | null>(null);
+  // Meter (the default) or tap the ball; the meter's last mark.
+  const [mode, setMode] = useSwingMode();
+  const [lastMark, setLastMark] = useState<number | null>(null);
   const [after, setAfter] = useState<{ keys: Key[]; startAt: number; landAt: number; catcher: string | null } | null>(null);
   const [now, setNow] = useState(Date.now());
   const sent = useRef(false);
@@ -308,11 +326,15 @@ function BatMode({ challengeId, onBusy }: { challengeId: string; onBusy: (b: boo
     if (!live || msg || !live.handsOn) return;
     const pw = live.power.strength > 0 ? ` Your workout power (×${live.power.pw.toFixed(2)}) helps the ball carry.` : '';
     setMsg(
-      `Tap Pitch, watch the grip in ${pitcherName ?? 'the pitcher'}’s glove, then tap where the ball crosses the plate as it gets there. Where you tap is your swing; when you tap is your timing.${
+      `${
+        mode === 'meter'
+          ? `Tap Pitch, watch the grip in ${pitcherName ?? 'the pitcher'}’s glove, then Swing! as the marker crosses the middle of the meter.`
+          : `Tap Pitch, watch the grip in ${pitcherName ?? 'the pitcher'}’s glove, then tap where the ball crosses the plate as it gets there. Where you tap is your swing; when you tap is your timing.`
+      }${
         pitcherName && pressure > 0 ? ` ${pitcherName} walked more today, so the fastball is quicker.` : ''
       }${pw}`,
     );
-  }, [live, msg, pitcherName, pressure]);
+  }, [live, msg, pitcherName, pressure, mode]);
 
   const spots = useMemo(() => {
     if (!v) return null;
@@ -392,6 +414,7 @@ function BatMode({ challengeId, onBusy }: { challengeId: string; onBusy: (b: boo
     setBanner(null);
     setSwingAt(null);
     setTap(null);
+    setLastMark(null);
     setAfter(null);
     setPhase('waiting');
     try {
@@ -400,7 +423,9 @@ function BatMode({ challengeId, onBusy }: { challengeId: string; onBusy: (b: boo
       setAbOpen(true);
       const t = Date.now();
       sent.current = false;
-      const countEnd = t + COUNT_MS;
+      // The 3-2-1 is for looking up at the plate; the meter is by the
+      // button, so it goes straight to the wind-up.
+      const countEnd = t + (mode === 'tap' ? COUNT_MS : 0);
       const releaseAt = countEnd + WINDUP_REAL;
       setPitch({ p, countEnd, releaseAt, arriveAt: releaseAt + p.ms });
       setNow(t);
@@ -413,9 +438,21 @@ function BatMode({ challengeId, onBusy }: { challengeId: string; onBusy: (b: boo
     }
   };
 
+  // The meter's Swing!: only the timing counts.
+  const swingMeter = () => {
+    if (mode !== 'meter' || phase !== 'pitch' || !pitch || swingAt != null || sent.current) return;
+    const t = Date.now();
+    if (t < pitch.releaseAt) return; // still winding up
+    const timing = t - pitch.arriveAt;
+    setSwingAt(t);
+    setLastMark(Math.max(0.02, Math.min(0.98, 0.5 + timing / BAR_MS)));
+    buzz('light');
+    send(timing, null, pitch);
+  };
+
   // The swing is a tap on the field, counted when the finger lands.
   const swingAtPoint = (x: number, y: number) => {
-    if (phase !== 'pitch' || !pitch || swingAt != null || sent.current || !spots) return;
+    if (mode !== 'tap' || phase !== 'pitch' || !pitch || swingAt != null || sent.current || !spots) return;
     const t = Date.now();
     if (t < pitch.releaseAt) return; // still winding up
     setSwingAt(t);
@@ -445,9 +482,11 @@ function BatMode({ challengeId, onBusy }: { challengeId: string; onBusy: (b: boo
   const busy = phase === 'waiting' || phase === 'result';
   const actLabel =
     phase === 'pitch'
-      ? counting
-        ? 'Eyes on the plate…'
-        : 'Tap where it crosses'
+      ? mode === 'meter'
+        ? 'Swing!'
+        : counting
+          ? 'Eyes on the plate…'
+          : 'Tap where it crosses'
       : busy
         ? '…'
         : !live.handsOn
@@ -457,7 +496,9 @@ function BatMode({ challengeId, onBusy }: { challengeId: string; onBusy: (b: boo
               ? 'Next pitch'
               : 'Pitch'
             : live.reason || (live.nextAt != null ? `No at-bats ready: next at ${formatSteps(live.nextAt)}` : "That's all your at-bats today.");
-  const actOn = phase === 'ready' && canPitch;
+  const actOn = (phase === 'ready' && canPitch) || (mode === 'meter' && phase === 'pitch' && swingAt == null);
+  const liveMark = mode === 'meter' && phase === 'pitch' && pitch != null && swingAt == null && !sent.current && now >= pitch.releaseAt;
+  const mark = liveMark && pitch ? Math.max(0.02, Math.min(0.98, 0.5 + (now - pitch.arriveAt) / BAR_MS)) : lastMark;
   const pitchChip =
     pitch && (phase === 'pitch' || phase === 'waiting' || phase === 'result') && now >= pitch.releaseAt
       ? `${PITCH_NAMES[pitch.p.kind] ?? 'Fastball'} · ${pitch.p.mph}`
@@ -538,7 +579,7 @@ function BatMode({ challengeId, onBusy }: { challengeId: string; onBusy: (b: boo
           <Pressable
             style={StyleSheet.absoluteFill}
             onPressIn={(e) => swingAtPoint(e.nativeEvent.locationX, e.nativeEvent.locationY)}
-            disabled={phase !== 'pitch'}
+            disabled={phase !== 'pitch' || mode !== 'tap'}
             accessibilityRole="button"
             accessibilityLabel="Swing: tap where the ball crosses the plate"
           />
@@ -577,10 +618,27 @@ function BatMode({ challengeId, onBusy }: { challengeId: string; onBusy: (b: boo
       </ScrollView>
 
       <View style={styles.pinned}>
+        {live.handsOn && <SwingModeSwitch mode={mode} onChange={(m) => { setMode(m); setMsg(''); }} disabled={phase !== 'ready'} />}
+        {live.handsOn && mode === 'meter' && (
+          <TimingMeter
+            barMs={BAR_MS}
+            bands={[
+              { ms: live.bands.foul, color: '#e0a94f' },
+              { ms: live.bands.weak, color: '#bfe8cb' },
+              { ms: live.bands.solid, color: '#7fd39b' },
+              { ms: live.bands.barrel, color: '#3fb37f' },
+            ]}
+            mark={mark}
+            moving={liveMark}
+            label={`Timing: on time is the middle; the barrel is within ${Math.round(live.bands.barrel)} milliseconds`}
+          />
+        )}
+        {/* The meter's Swing! counts when the finger lands, not when it lifts. */}
         <Pressable
-          onPress={throwPitch}
+          onPressIn={phase === 'pitch' && mode === 'meter' ? swingMeter : undefined}
+          onPress={phase === 'pitch' ? undefined : throwPitch}
           disabled={!actOn}
-          style={[styles.act, actOn ? { backgroundColor: colors.green } : phase === 'pitch' ? { backgroundColor: '#2a2c38' } : styles.actOff]}
+          style={[styles.act, actOn ? { backgroundColor: phase === 'pitch' ? '#f08a24' : colors.green } : phase === 'pitch' ? { backgroundColor: '#2a2c38' } : styles.actOff]}
           accessibilityRole="button"
         >
           <Text style={[styles.actText, !actOn && { color: phase === 'pitch' ? '#ffd8b0' : withAlpha(colors.text, 0.6), fontSize: 14 }]}>{actLabel}</Text>
