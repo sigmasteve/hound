@@ -14,18 +14,22 @@ import { ClubBadge } from './clubLook';
 // "Share with your clubs" (0185). In Create (no challengeId yet), it
 // only picks clubs: the challenge is posted once it's made. On a
 // challenge's page, its creator posts it to more clubs straight away.
-// Nothing shows for someone in no clubs, or for a kind that can't be
-// posted (fixed-team games).
+// Nothing shows for someone in no clubs. For a kind that can't be posted
+// (one on one, fixed teams), nothing shows either, unless Create was
+// opened from a club (fromClubId): then it says so, so the club isn't
+// dropped without a word.
 export function ShareWithClubs({
   kind,
   challengeId,
   value,
   onChange,
+  fromClubId,
 }: {
   kind: ChallengeKind;
   challengeId?: string;
   value?: string[];
   onChange?: (ids: string[]) => void;
+  fromClubId?: string;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -40,7 +44,19 @@ export function ShareWithClubs({
       .catch(() => setClubs([]));
   }, [challengeId]);
 
-  if (!CLUB_KINDS.includes(kind) || !clubs || clubs.length === 0) return null;
+  if (!CLUB_KINDS.includes(kind)) {
+    if (!fromClubId) return null;
+    const from = clubs?.find((c) => c.id === fromClubId);
+    return (
+      <Card style={{ gap: 6 }} elevated={false}>
+        <Text style={styles.kicker}>{from ? from.name.toUpperCase() : 'YOUR CLUB'}</Text>
+        <Text style={styles.note}>
+          This game can&rsquo;t go on a club&rsquo;s page: it&rsquo;s one on one or played in set teams. Invite club members by name below instead.
+        </Text>
+      </Card>
+    );
+  }
+  if (!clubs || clubs.length === 0) return null;
   const postNow = !!challengeId;
   const toggle = (id: string) => {
     const next = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id];
@@ -66,6 +82,13 @@ export function ShareWithClubs({
   return (
     <Card style={{ gap: 10 }} elevated={false}>
       <Text style={styles.kicker}>SHARE WITH YOUR CLUBS</Text>
+      {!postNow && picked.length > 0 && (
+        <Text style={styles.on}>
+          {picked.length === 1
+            ? `${clubs.find((c) => c.id === picked[0])?.name ?? 'Your club'} will see it on the club’s page when you create it.`
+            : `${picked.length} clubs will see it on their pages when you create it.`}
+        </Text>
+      )}
       {clubs.map((c) => {
         const on = c.posted || picked.includes(c.id);
         return (
@@ -106,6 +129,7 @@ function makeStyles(colors: Palette) {
     pickOn: { borderColor: colors.accent, backgroundColor: withAlpha(colors.accent, 0.08) },
     name: { fontFamily: font.heading, fontSize: 15, color: colors.text },
     meta: { fontSize: 12, color: withAlpha(colors.text, 0.6) },
+    on: { fontFamily: font.headingSemibold, fontSize: 13.5, lineHeight: 19, color: colors.accent },
     note: { fontSize: 12.5, lineHeight: 18, color: withAlpha(colors.text, 0.65) },
   });
 }

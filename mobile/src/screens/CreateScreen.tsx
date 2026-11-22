@@ -3204,6 +3204,9 @@ export function CreateScreen({
                 ? 'Pick the teams'
                 : 'Bring friends'}
           </Text>
+          {/* 0185: club members see it and join, alongside anyone invited.
+              At the top, so a challenge started from a club shows it's going there. */}
+          <ShareWithClubs kind={draftType} value={clubIds} onChange={setClubIds} fromClubId={clubId} />
           {draftType === 'golf' && (
             <Text style={styles.footNote}>
               {golfFormat === 'match'
@@ -3558,8 +3561,6 @@ export function CreateScreen({
               )}
             </View>
           )}
-          {/* 0185: club members see it and join, alongside anyone invited. */}
-          <ShareWithClubs kind={draftType} value={clubIds} onChange={setClubIds} />
         </View>
       )}
 
