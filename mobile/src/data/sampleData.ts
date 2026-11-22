@@ -314,7 +314,7 @@ export const CHALLENGE_TYPES: {
   {
     id: 'bullseye',
     name: 'Bullseye',
-    desc: 'Archery for everyone, played on your steps: every 1,500 steps is an end of 3 arrows, up to 6 a day. Hold to draw, aim off for the breeze and let go at full draw; watch the arrow arc all the way in. Round targets from 18 to 90 m (a 9 at 70 m is 36), the clout flag at 150 m, Robin Hoods, a gold balloon that pays Bones, Balloon days and Moon days. Most points wins the pool.',
+    desc: 'Archery for everyone, played on your steps: every 1,500 steps is a round of 3 arrows, up to 6 a day. Hold to pull back the string, aim into the wind and let go when you’re steady; then watch the arrow fly all the way in, in slow motion. Round targets from 18 to 90 m, worth more the farther they are (a 9 at 70 m is 36), a flag at 150 m to lob arrows at, Robin Hoods, a gold balloon that pays Bones, Balloon days and Moon days. Most points wins the pool.',
     tint: '#2f4a2a',
     iconColor: '#ffd23f',
   },

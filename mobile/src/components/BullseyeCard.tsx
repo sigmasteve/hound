@@ -65,7 +65,7 @@ export function BullseyeCard({ game, onPlay }: { game: BullseyeGame | null; onPl
       {game.me.joined && (
         <Text style={styles.line}>
           You: {fmt(game.me.points)} points, {ord(game.me.rank)} of {fmt(game.players)}
-          {game.me.bestEnd ? ` · best end ${game.me.bestEnd}` : ''}
+          {game.me.bestEnd ? ` · best round ${game.me.bestEnd}` : ''}
           {live ? ` · ${ready} ${ready === 1 ? 'arrow' : 'arrows'} ready` : ''}
         </Text>
       )}
@@ -73,7 +73,7 @@ export function BullseyeCard({ game, onPlay }: { game: BullseyeGame | null; onPl
       <View style={{ gap: 6 }}>
         <View style={styles.row}>
           <Text style={styles.head}>STANDINGS</Text>
-          <Text style={styles.head}>POINTS · BEST END</Text>
+          <Text style={styles.head}>POINTS · BEST ROUND</Text>
         </View>
         {game.board.length === 0 && <Text style={styles.small}>Nobody’s shot yet.</Text>}
         {game.board.map((r) => (
@@ -101,7 +101,7 @@ export function BullseyeCard({ game, onPlay }: { game: BullseyeGame | null; onPl
       </View>
 
       <Text style={styles.small}>
-        An end of {game.settings.arrowsPerEnd} arrows per {fmt(game.settings.stepsPerEnd)} steps, up to {game.settings.maxEnds} a day. A {game.settings.workoutMin}-minute
+        A round of {game.settings.arrowsPerEnd} arrows for every {fmt(game.settings.stepsPerEnd)} steps, up to {game.settings.maxEnds} a day. A {game.settings.workoutMin}-minute
         workout steadies your hold.
       </Text>
 

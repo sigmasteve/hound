@@ -229,15 +229,15 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
         <View style={styles.fixed}>
           {header}
           <View style={styles.stats}>
-            <Stat label="ARROWS" tone="#8fd8a8" value={String(left)} sub={toNext != null ? `${fmt(toNext)} steps to the next end` : `all ${game.settings.maxEnds} ends today`} styles={styles} />
+            <Stat label="ARROWS" tone="#8fd8a8" value={String(left)} sub={toNext != null ? `${fmt(toNext)} steps to 3 more` : `all ${game.settings.maxEnds} rounds earned today`} styles={styles} />
             <Stat
-              label="HOLD"
+              label="YOUR ARMS"
               tone="#f0c27a"
               value={game.today.steady ? 'Steady' : 'Shaky'}
-              sub={game.today.steady ? `a ${game.today.workoutMin}-min workout` : `a ${game.settings.workoutMin}-min workout steadies it`}
+              sub={game.today.steady ? 'you worked out today' : `a ${game.settings.workoutMin}-min workout steadies them`}
               styles={styles}
             />
-            <Stat label="BEST END" tone="#b9b2f0" value={String(game.me.bestEnd)} sub={`${game.me.golds} golds · ${game.me.robinHoods} Robin Hoods`} styles={styles} />
+            <Stat label="BEST ROUND" tone="#b9b2f0" value={String(game.me.bestEnd)} sub={`${game.me.golds} bullseyes · ${game.me.robinHoods} Robin Hoods`} styles={styles} />
           </View>
           <View style={styles.scene}>
             <BullseyeFieldArt width={viewW} height={sceneH} conditions={cond} targets={game.targets} selected={target} onPick={setTarget} now={now} />
@@ -266,7 +266,7 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
                   accessibilityState={{ selected: on }}
                 >
                   <Text style={[styles.chipText, on && { color: '#1b1205' }, !on && t.kind === 'gold' && { color: '#ffd23f' }]}>
-                    {t.kind === 'face' ? `${t.dist} m` : t.kind === 'clout' ? `Clout ${t.dist} m` : t.kind === 'gold' ? `Gold ${t.dist} m` : `Balloon ${t.dist} m`} ★{t.stars}
+                    {t.kind === 'face' ? `${t.dist} m` : t.kind === 'clout' ? `Flag ${t.dist} m` : t.kind === 'gold' ? `Gold balloon` : `Balloon ${t.dist} m`} · ×{t.stars}
                   </Text>
                 </Pressable>
               );
@@ -274,14 +274,15 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
           </View>
           <Text style={styles.line}>
             {moon
-              ? 'Moon day: no breeze and the arrows never slow down. The far faces are tiny, so it’s all in the hold.'
+              ? 'Moon day: gravity is weak (⅙ of Earth’s), there’s no air and no wind, and arrows fly 500 m. The far targets look tiny, so keep your arms steady.'
               : cond.balloons
-                ? 'Balloon day: they drift across on the breeze. Lead them, and pop one for its stars × 5.'
+                ? 'Balloon day: the wind blows the balloons back and forth. Aim where a balloon is going, not where it is. A pop scores its × times 5.'
                 : `Everyone shoots the same field today. ${cond.bounty ? (game.goldTaker ? `The gold balloon went to ${game.goldTaker.me ? 'you' : game.goldTaker.name}.` : `Pop the gold balloon first for ${game.settings.bountyBones} Bones.`) : ''}`}
           </Text>
           <Text style={styles.small}>
-            Your score is the ring × the stars: a 9 at 70 m is {9 * 4}. An arrow into one of your own in the same end is a Robin Hood: +{game.settings.robinHood}. Arrows: an end of{' '}
-            {game.settings.arrowsPerEnd} per {fmt(game.settings.stepsPerEnd)} steps, up to {game.settings.maxEnds} ends a day.
+            How it scores: each ring is 1 (outside) to 10 (the bullseye), times the target’s ×. The farther it is, the more it’s worth: a 9 at 70 m (×4) is {9 * 4}.
+            The flag at 150 m is the longest shot: lob it high and land near the flag. Hit one of your own arrows already in the target this round and it splits: a Robin Hood, +
+            {game.settings.robinHood}. You get a round of {game.settings.arrowsPerEnd} arrows for every {fmt(game.settings.stepsPerEnd)} steps, up to {game.settings.maxEnds} rounds a day.
           </Text>
           {game.ends.length > 0 && <EndsToday game={game} styles={styles} />}
           <SightTape game={game} highlight={target} styles={styles} />
@@ -307,8 +308,8 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
                     ? 'It hasn’t started yet'
                     : 'Join to shoot'
                 : left < 1
-                  ? `No arrows: ${fmt(game.today.nextAt != null ? game.today.nextAt - game.today.steps : 0)} steps to the next end`
-                  : `Shoot end ${endNo}, arrow ${arrowNo} · ${sel ? targetName(sel) : ''}`}
+                  ? `No arrows: ${fmt(game.today.nextAt != null ? game.today.nextAt - game.today.steps : 0)} steps to 3 more arrows`
+                  : `Shoot · round ${endNo}, arrow ${arrowNo} of ${game.settings.arrowsPerEnd}`}
             </Text>
           </Pressable>
         </View>
@@ -352,12 +353,12 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
         <View style={styles.fixed}>
           {header}
           <View style={styles.stats}>
-            <Stat label="SIGHT SET" tone={colors.text} value={`${aim.dist} m mark`} sub={aim.learned ? 'from your sight tape' : 'a guess: no gold here yet'} styles={styles} />
+            <Stat label="HOW HIGH TO AIM" tone={colors.text} value={aim.learned ? 'Locked in' : 'Your best guess'} sub={aim.learned ? 'from your bullseye here' : 'hit a 9 or 10 here to lock it in'} styles={styles} />
             <Stat
-              label="AIM OFF"
+              label="YOUR AIM"
               tone="#f0a24a"
-              value={offCm.x === 0 && offCm.y === 0 ? 'Dead on' : `${Math.abs(offCm.x)} ${offCm.x >= 0 ? 'R' : 'L'} · ${Math.abs(offCm.y)} ${offCm.y >= 0 ? 'up' : 'down'}`}
-              sub={aim.kind === 'clout' ? 'cm · up is farther' : 'cm · drag the pin'}
+              value={offCm.x === 0 && offCm.y === 0 ? 'Center' : `${offCm.x === 0 ? '' : `${Math.abs(offCm.x)} cm ${offCm.x >= 0 ? 'right' : 'left'}`}${offCm.x !== 0 && offCm.y !== 0 ? ', ' : ''}${offCm.y === 0 ? '' : `${Math.abs(offCm.y)} cm ${offCm.y >= 0 ? 'up' : 'down'}`}`}
+              sub={aim.kind === 'clout' ? 'drag the dot · up lands farther' : 'drag the dot to aim'}
               styles={styles}
             />
           </View>
@@ -409,7 +410,7 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
                 <Path d={`M${pinX - 10} ${pinY + 4} L${pinX} ${pinY} L${pinX - 10} ${pinY - 4}`} fill="#d9d4c4" stroke="#333" strokeWidth={1} />
               )}
               <SvgText x={viewW - 12} y={22} textAnchor="end" fontFamily={font.headingSemibold} fontSize={12} fill="#12141c">
-                {`${targetName(aim)} · ★${aim.stars}`}
+                {`${targetName(aim)} · ×${aim.stars}`}
               </SvgText>
             </Svg>
           </View>
@@ -417,15 +418,17 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
         <ScrollView contentContainerStyle={styles.under}>
           {!moon && (
             <Text style={styles.line}>
-              The windsocks say the breeze is {Math.abs(longshotFlagWind(aim.conditions.wind, now, 'mid')) < 1.5 ? 'nearly still' : `from the ${aim.conditions.wind.from}, about ${Math.round(Math.abs(longshotFlagWind(aim.conditions.wind, now, 'mid')))} mph`}.
-              {aim.helperXCm != null ? ' The dashed ring is where it would take the arrow.' : ''}
+              {Math.abs(longshotFlagWind(aim.conditions.wind, now, 'mid')) < 1.5
+                ? 'The orange wind flags are hanging still: hardly any wind.'
+                : `The orange wind flags say the wind is blowing from the ${aim.conditions.wind.from}, about ${Math.round(Math.abs(longshotFlagWind(aim.conditions.wind, now, 'mid')))} mph. It will push your arrow to the ${aim.conditions.wind.from === 'left' ? 'right' : 'left'}, so aim a little to the ${aim.conditions.wind.from}.`}
+              {aim.helperXCm != null ? ' The dashed ring shows where the wind would take the arrow.' : ''}
             </Text>
           )}
           <View>
             <View style={styles.breathHead}>
-              <Text style={styles.boxHead}>FULL DRAW</Text>
+              <Text style={styles.boxHead}>PULLING BACK THE STRING</Text>
               <Text style={[styles.boxHead, { color: phase === 'steady' ? '#8fd8a8' : phase === 'tiring' ? '#f08a6a' : withAlpha(colors.text, 0.6) }]}>
-                {phase == null ? 'HOLD THE BUTTON TO DRAW' : phase === 'drawing' ? 'DRAWING…' : phase === 'steady' ? 'STEADY: LET GO NOW' : 'ARMS TIRING: IT SHAKES'}
+                {phase == null ? 'PRESS AND HOLD THE BUTTON' : phase === 'drawing' ? 'PULLING BACK… WAIT' : phase === 'steady' ? 'STEADY: LET GO NOW' : 'ARMS GETTING TIRED: IT SHAKES'}
               </Text>
             </View>
             <View style={styles.breathBar}>
@@ -434,9 +437,9 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
               {drawAt != null && <View style={[styles.breathMark, { left: `${Math.min(100, (t / 6000) * 100)}%` }]} />}
             </View>
             <View style={styles.drawLabels}>
-              <Text style={styles.small}>drawing</Text>
-              <Text style={styles.small}>steady</Text>
-              <Text style={styles.small}>arms tiring</Text>
+              <Text style={styles.small}>pulling back</Text>
+              <Text style={styles.small}>steady: let go</Text>
+              <Text style={styles.small}>arms tired</Text>
             </View>
           </View>
         </ScrollView>
@@ -452,10 +455,10 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
             disabled={busy}
             style={[styles.act, { backgroundColor: drawAt != null ? '#f08a24' : colors.green, minHeight: 60 }]}
             accessibilityRole="button"
-            accessibilityLabel="Hold to draw, let go to shoot"
+            accessibilityLabel="Hold to pull back the string, let go to shoot"
           >
-            <Text style={[styles.actText, { color: '#1b1205' }]}>{drawAt != null ? 'Let go to shoot' : 'Hold to draw'}</Text>
-            <Text style={[styles.small, { color: '#1b1205' }]}>{drawAt != null ? 'at full draw, in the steady part' : `end ${endNo}, arrow ${arrowNo} of ${game.settings.arrowsPerEnd}`}</Text>
+            <Text style={[styles.actText, { color: '#1b1205' }]}>{drawAt != null ? 'Let go to shoot' : 'Hold to pull back'}</Text>
+            <Text style={[styles.small, { color: '#1b1205' }]}>{drawAt != null ? 'when the bar is in the green part' : `round ${endNo}, arrow ${arrowNo} of ${game.settings.arrowsPerEnd}`}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -478,9 +481,11 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
     const cx = fW / 2;
     const cy = fH * 0.53;
     const h = Math.min(6, shot.apex) * 4 * p * (1 - p);
-    const ixM = (shot.xCm - (shot.kind === 'balloon' || shot.kind === 'gold' ? shot.balloon.xCm : 0)) / 100;
-    const iyM = (shot.yCm - (shot.kind === 'balloon' || shot.kind === 'gold' ? shot.balloon.yCm : 0)) / 100;
     const clout = shot.kind === 'clout';
+    // At the clout the server gives metres from the flag (across, along);
+    // everywhere else cm from the middle of the target.
+    const ixM = clout ? shot.xCm : (shot.xCm - (shot.kind === 'balloon' || shot.kind === 'gold' ? shot.balloon.xCm : 0)) / 100;
+    const iyM = clout ? 0 : (shot.yCm - (shot.kind === 'balloon' || shot.kind === 'gold' ? shot.balloon.yCm : 0)) / 100;
     const lat = ixM * Math.pow(p, 1.5);
     const tx = fin(cx - lat * s);
     const ty = fin(cy + h * s + (clout ? 0 : iyM * p * s));
@@ -518,15 +523,15 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
           ? 'Pop!'
           : clout
             ? shot.ring > 0
-              ? `${shot.ring} at the clout`
-              : 'Short of the rings'
+              ? `${shot.ring} · by the flag`
+              : 'Too far from the flag'
             : shot.x
-              ? 'X · dead center'
+              ? '10 · dead center!'
               : shot.ring >= 9
-                ? `${shot.ring} · gold`
+                ? `${shot.ring} · bullseye`
                 : shot.ring > 0
                   ? `A ${shot.ring}`
-                  : 'Off the face';
+                  : 'Missed the target';
     const end = game.ends.find((e) => e.endNo === shot.endNo);
     const endDone = shot.arrowNo >= game.settings.arrowsPerEnd;
     return (
@@ -534,7 +539,7 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
         <ScrollView contentContainerStyle={styles.under}>
           {header}
           <Text style={styles.kicker}>
-            END {shot.endNo} · ARROW {shot.arrowNo} OF {game.settings.arrowsPerEnd} · {landed ? 'IN' : `SLOW MOTION ×${SLOW}`}
+            ROUND {shot.endNo} · ARROW {shot.arrowNo} OF {game.settings.arrowsPerEnd} · {landed ? 'IN' : `SLOW MOTION ×${SLOW}`}
           </Text>
           <View style={{ borderRadius: 16, overflow: 'hidden' }}>
             <Svg width={fW} height={fH} accessibilityLabel={landed ? shot.message : 'The arrow in flight'}>
@@ -544,7 +549,17 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
               {stripes.map((st, i) => (
                 <Rect key={i} x={0} y={st.y} width={fW} height={st.hh} fill={moon ? '#9a9ca4' : '#7cca69'} />
               ))}
-              {clout ? (
+              {clout && landed ? (
+                <CloutLanding
+                  w={fW}
+                  h={fH}
+                  moon={moon}
+                  dist={dist}
+                  apex={shot.apex}
+                  mine={{ x: shot.xCm, along: shot.yCm }}
+                  others={(end?.arrows ?? []).filter((a) => a.target === 'clout' && !(Math.abs(a.xCm - shot.xCm) < 0.05 && Math.abs(a.yCm - shot.yCm) < 0.05)).map((a) => ({ x: a.xCm, along: a.yCm }))}
+                />
+              ) : clout ? (
                 <G>
                   {[1, 2, 3].map((k) => (
                     <Ellipse key={k} cx={tx} cy={ty + 30} rx={1.5 * k * s * 0.5} ry={1.5 * k * s * 0.12} fill="none" stroke="#ffffff" strokeWidth={1.2} />
@@ -578,10 +593,14 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
                   ))}
                 </G>
               )}
-              <Line x1={nock.x} y1={nock.y} x2={tip.x} y2={tip.y} stroke="#2b2b2b" strokeWidth={5} strokeLinecap="round" />
-              <Line x1={nock.x} y1={nock.y} x2={vanes[0].x} y2={vanes[0].y} stroke="#f08a24" strokeWidth={7} strokeLinecap="round" />
-              <Line x1={nock.x} y1={nock.y} x2={vanes[1].x} y2={vanes[1].y} stroke="#f08a24" strokeWidth={7} strokeLinecap="round" />
-              <Line x1={nock.x} y1={nock.y} x2={vanes[2].x} y2={vanes[2].y} stroke="#ffffff" strokeWidth={7} strokeLinecap="round" />
+              {!(clout && landed) && (
+                <G>
+                  <Line x1={nock.x} y1={nock.y} x2={tip.x} y2={tip.y} stroke="#2b2b2b" strokeWidth={5} strokeLinecap="round" />
+                  <Line x1={nock.x} y1={nock.y} x2={vanes[0].x} y2={vanes[0].y} stroke="#f08a24" strokeWidth={7} strokeLinecap="round" />
+                  <Line x1={nock.x} y1={nock.y} x2={vanes[1].x} y2={vanes[1].y} stroke="#f08a24" strokeWidth={7} strokeLinecap="round" />
+                  <Line x1={nock.x} y1={nock.y} x2={vanes[2].x} y2={vanes[2].y} stroke="#ffffff" strokeWidth={7} strokeLinecap="round" />
+                </G>
+              )}
               {landed && (
                 <G>
                   <Rect x={fW / 2 - 90} y={28} width={180} height={58} rx={16} fill="#12141c" opacity={0.92} />
@@ -610,19 +629,19 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
               <Rect x={sideW - 22} y={34} width={10} height={20} fill="#d8b36a" />
             </Svg>
             <Text style={styles.small}>
-              {shot.fps} fps off the string · {shot.apex.toFixed(1)} m at the top · {moon ? 'no air, no breeze' : `breeze ${shot.windMph.toFixed(0)} mph`}
-              {shot.drawMs < game.settings.fullDrawMs ? ' · let go before full draw: slow and low' : ''}
+              Left the bow at {Math.round(shot.fps * 0.6818)} mph · {shot.apex.toFixed(1)} m high at the top · {moon ? 'no air, no wind' : `wind ${shot.windMph.toFixed(0)} mph`}
+              {shot.drawMs < game.settings.fullDrawMs ? ' · you let go too early, so it was slow and dropped' : ''}
             </Text>
           </View>
           {landed && (
             <View style={styles.box}>
-              <Text style={[styles.title, { fontSize: 18 }]}>{shot.message}</Text>
+              <Text style={[styles.title, { fontSize: 18 }]}>{plainWords(shot.message)}</Text>
               <Text style={styles.line}>
-                {shot.points > 0 ? `+${shot.points}` : 'No points'} · this end {shot.endTotal} · total {fmt(shot.total)}
+                {shot.points > 0 ? `+${shot.points}` : 'No points'} · this round {shot.endTotal} · total {fmt(shot.total)}
               </Text>
               {end && end.arrows.length > 0 && (
                 <Text style={styles.small}>
-                  This end: {end.arrows.map((a) => (a.popped ? 'pop' : a.target === 'clout' ? `clout ${a.ring}` : a.x ? 'X' : String(a.ring))).join(' · ')}
+                  This round: {end.arrows.map((a) => (a.popped ? 'pop' : a.target === 'clout' ? `flag ${a.ring}` : String(a.ring))).join(' · ')}
                 </Text>
               )}
             </View>
@@ -640,7 +659,7 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
               accessibilityRole="button"
             >
               <Text style={[styles.actText, shot.left < 1 && { color: withAlpha(colors.text, 0.6), fontSize: 14 }]}>
-                {shot.left < 1 ? 'No arrows left today' : endDone ? `Next end · ${shot.left} arrows` : `Next arrow · ${shot.left} left`}
+                {shot.left < 1 ? 'No arrows left today' : endDone ? `Next round · ${shot.left} arrows` : `Next arrow · ${shot.left} left`}
               </Text>
             </Pressable>
           </View>
@@ -655,6 +674,83 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
 // A safety net for the drawing: a NaN or infinity in an SVG coordinate
 // crashes react-native-svg on a phone, so anything not finite is drawn as 0.
 const fin = (n: number) => (Number.isFinite(n) ? n : 0);
+
+// Where clout arrows came down: the field seen from behind and above,
+// the flag in the middle, its five rings (1.5 m apart) and each arrow
+// stuck point-first in the grass, leaning back the way it came down
+// (steeper the higher its arc). Metres from the flag: x across, along
+// (+ is past the flag).
+function CloutLanding({
+  w,
+  h,
+  moon,
+  dist,
+  apex,
+  mine,
+  others,
+}: {
+  w: number;
+  h: number;
+  moon: boolean;
+  dist: number;
+  apex: number;
+  mine: { x: number; along: number };
+  others: { x: number; along: number }[];
+}) {
+  const cx = w / 2;
+  const gy = h * 0.6;
+  const far = Math.max(...[mine, ...others].map((a) => Math.hypot(a.x, a.along)), 1.5);
+  // Fit the rings out to 4.5 m and every arrow.
+  const m = fin(Math.min((w * 0.44) / 4.5, (w * 0.44) / (far + 0.8)));
+  const squash = 0.34;
+  const at = (a: { x: number; along: number }) => ({
+    x: fin(Math.max(14, Math.min(w - 14, cx + a.x * m))),
+    y: fin(Math.max(h * 0.32, Math.min(h - 14, gy - a.along * m * squash))),
+  });
+  // How steeply it came down (a parabola's end), drawn a little steeper
+  // so it reads as standing in the grass.
+  const fall = Math.atan((4 * Math.max(0.3, apex)) / Math.max(1, dist));
+  const lean = Math.min(1.35, Math.max(0.75, fall * 1.8));
+  const shaft = Math.max(40, 1.05 * m);
+  const arrow = (a: { x: number; along: number }, key: string, me: boolean) => {
+    const p = at(a);
+    // The nock sticks up out of the grass and back toward the line.
+    const nx = p.x + (a.x >= 0 ? 1 : -1) * shaft * 0.08;
+    const ny = p.y - shaft * Math.sin(lean) + shaft * Math.cos(lean) * squash;
+    return (
+      <G key={key} opacity={me ? 1 : 0.75}>
+        <Ellipse cx={p.x + shaft * 0.35} cy={p.y + 1.5} rx={shaft * 0.4} ry={2.2} fill="#000000" opacity={0.18} />
+        <Ellipse cx={p.x} cy={p.y} rx={6} ry={2.4} fill={moon ? '#6b6d75' : '#6b5a33'} />
+        <Line x1={p.x} y1={p.y} x2={nx} y2={ny} stroke="#2b2b2b" strokeWidth={me ? 3.5 : 3} strokeLinecap="round" />
+        <Line x1={nx} y1={ny} x2={nx - 7} y2={ny + 5} stroke={me ? '#f08a24' : '#c9a27a'} strokeWidth={5} strokeLinecap="round" />
+        <Line x1={nx} y1={ny} x2={nx + 7} y2={ny + 5} stroke={me ? '#f08a24' : '#c9a27a'} strokeWidth={5} strokeLinecap="round" />
+        <Line x1={nx} y1={ny} x2={nx} y2={ny - 7} stroke="#ffffff" strokeWidth={4} strokeLinecap="round" />
+      </G>
+    );
+  };
+  return (
+    <G>
+      <Rect x={0} y={h * 0.28} width={w} height={h * 0.72} fill={moon ? '#8b8d95' : '#6fbf5e'} />
+      {[5, 4, 3, 2, 1].map((k) => (
+        <Ellipse key={k} cx={cx} cy={gy} rx={1.5 * k * m} ry={1.5 * k * m * squash} fill={k % 2 ? (moon ? '#9a9ca4' : '#7cca69') : moon ? '#8b8d95' : '#6fbf5e'} stroke="#ffffff" strokeWidth={1.2} />
+      ))}
+      <Line x1={cx} y1={gy} x2={cx} y2={gy - 1.6 * m * 0.7} stroke="#5a4a33" strokeWidth={4} />
+      <Path d={`M${cx} ${gy - 1.6 * m * 0.7} L${cx + 0.7 * m} ${gy - 1.6 * m * 0.7 + 0.22 * m} L${cx} ${gy - 1.6 * m * 0.7 + 0.44 * m} Z`} fill="#e2412f" />
+      {others.map((a, i) => arrow(a, `o${i}`, false))}
+      {arrow(mine, 'me', true)}
+    </G>
+  );
+}
+
+// The server's line after an arrow, in the screen's words.
+function plainWords(m: string): string {
+  return m
+    .replace(/^Gold! /, 'Bullseye! ')
+    .replace(' at the clout, ', ' by the flag, ')
+    .replace(/^Dead center! An X: /, 'Dead center! A 10: ')
+    .replace(/^Off the face: /, 'Missed the target: ')
+    .replace('Right into your own arrow', 'Your arrow split one of your own');
+}
 
 function flightMs(tof: number): number {
   return Math.max(1500, Math.min(4500, tof * 1000 * SLOW));
@@ -677,11 +773,11 @@ function Stat({ label, tone, value, sub, styles }: { label: string; tone: string
 function EndsToday({ game, styles }: { game: BullseyeGame; styles: Styles }) {
   return (
     <View style={styles.box}>
-      <Text style={styles.boxHead}>TODAY’S ENDS</Text>
+      <Text style={styles.boxHead}>TODAY’S ROUNDS</Text>
       {game.ends.map((e) => (
         <View key={e.endNo} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Text style={styles.small}>
-            End {e.endNo}: {e.arrows.map((a) => (a.popped ? 'pop' : a.target === 'clout' ? `clout ${a.ring}` : a.x ? 'X' : String(a.ring))).join(' · ')}
+            Round {e.endNo}: {e.arrows.map((a) => (a.popped ? 'pop' : a.target === 'clout' ? `flag ${a.ring}` : String(a.ring))).join(' · ')}
             {e.arrows.some((a) => a.robin) ? ' · Robin Hood!' : ''}
           </Text>
           <Text style={styles.pairV}>{e.total}</Text>
@@ -697,18 +793,18 @@ function SightTape({ game, highlight, styles }: { game: BullseyeGame; highlight:
   return (
     <View style={styles.box}>
       <Text style={styles.boxHead}>
-        YOUR SIGHT TAPE · {bow?.name.toUpperCase()} · {ARROWS.find((a) => a.id === game.me.arrow)?.name.toUpperCase()}
+        HOW HIGH TO AIM · {bow?.name.toUpperCase()} · {ARROWS.find((a) => a.id === game.me.arrow)?.name.toUpperCase()}
       </Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         {faces.map((t) => (
           <View key={t.id} style={[styles.tapeCell, t.id === highlight && styles.tapeOn]}>
-            <Text style={styles.tapeTop}>{t.kind === 'clout' ? 'Clout' : `${t.dist} m`}</Text>
-            <Text style={styles.tapeV}>{t.learned ? '✓ set' : 'guess'}</Text>
+            <Text style={styles.tapeTop}>{t.kind === 'clout' ? 'Flag' : `${t.dist} m`}</Text>
+            <Text style={styles.tapeV}>{t.learned ? '✓ locked in' : 'guess'}</Text>
             <Text style={styles.small}>{t.tof.toFixed(1)} s</Text>
           </View>
         ))}
       </View>
-      <Text style={styles.small}>A mark you’ve hit gold from sits right. A guessed one can be a ring or two off until you shoot it.</Text>
+      <Text style={styles.small}>Your bow aims higher for farther targets. For each target it starts as a guess that can be a ring or two off; hit a 9 or 10 there and it’s locked in.</Text>
     </View>
   );
 }
@@ -745,8 +841,8 @@ function BowRack({
         <View style={[styles.rackRow, { backgroundColor: 'transparent' }]}>
           <Text style={[styles.rackCell, styles.headCell, { flex: 1.6 }]}>BOW</Text>
           <Text style={[styles.rackCell, styles.headCell]}>SPEED</Text>
-          <Text style={[styles.rackCell, styles.headCell]}>70 M ARC</Text>
-          <Text style={[styles.rackCell, styles.headCell]}>BREEZE</Text>
+          <Text style={[styles.rackCell, styles.headCell]}>ARC AT 70 M</Text>
+          <Text style={[styles.rackCell, styles.headCell]}>WIND PUSH</Text>
         </View>
         {game.bows.map((x) => {
           const on = x.id === pick;
@@ -763,16 +859,16 @@ function BowRack({
                   {!x.unlocked && <LockSimpleIcon size={11} color={withAlpha(colors.text, 0.6)} />} {x.name}
                 </Text>
                 <Text style={styles.small}>
-                  {!x.unlocked ? `${fmt(game.me.gameSteps)} / ${fmt(x.unlockSteps)} steps` : !x.sight ? 'no sight · ★ +1' : x.id === 'youth' ? 'barely shakes' : x.id === 'compound' ? 'heaviest hold' : 'Olympic'}
+                  {!x.unlocked ? `${fmt(game.me.gameSteps)} / ${fmt(x.unlockSteps)} steps` : !x.sight ? 'old-school, no aiming sight · ×1 more' : x.id === 'youth' ? 'light and easy to hold' : x.id === 'compound' ? 'wheels on the ends: fastest, but heavy' : 'the bow in the Olympics'}
                 </Text>
               </View>
-              <Text style={styles.rackCell}>{x.fps} fps</Text>
+              <Text style={styles.rackCell}>{Math.round(x.fps * 0.6818)} mph</Text>
               <Text style={styles.rackCell}>{x.at70.apex.toFixed(1)} m up</Text>
               <Text style={styles.rackCell}>{x.at70.wind10Cm} cm</Text>
             </Pressable>
           );
         })}
-        <Text style={styles.small}>Breeze is how far a 10 mph crosswind pushes the arrow at 70 m.</Text>
+        <Text style={styles.small}>Arc: how high the arrow flies to reach 70 m. Wind push: how far a 10 mph side wind blows it off at 70 m. Less of both is easier.</Text>
         <Text style={styles.boxHead}>ARROWS</Text>
         <View style={{ flexDirection: 'row', gap: 6 }}>
           {ARROWS.map((a) => {

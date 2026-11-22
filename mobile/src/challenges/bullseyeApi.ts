@@ -437,16 +437,16 @@ export function bullseyeHeadline(name: string, g: BullseyeGame | null): string {
 }
 
 export function targetName(t: { dist: number; kind: BullseyeTargetKind }): string {
-  if (t.kind === 'clout') return `Clout ${t.dist} m`;
-  if (t.kind === 'gold') return `Gold balloon ${t.dist} m`;
+  if (t.kind === 'clout') return `Flag ${t.dist} m`;
+  if (t.kind === 'gold') return `Gold balloon`;
   if (t.kind === 'balloon') return `Balloon ${t.dist} m`;
   return `${t.dist} m`;
 }
 
 export const ARROWS: { id: BullseyeArrow; name: string; note: string }[] = [
-  { id: 'light', name: 'Light carbon', note: 'flatter, blows more' },
+  { id: 'light', name: 'Light', note: 'flies flatter, wind pushes it more' },
   { id: 'standard', name: 'Standard', note: 'in between' },
-  { id: 'heavy', name: 'Heavy wood', note: 'steady, drops more' },
+  { id: 'heavy', name: 'Heavy', note: 'wind pushes it less, drops more' },
 ];
 
 // ── Admin ──
