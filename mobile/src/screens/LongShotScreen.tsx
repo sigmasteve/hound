@@ -348,7 +348,7 @@ export function LongShotScreen({ challengeId, onBack }: { challengeId: string; o
     const windMid = (longshotFlagWind(cond.wind, now, 'near') + longshotFlagWind(cond.wind, now, 'mid')) / 2;
     const row = cardRow(plate.dist);
     // The flight: the trace rises and falls onto the impact, over its time.
-    const fk = flying ? Math.min(1, (now - flyAt) / Math.max(500, Math.min(2600, shot.tof * 1000))) : 0;
+    const fk = flying ? Math.max(0, Math.min(1, (now - flyAt) / Math.max(500, Math.min(2600, shot.tof * 1000)))) : 0;
     const impX = flying ? px + shot.impact.xMil * pxPerMil : 0;
     const impY = flying ? py - shot.impact.yMil * pxPerMil : 0;
     const trX = flying ? R + (impX - R) * fk : 0;

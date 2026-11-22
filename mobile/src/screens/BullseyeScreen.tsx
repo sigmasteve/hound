@@ -169,8 +169,10 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
     setBusy(true);
     try {
       const r = await shootBullseye(challengeId, aim.aimId, hold.x, hold.y, t);
+      const t0 = Date.now();
       setShot(r);
-      setFlyAt(Date.now());
+      setFlyAt(t0);
+      setNow(t0);
       setMode('flight');
       buzz('light');
       const d = flightMs(r.tof);
@@ -332,7 +334,7 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
 
   // ── Draw and aim ──
   if (mode === 'draw' && aim) {
-    const t = drawAt != null ? now - drawAt : 0;
+    const t = drawAt != null ? Math.max(0, now - drawAt) : 0;
     const sw = drawAt != null ? bullseyeSway(aim.seed, aim.amp, t) : { x: 0, y: 0 };
     const phase = drawAt != null ? bullseyeDrawPhase(t, aim.fullDrawMs) : null;
     const cx = viewW / 2;
@@ -463,7 +465,9 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
   // ── The arrow's flight: chasing it in, slow motion ──
   if ((mode === 'flight' || mode === 'arrow') && shot && aim) {
     const D = flightMs(shot.tof);
-    const P = mode === 'arrow' ? 1.6 : (now - flyAt) / D;
+    // The frame clock can be a frame behind the flight's start: never below 0
+    // (Math.pow of a negative is NaN, and a NaN in an SVG crashes on a phone).
+    const P = mode === 'arrow' ? 1.6 : Math.max(0, (now - flyAt) / D);
     const p = Math.min(1, P);
     const landed = P >= 1;
     const fW = viewW;
@@ -478,10 +482,10 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
     const iyM = (shot.yCm - (shot.kind === 'balloon' || shot.kind === 'gold' ? shot.balloon.yCm : 0)) / 100;
     const clout = shot.kind === 'clout';
     const lat = ixM * Math.pow(p, 1.5);
-    const tx = cx - lat * s;
-    const ty = cy + h * s + (clout ? 0 : iyM * p * s);
+    const tx = fin(cx - lat * s);
+    const ty = fin(cy + h * s + (clout ? 0 : iyM * p * s));
     const horizonY = fH * 0.3 + h * 10;
-    const faceR = (shot.face / 200) * s;
+    const faceR = fin((shot.face / 200) * s);
     const stripes: { y: number; hh: number }[] = [];
     const off = (p * dist) % 6;
     for (let k = 0; k < 10; k++) {
@@ -647,6 +651,10 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
 
   return null;
 }
+
+// A safety net for the drawing: a NaN or infinity in an SVG coordinate
+// crashes react-native-svg on a phone, so anything not finite is drawn as 0.
+const fin = (n: number) => (Number.isFinite(n) ? n : 0);
 
 function flightMs(tof: number): number {
   return Math.max(1500, Math.min(4500, tof * 1000 * SLOW));
