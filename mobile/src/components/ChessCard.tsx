@@ -18,12 +18,15 @@ export function ChessCard({
   onPlay,
   onPuzzle,
   onShare,
+  onRematch,
 }: {
   game: ChessGame | null;
   onPlay: () => void;
   onPuzzle: () => void;
   // Over (0244): share the result, with the final board.
   onShare?: () => void;
+  // Over: the same two again, a new game.
+  onRematch?: () => void;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -76,6 +79,20 @@ export function ChessCard({
 
       {game.status === 'waiting' && <Text style={styles.line}>Waiting for your opponent to accept. You’re White, so you move first once they’re in.</Text>}
       {game.status === 'final' && <Text style={styles.result}>{resultLine(game.result, game.method, game.me)}</Text>}
+      {game.status === 'final' && (onRematch || (onShare && !pinned)) && (
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {onRematch && (
+            <Pressable onPress={onRematch} style={[styles.btn, styles.btnGo, { flex: 1 }]} accessibilityRole="button">
+              <Text style={styles.btnGoText}>{game.bot ? 'Play the bot again' : `Rematch ${first}`}</Text>
+            </Pressable>
+          )}
+          {onShare && !pinned && (
+            <Pressable onPress={onShare} style={[styles.btn, styles.btnQuiet, { flex: 1 }]} accessibilityRole="button">
+              <Text style={styles.btnQuietText}>Share</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
       {myMisses > 0 && game.status === 'active' && (
         <Text style={styles.warn}>Hound moved for you once when your 24 hours ran out. Miss the next one and the game’s lost.</Text>
       )}
