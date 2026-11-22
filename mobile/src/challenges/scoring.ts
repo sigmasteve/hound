@@ -45,6 +45,8 @@ export function usesDeviceSteps(challenge: Challenge): boolean {
     challenge.kind === 'chess' ||
     // Paw Slots' spins come from today's steps (0242).
     challenge.kind === 'slots' ||
+    // Long Shot's rounds come from today's steps (0247).
+    challenge.kind === 'longshot' ||
     (challenge.kind === 'hunt' && challenge.scoringMethod === 'device_steps') ||
     ((challenge.kind === 'distance' || challenge.kind === 'tag') && challenge.distanceGoalUnit === 'steps')
   );

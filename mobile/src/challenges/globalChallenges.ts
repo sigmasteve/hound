@@ -10,7 +10,7 @@ import type { BingoCardType, ChallengeKind, DistanceGoalUnit, DistanceSource } f
 // The kinds that work with an open-ended crowd — the same list
 // publish_global_challenge enforces server-side. Chase, Tag, and
 // Tic-Tac-Go all depend on a small, known group.
-export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly', 'doors', 'packs', 'golf', 'derby', 'shootout', 'titlebout', 'slots'];
+export const GLOBAL_KINDS: ChallengeKind[] = ['steps', 'streak', 'distance', 'bingo', 'seventyfive', 'journey', 'checklist', 'houndopoly', 'doors', 'packs', 'golf', 'derby', 'shootout', 'titlebout', 'slots', 'longshot'];
 
 // How long after the start people can still join. 'start' closes
 // joining the moment it begins (only offered for a future start); 'end'

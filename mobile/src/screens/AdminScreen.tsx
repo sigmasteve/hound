@@ -29,6 +29,8 @@ import { StepStoryAdminCard } from '../components/StepStoryAdminCard';
 import { CricketAdminCard } from '../components/CricketAdminCard';
 import { RouletteAdminCard } from '../components/RouletteAdminCard';
 import { SlotsAdminCard } from '../components/SlotsAdminCard';
+import { LongShotAdminCard } from '../components/LongShotAdminCard';
+import { getLongShotOverview, longshotSummary } from '../challenges/longshotApi';
 import { getSlotsOverview, slotsSummary } from '../challenges/slotsApi';
 import { ChessAdminCard } from '../components/ChessAdminCard';
 import { NeedsYouAdminCard } from '../components/NeedsYouAdminCard';
@@ -271,6 +273,7 @@ export function AdminScreen({
   const [cricketLine, setCricketLine] = useState<string | null>(null);
   const [rouletteLine, setRouletteLine] = useState<string | null>(null);
   const [slotsLine, setSlotsLine] = useState<string | null>(null);
+  const [longshotLine, setLongshotLine] = useState<string | null>(null);
   const [prizeLine, setPrizeLine] = useState<string | null>(null);
   const [chessLine, setChessLine] = useState<string | null>(null);
   const [needsYouLine, setNeedsYouLine] = useState<string | null>(null);
@@ -388,6 +391,9 @@ export function AdminScreen({
         .catch(() => {});
       getSlotsOverview()
         .then((o) => setSlotsLine(slotsSummary(o)))
+        .catch(() => {});
+      getLongShotOverview()
+        .then((o) => setLongshotLine(longshotSummary(o)))
         .catch(() => {});
       getPrizeCounterOverview()
         .then((o) => setPrizeLine(prizeCounterSummary(o)))
@@ -1019,6 +1025,9 @@ export function AdminScreen({
                   </AdminFold>
                   <AdminFold title="Paw Slots" summary={slotsLine ?? 'Presses, lines and bets, spins bought, Bones paid'}>
                     <SlotsAdminCard onChanged={(o) => setSlotsLine(slotsSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Long Shot" summary={longshotLine ?? 'Shooters, rounds and hits by plate, rifles, gold plates'}>
+                    <LongShotAdminCard onChanged={(o) => setLongshotLine(longshotSummary(o))} />
                   </AdminFold>
                   <AdminFold title="Cricket" summary={cricketLine ?? 'Matches, and balls batted and bowled by hand'}>
                     <CricketAdminCard onChanged={(o) => setCricketLine(cricketSummary(o))} />

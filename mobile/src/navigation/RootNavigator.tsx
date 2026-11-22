@@ -34,6 +34,7 @@ import { BaseballBatScreen } from '../screens/BaseballBatScreen';
 import { CricketPlayScreen } from '../screens/CricketPlayScreen';
 import { RouletteScreen } from '../screens/RouletteScreen';
 import { SlotsScreen } from '../screens/SlotsScreen';
+import { LongShotScreen } from '../screens/LongShotScreen';
 import { ChessScreen } from '../screens/ChessScreen';
 import { HorseShootScreen } from '../screens/HorseShootScreen';
 import { DerbyBatScreen } from '../screens/DerbyBatScreen';
@@ -296,6 +297,7 @@ export function RootNavigator() {
                   onPlayCricket={() => navigation.navigate('CricketPlay', { challengeId: route.params.challengeId })}
                   onSpinRoulette={() => navigation.navigate('Roulette', { challengeId: route.params.challengeId })}
                   onPlaySlots={() => navigation.navigate('Slots', { challengeId: route.params.challengeId })}
+                  onPlayLongShot={() => navigation.navigate('LongShot', { challengeId: route.params.challengeId })}
                   onOpenPrizes={() => navigation.navigate('Kennel', { tab: 'prizes' })}
                   onPlayChess={(mode) => navigation.navigate('Chess', { challengeId: route.params.challengeId, mode })}
                   onShootHorse={() => navigation.navigate('HorseShoot', { challengeId: route.params.challengeId })}
@@ -611,6 +613,18 @@ export function RootNavigator() {
               {/* Paw Slots' machine (0242), from the challenge's card. */}
               {({ navigation, route }) => (
                 <SlotsScreen
+                  key={route.params.challengeId}
+                  challengeId={route.params.challengeId}
+                  onBack={() =>
+                    navigation.canGoBack() ? navigation.goBack() : navigation.navigate('ChallengeDetail', { challengeId: route.params.challengeId })
+                  }
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="LongShot" options={{ animation: 'slide_from_right', gestureEnabled: false }}>
+              {/* Long Shot's range (0247), from the challenge's card. */}
+              {({ navigation, route }) => (
+                <LongShotScreen
                   key={route.params.challengeId}
                   challengeId={route.params.challengeId}
                   onBack={() =>
