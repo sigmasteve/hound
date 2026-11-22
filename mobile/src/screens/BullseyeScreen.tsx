@@ -169,8 +169,10 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
     setBusy(true);
     try {
       const r = await shootBullseye(challengeId, aim.aimId, hold.x, hold.y, t);
+      const t0 = Date.now();
       setShot(r);
-      setFlyAt(Date.now());
+      setFlyAt(t0);
+      setNow(t0);
       setMode('flight');
       buzz('light');
       const d = flightMs(r.tof);
@@ -332,7 +334,7 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
 
   // ── Draw and aim ──
   if (mode === 'draw' && aim) {
-    const t = drawAt != null ? now - drawAt : 0;
+    const t = drawAt != null ? Math.max(0, now - drawAt) : 0;
     const sw = drawAt != null ? bullseyeSway(aim.seed, aim.amp, t) : { x: 0, y: 0 };
     const phase = drawAt != null ? bullseyeDrawPhase(t, aim.fullDrawMs) : null;
     const cx = viewW / 2;
@@ -463,7 +465,9 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
   // ── The arrow's flight: chasing it in, slow motion ──
   if ((mode === 'flight' || mode === 'arrow') && shot && aim) {
     const D = flightMs(shot.tof);
-    const P = mode === 'arrow' ? 1.6 : (now - flyAt) / D;
+    // The frame clock can be a frame behind the flight's start: never below 0
+    // (Math.pow of a negative is NaN, and a NaN in an SVG crashes on a phone).
+    const P = mode === 'arrow' ? 1.6 : Math.max(0, (now - flyAt) / D);
     const p = Math.min(1, P);
     const landed = P >= 1;
     const fW = viewW;
