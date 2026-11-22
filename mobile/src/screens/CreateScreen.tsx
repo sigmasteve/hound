@@ -2582,7 +2582,7 @@ export function CreateScreen({
               {global && <TextField label="Prize pool (Bones)" value={bePoolText} onChangeText={setBePoolText} keyboardType="number-pad" maxLength={5} />}
               <Text style={styles.huntBlockNote}>
                 Round targets from 18 m out to {beFar === '30' ? '30 m' : beFar === '70' ? '70 m' : '90 m, and a flag at 150 m to lob arrows at'}. A round of 3 arrows every 1,500 steps,
-                up to 6 a day; a 20-minute workout steadies the hold. The breeze is the same for everyone each day. Rings score 1 to 10 times the target’s ×, more the farther it is; a Robin Hood is +25.{' '}
+                up to 6 a day; a 20-minute workout steadies the hold. The breeze is the same for everyone each day. Rings score 1 to 10 times the target’s ×, more the farther it is; an arrow that splits one of your own is a Robin Hood, +25.{' '}
                 {global ? `The pool is ${bonesOf(bePoolText, 20000).toLocaleString('en-US')} Bones` : 'The pool is 200 Bones a hound, 2,500 with 11 or more'}, paid by
                 points. Nothing here takes money or Bones in.
               </Text>

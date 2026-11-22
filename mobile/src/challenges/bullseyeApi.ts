@@ -444,9 +444,9 @@ export function targetName(t: { dist: number; kind: BullseyeTargetKind }): strin
 }
 
 export const ARROWS: { id: BullseyeArrow; name: string; note: string }[] = [
-  { id: 'light', name: 'Light carbon', note: 'flatter, blows more' },
+  { id: 'light', name: 'Light', note: 'flies flatter, wind pushes it more' },
   { id: 'standard', name: 'Standard', note: 'in between' },
-  { id: 'heavy', name: 'Heavy wood', note: 'steady, drops more' },
+  { id: 'heavy', name: 'Heavy', note: 'wind pushes it less, drops more' },
 ];
 
 // ── Admin ──
