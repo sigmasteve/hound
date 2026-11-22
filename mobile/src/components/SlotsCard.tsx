@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
 import { Card } from './Card';
@@ -8,6 +8,7 @@ import { usePinnedAction } from './PinnedAction';
 import { TEAM_COLOR, ordinal, teamName, winName, type SlotTeam } from '../challenges/slots';
 import { slotsWaiting, type SlotsGame } from '../challenges/slotsApi';
 import { SlotsHowItWorks, SlotsMachinePicture } from './SlotsPromo';
+import { getPrizeCounter, type PrizeCounter } from '../kennel/prizeCounterApi';
 
 // Paw Slots on the challenge page (0242): the prize pool and what each
 // place (or team) would win, the standings (or the teams and your pack),
@@ -15,11 +16,31 @@ import { SlotsHowItWorks, SlotsMachinePicture } from './SlotsPromo';
 // ready" pins to the bottom of the page.
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
-export function SlotsCard({ game, onPlay }: { game: SlotsGame | null; onPlay: () => void }) {
+export function SlotsCard({
+  challengeId,
+  game,
+  onPlay,
+  onOpenPrizes,
+}: {
+  challengeId: string;
+  game: SlotsGame | null;
+  onPlay: () => void;
+  // Over: the Kennel's Prize Counter, where the coins went (0243).
+  onOpenPrizes: () => void;
+}) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const ready = slotsWaiting(game);
   const [picW, setPicW] = useState(0);
+  // Over: the wallet, and whether this one's coins are in it yet.
+  const [wallet, setWallet] = useState<PrizeCounter | null>(null);
+  const over = !!game?.over;
+  useEffect(() => {
+    if (!over) return;
+    getPrizeCounter()
+      .then(setWallet)
+      .catch(() => {});
+  }, [over]);
   const live = !!game && !game.over && game.dayNo >= 1 && game.dayNo <= game.days;
 
   const pinned = usePinnedAction(ready > 0 ? { label: `Play · ${ready} ${ready === 1 ? 'spin' : 'spins'} ready`, onPress: onPlay } : null);
@@ -88,6 +109,26 @@ export function SlotsCard({ game, onPlay }: { game: SlotsGame | null; onPlay: ()
           <SlotsHowItWorks pool={game.pool} />
         </View>
       )}
+
+      {game.over && game.me.joined && game.me.coins > 0 && (() => {
+        const credit = wallet?.credits.find((c) => c.challengeId === challengeId);
+        return (
+          <View style={styles.walletBox}>
+            <Text style={styles.walletKicker}>YOUR COINS KEEP GOING</Text>
+            <Text style={styles.walletHead}>
+              {credit ? `${fmt(credit.amount)} Paw Coins went to your wallet` : `${fmt(game.me.coins)} Paw Coins go to your wallet`}
+            </Text>
+            <Text style={styles.walletSub}>
+              {credit
+                ? `Wallet: ${fmt(wallet?.balance ?? 0)}. Your place was scored on them; now they’re yours to spend at the Prize Counter. They never turn into Bones.`
+                : 'When it’s settled, within a day of the end, along with your Bones by place. Spend them at the Kennel’s Prize Counter.'}
+            </Text>
+            <Pressable onPress={onOpenPrizes} style={styles.walletBtn} accessibilityRole="button">
+              <Text style={styles.walletBtnText}>Open the Prize Counter</Text>
+            </Pressable>
+          </View>
+        );
+      })()}
 
       <View style={styles.prize}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
@@ -217,6 +258,12 @@ function makeStyles(colors: Palette) {
     headRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
     small: { fontSize: 12, lineHeight: 17, color: withAlpha(colors.text, 0.65) },
     coins: { fontFamily: font.headingSemibold, fontSize: 20, color: colors.text },
+    walletBox: { borderRadius: 14, padding: 14, gap: 6, backgroundColor: '#23263a' },
+    walletKicker: { fontFamily: font.headingSemibold, fontSize: 11, letterSpacing: 0.7, color: '#f0c24a' },
+    walletHead: { fontFamily: font.headingSemibold, fontSize: 17, color: '#ffffff' },
+    walletSub: { fontSize: 12.5, lineHeight: 18, color: '#c9cad3' },
+    walletBtn: { marginTop: 6, minHeight: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f08a24' },
+    walletBtnText: { fontFamily: font.headingSemibold, fontSize: 15, color: '#1b1d29' },
     how: { borderRadius: 14, padding: 12, gap: 10, backgroundColor: withAlpha(colors.text, 0.04) },
     howHead: { fontFamily: font.headingSemibold, fontSize: 14.5, color: colors.text },
     prize: { borderRadius: 14, padding: 12, gap: 8, backgroundColor: withAlpha('#f0c24a', 0.12), borderWidth: 1, borderColor: withAlpha('#f0c24a', 0.35) },

@@ -296,6 +296,7 @@ export function RootNavigator() {
                   onPlayCricket={() => navigation.navigate('CricketPlay', { challengeId: route.params.challengeId })}
                   onSpinRoulette={() => navigation.navigate('Roulette', { challengeId: route.params.challengeId })}
                   onPlaySlots={() => navigation.navigate('Slots', { challengeId: route.params.challengeId })}
+                  onOpenPrizes={() => navigation.navigate('Kennel', { tab: 'prizes' })}
                   onPlayChess={(mode) => navigation.navigate('Chess', { challengeId: route.params.challengeId, mode })}
                   onShootHorse={() => navigation.navigate('HorseShoot', { challengeId: route.params.challengeId })}
                   onBatDerby={() => navigation.navigate('DerbyBat', { challengeId: route.params.challengeId })}
@@ -329,8 +330,9 @@ export function RootNavigator() {
             </Stack.Screen>
             <Stack.Screen name="Kennel" options={{ animation: 'slide_from_right' }}>
               {/* Opened from Today or the You tab — goBack() returns there. */}
-              {({ navigation }) => (
+              {({ navigation, route }) => (
                 <KennelScreen
+                  initialTab={route.params?.tab}
                   onBack={() => navigation.goBack()}
                   onOpenLocker={() => navigation.navigate('Locker')}
                   onOpenFriend={(h) =>

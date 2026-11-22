@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, Ellipse, G, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, G, Line, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { HoundArt } from './HoundArt';
 import { YARD_ASPECT, yardSeason, yardTime, type YardHound, type YardTime } from './YardArt';
 
@@ -28,6 +28,8 @@ const AT = {
   cushion: { x: 322, y: 270 },
   fern: { x: 384, y: 236 },
   rug: { x: 214, y: 268 },
+  // The Prize Counter's neon sign (0243), on the wall over the bookshelf.
+  neon: { x: 54, y: 52 },
 };
 
 export function roomFocusPoint(itemId: string, width: number): { x: number; y: number; height: number } {
@@ -49,7 +51,9 @@ export function roomFocusPoint(itemId: string, width: number): { x: number; y: n
                   ? { x: AT.fern.x - 24, y: AT.fern.y - 40 }
                   : itemId === 'room_rug'
                     ? { x: AT.rug.x, y: AT.rug.y - 8 }
-                    : { x: W / 2, y: H / 2 };
+                    : itemId === 'room_neon'
+                      ? AT.neon
+                      : { x: W / 2, y: H / 2 };
   return { x: at.x * k, y: at.y * k, height: H * k };
 }
 
@@ -195,6 +199,8 @@ export function RoomScene({
         {has('room_lamp') && <Lamp x={AT.lamp.x} y={AT.lamp.y} on={lampOn} />}
         {/* The warm light of the evening, from the lamp and the fire. */}
         {night && !lampOn && !fireLit && <Rect x={0} y={0} width={W} height={H} fill="#10122a" opacity={0.25} />}
+        {/* Over the evening's shade, so it glows. */}
+        {has('room_neon') && <NeonSign x={AT.neon.x} y={AT.neon.y} glow={night} />}
       </Svg>
 
       {/* The fire, flickering. */}
@@ -280,6 +286,7 @@ export function RoomThumb({ id, size = 46 }: { id: string; size?: number }) {
     room_cushion: [-44, -30, 88, 40],
     room_fern: [-44, -76, 60, 82],
     room_rug: [-62, -26, 124, 50],
+    room_neon: [-40, -22, 80, 44],
   };
   const [x, y, w, h] = box[id] ?? [-50, -50, 100, 100];
   const side = Math.max(w, h);
@@ -287,6 +294,7 @@ export function RoomThumb({ id, size = 46 }: { id: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox={vb}>
       {id === 'room_bookshelf' && <Bookshelf x={0} y={0} />}
+      {id === 'room_neon' && <NeonSign x={0} y={0} glow={false} />}
       {id === 'room_photos' && <Photos x={0} y={0} />}
       {id === 'room_sofa' && <Sofa x={0} y={0} />}
       {id === 'room_lamp' && <Lamp x={0} y={0} on />}
@@ -300,6 +308,24 @@ export function RoomThumb({ id, size = 46 }: { id: string; size?: number }) {
       {id === 'room_fern' && <Fern x={0} y={0} />}
       {id === 'room_rug' && <Rug x={0} y={0} />}
     </Svg>
+  );
+}
+
+// The Prize Counter's (0243): pink and teal neon on a dark board.
+function NeonSign({ x, y, glow }: { x: number; y: number; glow: boolean }) {
+  return (
+    <G transform={`translate(${x} ${y})`}>
+      {glow && <Rect x={-44} y={-24} width={88} height={48} rx={10} fill="#ff7ac8" opacity={0.18} />}
+      <Rect x={-36} y={-18} width={72} height={36} rx={6} fill="#1b1d29" />
+      <SvgText x={0} y={-3} fontSize={11} fontWeight="bold" textAnchor="middle" fill="none" stroke="#ff7ac8" strokeWidth={1.3}>
+        PAW
+      </SvgText>
+      <SvgText x={0} y={12} fontSize={11} fontWeight="bold" textAnchor="middle" fill="none" stroke="#5ee6d9" strokeWidth={1.3}>
+        SLOTS
+      </SvgText>
+      <Circle cx={-29} cy={-12} r={1.6} fill="#ffe08a" />
+      <Circle cx={29} cy={12} r={1.6} fill="#ffe08a" />
+    </G>
   );
 }
 

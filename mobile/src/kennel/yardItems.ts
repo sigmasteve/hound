@@ -61,6 +61,14 @@ export const YARD_ITEMS: YardItem[] = [
   { id: 'tree_cherry', slot: 'tree', name: 'Cherry Blossom', costBones: 150 },
   { id: 'pond_lily', slot: 'pond', name: 'Lily Pond', costBones: 0 },
   { id: 'pond_fountain', slot: 'pond', name: 'Fountain', costBones: 200 },
+  // The Prize Counter's (0243): bought only with Paw Coins, never Bones.
+  ...(
+    [
+      { id: 'bowl_coin', slot: 'bowl', name: 'Gold Coin Bowl', costBones: 800 },
+      { id: 'ground_confetti', slot: 'ground', name: 'Jackpot Confetti', costBones: 1200 },
+      { id: 'house_arcade', slot: 'house', name: 'Arcade Doghouse', costBones: 5000 },
+    ] as const
+  ).map((i) => ({ ...i, season: 'Prize Counter', availableUntil: '2000-01-01' })),
   // Autumn 2026, through November.
   { id: 'ground_pumpkins', slot: 'ground', name: 'Pumpkin Patch', costBones: 80, season: 'Autumn', availableFrom: '2026-11-01', availableUntil: '2026-11-30' },
   // Winter 2026, Nov 15 to Dec 31 (0149, and 0156's Igloo and Lit Tree).

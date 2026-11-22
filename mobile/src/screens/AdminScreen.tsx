@@ -103,6 +103,8 @@ import { getGrowthOverview } from '../growth/growth';
 import { getGardenOverview } from '../garden/garden';
 import { getWalksOverview } from '../admin/walksOverview';
 import { ShopAdminCard } from '../components/ShopAdminCard';
+import { PrizeCounterAdminCard } from '../components/PrizeCounterAdminCard';
+import { getPrizeCounterOverview, prizeCounterSummary } from '../kennel/prizeCounterApi';
 import { BonesGivenAdminCard } from '../components/BonesGivenAdminCard';
 import { KennelUnlocksAdminCard } from '../components/KennelUnlocksAdminCard';
 import { getKennelUnlocksOverview, kennelUnlocksSummary } from '../admin/kennelUnlocksOverview';
@@ -269,6 +271,7 @@ export function AdminScreen({
   const [cricketLine, setCricketLine] = useState<string | null>(null);
   const [rouletteLine, setRouletteLine] = useState<string | null>(null);
   const [slotsLine, setSlotsLine] = useState<string | null>(null);
+  const [prizeLine, setPrizeLine] = useState<string | null>(null);
   const [chessLine, setChessLine] = useState<string | null>(null);
   const [needsYouLine, setNeedsYouLine] = useState<string | null>(null);
   const [doorsSummary, setDoorsSummary] = useState<string | null>(null);
@@ -385,6 +388,9 @@ export function AdminScreen({
         .catch(() => {});
       getSlotsOverview()
         .then((o) => setSlotsLine(slotsSummary(o)))
+        .catch(() => {});
+      getPrizeCounterOverview()
+        .then((o) => setPrizeLine(prizeCounterSummary(o)))
         .catch(() => {});
       getRouletteOverview()
         .then((o) => setRouletteLine(rouletteSummary(o)))
@@ -1108,6 +1114,9 @@ export function AdminScreen({
                   </AdminFold>
                   <AdminFold title="Dog photos" summary={dogPhotosLine ?? 'Dogs as avatars, and reports'}>
                     <DogPhotosAdminCard onChanged={(o) => setDogPhotosLine(dogPhotosSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Prize Counter" summary={prizeLine ?? 'Paw Coins banked and prizes bought'}>
+                    <PrizeCounterAdminCard onChanged={(o) => setPrizeLine(prizeCounterSummary(o))} />
                   </AdminFold>
                   <AdminFold title="Shop" summary={shopSummary ?? 'Packs sold and Bones spent'}>
                     <ShopAdminCard />

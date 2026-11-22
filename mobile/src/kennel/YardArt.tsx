@@ -1155,6 +1155,7 @@ export function YardItemArt({ id, name, time = 'day' }: { id: string; name?: str
     case 'house_treehouse':
     case 'house_castle':
     case 'house_mansion':
+    case 'house_arcade':
       return <House id={id} name={name} time={time} />;
     case 'bed_cushion':
       return (
@@ -1193,6 +1194,19 @@ export function YardItemArt({ id, name, time = 'day' }: { id: string; name?: str
         </G>
       );
     }
+    // The Prize Counter's (0243): gold, stamped like a Paw Coin, with treats.
+    case 'bowl_coin':
+      return (
+        <G>
+          <Ellipse cx={0} cy={-10} rx={13} ry={4} fill="#7a5a14" />
+          <Circle cx={-5} cy={-11} r={3} fill="#c08a52" />
+          <Circle cx={4} cy={-12} r={3} fill="#cf9a62" />
+          <Path d="M-16 -10 L16 -10 L12 0 L-12 0 Z" fill="#f0c24a" />
+          <Circle cx={0} cy={-5} r={3.6} fill="none" stroke="#b8862a" strokeWidth={1.2} />
+          <Ellipse cx={0} cy={-4.4} rx={1.4} ry={1.1} fill="#b8862a" />
+          <Path d="M-11 -8 L-8.5 -3" stroke="#fff6d0" strokeWidth={1.6} strokeLinecap="round" />
+        </G>
+      );
     case 'toy_ball':
       return (
         <G>
@@ -1293,6 +1307,24 @@ export function YardItemArt({ id, name, time = 'day' }: { id: string; name?: str
           ))}
         </G>
       );
+    // The Prize Counter's (0243): a jackpot's worth of confetti on the grass.
+    case 'ground_confetti': {
+      const bits: [number, number, number, string][] = [
+        [-48, -4, 20, '#f0c24a'], [-38, -9, -30, '#e05b5b'], [-27, -3, 40, '#4f7be0'], [-17, -8, -15, '#7fd39b'], [-7, -2, 25, '#d97fb8'],
+        [3, -7, -40, '#f0c24a'], [13, -3, 10, '#e05b5b'], [23, -9, 35, '#4f7be0'], [33, -4, -25, '#f0c24a'], [43, -8, 15, '#7fd39b'],
+        [-33, -14, 5, '#f0c24a'], [8, -13, -10, '#d97fb8'], [30, -14, 30, '#e05b5b'],
+      ];
+      return (
+        <G>
+          {bits.map(([x, y, r, c], i) => (
+            <Rect key={i} x={x - 2} y={y - 3.5} width={4} height={7} rx={1} fill={c} transform={`rotate(${r} ${x} ${y})`} />
+          ))}
+          {[-44, -12, 18, 46].map((x) => (
+            <Circle key={x} cx={x} cy={-1.5} r={2.6} fill="#f0c24a" stroke="#b8862a" strokeWidth={0.8} />
+          ))}
+        </G>
+      );
+    }
     case 'ground_flowers':
       return (
         <G>
@@ -1521,6 +1553,40 @@ function House({ id, name, time = 'day' }: { id: string; name?: string; time?: Y
             {flag.toUpperCase()}
           </SvgText>
         )}
+      </G>
+    );
+  }
+  if (id === 'house_arcade') {
+    // The Prize Counter's (0243): a doghouse built like a slot machine, a
+    // marquee and bulbs, three reels showing Golden Hounds over the door.
+    const bulb = lit ? '#ffe08a' : '#f0c24a';
+    return (
+      <G>
+        <Rect x={-46} y={-70} width={92} height={70} rx={4} fill="#2f2340" />
+        <Path d="M-54 -66 L0 -108 L54 -66 Z" fill="#f0c24a" />
+        <Path d="M-54 -66 L0 -108 L54 -66" stroke="#b8862a" strokeWidth={2.5} fill="none" />
+        <Rect x={-30} y={-92} width={60} height={14} rx={3} fill="#2f2340" stroke="#f0c24a" strokeWidth={1.5} />
+        <SvgText x={0} y={-82} fontSize={8} fontWeight="bold" textAnchor="middle" fill="#f0c24a">
+          PAW SLOTS
+        </SvgText>
+        {[-38, -26, -14, -2, 10, 22, 34].map((x, i) => (
+          <Circle key={x} cx={x + 2} cy={-63} r={2.2} fill={i % 2 === 0 ? bulb : '#5a4a2a'} />
+        ))}
+        {lit && <Rect x={-36} y={-58} width={72} height={24} rx={4} fill="#ffd98a" opacity={0.25} />}
+        {[-30, -9, 12].map((x) => (
+          <G key={x}>
+            <Rect x={x} y={-56} width={18} height={20} rx={3} fill="#f6f1e4" />
+            <Ellipse cx={x + 9} cy={-46} rx={6} ry={6.5} fill="#f0c24a" />
+            <Ellipse cx={x + 3.5} cy={-45} rx={2} ry={4} fill="#b8862a" />
+            <Ellipse cx={x + 14.5} cy={-45} rx={2} ry={4} fill="#b8862a" />
+            <Circle cx={x + 9} cy={-43.5} r={1.3} fill="#161826" />
+          </G>
+        ))}
+        <Path d="M-31 -46 H31" stroke="#e05b5b" strokeWidth={1.2} opacity={0.8} />
+        <Path d="M-13 0 L-13 -20 Q0 -32 13 -20 L13 0 Z" fill="#161826" />
+        <Circle cx={-41} cy={-8} r={3} fill="#f0c24a" />
+        <Rect x={44} y={-48} width={4} height={22} rx={2} fill="#9a9ba6" />
+        <Circle cx={46} cy={-50} r={4} fill="#e05b5b" />
       </G>
     );
   }

@@ -741,6 +741,33 @@ function Face({ mood, headCy, eyeY }: { mood: HoundMood; headCy: number; eyeY: n
 }
 
 function NeckItem({ item, y, width }: { item: KennelItem; y: number; width: number }) {
+  // The Prize Counter's (0243): a red collar with a gold 7, and navy with
+  // gold stitching and a gold paw medallion.
+  if (item.kind === 'luckytag') {
+    return (
+      <G>
+        <Rect x={100 - width / 2} y={y} width={width} height={8} rx={4} fill={item.color} />
+        <Circle cx={100} cy={y + 9} r={3} fill="none" stroke="#b8902f" strokeWidth={1.5} />
+        <Circle cx={100} cy={y + 19} r={9} fill={item.accent ?? '#f0c24a'} stroke="#b8902f" strokeWidth={1.5} />
+        <SvgText x={100} y={y + 24} fontSize={12} fontWeight="bold" textAnchor="middle" fill="#d94a4a">
+          7
+        </SvgText>
+      </G>
+    );
+  }
+  if (item.kind === 'goldhound') {
+    return (
+      <G>
+        <Rect x={100 - width / 2} y={y} width={width} height={11} rx={5.5} fill={item.color} />
+        <Path d={`M ${100 - width / 2 + 5} ${y + 5.5} H ${100 + width / 2 - 5}`} stroke={item.accent ?? '#f0c24a'} strokeWidth={1.5} strokeDasharray="3 3" />
+        <Circle cx={100} cy={y + 17} r={8} fill={item.accent ?? '#f0c24a'} stroke="#b8902f" strokeWidth={1.5} />
+        <Ellipse cx={100} cy={y + 19} rx={3} ry={2.4} fill="#7a5a14" />
+        <Circle cx={97} cy={y + 15} r={1.2} fill="#7a5a14" />
+        <Circle cx={100} cy={y + 13.8} r={1.2} fill="#7a5a14" />
+        <Circle cx={103} cy={y + 15} r={1.2} fill="#7a5a14" />
+      </G>
+    );
+  }
   if (item.kind === 'bandana') {
     return (
       <G>
