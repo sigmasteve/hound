@@ -95,6 +95,8 @@ import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
 import { computePendingActions, needsManualEntry, type PendingAction } from '../challenges/pendingActions';
 import { NeedsYouWideTile } from '../home/NeedsYouTile';
+import { dismissClubWaiting, getClubWaiting, joinClubChallenge, type ClubWaiting } from '../clubs/clubsApi';
+import { ClubBadge } from '../clubs/clubLook';
 import { MUTE_CHOICES, getMutedUntil, muteNeedsYou, unmuteNeedsYou, untilLabel } from '../home/needsYouMute';
 import { actionRoute, rankActions, type ActionRoute } from '../home/needsYouActions';
 import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
@@ -874,6 +876,18 @@ function timeLeftLabel(endsAt: string, now: number = Date.now()): string {
   return days <= 1 ? 'Ends today' : `${days} days left`;
 }
 const NEEDS_YOU_LIMIT = 3;
+
+// A club game's second line in Needs you (0252): the game, how long,
+// who's in, and when joining closes.
+function clubGameSub(w: ClubWaiting): string {
+  const kind = w.kind === 'hunt' ? huntKindName() : (CHALLENGE_TYPES.find((t) => t.id === w.kind)?.name ?? w.kind);
+  const days = Math.max(1, Math.round((new Date(w.endsAt).getTime() - new Date(w.startsAt).getTime()) / 86_400_000));
+  const closes = new Date(w.closesAt);
+  const time = closes.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const sameDay = closes.toDateString() === new Date().toDateString();
+  const by = sameDay ? time : `${closes.toLocaleDateString(undefined, { weekday: 'short' })} ${time}`;
+  return `${kind} · ${days} ${days === 1 ? 'day' : 'days'} · ${w.players} in · join by ${by}`;
+}
 function takePopup(): boolean {
   if (popupUsedThisOpen) return false;
   popupUsedThisOpen = true;
@@ -976,6 +990,20 @@ export function HomeScreen({
         .catch(() => {});
     }, []),
   );
+
+  // Club games you can still join (0252), for Needs you: posted to one of
+  // your clubs, until you join, say Not now, or joining closes.
+  const [clubWaiting, setClubWaiting] = useState<ClubWaiting[]>([]);
+  const [respondingClubId, setRespondingClubId] = useState<string | null>(null);
+  const loadClubWaiting = useCallback(() => {
+    if (!isSupabaseConfigured) return;
+    getClubWaiting()
+      .then(setClubWaiting)
+      .catch(() => {
+        // Nothing waiting rather than a broken tile (also before 0252 is run).
+      });
+  }, []);
+  useFocusEffect(loadClubWaiting);
 
   const respondToFriendRequest = async (friendshipId: string, accept: boolean) => {
     setRespondingFriendId(friendshipId);
@@ -1539,6 +1567,10 @@ export function HomeScreen({
   // counts and primary card recomputed to include it, not just the
   // invite itself removed from the list.
   const [refreshKey, setRefreshKey] = useState(0);
+  // Club games waiting (0252) follow the same refreshes.
+  useEffect(() => {
+    if (refreshKey > 0) loadClubWaiting();
+  }, [refreshKey, loadClubWaiting]);
 
   // Start-of-week recap (Mon–Wed) — see src/home/weeklyRecap.ts. Dismissal
   // is local and per week, same shape as the banner's own dismissal above:
@@ -2538,6 +2570,27 @@ export function HomeScreen({
   // the whole primary-challenge effect above (a newly-accepted challenge
   // needs its board fetched and the counts/primary card recomputed),
   // Decline only needs the invite list itself refreshed.
+  // A club game in Needs you (0252): Join (then straight to it) or Not now.
+  const respondToClubGame = async (w: ClubWaiting, join: boolean) => {
+    setRespondingClubId(w.challengeId);
+    try {
+      if (join) {
+        await joinClubChallenge(w.clubId, w.challengeId, 'needs_you');
+        setRefreshKey((k) => k + 1);
+        setClubWaiting((l) => l.filter((x) => x.challengeId !== w.challengeId));
+        sheetOpenChallenge(w.challengeId);
+      } else {
+        setClubWaiting((l) => l.filter((x) => x.challengeId !== w.challengeId));
+        await dismissClubWaiting(w.challengeId);
+      }
+    } catch (e) {
+      Alert.alert(join ? 'Couldn’t join' : 'Couldn’t hide it', e instanceof Error ? e.message : 'Try again.');
+      loadClubWaiting();
+    } finally {
+      setRespondingClubId(null);
+    }
+  };
+
   const respondToInvite = async (invite: ChallengeInvite, accept: boolean) => {
     setRespondingId(invite.id);
     try {
@@ -2546,8 +2599,11 @@ export function HomeScreen({
         setRefreshKey((k) => k + 1);
       } else {
         await supabaseChallengesProvider.declineChallengeInvite(invite.id);
+        // Declined here, so it doesn't come back as a club game in Needs you.
+        dismissClubWaiting(invite.challengeId).catch(() => {});
       }
       await loadInvites();
+      loadClubWaiting();
     } catch {
       // No error UI for this yet — same as ChallengesScreen's own
       // respondToInvite: a stale invite silently stops responding
@@ -2617,11 +2673,16 @@ export function HomeScreen({
   type NeedsYouItem =
     | { key: string; type: 'action'; action: PendingAction }
     | { key: string; type: 'invite'; invite: ChallengeInvite }
-    | { key: string; type: 'friend'; friend: Friend };
+    | { key: string; type: 'friend'; friend: Friend }
+    | { key: string; type: 'club'; club: ClubWaiting };
   const needsYou: NeedsYouItem[] = [
     ...pendingActions.map((action) => ({ key: `action-${action.challengeId}-${action.kind}`, type: 'action' as const, action })),
     ...(liveInvites ?? []).map((invite) => ({ key: `invite-${invite.id}`, type: 'invite' as const, invite })),
     ...(friendRequests ?? []).map((friend) => ({ key: `friend-${friend.friendshipId}`, type: 'friend' as const, friend })),
+    // Invited directly wins: the invite row covers it.
+    ...clubWaiting
+      .filter((w) => !(liveInvites ?? []).some((i) => i.challengeId === w.challengeId))
+      .map((club) => ({ key: `club-${club.challengeId}`, type: 'club' as const, club })),
   ];
   const shownNeedsYou = needsYouExpanded ? needsYou : needsYou.slice(0, NEEDS_YOU_LIMIT);
   // Global challenges, split for the Your challenges card: ones you've
@@ -2675,7 +2736,9 @@ export function HomeScreen({
         ? item.action.label
         : item.type === 'invite'
           ? `${item.invite.inviterName} invited you`
-          : `${item.friend.name} wants to be friends`,
+          : item.type === 'club'
+            ? `${item.club.clubName}: join ${item.club.challengeName}`
+            : `${item.friend.name} wants to be friends`,
     ),
     ...(digReady ? ['Bone Dig is ready'] : []),
     ...visibleNudges.map((n) => `${n.name} nudged you`),
@@ -2704,6 +2767,8 @@ export function HomeScreen({
     if (invitesLeft > 0) parts.push(invitesLeft === 1 ? 'an invite' : `${invitesLeft} invites`);
     const friendsLeft = take(needsYou.filter((x) => x.type === 'friend').length);
     if (friendsLeft > 0) parts.push(friendsLeft === 1 ? 'a friend request' : `${friendsLeft} friend requests`);
+    const clubsLeft = take(needsYou.filter((x) => x.type === 'club').length);
+    if (clubsLeft > 0) parts.push(clubsLeft === 1 ? 'a club game' : `${clubsLeft} club games`);
     if (take(digReady ? 1 : 0) > 0) parts.push('Bone Dig');
     const nudgesLeft = take(visibleNudges.length);
     if (nudgesLeft > 0) parts.push(nudgesLeft === 1 ? 'a nudge' : `${nudgesLeft} nudges`);
@@ -3126,6 +3191,33 @@ export function HomeScreen({
                         small
                         disabled={respondingId === item.invite.id}
                         onPress={() => respondToInvite(item.invite, false)}
+                      />
+                    </View>
+                  </>
+                ) : item.type === 'club' ? (
+                  <>
+                    <View style={styles.needsRowMain}>
+                      <ClubBadge sport={item.club.clubSport} color={item.club.clubColor} size={22} />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.inviteTitle}>
+                          {item.club.postedBy ?? 'Someone'} posted &ldquo;{item.club.challengeName}&rdquo; in {item.club.clubName}
+                        </Text>
+                        <Text style={styles.inviteSub}>{clubGameSub(item.club)}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.needsButtons}>
+                      <Button
+                        label="Join"
+                        variant="primary"
+                        small
+                        disabled={respondingClubId === item.club.challengeId}
+                        onPress={() => respondToClubGame(item.club, true)}
+                      />
+                      <Button
+                        label="Not now"
+                        small
+                        disabled={respondingClubId === item.club.challengeId}
+                        onPress={() => respondToClubGame(item.club, false)}
                       />
                     </View>
                   </>

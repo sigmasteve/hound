@@ -8,12 +8,13 @@ import { Button } from './Button';
 import { ToggleRow } from './Selectable';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { adminRemoveClub, getClubsOverview, setClubConfig, type ClubsOverview } from '../clubs/clubsApi';
+import { adminRemoveClub, getClubNeedsOverview, getClubsOverview, setClubConfig, type ClubsOverview } from '../clubs/clubsApi';
 import { CLUB_SPORTS, ClubBadge, sportName } from '../clubs/clubLook';
 
 // "8 clubs · 64 in them", for the fold's line.
 export function clubsSummary(o: ClubsOverview): string {
-  return `${o.clubs} ${o.clubs === 1 ? 'club' : 'clubs'} · ${o.people} in them`;
+  const base = `${o.clubs} ${o.clubs === 1 ? 'club' : 'clubs'} · ${o.people} in them`;
+  return o.needs && o.needs.peopleWaiting > 0 ? `${base} · ${o.needs.peopleWaiting} with a club game in Needs you` : base;
 }
 
 // Admin → Clubs (0185): how many clubs, who's in them and what they
@@ -29,8 +30,9 @@ export function ClubsAdminCard({ onChanged }: { onChanged?: (o: ClubsOverview) =
 
   const load = useCallback(
     () =>
-      getClubsOverview()
-        .then((o) => {
+      Promise.all([getClubsOverview(), getClubNeedsOverview().catch(() => null)])
+        .then(([base, needs]) => {
+          const o = { ...base, needs };
           setData(o);
           setError(null);
           changed.current?.(o);
@@ -73,6 +75,18 @@ export function ClubsAdminCard({ onChanged }: { onChanged?: (o: ClubsOverview) =
         ['Posting (30 days)', `${data.posts30d} challenges posted · ${data.active30d} ${data.active30d === 1 ? 'club' : 'clubs'} posting`],
         ['Joined through a club (30 days)', `${data.clubJoins30d}`],
         ['Friends invited (30 days)', `${data.invites30d} invited · ${data.invitesAccepted30d} joined`],
+        ...(data.needs
+          ? ([
+              [
+                'Club games in Needs you now',
+                `${data.needs.gamesWaiting} waiting on ${data.needs.peopleWaiting} ${data.needs.peopleWaiting === 1 ? 'person' : 'people'}`,
+              ],
+              [
+                'Joined from Needs you (30 days)',
+                `${data.needs.joinedNeedsYou30d} (vs ${data.needs.joinedClubPage30d} from a club's page) · ${data.needs.notNow30d} Not now · ${data.needs.peopleNeedsYou} people ever`,
+              ],
+            ] as [string, string][])
+          : []),
         [
           'By sport',
           CLUB_SPORTS.filter((s) => data.bySport[s.id])

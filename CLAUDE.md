@@ -273,7 +273,9 @@ What each sheet holds:
 - Needs you: Pack Activities first, only when one is waiting on you (on
   now or coming up, with Join; Steve's ask, Nov 2026). No "Start a Pack
   Activity" here: that's on the Clubs tab and a club's page. Then
-  invites and friend requests, then Bone Dig, nudges and bounties. The tile's "N
+  invites and friend requests, then club games you can still join (posted
+  to one of your clubs; Join or Not now, 0252), then Bone Dig, nudges and
+  bounties. The tile's "N
   waiting" counts all of them (a Pack Activity when you're invited, it's
   your club's, or it's live).
 - Your challenges: the pinned (highlighted) challenge's headline and
