@@ -2520,7 +2520,7 @@ export function CreateScreen({
             <View style={styles.huntBlock}>
               <View style={styles.huntBlockHeader}>
                 <Text style={styles.huntBlockLabel}>Farthest target</Text>
-                <Text style={styles.huntBlockValue}>{beFar === '30' ? '30 m: for little ones' : beFar === '70' ? '70 m: the Olympic distance' : '90 m, and the flag at 150 m'}</Text>
+                <Text style={styles.huntBlockValue}>{beFar === '30' ? '30 m' : beFar === '70' ? '70 m' : '90 m + flag'}</Text>
               </View>
               <SegmentedControl
                 options={[
@@ -2557,7 +2557,7 @@ export function CreateScreen({
               />
               <View style={styles.huntBlockHeader}>
                 <Text style={styles.huntBlockLabel}>Aim helper for everyone</Text>
-                <Text style={styles.huntBlockValue}>{beHelper === 'on' ? 'On: shows where the breeze takes it' : 'Off'}</Text>
+                <Text style={styles.huntBlockValue}>{beHelper === 'on' ? 'On' : 'Off'}</Text>
               </View>
               <SegmentedControl
                 options={[
@@ -2569,7 +2569,7 @@ export function CreateScreen({
               />
               <View style={styles.huntBlockHeader}>
                 <Text style={styles.huntBlockLabel}>The gold balloon</Text>
-                <Text style={styles.huntBlockValue}>{beGold === 'on' ? '100 Bones a day to the first to pop it' : 'Off'}</Text>
+                <Text style={styles.huntBlockValue}>{beGold === 'on' ? 'On · 100 Bones' : 'Off'}</Text>
               </View>
               <SegmentedControl
                 options={[
@@ -2581,8 +2581,9 @@ export function CreateScreen({
               />
               {global && <TextField label="Prize pool (Bones)" value={bePoolText} onChangeText={setBePoolText} keyboardType="number-pad" maxLength={5} />}
               <Text style={styles.huntBlockNote}>
-                Round targets from 18 m out to {beFar === '30' ? '30 m' : beFar === '70' ? '70 m' : '90 m, and a flag at 150 m to lob arrows at'}. A round of 3 arrows every 1,500 steps,
-                up to 6 a day; a 20-minute workout steadies the hold. The breeze is the same for everyone each day. Rings score 1 to 10 times the target’s ×, more the farther it is; an arrow that splits one of your own is a Robin Hood, +25.{' '}
+                Round targets from 18 m out to {beFar === '30' ? '30 m (good for little ones)' : beFar === '70' ? '70 m (the Olympic distance)' : '90 m, and a flag at 150 m to lob arrows at'}. A round of 3 arrows every 1,500 steps,
+                up to 6 a day; a 20-minute workout steadies the hold.{beGold === 'on' ? ' The gold balloon pays 100 Bones a day to the first to pop it.' : ''}
+                {beHelper === 'on' ? ' The aim helper shows everyone where the wind will take their arrow.' : ''} The breeze is the same for everyone each day. Rings score 1 to 10 times the target’s ×, more the farther it is; an arrow that splits one of your own is a Robin Hood, +25.{' '}
                 {global ? `The pool is ${bonesOf(bePoolText, 20000).toLocaleString('en-US')} Bones` : 'The pool is 200 Bones a hound, 2,500 with 11 or more'}, paid by
                 points. Nothing here takes money or Bones in.
               </Text>
@@ -2634,7 +2635,7 @@ export function CreateScreen({
               />
               <View style={styles.huntBlockHeader}>
                 <Text style={styles.huntBlockLabel}>The gold plate</Text>
-                <Text style={styles.huntBlockValue}>{lsGold === 'on' ? '150 Bones a day to the first to ring it' : 'Off'}</Text>
+                <Text style={styles.huntBlockValue}>{lsGold === 'on' ? 'On · 150 Bones' : 'Off'}</Text>
               </View>
               <SegmentedControl
                 options={[
@@ -2649,7 +2650,8 @@ export function CreateScreen({
               )}
               <Text style={styles.huntBlockNote}>
                 Steel plates from 300 yards out to {Number(lsFar).toLocaleString('en-US')}. Every 1,000 steps is a round, up to 10 a day; a 20-minute workout
-                steadies the hold. The wind and the air are the same for everyone each day. Center hits double; the day’s first hit adds 2.{' '}
+                steadies the hold. The wind and the air are the same for everyone each day. Center hits double; the day’s first hit adds 2.
+                {lsGold === 'on' ? ' The gold plate pays 150 Bones a day to the first to ring it.' : ''}{' '}
                 {global ? `The pool is ${bonesOf(lsPoolText, 20000).toLocaleString('en-US')} Bones` : 'The pool is 200 Bones a hound, 2,500 with 11 or more'}, paid
                 by points: 1st 30%, 2nd 18%, 3rd 12%, 4th to 10th 4% each. Nothing here takes money or Bones in.
               </Text>
@@ -3721,14 +3723,14 @@ function makeStyles(colors: Palette) {
       borderWidth: 1,
       borderColor: withAlpha(colors.accent, 0.4),
     },
-    huntBlockHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+    huntBlockHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 },
     huntBlockLabel: { fontFamily: font.heading, fontSize: 15, color: colors.text },
     // Also used standalone for "Or pick any length" below, sitting
     // directly on the screen's own background rather than inside
     // huntBlock — accentActive (not the raw accent200 fixed token) is the
     // color meant for accent text on this theme's own bg/surface either
     // way (see tokens.ts), so one color works in both places.
-    huntBlockValue: { fontFamily: font.heading, fontSize: 20, color: colors.accentActive },
+    huntBlockValue: { fontFamily: font.heading, fontSize: 20, color: colors.accentActive, flexShrink: 1, textAlign: 'right' },
     huntBlockNote: { fontSize: 12.5, color: withAlpha(colors.text, 0.7) },
     shuffle: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     shuffleText: { fontFamily: font.heading, fontSize: 14, color: colors.accentActive },
