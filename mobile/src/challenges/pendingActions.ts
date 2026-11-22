@@ -19,6 +19,7 @@ export type PendingActionKind =
   | 'cricketPlay'
   | 'rouletteSpin'
   | 'slotsSpin'
+  | 'longshotFire'
   | 'chessMove'
   | 'rouletteDuel'
   | 'derbySwing'
@@ -68,6 +69,7 @@ export function needsManualEntry(challenge: Challenge): boolean {
     challenge.kind !== 'titlebout' &&
     challenge.kind !== 'roulette' &&
     challenge.kind !== 'slots' &&
+    challenge.kind !== 'longshot' &&
     challenge.kind !== 'chess'
   );
 }
@@ -119,6 +121,8 @@ export interface PendingActionsInput {
   rouletteWaiting?: Map<string, { spin: boolean; duel: { from: string; stake: number } | null; ride: number }>;
   // Paw Slots (0242): spins ready to play today.
   slotsReady?: Map<string, number>;
+  // Long Shot (0247): rounds ready to fire today.
+  longshotReady?: Map<string, number>;
   // Hound Chess (0238): games where it's the caller's move: against whom,
   // and whether they're in check.
   chessYourMove?: Map<string, { them: string; check: boolean }>;
@@ -166,6 +170,7 @@ export function computePendingActions({
   cricketBallsReady = new Map(),
   rouletteWaiting = new Map(),
   slotsReady = new Map(),
+  longshotReady = new Map(),
   chessYourMove = new Map(),
   derbySwingsReady = new Map(),
   shootoutKicksReady = new Map(),
@@ -297,6 +302,16 @@ export function computePendingActions({
           challengeName: c.name,
           kind: 'chessMove',
           label: m.check ? `You’re in check against ${m.them} in ${c.name}` : `Your move against ${m.them} in ${c.name}`,
+        });
+      }
+    } else if (c.kind === 'longshot') {
+      const n = longshotReady.get(c.id) ?? 0;
+      if (n > 0) {
+        actions.push({
+          challengeId: c.id,
+          challengeName: c.name,
+          kind: 'longshotFire',
+          label: `${n} ${n === 1 ? 'round' : 'rounds'} ready in ${c.name}`,
         });
       }
     } else if (c.kind === 'slots') {

@@ -87,6 +87,7 @@ import { setupHorse } from '../challenges/horseApi';
 import { setupBout } from '../challenges/boutApi';
 import { setupChess } from '../challenges/chessApi';
 import { setupSlots } from '../challenges/slotsApi';
+import { setupLongShot, type LongShotMoon, type LongShotPlace } from '../challenges/longshotApi';
 import { BOT_NAME as CHESS_BOT_NAME, type ChessBotLevel } from '../challenges/chess';
 
 // H-O-R-S-E stakes (0209): a treat_recipes id the loser bakes, or none.
@@ -211,6 +212,7 @@ const TAGLINES: Record<ChallengeKind, string> = {
   roulette: 'Spin for today’s task. Bank it, ride it, or raid a friend.',
   chess: 'Real chess with hounds. Your steps free your pieces.',
   slots: 'A slot machine on your steps. Most Paw Coins wins the Bones.',
+  longshot: 'Long-range steel plates on your steps. Read the wind, hold, fire.',
 };
 
 // A Journey's default run: about two miles a day, at least three days,
@@ -319,6 +321,12 @@ export function CreateScreen({
   // Paw Slots (0242): solo or 2 to 4 packs, and a Global's pool.
   const [slotsTeams, setSlotsTeams] = useState<'0' | '2' | '3' | '4'>('0');
   const [slotsPoolText, setSlotsPoolText] = useState('2500');
+  // Long Shot (0247): where, how far, Moon days, the gold plate, a Global's pool.
+  const [lsPlace, setLsPlace] = useState<LongShotPlace>('desert');
+  const [lsFar, setLsFar] = useState<'1000' | '2000' | '3000'>('3000');
+  const [lsMoon, setLsMoon] = useState<LongShotMoon>('sat');
+  const [lsGold, setLsGold] = useState<'on' | 'off'>('on');
+  const [lsPoolText, setLsPoolText] = useState('2500');
   // Golf (0200): the course, 9 or 18, the format, whether you take every
   // shot yourself, and the daily cap on holes started.
   const [golfCourse, setGolfCourse] = useState<GolfCourseId>('links');
@@ -502,7 +510,7 @@ export function CreateScreen({
   const bonesOf = (t: string, max: number) => Math.max(0, Math.min(max, Math.round(Number(t.replace(/[^0-9]/g, '')) || 0)));
   const canHavePot = !crowd && POT_KINDS.includes(draftType);
   // Paw Slots has its own pool.
-  const canHavePrizes = global && draftType !== 'seventyfive' && draftType !== 'checklist' && draftType !== 'slots';
+  const canHavePrizes = global && draftType !== 'seventyfive' && draftType !== 'checklist' && draftType !== 'slots' && draftType !== 'longshot';
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -642,6 +650,7 @@ export function CreateScreen({
     if (draftType === 'roulette') setLength('7');
     if (draftType === 'chess') setLength('7');
     if (draftType === 'slots') setLength('7');
+    if (draftType === 'longshot') setLength('7');
     if (draftType === 'golf') setLength(String(golfDays(golfHoles)));
     // The Hound Open: joining closes 3 days in, and bigger prizes.
     if (draftType === 'golf' && global) {
@@ -1087,6 +1096,19 @@ export function CreateScreen({
             throw e;
           }
         }
+        // Long Shot: the range, and its pool, right away.
+        if (draftType === 'longshot') {
+          try {
+            await setupLongShot(
+              globalId,
+              { place: lsPlace, far: Number(lsFar) as 1000 | 2000 | 3000, moon: lsMoon, bounty: lsGold === 'on' },
+              bonesOf(lsPoolText, 20000),
+            );
+          } catch (e) {
+            await deleteGlobalChallenge(globalId).catch(() => {});
+            throw e;
+          }
+        }
         // Paw Slots: solo or packs, and its pool, right away.
         if (draftType === 'slots') {
           try {
@@ -1261,6 +1283,7 @@ export function CreateScreen({
               draftType === 'roulette' ||
               draftType === 'chess' ||
               draftType === 'slots' ||
+              draftType === 'longshot' ||
               draftType === 'golf'
             ? []
             : BOT_PRESETS.filter((b) => selectedBots.includes(b.id));
@@ -1392,6 +1415,15 @@ export function CreateScreen({
       if (draftType === 'chess') {
         try {
           await setupChess(created.id, chessOpp === 'friend' ? null : chessOpp);
+        } catch (e) {
+          await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
+          throw e;
+        }
+      }
+      // Long Shot: the range, before anyone fires.
+      if (draftType === 'longshot') {
+        try {
+          await setupLongShot(created.id, { place: lsPlace, far: Number(lsFar) as 1000 | 2000 | 3000, moon: lsMoon, bounty: lsGold === 'on' });
         } catch (e) {
           await supabaseChallengesProvider.deleteChallenge(created.id).catch(() => {});
           throw e;
@@ -1845,7 +1877,7 @@ export function CreateScreen({
             </View>
             <SegmentedControl
               options={
-                draftType === 'tag' || draftType === 'roulette' || draftType === 'slots'
+                draftType === 'tag' || draftType === 'roulette' || draftType === 'slots' || draftType === 'longshot'
                   ? [
                       { value: '7', label: '7 days' },
                       { value: '14', label: '14 days' },
@@ -1861,7 +1893,7 @@ export function CreateScreen({
             <Slider
               // A Hound'opoly game needs a week to go anywhere.
               minimumValue={
-                draftType === 'tag' || draftType === 'derby' || draftType === 'shootout' || draftType === 'roulette' || draftType === 'slots'
+                draftType === 'tag' || draftType === 'derby' || draftType === 'shootout' || draftType === 'roulette' || draftType === 'slots' || draftType === 'longshot'
                   ? 3
                   : community
                   ? draftType === 'seventyfive'
@@ -1875,8 +1907,8 @@ export function CreateScreen({
               // unchanged — only 75 Day Challenge needs to reach past it,
               // since its own default (seeded below) is 75.
               maximumValue={
-                // A Tag chase runs 3 to 14 days (0181).
-                draftType === 'tag'
+                // A Tag chase runs 3 to 14 days (0181), and Long Shot (0247).
+                draftType === 'tag' || draftType === 'longshot'
                   ? 14
                   : // Paw Slots: 3 to 21 days, a Global up to 30 (0242).
                     draftType === 'slots'
@@ -2446,6 +2478,73 @@ export function CreateScreen({
                   ? ': 1st 30%, 2nd 18%, 3rd 12%, 4th to 10th 4% each, and the rest shared by everyone else who spins on 5 days.'
                   : ': packs are filled evenly as hounds join and ranked by Paw Coins per hound; 60%, 26% and 14%, split by what each hound won.'}{' '}
                 Nothing here takes money or Bones in.
+              </Text>
+            </View>
+          )}
+
+          {draftType === 'longshot' && (
+            <View style={styles.huntBlock}>
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Where</Text>
+                <Text style={styles.huntBlockValue}>
+                  {lsPlace === 'sea' ? 'Sea level: thick air' : lsPlace === 'desert' ? 'The desert, 4,800 ft' : 'The mountain, 9,000 ft'}
+                </Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: 'sea', label: 'Sea level' },
+                  { value: 'desert', label: 'Desert' },
+                  { value: 'mountain', label: 'Mountain' },
+                ]}
+                value={lsPlace}
+                onChange={(v) => setLsPlace(v as LongShotPlace)}
+              />
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Farthest plate</Text>
+                <Text style={styles.huntBlockValue}>{Number(lsFar).toLocaleString('en-US')} yards</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: '1000', label: '1,000 yd' },
+                  { value: '2000', label: '2,000 yd' },
+                  { value: '3000', label: '3,000 yd' },
+                ]}
+                value={lsFar}
+                onChange={(v) => setLsFar(v as '1000' | '2000' | '3000')}
+              />
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>Moon days</Text>
+                <Text style={styles.huntBlockValue}>{lsMoon === 'none' ? 'None' : lsMoon === 'sat' ? 'Saturdays' : 'Every day'}</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: 'none', label: 'None' },
+                  { value: 'sat', label: 'Saturdays' },
+                  { value: 'all', label: 'All Moon' },
+                ]}
+                value={lsMoon}
+                onChange={(v) => setLsMoon(v as LongShotMoon)}
+              />
+              <View style={styles.huntBlockHeader}>
+                <Text style={styles.huntBlockLabel}>The gold plate</Text>
+                <Text style={styles.huntBlockValue}>{lsGold === 'on' ? '150 Bones a day to the first to ring it' : 'Off'}</Text>
+              </View>
+              <SegmentedControl
+                options={[
+                  { value: 'on', label: 'On' },
+                  { value: 'off', label: 'Off' },
+                ]}
+                value={lsGold}
+                onChange={(v) => setLsGold(v as 'on' | 'off')}
+              />
+              {global && (
+                <TextField label="Prize pool (Bones)" value={lsPoolText} onChangeText={setLsPoolText} keyboardType="number-pad" maxLength={5} />
+              )}
+              <Text style={styles.huntBlockNote}>
+                Steel plates from 300 yards out to {Number(lsFar).toLocaleString('en-US')}. Every 1,000 steps is a round, up to 10 a day; a 20-minute workout
+                steadies the hold. The wind and the air are the same for everyone each day. Center hits double; the day’s first hit adds 2.{' '}
+                {global ? `The pool is ${bonesOf(lsPoolText, 20000).toLocaleString('en-US')} Bones` : 'The pool is 200 Bones a hound, 2,500 with 11 or more'}, paid
+                by points: 1st 30%, 2nd 18%, 3rd 12%, 4th to 10th 4% each. Nothing here takes money or Bones in.
               </Text>
             </View>
           )}
@@ -3247,6 +3346,7 @@ export function CreateScreen({
             draftType !== 'roulette' &&
             draftType !== 'chess' &&
             draftType !== 'slots' &&
+            draftType !== 'longshot' &&
             draftType !== 'packs' && (
             <>
               <Text style={[text.h4, { marginTop: 4 }]}>Bot opponents</Text>

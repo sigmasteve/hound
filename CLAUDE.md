@@ -165,6 +165,18 @@ lines win: Steve's 3 in 8, 7 in 9 and 17 in 20). Spins come from steps, a
 workout and Paw Coins only; Paw Coins leave only as the pool paid by place
 at the end: nothing in it may take Bones or money in.
 
+Long Shot (0247, `LongShotScreen.tsx`) is a range seen from behind your
+bench (`LongShotRange.tsx`: the lane from the far berm (y 0) to the bench
+(y 1) through `perspective.ts` and `project()`, plates at `plateY()`), with
+the gallery beside the firing line, not behind the plates (that's where
+the rounds go). The server flies every round (`longshot_fly`, G7 drag) and
+sets each day's air and wind (`longshot_conditions`, the same for
+everyone); the app draws the flags and the reticle's sway with the same
+formulas (`longshotFlagWind`, `longshotSway` in `longshotApi.ts`, mirroring
+`longshot_wind_at` and `longshot_sway`), so change them together. Nothing
+in it takes money or Bones in. Archery (Bullseye) is the fast follow on
+the same engine.
+
 Hound Chess (0238, `ChessScreen.tsx`) is a board, but drawn like a field:
 seen from behind your side through `perspective.ts` and `project()` (the
 board on the ground with a small margin, the stand past the far end), the

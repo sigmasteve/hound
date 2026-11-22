@@ -103,6 +103,7 @@ import { advanceHoundopoly, getHoundopolyGame, listMyHoundopolyPending } from '.
 import { doorsHeadline, getDoors, todaysDoor, type DoorsGame } from '../challenges/doorsApi';
 import { getRoulette, rouletteHeadline, rouletteWaiting, type RouletteGame } from '../challenges/rouletteApi';
 import { getSlots, slotsHeadline, slotsWaiting, type SlotsGame } from '../challenges/slotsApi';
+import { getLongShot, longshotHeadline, longshotWaiting, type LongShotGame } from '../challenges/longshotApi';
 import { chessHeadline, getChess, type ChessGame } from '../challenges/chessApi';
 import { getPackWars, packDayNo, packWarsHeadline, type PackWarsGame } from '../challenges/packWarsApi';
 import { diceFor, netWorth as houndopolyNetWorth, nextTurn as houndopolyNextTurn, squareAt, type HoundopolyGame } from '../challenges/houndopoly';
@@ -148,6 +149,7 @@ import {
   PacksPinned,
   RoulettePinned,
   SlotsPinned,
+  LongShotPinned,
   ChessPinned,
   SeventyFivePinned,
   StepRacePinned,
@@ -617,6 +619,7 @@ function heroCopy(
   roulette: RouletteGame | null = null,
   chess: ChessGame | null = null,
   slots: SlotsGame | null = null,
+  longshot: LongShotGame | null = null,
 ): { eyebrow: string; headline: string } {
   const { challenge, board } = primary;
   const daysElapsed = challengeDayNumber(challenge);
@@ -696,6 +699,9 @@ function heroCopy(
   }
   if (challenge.kind === 'slots') {
     return { eyebrow, headline: slotsHeadline(challenge.name, slots) };
+  }
+  if (challenge.kind === 'longshot') {
+    return { eyebrow, headline: longshotHeadline(challenge.name, longshot) };
   }
   if (challenge.kind === 'chess') {
     return { eyebrow, headline: chessHeadline(challenge.name, chess) };
@@ -1289,6 +1295,8 @@ export function HomeScreen({
   const [rouletteGames, setRouletteGames] = useState<Map<string, RouletteGame>>(new Map());
   // Every active Paw Slots (0242), for Needs you and the headline.
   const [slotsGames, setSlotsGames] = useState<Map<string, SlotsGame>>(new Map());
+  // Every active Long Shot (0247), for Needs you and the headline.
+  const [longshotGames, setLongshotGames] = useState<Map<string, LongShotGame>>(new Map());
   // Every active Hound Chess game (0238), for Needs you and the headline.
   const [chessGames, setChessGames] = useState<Map<string, ChessGame>>(new Map());
   const [packGames, setPackGames] = useState<Map<string, PackWarsGame>>(new Map());
@@ -2261,6 +2269,12 @@ export function HomeScreen({
             .filter((r) => r.challenge.kind === 'slots')
             .map(async (r): Promise<readonly [string, SlotsGame | null]> => [r.challenge.id, await getSlots(r.challenge.id).catch(() => null)]),
         );
+        // Long Shot (0247): rounds ready to fire.
+        const longshotEntriesP = Promise.all(
+          activeResults
+            .filter((r) => r.challenge.kind === 'longshot')
+            .map(async (r): Promise<readonly [string, LongShotGame | null]> => [r.challenge.id, await getLongShot(r.challenge.id).catch(() => null)]),
+        );
         const chessEntriesP = Promise.all(
           activeResults
             .filter((r) => r.challenge.kind === 'chess')
@@ -2397,6 +2411,7 @@ export function HomeScreen({
         const chessMap = new Map((await chessEntriesP).filter((e): e is readonly [string, ChessGame] => e[1] !== null));
         const rouletteMap = new Map((await rouletteEntriesP).filter((e): e is readonly [string, RouletteGame] => e[1] !== null));
         const slotsMap = new Map((await slotsEntriesP).filter((e): e is readonly [string, SlotsGame] => e[1] !== null));
+        const longshotMap = new Map((await longshotEntriesP).filter((e): e is readonly [string, LongShotGame] => e[1] !== null));
         const packMap = new Map(packEntries.filter((e): e is readonly [string, PackWarsGame] => e[1] !== null));
         const doorsMap = new Map(doorsEntries.filter((e): e is readonly [string, DoorsGame] => e[1] !== null));
         if (!cancelled) {
@@ -2432,6 +2447,7 @@ export function HomeScreen({
               }),
             ),
             slotsReady: new Map([...slotsMap].map(([id, g]) => [id, slotsWaiting(g)] as const)),
+            longshotReady: new Map([...longshotMap].map(([id, g]) => [id, longshotWaiting(g)] as const)),
             cricketBallsReady: new Map(
               cricketEntries.flatMap(([id, h]) =>
                 h && h.handsOn && h.role && h.canPlay && (h.ready > 0 || h.pending) ? [[id, { n: Math.max(1, h.ready), role: h.role }] as const] : [],
@@ -2475,6 +2491,7 @@ export function HomeScreen({
           setDoorsGames(doorsMap);
           setRouletteGames(rouletteMap);
           setSlotsGames(slotsMap);
+          setLongshotGames(longshotMap);
           setChessGames(chessMap);
           setPackGames(packMap);
           setPendingActions(actions);
@@ -2552,6 +2569,7 @@ export function HomeScreen({
         rouletteGames.get(primary.challenge.id) ?? null,
         chessGames.get(primary.challenge.id) ?? null,
         slotsGames.get(primary.challenge.id) ?? null,
+        longshotGames.get(primary.challenge.id) ?? null,
       )
     : null;
   // The one Tag-specific override of heroCopy's own headline — everyone
@@ -3262,6 +3280,8 @@ export function HomeScreen({
               />
             ) : primary.challenge.kind === 'chess' ? (
               <ChessPinned challenge={primary.challenge} board={primary.board} userId={user?.id ?? null} onOpen={sheetOpenPrimary} />
+            ) : primary.challenge.kind === 'longshot' ? (
+              <LongShotPinned challenge={primary.challenge} board={primary.board} userId={user?.id ?? null} onOpen={sheetOpenPrimary} />
             ) : primary.challenge.kind === 'slots' ? (
               <SlotsPinned challenge={primary.challenge} board={primary.board} userId={user?.id ?? null} onOpen={sheetOpenPrimary} />
             ) : primary.challenge.kind === 'roulette' ? (

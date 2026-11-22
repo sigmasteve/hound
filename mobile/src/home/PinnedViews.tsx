@@ -30,6 +30,8 @@ import { HoodMap } from '../components/PackWarsCard';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getRoulette, rouletteWaiting, type RouletteGame } from '../challenges/rouletteApi';
 import { getSlots, slotsWaiting, type SlotsGame } from '../challenges/slotsApi';
+import { getLongShot, longshotWaiting, yd, type LongShotGame } from '../challenges/longshotApi';
+import { LongShotRangeArt } from '../components/LongShotRange';
 import { teamName } from '../challenges/slots';
 import { SlotSymbolArt } from '../components/SlotSymbol';
 import { SEGMENTS, stakeName, taskTitle as rouletteTaskTitle } from '../challenges/roulette';
@@ -710,6 +712,50 @@ export function SlotsPinned({ challenge, userId, onOpen }: PinnedProps) {
         : game.board.slice(0, 3).map((r) => (
             <Row key={r.userId} rank={r.rank} name={r.userId === userId ? 'You' : first(r.name)} value={`${r.coins.toLocaleString('en-US')}`} me={r.userId === userId} styles={styles} />
           ))}
+    </Frame>
+  );
+}
+
+// ── Long Shot: the day's range, your points and place, rounds ready. ──
+
+export function LongShotPinned({ challenge, userId, onOpen }: PinnedProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const game = useLoad<LongShotGame>(`longshot:${challenge.id}`, () => getLongShot(challenge.id));
+  if (!game) {
+    return (
+      <Frame challenge={challenge} button="Open the range" onOpen={onOpen}>
+        <Text style={styles.note}>{game === undefined ? 'Loading the range…' : 'Open the challenge to see the range.'}</Text>
+      </Frame>
+    );
+  }
+  const ready = longshotWaiting(game);
+  const c = game.conditions;
+  return (
+    <Frame
+      challenge={challenge}
+      meta={c.world === 'moon' ? 'A Moon day: ⅙ gravity' : c.bounty && !game.goldTaker ? `Gold plate at ${yd(c.gold)} still up` : `${game.pool.toLocaleString('en-US')} Bones in the pool`}
+      button={ready > 0 ? `To the range · ${ready} ${ready === 1 ? 'round' : 'rounds'}` : 'Open the range'}
+      primaryButton={ready > 0}
+      onOpen={onOpen}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ width: 96, height: 72, borderRadius: 10, overflow: 'hidden' }}>
+          <LongShotRangeArt width={96} height={72} conditions={c} plates={game.plates} now={Date.now()} showHound={false} labels={false} showFlags={false} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.kicker}>{ready > 0 ? 'ROUNDS READY' : 'LONG SHOT'}</Text>
+          <Text style={styles.big}>
+            {game.me.points.toLocaleString('en-US')} points · {ordinal(game.me.rank)}
+          </Text>
+          <Text style={styles.small}>
+            {game.today.nextAt != null ? `${Math.max(0, game.today.nextAt - game.today.steps).toLocaleString('en-US')} steps to the next round` : 'All of today’s rounds are in'}
+          </Text>
+        </View>
+      </View>
+      {game.board.slice(0, 3).map((r) => (
+        <Row key={r.userId} rank={r.rank} name={r.userId === userId ? 'You' : first(r.name)} value={`${r.points.toLocaleString('en-US')}`} me={r.userId === userId} styles={styles} />
+      ))}
     </Frame>
   );
 }

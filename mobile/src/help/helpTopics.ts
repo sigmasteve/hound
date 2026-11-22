@@ -265,6 +265,23 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'longshot',
+      section: 'challenges',
+      title: 'Long Shot: steel plates on your steps',
+      summary: 'How rounds are earned, reading the wind, holding off, your data card, the gold plate and Moon days.',
+      steps: [
+        'Every 1,000 steps on your own day is a round, up to 10 a day. Rounds you don’t use carry over to tomorrow, up to 10. A 20-minute workout steadies your hold for the day: the reticle sways about half as much.',
+        'The range: steel plates at 300, 600, 1,000, 1,500, 2,000, 2,500 and 3,000 yards (out to the farthest the challenge’s maker picked), worth 1, 2, 3, 5, 8, 12 and 20 points. A hit in the center (the inner third) doubles. The day’s first round, if it hits, adds 2 (the cold bore).',
+        'Each day’s range is the same for everyone in the challenge: the air (the place’s altitude and the day’s temperature) and the wind. The wind gusts and isn’t the same near, mid and far: read the three flags. Thinner air (the desert, the mountain, a hot day) means less drop and less drift than the book says.',
+        'In the scope: it comes up dialed to your data card’s number for that plate. Drag the scope to hold off: into the wind, and up or down if your card’s off. The reticle’s marks are mils. The sway is quietest in the breath’s natural pause (the green part of the bar), and grows if you hold too long. Tap Fire.',
+        'Hound flies every round for real: the rifle’s speed and bullet, gravity, air drag, the wind as it flies, your sway and the rifle’s own spread (wider once the bullet is slower than sound). A miss tells you how far high or low and left or right it went.',
+        'Your data card: a hit writes the elevation that worked (the dial plus your hold) for that rifle, place and plate, and it goes with you to the next game. Until then it’s the book: sea level, 59°F, no wind.',
+        'Rifles: the .223, 6.5 Creedmoor and .308 from the start; the .338 Lapua at 40,000 steps in the game, the .375 CheyTac at 80,000 and the .50 BMG at 120,000. A longer barrel is faster (less drop and drift) but heavier, so it sways more.',
+        'The gold plate (2,500 yards on a 3,000-yard range) pays 150 Bones to the first hound to ring it each day, straight away. Moon days (Saturdays, or every day, if the maker picked it): ⅙ gravity, no air and no wind, plates from 1,000 to 5,000 yards, and a data card of its own.',
+        'When it ends, the prize pool is paid by points: 2,500 Bones with 11 or more hounds, 200 a hound below that (a Global can have its own). 1st 30%, 2nd 18%, 3rd 12%, 4th to 10th 4% each, and the rest shared by everyone else who shot on 3 days. Nothing in Long Shot takes money or Bones in.',
+      ],
+    },
+    {
       id: 'cricket',
       section: 'challenges',
       title: 'Cricket: bat and bowl yourself',

@@ -87,7 +87,8 @@ export type ChallengeKind =
   | 'titlebout'
   | 'roulette'
   | 'chess'
-  | 'slots';
+  | 'slots'
+  | 'longshot';
 
 export interface ChallengeCard {
   id: string;
@@ -308,6 +309,14 @@ export const CHALLENGE_TYPES: {
     tint: '#3a2f14',
     iconColor: '#f0c24a',
   },
+  // Solo or a group (0247).
+  {
+    id: 'longshot',
+    name: 'Long Shot',
+    desc: 'Steel plates from 300 to 3,000 yards, played on your steps: every 1,000 steps is a round, up to 10 a day. Read the wind flags, hold off on the reticle and fire in the breath’s pause; the server flies every round for real (drop, wind drift, the rifle and barrel you pick). Center hits double, the day’s first hit adds 2, the gold plate pays Bones to the first to ring it, and Moon days have ⅙ gravity. Most points wins the pool.',
+    tint: '#3b3322',
+    iconColor: '#f0c27a',
+  },
   // Solo, one on one or a group (0236).
   {
     id: 'roulette',
@@ -354,7 +363,7 @@ export const CHALLENGE_GROUPS: {
     sub: 'Friends, family or your club, all at once.',
     sections: [
       { title: 'Races', kinds: ['steps', 'distance', 'journey'] },
-      { title: 'Games and team sports', kinds: ['roulette', 'slots', 'hunt', 'tag', 'bingo', 'houndopoly', 'soccer', 'cricket', 'packs'] },
+      { title: 'Games and team sports', kinds: ['roulette', 'slots', 'longshot', 'hunt', 'tag', 'bingo', 'houndopoly', 'soccer', 'cricket', 'packs'] },
     ],
   },
   { id: 'own', label: 'On your own', chip: 'On your own', sub: 'Keep yourself honest. Friends can watch and cheer.', sections: [{ kinds: ['streak', 'seventyfive', 'checklist'] }] },
@@ -379,6 +388,7 @@ export const GAME_TAGS: Partial<Record<ChallengeKind, { text: string; tone: Game
   roulette: [{ text: 'A task a day', tone: 'you' }, { text: 'Solo, 1 on 1 or a group', tone: 'group' }],
   chess: [{ text: 'You move every piece', tone: 'you' }, { text: 'A friend or the bot', tone: 'one' }],
   slots: [{ text: 'Spins from steps', tone: 'you' }, { text: 'Solo or packs', tone: 'team' }],
+  longshot: [{ text: 'You take every shot', tone: 'you' }, { text: 'Any group', tone: 'group' }],
   soccer: [{ text: 'Teams of 1–9', tone: 'team' }],
   cricket: [{ text: 'Teams of 1–9', tone: 'team' }],
   packs: [{ text: 'Four packs', tone: 'team' }],
