@@ -13,11 +13,29 @@ import { ChessBoardPicture } from '../screens/ChessScreen';
 // and the pieces they've freed today, the last few moves, and the puzzle
 // of the day, under the board as it stands (tap it to play). "Your move"
 // pins to the bottom of the page; the board to play on is ChessScreen.
-export function ChessCard({ game, onPlay, onPuzzle }: { game: ChessGame | null; onPlay: () => void; onPuzzle: () => void }) {
+export function ChessCard({
+  game,
+  onPlay,
+  onPuzzle,
+  onShare,
+}: {
+  game: ChessGame | null;
+  onPlay: () => void;
+  onPuzzle: () => void;
+  // Over (0244): share the result, with the final board.
+  onShare?: () => void;
+}) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [boardW, setBoardW] = useState(0);
-  const pinned = usePinnedAction(game?.myTurn ? { label: game.inCheck ? 'You’re in check: your move' : 'Your move', onPress: onPlay } : null);
+  const iWon = !!game && game.status === 'final' && game.result !== 'draw' && (game.result === 'white') === (game.me === 'w');
+  const pinned = usePinnedAction(
+    game?.myTurn
+      ? { label: game.inCheck ? 'You’re in check: your move' : 'Your move', onPress: onPlay }
+      : game?.status === 'final' && onShare
+        ? { label: iWon ? 'Share your win' : 'Share the game', onPress: onShare }
+        : null,
+  );
 
   if (!game) {
     return (
