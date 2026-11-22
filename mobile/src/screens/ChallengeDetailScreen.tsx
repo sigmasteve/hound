@@ -2283,7 +2283,8 @@ export function ChallengeDetailScreen({
 
   const startRematch = () => {
     if (!user?.id) return;
-    onRematch(buildRematchDraft({ challenge, participants, bots, friends, myUserId: user.id }));
+    const draft = buildRematchDraft({ challenge, participants, bots, friends, myUserId: user.id });
+    onRematch(challenge.kind === 'chess' && chessGame?.bot ? { ...draft, chessBot: chessGame.bot } : draft);
   };
 
   // Game of Tag's own status. tagMinutesLeft floors at 0 rather than
@@ -3018,7 +3019,7 @@ export function ChallengeDetailScreen({
           )}
 
           {challenge.kind === 'chess' && (
-            <ChessCard game={chessGame} onPlay={() => onPlayChess?.('game')} onPuzzle={() => onPlayChess?.('puzzle')} onShare={myResultLine ? shareResult : undefined} />
+            <ChessCard game={chessGame} onPlay={() => onPlayChess?.('game')} onPuzzle={() => onPlayChess?.('puzzle')} onShare={myResultLine ? shareResult : undefined} onRematch={chessGame?.status === 'final' ? startRematch : undefined} />
           )}
 
           {challenge.kind === 'slots' && <SlotsCard challengeId={challengeId} game={slots} onPlay={() => onPlaySlots?.()} onOpenPrizes={() => onOpenPrizes?.()} />}

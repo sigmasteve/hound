@@ -16,6 +16,8 @@ import type { Friend } from '../friends/types';
 // just a starting value: the wizard stays fully editable.
 export interface RematchDraft {
   sourceName: string;
+  // Hound Chess against the bot: the same level again (0244).
+  chessBot?: 'easy' | 'medium' | 'hard';
   kind: ChallengeKind;
   name: string;
   durationDays: number;

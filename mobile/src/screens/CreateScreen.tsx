@@ -315,7 +315,7 @@ export function CreateScreen({
   // H-O-R-S-E (0196): the word.
   const [horseWord, setHorseWord] = useState<HorseWord>('HORSE');
   // Hound Chess (0238): a friend, or the Hound bot at a level.
-  const [chessOpp, setChessOpp] = useState<'friend' | ChessBotLevel>('friend');
+  const [chessOpp, setChessOpp] = useState<'friend' | ChessBotLevel>(rematch?.chessBot ?? 'friend');
   // Paw Slots (0242): solo or 2 to 4 packs, and a Global's pool.
   const [slotsTeams, setSlotsTeams] = useState<'0' | '2' | '3' | '4'>('0');
   const [slotsPoolText, setSlotsPoolText] = useState('2500');
