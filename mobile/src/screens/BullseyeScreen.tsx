@@ -482,10 +482,10 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
     const iyM = (shot.yCm - (shot.kind === 'balloon' || shot.kind === 'gold' ? shot.balloon.yCm : 0)) / 100;
     const clout = shot.kind === 'clout';
     const lat = ixM * Math.pow(p, 1.5);
-    const tx = cx - lat * s;
-    const ty = cy + h * s + (clout ? 0 : iyM * p * s);
+    const tx = fin(cx - lat * s);
+    const ty = fin(cy + h * s + (clout ? 0 : iyM * p * s));
     const horizonY = fH * 0.3 + h * 10;
-    const faceR = (shot.face / 200) * s;
+    const faceR = fin((shot.face / 200) * s);
     const stripes: { y: number; hh: number }[] = [];
     const off = (p * dist) % 6;
     for (let k = 0; k < 10; k++) {
@@ -651,6 +651,10 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
 
   return null;
 }
+
+// A safety net for the drawing: a NaN or infinity in an SVG coordinate
+// crashes react-native-svg on a phone, so anything not finite is drawn as 0.
+const fin = (n: number) => (Number.isFinite(n) ? n : 0);
 
 function flightMs(tof: number): number {
   return Math.max(1500, Math.min(4500, tof * 1000 * SLOW));
