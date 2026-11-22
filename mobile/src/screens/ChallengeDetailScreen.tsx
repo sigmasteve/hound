@@ -223,6 +223,7 @@ import { RouletteCard } from '../components/RouletteCard';
 import { SlotsCard } from '../components/SlotsCard';
 import { getSlots, type SlotsGame } from '../challenges/slotsApi';
 import { ChessCard } from '../components/ChessCard';
+import { ChessBoardPicture } from './ChessScreen';
 import { getChess, type ChessGame } from '../challenges/chessApi';
 import { getRoulette, type RouletteGame } from '../challenges/rouletteApi';
 import { claimDoorSteps, getDoors, openDoor, todaysDoor, type DoorsGame } from '../challenges/doorsApi';
@@ -2149,7 +2150,9 @@ export function ChallengeDetailScreen({
         const g = chessGame;
         if (!g || g.status !== 'final' || !g.me) return null;
         const won = g.result !== 'draw' && (g.result === 'white') === (g.me === 'w');
-        return { type: 'chess', result: g.result === 'draw' ? 'draw' : won ? 'won' : 'lost' };
+        const how =
+          g.method === 'mate' ? 'by checkmate' : g.method === 'resign' ? 'by resignation' : g.method === 'timeout' ? 'on time' : undefined;
+        return { type: 'chess', result: g.result === 'draw' ? 'draw' : won ? 'won' : 'lost', how };
       }
       case 'slots': {
         const g = slots;
@@ -2234,6 +2237,18 @@ export function ChallengeDetailScreen({
       </>
     ) : challenge.kind === 'tictacgo' && tttGame ? (
       <TicTacGoBoard game={tttGame} compact />
+    ) : challenge.kind === 'chess' && chessGame && chessGame.status === 'final' ? (
+      // The final position, from the viewer's side (0244), sized to the
+      // share card's frame (250 high).
+      <View style={{ alignItems: 'center' }}>
+        <ChessBoardPicture
+          fen={chessGame.fen}
+          me={chessGame.me === 'b' ? 'b' : 'w'}
+          last={chessGame.history.slice(-1)[0] ?? null}
+          inCheck={chessGame.method === 'mate'}
+          width={266}
+        />
+      </View>
     ) : challenge.kind === 'baseball' && baseball.game ? (
       <>
         <BaseballLineScore game={baseball.game} innings={baseball.innings} people={sharePeople} userId={user?.id} />
@@ -3003,7 +3018,7 @@ export function ChallengeDetailScreen({
           )}
 
           {challenge.kind === 'chess' && (
-            <ChessCard game={chessGame} onPlay={() => onPlayChess?.('game')} onPuzzle={() => onPlayChess?.('puzzle')} />
+            <ChessCard game={chessGame} onPlay={() => onPlayChess?.('game')} onPuzzle={() => onPlayChess?.('puzzle')} onShare={myResultLine ? shareResult : undefined} />
           )}
 
           {challenge.kind === 'slots' && <SlotsCard challengeId={challengeId} game={slots} onPlay={() => onPlaySlots?.()} onOpenPrizes={() => onOpenPrizes?.()} />}
