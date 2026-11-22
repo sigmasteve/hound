@@ -81,6 +81,8 @@ export type RootStackParamList = {
   Slots: { challengeId: string };
   // Long Shot's range (0247).
   LongShot: { challengeId: string };
+  // Bullseye's field (0249).
+  Bullseye: { challengeId: string };
   // Hound Chess's board (0238), or the puzzle of the day.
   Chess: { challengeId?: string; mode?: 'game' | 'puzzle' };
   // H-O-R-S-E, calling your own shots (0209).

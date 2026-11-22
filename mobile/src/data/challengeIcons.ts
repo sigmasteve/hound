@@ -1,6 +1,7 @@
 import type React from 'react';
 import {
   TargetIcon,
+  CrosshairIcon,
   BaseballIcon,
   BaseballCapIcon,
   BaseballHelmetIcon,
@@ -60,7 +61,8 @@ export const CHALLENGE_KIND_ICON: Record<ChallengeKind, React.ComponentType<any>
   roulette: SpinnerBallIcon,
   chess: CastleTurretIcon,
   slots: CoinsIcon,
-  longshot: TargetIcon,
+  longshot: CrosshairIcon,
+  bullseye: TargetIcon,
 };
 
 // A build only ever ships knowing the challenge kinds that existed when

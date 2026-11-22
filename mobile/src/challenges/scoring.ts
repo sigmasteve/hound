@@ -47,6 +47,8 @@ export function usesDeviceSteps(challenge: Challenge): boolean {
     challenge.kind === 'slots' ||
     // Long Shot's rounds come from today's steps (0247).
     challenge.kind === 'longshot' ||
+    // Bullseye's arrows come from today's steps (0249).
+    challenge.kind === 'bullseye' ||
     (challenge.kind === 'hunt' && challenge.scoringMethod === 'device_steps') ||
     ((challenge.kind === 'distance' || challenge.kind === 'tag') && challenge.distanceGoalUnit === 'steps')
   );

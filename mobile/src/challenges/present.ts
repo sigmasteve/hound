@@ -214,6 +214,10 @@ export function toChallengeCard(
     // The board lives in chess_games, on the detail screen.
     stat = '1';
     statLabel = 'on 1 · your steps free your pieces';
+  } else if (challenge.kind === 'bullseye') {
+    // The points live in bullseye_players, on the detail screen.
+    stat = String(challenge.durationDays);
+    statLabel = 'days · most points wins';
   } else if (challenge.kind === 'longshot') {
     // The points live in longshot_players, on the detail screen.
     stat = String(challenge.durationDays);

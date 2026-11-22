@@ -222,6 +222,8 @@ import { DoorsCard } from '../components/DoorsCard';
 import { RouletteCard } from '../components/RouletteCard';
 import { SlotsCard } from '../components/SlotsCard';
 import { LongShotCard } from '../components/LongShotCard';
+import { BullseyeCard } from '../components/BullseyeCard';
+import { getBullseye, type BullseyeGame } from '../challenges/bullseyeApi';
 import { getLongShot, type LongShotGame } from '../challenges/longshotApi';
 import { getSlots, type SlotsGame } from '../challenges/slotsApi';
 import { ChessCard } from '../components/ChessCard';
@@ -287,6 +289,7 @@ export function ChallengeDetailScreen({
   onSpinRoulette,
   onPlaySlots,
   onPlayLongShot,
+  onPlayBullseye,
   onOpenPrizes,
   onPlayChess,
   onShootHorse,
@@ -309,6 +312,8 @@ export function ChallengeDetailScreen({
   onPlaySlots?: () => void;
   // Long Shot (0247): opens the range.
   onPlayLongShot?: () => void;
+  // Bullseye (0249): opens the field.
+  onPlayBullseye?: () => void;
   // Paw Slots over: the Kennel's Prize Counter (0243).
   onOpenPrizes?: () => void;
   // Hound Chess (0238): the board, or the puzzle of the day.
@@ -543,6 +548,8 @@ export function ChallengeDetailScreen({
   const [slots, setSlots] = useState<SlotsGame | null>(null);
   // Long Shot (0247): the day's range, the standings, the prizes.
   const [longshot, setLongshot] = useState<LongShotGame | null>(null);
+  // Bullseye (0249): the day's field, the standings, the prizes.
+  const [bullseye, setBullseye] = useState<BullseyeGame | null>(null);
   // Hound Chess (0238): the board and whose move.
   const [chessGame, setChessGame] = useState<ChessGame | null>(null);
   const [houndName, setHoundName] = useState('your hound');
@@ -1056,6 +1063,19 @@ export function ChallengeDetailScreen({
     useCallback(() => {
       if (challenge?.kind === 'slots') loadSlots();
     }, [challenge?.kind, loadSlots]),
+  );
+  // Bullseye: on every visit (back from the field, the points moved).
+  const loadBullseye = useCallback(async () => {
+    try {
+      setBullseye(await getBullseye(challengeId));
+    } catch {
+      // Offline, or not open to us: the card waits.
+    }
+  }, [challengeId]);
+  useFocusEffect(
+    useCallback(() => {
+      if (challenge?.kind === 'bullseye') loadBullseye();
+    }, [challenge?.kind, loadBullseye]),
   );
   // Long Shot: on every visit (back from the range, the points moved).
   const loadLongshot = useCallback(async () => {
@@ -1842,6 +1862,7 @@ export function ChallengeDetailScreen({
     challenge.kind === 'roulette' ||
     challenge.kind === 'slots' ||
     challenge.kind === 'longshot' ||
+    challenge.kind === 'bullseye' ||
     challenge.kind === 'chess'
       ? { standings: null, unit: null }
       : challenge.kind === 'bingo'
@@ -2174,6 +2195,11 @@ export function ChallengeDetailScreen({
         const how =
           g.method === 'mate' ? 'by checkmate' : g.method === 'resign' ? 'by resignation' : g.method === 'timeout' ? 'on time' : undefined;
         return { type: 'chess', result: g.result === 'draw' ? 'draw' : won ? 'won' : 'lost', how };
+      }
+      case 'bullseye': {
+        const g = bullseye;
+        if (!g || !g.me.joined || g.me.arrows === 0) return null;
+        return { type: 'ranked', rank: g.me.rank, of: g.players, metric: `${g.me.points} points` };
       }
       case 'longshot': {
         const g = longshot;
@@ -3048,6 +3074,8 @@ export function ChallengeDetailScreen({
             <ChessCard game={chessGame} onPlay={() => onPlayChess?.('game')} onPuzzle={() => onPlayChess?.('puzzle')} onShare={myResultLine ? shareResult : undefined} onRematch={chessGame?.status === 'final' ? startRematch : undefined} />
           )}
 
+          {challenge.kind === 'bullseye' && <BullseyeCard game={bullseye} onPlay={() => onPlayBullseye?.()} />}
+
           {challenge.kind === 'longshot' && <LongShotCard game={longshot} onPlay={() => onPlayLongShot?.()} />}
 
           {challenge.kind === 'slots' && <SlotsCard challengeId={challengeId} game={slots} onPlay={() => onPlaySlots?.()} onOpenPrizes={() => onOpenPrizes?.()} />}
@@ -3264,7 +3292,7 @@ export function ChallengeDetailScreen({
             />
           )}
 
-          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && challenge.kind !== 'derby' && challenge.kind !== 'shootout' && challenge.kind !== 'bout' && challenge.kind !== 'titlebout' && challenge.kind !== 'roulette' && challenge.kind !== 'longshot' && challenge.kind !== 'chess' && challenge.kind !== 'slots' && (
+          {challenge.kind !== 'tictacgo' && challenge.kind !== 'seventyfive' && challenge.kind !== 'checklist' && challenge.kind !== 'houndopoly' && challenge.kind !== 'doors' && challenge.kind !== 'packs' && challenge.kind !== 'derby' && challenge.kind !== 'shootout' && challenge.kind !== 'bout' && challenge.kind !== 'titlebout' && challenge.kind !== 'roulette' && challenge.kind !== 'longshot' && challenge.kind !== 'bullseye' && challenge.kind !== 'chess' && challenge.kind !== 'slots' && (
             <Card style={{ gap: 12 }} elevated={false}>
               <View style={styles.leaderboardHeader}>
                 <TrophyIcon size={16} color={colors.accent} />

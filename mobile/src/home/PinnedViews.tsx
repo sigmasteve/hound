@@ -32,6 +32,8 @@ import { getRoulette, rouletteWaiting, type RouletteGame } from '../challenges/r
 import { getSlots, slotsWaiting, type SlotsGame } from '../challenges/slotsApi';
 import { getLongShot, longshotWaiting, yd, type LongShotGame } from '../challenges/longshotApi';
 import { LongShotRangeArt } from '../components/LongShotRange';
+import { getBullseye, bullseyeWaiting, type BullseyeGame } from '../challenges/bullseyeApi';
+import { BullseyeFieldArt } from '../components/BullseyeField';
 import { teamName } from '../challenges/slots';
 import { SlotSymbolArt } from '../components/SlotSymbol';
 import { SEGMENTS, stakeName, taskTitle as rouletteTaskTitle } from '../challenges/roulette';
@@ -712,6 +714,50 @@ export function SlotsPinned({ challenge, userId, onOpen }: PinnedProps) {
         : game.board.slice(0, 3).map((r) => (
             <Row key={r.userId} rank={r.rank} name={r.userId === userId ? 'You' : first(r.name)} value={`${r.coins.toLocaleString('en-US')}`} me={r.userId === userId} styles={styles} />
           ))}
+    </Frame>
+  );
+}
+
+// ── Bullseye: the day's field, your points and place, arrows ready. ──
+
+export function BullseyePinned({ challenge, userId, onOpen }: PinnedProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const game = useLoad<BullseyeGame>(`bullseye:${challenge.id}`, () => getBullseye(challenge.id));
+  if (!game) {
+    return (
+      <Frame challenge={challenge} button="Open the field" onOpen={onOpen}>
+        <Text style={styles.note}>{game === undefined ? 'Loading the field…' : 'Open the challenge to see the field.'}</Text>
+      </Frame>
+    );
+  }
+  const ready = bullseyeWaiting(game);
+  const c = game.conditions;
+  return (
+    <Frame
+      challenge={challenge}
+      meta={c.world === 'moon' ? 'A Moon day: ⅙ gravity' : c.balloons ? 'Balloon day!' : c.bounty && !game.goldTaker ? 'The gold balloon is still up' : `${game.pool.toLocaleString('en-US')} Bones in the pool`}
+      button={ready > 0 ? `To the field · ${ready} ${ready === 1 ? 'arrow' : 'arrows'}` : 'Open the field'}
+      primaryButton={ready > 0}
+      onOpen={onOpen}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ width: 96, height: 72, borderRadius: 10, overflow: 'hidden' }}>
+          <BullseyeFieldArt width={96} height={72} conditions={c} targets={game.targets} now={Date.now()} showHound={false} labels={false} showSocks={false} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.kicker}>{ready > 0 ? 'ARROWS READY' : 'BULLSEYE'}</Text>
+          <Text style={styles.big}>
+            {game.me.points.toLocaleString('en-US')} points · {ordinal(game.me.rank)}
+          </Text>
+          <Text style={styles.small}>
+            {game.today.nextAt != null ? `${Math.max(0, game.today.nextAt - game.today.steps).toLocaleString('en-US')} steps to the next end` : 'All of today’s ends are in'}
+          </Text>
+        </View>
+      </View>
+      {game.board.slice(0, 3).map((r) => (
+        <Row key={r.userId} rank={r.rank} name={r.userId === userId ? 'You' : first(r.name)} value={`${r.points.toLocaleString('en-US')}`} me={r.userId === userId} styles={styles} />
+      ))}
     </Frame>
   );
 }

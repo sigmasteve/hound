@@ -28,7 +28,8 @@ export type ChallengeKind =
   | 'roulette'
   | 'chess'
   | 'slots'
-  | 'longshot';
+  | 'longshot'
+  | 'bullseye';
 
 // A hunt has exactly one Hunter and one or more Hunted — never set for
 // any other challenge kind. 'zombie' is a one-way transition a Hunted
