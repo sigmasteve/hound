@@ -26,6 +26,7 @@ import {
   type BullseyeGame,
   type BullseyeResult,
 } from '../challenges/bullseyeApi';
+import { BoardLink } from '../components/BoardLink';
 
 // Bullseye (0249): the field, drawing and aiming, the arrow's flight (the
 // fun part: a slow-motion chase behind the arrow, the target growing as
@@ -203,10 +204,12 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
         <ArrowLeftIcon size={20} color={colors.accentActive} />
       </Pressable>
       <View style={{ flex: 1 }}>
-        <Text style={styles.kicker} numberOfLines={1}>
-          BULLSEYE{game.dayNo >= 1 && game.dayNo <= game.days ? ` · DAY ${game.dayNo} OF ${game.days}` : ''}
-          {moon ? ' · MOON DAY' : cond.balloons ? ' · BALLOON DAY' : ''}
-        </Text>
+        <BoardLink challengeId={challengeId}>
+          <Text style={styles.kicker} numberOfLines={1}>
+            BULLSEYE{game.dayNo >= 1 && game.dayNo <= game.days ? ` · DAY ${game.dayNo} OF ${game.days}` : ''}
+            {moon ? ' · MOON DAY' : cond.balloons ? ' · BALLOON DAY' : ''}
+          </Text>
+        </BoardLink>
         <Text style={styles.title}>
           {mode === 'field' ? (moon ? 'The Moon field' : 'The field') : mode === 'draw' ? 'Draw and aim' : aim ? targetName(aim) : ''}
         </Text>

@@ -35,6 +35,7 @@ import {
   type ChessMoveOption,
   type ChessPuzzle,
 } from '../challenges/chessApi';
+import { BoardLink } from '../components/BoardLink';
 
 // Hound Chess (0238; mockup claude.ai/artifact/HfDqdw7FaXZmCeDy68pJcX). The
 // board in 2.5D, seen from behind your side with the stand past the far
@@ -541,9 +542,11 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
             <ArrowLeftIcon size={20} color={colors.accentActive} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker} numberOfLines={1}>
-              {kicker}
-            </Text>
+            <BoardLink challengeId={mode === 'game' ? challengeId : undefined}>
+              <Text style={styles.kicker} numberOfLines={1}>
+                {kicker}
+              </Text>
+            </BoardLink>
             <Text style={styles.title}>{title}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>

@@ -29,6 +29,7 @@ import {
   sponsorColor,
   type ChallengeSponsor,
 } from '../challenges/globalChallenges';
+import { BoardLink } from '../components/BoardLink';
 
 // Golf, played a shot at a time (0200_golf.sql), the way the prototype
 // Steve played works: your steps since your last shot are yards, your
@@ -424,10 +425,12 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
             <ArrowLeftIcon size={20} color={colors.accentActive} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker} numberOfLines={1}>
-              {game.course.name.toUpperCase()} · HOLE {holeNo} · {hole.name.toUpperCase()}
-              {hole.slope ? ` · ${hole.slope.toUpperCase()}` : ''}
-            </Text>
+            <BoardLink challengeId={challengeId}>
+              <Text style={styles.kicker} numberOfLines={1}>
+                {game.course.name.toUpperCase()} · HOLE {holeNo} · {hole.name.toUpperCase()}
+                {hole.slope ? ` · ${hole.slope.toUpperCase()}` : ''}
+              </Text>
+            </BoardLink>
             <Text style={styles.title} numberOfLines={1}>
               Par {hole.par} · {hole.length} yd
             </Text>

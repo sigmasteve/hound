@@ -21,6 +21,7 @@ import {
   type HoopsLiveShot,
   type HoopsShotResult,
 } from '../challenges/hoopsApi';
+import { BoardLink } from '../components/BoardLink';
 
 // Hoops, shot by shot (0206), for a game made with "Take my own shots":
 // your steps so far today earn the shots, and you take them here. Pick a
@@ -457,10 +458,12 @@ export function HoopsShootScreen({ challengeId, onBack }: { challengeId: string;
             <ArrowLeftIcon size={20} color={colors.accentActive} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker} numberOfLines={1}>
-              HOOPS{live.label ? ` · ${live.label.toUpperCase()}` : ''}
-              {defName ? ` · YOU VS ${defName.toUpperCase()}` : ''}
-            </Text>
+            <BoardLink challengeId={challengeId}>
+              <Text style={styles.kicker} numberOfLines={1}>
+                HOOPS{live.label ? ` · ${live.label.toUpperCase()}` : ''}
+                {defName ? ` · YOU VS ${defName.toUpperCase()}` : ''}
+              </Text>
+            </BoardLink>
             <Text style={styles.title}>Your shots</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>

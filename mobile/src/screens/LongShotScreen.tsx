@@ -25,6 +25,7 @@ import {
   type LongShotResult,
   type LongShotRifle,
 } from '../challenges/longshotApi';
+import { BoardLink } from '../components/BoardLink';
 
 // Long Shot (0247): the range, the scope and the shot. The server flies
 // every round; this screen draws the day's range (2.5D, LongShotRange),
@@ -195,10 +196,12 @@ export function LongShotScreen({ challengeId, onBack }: { challengeId: string; o
         <ArrowLeftIcon size={20} color={colors.accentActive} />
       </Pressable>
       <View style={{ flex: 1 }}>
-        <Text style={styles.kicker} numberOfLines={1}>
-          LONG SHOT{game.dayNo >= 1 && game.dayNo <= game.days ? ` · DAY ${game.dayNo} OF ${game.days}` : ''}
-          {moon ? ' · MOON DAY' : ''}
-        </Text>
+        <BoardLink challengeId={challengeId}>
+          <Text style={styles.kicker} numberOfLines={1}>
+            LONG SHOT{game.dayNo >= 1 && game.dayNo <= game.days ? ` · DAY ${game.dayNo} OF ${game.days}` : ''}
+            {moon ? ' · MOON DAY' : ''}
+          </Text>
+        </BoardLink>
         <Text style={styles.title}>{mode === 'range' ? (moon ? 'The Moon range' : 'The range') : mode === 'scope' ? 'In the scope' : yd(aim?.dist ?? 0)}</Text>
       </View>
       <View style={{ alignItems: 'flex-end' }}>

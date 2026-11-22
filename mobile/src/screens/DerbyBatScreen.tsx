@@ -60,6 +60,7 @@ import {
   zoneBox,
   zonePoint,
 } from '../components/baseballSwing';
+import { BoardLink } from '../components/BoardLink';
 
 // The Hound Home Run Derby (0211), at the plate. Baseball batting's view
 // (0207): the ballpark from behind home plate, facing the mound, every
@@ -467,9 +468,11 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
             <ArrowLeftIcon size={20} color={colors.accentActive} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker} numberOfLines={1}>
-              HOME RUN DERBY{live.dayNo > 0 ? ` · DAY ${live.dayNo} OF ${live.days}` : ''}
-            </Text>
+            <BoardLink challengeId={challengeId}>
+              <Text style={styles.kicker} numberOfLines={1}>
+                HOME RUN DERBY{live.dayNo > 0 ? ` · DAY ${live.dayNo} OF ${live.days}` : ''}
+              </Text>
+            </BoardLink>
             <Text style={styles.title}>At the plate</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }} accessible accessibilityLabel={`${live.me.hrs} home runs`}>

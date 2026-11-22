@@ -28,6 +28,7 @@ import {
 } from '../challenges/slots';
 import { buySlots, getSlots, spinSlots, type SlotsGame } from '../challenges/slotsApi';
 import { SlotSymbolArt } from '../components/SlotSymbol';
+import { BoardLink } from '../components/BoardLink';
 
 // Paw Slots' machine (0242; mockup claude.ai/artifact/PQ5Sv4xveiiTj5T9o39Jzh).
 // Spins come from steps (and a workout, and Paw Coins); pick 1, 3 or 5
@@ -303,10 +304,12 @@ export function SlotsScreen({ challengeId, onBack }: { challengeId: string; onBa
             <ArrowLeftIcon size={20} color={colors.accentActive} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker} numberOfLines={1}>
-              PAW SLOTS{game.dayNo >= 1 && game.dayNo <= game.days ? ` · DAY ${game.dayNo} OF ${game.days}` : ''}
-              {game.me.team ? ` · ${teamName(game.me.team).toUpperCase()}` : ''}
-            </Text>
+            <BoardLink challengeId={challengeId}>
+              <Text style={styles.kicker} numberOfLines={1}>
+                PAW SLOTS{game.dayNo >= 1 && game.dayNo <= game.days ? ` · DAY ${game.dayNo} OF ${game.days}` : ''}
+                {game.me.team ? ` · ${teamName(game.me.team).toUpperCase()}` : ''}
+              </Text>
+            </BoardLink>
             <Text style={styles.title}>The machine</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>

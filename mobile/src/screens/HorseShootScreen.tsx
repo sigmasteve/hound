@@ -34,6 +34,7 @@ import {
   type HorseFarKind,
   type HorseSpot,
 } from '../challenges/horseLive';
+import { BoardLink } from '../components/BoardLink';
 
 // H-O-R-S-E, call your shot (0209), for a game made with "Take my own
 // shots": turn by turn, 24 hours a turn. On your turn to set, tap anywhere
@@ -507,9 +508,11 @@ export function HorseShootScreen({ challengeId, onBack }: { challengeId: string;
             <ArrowLeftIcon size={20} color={colors.accentActive} />
           </Pressable>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.kicker} numberOfLines={1}>
-              H-O-R-S-E · YOU VS {themName.toUpperCase()}
-            </Text>
+            <BoardLink challengeId={challengeId}>
+              <Text style={styles.kicker} numberOfLines={1}>
+                H-O-R-S-E · YOU VS {themName.toUpperCase()}
+              </Text>
+            </BoardLink>
             <View style={styles.titleRow}>
               <Text style={styles.title} numberOfLines={1}>
                 {title}

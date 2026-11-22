@@ -25,6 +25,7 @@ import {
   type RingPunchResult,
   type SlipDir,
 } from '../challenges/boutApi';
+import { BoardLink } from '../components/BoardLink';
 
 // Hound Bout's ring (0230; the playable prototype is
 // claude.ai/artifact/UhZUFuQSocRai4ekSoXXy4), for Hound Bout and the
@@ -453,9 +454,11 @@ export function BoutRingScreen({
             <ArrowLeftIcon size={20} color={colors.accentActive} />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker} numberOfLines={1}>
-              {kicker}
-            </Text>
+            <BoardLink challengeId={challengeId}>
+              <Text style={styles.kicker} numberOfLines={1}>
+                {kicker}
+              </Text>
+            </BoardLink>
             <Text style={styles.title}>{mode === 'throw' ? 'In the ring' : 'Incoming'}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }} accessible accessibilityLabel={`Today so far: you ${live.tally.mine}, ${oppName} ${live.tally.theirs}`}>
