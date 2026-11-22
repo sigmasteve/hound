@@ -228,8 +228,71 @@ export async function newClubCode(id: string): Promise<string> {
   return rpc<string>('new_club_code', { p_club_id: id });
 }
 
-export async function joinClubChallenge(clubId: string, challengeId: string): Promise<void> {
-  await rpc('join_club_challenge', { p_club_id: clubId, p_challenge_id: challengeId });
+// via: where they joined from, for Admin (0252): the club's page or Needs you.
+export async function joinClubChallenge(clubId: string, challengeId: string, via?: 'needs_you'): Promise<void> {
+  await rpc('join_club_challenge', via ? { p_club_id: clubId, p_challenge_id: challengeId, p_via: via } : { p_club_id: clubId, p_challenge_id: challengeId });
+}
+
+// A club game waiting on you in Today's Needs you (0252): posted to one of
+// your (unmuted) clubs by someone else, still open to join, not joined,
+// not invited to directly, and not put off with Not now.
+export interface ClubWaiting {
+  clubId: string;
+  clubName: string;
+  clubSport: ClubSport;
+  clubColor: ClubColor;
+  challengeId: string;
+  challengeName: string;
+  kind: ChallengeKind;
+  startsAt: string;
+  endsAt: string;
+  closesAt: string;
+  postedBy: string | null;
+  players: number;
+}
+
+export async function getClubWaiting(): Promise<ClubWaiting[]> {
+  return ((await rpc<any[]>('club_waiting')) ?? []).map((r) => ({
+    clubId: r.club_id,
+    clubName: r.club_name,
+    clubSport: r.club_sport,
+    clubColor: r.club_color,
+    challengeId: r.challenge_id,
+    challengeName: r.challenge_name,
+    kind: r.kind,
+    startsAt: r.starts_at,
+    endsAt: r.ends_at,
+    closesAt: r.closes_at,
+    postedBy: r.posted_by ?? null,
+    players: Number(r.players ?? 0),
+  }));
+}
+
+// Not now: it leaves Needs you, and stays on the club's page.
+export async function dismissClubWaiting(challengeId: string): Promise<void> {
+  await rpc('dismiss_club_waiting', { p_challenge_id: challengeId });
+}
+
+export interface ClubNeedsOverview {
+  peopleWaiting: number;
+  gamesWaiting: number;
+  joinedNeedsYou30d: number;
+  joinedClubPage30d: number;
+  peopleNeedsYou: number;
+  notNow30d: number;
+}
+
+export async function getClubNeedsOverview(): Promise<ClubNeedsOverview> {
+  const d = (await rpc('admin_club_needs_overview')) ?? {};
+  const n = (v: unknown) => Number(v ?? 0);
+  return {
+    peopleWaiting: n(d.people_waiting),
+    gamesWaiting: n(d.games_waiting),
+    joinedNeedsYou30d: n(d.joined_needs_you_30d),
+    joinedClubPage30d: n(d.joined_club_page_30d),
+    peopleNeedsYou: n(d.people_needs_you),
+    notNow30d: n(d.not_now_30d),
+  };
 }
 
 export async function removeClubPost(clubId: string, challengeId: string): Promise<void> {
@@ -316,6 +379,8 @@ export interface ClubsOverview {
   // 0187
   invites30d: number;
   invitesAccepted30d: number;
+  // 0252: club games in Needs you (null before 0252 is run).
+  needs?: ClubNeedsOverview | null;
   bySport: Partial<Record<ClubSport, number>>;
   newest: { id: string; name: string; sport: ClubSport; city: string | null; isPublic: boolean; createdAt: string; members: number; posts: number; owner: string | null }[];
 }
