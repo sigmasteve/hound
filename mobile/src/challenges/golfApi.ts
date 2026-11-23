@@ -336,6 +336,10 @@ export interface GolfPuttingOverview {
   made7d: number;
   pacePutts7d: number;
   pacePlayers7d: number;
+  // 0253: putts from just off the green.
+  fringePutts7d: number;
+  fringePutters7d: number;
+  fringeMade7d: number;
   holes7d: number;
   avgPuttsPerHole7d: number | null;
   threePutts7d: number;
@@ -350,6 +354,9 @@ export async function getGolfPuttingOverview(): Promise<GolfPuttingOverview> {
     made7d: num(d.made_7d),
     pacePutts7d: num(d.pace_putts_7d),
     pacePlayers7d: num(d.pace_players_7d),
+    fringePutts7d: num(d.fringe_putts_7d),
+    fringePutters7d: num(d.fringe_putters_7d),
+    fringeMade7d: num(d.fringe_made_7d),
     holes7d: num(d.holes_7d),
     avgPuttsPerHole7d: d.avg_putts_per_hole_7d == null ? null : Number(d.avg_putts_per_hole_7d),
     threePutts7d: num(d.three_putts_7d),

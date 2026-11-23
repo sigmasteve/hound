@@ -127,7 +127,7 @@ select is(jsonb_array_length(public.golf_view('00000000-0000-0000-0000-000000000
 -- ── Validation ──
 
 select throws_ok($q$select public.golf_shot('00000000-0000-0000-0000-0000000009a1', 'putter', 20, 0, 0, 0)$q$,
-  'The putter''s for the green.', 'No putter off the green');
+  'The putter''s for the green, or just off it.', 'No putter off the green');
 select throws_ok($q$select public.golf_shot('00000000-0000-0000-0000-0000000009a1', 'driver', 260, 0, 0, 0)$q$,
   'The driver goes 250 yards at most.', 'A club''s range');
 select throws_ok($q$select public.golf_shot('00000000-0000-0000-0000-0000000009a1', 'driver', 250, 40, 0, 0)$q$,

@@ -28,7 +28,9 @@ export function BoardLink({ challengeId, children }: { challengeId?: string | nu
   return (
     <Pressable onPress={open} hitSlop={8} style={styles.row} accessibilityRole="link" accessibilityLabel="The challenge’s page and leaderboard">
       <View style={styles.text}>{children}</View>
-      <Text style={[styles.board, { color: colors.accent }]}>BOARD ›</Text>
+      <Text style={[styles.board, { color: colors.accent }]} numberOfLines={1}>
+        BOARD ›
+      </Text>
     </Pressable>
   );
 }
@@ -36,5 +38,6 @@ export function BoardLink({ challengeId, children }: { challengeId?: string | nu
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   text: { flexShrink: 1 },
-  board: { fontFamily: font.headingSemibold, fontSize: 11.5, letterSpacing: 0.8 },
+  // Never wraps: the kicker beside it shortens instead.
+  board: { flexShrink: 0, fontFamily: font.headingSemibold, fontSize: 11.5, letterSpacing: 0.8 },
 });

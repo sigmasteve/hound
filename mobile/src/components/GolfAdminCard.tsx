@@ -120,6 +120,12 @@ export function GolfAdminCard({ onChanged }: { onChanged?: (o: GolfOverview) => 
                 putting.putts7d ? `${Math.round((putting.pacePutts7d / putting.putts7d) * 100)}% of putts · ${putting.pacePlayers7d} people` : '–',
               ],
               [
+                'From the fringe',
+                putting.fringePutts7d
+                  ? `${putting.fringePutts7d} putts by ${putting.fringePutters7d} · ${putting.fringeMade7d} dropped`
+                  : 'None yet',
+              ],
+              [
                 'Putts a hole',
                 putting.avgPuttsPerHole7d == null ? '–' : `${putting.avgPuttsPerHole7d.toFixed(2)} · ${putting.threePutts7d} three-putts`,
               ],
