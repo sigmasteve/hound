@@ -22,7 +22,9 @@ import {
   type ShootoutKick,
   type ShootoutKickRow,
   type ShootoutLive,
+  autoShootout,
 } from '../challenges/shootoutApi';
+import { AutoButton } from '../components/AutoButton';
 import { arcKeys, at, clamp, type Key } from './BaseballBatScreen';
 import { BoardLink } from '../components/BoardLink';
 
@@ -127,6 +129,8 @@ export function ShootoutKickScreen({ challengeId, onBack }: { challengeId: strin
   const { user } = useAuth();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [live, setLive] = useState<ShootoutLive | null>(null);
+  // Auto (0257) running.
+  const [autoBusy, setAutoBusy] = useState(false);
   const [sponsor, setSponsor] = useState<ChallengeSponsor | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [iconId, setIconId] = useState<string | null>(null);
@@ -307,6 +311,38 @@ export function ShootoutKickScreen({ challengeId, onBack }: { challengeId: strin
         ? 'Tap where to aim'
         : live.reason || (live.nextKickAt != null ? `No kicks ready: your next comes at ${live.nextKickAt.toLocaleString()} steps` : 'That’s 20 kicks today. Back tomorrow.');
   const actOn = phase === 'power';
+  // Auto (0257): every kick left, at the low spots, on the server.
+  const autoOn = phase === 'aim' && canKick && !autoBusy;
+  const runAuto = () => {
+    const n = live?.kicksLeft ?? 0;
+    Alert.alert(
+      `Take all ${n} kicks for you?`,
+      'Auto takes every kick you have left at the low spots (never the top bins, which count 2), with ordinary power: the keeper saves some and some go wide. Kick yourself to score more.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: `Kick ${n}`,
+          onPress: async () => {
+            setAutoBusy(true);
+            try {
+              const r = await autoShootout(challengeId);
+              setMsg(
+                `Auto took ${r.kicks} ${r.kicks === 1 ? 'kick' : 'kicks'}: ${r.goals} ${r.goals === 1 ? 'goal' : 'goals'}` +
+                  (r.saved ? `, ${r.saved} saved` : '') +
+                  (r.offTarget ? `, ${r.offTarget} off target` : '') +
+                  '.',
+              );
+            } catch (e) {
+              Alert.alert('Hound Shootout', e instanceof Error ? e.message : 'Try again.');
+            } finally {
+              setAutoBusy(false);
+              load();
+            }
+          },
+        },
+      ],
+    );
+  };
   const kicks = mine.length ? [...mine, ...live.recent].slice(0, 8) : live.recent;
   const hint = leanLine(live);
 
@@ -474,14 +510,17 @@ export function ShootoutKickScreen({ challengeId, onBack }: { challengeId: strin
           {liveMark != null && <View style={[styles.markerBar, { left: `${clamp(liveMark, 1, 99)}%` }, phase !== 'power' && { borderColor: ME_COLOR }]} />}
         </View>
         {/* A timing tap counts when the finger lands, not when it lifts (as Hoops and the Derby). */}
-        <Pressable
-          onPressIn={phase === 'power' ? kick : undefined}
-          disabled={!actOn}
-          style={[styles.act, actOn ? { backgroundColor: GREEN } : styles.actOff]}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.actText, !actOn && { color: withAlpha(colors.text, 0.6), fontSize: 14 }]}>{actLabel}</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {autoOn && <AutoButton onPress={runAuto} label={`Auto: take all ${live?.kicksLeft ?? 0} kicks`} />}
+          <Pressable
+            onPressIn={phase === 'power' ? kick : undefined}
+            disabled={!actOn}
+            style={[styles.act, { flex: 1 }, actOn ? { backgroundColor: GREEN } : styles.actOff]}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.actText, !actOn && { color: withAlpha(colors.text, 0.6), fontSize: 14 }]}>{actLabel}</Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );

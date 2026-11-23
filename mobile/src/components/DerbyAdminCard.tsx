@@ -6,6 +6,7 @@ import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { getDerbyOverview, type DerbyOverview } from '../challenges/derbyApi';
+import { autoShare, getAutoPlayOverview, type AutoPlayOverview } from '../challenges/autoPlayApi';
 
 function pct(part: number, whole: number): string {
   return whole > 0 ? `${Math.round((part / whole) * 100)}%` : '–';
@@ -19,9 +20,14 @@ export function DerbyAdminCard({ onChanged }: { onChanged?: (o: DerbyOverview) =
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [data, setData] = useState<DerbyOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Auto (0257): how much is played on Auto.
+  const [auto, setAuto] = useState<AutoPlayOverview | null>(null);
 
   useFocusEffect(
     useCallback(() => {
+      getAutoPlayOverview()
+        .then(setAuto)
+        .catch(() => setAuto(null));
       getDerbyOverview()
         .then((d) => {
           setData(d);
@@ -46,6 +52,7 @@ export function DerbyAdminCard({ onChanged }: { onChanged?: (o: DerbyOverview) =
         ['Derbies', `${data.live} live · ${data.all} ever`],
         ['Players', `${data.joined.toLocaleString()} joined · ${data.swung7d.toLocaleString()} swung this week (${pct(data.swung7d, data.joined)})`],
         ['This week', `${data.swings7d.toLocaleString()} swings · ${data.hrs7d.toLocaleString()} home runs (${pct(data.hrs7d, data.swings7d)} of swings)`],
+        ...(auto ? ([['On Auto', `${auto.derbyAuto7d.toLocaleString()} swings this week (${autoShare(auto.derbyAuto7d, auto.derbyAll7d)}) by ${auto.derbyAutoPeople7d} · ${auto.derbyAutoPeopleEver} have used it`]] as [string, string][]) : []),
         ['Moonshots', `${data.moonshots7d.toLocaleString()} this week (475+ ft)`],
         ['Golden balls', `${data.goldenThrown7d.toLocaleString()} thrown · ${data.goldenHit7d.toLocaleString()} hit out (${pct(data.goldenHit7d, data.goldenThrown7d)})`],
         ['Sponsor sign', `${data.signHits7d.toLocaleString()} hits this week · ${data.sponsorBonesAll.toLocaleString()} Bones from sponsors, all time`],

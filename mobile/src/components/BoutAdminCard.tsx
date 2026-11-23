@@ -81,6 +81,10 @@ export function BoutAdminCard({ onChanged }: { onChanged?: (o: BoutOverview) => 
                       'On Auto',
                       `${auto.ringAuto7d.toLocaleString()} exchanges this week (${autoShare(auto.ringAuto7d, auto.ringAll7d)}) by ${auto.ringAutoPeople7d} · ${auto.ringAutoPeopleEver} have used it`,
                     ],
+                    [
+                      'Faced on Auto',
+                      `${auto.defendAuto7d.toLocaleString()} combinations this week (${autoShare(auto.defendAuto7d, auto.defendAll7d)}) by ${auto.defendAutoPeople7d}`,
+                    ],
                   ] as [string, string][])
                 : []),
               ['Counters and stars', `${ring.counters7d.toLocaleString()} counters · ${ring.starPunches7d.toLocaleString()} Star punches · ${ring.comboKnockdowns7d.toLocaleString()} knockdowns from combinations`],

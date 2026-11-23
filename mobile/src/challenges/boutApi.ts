@@ -278,6 +278,13 @@ export async function autoExchanges(
   return { exchanges: num(d?.exchanges), points: num(d?.points), landed: num(d?.landed), blocked: num(d?.blocked), left: num(d?.left) };
 }
 
+// Auto (0257): the server faces every combination waiting, slipping a
+// little over half, never tight (no counters).
+export async function autoDefend(kind: BoutKind, challengeId: string): Promise<{ combos: number; slipped: number; faced: number }> {
+  const d = await rpc<any>('ring_defend_auto', { p_game: kind, p_challenge_id: challengeId });
+  return { combos: num(d?.combos), slipped: num(d?.slipped), faced: num(d?.faced) };
+}
+
 export interface RingPunchResult {
   seq: number;
   punch: BoutPunchKind;

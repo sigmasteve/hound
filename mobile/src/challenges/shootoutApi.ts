@@ -208,6 +208,13 @@ export function toShootoutKick(d: any): ShootoutKick {
 }
 
 // A kick: where you aimed and where you stopped the meter (0-100).
+// Auto (0257): the server takes every kick left, at the low spots.
+export async function autoShootout(challengeId: string): Promise<{ kicks: number; goals: number; points: number; saved: number; offTarget: number }> {
+  const d = await rpc<any>('shootout_kick_auto', { p_challenge_id: challengeId });
+  const n = (v: unknown) => Number(v ?? 0);
+  return { kicks: n(d?.kicks), goals: n(d?.goals), points: n(d?.points), saved: n(d?.saved), offTarget: n(d?.offTarget) };
+}
+
 export async function kickShootout(challengeId: string, zone: number, power: number): Promise<ShootoutKick> {
   return toShootoutKick(await rpc<any>('shootout_kick', { p_challenge_id: challengeId, p_zone: zone, p_power: Math.round(power) }));
 }

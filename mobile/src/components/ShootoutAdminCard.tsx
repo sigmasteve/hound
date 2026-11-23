@@ -6,6 +6,7 @@ import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { getShootoutOverview, ZONE_NAMES, type ShootoutOverview } from '../challenges/shootoutApi';
+import { autoShare, getAutoPlayOverview, type AutoPlayOverview } from '../challenges/autoPlayApi';
 
 function pct(part: number, whole: number): string {
   return whole > 0 ? `${Math.round((part / whole) * 100)}%` : '–';
@@ -20,9 +21,14 @@ export function ShootoutAdminCard({ onChanged }: { onChanged?: (o: ShootoutOverv
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [data, setData] = useState<ShootoutOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Auto (0257): how much is played on Auto.
+  const [auto, setAuto] = useState<AutoPlayOverview | null>(null);
 
   useFocusEffect(
     useCallback(() => {
+      getAutoPlayOverview()
+        .then(setAuto)
+        .catch(() => setAuto(null));
       getShootoutOverview()
         .then((d) => {
           setData(d);
@@ -49,6 +55,7 @@ export function ShootoutAdminCard({ onChanged }: { onChanged?: (o: ShootoutOverv
         ['Tried it', `${data.kickedEver.toLocaleString()} have taken a kick · ${data.joined.toLocaleString()} joined`],
         ['This week', `${data.kicked7d.toLocaleString()} kicking (${pct(data.kicked7d, data.joined)} of those in) · ${data.kicks7d.toLocaleString()} kicks`],
         ['Scored', `${data.scored7d.toLocaleString()} of ${data.kicks7d.toLocaleString()} (${pct(data.scored7d, data.kicks7d)}) · ${data.goals7d.toLocaleString()} goals counted`],
+        ...(auto ? ([['On Auto', `${auto.shootoutAuto7d.toLocaleString()} kicks this week (${autoShare(auto.shootoutAuto7d, auto.shootoutAll7d)}) by ${auto.shootoutAutoPeople7d} · ${auto.shootoutAutoPeopleEver} have used it`]] as [string, string][]) : []),
         ['Top bins', `${data.topBins7d.toLocaleString()} this week`],
         ['How the rest went', `${data.saved7d.toLocaleString()} saved · ${data.held7d.toLocaleString()} too soft · ${data.off7d.toLocaleString()} over or wide`],
         ['Perfect strikes', `${data.perfect7d.toLocaleString()} (${pct(data.perfect7d, data.kicks7d)} of kicks)`],

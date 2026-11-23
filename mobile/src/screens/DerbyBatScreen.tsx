@@ -22,7 +22,9 @@ import {
   type DerbyPitch,
   type DerbySwing,
   type DerbySwingRow,
+  autoDerby,
 } from '../challenges/derbyApi';
+import { AutoButton } from '../components/AutoButton';
 import {
   arcKeys,
   at,
@@ -184,6 +186,8 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
   const { user } = useAuth();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [live, setLive] = useState<DerbyLive | null>(null);
+  // Auto (0257) running.
+  const [autoBusy, setAutoBusy] = useState(false);
   const [sponsor, setSponsor] = useState<ChallengeSponsor | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [iconId, setIconId] = useState<string | null>(null);
@@ -446,6 +450,37 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
             : 'Pitch'
           : live.reason || (live.nextSwingAt != null ? `No swings ready: your next comes at ${live.nextSwingAt.toLocaleString()} steps` : 'That’s 20 swings today. Back tomorrow.');
   const actOn = (phase === 'ready' && canPitch) || (mode === 'meter' && phase === 'pitch' && swingAt == null);
+  // Auto (0257): every swing left, at ordinary timing, on the server.
+  const autoOn = phase === 'ready' && !live?.pending && !!live?.canSwing && (live?.swingsLeft ?? 0) > 0 && !autoBusy;
+  const runAuto = () => {
+    const n = live?.swingsLeft ?? 0;
+    Alert.alert(
+      `Take all ${n} swings for you?`,
+      'Auto swings at every pitch you have left with ordinary timing: some go out, some get caught at the wall or missed, and a golden ball gets an ordinary swing too. Swing yourself to hit more.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: `Swing ${n}`,
+          onPress: async () => {
+            setAutoBusy(true);
+            try {
+              const r = await autoDerby(challengeId);
+              setMsg(
+                `Auto took ${r.swings} ${r.swings === 1 ? 'swing' : 'swings'}: ${r.hrs} ${r.hrs === 1 ? 'home run' : 'home runs'}` +
+                  (r.counts > r.hrs ? ` (counting as ${r.counts})` : '') +
+                  (r.longest ? `, the longest ${r.longest} ft.` : '.'),
+              );
+            } catch (e) {
+              Alert.alert('Home Run Derby', e instanceof Error ? e.message : 'Try again.');
+            } finally {
+              setAutoBusy(false);
+              load();
+            }
+          },
+        },
+      ],
+    );
+  };
   const liveMark = mode === 'meter' && phase === 'pitch' && pitch && swingAt == null && !sent.current && now >= pitch.releaseAt;
   const mark = liveMark && pitch ? Math.max(0.02, Math.min(0.98, 0.5 + (now - pitch.arriveAt) / BAR_MS)) : lastMark;
   const leftChip = golden
@@ -620,15 +655,18 @@ export function DerbyBatScreen({ challengeId, onBack }: { challengeId: string; o
           />
         )}
         {/* The meter's Swing! counts when the finger lands, not when it lifts. */}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+        {autoOn && <AutoButton onPress={runAuto} label={`Auto: take all ${live?.swingsLeft ?? 0} swings`} />}
         <Pressable
           onPressIn={phase === 'pitch' && mode === 'meter' ? act : undefined}
           onPress={phase === 'pitch' ? undefined : act}
           disabled={!actOn}
-          style={[styles.act, actOn ? { backgroundColor: phase === 'pitch' ? '#f08a24' : colors.green } : phase === 'pitch' ? { backgroundColor: '#2a2c38' } : styles.actOff]}
+          style={[styles.act, { flex: 1 }, actOn ? { backgroundColor: phase === 'pitch' ? '#f08a24' : colors.green } : phase === 'pitch' ? { backgroundColor: '#2a2c38' } : styles.actOff]}
           accessibilityRole="button"
         >
           <Text style={[styles.actText, !actOn && { color: phase === 'pitch' ? ME_COLOR : withAlpha(colors.text, 0.6), fontSize: 14 }]}>{actLabel}</Text>
         </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );

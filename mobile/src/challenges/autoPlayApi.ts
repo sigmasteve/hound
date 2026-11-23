@@ -11,6 +11,18 @@ export interface AutoPlayOverview {
   slotsAll7d: number;
   slotsAutoPeople7d: number;
   slotsAutoPeopleEver: number;
+  // 0257
+  derbyAuto7d: number;
+  derbyAll7d: number;
+  derbyAutoPeople7d: number;
+  derbyAutoPeopleEver: number;
+  shootoutAuto7d: number;
+  shootoutAll7d: number;
+  shootoutAutoPeople7d: number;
+  shootoutAutoPeopleEver: number;
+  defendAuto7d: number;
+  defendAll7d: number;
+  defendAutoPeople7d: number;
 }
 
 export async function getAutoPlayOverview(): Promise<AutoPlayOverview | null> {
@@ -29,6 +41,17 @@ export async function getAutoPlayOverview(): Promise<AutoPlayOverview | null> {
     slotsAll7d: n('slots_all_7d'),
     slotsAutoPeople7d: n('slots_auto_people_7d'),
     slotsAutoPeopleEver: n('slots_auto_people_ever'),
+    derbyAuto7d: n('derby_auto_7d'),
+    derbyAll7d: n('derby_all_7d'),
+    derbyAutoPeople7d: n('derby_auto_people_7d'),
+    derbyAutoPeopleEver: n('derby_auto_people_ever'),
+    shootoutAuto7d: n('shootout_auto_7d'),
+    shootoutAll7d: n('shootout_all_7d'),
+    shootoutAutoPeople7d: n('shootout_auto_people_7d'),
+    shootoutAutoPeopleEver: n('shootout_auto_people_ever'),
+    defendAuto7d: n('defend_auto_7d'),
+    defendAll7d: n('defend_all_7d'),
+    defendAutoPeople7d: n('defend_auto_people_7d'),
   };
 }
 
