@@ -322,7 +322,7 @@ export const CHALLENGE_TYPES: {
   {
     id: 'longshot',
     name: 'Long Shot',
-    desc: 'Steel plates from 300 to 3,000 yards, played on your steps: every 1,000 steps is a round, up to 10 a day. Read the wind flags, hold off on the reticle and fire in the breath’s pause; the server flies every round for real (drop, wind drift, the rifle and barrel you pick). Center hits double, the day’s first hit adds 2, the gold plate pays Bones to the first to ring it, and Moon days have ⅙ gravity. Most points wins the pool.',
+    desc: 'Steel plates from 300 to 3,000 yards, played on your steps: every 1,000 steps is a round, up to 15 a day, and every 20 minutes of workouts adds one (up to 5 more). Read the wind flags, hold off on the reticle and fire in the breath’s pause; the server flies every round for real (drop, wind drift, the rifle and barrel you pick). Center hits double, the day’s first hit adds 2, the gold plate pays Bones to the first to ring it, and Moon days have ⅙ gravity. Most points wins the pool.',
     tint: '#3b3322',
     iconColor: '#f0c27a',
   },

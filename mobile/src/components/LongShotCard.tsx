@@ -115,7 +115,8 @@ export function LongShotCard({ game, onPlay }: { game: LongShotGame | null; onPl
       )}
 
       <Text style={styles.small}>
-        Rounds: 1 per {fmt(game.settings.stepsPerRound)} steps, up to {game.settings.maxRounds} a day. A {game.settings.workoutMin}-minute workout steadies your hold.
+        Rounds: 1 per {fmt(game.settings.stepsPerRound)} steps, up to {game.settings.maxRounds} a day, plus 1 for every {game.settings.workoutRoundMin} minutes of
+        workouts (up to {Math.floor(game.settings.workoutMaxMin / game.settings.workoutRoundMin)} more). A {game.settings.workoutMin}-minute workout also steadies your hold.
         {moon ? '' : ' Moon days have ⅙ gravity.'}
       </Text>
 
