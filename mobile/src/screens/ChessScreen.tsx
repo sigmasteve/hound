@@ -31,6 +31,7 @@ import {
   getChessPuzzle,
   playChessMove,
   resignChess,
+  undoChessMove,
   tryChessPuzzle,
   type ChessGame,
   type ChessMoveOption,
@@ -280,6 +281,20 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
   const [sel, setSel] = useState<Sel>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // Undo (0258): for 5 seconds after your move, while the board still
+  // shows it (plies), Undo takes Resign's place, counting 5 to 0 on the
+  // button; at 0 it greys out for a second, then Resign is back.
+  const [undo, setUndo] = useState<{ until: number; plies: number } | null>(null);
+  const [undoNow, setUndoNow] = useState(Date.now());
+  useEffect(() => {
+    if (!undo) return;
+    const id = setInterval(() => {
+      const t = Date.now();
+      setUndoNow(t);
+      if (t >= undo.until + 1000) setUndo(null);
+    }, 250);
+    return () => clearInterval(id);
+  }, [undo]);
   const [banner, setBanner] = useState<{ text: string; good: boolean } | null>(null);
   const [lastPuzzleMove, setLastPuzzleMove] = useState<{ from: string; to: string } | null>(null);
   const [hint, setHint] = useState(false);
@@ -413,6 +428,8 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
         }
         setGame(g);
         setMsg(null);
+        setUndo(g.status === 'final' ? null : { until: Date.now() + 5000, plies: g.plies });
+        setUndoNow(Date.now());
       }
     } catch (e) {
       Alert.alert('Hound Chess', e instanceof Error ? e.message : 'Try again.');
@@ -465,6 +482,24 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
     }
     buzz('light');
     setSel({ sq: hit.sq });
+  };
+
+  const undoMove = async () => {
+    if (!challengeId || busy) return;
+    setUndo(null);
+    setBusy(true);
+    setSel(null);
+    try {
+      setGame(await undoChessMove(challengeId));
+      flash('Move taken back', true);
+      setMsg(null);
+      buzz('light');
+    } catch (e) {
+      Alert.alert('Hound Chess', e instanceof Error ? e.message : 'Try again.');
+      load();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const resign = () => {
@@ -651,10 +686,25 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
       </View>
 
       <View style={styles.pinned}>
-        {mode === 'game' && game?.status === 'active' && (
-          <Pressable onPress={resign} style={styles.side} accessibilityRole="button">
-            <Text style={styles.sideText}>Resign</Text>
+        {mode === 'game' && game?.status === 'active' && undo && game.plies === undo.plies ? (
+          <Pressable
+            onPress={undoMove}
+            disabled={busy || undoNow >= undo.until}
+            style={[styles.side, styles.undo, undoNow >= undo.until && styles.undoOff]}
+            accessibilityRole="button"
+            accessibilityLabel={`Undo your move, ${Math.max(0, Math.ceil((undo.until - undoNow) / 1000))} seconds left`}
+          >
+            <Text style={[styles.sideText, { color: undoNow >= undo.until ? withAlpha(colors.text, 0.45) : '#f08a24' }]}>
+              Undo · {Math.max(0, Math.ceil((undo.until - undoNow) / 1000))}
+            </Text>
           </Pressable>
+        ) : (
+          mode === 'game' &&
+          game?.status === 'active' && (
+            <Pressable onPress={resign} style={styles.side} accessibilityRole="button">
+              <Text style={styles.sideText}>Resign</Text>
+            </Pressable>
+          )
         )}
         {mode === 'puzzle' && puzzle?.open && !puzzle.solved && puzzle.tries < puzzle.maxTries && (
           <Pressable onPress={() => setHint(true)} disabled={hint} style={[styles.side, hint && { opacity: 0.5 }]} accessibilityRole="button">
@@ -720,6 +770,8 @@ function makeStyles(colors: Palette) {
     unlockSub: { fontSize: 10, color: withAlpha(colors.text, 0.7), marginTop: 2, textAlign: 'center' },
     msg: { fontSize: 13, lineHeight: 18, color: withAlpha(colors.text, 0.8), minHeight: 36 },
     pinned: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, flexDirection: 'row', gap: 8 },
+    undo: { borderColor: '#f08a24', borderWidth: 1.5, backgroundColor: withAlpha('#f08a24', 0.12) },
+    undoOff: { borderColor: withAlpha(colors.text, 0.16), backgroundColor: withAlpha(colors.text, 0.06) },
     side: {
       width: 100,
       minHeight: 52,

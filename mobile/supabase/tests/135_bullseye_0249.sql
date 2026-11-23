@@ -127,7 +127,7 @@ select is((select jsonb_build_object('ring', x -> 'ring', 'points', x -> 'points
   '{"ring": 5, "points": 30}'::jsonb, 'Right by the clout flag: 5 x 6 stars');
 
 -- ── Bows ──
-select throws_ok(format('select public.bullseye_loadout(%L, %L, %L)', :'cid', 'compound', 'standard'), 'The Compound unlocks at 80,000 steps in this game.', 'The compound waits for 80,000');
+select throws_ok(format('select public.bullseye_loadout(%L, %L, %L)', :'cid', 'compound', 'standard'), 'The Compound unlocks at 50,000 steps in this game.', 'The compound waits for 50,000');
 select lives_ok(format('select public.bullseye_loadout(%L, %L, %L)', :'cid', 'longbow', 'heavy'), 'A longbow and heavy arrows');
 select is((public.bullseye_aim(:'cid', '70') ->> 'stars')::int, 5, 'No sight on a longbow: a star more');
 select is((select jsonb_build_object('points', s -> 'me' -> 'points', 'bow', s -> 'me' -> 'bow', 'ends', jsonb_array_length(s -> 'ends'), 'gold', s -> 'goldTaker' -> 'me')

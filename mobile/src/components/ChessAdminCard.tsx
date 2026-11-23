@@ -5,7 +5,7 @@ import { Text } from './Text';
 import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { getChessOverview, type ChessOverview } from '../challenges/chessApi';
+import { getChessOverview, getChessUndoOverview, type ChessOverview, type ChessUndoOverview } from '../challenges/chessApi';
 
 // Admin → Hound Chess (0238): games with friends and the bot, how they
 // end, how often steps keep a piece resting, missed turns, and the puzzle
@@ -14,10 +14,13 @@ export function ChessAdminCard({ onChanged }: { onChanged?: (o: ChessOverview) =
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [data, setData] = useState<ChessOverview | null>(null);
+  // Undo (0258).
+  const [undos, setUndos] = useState<ChessUndoOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
+      getChessUndoOverview().then(setUndos);
       getChessOverview()
         .then((d) => {
           setData(d);
@@ -50,6 +53,14 @@ export function ChessAdminCard({ onChanged }: { onChanged?: (o: ChessOverview) =
         ['Against', `${data.vsFriend} friends · the bot ${data.vsBot.easy} easy, ${data.vsBot.medium} medium, ${data.vsBot.hard} hard`],
         ['Against the bot', `players won ${data.botRecord.won}, lost ${data.botRecord.lost}, drew ${data.botRecord.drawn}`],
         ['How games ended', endings || '–'],
+        ...(undos
+          ? ([
+              [
+                'Undo',
+                `${undos.undos7d} this week by ${undos.people7d} (${undos.moves7d ? Math.round((100 * undos.undos7d) / undos.moves7d) : 0}% of moves, ${undos.bot7d} against the bot) · ${undos.peopleEver} have used it`,
+              ],
+            ] as [string, string][])
+          : []),
         ['This week', `${data.players7d} ${data.players7d === 1 ? 'player' : 'players'} · ${data.moves7d} moves · ${data.autoMoves7d} played by Hound (missed turns)`],
         [
           'Steps at work this week',
