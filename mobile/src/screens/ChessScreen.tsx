@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Pressable, StyleSheet, View } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Ellipse, G, Path, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 import { ArrowLeftIcon } from 'phosphor-react-native';
@@ -318,6 +319,38 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
   useEffect(() => {
     load();
   }, [load]);
+
+  // Their move, live (Steve, Nov 2026: playing his daughter side by side).
+  // While it's their turn and this screen is open with the app in front,
+  // check every few seconds; when their move lands it shows, with a buzz.
+  const isFocused = useIsFocused();
+  const [appActive, setAppActive] = useState(AppState.currentState === 'active');
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => setAppActive(st === 'active'));
+    return () => sub.remove();
+  }, []);
+  const waitingOnThem = mode === 'game' && !!challengeId && !!game && !game.myTurn && game.status !== 'final' && !game.bot;
+  useEffect(() => {
+    if (!waitingOnThem || !appActive || !isFocused || !challengeId) return;
+    const id = setInterval(() => {
+      getChess(challengeId)
+        .then((g) => {
+          setGame((prev) => (prev && prev.plies === g.plies && prev.status === g.status ? prev : g));
+          if (g.myTurn || g.status === 'final') {
+            const theirs = g.history.slice(-1)[0];
+            if (g.status === 'final') flash('Game over', false);
+            else flash(theirs?.check ? 'Check! Your move' : 'Your move', true);
+            buzz('light');
+            setMsg(null);
+          }
+        })
+        .catch(() => {
+          // Try again on the next tick.
+        });
+    }, 4000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitingOnThem, appActive, isFocused, challengeId]);
 
   const flash = (text: string, good: boolean) => {
     setBanner({ text, good });
