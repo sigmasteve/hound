@@ -3449,9 +3449,12 @@ export function ChallengeDetailScreen({
                       >
                         <View style={styles.boardRowInner}>
                         <View style={styles.rankCol}>
-                          <Text style={styles.boardRank}>{i + 1}</Text>
+                          <Text style={styles.boardRank} numberOfLines={1}>
+                            {i + 1}
+                          </Text>
                           {move !== undefined && (
                             <Text
+                              numberOfLines={1}
                               style={[styles.rankMove, { color: move > 0 ? colors.green : colors.amber }]}
                               accessibilityLabel={`${move > 0 ? 'Up' : 'Down'} ${Math.abs(move)} since yesterday`}
                             >
@@ -3944,10 +3947,11 @@ function makeStyles(colors: Palette) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: withAlpha(colors.text, 0.07),
     },
-    boardRank: { width: 16, fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
-    // Rank on top, movement since yesterday (if any) just under it —
-    // wide enough for "▲10" without nudging the avatar column.
-    rankCol: { width: 22, alignItems: 'flex-start', gap: 1 },
+    boardRank: { fontSize: 12.5, color: withAlpha(colors.text, 0.55) },
+    // Rank on top, movement since yesterday (if any) just under it. A
+    // minimum width keeps the avatars in line; it grows rather than wrap
+    // "20" onto two lines at large text sizes (Steve, Nov 2026).
+    rankCol: { minWidth: 24, alignItems: 'flex-start', gap: 1 },
     rankMove: { fontSize: 9.5, fontFamily: font.heading, letterSpacing: -0.2 },
     boardName: { flex: 1, fontSize: 14, color: colors.text, fontFamily: font.body },
     boardSteps: { fontSize: 14, color: colors.text, fontFamily: font.heading },

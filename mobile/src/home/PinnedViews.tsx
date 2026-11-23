@@ -964,7 +964,7 @@ function makeStyles(colors: Palette) {
     row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 5 },
     rowCenter: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-    rank: { width: 18, fontSize: 13, fontFamily: font.headingSemibold, color: withAlpha(colors.text, 0.55) },
+    rank: { minWidth: 18, fontSize: 13, fontFamily: font.headingSemibold, color: withAlpha(colors.text, 0.55) },
     personName: { fontSize: 14, color: colors.text, width: 80 },
     value: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text },
     valueMe: { color: colors.accentActive },
