@@ -46,6 +46,7 @@ export function LongShotAdminCard({ onChanged }: { onChanged?: (o: LongShotOverv
         ['Hit rate by plate', data.plates.length ? data.plates.map((p) => `${n(p.dist)}: ${pct(p.hits, p.shots)}`).join(' · ') : '–'],
         ['Rifles this week', data.rifles.length ? data.rifles.map((r) => `${r.name} ${pct(r.shots, data.rounds7d)}`).join(' · ') : '–'],
         ['Gold plates', `${data.gold7d} rung this week · ${n(data.goldBones)} Bones paid ever`],
+        ['Rounds from workouts', data.workoutRoundsToday ? `${n(data.workoutRoundsToday)} today, by ${n(data.workoutPeopleToday)}` : 'None today'],
       ]
     : [];
 

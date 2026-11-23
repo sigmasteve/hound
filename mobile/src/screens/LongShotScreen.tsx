@@ -225,7 +225,7 @@ export function LongShotScreen({ challengeId, onBack }: { challengeId: string; o
         <View style={styles.fixed}>
           {header}
           <View style={styles.stats}>
-            <Stat label="ROUNDS" tone="#8fd8a8" value={String(left)} sub={toNext != null ? `${fmt(toNext)} steps to the next` : `all ${game.settings.maxRounds} today`} styles={styles} />
+            <Stat label="ROUNDS" tone="#8fd8a8" value={String(left)} sub={`${toNext != null ? `${fmt(toNext)} steps to the next` : `all ${game.settings.maxRounds} from steps`}${game.today.fromWorkout ? ` · +${game.today.fromWorkout} from workouts` : ''}`} styles={styles} />
             <Stat
               label="HOLD"
               tone="#f0c27a"
@@ -286,7 +286,8 @@ export function LongShotScreen({ challengeId, onBack }: { challengeId: string; o
           </Text>
           <Text style={styles.small}>
             A center hit doubles. The day’s first round, if it hits, adds {game.settings.coldBore}. Rounds: 1 per {fmt(game.settings.stepsPerRound)} steps, up to{' '}
-            {game.settings.maxRounds} a day, and they carry over a day.
+            {game.settings.maxRounds} a day, plus 1 for every {game.settings.workoutRoundMin} minutes of workouts (up to{' '}
+            {Math.floor(game.settings.workoutMaxMin / game.settings.workoutRoundMin)} more), and they carry over a day.
           </Text>
           {game.card.length > 0 && <DataCard game={game} highlight={dist} styles={styles} />}
           {game.recent.length > 0 && (

@@ -93,7 +93,19 @@ export interface LongShotRow {
 }
 
 export interface LongShotGame {
-  settings: { stepsPerRound: number; maxRounds: number; carryMax: number; workoutMin: number; coldBore: number; bountyBones: number; finishDays: number };
+  // workoutRoundMin / workoutMaxMin (0255): a round per that many workout
+  // minutes, counting up to the max.
+  settings: {
+    stepsPerRound: number;
+    maxRounds: number;
+    carryMax: number;
+    workoutMin: number;
+    workoutRoundMin: number;
+    workoutMaxMin: number;
+    coldBore: number;
+    bountyBones: number;
+    finishDays: number;
+  };
   name: string;
   isGlobal: boolean;
   dayNo: number;
@@ -120,7 +132,7 @@ export interface LongShotGame {
     gameSteps: number;
     shotDays: number;
   };
-  today: { steps: number; fromSteps: number; workoutMin: number; steady: boolean; carried: number; used: number; left: number; nextAt: number | null };
+  today: { steps: number; fromSteps: number; fromWorkout: number; workoutMin: number; steady: boolean; carried: number; used: number; left: number; nextAt: number | null };
   board: LongShotRow[];
   feed: { name: string; dist: number; center: boolean; gold: boolean; points: number; at: string }[];
   recent: { dist: number; hit: boolean; center: boolean; points: number; xIn: number; yIn: number; at: string }[];
@@ -160,9 +172,11 @@ export function toLongShotGame(d: any): LongShotGame {
   return {
     settings: {
       stepsPerRound: num(s.stepsPerRound) || 1000,
-      maxRounds: num(s.maxRounds) || 10,
+      maxRounds: num(s.maxRounds) || 15,
       carryMax: num(s.carryMax),
       workoutMin: num(s.workoutMin) || 20,
+      workoutRoundMin: num(s.workoutRoundMin) || 20,
+      workoutMaxMin: s.workoutMaxMin == null ? 100 : num(s.workoutMaxMin),
       coldBore: num(s.coldBore),
       bountyBones: num(s.bountyBones),
       finishDays: num(s.finishDays),
@@ -221,6 +235,7 @@ export function toLongShotGame(d: any): LongShotGame {
     today: {
       steps: num(t.steps),
       fromSteps: num(t.fromSteps),
+      fromWorkout: num(t.fromWorkout),
       workoutMin: num(t.workoutMin),
       steady: !!t.steady,
       carried: num(t.carried),
@@ -429,6 +444,9 @@ export interface LongShotOverview {
   plates: { dist: number; shots: number; hits: number }[];
   rifles: { id: string; name: string; shots: number }[];
   cards: number;
+  // 0255: rounds from today's workouts, and by how many.
+  workoutRoundsToday: number;
+  workoutPeopleToday: number;
 }
 
 export async function getLongShotOverview(): Promise<LongShotOverview> {
@@ -446,6 +464,8 @@ export async function getLongShotOverview(): Promise<LongShotOverview> {
     plates: ((d?.plates ?? []) as any[]).map((p) => ({ dist: num(p.dist), shots: num(p.shots), hits: num(p.hits) })),
     rifles: ((d?.rifles ?? []) as any[]).map((r) => ({ id: String(r.id), name: String(r.name), shots: num(r.shots) })),
     cards: num(d?.cards),
+    workoutRoundsToday: num(d?.workoutRoundsToday),
+    workoutPeopleToday: num(d?.workoutPeopleToday),
   };
 }
 

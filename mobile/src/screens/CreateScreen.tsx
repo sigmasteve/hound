@@ -2649,8 +2649,8 @@ export function CreateScreen({
                 <TextField label="Prize pool (Bones)" value={lsPoolText} onChangeText={setLsPoolText} keyboardType="number-pad" maxLength={5} />
               )}
               <Text style={styles.huntBlockNote}>
-                Steel plates from 300 yards out to {Number(lsFar).toLocaleString('en-US')}. Every 1,000 steps is a round, up to 10 a day; a 20-minute workout
-                steadies the hold. The wind and the air are the same for everyone each day. Center hits double; the day’s first hit adds 2.
+                Steel plates from 300 yards out to {Number(lsFar).toLocaleString('en-US')}. Every 1,000 steps is a round, up to 15 a day, and every 20 minutes of
+                workouts adds one (up to 5 more); a 20-minute workout also steadies the hold. The wind and the air are the same for everyone each day. Center hits double; the day’s first hit adds 2.
                 {lsGold === 'on' ? ' The gold plate pays 150 Bones a day to the first to ring it.' : ''}{' '}
                 {global ? `The pool is ${bonesOf(lsPoolText, 20000).toLocaleString('en-US')} Bones` : 'The pool is 200 Bones a hound, 2,500 with 11 or more'}, paid
                 by points: 1st 30%, 2nd 18%, 3rd 12%, 4th to 10th 4% each. Nothing here takes money or Bones in.
