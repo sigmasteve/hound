@@ -964,7 +964,7 @@ function makeStyles(colors: Palette) {
     sheetBack: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
     sheet: { backgroundColor: colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 30, gap: 8 },
     rackRow: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, padding: 9, backgroundColor: colors.surface, borderWidth: 2, borderColor: 'transparent' },
-    rackOn: { borderColor: '#f08a24', backgroundColor: '#2c2416' },
+    rackOn: { borderColor: '#f08a24', backgroundColor: withAlpha('#f08a24', 0.14) },
     rackName: { fontFamily: font.headingSemibold, fontSize: 13.5, color: colors.text },
     rackCell: { flex: 1, fontSize: 12.5, color: colors.text },
     headCell: { fontSize: 10.5, color: withAlpha(colors.text, 0.6) },
