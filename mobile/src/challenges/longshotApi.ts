@@ -362,12 +362,16 @@ export async function setupLongShot(
 // ── The same formulas as the server ──
 
 // longshot_sway: the reticle's sway (mils) t ms into an aim.
+// When arms start to tire in the scope (longshot_sway's 15000, 0254).
+export const LONGSHOT_TIRE_MS = 15000;
+
 export function longshotSway(seed: number, amp: number, t: number): { x: number; y: number } {
   const s = Math.abs(seed);
   const ph = [0, 1, 2, 3].map((i) => ((Math.floor(s / 32 ** i) % 32) / 32) * 2 * Math.PI);
   const cyc = t % 4500;
   const breath = cyc >= 2800 && cyc < 4200 ? 0.35 : 1;
-  const tired = Math.min(2.5, 1 + Math.max(0, t - 9000) / 6000);
+  // Arms tire after 15 s held (0254; was 9 s).
+  const tired = Math.min(2.5, 1 + Math.max(0, t - LONGSHOT_TIRE_MS) / 6000);
   const a = amp * breath * tired;
   return {
     x: a * (0.62 * Math.sin((2 * Math.PI * t) / 1700 + ph[0]) + 0.38 * Math.sin((2 * Math.PI * t) / 690 + ph[1])),
@@ -378,7 +382,7 @@ export function longshotSway(seed: number, amp: number, t: number): { x: number;
 // Where the breath is: 'pause' is the quiet window to fire in.
 export function longshotBreath(t: number): { phase: 'breathe' | 'pause'; k: number; tired: boolean } {
   const cyc = t % 4500;
-  return { phase: cyc >= 2800 && cyc < 4200 ? 'pause' : 'breathe', k: cyc / 4500, tired: t > 9000 };
+  return { phase: cyc >= 2800 && cyc < 4200 ? 'pause' : 'breathe', k: cyc / 4500, tired: t > LONGSHOT_TIRE_MS };
 }
 
 // One flag's wind (mph, + from the left) at a moment: the day's gusts
