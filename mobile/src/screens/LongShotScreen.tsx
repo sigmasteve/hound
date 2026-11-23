@@ -104,7 +104,9 @@ export function LongShotScreen({ challengeId, onBack }: { challengeId: string; o
 
   const scopeSize = Math.min(width - 32, 360);
   const plate = aim ? { size: aim.size, dist: aim.dist } : null;
-  // Scale: about ±5.5 mils across the scope's radius.
+  // Scale: about ±5.5 mils across the scope's radius. Dragging always
+  // moves the hold at this rate; the picture zooms out for a big hold
+  // (zoomPx below), so the plate never leaves the lens.
   const pxPerMil = scopeSize / 2 / 5.5;
 
   const pan = useMemo(
@@ -237,8 +239,17 @@ export function LongShotScreen({ challengeId, onBack }: { challengeId: string; o
             <LongShotRangeArt width={sceneW} height={sceneH} conditions={cond} plates={game.plates} selected={dist} onPick={setDist} now={now} />
             <View style={styles.sceneChips} pointerEvents="none">
               <Text style={styles.sceneChip}>
-                {moon ? '⅙ gravity · no air · no wind' : `${cond.tempF}°F · ${cond.altitudeFt ? `${fmt(cond.altitudeFt)} ft` : 'sea level'} · read the flags`}
+                {moon ? '⅙ gravity · no air · no wind' : `${cond.tempF}°F · ${cond.altitudeFt ? `${fmt(cond.altitudeFt)} ft` : 'sea level'}`}
               </Text>
+              {!moon && (
+                <Text style={styles.sceneChip}>
+                  {(() => {
+                    const w =
+                      0.45 * longshotFlagWind(cond.wind, now, 'near') + 0.35 * longshotFlagWind(cond.wind, now, 'mid') + 0.2 * longshotFlagWind(cond.wind, now, 'far');
+                    return Math.abs(w) < 0.5 ? 'No wind' : `Wind ${w > 0 ? '→' : '←'} ${Math.abs(w).toFixed(1)} mph`;
+                  })()}
+                </Text>
+              )}
               {cond.bounty && (
                 <Text style={[styles.sceneChip, { color: '#ffd34d' }]}>
                   {game.goldTaker ? `Gold rung by ${game.goldTaker.me ? 'you' : game.goldTaker.name}` : `Gold: ${yd(cond.gold)}`}
@@ -290,6 +301,16 @@ export function LongShotScreen({ challengeId, onBack }: { challengeId: string; o
           )}
         </ScrollView>
         <View style={styles.pinned}>
+          {/* Back to the last round's page (where you held, the flight, the
+              card), until you take aim again (a tester's ask, Nov 2026). */}
+          {shot && (
+            <Pressable onPress={() => setMode('shot')} style={styles.rifleRow} accessibilityRole="button" accessibilityLabel="See your last round again">
+              <Text style={styles.small}>Last round</Text>
+              <Text style={styles.rifleName}>
+                {yd(shot.dist)} · {shot.gold ? 'gold plate' : shot.center ? 'center' : shot.hit ? 'clang' : 'miss'} · held {Math.abs(shot.hold.x).toFixed(1)} {sideOf(shot.hold.x)} ›
+              </Text>
+            </Pressable>
+          )}
           <Pressable onPress={() => setRack(true)} style={styles.rifleRow} accessibilityRole="button" accessibilityLabel={`Rifle: ${rifle?.name}, ${game.me.barrel} inch barrel. Change it`}>
             <Text style={styles.small}>Rifle</Text>
             <Text style={styles.rifleName}>
@@ -343,22 +364,34 @@ export function LongShotScreen({ challengeId, onBack }: { challengeId: string; o
     const ax = flying ? shot.hold.x : hold.x;
     const ay = flying ? shot.hold.y : hold.y;
     const R = scopeSize / 2;
+    // Zoom out as the hold grows (Steve's tester: holding up for the
+    // longest plates lost it off the top), keeping 3.5 mils past the hold
+    // in view, the sway included, clear of the wind badge.
+    const fov = Math.min(28, Math.max(5.5, Math.abs(ax) + 3.5, Math.abs(ay) + 3.5));
+    const zoomPx = scopeSize / 2 / fov;
+    const tickStep = fov <= 6 ? 1 : fov <= 12 ? 2 : 5;
+    const ticks: number[] = [];
+    for (let k = tickStep; k <= fov - 0.5; k += tickStep) ticks.push(k, -k);
     // The plate in the scope: where the reticle isn't.
-    const px = R - (ax + sw.x) * pxPerMil;
-    const py = R + (ay + sw.y) * pxPerMil;
-    const plateR = Math.max(1.5, (plate.size / 2 / (plate.dist * 0.036)) * pxPerMil);
+    const px = R - (ax + sw.x) * zoomPx;
+    const py = R + (ay + sw.y) * zoomPx;
+    const plateR = Math.max(1.5, (plate.size / 2 / (plate.dist * 0.036)) * zoomPx);
     const br = longshotBreath(t);
-    const windMid = (longshotFlagWind(cond.wind, now, 'near') + longshotFlagWind(cond.wind, now, 'mid')) / 2;
+    // The wind now, weighted along the range as the round feels it
+    // (longshot_wind_at: near 45, mid 35, far 20), + from the left.
+    const windNow =
+      0.45 * longshotFlagWind(cond.wind, now, 'near') + 0.35 * longshotFlagWind(cond.wind, now, 'mid') + 0.2 * longshotFlagWind(cond.wind, now, 'far');
     const row = cardRow(plate.dist);
+    // What that wind asks you to hold, off your card (opposite the wind).
+    const windHold = row && !moon ? (-windNow / 10) * row.wind10 : 0;
     // The flight: the trace rises and falls onto the impact, over its time.
     const fk = flying ? Math.max(0, Math.min(1, (now - flyAt) / Math.max(500, Math.min(2600, shot.tof * 1000)))) : 0;
-    const impX = flying ? px + shot.impact.xMil * pxPerMil : 0;
-    const impY = flying ? py - shot.impact.yMil * pxPerMil : 0;
+    const impX = flying ? px + shot.impact.xMil * zoomPx : 0;
+    const impY = flying ? py - shot.impact.yMil * zoomPx : 0;
     const trX = flying ? R + (impX - R) * fk : 0;
     const trY = flying ? R + (impY - R) * fk - Math.sin(Math.PI * fk) * R * 0.5 : 0;
     const landed = flying && fk >= 1;
     const mirage = (now / (cond.wind.from === 'right' ? -40 : 40)) % 28;
-    const ticks = [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5];
     return (
       <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
         <View style={styles.fixed}>
@@ -369,7 +402,7 @@ export function LongShotScreen({ challengeId, onBack }: { challengeId: string; o
               label="YOUR HOLD"
               tone="#f0a24a"
               value={`${Math.abs(ax).toFixed(1)} ${sideOf(ax)} · ${Math.abs(ay).toFixed(1)} ${upOf(ay)}`}
-              sub="drag the scope to hold off"
+              sub={fov > 5.5 ? `zoomed out: marks every ${tickStep} mil` : 'drag the scope to hold off'}
               styles={styles}
             />
           </View>
@@ -416,21 +449,31 @@ export function LongShotScreen({ challengeId, onBack }: { challengeId: string; o
                 <Line x1={R} y1={10} x2={R} y2={scopeSize - 10} />
                 {ticks.map((k) => (
                   <G key={k}>
-                    <Line x1={R + k * pxPerMil} y1={R - 6} x2={R + k * pxPerMil} y2={R + 6} />
-                    <Line x1={R - 6} y1={R + k * pxPerMil} x2={R + 6} y2={R + k * pxPerMil} />
+                    <Line x1={R + k * zoomPx} y1={R - 6} x2={R + k * zoomPx} y2={R + 6} />
+                    <Line x1={R - 6} y1={R + k * zoomPx} x2={R + 6} y2={R + k * zoomPx} />
                   </G>
                 ))}
               </G>
-              {[1, 2, 3, 4].map((k) => (
+              {ticks.filter((k) => k > 0 && k <= fov - 1.5).map((k) => (
                 <G key={`n${k}`}>
-                  <SvgText fontFamily={font.headingSemibold} x={R - k * pxPerMil - 3} y={R + 17} fontSize={10} fontWeight="700" fill="#111">
+                  <SvgText fontFamily={font.headingSemibold} x={R - k * zoomPx - 3} y={R + 17} fontSize={10} fontWeight="700" fill="#111">
                     {k}
                   </SvgText>
-                  <SvgText fontFamily={font.headingSemibold} x={R + 9} y={R + k * pxPerMil + 4} fontSize={10} fontWeight="700" fill="#111">
+                  <SvgText fontFamily={font.headingSemibold} x={R + 9} y={R + k * zoomPx + 4} fontSize={10} fontWeight="700" fill="#111">
                     {k}
                   </SvgText>
                 </G>
               ))}
+              {/* The wind, live: which way it blows and how hard. */}
+              {!moon && (
+                <G>
+                  <Rect x={R - 52} y={16} width={104} height={24} rx={12} fill="rgba(0,0,0,0.72)" />
+                  <SvgText fontFamily={font.headingSemibold} x={R} y={33} fontSize={13} fontWeight="700" fill="#fff" textAnchor="middle">
+                    {Math.abs(windNow) < 0.5 ? 'No wind' : `${windNow > 0 ? '→' : '←'} ${Math.abs(windNow).toFixed(1)} mph`}
+                  </SvgText>
+                </G>
+              )}
+
               <Circle cx={R} cy={R} r={2.6} fill="#f08a24" />
               <Circle cx={R} cy={R} r={R - 3} fill="none" stroke="#000" strokeWidth={8} />
             </Svg>
@@ -439,8 +482,9 @@ export function LongShotScreen({ challengeId, onBack }: { challengeId: string; o
         <ScrollView contentContainerStyle={styles.under}>
           {!moon && (
             <Text style={styles.line}>
-              Flags {Math.abs(windMid) < 2 ? 'hanging nearly still' : `out ${windMid > 0 ? 'to the right' : 'to the left'}`}: about {Math.round(Math.abs(windMid))} mph from the{' '}
-              {windMid >= 0 ? 'left' : 'right'}.
+              {Math.abs(windNow) < 0.5
+                ? 'Flags hanging still: no wind to hold for.'
+                : `Wind ${Math.abs(windNow).toFixed(1)} mph from the ${windNow > 0 ? 'left' : 'right'}: hold about ${Math.abs(windHold).toFixed(1)} mil ${windHold < 0 ? 'left' : 'right'}. It gusts, so watch it change.`}
             </Text>
           )}
           {row && (
