@@ -4787,7 +4787,7 @@ function makeStyles(colors: Palette) {
     houndMiniLine: { backgroundColor: withAlpha(colors.gold, 0.35), borderColor: colors.gold },
     houndMiniEmoji: { fontSize: 13 },
     raceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
-    raceRank: { width: 14, fontSize: 12, color: withAlpha(colors.text, 0.55) },
+    raceRank: { minWidth: 14, fontSize: 12, color: withAlpha(colors.text, 0.55) },
     raceName: { fontSize: 13.5, color: colors.text, width: 62 },
     raceBarWrap: { flex: 1, minWidth: 0 },
     raceSteps: { fontSize: 12.5, color: colors.text, width: 56, textAlign: 'right' },

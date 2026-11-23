@@ -140,7 +140,7 @@ function makeStyles(colors: Palette) {
     head: { fontFamily: font.headingSemibold, fontSize: 10.5, letterSpacing: 0.6, color: withAlpha(colors.text, 0.6) },
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
     meRow: { backgroundColor: withAlpha('#7fd39b', 0.16), borderRadius: 8, marginHorizontal: -6, paddingHorizontal: 6, paddingVertical: 3 },
-    rank: { width: 22, fontFamily: font.headingSemibold, fontSize: 14, color: withAlpha(colors.text, 0.7) },
+    rank: { minWidth: 22, fontFamily: font.headingSemibold, fontSize: 14, color: withAlpha(colors.text, 0.7) },
     name: { flex: 1, fontFamily: font.headingSemibold, fontSize: 14, color: colors.text },
     pts: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text, minWidth: 36, textAlign: 'right' },
     longest: { width: 74, textAlign: 'right', fontSize: 12.5, color: withAlpha(colors.text, 0.65) },

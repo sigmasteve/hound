@@ -315,7 +315,7 @@ function makeStyles(colors: Palette) {
     row: { paddingVertical: 8, paddingHorizontal: 4, gap: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: withAlpha(colors.text, 0.1) },
     rowMe: { backgroundColor: withAlpha(colors.text, 0.05), borderRadius: 10 },
     rowTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    rank: { width: 16, fontFamily: font.headingSemibold, fontSize: 13, color: withAlpha(colors.text, 0.55) },
+    rank: { minWidth: 16, fontFamily: font.headingSemibold, fontSize: 13, color: withAlpha(colors.text, 0.55) },
     name: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text },
     chip: {
       alignSelf: 'flex-start',

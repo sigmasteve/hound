@@ -900,7 +900,7 @@ function makeStyles(colors: Palette) {
     tabOn: { backgroundColor: withAlpha(colors.accent, 0.22) },
     tabText: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text },
     member: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 },
-    rank: { width: 18, textAlign: 'center', fontFamily: font.headingSemibold, color: withAlpha(colors.text, 0.5) },
+    rank: { minWidth: 18, textAlign: 'center', fontFamily: font.headingSemibold, color: withAlpha(colors.text, 0.5) },
     rowText: { fontSize: 15, color: colors.text },
     steps: { fontFamily: font.headingSemibold, fontSize: 16, color: colors.text },
     regroup: { borderRadius: 12, padding: 12, backgroundColor: withAlpha(colors.amber, 0.16) },

@@ -343,7 +343,7 @@ function makeStyles(colors: Palette) {
     th: { flex: 1, fontSize: 11.5, color: withAlpha(colors.text, 0.5), textAlign: 'right' },
     td: { flex: 1, fontSize: 14, color: colors.text, textAlign: 'right', fontFamily: font.heading },
     pts: { fontFamily: font.headingSemibold, color: colors.accentActive },
-    rank: { width: 14, fontSize: 13, color: withAlpha(colors.text, 0.5) },
+    rank: { minWidth: 14, fontSize: 13, color: withAlpha(colors.text, 0.5) },
     name: { flex: 1, fontSize: 14, color: colors.text },
     timeline: { flexDirection: 'row', justifyContent: 'space-between' },
     dayCol: { alignItems: 'center', gap: 4 },
