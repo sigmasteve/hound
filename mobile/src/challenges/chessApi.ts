@@ -121,6 +121,32 @@ export async function playChessMove(challengeId: string, from: string, to: strin
   return toChessGame(await rpc('chess_move', { p_challenge_id: challengeId, p_from: from, p_to: to, p_promo: promo }));
 }
 
+// Undo (0258): take back your last move within a few seconds, before they
+// reply (against the bot, its answer comes off too).
+// Admin (0258): how often Undo is used.
+export interface ChessUndoOverview {
+  undos7d: number;
+  people7d: number;
+  peopleEver: number;
+  bot7d: number;
+  moves7d: number;
+}
+
+export async function getChessUndoOverview(): Promise<ChessUndoOverview | null> {
+  try {
+    const d = await rpc<any>('admin_chess_undo_overview', {});
+    const n = (v: unknown) => Number(v ?? 0);
+    return { undos7d: n(d?.undos_7d), people7d: n(d?.people_7d), peopleEver: n(d?.people_ever), bot7d: n(d?.bot_7d), moves7d: n(d?.moves_7d) };
+  } catch {
+    // Before 0258 is run.
+    return null;
+  }
+}
+
+export async function undoChessMove(challengeId: string): Promise<ChessGame> {
+  return toChessGame(await rpc('chess_undo', { p_challenge_id: challengeId }));
+}
+
 export async function resignChess(challengeId: string): Promise<ChessGame> {
   return toChessGame(await rpc('chess_resign', { p_challenge_id: challengeId }));
 }
