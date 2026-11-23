@@ -59,6 +59,30 @@ function Sock({ v, y, wind }: { v: Perspective; y: number; wind: number }) {
   );
 }
 
+// The clout's flag in the wind (Steve, Nov 2026): it streams the way the
+// wind blows (wind is mph, + from the left, so it points right), hangs
+// limp in a calm, and ripples harder in a gust. x, top: the pole's top;
+// len and h: the cloth's length and height in a stiff breeze.
+export function ClothFlag({ x, top, len, h, wind, now, color = '#e2412f' }: { x: number; top: number; len: number; h: number; wind: number; now: number; color?: string }) {
+  const s = Math.min(1, Math.abs(wind) / 10);
+  const dir = wind >= 0 ? 1 : -1;
+  const reach = len * (0.3 + 0.7 * s);
+  const drop = (1 - s) * len * 0.75;
+  const wave = Math.sin(now / (170 - 70 * s)) * h * (0.08 + 0.3 * s);
+  const tipX = x + dir * reach;
+  const tipTop = top + drop + wave * 0.6;
+  const tipBot = tipTop + h * (0.75 - 0.25 * s);
+  const midX = x + dir * reach * 0.5;
+  const d = [
+    `M${x} ${top}`,
+    `Q${midX} ${top + drop * 0.35 + wave} ${tipX} ${tipTop}`,
+    `L${tipX} ${tipBot}`,
+    `Q${midX} ${top + h + drop * 0.35 - wave} ${x} ${top + h}`,
+    'Z',
+  ].join(' ');
+  return <Path d={d} fill={color} />;
+}
+
 export function BullseyeFieldArt({
   width,
   height,
@@ -164,7 +188,7 @@ export function BullseyeFieldArt({
                 <Ellipse cx={at.x} cy={at.y} rx={24 * at.s + 6} ry={4 * at.s + 1.5} fill="none" stroke="#ffffff" strokeWidth={0.8} />
                 <Ellipse cx={at.x} cy={at.y} rx={12 * at.s + 3} ry={2 * at.s + 0.8} fill="none" stroke="#ffffff" strokeWidth={0.8} />
                 <Line x1={at.x} y1={at.y} x2={at.x} y2={at.y - pole} stroke="#5a4a33" strokeWidth={1.2} />
-                <Path d={`M${at.x} ${at.y - pole} L${at.x + 9 * at.s + 4} ${at.y - pole + 2.5} L${at.x} ${at.y - pole + 5} Z`} fill={on ? '#f08a24' : '#e2412f'} />
+                <ClothFlag x={at.x} top={at.y - pole} len={9 * at.s + 4} h={5} wind={longshotFlagWind(conditions.wind, now, 'far')} now={now} color={on ? '#f08a24' : '#e2412f'} />
               </G>
             );
           }

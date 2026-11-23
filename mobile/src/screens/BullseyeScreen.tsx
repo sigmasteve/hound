@@ -9,7 +9,7 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { buzz } from '../celebrate/feedback';
 import { useHealthProvider } from '../health/HealthContext';
 import { localDayKey } from '../goals/goals';
-import { BALLOON_COLOR, BullseyeFieldArt, FaceRings } from '../components/BullseyeField';
+import { BALLOON_COLOR, ClothFlag, BullseyeFieldArt, FaceRings } from '../components/BullseyeField';
 import { longshotFlagWind } from '../challenges/longshotApi';
 import {
   aimBullseye,
@@ -385,7 +385,7 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
                     <Ellipse key={k} cx={cx} cy={cy} rx={150 * k * pxPerCm} ry={150 * k * pxPerCm * 0.35} fill="none" stroke="#ffffff" strokeWidth={1.2} opacity={0.8} />
                   ))}
                   <Line x1={cx} y1={cy} x2={cx} y2={cy - 46} stroke="#5a4a33" strokeWidth={2.5} />
-                  <Path d={`M${cx} ${cy - 46} L${cx + 26} ${cy - 39} L${cx} ${cy - 32} Z`} fill="#e2412f" />
+                  <ClothFlag x={cx} top={cy - 46} len={28} h={14} wind={longshotFlagWind(aim.conditions.wind, now, 'far')} now={now} />
                 </G>
               )}
               {balloon && (
@@ -561,6 +561,8 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
                   apex={shot.apex}
                   mine={{ x: shot.xCm, along: shot.yCm }}
                   others={(end?.arrows ?? []).filter((a) => a.target === 'clout' && !(Math.abs(a.xCm - shot.xCm) < 0.05 && Math.abs(a.yCm - shot.yCm) < 0.05)).map((a) => ({ x: a.xCm, along: a.yCm }))}
+                  wind={moon ? 0 : longshotFlagWind(game.conditions.wind, now, 'far')}
+                  now={now}
                 />
               ) : clout ? (
                 <G>
@@ -691,6 +693,8 @@ function CloutLanding({
   apex,
   mine,
   others,
+  wind,
+  now,
 }: {
   w: number;
   h: number;
@@ -699,6 +703,8 @@ function CloutLanding({
   apex: number;
   mine: { x: number; along: number };
   others: { x: number; along: number }[];
+  wind: number;
+  now: number;
 }) {
   const cx = w / 2;
   const gy = h * 0.6;
@@ -738,7 +744,7 @@ function CloutLanding({
         <Ellipse key={k} cx={cx} cy={gy} rx={1.5 * k * m} ry={1.5 * k * m * squash} fill={k % 2 ? (moon ? '#9a9ca4' : '#7cca69') : moon ? '#8b8d95' : '#6fbf5e'} stroke="#ffffff" strokeWidth={1.2} />
       ))}
       <Line x1={cx} y1={gy} x2={cx} y2={gy - 1.6 * m * 0.7} stroke="#5a4a33" strokeWidth={4} />
-      <Path d={`M${cx} ${gy - 1.6 * m * 0.7} L${cx + 0.7 * m} ${gy - 1.6 * m * 0.7 + 0.22 * m} L${cx} ${gy - 1.6 * m * 0.7 + 0.44 * m} Z`} fill="#e2412f" />
+      <ClothFlag x={cx} top={gy - 1.6 * m * 0.7} len={0.75 * m} h={0.44 * m} wind={wind} now={now} />
       {others.map((a, i) => arrow(a, `o${i}`, false))}
       {arrow(mine, 'me', true)}
     </G>
@@ -938,7 +944,8 @@ function makeStyles(colors: Palette) {
     tapeOn: { borderColor: '#ffd23f' },
     tapeTop: { fontFamily: font.headingSemibold, fontSize: 12.5, color: colors.text },
     tapeV: { fontSize: 12, color: '#8fd8a8' },
-    breathHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
+    // Wraps rather than run the two labels together at large text sizes.
+    breathHead: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: 10, rowGap: 2, marginBottom: 5 },
     breathBar: { height: 10, borderRadius: 5, backgroundColor: withAlpha(colors.text, 0.12), overflow: 'hidden' },
     drawSteady: { position: 'absolute', top: 0, bottom: 0, backgroundColor: '#3a7d55' },
     drawTired: { position: 'absolute', top: 0, bottom: 0, backgroundColor: '#5a2c2c' },
