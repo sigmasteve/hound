@@ -206,6 +206,12 @@ export async function getDerbyLive(challengeId: string): Promise<DerbyLive> {
   return toDerbyLive(await rpc<any>('derby_live', { p_challenge_id: challengeId }));
 }
 
+// Auto (0257): the server swings at every pitch left, at ordinary timing.
+export async function autoDerby(challengeId: string): Promise<{ swings: number; hrs: number; counts: number; longest: number }> {
+  const d = await rpc<any>('derby_swing_auto', { p_challenge_id: challengeId });
+  return { swings: num(d?.swings), hrs: num(d?.hrs), counts: num(d?.counts), longest: num(d?.longest) };
+}
+
 // The next pitch (the pending one again, if you haven't swung at it).
 export async function throwDerbyPitch(challengeId: string, factor = 1): Promise<DerbyPitch> {
   return toPitch(await rpc<any>('derby_pitch', { p_challenge_id: challengeId }), factor);

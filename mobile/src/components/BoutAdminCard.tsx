@@ -6,6 +6,7 @@ import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { getBoutOverview, getRingOverview, type BoutOverview, type RingOverview } from '../challenges/boutApi';
+import { autoShare, getAutoPlayOverview, type AutoPlayOverview } from '../challenges/autoPlayApi';
 
 function pct(part: number, whole: number): string {
   return whole > 0 ? `${Math.round((part / whole) * 100)}%` : '–';
@@ -22,12 +23,17 @@ export function BoutAdminCard({ onChanged }: { onChanged?: (o: BoutOverview) => 
   const [error, setError] = useState<string | null>(null);
   // The new ring (0230): exchanges, combinations faced, counters, Star punches.
   const [ring, setRing] = useState<RingOverview | null>(null);
+  // Auto (0256): exchanges thrown on Auto.
+  const [auto, setAuto] = useState<AutoPlayOverview | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       getRingOverview()
         .then(setRing)
         .catch(() => setRing(null));
+      getAutoPlayOverview()
+        .then(setAuto)
+        .catch(() => setAuto(null));
       getBoutOverview()
         .then((d) => {
           setData(d);
@@ -69,6 +75,18 @@ export function BoutAdminCard({ onChanged }: { onChanged?: (o: BoutOverview) => 
           ? ([
               ['The new ring this week', `${ring.exchanges7d.toLocaleString()} exchanges by ${ring.attackers7d.toLocaleString()} · ${ring.attackersEver.toLocaleString()} have tried it`],
               ['Combinations faced', `${ring.defenses7d.toLocaleString()} by ${ring.defenders7d.toLocaleString()} · ${pct(ring.slipped7d, ring.faced7d)} of punches slipped`],
+              ...(auto
+                ? ([
+                    [
+                      'On Auto',
+                      `${auto.ringAuto7d.toLocaleString()} exchanges this week (${autoShare(auto.ringAuto7d, auto.ringAll7d)}) by ${auto.ringAutoPeople7d} · ${auto.ringAutoPeopleEver} have used it`,
+                    ],
+                    [
+                      'Faced on Auto',
+                      `${auto.defendAuto7d.toLocaleString()} combinations this week (${autoShare(auto.defendAuto7d, auto.defendAll7d)}) by ${auto.defendAutoPeople7d}`,
+                    ],
+                  ] as [string, string][])
+                : []),
               ['Counters and stars', `${ring.counters7d.toLocaleString()} counters · ${ring.starPunches7d.toLocaleString()} Star punches · ${ring.comboKnockdowns7d.toLocaleString()} knockdowns from combinations`],
             ] as [string, string][])
           : []),

@@ -26,7 +26,7 @@ import {
   type SlotSymbol,
   type SlotWin,
 } from '../challenges/slots';
-import { buySlots, getSlots, spinSlots, type SlotsGame } from '../challenges/slotsApi';
+import { buySlots, getSlots, spinSlots, spinSlotsAuto, type SlotsGame } from '../challenges/slotsApi';
 import { SlotSymbolArt } from '../components/SlotSymbol';
 import { BoardLink } from '../components/BoardLink';
 
@@ -82,6 +82,11 @@ export function SlotsScreen({ challengeId, onBack }: { challengeId: string; onBa
   const [busy, setBusy] = useState(false);
   const [reels, setReels] = useState<Reel[]>(() => [0, 1, 2].map((r) => ({ mode: 'still', pos: 2 + r * 3, shift: 0 }) as Reel));
   const [spinning, setSpinning] = useState(false);
+  // Auto (0256): spin again after each one lands, until the spins run out
+  // or Stop (Steve, Nov 2026).
+  const [auto, setAuto] = useState(false);
+  const autoRef = useRef(false);
+  autoRef.current = auto;
   const [now, setNow] = useState(Date.now());
   const [last, setLast] = useState<{ wins: SlotWin[]; won: number; base: number; bet: number; lines: number } | null>(null);
   const [flashAt, setFlashAt] = useState(0);
@@ -179,7 +184,7 @@ export function SlotsScreen({ challengeId, onBack }: { challengeId: string; onBa
     setSpinning(true);
     buzz('light');
     try {
-      const res = await spinSlots(challengeId, lines, bet);
+      const res = await (autoRef.current ? spinSlotsAuto : spinSlots)(challengeId, lines, bet);
       result.current = res;
       // A slow answer: the reels stop from when it came.
       if (Date.now() - spinT0.current > AUTO[0]) spinT0.current = Date.now() - AUTO[0] + 300;
@@ -187,12 +192,27 @@ export function SlotsScreen({ challengeId, onBack }: { challengeId: string; onBa
       const t2 = Date.now();
       setReels((rs) => rs.map((st) => ({ mode: 'still', pos: Math.round(posOf(st, t2)), shift: st.shift })));
       setSpinning(false);
+      setAuto(false);
       Alert.alert('Paw Slots', e instanceof Error ? e.message : 'Try again.');
       load();
     } finally {
       setBusy(false);
     }
   };
+
+  // On Auto, the next spin a moment after one lands; out of spins, Auto stops.
+  useEffect(() => {
+    if (!auto || spinning || busy || !game) return;
+    if (!live || left < cost) {
+      setAuto(false);
+      return;
+    }
+    const id = setTimeout(() => {
+      if (autoRef.current) spin();
+    }, 900);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auto, spinning, busy, left, cost, live]);
 
   const tapReel = (r: number) => {
     if (!spinning || !result.current) return;
@@ -281,7 +301,9 @@ export function SlotsScreen({ challengeId, onBack }: { challengeId: string; onBa
 
   const label = !live
     ? msgTitle
-    : spinning
+    : auto
+      ? `Stop auto · ${left} left`
+      : spinning
       ? 'Stop'
       : left >= cost
         ? `Spin · uses ${cost} of ${left}`
@@ -534,14 +556,29 @@ export function SlotsScreen({ challengeId, onBack }: { challengeId: string; onBa
         </View>
       </ScrollView>
 
-      <View style={styles.pinned}>
+      <View style={[styles.pinned, { flexDirection: 'row', gap: 8 }]}>
+        {!auto && !spinning && live && left >= cost && (
+          <Pressable
+            onPress={() => {
+              autoRef.current = true;
+              setAuto(true);
+              spin();
+            }}
+            disabled={busy}
+            style={[styles.act, styles.autoBtn]}
+            accessibilityRole="button"
+            accessibilityLabel={`Auto: spin until your ${left} spins are used, ${lines} ${lines === 1 ? 'line' : 'lines'} at ${bet} a line`}
+          >
+            <Text style={[styles.actText, { color: '#f08a24' }]}>Auto</Text>
+          </Pressable>
+        )}
         <Pressable
-          onPress={spinning ? stopNext : spin}
-          disabled={!canAct || (busy && !spinning)}
-          style={[styles.act, spinning ? { backgroundColor: '#e9e9ed' } : canAct ? { backgroundColor: '#f08a24' } : styles.actOff]}
+          onPress={auto ? () => setAuto(false) : spinning ? stopNext : spin}
+          disabled={!auto && (!canAct || (busy && !spinning))}
+          style={[styles.act, { flex: 1 }, auto || spinning ? { backgroundColor: '#e9e9ed' } : canAct ? { backgroundColor: '#f08a24' } : styles.actOff]}
           accessibilityRole="button"
         >
-          <Text style={[styles.actText, !canAct && { color: withAlpha(colors.text, 0.7), fontSize: 14 }]}>{label}</Text>
+          <Text style={[styles.actText, !canAct && !auto && { color: withAlpha(colors.text, 0.7), fontSize: 14 }]}>{label}</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -595,6 +632,7 @@ function makeStyles(colors: Palette) {
     payOdds: { width: 76, textAlign: 'right', fontSize: 12, color: withAlpha(colors.text, 0.6) },
     pinned: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8 },
     act: { minHeight: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+    autoBtn: { paddingHorizontal: 20, backgroundColor: withAlpha('#f08a24', 0.16), borderWidth: 1.5, borderColor: '#f08a24' },
     actOff: { backgroundColor: withAlpha(colors.text, 0.1) },
     actText: { fontFamily: font.headingSemibold, fontSize: 17, color: '#161826', textAlign: 'center' },
   });

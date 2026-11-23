@@ -6,6 +6,7 @@ import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { getSlotsOverview, type SlotsOverview } from '../challenges/slotsApi';
+import { autoShare, getAutoPlayOverview, type AutoPlayOverview } from '../challenges/autoPlayApi';
 
 // Admin → Paw Slots (0242): who plays, how (lines and bets), how often it
 // pays, spins bought with Paw Coins, and the Bones paid at the end.
@@ -14,9 +15,14 @@ export function SlotsAdminCard({ onChanged }: { onChanged?: (o: SlotsOverview) =
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [data, setData] = useState<SlotsOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Auto (0256): spins on Auto.
+  const [auto, setAuto] = useState<AutoPlayOverview | null>(null);
 
   useFocusEffect(
     useCallback(() => {
+      getAutoPlayOverview()
+        .then(setAuto)
+        .catch(() => setAuto(null));
       getSlotsOverview()
         .then((d) => {
           setData(d);
@@ -44,6 +50,14 @@ export function SlotsAdminCard({ onChanged }: { onChanged?: (o: SlotsOverview) =
         ['Games', `${data.live} live (${data.liveGlobal} Global) · ${data.all} ever · ${data.teamGames} in packs`],
         ['Players', `${n(data.players7d)} this week · ${n(data.playedEver)} ever played · ${n(data.joined)} ever joined`],
         ['Presses this week', `${n(data.presses7d)} (${n(data.spinsUsed7d)} spins) · ${pct(data.hits7d, data.presses7d)} won something`],
+        ...(auto
+          ? ([
+              [
+                'On Auto',
+                `${n(auto.slotsAuto7d)} spins this week (${autoShare(auto.slotsAuto7d, auto.slotsAll7d)}) by ${n(auto.slotsAutoPeople7d)} · ${n(auto.slotsAutoPeopleEver)} have used it`,
+              ],
+            ] as [string, string][])
+          : []),
         ['Lines', `1: ${n(data.byLines7d.l1)} · 3: ${n(data.byLines7d.l3)} · 5: ${n(data.byLines7d.l5)}`],
         ['Bets', `×1: ${n(data.byBet7d.b1)} · ×2: ${n(data.byBet7d.b2)} · ×3: ${n(data.byBet7d.b3)} · ×5: ${n(data.byBet7d.b5)}`],
         ['Wins this week', `${n(data.coinsWon7d)} Paw Coins · ${data.bigWins7d} big (50+) · ${data.jackpots7d} ${data.jackpots7d === 1 ? 'jackpot' : 'jackpots'}`],

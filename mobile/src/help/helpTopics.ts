@@ -257,6 +257,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'Every 500 steps on your own day is a spin, up to 20 a day, plus 2 for a 20-minute workout. Spins you don’t use carry over to tomorrow, up to 10.',
         'Out of spins? Buy more with Paw Coins: 3 a spin, up to 10 a day. A spin wins back about 3 coins on average, so buying is roughly even: it’s for the thrill of a jackpot, not a way up the board. Spins can’t be bought with money, and Bones never go in.',
+        'Auto (next to Spin) keeps spinning with your lines and bet until your spins run out. Tap Stop auto to stop after the spin that’s turning.',
         'Pick 1, 3 or 5 lines (the middle; then the top and bottom; then the two diagonals) and a bet of ×1, ×2, ×3 or ×5 a line. A press uses lines × bet spins, and each line pays on its own, times your bet.',
         'What a line pays: three Golden Hounds 250, three Collars 100, three Bones 50, Balls 25, Treats 15, Hydrants 10, Paws 5, and any two matching on the left 2. The Collar is wild (not for the Golden Hound) and doubles a win.',
         'How often: some win comes up about 3 presses in 8 on one line, 7 in 9 on three lines and 17 in 20 on five. Three Golden Hounds is about 1 in 8,000 a line. Where the reels stop is set by Hound when you press Spin: tapping a reel only stops it sooner, and no near misses are put in.',
@@ -386,6 +387,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'A Global Hound Challenge on Today, usually a week. Join in its first 3 days; your swings count from the day you join.',
         'Your steps today buy the swings: one every 1,000 steps, up to 20 a day. Swings you don’t take that day don’t carry over.',
+        'Short on time? Auto (next to Pitch) takes every swing you have left with ordinary timing: some go out, some get caught at the wall or missed, and a golden ball gets an ordinary swing too. Swinging yourself hits more.',
         'Swing with the meter (the usual) or by tapping the ball, the same choice as a Baseball at-bat. Meter: tap Pitch, then Swing! as the marker crosses the middle. Tap the ball: tap Pitch, look up for the 3-2-1, then tap the ball where it crosses the plate, as it gets there. Every pitch is a meatball near the middle, so be right on time. Taking a pitch is an out.',
         'Right on time goes deepest, to center; a little early pulls it to left, a little late pushes it to right, where the wall is shorter. Too early or too late is a fly ball caught at the wall, or a miss.',
         'Distance: your timing sets it (up to 435 feet), your steps today add 10 feet per 5,000 (up to 40), and a strength workout adds 15 (25 for two or more). The longest possible is 500 feet. 475 feet or more is a Moonshot and counts as two home runs.',
@@ -403,6 +405,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'Pick one friend to fight, and 3, 5 or 7 rounds. One round a day; the first bell rings once they accept.',
         'Every 1,500 steps today is an action, up to 10 a day (and 2 more after 20 minutes of cardio). An action is an exchange or facing one of their combinations. Unused actions don’t carry over.',
+        'Short on time? Auto (next to Throw in the ring) throws every exchange you have left. Each punch lands clean, never perfect and no Star punches, so their guard can block some: throwing them yourself scores more. On the Incoming side, Auto faces every combination waiting: it slips each punch the right way a little over half the time, and never tight enough to counter.',
         'An exchange: three openings light up on your opponent, one after another, each with a ring closing on it. Tap each as its ring closes; green means now. Where it lights picks the punch: the face is a jab (1 point), the side of the head a hook (2), the chin an uppercut (3). Too early, or tapping anywhere else, is a miss; right as it closes is perfect.',
         'Guards: each day you set yours on the fight’s page (it stays up until you change it). High stops hooks; body stops uppercuts; counter catches jabs and hits back for 1 each. A perfect punch beats any guard. Their guard shapes the openings you see: lots of chin means a high guard, lots of hooks a body guard, and an easy jab can be bait.',
         'Facing their combination: each punch is telegraphed (the glove winds up, then a glint). Tap where to move: a jab, slip left or right; a hook, slip away from it or duck; an uppercut, lean back (the top of the ring). Right as it lands is a tight slip: their face lights up for a counter (+2, and a star). Anything you don’t face lands when the round is scored.',
@@ -436,6 +439,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'A Global Hound Challenge on Today, usually a week. Join in its first 3 days; your kicks count from the day you join.',
         'Your steps today buy the kicks: one every 1,000 steps, up to 20 a day. Kicks you don’t take that day don’t carry over.',
+        'Short on time? Auto (next to the kick button) takes every kick you have left at the low spots, never the top bins, with ordinary power: the keeper saves some and some go wide. Kicking yourself scores more.',
         'Tap where in the goal to aim: top or low, left, middle or right. Then tap Kick! as the marker on the power meter crosses the green.',
         'Too soft and the keeper holds it. Too hard and it’s over the bar, or wide of the post in the low corners. The dark green in the middle is a perfect strike: much harder to save.',
         'A goal counts 1. Top bins, either top corner, counts 2, but the green there is the narrowest. Low in the middle is the easiest to hit and the easiest to save.',
