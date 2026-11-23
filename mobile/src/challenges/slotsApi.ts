@@ -186,7 +186,11 @@ export interface SlotsSpinResult {
 }
 
 export async function spinSlots(challengeId: string, lines: SlotLines, bet: SlotBet): Promise<SlotsSpinResult> {
-  const d = await rpc<any>('slots_spin', { p_challenge_id: challengeId, p_lines: lines, p_bet: bet });
+  return spinSlotsWith('slots_spin', challengeId, lines, bet);
+}
+
+async function spinSlotsWith(fn: 'slots_spin' | 'slots_spin_auto', challengeId: string, lines: SlotLines, bet: SlotBet): Promise<SlotsSpinResult> {
+  const d = await rpc<any>(fn, { p_challenge_id: challengeId, p_lines: lines, p_bet: bet });
   const st = ((d?.stops ?? [0, 0, 0]) as unknown[]).map(num);
   return {
     stops: [st[0] ?? 0, st[1] ?? 0, st[2] ?? 0],
@@ -196,6 +200,11 @@ export async function spinSlots(challengeId: string, lines: SlotLines, bet: Slot
     coins: num(d?.coins),
     left: num(d?.left),
   };
+}
+
+// One spin on Auto (0256): the same spin, marked auto for Admin.
+export async function spinSlotsAuto(challengeId: string, lines: SlotLines, bet: SlotBet): Promise<SlotsSpinResult> {
+  return spinSlotsWith('slots_spin_auto', challengeId, lines, bet);
 }
 
 export async function buySlots(challengeId: string, spins: number): Promise<{ coins: number; left: number }> {

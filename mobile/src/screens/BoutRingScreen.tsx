@@ -15,6 +15,7 @@ import {
   getBoutLive,
   punchName,
   startDefense,
+  autoExchanges,
   startExchange,
   throwRingPunch,
   type BoutKind,
@@ -170,6 +171,40 @@ export function BoutRingScreen({
     } finally {
       setBusy(false);
     }
+  };
+
+  // Auto (0256): the server throws every exchange left, all clean (never
+  // perfect, no stars), so their guard still blocks some. Facing their
+  // combinations stays by hand.
+  const autoThrow = () => {
+    if (busy || running || !live?.canAct) return;
+    const n = live.day.left;
+    Alert.alert(
+      `Throw all ${n} for you?`,
+      'Auto throws every exchange you have left. Each punch lands clean, never perfect and no Star punches, so their guard can block some. Throw them yourself to score more.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: `Throw ${n}`,
+          onPress: async () => {
+            setBusy(true);
+            try {
+              const r = await autoExchanges(kind, challengeId);
+              setMsg(
+                `Auto threw ${r.exchanges} ${r.exchanges === 1 ? 'exchange' : 'exchanges'}: ${r.landed} landed for ${r.points} ${r.points === 1 ? 'point' : 'points'}` +
+                  (r.blocked ? `, ${r.blocked} blocked or countered by their guard.` : '.'),
+              );
+              buzz('light');
+            } catch (e) {
+              Alert.alert(gameName, e instanceof Error ? e.message : 'Try again.');
+            } finally {
+              setBusy(false);
+              load();
+            }
+          },
+        },
+      ],
+    );
   };
 
   const throwAt = (i: number, progress: number | null, late = false) => {
@@ -610,9 +645,16 @@ export function BoutRingScreen({
           })}
         </View>
         {mode === 'throw' ? (
-          <Pressable onPress={beginExchange} disabled={!canThrow} style={[styles.act, canThrow ? { backgroundColor: '#f08a24' } : styles.actOff]} accessibilityRole="button">
-            <Text style={[styles.actText, !canThrow && styles.actTextOff]}>{throwLabel}</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {canThrow && !x && left > 0 && (
+              <Pressable onPress={autoThrow} style={[styles.act, styles.autoBtn]} accessibilityRole="button" accessibilityLabel={`Auto: throw all ${left} exchanges`}>
+                <Text style={[styles.actText, { color: '#f08a24' }]}>Auto</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={beginExchange} disabled={!canThrow} style={[styles.act, { flex: 1 }, canThrow ? { backgroundColor: '#f08a24' } : styles.actOff]} accessibilityRole="button">
+              <Text style={[styles.actText, !canThrow && styles.actTextOff]}>{throwLabel}</Text>
+            </Pressable>
+          </View>
         ) : (
           <Pressable onPress={beginDefense} disabled={!canFace} style={[styles.act, canFace ? { backgroundColor: '#f08a24' } : styles.actOff]} accessibilityRole="button">
             <Text style={[styles.actText, !canFace && styles.actTextOff]}>{slipLabel}</Text>
@@ -670,6 +712,7 @@ function makeStyles(colors: Palette) {
     tabText: { fontFamily: font.headingSemibold, fontSize: 13.5, color: withAlpha(colors.text, 0.75) },
     tabTextOn: { color: colors.bg },
     act: { minHeight: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+    autoBtn: { paddingHorizontal: 20, backgroundColor: withAlpha('#f08a24', 0.16), borderWidth: 1.5, borderColor: '#f08a24' },
     actOff: { backgroundColor: withAlpha(colors.text, 0.1) },
     actText: { fontFamily: font.headingSemibold, fontSize: 17, color: '#161826', textAlign: 'center' },
     actTextOff: { color: withAlpha(colors.text, 0.6), fontSize: 14 },

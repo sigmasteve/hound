@@ -268,6 +268,16 @@ export async function startExchange(kind: BoutKind, challengeId: string): Promis
   return { id: num(d?.id), openings: ((d?.openings ?? []) as OpeningKind[]).slice(0, 3), stars: num(d?.stars) };
 }
 
+// Auto (0256): the server throws the exchanges you have left, every
+// punch clean (never perfect, no stars).
+export async function autoExchanges(
+  kind: BoutKind,
+  challengeId: string,
+): Promise<{ exchanges: number; points: number; landed: number; blocked: number; left: number }> {
+  const d = await rpc<any>('ring_exchange_auto', { p_game: kind, p_challenge_id: challengeId });
+  return { exchanges: num(d?.exchanges), points: num(d?.points), landed: num(d?.landed), blocked: num(d?.blocked), left: num(d?.left) };
+}
+
 export interface RingPunchResult {
   seq: number;
   punch: BoutPunchKind;
