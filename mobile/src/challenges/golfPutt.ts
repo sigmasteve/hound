@@ -65,3 +65,15 @@ export function feetText(yards: number): string {
   const ft = Math.round(yards * 3);
   return `${ft} ft`;
 }
+
+// Just off the green (0253, golf_fringe): fairway or rough within 3 yards
+// of the green's edge, not in the trees. The putter plays from here as
+// well as the green (and the other clubs still do).
+export const FRINGE_YD = 3;
+export function golfFringe(hole: GolfHole, ball: GolfSpot, lie: string): boolean {
+  if (lie !== 'fairway' && lie !== 'rough') return false;
+  const inTrees = hole.hazards.some(
+    (z) => z.type === 'trees' && ((ball.d - z.d) / z.rd) ** 2 + ((ball.lat - z.lat) / z.rl) ** 2 <= 1,
+  );
+  return !inTrees && Math.hypot(ball.d - hole.green.d, ball.lat - hole.green.lat) <= hole.green.r + FRINGE_YD;
+}

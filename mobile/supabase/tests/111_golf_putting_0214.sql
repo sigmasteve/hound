@@ -76,7 +76,7 @@ reset role;
 select tests.sign_in(:'ada');
 set local role authenticated;
 select is((public.admin_golf_putting_overview() - 'by_length' - 'avg_putts_per_hole_7d' - 'holes_7d' - 'three_putts_7d')
-  , '{"putts_7d": 2, "putters_7d": 1, "made_7d": 1, "pace_putts_7d": 2, "pace_players_7d": 1}'::jsonb,
+  , '{"putts_7d": 2, "putters_7d": 1, "made_7d": 1, "pace_putts_7d": 2, "pace_players_7d": 1, "fringe_putts_7d": 0, "fringe_putters_7d": 0, "fringe_made_7d": 0}'::jsonb,
   'Putts, made, and with the pace meter');
 reset role;
 

@@ -21,7 +21,7 @@ import {
   type GolfClubId,
 } from '../challenges/golf';
 import { getGolfGame, takeGolfShot, type GolfGame, type GolfShotResult, type GolfSpot } from '../challenges/golfApi';
-import { PUTT_MIN_YD, dropBand, feetText, puttDrops, puttPath, puttRange, puttRest } from '../challenges/golfPutt';
+import { PUTT_MIN_YD, dropBand, feetText, golfFringe, puttDrops, puttPath, puttRange, puttRest } from '../challenges/golfPutt';
 import {
   getChallengeSponsor,
   recordSponsorClick,
@@ -49,6 +49,11 @@ type Phase = 'aim' | 'meter' | 'waiting' | 'flying' | 'holed';
 const PULL_PX = 150; // a full pull, in points
 const PACE_MS = 1100; // the pace marker, one way
 const PUTT_AIM_PX = 5; // sideways points per degree of aim on the green
+
+// Just off the green (0253): the putter's picked, a chip's a tap away.
+function fringeWords(toPinYd: number): string {
+  return `Just off the green, ${Math.round(toPinYd * 3)} ft to the cup: putt it (pull sideways to set the line), or tap Auto to chip.`;
+}
 
 function windArrow(deg: number): string {
   const d = ((deg % 360) + 360) % 360;
@@ -96,6 +101,10 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
   const holeNo = me?.hole ?? 1;
   const hole = game?.course.holes[(holeNo - 1) % Math.max(1, game.course.holes.length)] ?? null;
   const onGreen = lie === 'green';
+  // Just off the green (0253): the putter or any club. Picking the putter
+  // here switches to putting (the line, the pace meter), like the green.
+  const onFringe = !!hole && golfFringe(hole, ball, lie);
+  const putting = onGreen || (onFringe && club === 'putter');
   // The course's own hole number (18 holes play the nine twice).
   const courseNo = ((holeNo - 1) % 9) + 1;
   const sponsorHole = !!sponsor && sponsor.hole != null && sponsor.hole === courseNo;
@@ -113,7 +122,8 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
         setLie(mine.lie);
         setStrokes(mine.strokesOnHole);
         const left = Math.hypot(h.pin.d - mine.ball.d, h.pin.lat - mine.ball.lat);
-        setClub(mine.lie === 'green' ? 'putter' : caddieClub(left).id);
+        const fringe = golfFringe(h, mine.ball, mine.lie);
+        setClub(mine.lie === 'green' || fringe ? 'putter' : caddieClub(left).id);
         setManual(false);
         if (mine.strokesOnHole === 0) setTrail([]);
       }
@@ -121,7 +131,9 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
       setError(null);
       if (!msg) {
         setMsg(
-          mine?.lie === 'green' && h
+          mine && h && golfFringe(h, mine.ball, mine.lie)
+            ? fringeWords(Math.hypot(h.pin.d - mine.ball.d, h.pin.lat - mine.ball.lat))
+            : mine?.lie === 'green' && h
             ? `On the green, ${Math.round(Math.hypot(h.pin.d - mine.ball.d, h.pin.lat - mine.ball.lat) * 3)} ft to the cup: pull sideways to set the line (it breaks ${h.green.break > 0 ? 'right' : 'left'}), then Putt.`
             : `Your ${g.banks.steps.toLocaleString()} steps since your last shot are ${g.banks.yards.toLocaleString()} yards. Pull down on the course: further is longer. The caddie picks the club.`,
         );
@@ -158,7 +170,7 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
 
   // What the pull asks for: yards (the caddie's club, or yours), aim, where it lands.
   const plan = useMemo(() => {
-    if (!pull || !hole || lie === 'green') return null;
+    if (!pull || !hole || putting) return null;
     const frac = Math.max(0.03, Math.min(1, pull.dy / PULL_PX));
     let c = golfClub(club);
     let yd: number;
@@ -174,13 +186,13 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
     const th = base + (aim * Math.PI) / 180;
     const carry = yd * (1 + (c.id === 'putter' ? 0 : pick) / 100);
     return { club: c.id, yd, capped, aim, th, carry, to: { d: ball.d + carry * Math.cos(th), lat: ball.lat + carry * Math.sin(th) } };
-  }, [pull, hole, club, manual, banks.yards, ball, pick, lie]);
+  }, [pull, hole, club, manual, banks.yards, ball, pick, putting]);
 
   // A putt: the line from the pull, the meter's range, the lengths that
   // drop on that line, and (while the meter runs) the roll at its pace.
-  const puttAim = lie === 'green' && pull ? Math.max(-35, Math.min(35, -pull.dx / PUTT_AIM_PX)) : 0;
+  const puttAim = putting && pull ? Math.max(-35, Math.min(35, -pull.dx / PUTT_AIM_PX)) : 0;
   const putt = useMemo(() => {
-    if (!hole || lie !== 'green') return null;
+    if (!hole || !putting) return null;
     const range = puttRange(Math.hypot(hole.pin.d - ball.d, hole.pin.lat - ball.lat));
     const band = dropBand(hole, ball, puttAim, range);
     const yards = phase === 'meter' ? Math.max(PUTT_MIN_YD, pace * range) : null;
@@ -193,7 +205,7 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
       drops: yards != null && puttDrops(hole, ball, puttAim, yards),
       yards,
     };
-  }, [hole, lie, ball, puttAim, phase, pace]);
+  }, [hole, putting, ball, puttAim, phase, pace]);
   useEffect(() => {
     let last = 0;
     const id = paceAnim.addListener(({ value }) => {
@@ -250,7 +262,7 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
       await load();
       return;
     }
-    if (lie === 'green' && putt && game) {
+    if (putting && putt && game) {
       if (phase === 'aim') {
         setPhase('meter');
         setMsg('Tap Stop as the marker crosses the green band: that pace drops it.');
@@ -362,13 +374,16 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
     }
     const left = Math.hypot(hole.pin.d - r.ball.d, hole.pin.lat - r.ball.lat);
     const green = r.lie === 'green';
-    setClub(green ? 'putter' : caddieClub(left).id);
+    const fringe = golfFringe(hole, r.ball, r.lie);
+    setClub(green || fringe ? 'putter' : caddieClub(left).id);
     setManual(false);
     const said = r.message || `${Math.round(r.carry)} yd, ${GOLF_LIE_NAME[r.lie] ?? r.lie}.`;
     setMsg(
       green
         ? `${said} ${Math.round(left * 3)} ft to the cup: pull sideways to set the line, then Putt.`
-        : `${said} Caddie: ${caddieClub(left).name.toLowerCase()} for ${Math.round(left)} yd.`,
+        : fringe
+          ? `${said} ${fringeWords(left)}`
+          : `${said} Caddie: ${caddieClub(left).name.toLowerCase()} for ${Math.round(left)} yd.`,
     );
     setPhase('aim');
   };
@@ -392,11 +407,11 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
     phase === 'meter' ||
     phase === 'holed' ||
     (phase === 'aim' && finished) ||
-    (phase === 'aim' && onGreen && canPlay && banks.yards > 0) ||
+    (phase === 'aim' && putting && canPlay && banks.yards > 0) ||
     (phase === 'aim' && !!plan && plan.yd > 0 && canPlay);
   const swingLabel =
     phase === 'meter'
-      ? onGreen
+      ? putting
         ? 'Stop!'
         : 'Hit!'
       : phase === 'waiting' || phase === 'flying'
@@ -411,7 +426,7 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
               ? 'Your walks play this game for you'
               : banks.yards <= 0
                 ? 'No yards banked yet: go for a walk'
-                : onGreen
+                : putting
                   ? 'Putt'
                   : plan
                     ? 'Swing'
@@ -507,19 +522,19 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
               green its chip steps aside. */}
           <View style={styles.chips} pointerEvents="none">
             <Text style={styles.chip}>{phase === 'holed' ? 'In the hole' : `${distanceText(toPin)} to the ${toPin < 30 ? 'cup' : 'pin'}`}</Text>
-            {!onGreen && phase !== 'holed' && (
+            {!putting && phase !== 'holed' && (
               <Text style={styles.chip}>
                 Wind {Math.round(game.wind.mph)} mph {windArrow(game.wind.deg)}
               </Text>
             )}
             {phase !== 'holed' && (
               <Text style={[styles.chip, styles.lieChip]}>
-                {GOLF_LIE_NAME[lie] ?? (lie === 'drop' ? 'Drop' : lie)}
-                {lie === 'green' && Math.abs(hole.green.break) >= 0.02 ? ` · breaks ${hole.green.break > 0 ? 'right' : 'left'}` : ''}
+                {onFringe ? 'Fringe' : GOLF_LIE_NAME[lie] ?? (lie === 'drop' ? 'Drop' : lie)}
+                {putting && Math.abs(hole.green.break) >= 0.02 ? ` · breaks ${hole.green.break > 0 ? 'right' : 'left'}` : ''}
               </Text>
             )}
           </View>
-          {phase === 'aim' && !pull && strokes === 0 && canPlay && !onGreen && (
+          {phase === 'aim' && !pull && strokes === 0 && canPlay && !putting && (
             <View style={styles.hint} pointerEvents="none">
               <Text style={styles.hintText}>Put your finger on the course and pull down toward you. Pull left or right to aim.</Text>
             </View>
@@ -546,7 +561,7 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
               </Text>
             </View>
           )}
-          {sponsorHole && sponsor && !plan && !onGreen && phase === 'aim' && (
+          {sponsorHole && sponsor && !plan && !putting && phase === 'aim' && (
             <View style={styles.pullInfo} pointerEvents="none">
               <View style={[styles.logoDot, { backgroundColor: sponsorColor(sponsor) }]}>
                 <Text style={styles.logoDotText}>{sponsor.name.slice(0, 1).toUpperCase()}</Text>
@@ -570,18 +585,20 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
             onPress={() => {
               setManual(false);
               setPull(null);
+              // Off the putter, back to the caddie's club (a chip from the fringe).
+              if (club === 'putter' && onFringe) setClub(caddieClub(toPin).id);
             }}
             disabled={phase !== 'aim' || onGreen}
-            style={[styles.clubChip, !manual && !onGreen && styles.clubOn]}
+            style={[styles.clubChip, !manual && !putting && styles.clubOn]}
             accessibilityRole="button"
-            accessibilityState={{ selected: !manual && !onGreen }}
+            accessibilityState={{ selected: !manual && !putting }}
           >
             <Text style={styles.clubName}>Auto</Text>
             <Text style={styles.clubMax}>{manual ? 'Back to caddie' : 'Caddie picks'}</Text>
           </Pressable>
           {GOLF_CLUBS.map((c) => {
             const on = shownClub === c.id;
-            const disabled = phase !== 'aim' || (c.id === 'putter' ? !onGreen : onGreen);
+            const disabled = phase !== 'aim' || (c.id === 'putter' ? !onGreen && !onFringe : onGreen);
             return (
               <Pressable
                 key={c.id}
@@ -602,7 +619,7 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
           })}
         </ScrollView>
 
-        {onGreen && putt && (
+        {putting && putt && (
           <View style={{ gap: 4 }}>
             <View style={styles.paceTop}>
               <Text style={styles.paceLabel}>PACE</Text>
@@ -632,12 +649,12 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
           </View>
         )}
 
-        {phase !== 'meter' && !onGreen && (
+        {phase !== 'meter' && !putting && (
         <View style={styles.powerRow}>
           <Text style={styles.powerLabel}>Power</Text>
           {GOLF_POWER_STEPS.map((p) => {
             const on = pick === p;
-            const disabled = phase !== 'aim' || p > banks.power || onGreen;
+            const disabled = phase !== 'aim' || p > banks.power || putting;
             return (
               <Pressable
                 key={p}
@@ -654,7 +671,7 @@ export function GolfPlayScreen({ challengeId, onBack }: { challengeId: string; o
         </View>
         )}
 
-        {phase === 'meter' && !onGreen && (
+        {phase === 'meter' && !putting && (
           <View style={styles.meter}>
             <View style={[styles.meterBand, { backgroundColor: '#e5484d', left: 0, width: '100%' }]} />
             <View style={[styles.meterBand, { backgroundColor: '#e0a94f', left: '15%', width: '70%' }]} />
