@@ -88,7 +88,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Needs you lists anything waiting on you: challenge invites, friend requests, your move in Tic-Tac-Go, picking a target when you’re It in an older game of Tag, today’s 75 Day checklist, or progress to log.',
         'Need a break? Tap the bell on Needs you to mute it for 2 hours, 4 hours, half a day or until tomorrow morning. It shrinks to a small tile until then, with everything still inside; tap it and Unmute to bring it back. Notifications still come.',
         `Your Hound Score, level and ${currency} balance are on the You tab.`,
-        `Early in each week (Monday to Wednesday), a recap card shows last week’s steps, challenges finished, Hound Score, and ${currency} earned. Tap the X to hide it until next week.`,
+        `Early in each week (Monday until Tuesday at noon), a recap card shows last week’s steps, challenges finished, Hound Score, and ${currency} earned. Tap the X to hide it until next week.`,
       ],
     },
     {

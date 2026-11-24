@@ -70,6 +70,13 @@ select is((select jsonb_build_object('ring', x -> 'ring', 'x', x -> 'x', 'points
            from (select public.bullseye_shoot(:'cid', :a1, :hx18, :hy18, 2000) x) y),
   '{"ring": 10, "x": true, "points": 10, "endNo": 1, "arrowNo": 1}'::jsonb, 'Held right at 18 m: an X (10 x 1 star)');
 select throws_ok(format('select public.bullseye_shoot(%L, %s, 0, 0, 2000)', :'cid', :a1), 'That arrow''s already gone.', 'One arrow an aim');
+reset role;
+-- Checked after the first arrow: the next one aims off this learned mark
+-- and, hitting gold again, teaches it again.
+select ok(abs((select mark from public.bullseye_tapes where user_id = :'ann' and dist = 18)
+  - (round((public.bullseye_book_get('recurve', 'standard', 'earth', 18)).mark::numeric, 1) + :hy18::numeric)) <= 0.02, 'The sight tape learns the mark that hit gold');
+select tests.sign_in(:'ann');
+set local role authenticated;
 select (public.bullseye_aim(:'cid', '18') ->> 'aimId')::bigint as a2 \gset
 reset role;
 update public.bullseye_aims set started_at = now() - interval '10 seconds' where not fired;
@@ -78,8 +85,6 @@ set local role authenticated;
 select is((select jsonb_build_object('robin', x -> 'robin', 'points', x -> 'points') from (select public.bullseye_shoot(:'cid', :a2, :hx18, :hy18, 2000) x) y),
   '{"robin": true, "points": 35}'::jsonb, 'The same again: a Robin Hood (+25)');
 reset role;
-select ok(abs((select mark from public.bullseye_tapes where user_id = :'ann' and dist = 18)
-  - (round((public.bullseye_book_get('recurve', 'standard', 'earth', 18)).mark::numeric, 1) + :hy18::numeric)) <= 0.02, 'The sight tape learns the mark that hit gold');
 
 -- ── The gold balloon ──
 select bones_balance as ann_bones from public.profiles where id = :'ann' \gset
