@@ -51,8 +51,27 @@ const M = 0.035; // the board's margin on the ground
 
 type Sel = { sq: number } | null;
 
+// The board's depth on screen is capped at 0.9 of its width, so each
+// square is about 1.17 tall for 1 wide whatever the phone's shape: square
+// to the eye, with the pieces standing clear of the row behind. (Filling
+// the height made squares half as tall again as wide, and moves landed a
+// row off: Steve, Nov 2026.) Spare height goes a little to the stand and
+// the rest to grass in front of the board.
 function boardView(w: number, h: number, near = 0.02): Perspective {
-  return perspective(w, h, { stand: h * 0.16, near: h * near, gap: h * 0.02, botW: w * 0.98, a: 0.6, b: 0.78 });
+  const gap = h * 0.02;
+  const baseStand = h * 0.16;
+  const baseNear = h * near;
+  const depth = Math.min(h - baseStand - baseNear - gap, w * 0.9);
+  const spare = h - baseStand - baseNear - gap - depth;
+  const toStand = Math.min(spare, h * 0.14);
+  return perspective(w, h, { stand: baseStand + toStand, near: baseNear + spare - toStand, gap, botW: w * 0.98, a: 0.6, b: 0.78 });
+}
+
+// Pieces keep the same size against their squares as before the board
+// was squared up (when it was about 1.06 × its width deep), so a tall
+// piece doesn't hide the square behind it.
+function pieceFit(v: Perspective): number {
+  return Math.min(1, (v.y1 - v.y0) / (v.w * 1.06));
 }
 
 // A square's centre (or a point in it: fx, fy from 0 to 1) on screen, from
@@ -219,7 +238,7 @@ const Board = React.memo(function Board({
       })}
       {order.map((p) => {
         const c = sqPoint(v, p.sq, me, 0.5, 0.62);
-        const k = c.s * (v.w / 358) * 1.22;
+        const k = c.s * (v.w / 358) * 1.22 * pieceFit(v);
         const rest = resting(p);
         let tag: string | null = null;
         if (rest && !tagged.has(p.type)) {
@@ -449,7 +468,7 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
     for (const p of parsed.pieces) {
       if (p.color !== me) continue;
       const c = sqPoint(v, p.sq, me, 0.5, 0.62);
-      const k = c.s * (v.w / 358) * 1.22;
+      const k = c.s * (v.w / 358) * 1.22 * pieceFit(v);
       if (Math.abs(X - c.x) <= 12 * k && Y <= c.y + 4 * k && Y >= c.y - 48 * k && c.y > best) {
         best = c.y;
         hit = p;
