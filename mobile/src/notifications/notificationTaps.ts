@@ -77,6 +77,12 @@ function routeFor(data: Record<string, unknown> | undefined): (() => [keyof Root
     return () => ['Main', { tab: 'home' }];
   }
   if (data.type === 'pack_fun' && typeof data.packId === 'string') return () => ['PackFun', { packId: data.packId }];
+  // Fasting (0261): a pack fast's push opens it; the rest (a cheer, the
+  // phone's own goal and check-in reminders) open Fasting.
+  if (data.type === 'fasting') {
+    if (typeof data.packId === 'string') return () => ['FastingPack', { packId: data.packId }];
+    return () => ['Fasting', undefined];
+  }
   if (data.type === 'nudge' || data.type === 'reaction') {
     if (typeof data.challengeId === 'string') return () => ['ChallengeDetail', { challengeId: data.challengeId }];
     return () => ['Main', { tab: 'home' }];

@@ -49,6 +49,8 @@ import { AppVersionsCard } from '../components/AppVersionsCard';
 import { DeveloperToolsCard } from '../components/DeveloperToolsCard';
 import { GoalsAdminCard } from '../components/GoalsAdminCard';
 import { WaterAdminCard } from '../components/WaterAdminCard';
+import { FastingAdminCard, FastingBonesCard, fastingSummary } from '../components/FastingAdminCard';
+import { getFastingOverview } from '../fasting/fastingApi';
 import { WalksAdminCard } from '../components/WalksAdminCard';
 import { GardenAdminCard } from '../components/GardenAdminCard';
 import { CareAdminCard } from '../components/CareAdminCard';
@@ -268,6 +270,7 @@ export function AdminScreen({
   const [sportBonusLine, setSportBonusLine] = useState<string | null>(null);
   // The Logged workouts fold's line (0204).
   const [workoutLogLine, setWorkoutLogLine] = useState<string | null>(null);
+  const [fastingLine, setFastingLine] = useState<string | null>(null);
   // The Not seeing steps fold's line (0205).
   const [healthZeroLine, setHealthZeroLine] = useState<string | null>(null);
   const [autoJoinLine, setAutoJoinLine] = useState<string | null>(null);
@@ -298,6 +301,9 @@ export function AdminScreen({
         .catch(() => {});
       getWaterOverview()
         .then((w) => setWaterSummary(`${w.withGoal} with a water goal`))
+        .catch(() => {});
+      getFastingOverview()
+        .then((f) => setFastingLine(fastingSummary(f)))
         .catch(() => {});
       getWalksOverview()
         .then((w) => setWalksSummary(`${w.walkers7d} walking this week · ${w.walks7d} walks`))
@@ -1093,6 +1099,9 @@ export function AdminScreen({
                   <AdminFold title="Water" summary={waterSummary ?? 'Who tracks water'}>
                     <WaterAdminCard />
                   </AdminFold>
+                  <AdminFold title="Fasting" summary={fastingLine ?? 'Who fasts, how long, and together'}>
+                    <FastingAdminCard onLoaded={(d) => setFastingLine(fastingSummary(d))} />
+                  </AdminFold>
                   <AdminFold title="Logged workouts" summary={workoutLogLine ?? 'Workouts logged by hand, for people without a watch'}>
                     <LoggedWorkoutsAdminCard onChanged={(o) => setWorkoutLogLine(workoutLogSummary(o))} />
                   </AdminFold>
@@ -1489,6 +1498,9 @@ export function AdminScreen({
                   />
                 </Card>
 
+                <AdminFold title="Fasting" summary="What a fast, a streak and a pack fast pay">
+                  <FastingBonesCard />
+                </AdminFold>
                 <AdminFold title="Rewarded ads" summary="Ads for Bones, with a daily limit">
                   <AdsAdminCard />
                 </AdminFold>

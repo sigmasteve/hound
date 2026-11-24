@@ -30,6 +30,11 @@
 //                 invite, a scent trail opening, a flash challenge, "wait
 //                 up!" — to the pack members in to_users, titled with the
 //                 Pack Activities' name; {name} is the sender's name
+//   'fasting'     Fasting (0261_fasting.sql): a cheer, a pack fast invite,
+//                 a join, a pack note, "everyone made it" — to to_users,
+//                 titled Fasting; {name} is the sender's name (no sender
+//                 for "everyone made it"). Opens the pack fast if there
+//                 is one, else Fasting.
 // The RPC has already checked who can do what, and that each recipient
 // has these pushes on; a failure here never undoes the nudge, reaction
 // or message — the calling side swallows it.
@@ -55,7 +60,8 @@ type Kind =
   | 'bones_given'
   | 'club_post'
   | 'club_invite'
-  | 'pack_fun';
+  | 'pack_fun'
+  | 'fasting';
 
 interface RequestBody {
   kind: Kind;
@@ -122,6 +128,7 @@ Deno.serve(async (req) => {
   if (body?.kind === 'club_post') return clubPost(supabase, body);
   if (body?.kind === 'club_invite') return clubInvite(supabase, body);
   if (body?.kind === 'pack_fun') return packFun(supabase, body);
+  if (body?.kind === 'fasting') return fasting(supabase, body);
   if (
     !body?.from_user ||
     !body?.to_user ||
@@ -311,6 +318,40 @@ async function packFun(supabase: SupabaseClient, body: RequestBody): Promise<Res
     data: { type: 'pack_fun', packId: body.pack_id },
     username: true,
   });
+}
+
+// A Fasting message. The sender is optional (the pack's "everyone made
+// it" has none).
+async function fasting(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
+  const text = (body.message ?? '').trim();
+  const toUsers = (body.to_users ?? []).filter((id) => typeof id === 'string');
+  if (!text || toUsers.length === 0) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
+  }
+  const data = { type: 'fasting', packId: body.pack_id ?? null };
+  if (body.from_user) {
+    return toFriends(supabase, body, (name) => text.replaceAll('{name}', name), { title: 'Fasting', data, username: true });
+  }
+  const [{ data: recipients }, { data: tokenRows }] = await Promise.all([
+    supabase.from('profiles').select('id, alert_social_push_enabled').in('id', toUsers),
+    supabase.from('device_push_tokens').select('user_id, expo_push_token').in('user_id', toUsers),
+  ]);
+  const allowed = new Set(
+    ((recipients ?? []) as { id: string; alert_social_push_enabled: boolean }[])
+      .filter((r) => r.alert_social_push_enabled)
+      .map((r) => r.id),
+  );
+  const messages = ((tokenRows ?? []) as { user_id: string; expo_push_token: string }[])
+    .filter((t) => allowed.has(t.user_id))
+    .map((t) => ({ to: t.expo_push_token, title: 'Fasting', body: text, sound: 'default', data }));
+  for (let i = 0; i < messages.length; i += 100) {
+    await fetch(EXPO_PUSH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(messages.slice(i, i + 100)),
+    }).catch(() => {});
+  }
+  return new Response(JSON.stringify({ sent: messages.length > 0, recipients: messages.length }));
 }
 
 // One message to everyone in to_users who still has these pushes on.

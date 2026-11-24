@@ -24,6 +24,7 @@ import {
   XIcon,
   DropIcon,
   GiftIcon,
+  HourglassMediumIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { LoadingView } from '../components/LoadingView';
@@ -234,6 +235,9 @@ import { GolfHole } from '../components/GolfHole';
 import { HoopsCourt } from '../components/HoopsCourt';
 import { PackActivitiesCard } from '../packFun/PackActivitiesCard';
 import { currentPackFuns, isLive, myPackFuns, type MyPackFun } from '../packFun/packFunApi';
+import { declineFastPack, getFastingWaiting, getMyFasting, hoursSince, type FastPackInvite, type MyFasting } from '../fasting/fastingApi';
+import { clockText as fastClock, leftText as fastLeft, planLabel as fastPlanLabel } from '../fasting/fasting';
+import { scheduleFastingReminders } from '../fasting/fastingReminders';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 
 interface PrimaryChallenge {
@@ -990,6 +994,40 @@ export function HomeScreen({
         .catch(() => {});
     }, []),
   );
+
+  // Fasting (0261): the Today tile once you've started a fast, and pack
+  // fast invites for Needs you.
+  const [fasting, setFasting] = useState<MyFasting | null>(null);
+  const [fastInvites, setFastInvites] = useState<FastPackInvite[]>([]);
+  const [fastNow, setFastNow] = useState(Date.now());
+  const loadFasting = useCallback(() => {
+    if (!isSupabaseConfigured) return;
+    getMyFasting()
+      .then((f) => {
+        setFasting(f);
+        scheduleFastingReminders(f);
+        if (f.age === 'ok') {
+          getFastingWaiting()
+            .then(setFastInvites)
+            .catch(() => {});
+        } else {
+          setFastInvites([]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadFasting();
+      setFastNow(Date.now());
+    }, [loadFasting]),
+  );
+  useEffect(() => {
+    if (!fasting?.open) return;
+    const t = setInterval(() => setFastNow(Date.now()), 60000);
+    return () => clearInterval(t);
+  }, [fasting?.open]);
+  const [respondingFastId, setRespondingFastId] = useState<string | null>(null);
 
   // Club games you can still join (0252), for Needs you: posted to one of
   // your clubs, until you join, say Not now, or joining closes.
@@ -2678,7 +2716,8 @@ export function HomeScreen({
     | { key: string; type: 'action'; action: PendingAction }
     | { key: string; type: 'invite'; invite: ChallengeInvite }
     | { key: string; type: 'friend'; friend: Friend }
-    | { key: string; type: 'club'; club: ClubWaiting };
+    | { key: string; type: 'club'; club: ClubWaiting }
+    | { key: string; type: 'fast'; fast: FastPackInvite };
   const needsYou: NeedsYouItem[] = [
     ...pendingActions.map((action) => ({ key: `action-${action.challengeId}-${action.kind}`, type: 'action' as const, action })),
     ...(liveInvites ?? []).map((invite) => ({ key: `invite-${invite.id}`, type: 'invite' as const, invite })),
@@ -2687,6 +2726,7 @@ export function HomeScreen({
     ...clubWaiting
       .filter((w) => !(liveInvites ?? []).some((i) => i.challengeId === w.challengeId))
       .map((club) => ({ key: `club-${club.challengeId}`, type: 'club' as const, club })),
+    ...fastInvites.map((fast) => ({ key: `fast-${fast.packId}`, type: 'fast' as const, fast })),
   ];
   const shownNeedsYou = needsYouExpanded ? needsYou : needsYou.slice(0, NEEDS_YOU_LIMIT);
   // Global challenges, split for the Your challenges card: ones you've
@@ -2742,7 +2782,9 @@ export function HomeScreen({
           ? `${item.invite.inviterName} invited you`
           : item.type === 'club'
             ? `${item.club.clubName}: join ${item.club.challengeName}`
-            : `${item.friend.name} wants to be friends`,
+            : item.type === 'fast'
+              ? `${item.fast.from.name}: fast together`
+              : `${item.friend.name} wants to be friends`,
     ),
     ...(digReady ? ['Bone Dig is ready'] : []),
     ...visibleNudges.map((n) => `${n.name} nudged you`),
@@ -2773,6 +2815,8 @@ export function HomeScreen({
     if (friendsLeft > 0) parts.push(friendsLeft === 1 ? 'a friend request' : `${friendsLeft} friend requests`);
     const clubsLeft = take(needsYou.filter((x) => x.type === 'club').length);
     if (clubsLeft > 0) parts.push(clubsLeft === 1 ? 'a club game' : `${clubsLeft} club games`);
+    const fastsLeft = take(needsYou.filter((x) => x.type === 'fast').length);
+    if (fastsLeft > 0) parts.push(fastsLeft === 1 ? 'a pack fast' : `${fastsLeft} pack fasts`);
     if (take(digReady ? 1 : 0) > 0) parts.push('Bone Dig');
     const nudgesLeft = take(visibleNudges.length);
     if (nudgesLeft > 0) parts.push(nudgesLeft === 1 ? 'a nudge' : `${nudgesLeft} nudges`);
@@ -2874,6 +2918,43 @@ export function HomeScreen({
         </Tile>
       ),
     },
+    // Fasting (0261), once you've started a fast: the live clock while you
+    // fast, else when you usually start.
+    ...(fasting?.age === 'ok' && fasting.startedAny
+      ? [
+          {
+            key: 'fasting',
+            render: (wide: boolean) => {
+              const o = fasting.open;
+              const h = o ? hoursSince(o.startedAt, fastNow) : 0;
+              return (
+                <Tile
+                  label="Fasting"
+                  wide={wide}
+                  onPress={() => onOpenAction(['Fasting', undefined])}
+                  accessibilityLabel={o ? `Fasting, ${fastClock(h)} of ${o.goalHours} hours. Open` : 'Fasting. Open'}
+                >
+                  <TileValue
+                    inline={wide}
+                    value={o ? fastClock(h) : 'Start'}
+                    lines={
+                      o
+                        ? [
+                            h >= o.goalHours ? { text: `${fastPlanLabel(o.goalHours)} done ✓`, color: colors.green } : `${fastLeft(o.goalHours - h)} to go`,
+                            `🔥 ${fasting.numbers.streak}${fasting.cheers.length ? ` · ${fasting.cheers.length} cheered` : ''}`,
+                          ]
+                        : [
+                            `${fastPlanLabel(fasting.planHours)} · 🔥 ${fasting.numbers.streak}`,
+                            fasting.paidToday ? 'Today’s Bones earned' : 'Tap when you finish eating',
+                          ]
+                    }
+                  />
+                </Tile>
+              );
+            },
+          },
+        ]
+      : []),
     // Monday until Tuesday noon last week's recap, the rest of the week today's
     // step rank, so the tiles stay two by two.
     ...(!weeklyRecap
@@ -3119,6 +3200,17 @@ export function HomeScreen({
           }}
           onShare={goalsSet ? () => setSharing({ kind: 'goals', progress: goalProgress, streak: goalStreak }) : null}
         />
+        {/* Fasting (0261): the way in before your first fast (the Today
+            tile only shows once you've started one). Hidden for under 16. */}
+        {isSupabaseConfigured && fasting?.age !== 'under' && (
+          <SheetLink
+            label={fasting?.startedAny ? 'Fasting' : 'Try intermittent fasting'}
+            onPress={() => {
+              setOpenTile(null);
+              onOpenAction(['Fasting', undefined]);
+            }}
+          />
+        )}
       </TileSheet>
     )}
     {openTile === 'water' && water.goal && (
@@ -3195,6 +3287,42 @@ export function HomeScreen({
                         small
                         disabled={respondingId === item.invite.id}
                         onPress={() => respondToInvite(item.invite, false)}
+                      />
+                    </View>
+                  </>
+                ) : item.type === 'fast' ? (
+                  <>
+                    <View style={styles.needsRowMain}>
+                      <HourglassMediumIcon size={16} color={color.accent300} weight="fill" />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.inviteTitle}>{item.fast.from.name} asked you to fast together</Text>
+                        <Text style={styles.inviteSub}>
+                          {item.fast.joined} in · join until{' '}
+                          {new Date(item.fast.joinUntil).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.needsButtons}>
+                      <Button
+                        label="See it"
+                        variant="primary"
+                        small
+                        onPress={() => {
+                          setOpenTile(null);
+                          onOpenAction(['FastingPack', { packId: item.fast.packId }]);
+                        }}
+                      />
+                      <Button
+                        label="Not now"
+                        small
+                        disabled={respondingFastId === item.fast.packId}
+                        onPress={() => {
+                          setRespondingFastId(item.fast.packId);
+                          declineFastPack(item.fast.packId)
+                            .then(loadFasting)
+                            .catch(() => {})
+                            .finally(() => setRespondingFastId(null));
+                        }}
                       />
                     </View>
                   </>

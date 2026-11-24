@@ -28,6 +28,8 @@ import { StartClubScreen } from '../screens/StartClubScreen';
 import { PackFunHubScreen } from '../packFun/PackFunHubScreen';
 import { PackFunStartScreen } from '../packFun/PackFunStartScreen';
 import { PackFunScreen } from '../packFun/PackFunScreen';
+import { FastingScreen } from '../fasting/FastingScreen';
+import { FastingPackScreen } from '../fasting/FastingPackScreen';
 import { GolfPlayScreen } from '../screens/GolfPlayScreen';
 import { HoopsShootScreen } from '../screens/HoopsShootScreen';
 import { BaseballBatScreen } from '../screens/BaseballBatScreen';
@@ -502,6 +504,7 @@ export function RootNavigator() {
                   onEdit={() => navigation.navigate('StartClub', { clubId: route.params.clubId })}
                   onStartPackFun={() => navigation.navigate('PackFunStart', { clubId: route.params.clubId })}
                   onOpenPackFun={(packId) => navigation.navigate('PackFun', { packId })}
+                  onOpenFasting={() => navigation.navigate('Fasting')}
                 />
               )}
             </Stack.Screen>
@@ -531,6 +534,24 @@ export function RootNavigator() {
                   packId={route.params.packId}
                   myId={user?.id ?? ''}
                   onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('PackFunHub'))}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Fasting" options={{ animation: 'slide_from_right' }}>
+              {({ navigation }) => (
+                <FastingScreen
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { tab: 'home' }))}
+                  onOpenPack={(packId) => navigation.navigate('FastingPack', { packId })}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="FastingPack" options={{ animation: 'slide_from_right' }}>
+              {({ navigation, route }) => (
+                <FastingPackScreen
+                  key={route.params.packId}
+                  packId={route.params.packId}
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Fasting'))}
+                  onOpenFasting={() => navigation.navigate('Fasting')}
                 />
               )}
             </Stack.Screen>

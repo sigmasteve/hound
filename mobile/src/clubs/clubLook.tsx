@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import { BicycleIcon, MountainsIcon, PersonSimpleRunIcon, PersonSimpleSwimIcon, PersonSimpleWalkIcon, UsersThreeIcon } from 'phosphor-react-native';
+import { BicycleIcon, HourglassMediumIcon, MountainsIcon, PersonSimpleRunIcon, PersonSimpleSwimIcon, PersonSimpleWalkIcon, UsersThreeIcon } from 'phosphor-react-native';
 import type { ClubColor, ClubSport } from './clubsApi';
 
 // How a club looks: its sport's icon on a badge of its colour.
@@ -12,6 +12,8 @@ export const CLUB_SPORTS: { id: ClubSport; name: string; Icon: React.ComponentTy
   { id: 'hiking', name: 'Hiking', Icon: MountainsIcon },
   { id: 'swimming', name: 'Swimming', Icon: PersonSimpleSwimIcon },
   { id: 'mixed', name: 'Mixed', Icon: UsersThreeIcon },
+  // An Intermittent Fasting club (0261).
+  { id: 'fasting', name: 'Fasting', Icon: HourglassMediumIcon },
 ];
 
 export const CLUB_COLORS: Record<ClubColor, string> = {

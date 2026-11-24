@@ -33,6 +33,7 @@ import { formatClubCode } from '../clubs/ClubJoinCard';
 import { ClubInviteFriends } from '../clubs/ClubInviteFriends';
 import { CLUB_USERNAME_WHY, useUsernameAsk } from '../profiles/UsernameAsk';
 import { PackActivitiesCard } from '../packFun/PackActivitiesCard';
+import { FastingClubCard } from '../fasting/FastingClubCard';
 import { currentPackFuns, myPackFuns, type MyPackFun } from '../packFun/packFunApi';
 
 // This week's Monday, on the phone.
@@ -53,6 +54,7 @@ export function ClubScreen({
   onOpenChallenge,
   onPostChallenge,
   onStartPackFun,
+  onOpenFasting,
   onOpenPackFun,
   onEdit,
 }: {
@@ -61,6 +63,8 @@ export function ClubScreen({
   onOpenChallenge: (challengeId: string) => void;
   onPostChallenge: () => void;
   onStartPackFun?: () => void;
+  // Fasting (0261): the club's fasting card opens Fasting.
+  onOpenFasting?: () => void;
   onOpenPackFun?: (packId: string) => void;
   onEdit: () => void;
 }) {
@@ -291,6 +295,8 @@ export function ClubScreen({
               emptyNote="Heading out together? Start a Pack Activity for the club: everyone gets a push to join."
             />
           )}
+
+          {member && onOpenFasting && <FastingClubCard clubId={clubId} fastingClub={club.sport === 'fasting'} onOpenFasting={onOpenFasting} />}
 
           {member && inviteOpen && club.code && (
             <Card style={styles.invite} elevated={false}>
