@@ -18,9 +18,9 @@ export interface WeeklyRecap {
   bonesEarned: number;
 }
 
-// Shown Monday through Wednesday — long enough that opening the app a
-// day or two late still catches it.
-export const RECAP_LAST_WEEKDAY = 3;
+// Shown from Monday morning until Tuesday at noon, on the phone's own
+// clock (Steve, Nov 2026; it used to run to Wednesday night).
+export const RECAP_ENDS = { weekday: 2, hour: 12 };
 
 function dateKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -40,7 +40,18 @@ export function weekBounds(now: Date = new Date()) {
 
 export function isRecapWindow(now: Date = new Date()): boolean {
   const day = now.getDay();
-  return day >= 1 && day <= RECAP_LAST_WEEKDAY;
+  if (day === 1) return true;
+  return day === RECAP_ENDS.weekday && now.getHours() < RECAP_ENDS.hour;
+}
+
+// When this week's recap stops showing (Tuesday at noon), for taking the
+// tile down on time when Today is left open; null outside the window.
+export function recapEndsAt(now: Date = new Date()): Date | null {
+  if (!isRecapWindow(now)) return null;
+  const end = new Date(now);
+  end.setDate(end.getDate() + (RECAP_ENDS.weekday - now.getDay()));
+  end.setHours(RECAP_ENDS.hour, 0, 0, 0);
+  return end;
 }
 
 export function recapWeekKey(now: Date = new Date()): string {

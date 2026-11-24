@@ -194,7 +194,7 @@ import {
   type GlobalChallenge,
   globalTimingLine,
 } from '../challenges/globalChallenges';
-import { fetchWeeklyRecap, isRecapWindow, recapWeekKey, stepsChangePct, type WeeklyRecap } from '../home/weeklyRecap';
+import { fetchWeeklyRecap, isRecapWindow, recapEndsAt, recapWeekKey, stepsChangePct, type WeeklyRecap } from '../home/weeklyRecap';
 import {
   getLocalRemindersEnabled,
   getReminderPermission,
@@ -1572,7 +1572,7 @@ export function HomeScreen({
     if (refreshKey > 0) loadClubWaiting();
   }, [refreshKey, loadClubWaiting]);
 
-  // Start-of-week recap (Mon–Wed) — see src/home/weeklyRecap.ts. Dismissal
+  // Start-of-week recap (Monday until Tuesday noon) — see src/home/weeklyRecap.ts. Dismissal
   // is local and per week, same shape as the banner's own dismissal above:
   // hiding this week's recap never hides next week's.
   const RECAP_DISMISSED_KEY = 'homeWeeklyRecapDismissedWeek';
@@ -1581,7 +1581,7 @@ export function HomeScreen({
   const [weeklyRecap, setWeeklyRecap] = useState<WeeklyRecap | null>(null);
   // Re-checked whenever Today refreshes (refreshKey, e.g. coming back to
   // it), not only when the app starts: the app can stay open from Sunday
-  // into Monday, or from Wednesday into Thursday.
+  // into Monday, or past Tuesday noon (then a timer takes it down).
   useEffect(() => {
     if (!isRecapWindow()) {
       setWeeklyRecap(null);
@@ -1597,8 +1597,12 @@ export function HomeScreen({
       const recap = await fetchWeeklyRecap(health, isSupabaseConfigured ? user?.id ?? null : null).catch(() => null);
       if (!cancelled) setWeeklyRecap(recap);
     })();
+    // Down at Tuesday noon even if Today stays open.
+    const end = recapEndsAt();
+    const timer = end ? setTimeout(() => setWeeklyRecap(null), Math.max(0, end.getTime() - Date.now())) : null;
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, refreshKey]);
@@ -2870,7 +2874,7 @@ export function HomeScreen({
         </Tile>
       ),
     },
-    // Monday to Wednesday last week's recap, the rest of the week today's
+    // Monday until Tuesday noon last week's recap, the rest of the week today's
     // step rank, so the tiles stay two by two.
     ...(!weeklyRecap
       ? [

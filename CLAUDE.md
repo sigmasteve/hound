@@ -253,7 +253,7 @@ Inside the scroll, in order:
      strip (its number with its lines beside it, not a half tile's
      height stretched across; Steve, Nov 2026): your hound
      (when the Kennel has loaded), Needs you (only when caught up or muted), Your
-     challenges, and either Week in review (Monday to Wednesday) or
+     challenges, and either Week in review (Monday until Tuesday noon, local) or
      today's Step rank (the rest of the week).
    - Journey, full width, when you're on one.
 4. The notifications ask (PushAskCard), once you have a friend or a
