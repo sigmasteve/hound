@@ -175,6 +175,26 @@ export async function getChessClock(challengeId: string): Promise<ChessClock | n
   }
 }
 
+// Each player's look (0260), for their hound under the clock. Null for the
+// bot's side, or before 0260 is run.
+export interface ChessLook {
+  initials: string;
+  iconId: string | null;
+  frameId: string | null;
+  backgroundId: string | null;
+}
+
+export async function getChessLooks(challengeId: string): Promise<{ w: ChessLook | null; b: ChessLook | null }> {
+  try {
+    const d = await rpc<any>('chess_looks', { p_challenge_id: challengeId });
+    const look = (x: any): ChessLook | null =>
+      x ? { initials: String(x.initials ?? ''), iconId: x.icon_id ?? null, frameId: x.frame_id ?? null, backgroundId: x.background_id ?? null } : null;
+    return { w: look(d?.w), b: look(d?.b) };
+  } catch {
+    return { w: null, b: null };
+  }
+}
+
 // A side's time on the clock now, in seconds.
 export function clockSeconds(c: ChessClock, side: 'w' | 'b', now: number): number {
   const base = side === 'w' ? c.w : c.b;
