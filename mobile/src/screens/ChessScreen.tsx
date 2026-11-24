@@ -9,6 +9,7 @@ import { crowdDots, perspective, project, type Perspective } from '../components
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { buzz } from '../celebrate/feedback';
+import { Avatar } from '../components/Avatar';
 import { useHealthProvider } from '../health/HealthContext';
 import {
   BOT_NAME,
@@ -39,6 +40,8 @@ import {
   clockSeconds,
   clockText,
   getChessClock,
+  getChessLooks,
+  type ChessLook,
   type ChessClock,
 } from '../challenges/chessApi';
 import { BoardLink } from '../components/BoardLink';
@@ -61,9 +64,11 @@ type Sel = { sq: number } | null;
 // the height made squares half as tall again as wide, and moves landed a
 // row off: Steve, Nov 2026.) Spare height goes a little to the stand and
 // the rest to grass in front of the board.
-function boardView(w: number, h: number, near = 0.02): Perspective {
+// minStand: room the stand must keep (in a game, the clock: time, hound,
+// name, steps), taken from the board's depth on a small phone.
+function boardView(w: number, h: number, near = 0.02, minStand = 0): Perspective {
   const gap = h * 0.02;
-  const baseStand = h * 0.16;
+  const baseStand = Math.max(h * 0.16, minStand);
   const baseNear = h * near;
   const depth = Math.min(h - baseStand - baseNear - gap, w * 0.9);
   const spare = h - baseStand - baseNear - gap - depth;
@@ -191,7 +196,11 @@ const Board = React.memo(function Board({
   dots,
   resting,
   restTag,
+  crowdFrom = 0,
 }: {
+  // The clock takes the top of the stand (Steve, Nov 2026: "the clock
+  // should take precedence over the stands"): fans only below it.
+  crowdFrom?: number;
   v: Perspective;
   me: ChessColor;
   pieces: ChessPiece[];
@@ -200,7 +209,11 @@ const Board = React.memo(function Board({
   resting: (p: ChessPiece) => boolean;
   restTag: (p: ChessPiece) => string | null;
 }) {
-  const crowd = useMemo(() => crowdDots(v.w, v.stand, false), [v.w, v.stand]);
+  const crowd = useMemo(() => {
+    const band = v.stand - crowdFrom;
+    if (band < 22) return [];
+    return crowdDots(v.w, band, true).map((c) => ({ ...c, y: c.y + crowdFrom }));
+  }, [v.w, v.stand, crowdFrom]);
   const rim = useMemo(() => {
     const pts = [project(v, M * 0.2, M * 0.2), project(v, 1 - M * 0.2, M * 0.2), project(v, 1 - M * 0.2, 1 - M * 0.2), project(v, M * 0.2, 1 - M * 0.2)];
     return pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
@@ -308,6 +321,8 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
   // to move ticks.
   const [clock, setClock] = useState<ChessClock | null>(null);
   const [clockNow, setClockNow] = useState(Date.now());
+  // Each player's hound under the clock (0260).
+  const [looks, setLooks] = useState<{ w: ChessLook | null; b: ChessLook | null }>({ w: null, b: null });
   // Undo (0258): for 5 seconds after your move, while the board still
   // shows it (plies), Undo takes Resign's place, counting 5 to 0 on the
   // button; at 0 it greys out for a second, then Resign is back.
@@ -376,6 +391,14 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
     };
   }, [clockKey, challengeId]);
   useEffect(() => {
+    if (mode !== 'game' || !challengeId || !game?.white || !game?.black) return;
+    let live = true;
+    getChessLooks(challengeId).then((l) => live && setLooks(l));
+    return () => {
+      live = false;
+    };
+  }, [mode, challengeId, game?.white?.id, game?.black?.id]);
+  useEffect(() => {
     if (!clock?.running) return;
     const id = setInterval(() => setClockNow(Date.now()), 1000);
     return () => clearInterval(id);
@@ -419,7 +442,7 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
     timer.current = setTimeout(() => setBanner(null), 1600);
   };
 
-  const v = useMemo(() => (size.w > 0 ? boardView(size.w, size.h) : null), [size.w, size.h]);
+  const v = useMemo(() => (size.w > 0 ? boardView(size.w, size.h, 0.02, mode === 'game' ? CLOCK_ROOM : 0) : null), [size.w, size.h, mode]);
   const me: ChessColor = mode === 'puzzle' ? 'w' : game?.me ?? 'w';
   const fen = mode === 'puzzle' ? puzzleFen : game?.fen ?? null;
   const parsed = useMemo(() => (fen ? parseFen(fen) : null), [fen]);
@@ -676,7 +699,7 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
 
         <View style={styles.field} onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
           {v && parsed && (
-            <Board v={v} me={me} pieces={parsed.pieces} marks={marks} dots={dots} resting={isResting} restTag={restTag} />
+            <Board v={v} me={me} pieces={parsed.pieces} marks={marks} dots={dots} resting={isResting} restTag={restTag} crowdFrom={showClock ? CLOCK_ROOM : 0} />
           )}
           <Pressable
             style={StyleSheet.absoluteFill}
@@ -715,8 +738,11 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
               mine={clockSeconds(clock, game.me, clockNow)}
               theirs={clockSeconds(clock, game.me === 'w' ? 'b' : 'w', clockNow)}
               running={clock.running == null ? null : clock.running === game.me ? 'me' : 'them'}
-              myLabel={`You · ${(game.steps ?? 0).toLocaleString('en-US')} steps${(game.workoutMin ?? 0) >= (game.needs.queenWorkout ?? 20) ? ' · workout' : ''}`}
-              theirLabel={game.bot ? `Hound bot · ${BOT_NAME[game.bot]}` : `${themName} · ${(game.theirSteps ?? 0).toLocaleString('en-US')} steps`}
+              myLook={game.me === 'w' ? looks.w : looks.b}
+              theirLook={game.me === 'w' ? looks.b : looks.w}
+              bot={!!game.bot}
+              myLabel={['You', `${(game.steps ?? 0).toLocaleString('en-US')} steps${(game.workoutMin ?? 0) >= (game.needs.queenWorkout ?? 20) ? ' · workout' : ''}`]}
+              theirLabel={game.bot ? ['Hound bot', BOT_NAME[game.bot]] : [themName, `${(game.theirSteps ?? 0).toLocaleString('en-US')} steps`]}
               themName={themName}
             />
           )}
@@ -850,6 +876,9 @@ function makeStyles(colors: Palette) {
   });
 }
 
+// The stand's room for the clock (its height and a little air).
+const CLOCK_ROOM = 136;
+
 // The chess clock (0259), as on a tournament table: a wooden case with a
 // face for each player, yours on the left; the side to move is lit, with
 // its button down.
@@ -860,15 +889,23 @@ function ChessClockFace({
   myLabel,
   theirLabel,
   themName,
+  myLook,
+  theirLook,
+  bot,
 }: {
+  myLook: ChessLook | null;
+  theirLook: ChessLook | null;
+  bot: boolean;
   mine: number;
   theirs: number;
   running: 'me' | 'them' | null;
-  myLabel: string;
-  theirLabel: string;
+  // The name, then the steps on a line of their own (one line cut them off).
+  myLabel: [string, string];
+  theirLabel: [string, string];
   themName: string;
 }) {
-  const face = (sec: number, on: boolean, label: string) => (
+  // Time, then the hound, then the name, then the steps (Steve's order).
+  const face = (sec: number, on: boolean, label: [string, string], look: ChessLook | null, isBot = false) => (
     <View style={clockStyles.side}>
       <View style={[clockStyles.button, on ? clockStyles.buttonDown : null]} />
       <View style={[clockStyles.face, on ? clockStyles.faceOn : null]}>
@@ -876,8 +913,26 @@ function ChessClockFace({
           {clockText(sec)}
         </Text>
       </View>
+      <View style={clockStyles.hound}>
+        {isBot ? (
+          <Text style={clockStyles.bot}>🤖</Text>
+        ) : (
+          <Avatar
+            initials={look?.initials || label[0].slice(0, 2).toUpperCase()}
+            tint="#c9a27a"
+            size={32}
+            fontSize={11}
+            iconId={look?.iconId}
+            frameId={look?.frameId}
+            backgroundId={look?.backgroundId}
+          />
+        )}
+      </View>
       <Text style={clockStyles.label} numberOfLines={1}>
-        {label}
+        {label[0]}
+      </Text>
+      <Text style={clockStyles.sub} numberOfLines={1}>
+        {label[1]}
       </Text>
     </View>
   );
@@ -888,9 +943,9 @@ function ChessClockFace({
       accessibilityLabel={`Clock: you ${clockText(mine)}, ${themName} ${clockText(theirs)}${running ? `; ${running === 'me' ? 'your' : `${themName}’s`} clock is running` : ''}`}
     >
       <View style={clockStyles.case}>
-        {face(mine, running === 'me', myLabel)}
+        {face(mine, running === 'me', myLabel, myLook)}
         <View style={clockStyles.divider} />
-        {face(theirs, running === 'them', theirLabel)}
+        {face(theirs, running === 'them', theirLabel, theirLook, bot)}
       </View>
     </View>
   );
@@ -899,13 +954,16 @@ function ChessClockFace({
 const clockStyles = StyleSheet.create({
   wrap: { position: 'absolute', top: 6, left: 0, right: 0, alignItems: 'center' },
   case: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: '#6b4426', borderRadius: 10, paddingHorizontal: 8, paddingTop: 4, paddingBottom: 3, gap: 6, borderWidth: 1, borderColor: '#3e2614' },
-  side: { alignItems: 'center', width: 128 },
+  side: { alignItems: 'center', width: 150 },
   button: { width: 26, height: 6, borderRadius: 3, backgroundColor: '#c9a27a', marginBottom: 3 },
   buttonDown: { height: 3, marginTop: 3, backgroundColor: '#f08a24' },
-  face: { width: 82, borderRadius: 6, backgroundColor: '#e9e2d2', paddingVertical: 3, alignItems: 'center', opacity: 0.75 },
+  face: { width: 124, borderRadius: 7, backgroundColor: '#e9e2d2', paddingVertical: 3, alignItems: 'center', opacity: 0.75 },
   faceOn: { backgroundColor: '#fff8e6', opacity: 1 },
-  time: { fontFamily: font.headingSemibold, fontSize: 15, color: '#6f6658', fontVariant: ['tabular-nums'] },
+  time: { fontFamily: font.headingSemibold, fontSize: 21, color: '#6f6658', fontVariant: ['tabular-nums'] },
   timeOn: { color: '#1b1205' },
-  label: { fontSize: 10, fontFamily: font.headingSemibold, color: '#f3e6d2', marginTop: 1, maxWidth: 126 },
+  label: { fontSize: 12, fontFamily: font.headingSemibold, color: '#f3e6d2', marginTop: 2, maxWidth: 146 },
+  hound: { marginTop: 4, height: 32, alignItems: 'center', justifyContent: 'center' },
+  bot: { fontSize: 22 },
+  sub: { fontSize: 10.5, color: withAlpha('#f3e6d2', 0.78), maxWidth: 146 },
   divider: { width: 1, alignSelf: 'stretch', backgroundColor: '#3e2614', marginBottom: 12 },
 });
