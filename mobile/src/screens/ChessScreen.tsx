@@ -196,7 +196,11 @@ const Board = React.memo(function Board({
   dots,
   resting,
   restTag,
+  crowdFrom = 0,
 }: {
+  // The clock takes the top of the stand (Steve, Nov 2026: "the clock
+  // should take precedence over the stands"): fans only below it.
+  crowdFrom?: number;
   v: Perspective;
   me: ChessColor;
   pieces: ChessPiece[];
@@ -205,7 +209,11 @@ const Board = React.memo(function Board({
   resting: (p: ChessPiece) => boolean;
   restTag: (p: ChessPiece) => string | null;
 }) {
-  const crowd = useMemo(() => crowdDots(v.w, v.stand, false), [v.w, v.stand]);
+  const crowd = useMemo(() => {
+    const band = v.stand - crowdFrom;
+    if (band < 22) return [];
+    return crowdDots(v.w, band, true).map((c) => ({ ...c, y: c.y + crowdFrom }));
+  }, [v.w, v.stand, crowdFrom]);
   const rim = useMemo(() => {
     const pts = [project(v, M * 0.2, M * 0.2), project(v, 1 - M * 0.2, M * 0.2), project(v, 1 - M * 0.2, 1 - M * 0.2), project(v, M * 0.2, 1 - M * 0.2)];
     return pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
@@ -434,7 +442,7 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
     timer.current = setTimeout(() => setBanner(null), 1600);
   };
 
-  const v = useMemo(() => (size.w > 0 ? boardView(size.w, size.h, 0.02, mode === 'game' ? 118 : 0) : null), [size.w, size.h, mode]);
+  const v = useMemo(() => (size.w > 0 ? boardView(size.w, size.h, 0.02, mode === 'game' ? CLOCK_ROOM : 0) : null), [size.w, size.h, mode]);
   const me: ChessColor = mode === 'puzzle' ? 'w' : game?.me ?? 'w';
   const fen = mode === 'puzzle' ? puzzleFen : game?.fen ?? null;
   const parsed = useMemo(() => (fen ? parseFen(fen) : null), [fen]);
@@ -691,7 +699,7 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
 
         <View style={styles.field} onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
           {v && parsed && (
-            <Board v={v} me={me} pieces={parsed.pieces} marks={marks} dots={dots} resting={isResting} restTag={restTag} />
+            <Board v={v} me={me} pieces={parsed.pieces} marks={marks} dots={dots} resting={isResting} restTag={restTag} crowdFrom={showClock ? CLOCK_ROOM : 0} />
           )}
           <Pressable
             style={StyleSheet.absoluteFill}
@@ -868,6 +876,9 @@ function makeStyles(colors: Palette) {
   });
 }
 
+// The stand's room for the clock (its height and a little air).
+const CLOCK_ROOM = 136;
+
 // The chess clock (0259), as on a tournament table: a wooden case with a
 // face for each player, yours on the left; the side to move is lit, with
 // its button down.
@@ -909,8 +920,8 @@ function ChessClockFace({
           <Avatar
             initials={look?.initials || label[0].slice(0, 2).toUpperCase()}
             tint="#c9a27a"
-            size={26}
-            fontSize={10}
+            size={32}
+            fontSize={11}
             iconId={look?.iconId}
             frameId={look?.frameId}
             backgroundId={look?.backgroundId}
@@ -943,16 +954,16 @@ function ChessClockFace({
 const clockStyles = StyleSheet.create({
   wrap: { position: 'absolute', top: 6, left: 0, right: 0, alignItems: 'center' },
   case: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: '#6b4426', borderRadius: 10, paddingHorizontal: 8, paddingTop: 4, paddingBottom: 3, gap: 6, borderWidth: 1, borderColor: '#3e2614' },
-  side: { alignItems: 'center', width: 128 },
+  side: { alignItems: 'center', width: 150 },
   button: { width: 26, height: 6, borderRadius: 3, backgroundColor: '#c9a27a', marginBottom: 3 },
   buttonDown: { height: 3, marginTop: 3, backgroundColor: '#f08a24' },
-  face: { width: 82, borderRadius: 6, backgroundColor: '#e9e2d2', paddingVertical: 3, alignItems: 'center', opacity: 0.75 },
+  face: { width: 124, borderRadius: 7, backgroundColor: '#e9e2d2', paddingVertical: 3, alignItems: 'center', opacity: 0.75 },
   faceOn: { backgroundColor: '#fff8e6', opacity: 1 },
-  time: { fontFamily: font.headingSemibold, fontSize: 15, color: '#6f6658', fontVariant: ['tabular-nums'] },
+  time: { fontFamily: font.headingSemibold, fontSize: 21, color: '#6f6658', fontVariant: ['tabular-nums'] },
   timeOn: { color: '#1b1205' },
-  label: { fontSize: 10.5, fontFamily: font.headingSemibold, color: '#f3e6d2', marginTop: 1, maxWidth: 126 },
-  hound: { marginTop: 3, height: 26, alignItems: 'center', justifyContent: 'center' },
-  bot: { fontSize: 18 },
-  sub: { fontSize: 9.5, color: withAlpha('#f3e6d2', 0.75), maxWidth: 126 },
+  label: { fontSize: 12, fontFamily: font.headingSemibold, color: '#f3e6d2', marginTop: 2, maxWidth: 146 },
+  hound: { marginTop: 4, height: 32, alignItems: 'center', justifyContent: 'center' },
+  bot: { fontSize: 22 },
+  sub: { fontSize: 10.5, color: withAlpha('#f3e6d2', 0.78), maxWidth: 146 },
   divider: { width: 1, alignSelf: 'stretch', backgroundColor: '#3e2614', marginBottom: 12 },
 });
