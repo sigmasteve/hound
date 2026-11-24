@@ -36,6 +36,10 @@ import {
   type ChessGame,
   type ChessMoveOption,
   type ChessPuzzle,
+  clockSeconds,
+  clockText,
+  getChessClock,
+  type ChessClock,
 } from '../challenges/chessApi';
 import { BoardLink } from '../components/BoardLink';
 
@@ -300,6 +304,10 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
   const [sel, setSel] = useState<Sel>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // The chess clock in the stand (0259): each side's time used; the side
+  // to move ticks.
+  const [clock, setClock] = useState<ChessClock | null>(null);
+  const [clockNow, setClockNow] = useState(Date.now());
   // Undo (0258): for 5 seconds after your move, while the board still
   // shows it (plies), Undo takes Resign's place, counting 5 to 0 on the
   // button; at 0 it greys out for a second, then Resign is back.
@@ -353,6 +361,25 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
   useEffect(() => {
     load();
   }, [load]);
+
+  // The clock: read again whenever a move lands (or comes off), and tick.
+  const clockKey = mode === 'game' && challengeId && game ? `${game.plies}:${game.status}` : null;
+  useEffect(() => {
+    if (!clockKey || !challengeId) {
+      setClock(null);
+      return;
+    }
+    let live = true;
+    getChessClock(challengeId).then((c) => live && setClock(c));
+    return () => {
+      live = false;
+    };
+  }, [clockKey, challengeId]);
+  useEffect(() => {
+    if (!clock?.running) return;
+    const id = setInterval(() => setClockNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [clock]);
 
   // Their move, live (Steve, Nov 2026: playing his daughter side by side).
   // While it's their turn and this screen is open with the app in front,
@@ -572,6 +599,9 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
   // The words.
   const them = mode === 'game' && game ? (game.me === 'w' ? game.black : game.white) : null;
   const themName = them ? (game?.bot ? `Hound bot` : them.name.split(' ')[0]) : '';
+  // In a game the clock is the stand's scoreboard: each face's time, with
+  // the name and steps under it, in place of the two step chips.
+  const showClock = mode === 'game' && !!game?.me && !!clock;
   const hoursLeft = game?.deadline ? Math.max(0, Math.round((new Date(game.deadline).getTime() - Date.now()) / 3600000)) : null;
   let title: string;
   let kicker: string;
@@ -654,10 +684,12 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
             accessibilityRole="button"
             accessibilityLabel="The board: tap a piece, then a square to move it"
           />
-          <Text style={[styles.chip, { left: 10 }]} pointerEvents="none">
-            {mode === 'puzzle' ? 'You’re White · find mate' : `${(game?.steps ?? 0).toLocaleString('en-US')} steps today${(game?.workoutMin ?? 0) >= (game?.needs.queenWorkout ?? 20) ? ' · workout done' : ''}`}
-          </Text>
-          {mode === 'game' && game && them && (
+          {!showClock && (
+            <Text style={[styles.chip, { left: 10 }]} pointerEvents="none">
+              {mode === 'puzzle' ? 'You’re White · find mate' : `${(game?.steps ?? 0).toLocaleString('en-US')} steps today${(game?.workoutMin ?? 0) >= (game?.needs.queenWorkout ?? 20) ? ' · workout done' : ''}`}
+            </Text>
+          )}
+          {!showClock && mode === 'game' && game && them && (
             <Text style={[styles.chip, { right: 10, color: '#d6d0ff' }]} pointerEvents="none" numberOfLines={1}>
               {game.bot ? `Hound bot · ${BOT_NAME[game.bot]}` : `${themName} · ${(game.theirSteps ?? 0).toLocaleString('en-US')} steps`}
             </Text>
@@ -677,6 +709,16 @@ export function ChessScreen({ challengeId, mode = 'game', onBack }: { challengeI
                 <View style={[styles.lockFill, { width: `${Math.min(100, Math.round((100 * puzzle.steps) / puzzle.need))}%` }]} />
               </View>
             </View>
+          )}
+          {showClock && game && game.me && clock && (
+            <ChessClockFace
+              mine={clockSeconds(clock, game.me, clockNow)}
+              theirs={clockSeconds(clock, game.me === 'w' ? 'b' : 'w', clockNow)}
+              running={clock.running == null ? null : clock.running === game.me ? 'me' : 'them'}
+              myLabel={`You · ${(game.steps ?? 0).toLocaleString('en-US')} steps${(game.workoutMin ?? 0) >= (game.needs.queenWorkout ?? 20) ? ' · workout' : ''}`}
+              theirLabel={game.bot ? `Hound bot · ${BOT_NAME[game.bot]}` : `${themName} · ${(game.theirSteps ?? 0).toLocaleString('en-US')} steps`}
+              themName={themName}
+            />
           )}
           {banner && (
             <View pointerEvents="none" style={[styles.banner, { backgroundColor: banner.good ? '#7fd39b' : '#f2a3a3' }]}>
@@ -807,3 +849,63 @@ function makeStyles(colors: Palette) {
     actText: { fontFamily: font.headingSemibold, fontSize: 16, color: '#161826', textAlign: 'center' },
   });
 }
+
+// The chess clock (0259), as on a tournament table: a wooden case with a
+// face for each player, yours on the left; the side to move is lit, with
+// its button down.
+function ChessClockFace({
+  mine,
+  theirs,
+  running,
+  myLabel,
+  theirLabel,
+  themName,
+}: {
+  mine: number;
+  theirs: number;
+  running: 'me' | 'them' | null;
+  myLabel: string;
+  theirLabel: string;
+  themName: string;
+}) {
+  const face = (sec: number, on: boolean, label: string) => (
+    <View style={clockStyles.side}>
+      <View style={[clockStyles.button, on ? clockStyles.buttonDown : null]} />
+      <View style={[clockStyles.face, on ? clockStyles.faceOn : null]}>
+        <Text style={[clockStyles.time, on ? clockStyles.timeOn : null]} numberOfLines={1}>
+          {clockText(sec)}
+        </Text>
+      </View>
+      <Text style={clockStyles.label} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+  return (
+    <View
+      pointerEvents="none"
+      style={clockStyles.wrap}
+      accessibilityLabel={`Clock: you ${clockText(mine)}, ${themName} ${clockText(theirs)}${running ? `; ${running === 'me' ? 'your' : `${themName}’s`} clock is running` : ''}`}
+    >
+      <View style={clockStyles.case}>
+        {face(mine, running === 'me', myLabel)}
+        <View style={clockStyles.divider} />
+        {face(theirs, running === 'them', theirLabel)}
+      </View>
+    </View>
+  );
+}
+
+const clockStyles = StyleSheet.create({
+  wrap: { position: 'absolute', top: 6, left: 0, right: 0, alignItems: 'center' },
+  case: { flexDirection: 'row', alignItems: 'flex-end', backgroundColor: '#6b4426', borderRadius: 10, paddingHorizontal: 8, paddingTop: 4, paddingBottom: 3, gap: 6, borderWidth: 1, borderColor: '#3e2614' },
+  side: { alignItems: 'center', width: 128 },
+  button: { width: 26, height: 6, borderRadius: 3, backgroundColor: '#c9a27a', marginBottom: 3 },
+  buttonDown: { height: 3, marginTop: 3, backgroundColor: '#f08a24' },
+  face: { width: 82, borderRadius: 6, backgroundColor: '#e9e2d2', paddingVertical: 3, alignItems: 'center', opacity: 0.75 },
+  faceOn: { backgroundColor: '#fff8e6', opacity: 1 },
+  time: { fontFamily: font.headingSemibold, fontSize: 15, color: '#6f6658', fontVariant: ['tabular-nums'] },
+  timeOn: { color: '#1b1205' },
+  label: { fontSize: 10, fontFamily: font.headingSemibold, color: '#f3e6d2', marginTop: 1, maxWidth: 126 },
+  divider: { width: 1, alignSelf: 'stretch', backgroundColor: '#3e2614', marginBottom: 12 },
+});
