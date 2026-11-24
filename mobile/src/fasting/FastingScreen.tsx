@@ -62,12 +62,21 @@ import { scheduleFastingReminders } from './fastingReminders';
 
 type Sheet = 'drinks' | 'stages' | 'together' | 'end' | 'start-when' | { compare: string } | null;
 
-const BACK_CHOICES = [0, 30, 60, 120, 180];
+// How far back a fast can start ("I stopped eating at…"), as the server
+// allows (fasting_begin), and the quick picks under the time.
+const MAX_BACK_MIN = 12 * 60;
+const QUICK_BACK = [0, 60, 120, 180, 240, 360, 480, 720];
 
 function agoLabel(min: number): string {
   if (min === 0) return 'Now';
   if (min < 60) return `${min} min ago`;
-  return `${min / 60} h ago`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h} h ${m} m ago` : `${h} h ago`;
+}
+
+function timeAgo(min: number): string {
+  return new Date(Date.now() - min * 60000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
 export function FastingScreen({
@@ -93,6 +102,8 @@ export function FastingScreen({
   const [allFriends, setAllFriends] = useState<Friend[] | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [compare, setCompare] = useState<FastingCompare | null>(null);
+  // "I ate at…" in the End sheet, minutes ago.
+  const [endMin, setEndMin] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -329,7 +340,7 @@ export function FastingScreen({
         <Text style={styles.strong}>
           {backMin === 0
             ? `Now, ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-            : `${agoLabel(backMin)}, ${new Date(Date.now() - backMin * 60000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+            : `${timeAgo(backMin)}, ${agoLabel(backMin)}`}
         </Text>
       </Pressable>
       <StreakCard m={me} styles={styles} colors={colors} />
@@ -589,11 +600,27 @@ export function FastingScreen({
   } else if (result) {
     pinned = <Button label="Done" variant="primary" block onPress={() => setResult(null)} />;
   } else if (me && me.age === 'ok' && open) {
-    pinned = <Button label={busy ? 'Ending…' : 'End fast'} block disabled={busy} onPress={() => setSheet('end')} />;
+    pinned = (
+      <Button
+        label={busy ? 'Ending…' : 'End fast'}
+        block
+        disabled={busy}
+        onPress={() => {
+          setEndMin(0);
+          setSheet('end');
+        }}
+      />
+    );
   } else if (me && me.age === 'ok') {
     pinned = (
       <View style={{ gap: 8 }}>
-        <Button label={busy ? 'Starting…' : 'Start fast'} variant="primary" block disabled={busy} onPress={() => begin([])} />
+        <Button
+          label={busy ? 'Starting…' : backMin > 0 ? `Start fast from ${timeAgo(backMin)}` : 'Start fast'}
+          variant="primary"
+          block
+          disabled={busy}
+          onPress={() => begin([])}
+        />
         <Button label="Start together…" block disabled={busy} onPress={() => setSheet('together')} />
       </View>
     );
@@ -661,12 +688,9 @@ export function FastingScreen({
       )}
       {sheet === 'start-when' && (
         <TileSheet title="When did you stop eating?" onClose={() => setSheet(null)}>
-          <View style={styles.chips}>
-            {BACK_CHOICES.map((m) => (
-              <Chip key={m} label={agoLabel(m)} on={backMin === m} onPress={() => { setBackMin(m); setSheet(null); }} />
-            ))}
-          </View>
-          <Text style={styles.small}>Your fast counts from then.</Text>
+          <TimeBack minutes={backMin} max={MAX_BACK_MIN} onChange={setBackMin} />
+          <Text style={styles.small}>Your fast counts from then, up to 12 hours back.</Text>
+          <Button label={backMin === 0 ? 'Start from now' : `Start from ${timeAgo(backMin)}`} variant="primary" block onPress={() => setSheet(null)} />
         </TileSheet>
       )}
       {sheet === 'end' && open && (
@@ -674,11 +698,19 @@ export function FastingScreen({
           <Text style={styles.body}>
             {clockText(hours)} so far{hours < open.goalHours ? `, ${leftText(open.goalHours - hours)} short of your goal` : ''}. When did you eat?
           </Text>
-          <View style={styles.chips}>
-            {BACK_CHOICES.filter((m) => m * 60000 < Date.now() - new Date(open.startedAt).getTime()).map((m) => (
-              <Chip key={m} label={m === 0 ? 'Eating now' : `I ate ${agoLabel(m)}`} onPress={() => finish(m)} />
-            ))}
-          </View>
+          <TimeBack
+            minutes={endMin}
+            max={Math.max(0, Math.min(MAX_BACK_MIN, Math.floor((Date.now() - new Date(open.startedAt).getTime()) / 60000) - 1))}
+            onChange={setEndMin}
+            nowLabel="Eating now"
+          />
+          <Button
+            label={busy ? 'Ending…' : endMin === 0 ? 'End fast now' : `End fast at ${timeAgo(endMin)}`}
+            variant="primary"
+            block
+            disabled={busy}
+            onPress={() => finish(endMin)}
+          />
         </TileSheet>
       )}
       {sheet === 'together' && (
@@ -780,6 +812,48 @@ function StreakCard({ m, styles, colors }: { m: MyFasting; styles: ReturnType<ty
   );
 }
 
+// A time some minutes back: the clock time with − and + in 15-minute
+// steps, and quick picks (only those within `max`).
+function TimeBack({ minutes, max, onChange, nowLabel = 'Now' }: { minutes: number; max: number; onChange: (m: number) => void; nowLabel?: string }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const clamp = (m: number) => Math.max(0, Math.min(max, m));
+  const step = (d: number) => onChange(clamp(minutes === 0 && d > 0 ? 15 : Math.round((minutes + d) / 15) * 15));
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={styles.timeRow}>
+        <Pressable
+          onPress={() => step(15)}
+          disabled={minutes >= max}
+          style={[styles.stepBtn, minutes >= max && { opacity: 0.35 }]}
+          accessibilityRole="button"
+          accessibilityLabel="15 minutes earlier"
+        >
+          <Text style={styles.stepText}>−15</Text>
+        </Pressable>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={styles.timeBig}>{timeAgo(minutes)}</Text>
+          <Text style={styles.small}>{minutes === 0 ? nowLabel : agoLabel(minutes)}</Text>
+        </View>
+        <Pressable
+          onPress={() => step(-15)}
+          disabled={minutes <= 0}
+          style={[styles.stepBtn, minutes <= 0 && { opacity: 0.35 }]}
+          accessibilityRole="button"
+          accessibilityLabel="15 minutes later"
+        >
+          <Text style={styles.stepText}>+15</Text>
+        </Pressable>
+      </View>
+      <View style={styles.chips}>
+        {QUICK_BACK.filter((m) => m <= max).map((m) => (
+          <Chip key={m} label={m === 0 ? nowLabel : agoLabel(m)} on={minutes === m} onPress={() => onChange(m)} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function Stat({ value, label, color }: { value: React.ReactNode; label: string; color?: string }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -870,6 +944,10 @@ function makeStyles(colors: Palette) {
     chipText: { fontSize: 13, color: colors.text, fontFamily: font.headingSemibold },
     chipTextOn: { color: colors.accentActive },
     ringLine: { textAlign: 'center', maxWidth: 140 },
+    timeRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    timeBig: { fontSize: 30, color: colors.text, fontFamily: font.heading, fontVariant: ['tabular-nums'] },
+    stepBtn: { width: 56, height: 44, borderRadius: 12, borderWidth: 1, borderColor: withAlpha(colors.text, 0.18), alignItems: 'center', justifyContent: 'center' },
+    stepText: { fontSize: 15, color: colors.accentActive, fontFamily: font.headingSemibold },
     hugeClock: { fontSize: 38, color: colors.text, fontFamily: font.heading, fontVariant: ['tabular-nums'] },
     bigClock: { fontSize: 28, color: colors.text, fontFamily: font.heading, fontVariant: ['tabular-nums'] },
     statRow: { flexDirection: 'row', gap: 8 },

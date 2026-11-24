@@ -588,9 +588,9 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'Open the Goals tile on Today and tap Try intermittent fasting. Once you’ve started a fast, Fasting gets its own tile on Today.',
         'It’s for people 16 and older. Talk to your doctor first if you’re pregnant or breastfeeding, take insulin or diabetes medicine, or have had an eating disorder.',
-        'Pick a plan (12:12 up to one meal a day) and tap Start fast. Stopped eating a while ago? Change “I stopped eating” to up to 3 hours back. Started by mistake? Cancel in the first 15 minutes.',
+        'Pick a plan (12:12 up to one meal a day) and tap Start fast. Stopped eating a while ago? Tap “I stopped eating” and set the time, up to 12 hours back. Started by mistake? Cancel in the first 15 minutes.',
         'The ring fills to your goal and the strip shows the stages (Settling, Fat burning, Ketosis). What can I drink? lists what keeps a fast: water, black coffee, plain tea.',
-        'Tap End fast when you eat, or “I ate” up to 3 hours ago. Ending early still counts as a fast, just not on plan.',
+        'Tap End fast when you eat. Forgot? Set when you ate, up to 12 hours back. Ending early still counts as a fast, just not on plan.',
         `${currency} once a day for the first fast that ends that day: 5 at 12 hours, up to 25 at 20 hours, and nothing more after that. Streak bonuses at 3, 7, 14, 30 and 100 days on plan in a row.`,
         'Rest days you pick (up to 3 a week) don’t break your streak, and neither does one missed day a week.',
         'Friends see when you’re fasting and can cheer you on. Start together invites them to a pack fast: when everyone who joins ends on plan, you all get a bonus.',
