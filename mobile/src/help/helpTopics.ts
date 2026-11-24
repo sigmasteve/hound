@@ -230,6 +230,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'In check, every piece is free, so you can always get out. If none of your free pieces has a move, they’re all free for that move too.',
         'To move, tap a piece and then one of the dots. Every move is checked by Hound, so only legal ones count. Castling, en passant and promotion all work (a pawn that reaches the end becomes a queen).',
         'You have 24 hours a move. Run out and Hound makes a careful move for you; run out again on your next move and the game is lost. Against the bot, it answers straight away.',
+        'The clock in the stand, as in a tournament: each face is the time that player has taken over their moves so far, and the one whose move it is runs. Under each face, their steps today.',
         'Tapped the wrong square? For 5 seconds after your move, Undo (where Resign usually is) takes it back, as long as they haven’t moved yet. Against the bot, its answer comes off too.',
         'The game ends on checkmate, a resignation, stalemate, not enough left to mate, or fifty moves without a capture. Still going on the challenge’s last day? It’s decided on the pieces left (queen 9, rook 5, bishop and knight 3, pawn 1); level is a draw.',
         'A win is 35 points and 25 Bones (10 against the bot), a draw 15, a loss 5.',

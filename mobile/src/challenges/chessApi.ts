@@ -147,6 +147,51 @@ export async function undoChessMove(challengeId: string): Promise<ChessGame> {
   return toChessGame(await rpc('chess_undo', { p_challenge_id: challengeId }));
 }
 
+// The chess clock (0259): each side's time used so far, in seconds, who's
+// on the clock, since when, and the server's time (to tick without drift).
+export interface ChessClock {
+  w: number;
+  b: number;
+  running: 'w' | 'b' | null;
+  since: number | null;
+  serverNow: number;
+  fetchedAt: number;
+}
+
+export async function getChessClock(challengeId: string): Promise<ChessClock | null> {
+  try {
+    const d = await rpc<any>('chess_clock', { p_challenge_id: challengeId });
+    return {
+      w: Number(d?.w ?? 0),
+      b: Number(d?.b ?? 0),
+      running: d?.running === 'w' || d?.running === 'b' ? d.running : null,
+      since: d?.since ? Date.parse(d.since) : null,
+      serverNow: d?.now ? Date.parse(d.now) : Date.now(),
+      fetchedAt: Date.now(),
+    };
+  } catch {
+    // Before 0259 is run: no clock.
+    return null;
+  }
+}
+
+// A side's time on the clock now, in seconds.
+export function clockSeconds(c: ChessClock, side: 'w' | 'b', now: number): number {
+  const base = side === 'w' ? c.w : c.b;
+  if (c.running !== side || c.since == null) return base;
+  return base + Math.max(0, (c.serverNow - c.since + (now - c.fetchedAt)) / 1000);
+}
+
+// 0:42, 12:05, 1:02:33, then 2d 4h for a long correspondence game.
+export function clockText(sec: number): string {
+  const s = Math.floor(sec);
+  if (s >= 86400) return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+}
+
 export async function resignChess(challengeId: string): Promise<ChessGame> {
   return toChessGame(await rpc('chess_resign', { p_challenge_id: challengeId }));
 }
