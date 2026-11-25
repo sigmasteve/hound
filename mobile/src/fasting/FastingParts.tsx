@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 import { DropIcon, FireIcon, FlagCheckeredIcon, ForkKnifeIcon, LightningIcon, SparkleIcon, WarningIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
 import { Avatar } from '../components/Avatar';
@@ -145,9 +145,16 @@ export function StageIcon({ stageKey, size = 16, color }: { stageKey: string; si
 // The fast as a dial: the ring split into the stages up to your goal,
 // each in its own colour, filled as you go; a badge with the stage's icon
 // where each one starts (lit once reached, the current one pulsing), its
-// hour beside it, a flag at the goal and a dot where you are now.
+// hour beside it, a flag at the goal and an arrowhead where you are now,
+// pointing the way the fast is going (Steve, Nov 2026: "hard to know where
+// I'm at"). What's done is drawn thick and bright over a thin, pale track
+// for what's to go, with a stronger track and glow in light mode, where
+// the pale colours washed out.
 export function FastDial({ size, hours, goal, children }: { size: number; hours: number; goal: number; children?: React.ReactNode }) {
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
+  const light = mode === 'light';
+  // Fed's grey reads as "off" on a light page; a deeper slate there.
+  const col = (key: string) => (light && key === 'fed' ? '#6b7394' : STAGE_COLOR[key]);
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -162,6 +169,8 @@ export function FastDial({ size, hours, goal, children }: { size: number; hours:
 
   const c = size / 2;
   const stroke = Math.round(size * 0.055);
+  const track = Math.round(stroke * 0.62);
+  const fill = Math.round(stroke * 1.15);
   const R = c - 36;
   const C = 2 * Math.PI * R;
   const done = hours >= goal;
@@ -177,7 +186,17 @@ export function FastDial({ size, hours, goal, children }: { size: number; hours:
     strokeDasharray: `${Math.max(0, (b - a) * C - gap)} ${C}`,
     transform: `rotate(${a * 360 - 90 + (gap / C) * 180} ${c} ${c})`,
   });
-  const head = at(frac, R);
+  // You are here: what's done ends in an arrowhead, its point exactly at
+  // now, its body bent along the ring and wider than it, pointing the way
+  // the fast is going. The filled arc stops under the arrowhead so its
+  // rounded end never pokes past the point.
+  const polar = (f: number, r: number) => {
+    const p = at(f, r);
+    return `${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
+  };
+  const behind = (px: number) => frac - px / C;
+  const arrow = `M ${polar(frac, R)} L ${polar(behind(fill * 1.55), R - fill * 0.85)} L ${polar(behind(fill * 1.0), R)} L ${polar(behind(fill * 1.55), R + fill * 0.85)} Z`;
+  const fillTo = behind(fill * 1.3);
   const badge = 30;
 
   return (
@@ -186,30 +205,39 @@ export function FastDial({ size, hours, goal, children }: { size: number; hours:
         <Defs>
           <RadialGradient id="dialGlow" cx="50%" cy="50%" r="50%">
             <Stop offset="0.55" stopColor={STAGE_COLOR[current.key]} stopOpacity="0" />
-            <Stop offset="0.8" stopColor={STAGE_COLOR[current.key]} stopOpacity="0.16" />
+            <Stop offset="0.8" stopColor={STAGE_COLOR[current.key]} stopOpacity={light ? '0.24' : '0.16'} />
             <Stop offset="1" stopColor={STAGE_COLOR[current.key]} stopOpacity="0" />
           </RadialGradient>
         </Defs>
         <Circle cx={c} cy={c} r={c - 2} fill="url(#dialGlow)" />
         {segs.map(({ s, a, b }) => (
-          <Circle key={`t-${s.key}`} cx={c} cy={c} r={R} stroke={withAlpha(STAGE_COLOR[s.key], 0.2)} strokeWidth={stroke} fill="none" {...arc(a, b)} />
+          <Circle
+            key={`t-${s.key}`}
+            cx={c}
+            cy={c}
+            r={R}
+            stroke={withAlpha(col(s.key), light ? 0.3 : 0.22)}
+            strokeWidth={track}
+            strokeLinecap="round"
+            fill="none"
+            {...arc(a, b)}
+          />
         ))}
         {segs
-          .filter(({ a }) => frac > a)
+          .filter(({ a }) => (done ? frac : fillTo) > a)
           .map(({ s, a, b }) => (
             <Circle
               key={`p-${s.key}`}
               cx={c}
               cy={c}
               r={R}
-              stroke={done ? colors.green : STAGE_COLOR[s.key]}
-              strokeWidth={stroke}
+              stroke={done ? colors.green : col(s.key)}
+              strokeWidth={fill}
               strokeLinecap="round"
               fill="none"
-              {...arc(a, Math.min(b, frac))}
+              {...arc(a, Math.min(b, done ? frac : fillTo))}
             />
           ))}
-        {!done && <Circle cx={head.x} cy={head.y} r={stroke * 0.75} fill="#fff" stroke={STAGE_COLOR[current.key]} strokeWidth={3} />}
       </Svg>
 
       {/* A badge where each stage starts, and the goal's flag at the top. */}
@@ -220,7 +248,7 @@ export function FastDial({ size, hours, goal, children }: { size: number; hours:
           const label = at(a, R + 27);
           const reached = hours >= s.from;
           const isNow = current.key === s.key;
-          const col = STAGE_COLOR[s.key];
+          const sc = col(s.key);
           return (
             <React.Fragment key={`b-${s.key}`}>
               {isNow && !done && (
@@ -233,7 +261,7 @@ export function FastDial({ size, hours, goal, children }: { size: number; hours:
                     width: badge,
                     height: badge,
                     borderRadius: badge / 2,
-                    backgroundColor: col,
+                    backgroundColor: sc,
                     opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
                     transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }],
                   }}
@@ -249,13 +277,13 @@ export function FastDial({ size, hours, goal, children }: { size: number; hours:
                   borderRadius: badge / 2,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backgroundColor: reached ? col : colors.surface,
+                  backgroundColor: reached ? sc : colors.surface,
                   borderWidth: 2,
-                  borderColor: col,
+                  borderColor: sc,
                 }}
                 accessibilityLabel={`${s.name} from ${s.from} hours${reached ? ', reached' : ''}`}
               >
-                <StageIcon stageKey={s.key} size={15} color={reached ? '#fff' : col} />
+                <StageIcon stageKey={s.key} size={15} color={reached ? '#fff' : sc} />
               </View>
               <Text
                 style={{
@@ -266,7 +294,7 @@ export function FastDial({ size, hours, goal, children }: { size: number; hours:
                   textAlign: 'center',
                   fontSize: 10.5,
                   fontFamily: font.headingSemibold,
-                  color: reached ? col : withAlpha(colors.text, 0.5),
+                  color: reached ? sc : withAlpha(colors.text, 0.5),
                 }}
               >
                 {s.from} h
@@ -295,17 +323,25 @@ export function FastDial({ size, hours, goal, children }: { size: number; hours:
       <Text
         style={{
           position: 'absolute',
-          left: c - 30,
+          left: c - 50,
           top: c - R - badge / 2 - 18,
-          width: 60,
+          width: 100,
           textAlign: 'center',
           fontSize: 10.5,
           fontFamily: font.headingSemibold,
           color: done ? colors.green : withAlpha(colors.text, 0.6),
         }}
+        numberOfLines={1}
       >
         Goal {goal} h
       </Text>
+      {/* You are here, over the badges so one never hides it. */}
+      {!done && (
+        <Svg width={size} height={size} style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Path d={arrow} transform="translate(0 1.5)" fill={withAlpha('#000000', light ? 0.14 : 0.35)} />
+          <Path d={arrow} fill={col(current.key)} stroke={light ? '#fff' : colors.bg} strokeWidth={2} strokeLinejoin="round" />
+        </Svg>
+      )}
       {children}
     </View>
   );
