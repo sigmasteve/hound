@@ -259,6 +259,12 @@ export async function leaveClub(id: string): Promise<void> {
   await rpc('leave_club', { p_club_id: id });
 }
 
+// The owner deletes the club for everyone (0268). Returns how many members
+// were told by push.
+export async function deleteClub(id: string): Promise<number> {
+  return rpc<number>('delete_club', { p_club_id: id });
+}
+
 export async function setClubMuted(id: string, muted: boolean): Promise<void> {
   await rpc('set_club_muted', { p_club_id: id, p_muted: muted });
 }

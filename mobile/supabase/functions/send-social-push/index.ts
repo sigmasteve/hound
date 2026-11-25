@@ -23,6 +23,9 @@
 //                 0185_clubs.sql, applied mutes)
 //   'club_invite' "annruns invited you to Waffle House Crew. Tap to
 //                 join." — to the friends picked (invite_to_club, 0187)
+//   'club_closed' "annruns closed Waffle House Crew. Its challenges carry
+//                 on." — to the members in to_users (delete_club, 0268,
+//                 applied mutes)
 //   'bones_given' "Hound sent you 250 Bones 🦴" — to the member an admin
 //                 gave Bones (admin_give_bones, 0219). Not a social push,
 //                 so it doesn't wait on their social-push switch.
@@ -60,6 +63,7 @@ type Kind =
   | 'bones_given'
   | 'club_post'
   | 'club_invite'
+  | 'club_closed'
   | 'pack_fun'
   | 'fasting';
 
@@ -127,6 +131,7 @@ Deno.serve(async (req) => {
   if (body?.kind === 'journey_finished') return journeyFinished(supabase, body);
   if (body?.kind === 'club_post') return clubPost(supabase, body);
   if (body?.kind === 'club_invite') return clubInvite(supabase, body);
+  if (body?.kind === 'club_closed') return clubClosed(supabase, body);
   if (body?.kind === 'pack_fun') return packFun(supabase, body);
   if (body?.kind === 'fasting') return fasting(supabase, body);
   if (
@@ -304,6 +309,19 @@ async function clubInvite(supabase: SupabaseClient, body: RequestBody): Promise<
   return toFriends(supabase, body, (name) => `${name} invited you to ${club}. Tap to join.`, {
     title: 'Club invite',
     data: { type: 'club_invite', clubId: body.club_id },
+  });
+}
+
+// A club's owner deleted it (0268), to its members. Opens the Clubs tab.
+async function clubClosed(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
+  const club = (body.club_name ?? '').trim();
+  if (!club || !body.club_id) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
+  }
+  return toFriends(supabase, body, (name) => `${name} closed ${club}. Its challenges carry on.`, {
+    title: 'Club closed',
+    data: { type: 'club_closed', clubId: body.club_id },
+    username: true,
   });
 }
 
