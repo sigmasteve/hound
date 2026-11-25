@@ -241,6 +241,12 @@ export async function endFast(endedAt: Date | null, now = new Date(), me: MyFast
   };
 }
 
+// Change the goal of the fast you're on (0273): 12 to 24 h, not below
+// what you've already fasted. It's your plan next time too.
+export async function setFastGoal(hours: number): Promise<void> {
+  await rpc('fasting_set_goal', { p_goal_hours: hours });
+}
+
 export async function cancelFast(): Promise<void> {
   await rpc('fasting_cancel');
 }

@@ -35,6 +35,7 @@ import {
 } from './fasting';
 import {
   cancelFast,
+  setFastGoal,
   cheerFast,
   compareFasting,
   declineFastPack,
@@ -68,7 +69,7 @@ import { ClubBadge } from '../clubs/clubLook';
 // result when you end, then your week, the friends board and settings.
 // The main action (Start fast / End fast) is pinned at the bottom.
 
-type Sheet = 'drinks' | 'stages' | 'together' | 'end' | 'start-when' | { compare: string } | null;
+type Sheet = 'drinks' | 'stages' | 'together' | 'end' | 'start-when' | 'plan' | { compare: string } | null;
 
 // How far back a fast can start ("I stopped eating at…"), as the server
 // allows (fasting_begin), and the quick picks under the time.
@@ -401,7 +402,7 @@ export function FastingScreen({
   const liveView = me && me.age === 'ok' && open && !result && (
     <View style={{ gap: 12 }}>
       <View style={{ alignItems: 'center', paddingTop: 6 }}>
-        <FastDial size={Math.min(winW - 32, 320)} hours={hours} goal={open.goalHours}>
+        <FastDial size={Math.min(winW - 32, 320)} hours={hours} goal={open.goalHours} onGoalPress={() => setSheet('plan')}>
           <View style={styles.dialStage}>
             <StageIcon stageKey={stageAt(hours).key} size={13} color={STAGE_COLOR[stageAt(hours).key]} />
             <Text style={[styles.label, { color: STAGE_COLOR[stageAt(hours).key] }]}>
@@ -491,19 +492,6 @@ export function FastingScreen({
         Reaching {Math.min(Math.max(open.goalHours, 12), 20)} h pays {bonesForHours(Math.min(Math.max(open.goalHours, 12), 20), me.config)} Bones
         {me.paidToday ? ' (already earned today)' : ''}.
       </Text>
-      {now - new Date(open.startedAt).getTime() < 15 * 60000 && (
-        <Pressable
-          onPress={() =>
-            Alert.alert('Cancel this fast?', 'It goes away as if you never started.', [
-              { text: 'Keep it', style: 'cancel' },
-              { text: 'Cancel fast', style: 'destructive', onPress: () => run(async () => { await cancelFast(); await load(); }) },
-            ])
-          }
-          accessibilityRole="button"
-        >
-          <Text style={styles.link}>Started by mistake? Cancel it</Text>
-        </Pressable>
-      )}
     </View>
   );
 
@@ -680,28 +668,54 @@ export function FastingScreen({
   } else if (result) {
     pinned = <Button label="Done" variant="primary" block onPress={() => setResult(null)} />;
   } else if (me && me.age === 'ok' && open) {
+    // Change the goal, and in the first 15 minutes cancel a fast started
+    // by mistake (0273: in view, not under the fold).
+    const fresh = now - new Date(open.startedAt).getTime() < 15 * 60000;
     pinned = (
-      <Button
-        label={busy ? 'Ending…' : 'End fast'}
-        block
-        disabled={busy}
-        onPress={() => {
-          setEndMin(0);
-          setSheet('end');
-        }}
-      />
+      <View style={{ gap: 8 }}>
+        {fresh && (
+          <Pressable
+            onPress={() =>
+              Alert.alert('Cancel this fast?', 'It goes away as if you never started.', [
+                { text: 'Keep it', style: 'cancel' },
+                { text: 'Cancel fast', style: 'destructive', onPress: () => run(async () => { await cancelFast(); await load(); }) },
+              ])
+            }
+            accessibilityRole="button"
+            hitSlop={6}
+          >
+            <Text style={[styles.link, { textAlign: 'center' }]}>Started by mistake? Cancel it</Text>
+          </Pressable>
+        )}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Button label={`Goal ${open.goalHours} h`} block style={{ flex: 1 }} disabled={busy} onPress={() => setSheet('plan')} />
+          <Button
+            label={busy ? 'Ending…' : 'End fast'}
+            block
+            style={{ flex: 1 }}
+            disabled={busy}
+            onPress={() => {
+              setEndMin(0);
+              setSheet('end');
+            }}
+          />
+        </View>
+      </View>
     );
   } else if (me && me.age === 'ok') {
     pinned = (
       <View style={{ gap: 8 }}>
         <Button
-          label={busy ? 'Starting…' : backMin > 0 ? `Start fast from ${timeAgo(backMin)}` : 'Start fast'}
+          label={busy ? 'Starting…' : `Start ${chosenPlan} h fast${backMin > 0 ? ` from ${timeAgo(backMin)}` : ''}`}
           variant="primary"
           block
           disabled={busy}
           onPress={() => begin([])}
         />
-        <Button label="Start together…" block disabled={busy} onPress={() => setSheet('together')} />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Button label={`Plan: ${planLabel(chosenPlan)}`} block style={{ flex: 1 }} disabled={busy} onPress={() => setSheet('plan')} />
+          <Button label="Start together…" block style={{ flex: 1 }} disabled={busy} onPress={() => setSheet('together')} />
+        </View>
       </View>
     );
   }
@@ -713,7 +727,9 @@ export function FastingScreen({
           <ArrowLeftIcon size={20} color={colors.accentActive} />
         </Pressable>
         <Text style={[text.h4, { flex: 1, textAlign: 'center' }]}>Fasting</Text>
-        <Text style={[styles.small, { minWidth: 20, textAlign: 'right' }]}>{open ? planLabel(open.goalHours) : ''}</Text>
+        <Pressable onPress={() => setSheet('plan')} disabled={!open} hitSlop={10} accessibilityRole={open ? 'button' : undefined}>
+          <Text style={[styles.small, { minWidth: 20, textAlign: 'right' }, open && { color: colors.accentActive }]}>{open ? planLabel(open.goalHours) : ''}</Text>
+        </Pressable>
       </View>
       <OfflineStrip cacheKeys={['fasting:my']} />
       <ScrollView contentContainerStyle={styles.body0}>
@@ -765,6 +781,48 @@ export function FastingScreen({
           <Text style={styles.small}>
             Trials find a daily eating window helps about as much as counting calories. Longer fasts aren’t proven better, so Hound rewards
             coming back, not going long.
+          </Text>
+        </TileSheet>
+      )}
+      {sheet === 'plan' && (
+        <TileSheet title={open ? 'Change your goal' : 'Your plan'} onClose={() => setSheet(null)}>
+          <Text style={styles.small}>
+            {open
+              ? `You’ve fasted ${clockText(hours)}. Pick a new goal: the clock keeps running from when you started.`
+              : 'How long this fast is. Hound remembers it for next time.'}
+          </Text>
+          <View style={styles.chips}>
+            {PLANS.map((p) => {
+              const cur = open ? open.goalHours : chosenPlan;
+              const tooShort = !!open && p.hours <= hours;
+              return (
+                <Chip
+                  key={p.hours}
+                  label={p.label.includes(':') ? p.label : `${p.label} · ${p.hours} h`}
+                  on={cur === p.hours}
+                  disabled={tooShort || busy}
+                  onPress={() => {
+                    if (!open) {
+                      setPlan(p.hours);
+                      setSheet(null);
+                    } else if (p.hours !== open.goalHours) {
+                      run(async () => {
+                        await setFastGoal(p.hours);
+                        setPlan(p.hours);
+                        await load();
+                        setSheet(null);
+                      });
+                    }
+                  }}
+                />
+              );
+            })}
+          </View>
+          <Text style={styles.small}>
+            {PLANS.find((p) => p.hours === (open ? open.goalHours : chosenPlan))?.note}{' '}
+            {open
+              ? `Ends ${new Date(new Date(open.startedAt).getTime() + open.goalHours * 3600000).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}.`
+              : ''}
           </Text>
         </TileSheet>
       )}
@@ -960,11 +1018,17 @@ function ActionButton({ icon, label, onPress }: { icon: React.ReactNode; label: 
   );
 }
 
-function Chip({ label, on, onPress }: { label: string; on?: boolean; onPress: () => void }) {
+function Chip({ label, on, onPress, disabled }: { label: string; on?: boolean; onPress: () => void; disabled?: boolean }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <Pressable onPress={onPress} style={[styles.chip, on && styles.chipOn]} accessibilityRole="button" accessibilityState={{ selected: !!on }}>
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={[styles.chip, on && styles.chipOn, disabled && !on && { opacity: 0.35 }]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: !!on, disabled: !!disabled }}
+    >
       <Text style={[styles.chipText, on && styles.chipTextOn]}>{label}</Text>
     </Pressable>
   );
