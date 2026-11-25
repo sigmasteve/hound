@@ -326,18 +326,6 @@ export function ClubScreen({
               </View>
             </View>
           )}
-          {member && onStartPackFun && onOpenPackFun && (
-            <PackActivitiesCard
-              list={packActivities}
-              onOpen={onOpenPackFun}
-              onStart={onStartPackFun}
-              startLabel="Start one with the club"
-              showClub={false}
-              emptyNote="Heading out together? Start a Pack Activity for the club: everyone gets a push to join."
-            />
-          )}
-
-          {member && onOpenFasting && club.sport !== 'fasting' && <FastingClubCard clubId={clubId} fastingClub={false} onOpenFasting={onOpenFasting} />}
 
           {member && inviteOpen && club.code && (
             <Card style={styles.invite} elevated={false}>
@@ -448,6 +436,18 @@ export function ClubScreen({
               </View>
               {organizer && <Text style={styles.sub}>Tap someone to make them an organizer or remove them.</Text>}
             </Card>
+          )}
+
+          {/* Pack Activities last (Steve, Nov 2026: too prominent up top). */}
+          {member && onStartPackFun && onOpenPackFun && (
+            <PackActivitiesCard
+              list={packActivities}
+              onOpen={onOpenPackFun}
+              onStart={onStartPackFun}
+              startLabel="Start one with the club"
+              showClub={false}
+              emptyNote="Heading out together? Start a Pack Activity for the club: everyone gets a push to join."
+            />
           )}
         </ScrollView>
       )}
