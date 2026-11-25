@@ -240,8 +240,10 @@ Inside the scroll, in order:
      Nov 2026; `src/home/TodayFastingCard.tsx`): the ring with the clock,
      the stage, what's left to your goal and the next stage (or the phase
      game that's open, 0269), or between fasts your plan, the week and
-     your last fast; under it the fast's game slots and the numbers at a
-     glance (streak, this week, Fast Points, longest). Dots under it; the
+     your last fast; along its bottom the numbers at a glance (streak,
+     this week, Fast Points, longest). It's the Goals tile's height
+     (Steve: 90% of people see this, no white space), so no game slots
+     here; they're on the Fasting screen. Dots under it; the
      phone remembers which was showing (`useTodayTopCard` in
      `home/todayPrefs.ts`), and tapping it opens Fasting.
    - Needs you, full width, while anything is waiting (Steve's pick,

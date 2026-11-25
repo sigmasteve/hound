@@ -64,7 +64,7 @@ export function TodayFastingCard({ fasting, now, onOpen }: { fasting: MyFasting;
   } else {
     const last = fasting.days.length ? fasting.days[fasting.days.length - 1] : null;
     rows.push({ color: colors.accent, value: `${planLabel(fasting.planHours)} plan`, sub: fasting.paidToday ? 'Today’s Bones earned' : 'Tap Start when you finish eating' });
-    rows.push({ color: colors.green, value: `${fasting.numbers.weekDays} on plan this week`, sub: `${fasting.numbers.days30} days in the last 30` });
+    rows.push({ color: colors.green, value: `${fasting.numbers.weekDays} on plan this week`, sub: `${fasting.numbers.days30} ${fasting.numbers.days30 === 1 ? 'day' : 'days'} in the last 30` });
     if (last) {
       rows.push({
         color: last.onPlan ? colors.green : colors.amber,
@@ -93,9 +93,9 @@ export function TodayFastingCard({ fasting, now, onOpen }: { fasting: MyFasting;
     });
   }
 
-  // Under the ring: the fast's games (0269) and the numbers at a glance,
-  // so the card fills the Goals tile's height (Steve, Nov 2026).
-  const slots = gf ? games!.slots : [];
+  // Under the ring, the numbers at a glance, the height of the Goals
+  // tile's water row (Steve, Nov 2026: same size as the Goals card; the
+  // games stay on the Fasting screen, with the open one named above).
   const stats: [string, string][] = [
     [`🔥 ${streak}`, 'day streak'],
     [`${fasting.numbers.weekDays}`, 'this week'],
@@ -148,24 +148,9 @@ export function TodayFastingCard({ fasting, now, onOpen }: { fasting: MyFasting;
           ))}
         </View>
       </View>
-      {slots.length > 0 && (
-        <View style={styles.slots}>
-          {slots.map((sl) => {
-            const st = sl.status === 'locked' && gh >= sl.at ? 'open' : sl.status;
-            const col = slotColor(sl.slot, colors.green);
-            return (
-              <View key={sl.slot} style={[styles.slot, (st === 'open' || st === 'played') && { borderColor: withAlpha(col, 0.6) }]}>
-                <Text style={[styles.slotValue, st === 'open' && { color: col }]}>
-                  {st === 'played' ? sl.score : st === 'left' ? '0' : st === 'open' ? 'Play' : `${sl.at} h`}
-                </Text>
-                <Text style={styles.slotLabel} numberOfLines={1}>
-                  {GAME_INFO[sl.game].name}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
+      {/* The numbers sit at the bottom, so this card ends where the Goals
+          tile does (its water row) and any spare room is above them. */}
+      <View style={{ flexGrow: 1, minHeight: 10 }} />
       <View style={styles.stats}>
         {stats.map(([v, l]) => (
           <View key={l} style={styles.stat}>
@@ -264,20 +249,7 @@ function makeStyles(colors: Palette) {
     dot: { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
     value: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text },
     sub: { fontSize: 12, color: withAlpha(colors.text, 0.6), marginTop: 1 },
-    slots: { flexDirection: 'row', gap: 6, marginTop: 12 },
-    slot: {
-      flex: 1,
-      borderRadius: 10,
-      borderWidth: 1.5,
-      borderColor: 'transparent',
-      backgroundColor: withAlpha(colors.text, 0.05),
-      paddingVertical: 6,
-      paddingHorizontal: 2,
-      alignItems: 'center',
-    },
-    slotValue: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text },
-    slotLabel: { fontSize: 10.5, color: withAlpha(colors.text, 0.55) },
-    stats: { flexDirection: 'row', marginTop: 10, borderRadius: 12, backgroundColor: withAlpha(colors.accent, 0.08), paddingVertical: 10 },
+    stats: { flexDirection: 'row', borderRadius: 12, backgroundColor: withAlpha(colors.accent, 0.08), paddingVertical: 10 },
     stat: { flex: 1, alignItems: 'center', paddingHorizontal: 2 },
     statValue: { fontFamily: font.headingSemibold, fontSize: 16, color: colors.text },
     statLabel: { fontSize: 11, lineHeight: 14, color: withAlpha(colors.text, 0.6), textAlign: 'center' },
