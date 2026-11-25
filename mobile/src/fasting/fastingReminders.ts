@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { planLabel, timeOfDay, usualStartMinutes } from './fasting';
+import { STAGES, planLabel, timeOfDay, usualStartMinutes } from './fasting';
 import type { MyFasting } from './fastingApi';
 
 // Fasting's own local notifications (the phone's, not pushes):
@@ -8,9 +8,16 @@ import type { MyFasting } from './fastingApi';
 //   fasting-36     a check-in at 36 hours, if you're still going
 //   fasting-usual  "Start your fast?" at your usual start time, when you
 //                  aren't fasting (needs 3 starts to know your usual)
+//   fasting-stage-*  as each stage begins up to your goal (settling, fat
+//                  burning, ketosis), with what's happening and what's next
 // Rescheduled from whatever the Fasting screen or Today last loaded.
 
-const IDS = ['fasting-goal', 'fasting-36', 'fasting-usual'];
+const STAGE_NOTES: Record<string, { title: string; body: string }> = {
+  settling: { title: '💧 Settling in', body: '4 hours in. Your body is switching to its stored energy. Water or plain tea helps.' },
+  fatburn: { title: '🔥 Fat burning', body: '12 hours in. More of your energy is coming from fat now. Ketosis is next.' },
+  ketosis: { title: '⚡ Into ketosis', body: '16 hours in. Your liver’s stored sugar is running low and ketones are rising.' },
+};
+const IDS = ['fasting-goal', 'fasting-36', 'fasting-usual', ...Object.keys(STAGE_NOTES).map((k) => `fasting-stage-${k}`)];
 const CHANNEL = 'reminders';
 
 async function cancelAll(): Promise<void> {
@@ -35,6 +42,12 @@ export async function scheduleFastingReminders(f: MyFasting | null): Promise<voi
     if (status !== 'granted') return;
     if (f.open) {
       const start = new Date(f.open.startedAt).getTime();
+      // Each stage on the way, up to the goal (the goal has its own).
+      for (const st of STAGES) {
+        const note = STAGE_NOTES[st.key];
+        if (!note || st.from >= f.open.goalHours) continue;
+        await at(`fasting-stage-${st.key}`, new Date(start + st.from * 3600000), note.title, note.body);
+      }
       await at(
         'fasting-goal',
         new Date(start + f.open.goalHours * 3600000),

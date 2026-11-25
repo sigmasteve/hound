@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Pressable, ScrollView, StyleSheet, Switch, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, CaretRightIcon, CheckSquareIcon, SquareIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, CaretRightIcon, CheckSquareIcon, CoffeeIcon, FlagCheckeredIcon, ListBulletsIcon, SquareIcon, UsersThreeIcon, UserPlusIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
 import { Button } from '../components/Button';
 import { FriendPickList } from '../components/FriendPickList';
@@ -28,6 +28,8 @@ import {
   nextStreakBonus,
   planLabel,
   stageAt,
+  nextStage,
+  STAGE_COLOR,
 } from './fasting';
 import {
   cancelFast,
@@ -51,7 +53,7 @@ import {
   type FriendFasting,
   type MyFasting,
 } from './fastingApi';
-import { FastRing, LongestText, PersonAvatar, StageStrip } from './FastingParts';
+import { FastDial, FastRing, LongestText, PersonAvatar, StageIcon } from './FastingParts';
 import { scheduleFastingReminders } from './fastingReminders';
 import { getHoundClubs, type HoundClub } from '../clubs/clubsApi';
 import { ClubBadge } from '../clubs/clubLook';
@@ -93,6 +95,7 @@ export function FastingScreen({
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { width: winW } = useWindowDimensions();
   const [me, setMe] = useState<MyFasting | null>(null);
   const [friends, setFriends] = useState<{ now: FriendFasting[]; board: BoardRow[] } | null>(null);
   const [invites, setInvites] = useState<FastPackInvite[]>([]);
@@ -375,9 +378,14 @@ export function FastingScreen({
   // ── While fasting ──
   const liveView = me && me.age === 'ok' && open && !result && (
     <View style={{ gap: 12 }}>
-      <View style={{ alignItems: 'center', paddingVertical: 4 }}>
-        <FastRing size={196} hours={hours} goal={open.goalHours}>
-          <Text style={styles.label}>{hours >= open.goalHours ? 'GOAL REACHED' : 'FASTING'}</Text>
+      <View style={{ alignItems: 'center', paddingTop: 6 }}>
+        <FastDial size={Math.min(winW - 32, 320)} hours={hours} goal={open.goalHours}>
+          <View style={styles.dialStage}>
+            <StageIcon stageKey={stageAt(hours).key} size={13} color={STAGE_COLOR[stageAt(hours).key]} />
+            <Text style={[styles.label, { color: STAGE_COLOR[stageAt(hours).key] }]}>
+              {hours >= open.goalHours ? 'GOAL REACHED' : stageAt(hours).name.toUpperCase()}
+            </Text>
+          </View>
           <Text style={styles.hugeClock}>{clockText(hours)}</Text>
           <Text style={[styles.small, styles.ringLine]}>
             {hours >= open.goalHours ? `${planLabel(open.goalHours)} done` : `${leftText(open.goalHours - hours)} to go`}
@@ -387,7 +395,7 @@ export function FastingScreen({
               ? 'End it when you eat'
               : `ends ${new Date(new Date(open.startedAt).getTime() + open.goalHours * 3600000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
           </Text>
-        </FastRing>
+        </FastDial>
       </View>
       {hours >= 36 && (
         <View style={[styles.card, { borderWidth: 1.5, borderColor: colors.amber }]}>
@@ -399,20 +407,44 @@ export function FastingScreen({
         </View>
       )}
       <Pressable style={styles.card} onPress={() => setSheet('stages')} accessibilityRole="button">
-        <View style={styles.rowBetween}>
-          <Text style={styles.strong}>{stageAt(hours).name}</Text>
+        <View style={styles.row}>
+          <View style={[styles.stageDot, { backgroundColor: STAGE_COLOR[stageAt(hours).key] }]}>
+            <StageIcon stageKey={stageAt(hours).key} size={15} color="#fff" />
+          </View>
+          <Text style={[styles.strong, { flex: 1 }]}>{stageAt(hours).name}</Text>
           <Text style={styles.small}>
             {stageAt(hours).from}–{stageAt(hours).to === Infinity ? '' : stageAt(hours).to} h ›
           </Text>
         </View>
-        <StageStrip hours={hours} goal={open.goalHours} />
         <Text style={styles.small}>{stageAt(hours).about}</Text>
+        {(() => {
+          // What's next, up to your goal: never a stage past it, so
+          // nobody's nudged into a longer fast than they planned.
+          if (hours >= open.goalHours) return null;
+          const nx = nextStage(hours);
+          const goalNext = !nx || nx.from >= open.goalHours;
+          const atH = goalNext ? open.goalHours : nx!.from;
+          const col = goalNext ? colors.green : STAGE_COLOR[nx!.key];
+          const at = new Date(new Date(open.startedAt).getTime() + atH * 3600000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          return (
+            <View style={[styles.nextUp, { borderColor: withAlpha(col, 0.5), backgroundColor: withAlpha(col, 0.1) }]}>
+              {goalNext ? <FlagCheckeredIcon size={16} color={col} weight="fill" /> : <StageIcon stageKey={nx!.key} size={16} color={col} />}
+              <Text style={[styles.body, { flex: 1 }]}>
+                <Text style={styles.strong}>Next up: {goalNext ? 'your goal' : nx!.name}</Text> in {leftText(atH - hours)}
+              </Text>
+              <Text style={styles.small}>{at}</Text>
+            </View>
+          );
+        })()}
       </Pressable>
-      <View style={styles.chips}>
-        <Chip label="What can I drink?" onPress={() => setSheet('drinks')} />
-        <Chip label="The stages" onPress={() => setSheet('stages')} />
-        {open.packId && <Chip label="Your pack fast ›" on onPress={() => onOpenPack(open.packId!)} />}
-        {!open.packId && <Chip label="Invite friends" onPress={() => setSheet('together')} />}
+      <View style={styles.actionRow}>
+        <ActionButton icon={<CoffeeIcon size={18} color={colors.accentActive} weight="fill" />} label="What to drink" onPress={() => setSheet('drinks')} />
+        <ActionButton icon={<ListBulletsIcon size={18} color={colors.accentActive} weight="bold" />} label="Stages" onPress={() => setSheet('stages')} />
+        {open.packId ? (
+          <ActionButton icon={<UsersThreeIcon size={18} color={colors.accentActive} weight="fill" />} label="Pack fast" onPress={() => onOpenPack(open.packId!)} />
+        ) : (
+          <ActionButton icon={<UserPlusIcon size={18} color={colors.accentActive} weight="fill" />} label="Invite friends" onPress={() => setSheet('together')} />
+        )}
       </View>
       {me.cheers.length > 0 && (
         <View style={styles.card}>
@@ -891,6 +923,19 @@ function Stat({ value, label, color }: { value: React.ReactNode; label: string; 
   );
 }
 
+function ActionButton({ icon, label, onPress }: { icon: React.ReactNode; label: string; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.action, pressed && { opacity: 0.7 }]} accessibilityRole="button" accessibilityLabel={label}>
+      {icon}
+      <Text style={styles.actionText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 function Chip({ label, on, onPress }: { label: string; on?: boolean; onPress: () => void }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -969,7 +1014,23 @@ function makeStyles(colors: Palette) {
     chipOn: { backgroundColor: withAlpha(colors.accent, 0.22), borderColor: colors.accent },
     chipText: { fontSize: 13, color: colors.text, fontFamily: font.headingSemibold },
     chipTextOn: { color: colors.accentActive },
-    ringLine: { textAlign: 'center', maxWidth: 140 },
+    ringLine: { textAlign: 'center', maxWidth: 160 },
+    dialStage: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    stageDot: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+    nextUp: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, marginTop: 2 },
+    actionRow: { flexDirection: 'row', gap: 8 },
+    action: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 10,
+      paddingHorizontal: 4,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.text, 0.08),
+    },
+    actionText: { fontSize: 12.5, color: colors.text, fontFamily: font.headingSemibold },
     timeRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     timeBig: { fontSize: 30, color: colors.text, fontFamily: font.heading, fontVariant: ['tabular-nums'] },
     stepBtn: { width: 56, height: 44, borderRadius: 12, borderWidth: 1, borderColor: withAlpha(colors.text, 0.18), alignItems: 'center', justifyContent: 'center' },

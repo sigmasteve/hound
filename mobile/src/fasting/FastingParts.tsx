@@ -1,11 +1,12 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { DropIcon, FireIcon, FlagCheckeredIcon, ForkKnifeIcon, LightningIcon, SparkleIcon, WarningIcon } from 'phosphor-react-native';
 import { Text } from '../components/Text';
 import { Avatar } from '../components/Avatar';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { clockText, isLong, longestShort, stripStages, type FastingStage } from './fasting';
+import { STAGES, STAGE_COLOR, clockText, isLong, longestShort, stageAt, stripStages, type FastingStage } from './fasting';
 import type { FastingPerson } from './fastingApi';
 
 // Pieces the Fasting screens share: the ring, the stage strip, a person's
@@ -122,4 +123,190 @@ function makeStyles(colors: Palette) {
     segFill: { height: 6, backgroundColor: colors.accent },
     segLabel: { fontSize: 10, color: withAlpha(colors.text, 0.55), fontFamily: font.body },
   });
+}
+
+// ── The dial (Steve, Nov 2026: "an icon or arrow or some indicator for
+// Fed/Settling/Fat Burn/Ketosis... see what is coming up") ──
+
+const STAGE_ICON: Record<string, React.ComponentType<any>> = {
+  fed: ForkKnifeIcon,
+  settling: DropIcon,
+  fatburn: FireIcon,
+  ketosis: LightningIcon,
+  deep: SparkleIcon,
+  prolonged: WarningIcon,
+};
+
+export function StageIcon({ stageKey, size = 16, color }: { stageKey: string; size?: number; color: string }) {
+  const Icon = STAGE_ICON[stageKey] ?? SparkleIcon;
+  return <Icon size={size} color={color} weight="fill" />;
+}
+
+// The fast as a dial: the ring split into the stages up to your goal,
+// each in its own colour, filled as you go; a badge with the stage's icon
+// where each one starts (lit once reached, the current one pulsing), its
+// hour beside it, a flag at the goal and a dot where you are now.
+export function FastDial({ size, hours, goal, children }: { size: number; hours: number; goal: number; children?: React.ReactNode }) {
+  const { colors } = useTheme();
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1100, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+
+  const c = size / 2;
+  const stroke = Math.round(size * 0.055);
+  const R = c - 36;
+  const C = 2 * Math.PI * R;
+  const done = hours >= goal;
+  const frac = Math.min(1, hours / goal);
+  const current = stageAt(hours);
+  const segs = STAGES.filter((s) => s.from < goal).map((s) => ({ s, a: s.from / goal, b: Math.min(s.to, goal) / goal }));
+  const at = (f: number, r: number) => {
+    const th = f * 2 * Math.PI - Math.PI / 2;
+    return { x: c + Math.cos(th) * r, y: c + Math.sin(th) * r };
+  };
+  const gap = 3;
+  const arc = (a: number, b: number) => ({
+    strokeDasharray: `${Math.max(0, (b - a) * C - gap)} ${C}`,
+    transform: `rotate(${a * 360 - 90 + (gap / C) * 180} ${c} ${c})`,
+  });
+  const head = at(frac, R);
+  const badge = 30;
+
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <RadialGradient id="dialGlow" cx="50%" cy="50%" r="50%">
+            <Stop offset="0.55" stopColor={STAGE_COLOR[current.key]} stopOpacity="0" />
+            <Stop offset="0.8" stopColor={STAGE_COLOR[current.key]} stopOpacity="0.16" />
+            <Stop offset="1" stopColor={STAGE_COLOR[current.key]} stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Circle cx={c} cy={c} r={c - 2} fill="url(#dialGlow)" />
+        {segs.map(({ s, a, b }) => (
+          <Circle key={`t-${s.key}`} cx={c} cy={c} r={R} stroke={withAlpha(STAGE_COLOR[s.key], 0.2)} strokeWidth={stroke} fill="none" {...arc(a, b)} />
+        ))}
+        {segs
+          .filter(({ a }) => frac > a)
+          .map(({ s, a, b }) => (
+            <Circle
+              key={`p-${s.key}`}
+              cx={c}
+              cy={c}
+              r={R}
+              stroke={done ? colors.green : STAGE_COLOR[s.key]}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              fill="none"
+              {...arc(a, Math.min(b, frac))}
+            />
+          ))}
+        {!done && <Circle cx={head.x} cy={head.y} r={stroke * 0.75} fill="#fff" stroke={STAGE_COLOR[current.key]} strokeWidth={3} />}
+      </Svg>
+
+      {/* A badge where each stage starts, and the goal's flag at the top. */}
+      {segs
+        .filter(({ s }) => s.from > 0)
+        .map(({ s, a }) => {
+          const p = at(a, R);
+          const label = at(a, R + 27);
+          const reached = hours >= s.from;
+          const isNow = current.key === s.key;
+          const col = STAGE_COLOR[s.key];
+          return (
+            <React.Fragment key={`b-${s.key}`}>
+              {isNow && !done && (
+                <Animated.View
+                  pointerEvents="none"
+                  style={{
+                    position: 'absolute',
+                    left: p.x - badge / 2,
+                    top: p.y - badge / 2,
+                    width: badge,
+                    height: badge,
+                    borderRadius: badge / 2,
+                    backgroundColor: col,
+                    opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }),
+                    transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }],
+                  }}
+                />
+              )}
+              <View
+                style={{
+                  position: 'absolute',
+                  left: p.x - badge / 2,
+                  top: p.y - badge / 2,
+                  width: badge,
+                  height: badge,
+                  borderRadius: badge / 2,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: reached ? col : colors.surface,
+                  borderWidth: 2,
+                  borderColor: col,
+                }}
+                accessibilityLabel={`${s.name} from ${s.from} hours${reached ? ', reached' : ''}`}
+              >
+                <StageIcon stageKey={s.key} size={15} color={reached ? '#fff' : col} />
+              </View>
+              <Text
+                style={{
+                  position: 'absolute',
+                  left: label.x - 22,
+                  top: label.y - 8,
+                  width: 44,
+                  textAlign: 'center',
+                  fontSize: 10.5,
+                  fontFamily: font.headingSemibold,
+                  color: reached ? col : withAlpha(colors.text, 0.5),
+                }}
+              >
+                {s.from} h
+              </Text>
+            </React.Fragment>
+          );
+        })}
+      <View
+        style={{
+          position: 'absolute',
+          left: c - badge / 2,
+          top: c - R - badge / 2,
+          width: badge,
+          height: badge,
+          borderRadius: badge / 2,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: done ? colors.green : colors.surface,
+          borderWidth: 2,
+          borderColor: done ? colors.green : withAlpha(colors.text, 0.35),
+        }}
+        accessibilityLabel={`Goal, ${goal} hours`}
+      >
+        <FlagCheckeredIcon size={14} color={done ? '#fff' : colors.text} weight="fill" />
+      </View>
+      <Text
+        style={{
+          position: 'absolute',
+          left: c - 30,
+          top: c - R - badge / 2 - 18,
+          width: 60,
+          textAlign: 'center',
+          fontSize: 10.5,
+          fontFamily: font.headingSemibold,
+          color: done ? colors.green : withAlpha(colors.text, 0.6),
+        }}
+      >
+        Goal {goal} h
+      </Text>
+      {children}
+    </View>
+  );
 }
