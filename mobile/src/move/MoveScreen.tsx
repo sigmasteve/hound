@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -14,6 +14,8 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { ACTIVITY_LABEL, ROUTINES, TEMPLATES, fmtPts, isStrength, routineById, routineMinutes } from './move';
 import { getMyMove, setStrengthTarget, type MoveItem, type MyMove } from './moveApi';
 import { ActivityIcon, StrengthWeeks, activityColor } from './MoveParts';
+import { OfflineStrip } from '../offline/OfflineStrip';
+import { onSynced } from '../offline/outbox';
 
 // Move (0270): today's Move points by where they came from (your phone's
 // steps, workouts from a watch, logged by hand, timed in Hound), what's
@@ -81,6 +83,8 @@ export function MoveScreen({
       load();
     }, [load]),
   );
+  // Something saved offline just synced (0271): show the real numbers.
+  useEffect(() => onSynced(() => load()), [load]);
 
   const items = (me?.items ?? []).filter((i) => i.activity !== 'steps' || i.pts > 0);
   const strengthPts = items.filter((i) => isStrength(i.activity)).reduce((a, i) => a + i.pts, 0);
@@ -102,6 +106,7 @@ export function MoveScreen({
         <Text style={[text.h4, { flex: 1, textAlign: 'center' }]}>Move</Text>
         <View style={{ width: 20 }} />
       </View>
+      <OfflineStrip cacheKeys={['move:my', 'move:rates']} />
       <ScrollView contentContainerStyle={styles.body}>
         {me === undefined && !error && <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />}
         {error && <Text style={styles.small}>{error}</Text>}

@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase';
 import { localDayKey } from '../fasting/fasting';
 import { invalidateLoggedSamples } from '../workouts/loggedWorkouts';
+import { cachedRead } from '../offline/cache';
+import { enqueue, type OutboxItem } from '../offline/outbox';
 
 // The client half of Move points (0270_move_points.sql). The server keeps
 // the rates, times Hound's sessions, caps what's logged by hand and adds
@@ -70,7 +72,8 @@ function strength(d: any): StrengthGoal {
 // Null before 0270 is run.
 export async function getMyMove(now = new Date()): Promise<MyMove | null> {
   try {
-    const d = await rpc<any>('my_move', { p_local_date: localDayKey(now) });
+    // A kept copy when offline (0271).
+    const d = await cachedRead('move:my', () => rpc<any>('my_move', { p_local_date: localDayKey(now) }));
     return {
       pts: num(d?.pts),
       handCapMin: num(d?.hand_cap_min) || 120,
@@ -167,7 +170,7 @@ export interface ExerciseHistory {
 }
 
 export async function getExerciseHistory(): Promise<Record<string, ExerciseHistory>> {
-  const d = (await rpc<any>('move_exercise_history')) ?? {};
+  const d = (await cachedRead('move:exercises', () => rpc<any>('move_exercise_history'))) ?? {};
   const out: Record<string, ExerciseHistory> = {};
   for (const [k, v] of Object.entries<any>(d)) {
     out[k] = {
@@ -190,15 +193,17 @@ export interface MoveRate {
 }
 
 export async function getMoveRates(): Promise<{ rates: MoveRate[]; handCapMin: number }> {
-  const [r, c] = await Promise.all([
-    client().from('move_rates').select('activity, label, per_min, sort').order('sort'),
-    client().from('move_config').select('hand_cap_min').eq('id', true).single(),
-  ]);
-  if (r.error) throw new Error(r.error.message);
-  return {
-    rates: (r.data ?? []).map((x: any) => ({ activity: x.activity, label: x.label, perMin: num(x.per_min), sort: num(x.sort) })),
-    handCapMin: num(c.data?.hand_cap_min) || 120,
-  };
+  return cachedRead('move:rates', async () => {
+    const [r, c] = await Promise.all([
+      client().from('move_rates').select('activity, label, per_min, sort').order('sort'),
+      client().from('move_config').select('hand_cap_min').eq('id', true).single(),
+    ]);
+    if (r.error) throw new Error(r.error.message);
+    return {
+      rates: (r.data ?? []).map((x: any) => ({ activity: x.activity, label: x.label, perMin: num(x.per_min), sort: num(x.sort) })),
+      handCapMin: num(c.data?.hand_cap_min) || 120,
+    };
+  });
 }
 
 export async function setMoveConfig(p: { rates?: Record<string, number>; handCapMin?: number }): Promise<void> {
@@ -254,4 +259,33 @@ export function challengeCounts(challengeId: string): Promise<'steps' | 'move'> 
     countsCache.set(challengeId, p);
   }
   return p;
+}
+
+// A routine or strength log timed on the phone while Hound's server
+// couldn't be reached (0271): waits in the outbox and syncs later, checked
+// by move_offline_session when it arrives.
+export function saveSessionOffline(s: {
+  kind: 'routine' | 'strength';
+  ref: string;
+  startedAt: Date;
+  endedAt: Date;
+  minutes: number;
+  hard: boolean;
+  sets: LoggedSet[] | null;
+  label: string;
+}): Promise<OutboxItem> {
+  return enqueue(
+    'move_offline_session',
+    {
+      kind: s.kind,
+      ref: s.ref,
+      started_at: s.startedAt.toISOString(),
+      ended_at: s.endedAt.toISOString(),
+      minutes: s.minutes,
+      hard: s.hard,
+      sets: s.sets ? s.sets.map((x) => ({ exercise: x.exercise, set_no: x.setNo, weight_lb: x.weightLb, reps: x.reps })) : null,
+      local_date: localDayKey(s.endedAt),
+    },
+    s.label,
+  );
 }

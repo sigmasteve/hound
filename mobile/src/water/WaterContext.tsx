@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useHealthProvider } from '../health/HealthContext';
 import { HAS_HEALTH_1_1 } from '../health/nativeBuild';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { removeQueued, runOrQueue } from '../offline/outbox';
 import { updateHound } from '../goals/hound';
 import { setWaterSnapshot } from './waterSnapshot';
 import { dayKeyBefore, DEFAULT_WATER_GOAL, localDayKey, type WaterEntry, type WaterGoal } from './water';
@@ -92,6 +93,8 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
   }, [offerKey]);
 
   const undoneEarly = useRef(new Set<string>());
+  // Glasses saved on the phone while offline (0271): their id → the outbox item.
+  const queuedWater = useRef(new Map<string, string>());
   const goalRef = useRef(goal);
   goalRef.current = goal;
 
@@ -195,7 +198,13 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
       setPours((n) => n + 1);
       if (!remote) return temp;
       try {
-        const id = await logWater(day, amount);
+        // With no connection it waits on the phone and syncs later (0271).
+        const r = await runOrQueue('log_water', { day, ml: amount }, `${amount} ml of water`, () => logWater(day, amount));
+        if (r.queued) {
+          queuedWater.current.set(temp.id, r.item.id);
+          return temp;
+        }
+        const id = r.value;
         const saved = { ...temp, id };
         // Undone before the server answered: take it back off there too.
         if (undoneEarly.current.delete(temp.id)) {
@@ -225,6 +234,12 @@ export function WaterProvider({ children }: { children: React.ReactNode }) {
       });
       if (!remote) return;
       if (id.startsWith('local-')) {
+        // Still waiting to sync: take it out of the outbox instead.
+        const q = queuedWater.current.get(id);
+        if (q) {
+          queuedWater.current.delete(id);
+          if (await removeQueued(q)) return;
+        }
         undoneEarly.current.add(id);
         return;
       }

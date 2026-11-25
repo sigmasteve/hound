@@ -7,8 +7,20 @@ import { Button } from '../components/Button';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { clockMS, fmtPts, templateById } from './move';
-import { cancelMoveSession, finishMoveSession, getExerciseHistory, getMoveRates, startMoveSession, type ExerciseHistory, type MoveFinish } from './moveApi';
-import { MoveFinishView } from './MoveParts';
+import {
+  cancelMoveSession,
+  finishMoveSession,
+  getExerciseHistory,
+  getMoveRates,
+  saveSessionOffline,
+  startMoveSession,
+  type ExerciseHistory,
+  type LoggedSet,
+  type MoveFinish,
+} from './moveApi';
+import { offlineEnabled } from '../offline/offlineConfig';
+import { isNetworkError, reportNetworkFailure } from '../offline/network';
+import { MoveFinishView, MoveSavedOffline } from './MoveParts';
 
 // A strength log (0270): a template's exercises, sets you tick as you go
 // (weights optional), timed on the server while it's open. A ticked set
@@ -39,6 +51,8 @@ export function MoveStrengthScreen({ templateId, onBack }: { templateId: string;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<MoveFinish | null>(null);
+  // Saved on the phone to sync later (0271): the minutes.
+  const [queued, setQueued] = useState<number | null>(null);
   // Points a minute, light and hard (Admin's rates).
   const [rate, setRate] = useState({ light: 100, heavy: 170 });
 
@@ -53,7 +67,13 @@ export function MoveStrengthScreen({ templateId, onBack }: { templateId: string;
       .catch(() => {});
     startMoveSession('strength', template.id)
       .then((s) => setSession({ id: s.id, startedAt: Date.now() }))
-      .catch((e) => setError(e instanceof Error ? e.message : 'Could not start.'));
+      .catch((e) => {
+        // No connection: the phone times it and it syncs later (0271).
+        if (offlineEnabled() && isNetworkError(e)) {
+          reportNetworkFailure();
+          setSession({ id: 'offline', startedAt: Date.now() });
+        } else setError(e instanceof Error ? e.message : 'Could not start.');
+      });
     getExerciseHistory()
       .then((h) => {
         setHistory(h);
@@ -101,7 +121,29 @@ export function MoveStrengthScreen({ templateId, onBack }: { templateId: string;
           .filter(({ s }) => s.done && Number(s.reps) > 0)
           .map(({ s, i }) => ({ exercise: x.name, setNo: i + 1, weightLb: Number(s.weight) > 0 ? Number(s.weight) : null, reps: Math.round(Number(s.reps)) })),
       );
-      setResult(await finishMoveSession(session.id, mins, hard, sets));
+      const saveOffline = async (list: LoggedSet[]) => {
+        await saveSessionOffline({
+          kind: 'strength',
+          ref: template.id,
+          startedAt: new Date(session.startedAt),
+          endedAt: new Date(),
+          minutes: mins,
+          hard,
+          sets: list,
+          label: `${template.id === 'own' ? 'Strength' : template.name} log`,
+        });
+        setQueued(mins);
+      };
+      if (session.id === 'offline') await saveOffline(sets);
+      else {
+        try {
+          setResult(await finishMoveSession(session.id, mins, hard, sets));
+        } catch (e) {
+          if (!(offlineEnabled() && isNetworkError(e))) throw e;
+          reportNetworkFailure();
+          await saveOffline(sets);
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save it.');
     } finally {
@@ -110,14 +152,14 @@ export function MoveStrengthScreen({ templateId, onBack }: { templateId: string;
   };
 
   const back = () => {
-    if (!session || result) return onBack();
+    if (!session || result || queued !== null) return onBack();
     Alert.alert('Leave this log?', doneSets.length ? 'Finish to save it, or leave without saving.' : 'Nothing is saved yet.', [
       { text: 'Stay', style: 'cancel' },
       {
         text: 'Leave',
         style: 'destructive',
         onPress: () => {
-          cancelMoveSession(session.id).catch(() => {});
+          if (session.id !== 'offline') cancelMoveSession(session.id).catch(() => {});
           onBack();
         },
       },
@@ -133,7 +175,11 @@ export function MoveStrengthScreen({ templateId, onBack }: { templateId: string;
         <Text style={[text.h4, { flex: 1, textAlign: 'center' }]}>{template.id === 'own' ? 'Strength' : template.name}</Text>
         <View style={{ width: 20 }} />
       </View>
-      {result ? (
+      {queued !== null ? (
+        <ScrollView contentContainerStyle={styles.body}>
+          <MoveSavedOffline title={template.id === 'own' ? 'Strength' : template.name} minutes={queued} activity={hard ? 'strength_heavy' : 'strength_light'} />
+        </ScrollView>
+      ) : result ? (
         <ScrollView contentContainerStyle={styles.body}>
           <MoveFinishView title={template.id === 'own' ? 'Strength' : template.name} result={result} timed />
         </ScrollView>
@@ -249,7 +295,7 @@ export function MoveStrengthScreen({ templateId, onBack }: { templateId: string;
         </ScrollView>
       )}
       <View style={styles.pinned}>
-        {result ? (
+        {result || queued !== null ? (
           <Button label="Done" variant="primary" block onPress={onBack} />
         ) : busy ? (
           <ActivityIndicator color={colors.accent} />
