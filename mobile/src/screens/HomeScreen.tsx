@@ -241,6 +241,7 @@ import { GolfHole } from '../components/GolfHole';
 import { HoopsCourt } from '../components/HoopsCourt';
 import { PackActivitiesCard } from '../packFun/PackActivitiesCard';
 import { currentPackFuns, isLive, myPackFuns, type MyPackFun } from '../packFun/packFunApi';
+import { useMyUses } from '../onboarding/myUses';
 import { declineFastPack, getFastingWaiting, getMyFasting, hoursSince, type FastPackInvite, type MyFasting } from '../fasting/fastingApi';
 import { clockText as fastClock, leftText as fastLeft, planLabel as fastPlanLabel } from '../fasting/fasting';
 import { scheduleFastingReminders } from '../fasting/fastingReminders';
@@ -1004,6 +1005,9 @@ export function HomeScreen({
   // Fasting (0261): the Today tile once you've started a fast, and pack
   // fast invites for Needs you.
   const [fasting, setFasting] = useState<MyFasting | null>(null);
+  // Ticked Intermittent fasting in the wizard (0272): the tile shows
+  // before a first fast too.
+  const fastingPicked = !!useMyUses()?.includes('fasting');
   const [fastInvites, setFastInvites] = useState<FastPackInvite[]>([]);
   const [fastNow, setFastNow] = useState(Date.now());
   const loadFasting = useCallback(() => {
@@ -2944,9 +2948,14 @@ export function HomeScreen({
       ),
     },
     // Fasting (0261), once you've started a fast: the live clock while you
-    // fast, else when you usually start.
+    // fast, else when you usually start. Before a first fast, for anyone
+    // who ticked Intermittent fasting in the wizard (0272): Start, and
+    // Fasting asks the age question on the way in.
     // Left out while the Fasting card is showing across the top.
-    ...(fasting?.age === 'ok' && fasting.startedAny && !(topFasting && topCard === 'fasting')
+    ...(fasting &&
+    fasting.age !== 'under' &&
+    (fasting.startedAny ? fasting.age === 'ok' : fastingPicked) &&
+    !(topFasting && topCard === 'fasting')
       ? [
           {
             key: 'fasting',
@@ -2969,10 +2978,12 @@ export function HomeScreen({
                             h >= o.goalHours ? { text: `${fastPlanLabel(o.goalHours)} done ✓`, color: colors.green } : `${fastLeft(o.goalHours - h)} to go`,
                             `🔥 ${fasting.numbers.streak}${fasting.cheers.length ? ` · ${fasting.cheers.length} cheered` : ''}`,
                           ]
-                        : [
-                            `${fastPlanLabel(fasting.planHours)} · 🔥 ${fasting.numbers.streak}`,
-                            fasting.paidToday ? 'Today’s Bones earned' : 'Tap when you finish eating',
-                          ]
+                        : !fasting.startedAny
+                          ? ['Your first fast', 'Tap when you finish eating']
+                          : [
+                              `${fastPlanLabel(fasting.planHours)} · 🔥 ${fasting.numbers.streak}`,
+                              fasting.paidToday ? 'Today’s Bones earned' : 'Tap when you finish eating',
+                            ]
                     }
                   />
                 </Tile>

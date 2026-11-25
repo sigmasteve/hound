@@ -1,6 +1,4 @@
 import { supabase } from '../lib/supabase';
-import type { ChallengeKind } from '../data/sampleData';
-import type { GoalDraft } from '../goals/goals';
 
 // The welcome wizard (0109_welcome_wizard.sql): whether to show it, and
 // what someone said they'll use Hound for.
@@ -10,18 +8,9 @@ import type { GoalDraft } from '../goals/goals';
 // doesn't come back. Device-wide, not per account.
 export const CONNECT_PROMPT_SEEN_KEY = 'hound:connect-prompt-seen';
 
-export type HoundUse = 'steps' | 'workouts' | 'strength' | 'cardio' | 'friends' | 'habits' | 'other';
-
-export const HOUND_USES: { id: HoundUse; name: string; detail: string }[] = [
-  { id: 'steps', name: 'Step & mile challenges', detail: 'Races and chases on your daily steps' },
-  { id: 'workouts', name: 'Workout accountability', detail: 'Someone to keep you showing up' },
-  { id: 'strength', name: 'Strength training', detail: 'Lifting and gym sessions' },
-  { id: 'cardio', name: 'Running, cycling & cardio', detail: 'Miles and minutes' },
-  { id: 'friends', name: 'Working out with friends', detail: 'Compete with people you know' },
-  { id: 'habits', name: 'Building daily habits', detail: 'Streaks you don’t want to break' },
-  // 0175_hound_uses_other.sql.
-  { id: 'other', name: 'Other', detail: 'Something else' },
-];
+// The wizard's checkboxes (0272), plus the chips from before it (cardio,
+// habits, other), which still save so nothing anyone picked is lost.
+export type HoundUse = 'steps' | 'fasting' | 'workouts' | 'activities' | 'strength' | 'water' | 'friends' | 'cardio' | 'habits' | 'other';
 
 export interface WelcomeState {
   show: boolean;
@@ -48,27 +37,4 @@ export async function finishWelcome(): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase.rpc('finish_welcome');
   if (error) throw new Error(error.message);
-}
-
-// Goals worth adding to the three starters for what they picked.
-export function extraGoalsFor(uses: HoundUse[]): GoalDraft[] {
-  const extra: GoalDraft[] = [];
-  if (uses.includes('strength'))
-    extra.push({ metric: 'workouts', period: 'week', target: 2, activity: 'strength', label: 'Strength a week' });
-  if (uses.includes('cardio'))
-    extra.push({ metric: 'workout_minutes', period: 'week', target: 150, activity: null, label: 'Cardio minutes a week' });
-  return extra;
-}
-
-// The kind of challenge to suggest starting, from what they picked first
-// in this order.
-// Never a Chase: it needs someone to chase or be chased by, and a new
-// account has no friends yet. A Step Race runs with bots until friends
-// arrive, so "with friends" points there.
-export function suggestedKind(uses: HoundUse[]): ChallengeKind {
-  if (uses.includes('friends') || uses.includes('steps')) return 'steps';
-  if (uses.includes('strength') || uses.includes('workouts')) return 'bingo';
-  if (uses.includes('cardio')) return 'distance';
-  if (uses.includes('habits')) return 'streak';
-  return 'steps';
 }
