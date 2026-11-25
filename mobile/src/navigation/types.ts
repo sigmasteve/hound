@@ -67,6 +67,9 @@ export type RootStackParamList = {
   PackFunHub: undefined;
   PackFunStart: { clubId?: string } | undefined;
   PackFun: { packId: string };
+  // Fasting (0261): your fasts, and a pack fast.
+  Fasting: undefined;
+  FastingPack: { packId: string };
   // Golf (0200): playing your ball on a golf challenge.
   GolfPlay: { challengeId: string };
   // Hoops, taking your own shots (0206).

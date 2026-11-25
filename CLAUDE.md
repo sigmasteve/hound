@@ -253,8 +253,9 @@ Inside the scroll, in order:
      strip (its number with its lines beside it, not a half tile's
      height stretched across; Steve, Nov 2026): your hound
      (when the Kennel has loaded), Needs you (only when caught up or muted), Your
-     challenges, and either Week in review (Monday until Tuesday noon, local) or
-     today's Step rank (the rest of the week).
+     challenges, Fasting (only once you've started a fast, 0261: the live
+     clock while fasting, else Start), and either Week in review (Monday
+     until Tuesday noon, local) or today's Step rank (the rest of the week).
    - Journey, full width, when you're on one.
 4. The notifications ask (PushAskCard), once you have a friend or a
    challenge.
@@ -273,7 +274,7 @@ What each sheet holds:
 - Needs you: Pack Activities first, only when one is waiting on you (on
   now or coming up, with Join; Steve's ask, Nov 2026). No "Start a Pack
   Activity" here: that's on the Clubs tab and a club's page. Then
-  invites and friend requests, then club games you can still join (posted
+  invites and friend requests, pack fast invites (0261), then club games you can still join (posted
   to one of your clubs; Join or Not now, 0252), then Bone Dig, nudges and
   bounties. The tile's "N
   waiting" counts all of them (a Pack Activity when you're invited, it's
@@ -284,6 +285,9 @@ What each sheet holds:
   in HomeScreen), with one button for what you can do now; then one
   line per other active challenge, then "All challenges". The card
   doesn't repeat the headline.
+- Fasting: no sheet; the tile opens the Fasting screen. Before a first
+  fast the way in is "Try intermittent fasting" at the bottom of the Goals
+  sheet (hidden for anyone who said they're under 16).
 - Week in review: last week's recap.
 
 Pop-ups (a stop reached on a Journey, a level up, the daily bonus, an

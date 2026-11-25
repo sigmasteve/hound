@@ -5,7 +5,7 @@ import type { ChallengeKind } from '../challenges/types';
 // challenges to their clubs; the rest of the club sees them and joins.
 // A club never narrows who you can play with.
 
-export type ClubSport = 'running' | 'cycling' | 'walking' | 'hiking' | 'swimming' | 'mixed';
+export type ClubSport = 'running' | 'cycling' | 'walking' | 'hiking' | 'swimming' | 'mixed' | 'fasting';
 export type ClubColor = 'orange' | 'blue' | 'green' | 'purple' | 'red' | 'teal';
 export type ClubRole = 'owner' | 'organizer' | 'member';
 
