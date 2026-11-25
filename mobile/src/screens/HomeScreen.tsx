@@ -3220,6 +3220,15 @@ export function HomeScreen({
           onWorkoutsChanged={() => {
             health.getRecentWorkouts(50).then(setWorkouts).catch(() => {});
           }}
+          // Log a workout opens Move (0270): an activity, a routine or strength.
+          onOpenMove={
+            isSupabaseConfigured
+              ? () => {
+                  setOpenTile(null);
+                  onOpenAction(['Move', undefined]);
+                }
+              : undefined
+          }
           progress={goalProgress}
           streak={goalStreak}
           currencyName={currencyName}
@@ -3239,17 +3248,6 @@ export function HomeScreen({
           }}
           onShare={goalsSet ? () => setSharing({ kind: 'goals', progress: goalProgress, streak: goalStreak }) : null}
         />
-        {/* Move points (0270): routines, strength logs and every kind of
-            movement counted. */}
-        {isSupabaseConfigured && (
-          <SheetLink
-            label="Move: routines, strength and Move points"
-            onPress={() => {
-              setOpenTile(null);
-              onOpenAction(['Move', undefined]);
-            }}
-          />
-        )}
         {/* Fasting (0261): the way in before your first fast (the Today
             tile only shows once you've started one). Hidden for under 16. */}
         {isSupabaseConfigured && fasting?.age !== 'under' && (

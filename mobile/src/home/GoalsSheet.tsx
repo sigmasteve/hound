@@ -19,8 +19,9 @@ export function GoalsSheet({
   snap,
   workouts,
   onWorkoutsChanged,
+  onOpenMove,
   ...card
-}: CardProps & { snap: HealthSnapshot | null; workouts?: WorkoutSample[]; onWorkoutsChanged?: () => void }) {
+}: CardProps & { snap: HealthSnapshot | null; workouts?: WorkoutSample[]; onWorkoutsChanged?: () => void; onOpenMove?: () => void }) {
   const todayKey = localDayKey(new Date());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   // The last day the week strip shows: today, until a day outside the
@@ -129,7 +130,7 @@ export function GoalsSheet({
   return (
     <View style={{ gap: 12 }}>
       <GoalsCard {...card} history={view} />
-      {workouts && <TodaysWorkoutsCard workouts={workouts} onChanged={onWorkoutsChanged} />}
+      {workouts && <TodaysWorkoutsCard workouts={workouts} onChanged={onWorkoutsChanged} onOpenMove={onOpenMove} />}
     </View>
   );
 }

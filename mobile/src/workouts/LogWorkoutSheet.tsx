@@ -341,8 +341,17 @@ export function LogWorkoutSheet({
 
 // The Goals sheet's "Today's workouts": today's workouts from the phone and
 // the logged ones (with the pencil and, for 15 minutes, Undo), then "Log a
-// workout".
-export function TodaysWorkoutsCard({ workouts, onChanged }: { workouts: WorkoutSample[]; onChanged?: () => void }) {
+// workout", which opens Move (0270: log an activity, start a routine or
+// log strength) when it's given; else this sheet.
+export function TodaysWorkoutsCard({
+  workouts,
+  onChanged,
+  onOpenMove,
+}: {
+  workouts: WorkoutSample[];
+  onChanged?: () => void;
+  onOpenMove?: () => void;
+}) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [open, setOpen] = useState(false);
@@ -408,7 +417,13 @@ export function TodaysWorkoutsCard({ workouts, onChanged }: { workouts: WorkoutS
                 {logged && log ? loggedTypeLabel(log.type) : w.name}
                 {w.durationMin ? ` · ${Math.round(w.durationMin)} min` : ''}
               </Text>
-              <Text style={styles.wNote}>{logged ? `Logged by hand · ${timeText(ended)}` : `${timeText(w.when)} · from ${w.source || 'your phone'}`}</Text>
+              <Text style={styles.wNote}>
+                {logged
+                  ? `Logged by hand · ${timeText(ended)}`
+                  : w.source === 'hound'
+                    ? `${timeText(w.when)} · ✓ Timed in Hound`
+                    : `${timeText(w.when)} · from ${w.source || 'your phone'}`}
+              </Text>
             </View>
             {logged && log && undoLeft > 0 && (
               <Pressable onPress={() => undo(w.id)} style={styles.undoBtn} accessibilityRole="button" accessibilityLabel="Undo this workout">
@@ -418,11 +433,13 @@ export function TodaysWorkoutsCard({ workouts, onChanged }: { workouts: WorkoutS
           </View>
         );
       })}
-      <Pressable onPress={() => setOpen(true)} style={styles.logLink} accessibilityRole="button">
+      <Pressable onPress={() => (onOpenMove ? onOpenMove() : setOpen(true))} style={styles.logLink} accessibilityRole="button">
         <PlusIcon size={16} color={colors.green} weight="bold" />
-        <Text style={styles.logLinkText}>Log a workout</Text>
+        <Text style={styles.logLinkText}>{onOpenMove ? 'Log a workout / activity' : 'Log a workout'}</Text>
       </Pressable>
-      <Text style={styles.logHint}>No watch? Log up to {perDay} a day.</Text>
+      <Text style={styles.logHint}>
+        {onOpenMove ? 'Strength, yoga, a class, a game, housework: it all counts.' : `No watch? Log up to ${perDay} a day.`}
+      </Text>
       <LogWorkoutSheet visible={open} onClose={() => setOpen(false)} onChanged={changed} />
     </View>
   );
