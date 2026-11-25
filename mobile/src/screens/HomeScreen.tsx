@@ -228,7 +228,8 @@ import { useBounties } from '../bounties/useBounties';
 import { cancelBounty, canPostToday, postBounty, type Bounty } from '../bounties/bountiesApi';
 import { GoalSetupCard } from '../components/GoalSetupCard';
 import { GoalsTile, HoundTile, SheetLink, Tile, TileSheet, TileValue, tileGrid, tileRow } from '../home/TodayTiles';
-import { useGoalsTileStyle } from '../home/todayPrefs';
+import { useGoalsTileStyle, useTodayTopCard } from '../home/todayPrefs';
+import { TodayFastingCard, TodayTopPager } from '../home/TodayFastingCard';
 import { useGoals } from '../goals/GoalsContext';
 import { advanceHoops, getHoops, type HoopsGame } from '../challenges/hoopsApi';
 import { advanceHorse, getHorse, type HorseGame } from '../challenges/horseApi';
@@ -1291,6 +1292,10 @@ export function HomeScreen({
   // looks (Settings → Today).
   const [openTile, setOpenTile] = useState<'goals' | 'water' | 'needs' | 'challenges' | 'week' | null>(null);
   const goalsTileStyle = useGoalsTileStyle();
+  // Goals or Fasting across the top, for people who fast (remembered on
+  // this phone; swipe between them).
+  const [topCard, setTopCard] = useTodayTopCard();
+  const topFasting = fasting?.age === 'ok' && !!fasting.startedAny;
   // Your rank among everyone on Hound today (0027_daily_step_totals.sql),
   // in Week in review's spot Thursday to Sunday.
   const [stepRank, setStepRank] = useState<StepRankChange | null>(null);
@@ -2939,7 +2944,8 @@ export function HomeScreen({
     },
     // Fasting (0261), once you've started a fast: the live clock while you
     // fast, else when you usually start.
-    ...(fasting?.age === 'ok' && fasting.startedAny
+    // Left out while the Fasting card is showing across the top.
+    ...(fasting?.age === 'ok' && fasting.startedAny && !(topFasting && topCard === 'fasting')
       ? [
           {
             key: 'fasting',
@@ -3117,31 +3123,45 @@ export function HomeScreen({
           a sheet with the full cards. Testers found the long stack of
           cards too much at once. */}
       <View style={tileGrid}>
-        {!setupOpen && goalProgress && goalsTileStyle && (
-          <GoalsTile
-            progress={goalProgress}
-            streak={goalStreak}
-            tileStyle={goalsTileStyle}
-            avatar={trailAvatar}
-            needsSetup={!goalsSet}
-            onOpen={() => setOpenTile('goals')}
-            onSetGoals={() => setSetupOpen(true)}
-            water={
-              <WaterRow
-                onOpen={() => setOpenTile('water')}
-                onAdded={waterAdded}
-                onOfferDismissed={() =>
-                  pushToast({
-                    id: 'water-offer',
-                    text: 'You can add water any time under You → Goals.',
-                    Icon: DropIcon,
-                    onPress: () => navRef.current.onGoTab('goals'),
-                  })
+        {!setupOpen &&
+          goalProgress &&
+          goalsTileStyle &&
+          (() => {
+            const goalsTile = (
+              <GoalsTile
+                progress={goalProgress}
+                streak={goalStreak}
+                tileStyle={goalsTileStyle}
+                avatar={trailAvatar}
+                needsSetup={!goalsSet}
+                onOpen={() => setOpenTile('goals')}
+                onSetGoals={() => setSetupOpen(true)}
+                water={
+                  <WaterRow
+                    onOpen={() => setOpenTile('water')}
+                    onAdded={waterAdded}
+                    onOfferDismissed={() =>
+                      pushToast({
+                        id: 'water-offer',
+                        text: 'You can add water any time under You → Goals.',
+                        Icon: DropIcon,
+                        onPress: () => navRef.current.onGoTab('goals'),
+                      })
+                    }
+                  />
                 }
               />
-            }
-          />
-        )}
+            );
+            // People who fast can swipe the Goals tile to the Fasting card.
+            if (!topFasting || !fasting || topCard === null) return goalsTile;
+            return (
+              <TodayTopPager
+                page={topCard === 'fasting' ? 1 : 0}
+                onPage={(i) => setTopCard(i === 1 ? 'fasting' : 'goals')}
+                pages={[goalsTile, <TodayFastingCard key="fasting" fasting={fasting} now={fastNow} onOpen={() => onOpenAction(['Fasting', undefined])} />]}
+              />
+            );
+          })()}
         {needsWide && (
           <NeedsYouWideTile
             count={needsLines.length}
