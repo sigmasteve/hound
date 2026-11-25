@@ -13,9 +13,9 @@ import type { MyFasting } from './fastingApi';
 // Rescheduled from whatever the Fasting screen or Today last loaded.
 
 const STAGE_NOTES: Record<string, { title: string; body: string }> = {
-  settling: { title: '💧 Settling in', body: '4 hours in. Your body is switching to its stored energy. Water or plain tea helps.' },
-  fatburn: { title: '🔥 Fat burning', body: '12 hours in. More of your energy is coming from fat now. Ketosis is next.' },
-  ketosis: { title: '⚡ Into ketosis', body: '16 hours in. Your liver’s stored sugar is running low and ketones are rising.' },
+  settling: { title: '💧 Settling in', body: '4 hours in. Your body is switching to its stored energy. Water or plain tea helps. Your phase game is open.' },
+  fatburn: { title: '🔥 Fat burning', body: '12 hours in. More of your energy is coming from fat now. Ketosis is next. Burn Zone is open.' },
+  ketosis: { title: '⚡ Into ketosis', body: '16 hours in. Your liver’s stored sugar is running low and ketones are rising. Clarity is open.' },
 };
 const IDS = ['fasting-goal', 'fasting-36', 'fasting-usual', ...Object.keys(STAGE_NOTES).map((k) => `fasting-stage-${k}`)];
 const CHANNEL = 'reminders';
@@ -52,7 +52,7 @@ export async function scheduleFastingReminders(f: MyFasting | null): Promise<voi
         'fasting-goal',
         new Date(start + f.open.goalHours * 3600000),
         `${planLabel(f.open.goalHours)} done 🎉`,
-        `${f.open.goalHours} hours! End your fast in Hound whenever you eat.`,
+        `${f.open.goalHours} hours! End your fast in Hound whenever you eat, and play Refeed.`,
       );
       await at(
         'fasting-36',

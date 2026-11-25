@@ -92,6 +92,8 @@ function config(d: any): FastingConfig {
     streak30: num(d.streak_30),
     streak100: num(d.streak_100),
     packBonus: num(d.pack_bonus),
+    // Phase games (0269); missing before it's run.
+    ...(d.game_bones !== undefined ? { gameBones: num(d.game_bones), gamesOn: d.games_on !== false } : {}),
   };
 }
 
@@ -447,6 +449,141 @@ export async function setFastingConfig(c: FastingConfig): Promise<void> {
       streak_30: c.streak30,
       streak_100: c.streak100,
       pack_bonus: c.packBonus,
+      ...(c.gameBones !== undefined ? { game_bones: c.gameBones } : {}),
+      ...(c.gamesOn !== undefined ? { games_on: c.gamesOn } : {}),
     },
   });
+}
+
+// ── Phase games (0269_fasting_games.sql) ──
+
+export interface GameSlotState {
+  slot: import('./fastingGames').GameSlot;
+  at: number;
+  game: import('./fastingGames').GameKind;
+  // 'locked' until its hour; 'open' to play; 'played' or 'left' (a run
+  // abandoned for 15 minutes, counted as 0).
+  status: 'locked' | 'open' | 'played' | 'left';
+  score: number | null;
+}
+
+export interface FastingGamesState {
+  on: boolean;
+  bones: number;
+  points: number;
+  fast: { id: string; goalHours: number; startedAt: string; endedAt: string | null } | null;
+  slots: GameSlotState[];
+}
+
+// Null before 0269 is run.
+export async function getFastingGames(): Promise<FastingGamesState | null> {
+  try {
+    const d = await rpc<any>('fasting_games_state');
+    return {
+      on: !!d?.on,
+      bones: num(d?.bones),
+      points: num(d?.points),
+      fast: d?.fast
+        ? { id: String(d.fast.id), goalHours: num(d.fast.goal_hours), startedAt: String(d.fast.started_at), endedAt: d.fast.ended_at ?? null }
+        : null,
+      slots: (d?.slots ?? []).map((s: any) => ({
+        slot: s.slot,
+        at: num(s.at),
+        game: s.game,
+        status: s.status,
+        score: s.score === null || s.score === undefined ? null : num(s.score),
+      })),
+    };
+  } catch (e) {
+    if (e instanceof Error && /fasting_games_state/.test(e.message)) return null;
+    throw e;
+  }
+}
+
+export interface GameRun {
+  id: string;
+  game: import('./fastingGames').GameKind;
+  seed: number;
+}
+
+export async function startFastingGame(fastId: string, slot: string): Promise<GameRun> {
+  const d = await rpc<any>('fasting_game_start', { p_fast_id: fastId, p_slot: slot });
+  return { id: String(d.id), game: d.game, seed: num(d.seed) };
+}
+
+export interface GameFinish {
+  score: number;
+  bones: number;
+  points: number;
+  topPct: number | null;
+  playedToday: number;
+  timedOut: boolean;
+}
+
+export async function finishFastingGame(id: string, stats: Record<string, number>): Promise<GameFinish> {
+  const d = await rpc<any>('fasting_game_finish', { p_id: id, p_stats: stats });
+  return {
+    score: num(d?.score),
+    bones: num(d?.bones),
+    points: num(d?.points),
+    topPct: d?.top_pct === null || d?.top_pct === undefined ? null : num(d.top_pct),
+    playedToday: num(d?.played_today),
+    timedOut: !!d?.timed_out,
+  };
+}
+
+export interface GamesBoardRow extends FastingPerson {
+  rank: number;
+  points: number;
+  games: number;
+  avg: number;
+  me: boolean;
+}
+
+export interface GamesBoard {
+  of: number;
+  me: { rank: number; points: number; games: number; avg: number } | null;
+  rows: GamesBoardRow[];
+}
+
+export async function getFastingGamesBoard(scope: 'all' | 'week' | 'friends', now = new Date()): Promise<GamesBoard> {
+  const d = await rpc<any>('fasting_games_board', { p_scope: scope, p_local_date: localDayKey(now) });
+  return {
+    of: num(d?.of),
+    me: d?.me ? { rank: num(d.me.rank), points: num(d.me.points), games: num(d.me.games), avg: num(d.me.avg) } : null,
+    rows: (d?.rows ?? []).map((r: any) => ({ ...person(r), rank: num(r.rank), points: num(r.points), games: num(r.games), avg: num(r.avg), me: !!r.me })),
+  };
+}
+
+export interface FastingGamesOverview {
+  players: number;
+  players7d: number;
+  games7d: number;
+  left7d: number;
+  bones7d: number;
+  fasts7d: number;
+  gamesPerFast7d: number;
+  pointsAll: number;
+  byGame: Record<string, { n: number; avg: number }>;
+  top: (FastingPerson & { points: number; games: number })[];
+  gamesOn: boolean;
+  gameBones: number;
+}
+
+export async function getFastingGamesOverview(): Promise<FastingGamesOverview> {
+  const d = await rpc<any>('admin_fasting_games_overview');
+  return {
+    players: num(d?.players),
+    players7d: num(d?.players_7d),
+    games7d: num(d?.games_7d),
+    left7d: num(d?.left_7d),
+    bones7d: num(d?.bones_7d),
+    fasts7d: num(d?.fasts_7d),
+    gamesPerFast7d: num(d?.games_per_fast_7d),
+    pointsAll: num(d?.points_all),
+    byGame: d?.by_game ?? {},
+    top: (d?.top ?? []).map((r: any) => ({ ...person(r), points: num(r.points), games: num(r.games) })),
+    gamesOn: d?.games_on !== false,
+    gameBones: num(d?.game_bones),
+  };
 }

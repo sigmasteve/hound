@@ -70,6 +70,9 @@ export type RootStackParamList = {
   // Fasting (0261): your fasts, and a pack fast.
   Fasting: undefined;
   FastingPack: { packId: string };
+  // Phase games (0269).
+  FastingGame: { fastId: string; slot: 'settling' | 'fatburn' | 'ketosis' | 'goal' };
+  FastingBoard: undefined;
   // Golf (0200): playing your ball on a golf challenge.
   GolfPlay: { challengeId: string };
   // Hoops, taking your own shots (0206).

@@ -29,6 +29,8 @@ import { PackFunHubScreen } from '../packFun/PackFunHubScreen';
 import { PackFunStartScreen } from '../packFun/PackFunStartScreen';
 import { PackFunScreen } from '../packFun/PackFunScreen';
 import { FastingScreen } from '../fasting/FastingScreen';
+import { FastingGameScreen } from '../fasting/FastingGameScreen';
+import { FastingBoardScreen } from '../fasting/FastingBoardScreen';
 import { FastingPackScreen } from '../fasting/FastingPackScreen';
 import { GolfPlayScreen } from '../screens/GolfPlayScreen';
 import { HoopsShootScreen } from '../screens/HoopsShootScreen';
@@ -543,7 +545,26 @@ export function RootNavigator() {
                   onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { tab: 'home' }))}
                   onOpenPack={(packId) => navigation.navigate('FastingPack', { packId })}
                   onOpenClub={(clubId) => navigation.navigate('Club', { clubId })}
+                  onPlayGame={(fastId, slot) => navigation.navigate('FastingGame', { fastId, slot })}
+                  onOpenGamesBoard={() => navigation.navigate('FastingBoard')}
                 />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="FastingGame" options={{ animation: 'slide_from_right', gestureEnabled: false }}>
+              {/* A phase game (0269), from the strip under the dial. */}
+              {({ navigation, route }) => (
+                <FastingGameScreen
+                  key={`${route.params.fastId}-${route.params.slot}`}
+                  fastId={route.params.fastId}
+                  slot={route.params.slot}
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Fasting'))}
+                  onOpenBoard={() => navigation.replace('FastingBoard')}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="FastingBoard" options={{ animation: 'slide_from_right' }}>
+              {({ navigation }) => (
+                <FastingBoardScreen onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Fasting'))} />
               )}
             </Stack.Screen>
             <Stack.Screen name="FastingPack" options={{ animation: 'slide_from_right' }}>

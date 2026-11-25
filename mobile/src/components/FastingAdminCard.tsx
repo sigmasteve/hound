@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Switch, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Text } from './Text';
 import { Card } from './Card';
@@ -101,7 +101,8 @@ export function FastingAdminCard({ onLoaded }: { onLoaded?: (d: FastingOverview)
   );
 }
 
-const FIELDS: [keyof FastingConfig, string][] = [
+type BonesKey = Exclude<keyof FastingConfig, 'gameBones' | 'gamesOn'>;
+const FIELDS: [BonesKey, string][] = [
   ['bones12', '12 h fast'],
   ['bones14', '14 h fast'],
   ['bones16', '16 h fast'],
@@ -123,11 +124,18 @@ export function FastingBonesCard() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Phase games (0269): null before it's run.
+  const [gameBones, setGameBones] = useState<string | null>(null);
+  const [gamesOn, setGamesOn] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       getFastingConfig()
-        .then((c) => setInput(Object.fromEntries(FIELDS.map(([k]) => [k, String(c[k])]))))
+        .then((c) => {
+          setInput(Object.fromEntries(FIELDS.map(([k]) => [k, String(c[k])])));
+          setGameBones(c.gameBones === undefined ? null : String(c.gameBones));
+          setGamesOn(c.gamesOn !== false);
+        })
         .catch((e) =>
           setError(e instanceof Error && /fasting_config/.test(e.message) ? 'Run 0261_fasting.sql to set these.' : 'Could not load the fasting Bones.'),
         );
@@ -144,6 +152,15 @@ export function FastingBonesCard() {
         return;
       }
       c[k] = n;
+    }
+    if (gameBones !== null) {
+      const n = Number(gameBones);
+      if (!Number.isInteger(n) || n < 0 || n > 100000) {
+        setError('Enter a whole number of Bones for each phase game.');
+        return;
+      }
+      c.gameBones = n;
+      c.gamesOn = gamesOn;
     }
     setSaving(true);
     setError(null);
@@ -181,6 +198,30 @@ export function FastingBonesCard() {
               keyboardType="number-pad"
             />
           ))}
+          {gameBones !== null && (
+            <>
+              <Text style={[styles.label, { marginTop: 4 }]}>Phase games (one at each phase up to the goal, 4 a fast at most)</Text>
+              <TextField
+                label="Each game played"
+                value={gameBones}
+                onChangeText={(v) => {
+                  setGameBones(v);
+                  setSaved(false);
+                }}
+                keyboardType="number-pad"
+              />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.value}>Phase games on</Text>
+                <Switch
+                  value={gamesOn}
+                  onValueChange={(v) => {
+                    setGamesOn(v);
+                    setSaved(false);
+                  }}
+                />
+              </View>
+            </>
+          )}
           {saved && !error && <Text style={styles.success}>Saved.</Text>}
           <Button label={saving ? 'Saving…' : 'Save'} variant="primary" disabled={saving} onPress={save} />
         </>
