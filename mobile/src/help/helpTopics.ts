@@ -273,7 +273,8 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'Bullseye: archery on your steps',
       summary: 'How you earn arrows, how to aim and shoot, how it scores, Robin Hoods, the gold balloon, the flag, Balloon and Moon days.',
       steps: [
-        'Every 1,500 steps on your own day earns a round of 3 arrows, up to 6 rounds a day. Arrows you don’t shoot carry over to tomorrow, up to 18. A 20-minute workout keeps your hound’s arms steady for the day.',
+        'Every 1,500 steps on your own day earns a round of 3 arrows, up to 4 rounds a day (12 arrows). Arrows you don’t shoot carry over to tomorrow, up to 6. A 20-minute workout keeps your hound’s arms steady for the day.',
+        'A volley: pick 2 or 3 under “Arrows this draw” to shoot that many off one draw, at the same target (up to the arrows left in the round). Quicker, but only the first follows your aiming dot: the others shake their own way, so they land wider.',
         'The field has round targets at 18, 30, 50, 70 and 90 m (as far as the person who made the challenge picked). Each ring scores 1 (the outside) to 10 (the bullseye in the middle), times the target’s ×: ×1 at 18 m up to ×5 at 90 m. So a 9 at 70 m (×4) is 36.',
         'The flag (150 m, ×6, on the longest field) is a flag stuck in the grass with rings around it. Archers call it clout. Shoot the arrow high so it comes down near the flag: 5 points close in, down to 1 at the outer ring.',
         'To shoot: drag the dot to choose where to aim. Read the orange wind flags first: wind from the left pushes the arrow right, so aim a little left (and the other way round). Then press and hold the button to pull back the string. The dot shakes while you pull back, holds steadiest in the green part of the bar, then shakes more as your hound’s arms get tired. Let go to shoot. Let go too early and the arrow is slow and drops.',

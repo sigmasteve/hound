@@ -9,7 +9,7 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { buzz } from '../celebrate/feedback';
 import { useHealthProvider } from '../health/HealthContext';
 import { localDayKey } from '../goals/goals';
-import { BALLOON_COLOR, ClothFlag, BullseyeFieldArt, FaceRings } from '../components/BullseyeField';
+import { BALLOON_COLOR, BowArt, ClothFlag, BullseyeFieldArt, FaceRings } from '../components/BullseyeField';
 import { longshotFlagWind } from '../challenges/longshotApi';
 import {
   aimBullseye,
@@ -20,6 +20,7 @@ import {
   getBullseye,
   setBullseyeLoadout,
   shootBullseye,
+  shootBullseyeVolley,
   targetName,
   type BullseyeAim,
   type BullseyeArrow,
@@ -55,6 +56,8 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [shot, setShot] = useState<BullseyeResult | null>(null);
+  // A volley (0265): how many arrows off this draw, 1 to 3.
+  const [volley, setVolley] = useState(1);
   const [flyAt, setFlyAt] = useState(0);
   const [rack, setRack] = useState(false);
   const holdRef = useRef(hold);
@@ -169,7 +172,30 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
     const t = Date.now() - drawAt;
     setBusy(true);
     try {
-      const r = await shootBullseye(challengeId, aim.aimId, hold.x, hold.y, t);
+      const room = Math.min(3, game ? game.settings.arrowsPerEnd - (game.today.used % game.settings.arrowsPerEnd) : 1, game?.today.left ?? 1);
+      const n = Math.max(1, Math.min(volley, room));
+      let r: BullseyeResult;
+      if (n > 1) {
+        // The first arrow flies on screen; the round's line lists them all.
+        const v = await shootBullseyeVolley(challengeId, aim.aimId, hold.x, hold.y, t, n);
+        const first = v.arrows[0];
+        const last = v.arrows[v.arrows.length - 1];
+        const word = (a: BullseyeResult) => (a.popped ? 'pop' : a.kind === 'balloon' || a.kind === 'gold' ? 'miss' : a.kind === 'clout' ? `flag ${a.ring}` : a.ring > 0 ? String(a.ring) : 'off');
+        r = {
+          ...first,
+          robin: v.arrows.some((a) => a.robin),
+          gold: v.arrows.some((a) => a.gold),
+          goldBones: v.arrows.reduce((n2, a) => n2 + a.goldBones, 0),
+          points: v.points,
+          message: `A volley of ${v.arrows.length}: ${v.arrows.map(word).join(' · ')}. ${v.arrows.some((a) => a.robin) ? 'And a Robin Hood! ' : ''}`,
+          arrowNo: last.arrowNo,
+          endTotal: last.endTotal,
+          left: last.left,
+          total: last.total,
+        };
+      } else {
+        r = await shootBullseye(challengeId, aim.aimId, hold.x, hold.y, t);
+      }
       const t0 = Date.now();
       setShot(r);
       setFlyAt(t0);
@@ -243,7 +269,7 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
             <Stat label="BEST ROUND" tone="#b9b2f0" value={String(game.me.bestEnd)} sub={`${game.me.golds} bullseyes · ${game.me.robinHoods} Robin Hoods`} styles={styles} />
           </View>
           <View style={styles.scene}>
-            <BullseyeFieldArt width={viewW} height={sceneH} conditions={cond} targets={game.targets} selected={target} onPick={setTarget} now={now} />
+            <BullseyeFieldArt width={viewW} height={sceneH} conditions={cond} targets={game.targets} selected={target} onPick={setTarget} now={now} bow={game.me.bow} />
             <View style={styles.sceneChips} pointerEvents="none">
               <Text style={styles.sceneChip}>
                 {moon ? '⅙ gravity · no air · no breeze' : `${cond.tempF}°F · ${Math.abs(longshotFlagWind(cond.wind, now, 'mid')) < 1 ? 'calm' : `breeze from the ${cond.wind.from}`}`}
@@ -396,7 +422,7 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
                 </G>
               )}
               {/* The bow on the left, the arrow to the pin. */}
-              <Path d={`M30 0 Q -2 ${viewH / 2} 30 ${viewH}`} fill="none" stroke="#5b3a1e" strokeWidth={16} />
+              <BowArt bow={game.me.bow} x={(viewH + 16) * 0.17 + 18} top={-8} bottom={viewH + 8} bend={-1} s={2.4} string={false} />
               <Line x1={44} y1={viewH / 2 + 8} x2={pinX - 8} y2={pinY + 4} stroke="#9aa0b4" strokeWidth={2} opacity={drawAt != null ? 1 : 0.5} />
               {helperX != null && (
                 <Circle cx={helperX} cy={pinY} r={9} fill="none" stroke="#ffffff" strokeWidth={1.6} strokeDasharray="3 3" />
@@ -447,6 +473,29 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
           </View>
         </ScrollView>
         <View style={styles.pinned}>
+          {(() => {
+            // A volley: 1 to 3 arrows off this draw, as many as are left in the round.
+            const room = Math.min(3, game.settings.arrowsPerEnd - arrowNo + 1, game.today.left);
+            if (room < 2 || drawAt != null) return null;
+            return (
+              <View style={styles.volleyRow}>
+                <Text style={styles.small}>Arrows this draw</Text>
+                {[1, 2, 3].filter((k) => k <= room).map((k) => (
+                  <Pressable
+                    key={k}
+                    onPress={() => setVolley(k)}
+                    style={[styles.volleyChip, volley === k && styles.volleyChipOn]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: volley === k }}
+                    accessibilityLabel={k === 1 ? 'One arrow' : `A volley of ${k} arrows`}
+                  >
+                    <Text style={[styles.volleyText, volley === k && styles.volleyTextOn]}>{k}</Text>
+                  </Pressable>
+                ))}
+                {volley > 1 && <Text style={[styles.small, { flex: 1 }]}>only the first follows your pin</Text>}
+              </View>
+            );
+          })()}
           <Pressable
             onPressIn={() => {
               if (!busy) {
@@ -460,7 +509,9 @@ export function BullseyeScreen({ challengeId, onBack }: { challengeId: string; o
             accessibilityRole="button"
             accessibilityLabel="Hold to pull back the string, let go to shoot"
           >
-            <Text style={[styles.actText, { color: '#1b1205' }]}>{drawAt != null ? 'Let go to shoot' : 'Hold to pull back'}</Text>
+            <Text style={[styles.actText, { color: '#1b1205' }]}>
+              {drawAt != null ? (volley > 1 && Math.min(3, game.settings.arrowsPerEnd - arrowNo + 1, game.today.left) > 1 ? `Let go: ${Math.min(volley, game.settings.arrowsPerEnd - arrowNo + 1, game.today.left)} arrows` : 'Let go to shoot') : 'Hold to pull back'}
+            </Text>
             <Text style={[styles.small, { color: '#1b1205' }]}>{drawAt != null ? 'when the bar is in the green part' : `round ${endNo}, arrow ${arrowNo} of ${game.settings.arrowsPerEnd}`}</Text>
           </Pressable>
         </View>
@@ -952,6 +1003,11 @@ function makeStyles(colors: Palette) {
     breathMark: { position: 'absolute', top: 0, bottom: 0, width: 3, marginLeft: -1.5, backgroundColor: '#f2f3f7' },
     drawLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
     pinned: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: withAlpha(colors.text, 0.12) },
+    volleyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    volleyChip: { width: 38, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: withAlpha(colors.text, 0.2) },
+    volleyChipOn: { backgroundColor: withAlpha('#f08a24', 0.18), borderColor: '#f08a24' },
+    volleyText: { fontFamily: font.headingSemibold, fontSize: 15, color: colors.text },
+    volleyTextOn: { color: '#f08a24' },
     rifleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 28 },
     rifleName: { fontFamily: font.headingSemibold, fontSize: 13, color: '#8fd8a8' },
     act: { minHeight: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14 },

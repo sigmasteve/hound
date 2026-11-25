@@ -335,6 +335,31 @@ export async function shootBullseye(challengeId: string, aimId: number, holdX: n
     p_hold_y: Math.round(holdY * 100) / 100,
     p_draw_ms: Math.max(0, Math.round(drawMs)),
   });
+  return toResult(d);
+}
+
+// A volley (0265): 1 to 3 arrows off one draw, inside the round. The first
+// follows your pin; the others sway their own way.
+export async function shootBullseyeVolley(
+  challengeId: string,
+  aimId: number,
+  holdX: number,
+  holdY: number,
+  drawMs: number,
+  count: number,
+): Promise<{ arrows: BullseyeResult[]; points: number }> {
+  const d = await rpc<any>('bullseye_volley', {
+    p_challenge_id: challengeId,
+    p_aim_id: aimId,
+    p_hold_x: Math.round(holdX * 100) / 100,
+    p_hold_y: Math.round(holdY * 100) / 100,
+    p_draw_ms: Math.max(0, Math.round(drawMs)),
+    p_count: Math.max(1, Math.min(3, Math.round(count))),
+  });
+  return { arrows: ((d?.arrows ?? []) as any[]).map(toResult), points: num(d?.points) };
+}
+
+function toResult(d: any): BullseyeResult {
   return {
     target: String(d?.target),
     kind: (['face', 'clout', 'balloon', 'gold'].includes(d?.kind) ? d.kind : 'face') as BullseyeTargetKind,
@@ -491,4 +516,21 @@ export async function getBullseyeOverview(): Promise<BullseyeOverview> {
 export function bullseyeSummary(o: BullseyeOverview): string {
   if (o.tried === 0) return o.games > 0 ? `${o.games} ${o.games === 1 ? 'game' : 'games'}, no arrows yet` : 'No games yet';
   return `${o.active7d} shooting this week · ${o.tried} ever`;
+}
+
+// Admin: volleys (0265).
+export interface BullseyeVolleyOverview {
+  volleys7d: number;
+  people7d: number;
+  arrows7d: number;
+  volleyArrows7d: number;
+}
+
+export async function getBullseyeVolleyOverview(): Promise<BullseyeVolleyOverview | null> {
+  try {
+    const d = await rpc<any>('admin_bullseye_volley_overview', {});
+    return { volleys7d: num(d?.volleys_7d), people7d: num(d?.people_7d), arrows7d: num(d?.arrows_7d), volleyArrows7d: num(d?.volley_arrows_7d) };
+  } catch {
+    return null;
+  }
 }

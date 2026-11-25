@@ -5,7 +5,7 @@ import { Text } from './Text';
 import { Card } from './Card';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { getBullseyeOverview, type BullseyeOverview } from '../challenges/bullseyeApi';
+import { getBullseyeOverview, getBullseyeVolleyOverview, type BullseyeOverview, type BullseyeVolleyOverview } from '../challenges/bullseyeApi';
 
 // Admin → Bullseye (0249): who's tried it and who shoots now, arrows and
 // golds by target, bows, Robin Hoods, balloons and the gold balloon.
@@ -14,9 +14,11 @@ export function BullseyeAdminCard({ onChanged }: { onChanged?: (o: BullseyeOverv
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [data, setData] = useState<BullseyeOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [volleys, setVolleys] = useState<BullseyeVolleyOverview | null>(null);
 
   useFocusEffect(
     useCallback(() => {
+      getBullseyeVolleyOverview().then(setVolleys);
       getBullseyeOverview()
         .then((d) => {
           setData(d);
@@ -47,6 +49,9 @@ export function BullseyeAdminCard({ onChanged }: { onChanged?: (o: BullseyeOverv
         ['Bows this week', data.bows.length ? data.bows.map((b) => `${b.name} ${pct(b.arrows, data.arrows7d)}`).join(' · ') : '–'],
         ['Robin Hoods · balloons popped', `${data.robins7d} · ${data.pops7d} this week`],
         ['Gold balloons', `${data.gold7d} popped this week · ${n(data.goldBones)} Bones paid ever`],
+        ...(volleys
+          ? ([['Volleys this week', `${n(volleys.volleys7d)} by ${n(volleys.people7d)} archers · ${pct(volleys.volleyArrows7d, volleys.arrows7d)} of arrows`]] as [string, string][])
+          : []),
       ]
     : [];
 
