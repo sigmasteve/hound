@@ -435,10 +435,10 @@ export function TodaysWorkoutsCard({
       })}
       <Pressable onPress={() => (onOpenMove ? onOpenMove() : setOpen(true))} style={styles.logLink} accessibilityRole="button">
         <PlusIcon size={16} color={colors.green} weight="bold" />
-        <Text style={styles.logLinkText}>Log a workout</Text>
+        <Text style={styles.logLinkText}>{onOpenMove ? 'Log a workout / activity' : 'Log a workout'}</Text>
       </Pressable>
       <Text style={styles.logHint}>
-        {onOpenMove ? 'No watch? Start a routine, log strength or any activity.' : `No watch? Log up to ${perDay} a day.`}
+        {onOpenMove ? 'Strength, yoga, a class, a game, housework: it all counts.' : `No watch? Log up to ${perDay} a day.`}
       </Text>
       <LogWorkoutSheet visible={open} onClose={() => setOpen(false)} onChanged={changed} />
     </View>
