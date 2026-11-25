@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MoveChallengeNote } from '../move/MoveChallengeNote';
 import { PINNED_ACTION_SPACE, PinnedActionBar, PinnedActionProvider, type PinnedAction } from '../components/PinnedAction';
 import { ActivityIndicator, Alert, Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
@@ -3268,6 +3269,8 @@ export function ChallengeDetailScreen({
             </>
           )}
 
+          {/* 0270: a Most steps challenge that counts Move points says so. */}
+          {challenge.kind === 'steps' && <MoveChallengeNote challengeId={challenge.id} />}
           {/* 0233: Most steps' race, rival, bounty, yesterday and the
               finish; the Distance pool's trail. Above the Leaderboard. */}
           {challenge.kind === 'steps' && stepOptions && new Date(challenge.startsAt) <= new Date() && board.length > 0 && (

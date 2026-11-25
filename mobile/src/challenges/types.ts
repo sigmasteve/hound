@@ -263,6 +263,8 @@ export interface CreateChallengeInput {
   stepRivals?: boolean;
   stepBounties?: boolean;
   blackoutLastDay?: boolean;
+  // Most steps (0270): count Move points (steps plus workouts) instead.
+  countsMove?: boolean;
   // Only meaningful for a miles Distance pool — see Challenge.distanceSource.
   distanceSource?: DistanceSource;
   // Only meaningful for kind 'bingo' — see Challenge.bingoCardType.

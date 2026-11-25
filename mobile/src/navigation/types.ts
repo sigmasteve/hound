@@ -73,6 +73,10 @@ export type RootStackParamList = {
   // Phase games (0269).
   FastingGame: { fastId: string; slot: 'settling' | 'fatburn' | 'ketosis' | 'goal' };
   FastingBoard: undefined;
+  // Move points (0270): the hub, a guided routine, a strength log.
+  Move: undefined;
+  MoveRoutine: { routineId: string };
+  MoveStrength: { templateId: string };
   // Golf (0200): playing your ball on a golf challenge.
   GolfPlay: { challengeId: string };
   // Hoops, taking your own shots (0206).

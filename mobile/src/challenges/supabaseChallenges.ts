@@ -317,6 +317,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     stepRivals,
     stepBounties,
     blackoutLastDay,
+    countsMove,
     distanceSource,
     bingoCardType,
     bingoSize,
@@ -347,6 +348,8 @@ export const supabaseChallengesProvider: ChallengesProvider = {
         distance_goal_unit: distanceGoalUnit ?? null,
         ...((kind === 'tag' || kind === 'hunt') && raceScene ? { race_scene: raceScene } : {}),
         // 0233: only when not the defaults, so a server before 0233 still takes it.
+        // 0270: only when asked, so a server before 0270 still takes it.
+        ...(kind === 'steps' && countsMove ? { counts: 'move' } : {}),
         ...(kind === 'steps' && (stepRivals === false || stepBounties === false || blackoutLastDay)
           ? { step_rivals: stepRivals !== false, step_bounties: stepBounties !== false, blackout_last_day: !!blackoutLastDay }
           : {}),
