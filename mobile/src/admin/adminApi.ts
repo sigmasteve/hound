@@ -67,9 +67,48 @@ export function isBanned(bannedUntil: string | null): boolean {
 // 0232: a page at a time (offset, page size); before 0232 has run, the
 // one-argument call (its first 25) still answers.
 export const USER_PAGE = 50;
-export async function searchUsers(query: string, offset = 0, limit = USER_PAGE): Promise<AdminUserSummary[]> {
+
+// The directory's activity filters (0267), by when someone last opened the
+// app. The "last" ones include the shorter ones; 'over7' is everyone not
+// seen in the last 7 days, never-opened included.
+export type ActiveFilter = 'all' | 'day' | '3d' | '7d' | 'over7';
+export type UserActivityCounts = Record<ActiveFilter, number> & { never: number };
+
+const FILTER_MS: Record<Exclude<ActiveFilter, 'all' | 'over7'>, number> = {
+  day: 24 * 3600000,
+  '3d': 3 * 24 * 3600000,
+  '7d': 7 * 24 * 3600000,
+};
+
+export function matchesActive(lastActiveAt: string | null, f: ActiveFilter): boolean {
+  if (f === 'all') return true;
+  const t = lastActiveAt ? new Date(lastActiveAt).getTime() : NaN;
+  if (f === 'over7') return Number.isNaN(t) || t <= Date.now() - 7 * 24 * 3600000;
+  return !Number.isNaN(t) && t > Date.now() - FILTER_MS[f];
+}
+
+export async function searchUsers(
+  query: string,
+  offset = 0,
+  limit = USER_PAGE,
+  active: ActiveFilter = 'all',
+): Promise<AdminUserSummary[]> {
   const client = requireClient();
   const trimmed = query.trim();
+  if (active !== 'all') {
+    const f = await client.rpc('admin_search_users_active', {
+      p_query: trimmed,
+      p_limit: limit,
+      p_offset: offset,
+      p_active: active,
+    });
+    if (!f.error) return ((f.data ?? []) as AdminUserRow[]).map(rowToSummary);
+    if (!isMissingFunction(f.error)) throw new Error(f.error.message);
+    // Before 0267: filter what the plain search gives (first page only).
+    if (offset > 0) return [];
+    const rows = await searchUsers(query, 0, 200);
+    return rows.filter((u) => matchesActive(u.lastActiveAt, active));
+  }
   const paged = await client.rpc('admin_search_users', { p_query: trimmed, p_limit: limit, p_offset: offset });
   if (!paged.error) return ((paged.data ?? []) as AdminUserRow[]).map(rowToSummary);
   if (!isMissingFunction(paged.error)) throw new Error(paged.error.message);
@@ -90,6 +129,25 @@ export async function searchUsers(query: string, offset = 0, limit = USER_PAGE):
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return ((data ?? []) as AdminUserRow[]).map(rowToSummary);
+}
+
+// How many people fall in each filter, for the same search; null before 0267.
+export async function getUserActivityCounts(query: string): Promise<UserActivityCounts | null> {
+  const client = requireClient();
+  const { data, error } = await client.rpc('admin_user_activity_counts', { p_query: query.trim() });
+  if (error) {
+    if (isMissingFunction(error)) return null;
+    throw new Error(error.message);
+  }
+  const d = (data ?? {}) as Record<string, number>;
+  return {
+    all: Number(d.all ?? 0),
+    day: Number(d.day ?? 0),
+    '3d': Number(d['3d'] ?? 0),
+    '7d': Number(d['7d'] ?? 0),
+    over7: Number(d.over7 ?? 0),
+    never: Number(d.never ?? 0),
+  };
 }
 
 interface AdminUserRow {
