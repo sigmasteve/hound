@@ -235,7 +235,13 @@ Inside the scroll, in order:
 2. Goal setup, while it's open (GoalSetupCard); it takes the goals
    tile's place.
 3. The tile grid:
-   - Goals, full width across the top (rings or hound trails).
+   - Goals, full width across the top (rings or hound trails). Once
+     you've started a fast it swipes sideways to the Fasting card (Steve,
+     Nov 2026; `src/home/TodayFastingCard.tsx`): the ring with the clock,
+     the stage, what's left to your goal and the next stage, or between
+     fasts your plan, the week and your last fast. Dots under it; the
+     phone remembers which was showing (`useTodayTopCard` in
+     `home/todayPrefs.ts`), and tapping it opens Fasting.
    - Needs you, full width, while anything is waiting (Steve's pick,
      Nov 2026; `src/home/NeedsYouTile.tsx`): the top two game actions,
      each with its own button that opens the game's own screen (the
@@ -254,7 +260,8 @@ Inside the scroll, in order:
      height stretched across; Steve, Nov 2026): your hound
      (when the Kennel has loaded), Needs you (only when caught up or muted), Your
      challenges, Fasting (only once you've started a fast, 0261: the live
-     clock while fasting, else Start), and either Week in review (Monday
+     clock while fasting, else Start; left out while the Fasting card is
+     showing across the top), and either Week in review (Monday
      until Tuesday noon, local) or today's Step rank (the rest of the week).
    - Journey, full width, when you're on one.
 4. The notifications ask (PushAskCard), once you have a friend or a
