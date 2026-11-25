@@ -12,7 +12,9 @@ import { invalidateLoggedSamples } from '../workouts/loggedWorkouts';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { ACTIVITY_LABEL, ROUTINES, TEMPLATES, fmtPts, isStrength, routineById, routineMinutes } from './move';
-import { getMyMove, setStrengthTarget, type MoveItem, type MyMove } from './moveApi';
+import { emptyMove, getMyMove, setStrengthTarget, type MoveItem, type MyMove } from './moveApi';
+import { offlineEnabled } from '../offline/offlineConfig';
+import { isNetworkError } from '../offline/network';
 import { ActivityIcon, StrengthWeeks, activityColor } from './MoveParts';
 import { OfflineStrip } from '../offline/OfflineStrip';
 import { onSynced } from '../offline/outbox';
@@ -60,6 +62,8 @@ export function MoveScreen({
   const [me, setMe] = useState<MyMove | null | undefined>(undefined);
   const [steps, setSteps] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Offline, with no copy of today's numbers kept yet.
+  const [noCopy, setNoCopy] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [logOpen, setLogOpen] = useState(false);
   const [goalPick, setGoalPick] = useState(2);
@@ -69,9 +73,18 @@ export function MoveScreen({
     getMyMove()
       .then((m) => {
         setMe(m);
+        setNoCopy(false);
         setError(null);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load Move.'));
+      .catch((e) => {
+        // Offline with nothing kept from before (0271): open anyway, so you
+        // can still start a routine, log strength or log an activity.
+        if (offlineEnabled() && isNetworkError(e)) {
+          setMe(emptyMove());
+          setNoCopy(true);
+          setError(null);
+        } else setError(e instanceof Error ? e.message : 'Could not load Move.');
+      });
     health
       .getSnapshot()
       .then((s) => setSteps(Math.round(s.stepsToday)))
@@ -110,6 +123,15 @@ export function MoveScreen({
       <ScrollView contentContainerStyle={styles.body}>
         {me === undefined && !error && <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />}
         {error && <Text style={styles.small}>{error}</Text>}
+        {noCopy && (
+          <View style={styles.card}>
+            <Text style={styles.strong}>No connection</Text>
+            <Text style={styles.small}>
+              Today’s Move points show once you’re back online. You can still start a routine, log strength or log an activity: they’re saved on
+              your phone and sync later.
+            </Text>
+          </View>
+        )}
         {me === null && (
           <View style={styles.card}>
             <Text style={styles.strong}>Move points are on their way</Text>
