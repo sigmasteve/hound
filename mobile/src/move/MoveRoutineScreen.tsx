@@ -8,8 +8,10 @@ import { Button } from '../components/Button';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { clockMS, routineById, routineMinutes, routineSeconds, routineSteps } from './move';
-import { cancelMoveSession, finishMoveSession, startMoveSession, type MoveFinish } from './moveApi';
-import { MoveFinishView } from './MoveParts';
+import { cancelMoveSession, finishMoveSession, saveSessionOffline, startMoveSession, type MoveFinish } from './moveApi';
+import { offlineEnabled } from '../offline/offlineConfig';
+import { isNetworkError, reportNetworkFailure } from '../offline/network';
+import { MoveFinishView, MoveSavedOffline } from './MoveParts';
 
 // A guided routine (0270): each move on a timer, then rest, round after
 // round. The server times it (move_session_start / _finish), so finishing
@@ -22,7 +24,12 @@ export function MoveRoutineScreen({ routineId, onBack }: { routineId: string; on
   const steps = useMemo(() => (routine ? routineSteps(routine) : []), [routine]);
   const total = routine ? routineSeconds(routine) : 0;
 
+  // The server's session id, or 'offline' when it couldn't be reached and
+  // the phone times it (0271).
   const [session, setSession] = useState<string | null>(null);
+  const startedAt = useRef<Date | null>(null);
+  // Saved on the phone, to sync later: the minutes.
+  const [queued, setQueued] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   // Seconds done, from real time: banked while paused, plus since resume.
   const banked = useRef(0);
@@ -59,11 +66,28 @@ export function MoveRoutineScreen({ routineId, onBack }: { routineId: string; on
     if (!session || busy) return;
     setBusy(true);
     setRunning(false);
+    const mins = Math.max(1, Math.round(Math.min(now(), total) / 60));
+    const saveOffline = async () => {
+      await saveSessionOffline({
+        kind: 'routine',
+        ref: routine!.id,
+        startedAt: startedAt.current ?? new Date(Date.now() - mins * 60000),
+        endedAt: new Date(),
+        minutes: mins,
+        hard: false,
+        sets: null,
+        label: routine!.name,
+      });
+      setQueued(mins);
+    };
     try {
-      const r = await finishMoveSession(session, Math.max(1, Math.round(Math.min(now(), total) / 60)), false, null);
-      setResult(r);
+      if (session === 'offline') await saveOffline();
+      else setResult(await finishMoveSession(session, mins, false, null));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save it.');
+      if (offlineEnabled() && isNetworkError(e)) {
+        reportNetworkFailure();
+        await saveOffline();
+      } else setError(e instanceof Error ? e.message : 'Could not save it.');
     } finally {
       setBusy(false);
     }
@@ -86,8 +110,16 @@ export function MoveRoutineScreen({ routineId, onBack }: { routineId: string; on
     setError(null);
     try {
       if (!session) {
-        const s = await startMoveSession('routine', routine.id);
-        setSession(s.id);
+        try {
+          const s = await startMoveSession('routine', routine.id);
+          setSession(s.id);
+        } catch (e) {
+          // No connection: the phone times it and it syncs later (0271).
+          if (!(offlineEnabled() && isNetworkError(e))) throw e;
+          reportNetworkFailure();
+          setSession('offline');
+        }
+        startedAt.current = new Date();
       }
       resumedAt.current = Date.now();
       setRunning(true);
@@ -108,7 +140,7 @@ export function MoveRoutineScreen({ routineId, onBack }: { routineId: string; on
     setElapsed(banked.current);
   };
   const back = () => {
-    if (!session || result) return onBack();
+    if (!session || result || queued !== null) return onBack();
     Alert.alert('Stop the routine?', elapsed >= 60 ? 'Save what you did, or leave without saving.' : 'It won’t be saved.', [
       { text: 'Keep going', style: 'cancel' },
       ...(elapsed >= 60 ? [{ text: 'Save and stop', onPress: () => finish() }] : []),
@@ -116,7 +148,7 @@ export function MoveRoutineScreen({ routineId, onBack }: { routineId: string; on
         text: 'Leave',
         style: 'destructive' as const,
         onPress: () => {
-          cancelMoveSession(session).catch(() => {});
+          if (session !== 'offline') cancelMoveSession(session).catch(() => {});
           onBack();
         },
       },
@@ -139,7 +171,11 @@ export function MoveRoutineScreen({ routineId, onBack }: { routineId: string; on
         <Text style={[text.h4, { flex: 1, textAlign: 'center' }]}>{routine.name}</Text>
         <View style={{ width: 20 }} />
       </View>
-      {result ? (
+      {queued !== null ? (
+        <View style={styles.body}>
+          <MoveSavedOffline title={routine.short} minutes={queued} activity={routine.id.startsWith('stretch') ? 'stretching' : 'strength_light'} />
+        </View>
+      ) : result ? (
         <View style={styles.body}>
           <MoveFinishView title={routine.short} result={result} timed />
         </View>
@@ -196,7 +232,7 @@ export function MoveRoutineScreen({ routineId, onBack }: { routineId: string; on
         </View>
       )}
       <View style={styles.pinned}>
-        {result ? (
+        {result || queued !== null ? (
           <Button label="Done" variant="primary" block onPress={onBack} />
         ) : (
           <View style={{ flexDirection: 'row', gap: 10 }}>

@@ -209,6 +209,22 @@ day's points added server-side (`progress_snapshots.raw_steps` +
 `move_pts` = `steps`), so its board, results and prizes need nothing
 special. Strength goals (1 to 5 a week) are each person's own.
 
+## Offline mode
+
+Offline mode (0271, `src/offline/`, Admin → Overview → Status → Offline
+mode, off by default) keeps Hound working with no connection. A blip
+must not count (Steve): `network.ts` only calls it offline after the
+server hasn't answered three checks over ~10 seconds, and comes back on
+the first answer. Actions that can wait (a routine or strength log timed
+on the phone, Log a workout, a fast's start and end, water) go through
+`runOrQueue` in `outbox.ts`: done now if possible, else kept on the
+phone in order and sent through `offline_apply`, which applies each
+client id once and answers a rule's refusal as `{error}` (shown on the
+strip, kept for Admin). Reads that matter offline go through
+`cachedRead` in `cache.ts` (last-known copy, "last updated" on the
+strip). A new action that should work offline joins `offline_apply`'s
+ops and uses `runOrQueue`.
+
 ## Actions are on screen without scrolling
 
 Steve's rule (Nov 2026): every action a user can take is seen when the
@@ -228,7 +244,9 @@ moving anything, and ask before changing a fixed spot. Today is a grid
 of tiles, each opening a sheet with the full cards; testers found the
 old stack of cards too much at once.
 
-Above the scrolling grid, outside it: "A new version of Hound is
+Above the scrolling grid, outside it: the offline strip (OfflineStrip,
+0271, only with offline mode on in Admin: no connection, things waiting
+to sync, or one that couldn't), then "A new version of Hound is
 ready" (UpdateReadyBanner), then the maintenance heads-up while an Admin
 window is near (MaintenanceHeadsUp, 0190), then "Hound can't see your
 steps" when Health has shown 0 steps for three days and today

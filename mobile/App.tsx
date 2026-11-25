@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
+import { refreshOfflineEnabled } from './src/offline/offlineConfig';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -54,6 +56,12 @@ function AppContent() {
   // Coming back to the app checks for a newer update; Today offers the
   // restart (src/updates/updateReady.ts).
   useForegroundUpdateCheck();
+  // Offline mode's switch from Admin (0271): on launch and on coming back.
+  useEffect(() => {
+    refreshOfflineEnabled();
+    const sub = AppState.addEventListener('change', (st) => st === 'active' && refreshOfflineEnabled());
+    return () => sub.remove();
+  }, []);
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaProvider>

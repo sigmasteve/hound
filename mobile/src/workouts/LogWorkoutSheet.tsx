@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { runOrQueue } from '../offline/outbox';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CheckIcon, MinusIcon, PencilSimpleIcon, PlusIcon, XIcon } from 'phosphor-react-native';
@@ -61,7 +62,8 @@ export function LogWorkoutSheet({
   const [ended, setEnded] = useState<Date>(nowRounded);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<LogResult | null>(null);
+  // queued: saved on the phone while offline (0271), to sync later.
+  const [done, setDone] = useState<(LogResult & { queued?: boolean }) | null>(null);
 
   const load = useCallback(() => {
     getMyLoggedWorkouts()
@@ -141,8 +143,29 @@ export function LogWorkoutSheet({
     try {
       const start = new Date(endedAt.getTime() - minutes * 60_000);
       const steps = type === 'walk' || type === 'run' ? await phoneStepsBetween(health, start, endedAt) : null;
-      const r = await logWorkout({ type, minutes, endedAt, phoneSteps: steps });
-      setDone(r);
+      const r = await runOrQueue(
+        'log_workout',
+        { type, minutes, ended_at: endedAt.toISOString(), phone_steps: steps },
+        `${loggedTypeLabel(type)}, ${minutes} min`,
+        () => logWorkout({ type, minutes, endedAt, phoneSteps: steps }),
+      );
+      setDone(
+        r.queued
+          ? {
+              sourceId: r.item.id,
+              type,
+              name: '',
+              minutes,
+              countsAs: minutes,
+              startedAt: start,
+              endedAt,
+              localDay: '',
+              leftToday: Math.max(0, (mine?.leftToday ?? 1) - 1),
+              undoUntil: null,
+              queued: true,
+            }
+          : r.value,
+      );
       load();
       onChanged?.();
     } catch (e) {
@@ -203,8 +226,11 @@ export function LogWorkoutSheet({
                 {loggedTypeLabel(done.type)}, {done.minutes} min logged
               </Text>
               <Text style={styles.doneNote}>
-                {sameDay(done.endedAt, new Date()) ? 'Today' : 'Yesterday'}, ended {timeText(done.endedAt)} ·{' '}
-                {done.leftToday <= 0 ? 'that was your last one today' : `${done.leftToday} more you can log today`}
+                {done.queued
+                  ? 'Saved on your phone. It’ll sync when you’re back online.'
+                  : `${sameDay(done.endedAt, new Date()) ? 'Today' : 'Yesterday'}, ended ${timeText(done.endedAt)} · ${
+                      done.leftToday <= 0 ? 'that was your last one today' : `${done.leftToday} more you can log today`
+                    }`}
               </Text>
               <View style={styles.doneRow}>
                 {done.undoUntil && done.undoUntil > new Date() && (

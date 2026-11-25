@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import {
   BarbellIcon,
@@ -18,7 +18,7 @@ import { Text } from '../components/Text';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { ACTIVITY_LABEL, fmtPts, isStrength } from './move';
-import type { MoveFinish, StrengthGoal } from './moveApi';
+import { getMoveRates, type MoveFinish, type StrengthGoal } from './moveApi';
 
 // Pieces the Move screens share: an activity's icon and colour, the
 // strength week strip, and the finish.
@@ -132,6 +132,35 @@ export function MoveFinishView({ title, result, timed }: { title: string; result
         </View>
       )}
       <Text style={[styles.small, { textAlign: 'center' }]}>{ACTIVITY_LABEL[result.activity] ?? 'Workout'} counts toward your goals and Move points challenges.</Text>
+    </View>
+  );
+}
+
+// Finished with no connection (0271): saved on the phone, to sync.
+export function MoveSavedOffline({ title, minutes, activity }: { title: string; minutes: number; activity: string }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [rate, setRate] = useState<number | null>(null);
+  useEffect(() => {
+    getMoveRates()
+      .then(({ rates }) => setRate(rates.find((r) => r.activity === activity)?.perMin ?? null))
+      .catch(() => {});
+  }, [activity]);
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={[styles.hero, { backgroundColor: colors.accent }]}>
+        <Text style={styles.heroSmall}>
+          {title} · {minutes} min · ✓ Timed
+        </Text>
+        <Text style={[styles.heroBig, { fontSize: 30, lineHeight: 38 }]}>Saved on your phone</Text>
+        <Text style={styles.heroSmall}>{rate !== null ? `About ${fmtPts(minutes * rate)} Move points` : 'Move points on the way'}</Text>
+      </View>
+      <View style={styles.card}>
+        <Text style={styles.strong}>No connection right now</Text>
+        <Text style={styles.small}>
+          It syncs by itself when you’re back online. Your points, any new bests and your strength week update then.
+        </Text>
+      </View>
     </View>
   );
 }

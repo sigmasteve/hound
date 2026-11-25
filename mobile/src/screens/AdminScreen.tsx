@@ -61,6 +61,7 @@ import { WaterAdminCard } from '../components/WaterAdminCard';
 import { FastingAdminCard, FastingBonesCard, fastingSummary } from '../components/FastingAdminCard';
 import { FastingGamesAdminCard, fastingGamesSummary } from '../components/FastingGamesAdminCard';
 import { MoveAdminCard, MoveRatesCard, moveSummary } from '../components/MoveAdminCard';
+import { OfflineAdminCard, offlineSummary } from '../components/OfflineAdminCard';
 import { HoundClubsAdminCard, houndClubsSummary } from '../components/HoundClubsAdminCard';
 import { MoonAdminCard, moonSummary } from '../components/MoonAdminCard';
 import { getMoonOverview } from '../kennel/moonApi';
@@ -288,6 +289,7 @@ export function AdminScreen({
   const [fastingLine, setFastingLine] = useState<string | null>(null);
   const [fastingGamesLine, setFastingGamesLine] = useState<string | null>(null);
   const [moveLine, setMoveLine] = useState<string | null>(null);
+  const [offlineLine, setOfflineLine] = useState<string | null>(null);
   const [houndClubsLine, setHoundClubsLine] = useState<string | null>(null);
   const [moonLine, setMoonLine] = useState<string | null>(null);
   // The Not seeing steps fold's line (0205).
@@ -1053,6 +1055,9 @@ export function AdminScreen({
                   </AdminFold>
                   <AdminFold title="Maintenance" summary={maintenanceLine ?? 'Before changing the server'}>
                     <MaintenanceAdminCard onChanged={(o) => setMaintenanceLine(maintenanceSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Offline mode" summary={offlineLine ?? 'Working without a connection, and syncing after'}>
+                    <OfflineAdminCard onChanged={(o) => setOfflineLine(offlineSummary(o))} />
                   </AdminFold>
                   <AdminFold title="Push reach" summary="Who pushes can reach">
                     <PushReachCard />

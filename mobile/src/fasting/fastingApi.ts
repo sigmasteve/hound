@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { DEFAULT_CONFIG, localDayKey, type FastingConfig } from './fasting';
+import { cachedRead } from '../offline/cache';
+import { pendingItems, runOrQueue } from '../offline/outbox';
 
 // The client half of Fasting (0261_fasting.sql). The server keeps the
 // fasts, works out the streak and pays the Bones; the phone only asks.
@@ -120,8 +122,9 @@ export interface MyFasting {
 }
 
 export async function getMyFasting(now = new Date()): Promise<MyFasting> {
-  const d = await rpc<any>('my_fasting', { p_local_date: localDayKey(now) });
-  return {
+  // A kept copy when offline, with what's waiting to sync on top (0271).
+  const d = await cachedRead('fasting:my', () => rpc<any>('my_fasting', { p_local_date: localDayKey(now) }));
+  return withPending({
     age: d?.age === 'ok' || d?.age === 'under' ? d.age : null,
     planHours: num(d?.plan_hours) || 16,
     restDays: Array.isArray(d?.rest_days) ? d.rest_days.map(num) : [],
@@ -134,7 +137,25 @@ export async function getMyFasting(now = new Date()): Promise<MyFasting> {
     days: Array.isArray(d?.days) ? d.days.map((x: any) => ({ day: String(x.day), hours: num(x.hours), onPlan: !!x.on_plan })) : [],
     recentStarts: Array.isArray(d?.recent_starts) ? d.recent_starts.map(String) : [],
     config: config(d?.config),
-  };
+  });
+}
+
+// A start or end saved on the phone while offline (0271) shows as if it
+// had happened: a fast running, or ended.
+function withPending(m: MyFasting): MyFasting {
+  let out = m;
+  for (const it of pendingItems()) {
+    if (it.op === 'fasting_start') {
+      out = {
+        ...out,
+        startedAny: true,
+        open: { id: `pending:${it.id}`, goalHours: Number(it.args.plan_hours) || out.planHours, startedAt: String(it.args.started_at), packId: null },
+      };
+    } else if (it.op === 'fasting_end') {
+      out = { ...out, open: null };
+    }
+  }
+  return out;
 }
 
 export async function setFastingAge(ok: boolean): Promise<void> {
@@ -150,15 +171,24 @@ export async function saveFastingSettings(s: { planHours?: number; restDays?: nu
 }
 
 export async function startFast(planHours: number, startedAt: Date | null, invite: string[] = []): Promise<{ fastId: string; packId: string | null }> {
-  const d = await rpc<any>('fasting_start', {
-    p_plan_hours: planHours,
-    p_started_at: startedAt ? startedAt.toISOString() : null,
-    p_invite: invite,
-  });
-  return { fastId: String(d.fast_id), packId: d.pack_id ?? null };
+  const direct = async () => {
+    const d = await rpc<any>('fasting_start', {
+      p_plan_hours: planHours,
+      p_started_at: startedAt ? startedAt.toISOString() : null,
+      p_invite: invite,
+    });
+    return { fastId: String(d.fast_id), packId: d.pack_id ?? null };
+  };
+  // Starting together needs the server; alone it can wait to sync (0271).
+  if (invite.length > 0) return direct();
+  const r = await runOrQueue('fasting_start', { plan_hours: planHours, started_at: (startedAt ?? new Date()).toISOString() }, 'Your fast’s start', direct);
+  return r.queued ? { fastId: `pending:${r.item.id}`, packId: null } : r.value;
 }
 
 export interface FastResult {
+  // Saved on the phone while offline (0271): Bones and the streak come
+  // when it syncs.
+  pending?: boolean;
   fastId: string;
   hours: number;
   goalHours: number;
@@ -172,8 +202,30 @@ export interface FastResult {
   newLongest: boolean;
 }
 
-export async function endFast(endedAt: Date | null, now = new Date()): Promise<FastResult> {
-  const d = await rpc<any>('fasting_end', { p_local_date: localDayKey(now), p_ended_at: endedAt ? endedAt.toISOString() : null });
+export async function endFast(endedAt: Date | null, now = new Date(), me: MyFasting | null = null): Promise<FastResult> {
+  const end = endedAt ?? now;
+  const r = await runOrQueue('fasting_end', { local_date: localDayKey(now), ended_at: end.toISOString() }, 'Your fast’s end', () =>
+    rpc<any>('fasting_end', { p_local_date: localDayKey(now), p_ended_at: endedAt ? endedAt.toISOString() : null }),
+  );
+  if (r.queued) {
+    const o = me?.open;
+    const hours = o ? Math.max(0, (end.getTime() - new Date(o.startedAt).getTime()) / 3600000) : 0;
+    return {
+      pending: true,
+      fastId: o?.id ?? 'pending',
+      hours: Math.round(hours * 100) / 100,
+      goalHours: o?.goalHours ?? me?.planHours ?? 16,
+      onPlan: !!o && hours >= o.goalHours,
+      bones: 0,
+      milestoneBones: 0,
+      packBones: 0,
+      streak: me?.numbers.streak ?? 0,
+      bestStreak: me?.numbers.bestStreak ?? 0,
+      longest: Math.max(me?.numbers.longest ?? 0, hours),
+      newLongest: false,
+    };
+  }
+  const d = r.value;
   return {
     fastId: String(d.fast_id),
     hours: num(d.hours),

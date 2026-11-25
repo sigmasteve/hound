@@ -54,6 +54,7 @@ import { supabaseChallengesProvider, hasLoggedProgressToday, loadBoardInputs } f
 import { supabaseFriendsProvider } from '../friends/supabaseFriends';
 import type { Friend } from '../friends/types';
 import { UpdateReadyBanner } from '../components/UpdateReadyBanner';
+import { OfflineStrip } from '../offline/OfflineStrip';
 import { MaintenanceHeadsUp } from '../maintenance/MaintenanceHeadsUp';
 import { HealthZeroBanner } from '../health/HealthZeroBanner';
 import { ShareSheet } from '../share/ShareSheet';
@@ -3058,6 +3059,8 @@ export function HomeScreen({
     <View style={{ flex: 1 }}>
       {sharing && <ShareSheet content={sharing} onClose={() => setSharing(null)} />}
       {kennel && <WidgetHound kennel={kennel} />}
+      {/* Offline mode (0271): no connection, or things waiting to sync. */}
+      <OfflineStrip cacheKeys={['fasting:my', 'logged:mine', 'move:my']} />
       <UpdateReadyBanner />
       {/* Admin's maintenance window (0190), from a few hours before:
           above the announcement banner. */}

@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { OfflineStrip } from '../offline/OfflineStrip';
+import { onSynced } from '../offline/outbox';
 import { ActivityIndicator, Alert, AppState, Pressable, ScrollView, StyleSheet, Switch, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -158,6 +160,9 @@ export function FastingScreen({
     }, [load]),
   );
 
+  // A start or end saved offline just synced (0271): reload.
+  useEffect(() => onSynced((ops) => ops.some((x) => x.startsWith('fasting')) && load()), [load]);
+
   useEffect(() => {
     if (sheet === 'together' && allFriends === null) {
       supabaseFriendsProvider
@@ -206,7 +211,7 @@ export function FastingScreen({
 
   const finish = (minAgo: number) =>
     run(async () => {
-      const r = await endFast(minAgo > 0 ? new Date(Date.now() - minAgo * 60000) : null);
+      const r = await endFast(minAgo > 0 ? new Date(Date.now() - minAgo * 60000) : null, new Date(), me);
       setSheet(null);
       setFeel(null);
       setResult(r);
@@ -257,7 +262,10 @@ export function FastingScreen({
         <Stat value={`🔥 ${result.streak}`} label="Day streak" />
         <Stat value={<LongestText hours={result.longest} style={styles.statValue} />} label={result.newLongest ? 'New longest!' : 'Longest'} />
       </View>
-      {result.bones === 0 && result.hours >= 12 && (
+      {result.pending && (
+        <Text style={styles.small}>Saved on your phone with no connection. Bones and your streak update when you’re back online.</Text>
+      )}
+      {!result.pending && result.bones === 0 && result.hours >= 12 && (
         <Text style={styles.small}>You already earned today’s fasting Bones. They’re once a day.</Text>
       )}
       {!result.onPlan && (
@@ -707,6 +715,7 @@ export function FastingScreen({
         <Text style={[text.h4, { flex: 1, textAlign: 'center' }]}>Fasting</Text>
         <Text style={[styles.small, { minWidth: 20, textAlign: 'right' }]}>{open ? planLabel(open.goalHours) : ''}</Text>
       </View>
+      <OfflineStrip cacheKeys={['fasting:my']} />
       <ScrollView contentContainerStyle={styles.body0}>
         {!me && !error && <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />}
         {error && <Text style={styles.small}>{error}</Text>}

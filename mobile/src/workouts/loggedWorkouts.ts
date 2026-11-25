@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { HealthProvider, WorkoutSample } from '../health/types';
+import { cachedRead } from '../offline/cache';
 
 // Workouts logged by hand (0204_logged_workouts.sql), for people without a
 // watch: up to 2 a day, 5 to 90 minutes, today or yesterday. On the server
@@ -128,8 +129,12 @@ function toLogged(r: any): LoggedWorkout {
 }
 
 export async function getMyLoggedWorkouts(): Promise<MyLoggedWorkouts> {
-  const { data, error } = await client().rpc('my_logged_workouts');
-  if (error) throw new Error(error.message);
+  // A kept copy when offline (0271).
+  const data = await cachedRead('logged:mine', async () => {
+    const { data: d, error } = await client().rpc('my_logged_workouts');
+    if (error) throw new Error(error.message);
+    return d;
+  });
   const d = (data ?? {}) as any;
   return {
     enabled: d.enabled !== false,
