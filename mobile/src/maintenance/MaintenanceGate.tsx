@@ -9,6 +9,8 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { checkServer, timeLabel, type ServerState } from './maintenance';
+import { useOfflineEnabled } from '../offline/offlineConfig';
+import { reportNetworkFailure } from '../offline/network';
 
 // In front of the whole app (App.tsx): "Hound can't reach its server" or
 // the maintenance screen, instead of a "Loading" that never ends
@@ -18,6 +20,9 @@ const RETRY_SECONDS = 15;
 
 export function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  // Offline mode (0271): "can't reach the server" lets you in, and the
+  // offline strip takes over. Planned maintenance still shows its screen.
+  const offlineOn = useOfflineEnabled();
   const [state, setState] = useState<ServerState | null>(null);
   const [skipped, setSkipped] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -31,6 +36,8 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
     try {
       const next = await checkServer();
       setState(next);
+      // Starts offline mode's own check (three tries over ~10 s).
+      if (next.kind === 'down') reportNetworkFailure();
       if (next.kind === 'ok' || !(next.kind === 'maintenance' && next.now)) setSkipped(false);
     } finally {
       busy.current = false;
@@ -47,7 +54,8 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, [check]);
 
-  const blocked = !!state && state.kind !== 'ok' && !skipped;
+  const passOffline = offlineOn && state?.kind === 'down';
+  const blocked = !!state && state.kind !== 'ok' && !skipped && !passOffline;
 
   // While a screen is up: count down and try again.
   useEffect(() => {
@@ -64,7 +72,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
     return () => clearInterval(t);
   }, [blocked, check]);
 
-  if (!state || state.kind === 'ok' || skipped) return <>{children}</>;
+  if (!state || state.kind === 'ok' || skipped || passOffline) return <>{children}</>;
   return (
     <ServerScreen
       state={state}

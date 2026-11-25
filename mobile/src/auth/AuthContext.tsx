@@ -5,6 +5,9 @@ import { MisconfiguredScreen } from '../components/MisconfiguredScreen';
 import * as mockAuth from './mockAuth';
 import * as supabaseAuth from './supabaseAuth';
 import type { AuthStatus, AuthUser, SignUpInput } from './types';
+import { forgetUser, lastUser } from './userCache';
+import { isNetworkError } from '../offline/network';
+import { refreshOfflineEnabled } from '../offline/offlineConfig';
 
 // The one place that decides which backend is live. Every function below
 // (and every screen, via useAuth()) is written against this shape, not
@@ -59,9 +62,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // stuck on the splash.
     supabase.auth
       .getSession()
-      .then(async ({ data }) => {
+      .then(async ({ data, error }) => {
         if (cancelled) return;
         if (data.session) setUser(await supabaseAuth.userFromSession(data.session));
+        // The session couldn't be refreshed with no connection (offline
+        // mode, 0271): stay signed in as you were, not signed out.
+        else if (error && isNetworkError(error) && (await refreshOfflineEnabled())) {
+          const kept = await lastUser();
+          if (kept && !cancelled) setUser(kept);
+        }
       })
       .catch(() => {})
       .finally(() => {
@@ -115,6 +124,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(await backend.signUpWithEmail(input));
   }, []);
   const signOut = useCallback(async () => {
+    // Signing out forgets the profile kept for offline use (0271).
+    forgetUser();
     await backend.signOut();
     // Redundant with the onAuthStateChange listener when Supabase is
     // configured, but that's the only backend that has one — mock auth

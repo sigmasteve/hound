@@ -6,6 +6,8 @@ import { signInWithGoogleNative, signOutGoogleNative } from './googleSignIn';
 import { initialsFor } from './initials';
 import { forgetThisDevice } from '../notifications/pushToken';
 import type { AuthProviderId, AuthUser, SignUpInput } from './types';
+import { lastUser, saveUser } from './userCache';
+import { isNetworkError } from '../offline/network';
 
 // Used instead of mockAuth.ts whenever a Supabase project is configured
 // (see src/lib/supabase.ts / AuthContext.tsx). Every export here matches
@@ -24,13 +26,18 @@ function requireClient() {
 export async function userFromSession(session: Session, provider: AuthProviderId = 'email'): Promise<AuthUser> {
   const client = requireClient();
   const fallbackEmail = session.user.email ?? '';
-  const { data } = await client
+  const { data, error } = await client
     .from('profiles')
     // Not email: other people's addresses aren't readable
     // (0092_hide_private_profile_columns.sql), and yours is in the session.
     .select('name, initials, is_admin, username, use_username, organization_id, org_role')
     .eq('id', session.user.id)
     .single();
+  // No connection (offline mode, 0271): the profile kept from last time.
+  if (!data && error && isNetworkError(error)) {
+    const kept = await lastUser(session.user.id);
+    if (kept) return kept;
+  }
   if (!data) {
     // The trigger runs in the same transaction as the auth.users insert,
     // so this really only happens if it hasn't landed yet (rare, but
@@ -39,7 +46,7 @@ export async function userFromSession(session: Session, provider: AuthProviderId
     const name = fallbackEmail.split('@')[0] || 'Hound user';
     return { id: session.user.id, name, email: fallbackEmail, initials: initialsFor(name), provider, isAdmin: false };
   }
-  return {
+  const user: AuthUser = {
     id: session.user.id,
     name: data.name,
     email: fallbackEmail,
@@ -52,6 +59,8 @@ export async function userFromSession(session: Session, provider: AuthProviderId
     orgRole: data.org_role as AuthUser['orgRole'],
     needsName: !hasSignUpName(session.user.user_metadata),
   };
+  saveUser(user);
+  return user;
 }
 
 // Whether sign-up gave the account a name: email sign-up sends `name`,
