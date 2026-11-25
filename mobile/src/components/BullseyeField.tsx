@@ -94,6 +94,7 @@ export function BullseyeFieldArt({
   showHound = true,
   labels = true,
   showSocks = true,
+  bow = 'longbow',
 }: {
   width: number;
   height: number;
@@ -105,6 +106,8 @@ export function BullseyeFieldArt({
   showHound?: boolean;
   labels?: boolean;
   showSocks?: boolean;
+  // Your bow, drawn as itself in your hound's paws.
+  bow?: string;
 }) {
   const moon = conditions.world === 'moon';
   const v = useMemo(() => fieldView(width, height), [width, height]);
@@ -235,8 +238,7 @@ export function BullseyeFieldArt({
             ) : (
               <Ellipse cx={width / 2 + 5 * hs} cy={hy - 30 * hs} rx={24 * hs} ry={20 * hs} fill="#d39a5e" />
             )}
-            <Path d={`M${width / 2 - 37 * hs} ${hy - 120 * hs} Q ${width / 2 - 63 * hs} ${hy - 60 * hs} ${width / 2 - 37 * hs} ${hy}`} fill="none" stroke="#5b3a1e" strokeWidth={5 * hs} strokeLinecap="round" />
-            <Line x1={width / 2 - 37 * hs} y1={hy - 120 * hs} x2={width / 2 - 37 * hs} y2={hy} stroke="#f2f3f7" strokeWidth={1} />
+            <BowArt bow={bow} x={width / 2 - 37 * hs} top={hy - 120 * hs} bottom={hy} bend={-1} s={hs} />
           </G>
         )}
       </Svg>
@@ -251,5 +253,109 @@ export function BullseyeFieldArt({
           />
         ))}
     </View>
+  );
+}
+
+// Each bow drawn as itself (Steve, Nov 2026): the youth bow short and light,
+// the longbow a tall plain D of dark wood, the recurve with a dark riser,
+// limbs that flick back at the tips, a sight and a stabilizer, and the
+// compound short and stiff with wheels (cams) on the ends, cables and a
+// sight. The string runs straight down x from top to bottom; the bow bends
+// away from the archer, to the left (bend -1) or right (+1).
+export function BowArt({
+  bow,
+  x,
+  top,
+  bottom,
+  bend = -1,
+  s = 1,
+  string = true,
+}: {
+  bow: string;
+  x: number;
+  top: number;
+  bottom: number;
+  bend?: number;
+  s?: number;
+  // Off in the close-up aim view, where the string is at your face.
+  string?: boolean;
+}) {
+  const L = bottom - top;
+  const mid = (top + bottom) / 2;
+  const b = bend;
+  if (bow === 'compound') {
+    const t1 = top + L * 0.18;
+    const t2 = bottom - L * 0.18;
+    const camR = L * 0.045;
+    const rx = x + b * L * 0.16;
+    return (
+      <G>
+        {/* Cables and string between the cams. */}
+        {string && <Line x1={x} y1={t1} x2={x} y2={t2} stroke="#f2f3f7" strokeWidth={1.2 * s} />}
+        {string && <Line x1={x + b * camR * 0.6} y1={t1} x2={rx - b * 2 * s} y2={t2 - camR} stroke="#9aa0b4" strokeWidth={1 * s} />}
+        {string && <Line x1={x + b * camR * 0.6} y1={t2} x2={rx - b * 2 * s} y2={t1 + camR} stroke="#9aa0b4" strokeWidth={1 * s} />}
+        {/* Limbs, short and stiff. */}
+        <Path d={`M${rx} ${mid - L * 0.2} Q ${rx - b * L * 0.02} ${t1 + L * 0.06} ${x + b * camR} ${t1}`} fill="none" stroke="#2b2d36" strokeWidth={6 * s} strokeLinecap="round" />
+        <Path d={`M${rx} ${mid + L * 0.2} Q ${rx - b * L * 0.02} ${t2 - L * 0.06} ${x + b * camR} ${t2}`} fill="none" stroke="#2b2d36" strokeWidth={6 * s} strokeLinecap="round" />
+        {/* The riser, machined metal, with a sight and a stabilizer. */}
+        <Path d={`M${rx} ${mid - L * 0.22} L ${rx + b * L * 0.04} ${mid} L ${rx} ${mid + L * 0.22}`} fill="none" stroke="#6b7385" strokeWidth={8 * s} strokeLinejoin="round" strokeLinecap="round" />
+        <Line x1={rx + b * L * 0.04} y1={mid + L * 0.02} x2={rx + b * L * 0.3} y2={mid - L * 0.05} stroke="#1b1d29" strokeWidth={2.5 * s} />
+        <Circle cx={rx + b * L * 0.3} cy={mid - L * 0.05} r={3.5 * s} fill="#1b1d29" />
+        <Rect x={Math.min(rx, rx - b * L * 0.08) - 1} y={mid - L * 0.1} width={L * 0.08} height={5 * s} fill="#1b1d29" />
+        <Circle cx={rx - b * L * 0.08} cy={mid - L * 0.1 + 2.5 * s} r={2.6 * s} fill="#f08a24" />
+        {/* The cams. */}
+        <Circle cx={x + b * camR * 0.5} cy={t1} r={camR} fill="#c0c4cf" stroke="#3a3f4e" strokeWidth={1.5 * s} />
+        <Circle cx={x + b * camR * 0.5} cy={t2} r={camR} fill="#c0c4cf" stroke="#3a3f4e" strokeWidth={1.5 * s} />
+      </G>
+    );
+  }
+  if (bow === 'recurve') {
+    const rx = x + b * L * 0.17;
+    return (
+      <G>
+        {string && <Line x1={x} y1={top + L * 0.02} x2={x} y2={bottom - L * 0.02} stroke="#f2f3f7" strokeWidth={1.2 * s} />}
+        {/* Limbs out from the riser, flicking back toward the string at the tips. */}
+        <Path
+          d={`M${rx} ${mid - L * 0.16} Q ${rx} ${top + L * 0.12} ${x + b * L * 0.06} ${top + L * 0.05} Q ${x + b * L * 0.015} ${top + L * 0.02} ${x - b * L * 0.02} ${top}`}
+          fill="none"
+          stroke="#3a3f4e"
+          strokeWidth={4.5 * s}
+          strokeLinecap="round"
+        />
+        <Path
+          d={`M${rx} ${mid + L * 0.16} Q ${rx} ${bottom - L * 0.12} ${x + b * L * 0.06} ${bottom - L * 0.05} Q ${x + b * L * 0.015} ${bottom - L * 0.02} ${x - b * L * 0.02} ${bottom}`}
+          fill="none"
+          stroke="#3a3f4e"
+          strokeWidth={4.5 * s}
+          strokeLinecap="round"
+        />
+        {/* The riser, a sight out front and a long stabilizer rod. */}
+        <Line x1={rx} y1={mid - L * 0.18} x2={rx} y2={mid + L * 0.18} stroke="#2b2d36" strokeWidth={8 * s} strokeLinecap="round" />
+        <Line x1={rx} y1={mid + L * 0.06} x2={rx + b * L * 0.38} y2={mid - L * 0.02} stroke="#1b1d29" strokeWidth={2 * s} />
+        <Circle cx={rx + b * L * 0.38} cy={mid - L * 0.02} r={3 * s} fill="#1b1d29" />
+        <Line x1={rx} y1={mid - L * 0.12} x2={rx - b * L * 0.07} y2={mid - L * 0.12} stroke="#1b1d29" strokeWidth={2 * s} />
+        <Circle cx={rx - b * L * 0.07} cy={mid - L * 0.12} r={2.6 * s} fill="#f08a24" />
+      </G>
+    );
+  }
+  if (bow === 'youth') {
+    const t1 = top + L * 0.14;
+    const t2 = bottom - L * 0.14;
+    const LL = t2 - t1;
+    return (
+      <G>
+        {string && <Line x1={x} y1={t1} x2={x} y2={t2} stroke="#f2f3f7" strokeWidth={1 * s} />}
+        <Path d={`M${x} ${t1} Q ${x + b * LL * 0.42} ${(t1 + t2) / 2} ${x} ${t2}`} fill="none" stroke="#e0a85c" strokeWidth={4 * s} strokeLinecap="round" />
+        <Rect x={x + b * LL * 0.2 - 3 * s} y={(t1 + t2) / 2 - LL * 0.07} width={6 * s} height={LL * 0.14} rx={2 * s} fill="#3fa0d8" />
+      </G>
+    );
+  }
+  // The longbow: tall, plain wood, a leather grip, no sight.
+  return (
+    <G>
+      {string && <Line x1={x} y1={top} x2={x} y2={bottom} stroke="#f2f3f7" strokeWidth={1 * s} />}
+      <Path d={`M${x} ${top} Q ${x + b * L * 0.42} ${mid} ${x} ${bottom}`} fill="none" stroke="#5b3a1e" strokeWidth={5.5 * s} strokeLinecap="round" />
+      <Rect x={x + b * L * 0.21 - 3.5 * s} y={mid - L * 0.06} width={7 * s} height={L * 0.12} rx={2 * s} fill="#2b1a0c" />
+    </G>
   );
 }
