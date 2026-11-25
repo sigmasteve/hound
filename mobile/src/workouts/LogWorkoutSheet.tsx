@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { offlineEnabled } from '../offline/offlineConfig';
+import { isNetworkError } from '../offline/network';
 import { runOrQueue } from '../offline/outbox';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +13,7 @@ import type { WorkoutSample } from '../health/types';
 import {
   LOGGED_TYPES,
   getMyLoggedWorkouts,
+  offlineLoggingDefaults,
   isLoggedWorkout,
   logWorkout,
   loggedTypeLabel,
@@ -71,7 +74,16 @@ export function LogWorkoutSheet({
         setMine(m);
         setLoadError(null);
       })
-      .catch((e) => setLoadError(e instanceof Error && /my_logged_workouts/.test(e.message) ? 'Logging isn’t switched on yet.' : e instanceof Error ? e.message : 'Could not load.'));
+      .catch((e) => {
+        // Offline with nothing kept (0271): the usual limits, so the form
+        // opens; the server checks them when it syncs.
+        if (offlineEnabled() && isNetworkError(e)) {
+          setMine(offlineLoggingDefaults());
+          setLoadError(null);
+          return;
+        }
+        setLoadError(e instanceof Error && /my_logged_workouts/.test(e.message) ? 'Logging isn’t switched on yet.' : e instanceof Error ? e.message : 'Could not load.');
+      });
   }, []);
 
   useEffect(() => {

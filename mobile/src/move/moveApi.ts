@@ -69,6 +69,11 @@ function strength(d: any): StrengthGoal {
   };
 }
 
+// Nothing yet: for opening Move offline with no copy kept (0271).
+export function emptyMove(): MyMove {
+  return { pts: 0, handCapMin: 120, handMin: 0, items: [], strength: { target: 2, thisWeek: 0, streak: 0, weeks: [], set: false } };
+}
+
 // Null before 0270 is run.
 export async function getMyMove(now = new Date()): Promise<MyMove | null> {
   try {

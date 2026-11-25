@@ -128,6 +128,24 @@ function toLogged(r: any): LoggedWorkout {
   };
 }
 
+// The usual limits, for the form offline with nothing kept (0271).
+export function offlineLoggingDefaults(): MyLoggedWorkouts {
+  return {
+    enabled: true,
+    blocked: false,
+    opensInDays: 0,
+    perDay: 2,
+    minMin: 5,
+    maxMin: 90,
+    backDays: 1,
+    valuePct: 50,
+    undoMinutes: 15,
+    leftToday: 2,
+    leftYesterday: 2,
+    logs: [],
+  };
+}
+
 export async function getMyLoggedWorkouts(): Promise<MyLoggedWorkouts> {
   // A kept copy when offline (0271).
   const data = await cachedRead('logged:mine', async () => {
