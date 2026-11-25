@@ -602,6 +602,18 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       tip: 'Hound tells you as each stage begins (settling, fat burning, ketosis) and when your fast reaches its goal, and checks in if you’re still going at 36 hours. If you feel dizzy, faint or unwell, eat.',
     },
     {
+      id: 'moon-forms',
+      section: 'hound',
+      title: 'Moon forms',
+      summary: 'Your hound transforms under the moon at every new rank.',
+      steps: [
+        'At each new rank your hound changes under the moon: First Moon at Tracker (level 5), Forest Moon at Hunter (10), Full Moon at Alpha (15) and Blue Moon at Legend (20). The scene plays the first time you open Hound after the rank up.',
+        'Each form adds to the last: a crescent on its brow, a spiky mane, glowing eyes and a moonlight aura with stars.',
+        'Watch any form you’ve reached again: Kennel → your hound → Moon forms. The ones ahead show the level they open at.',
+        'Prefer your plain hound? Turn off “Show my hound’s moon look” there. The scenes stay.',
+      ],
+    },
+    {
       id: 'daily-bonus',
       section: 'rewards',
       title: 'Daily bonus and streak',

@@ -51,6 +51,8 @@ import { GoalsAdminCard } from '../components/GoalsAdminCard';
 import { WaterAdminCard } from '../components/WaterAdminCard';
 import { FastingAdminCard, FastingBonesCard, fastingSummary } from '../components/FastingAdminCard';
 import { HoundClubsAdminCard, houndClubsSummary } from '../components/HoundClubsAdminCard';
+import { MoonAdminCard, moonSummary } from '../components/MoonAdminCard';
+import { getMoonOverview } from '../kennel/moonApi';
 import { getHoundClubsOverview } from '../clubs/clubsApi';
 import { getFastingOverview } from '../fasting/fastingApi';
 import { WalksAdminCard } from '../components/WalksAdminCard';
@@ -274,6 +276,7 @@ export function AdminScreen({
   const [workoutLogLine, setWorkoutLogLine] = useState<string | null>(null);
   const [fastingLine, setFastingLine] = useState<string | null>(null);
   const [houndClubsLine, setHoundClubsLine] = useState<string | null>(null);
+  const [moonLine, setMoonLine] = useState<string | null>(null);
   // The Not seeing steps fold's line (0205).
   const [healthZeroLine, setHealthZeroLine] = useState<string | null>(null);
   const [autoJoinLine, setAutoJoinLine] = useState<string | null>(null);
@@ -310,6 +313,9 @@ export function AdminScreen({
         .catch(() => {});
       getHoundClubsOverview()
         .then((l) => setHoundClubsLine(houndClubsSummary(l)))
+        .catch(() => {});
+      getMoonOverview()
+        .then((m) => setMoonLine(moonSummary(m)))
         .catch(() => {});
       getWalksOverview()
         .then((w) => setWalksSummary(`${w.walkers7d} walking this week · ${w.walks7d} walks`))
@@ -1126,6 +1132,9 @@ export function AdminScreen({
                   <>
                   <AdminFold title="Kennel unlocks" summary={kennelUnlocksLine ?? 'Who has reached each level of the Kennel'}>
                     <KennelUnlocksAdminCard />
+                  </AdminFold>
+                  <AdminFold title="Moon forms" summary={moonLine ?? 'The cut scenes at each new rank'}>
+                    <MoonAdminCard onLoaded={(m) => setMoonLine(moonSummary(m))} />
                   </AdminFold>
                   <AdminFold title="Walks" summary={walksSummary ?? 'Walks, finds and the diary'}>
                     <WalksAdminCard />

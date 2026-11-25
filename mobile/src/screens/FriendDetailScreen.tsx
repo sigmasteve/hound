@@ -1,3 +1,4 @@
+import { getMoonFormsOn } from '../kennel/moonApi';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
@@ -84,12 +85,17 @@ export function FriendDetailScreen({
   const [gifting, setGifting] = useState(false);
   // Their hound's age, fitness, traits and birthday (0165).
   const [growth, setGrowth] = useState<HoundProfile | null>(null);
+  // Their switch for their hound's moon look (0264).
+  const [friendMoon, setFriendMoon] = useState(true);
   const loadYard = () => {
     getFriendHoundProfile(friendUserId, localDayKey())
       .then(setGrowth)
       .catch(() => setGrowth(null));
     getFriendKennel(friendUserId)
       .then(setHound)
+      .catch(() => {});
+    getMoonFormsOn(friendUserId)
+      .then(setFriendMoon)
       .catch(() => {});
     getFriendYard(friendUserId)
       .then(setYard)
@@ -451,6 +457,7 @@ export function FriendDetailScreen({
           <Card style={styles.houndCard} elevated={false}>
             <View style={styles.houndArt}>
               <HoundArt
+                moon={friendMoon ? undefined : null}
                 rank={rankForLevel(levelProgressForXp(hound.xpTotal).level).id}
                 mood={hound.mood}
                 neckId={hound.neckId}
