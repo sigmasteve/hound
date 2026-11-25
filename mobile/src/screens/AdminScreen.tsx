@@ -50,6 +50,8 @@ import { DeveloperToolsCard } from '../components/DeveloperToolsCard';
 import { GoalsAdminCard } from '../components/GoalsAdminCard';
 import { WaterAdminCard } from '../components/WaterAdminCard';
 import { FastingAdminCard, FastingBonesCard, fastingSummary } from '../components/FastingAdminCard';
+import { HoundClubsAdminCard, houndClubsSummary } from '../components/HoundClubsAdminCard';
+import { getHoundClubsOverview } from '../clubs/clubsApi';
 import { getFastingOverview } from '../fasting/fastingApi';
 import { WalksAdminCard } from '../components/WalksAdminCard';
 import { GardenAdminCard } from '../components/GardenAdminCard';
@@ -271,6 +273,7 @@ export function AdminScreen({
   // The Logged workouts fold's line (0204).
   const [workoutLogLine, setWorkoutLogLine] = useState<string | null>(null);
   const [fastingLine, setFastingLine] = useState<string | null>(null);
+  const [houndClubsLine, setHoundClubsLine] = useState<string | null>(null);
   // The Not seeing steps fold's line (0205).
   const [healthZeroLine, setHealthZeroLine] = useState<string | null>(null);
   const [autoJoinLine, setAutoJoinLine] = useState<string | null>(null);
@@ -304,6 +307,9 @@ export function AdminScreen({
         .catch(() => {});
       getFastingOverview()
         .then((f) => setFastingLine(fastingSummary(f)))
+        .catch(() => {});
+      getHoundClubsOverview()
+        .then((l) => setHoundClubsLine(houndClubsSummary(l)))
         .catch(() => {});
       getWalksOverview()
         .then((w) => setWalksSummary(`${w.walkers7d} walking this week · ${w.walks7d} walks`))
@@ -1110,6 +1116,9 @@ export function AdminScreen({
                   </AdminFold>
                   <AdminFold title="Clubs" summary={clubsSummaryLine ?? 'Run clubs, cycling clubs and who’s in them'}>
                     <ClubsAdminCard onChanged={(o) => setClubsSummaryLine(clubsSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Hound clubs" summary={houndClubsLine ?? 'Clubs open to everyone, like Intermittent Fasting'}>
+                    <HoundClubsAdminCard onLoaded={(l) => setHoundClubsLine(houndClubsSummary(l))} />
                   </AdminFold>
                   </>
                 )}

@@ -20,6 +20,8 @@ export interface Club {
   description: string | null;
   color: ClubColor;
   isPublic: boolean;
+  // A Hound club (0262): open to everyone, no member cap, featured.
+  hound: boolean;
   members: number;
   // Null when you're not in it.
   role: ClubRole | null;
@@ -97,6 +99,7 @@ function toClub(d: any): Club {
     description: d.description ?? null,
     color: d.color ?? 'orange',
     isPublic: !!d.is_public,
+    hound: !!d.hound,
     members: Number(d.members ?? 0),
     role: d.role ?? null,
     muted: !!d.muted,
@@ -118,6 +121,50 @@ export async function getClubStatus(): Promise<ClubStatus> {
 
 export async function getMyClubs(): Promise<Club[]> {
   return ((await rpc<any[]>('my_clubs')) ?? []).map(toClub);
+}
+
+export interface HoundClub extends Club {
+  // Fasting clubs: how many there fast, and are fasting now.
+  fasters: number;
+  fastingNow: number;
+}
+
+// The Hound clubs (0262), for the Clubs tab and the Fasting screen.
+export async function getHoundClubs(): Promise<HoundClub[]> {
+  return ((await rpc<any[]>('hound_clubs')) ?? []).map((d) => ({
+    ...toClub(d),
+    fasters: Number(d.fasters ?? 0),
+    fastingNow: Number(d.fasting_now ?? 0),
+  }));
+}
+
+// Admin only: make a public club a Hound club, or stop.
+export async function setHoundClub(clubId: string, on: boolean): Promise<void> {
+  await rpc('admin_set_hound_club', { p_club_id: clubId, p_on: on });
+}
+
+export interface HoundClubNumbers {
+  id: string;
+  name: string;
+  sport: ClubSport;
+  members: number;
+  joined7d: number;
+  fasters: number;
+  fasted7d: number;
+  fastingNow: number;
+}
+
+export async function getHoundClubsOverview(): Promise<HoundClubNumbers[]> {
+  return ((await rpc<any[]>('admin_hound_clubs_overview')) ?? []).map((d) => ({
+    id: d.id,
+    name: d.name,
+    sport: d.sport,
+    members: Number(d.members ?? 0),
+    joined7d: Number(d.joined_7d ?? 0),
+    fasters: Number(d.fasters ?? 0),
+    fasted7d: Number(d.fasted_7d ?? 0),
+    fastingNow: Number(d.fasting_now ?? 0),
+  }));
 }
 
 export async function getClubsBadge(): Promise<number> {

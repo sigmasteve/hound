@@ -340,19 +340,30 @@ export async function getFastingWaiting(): Promise<FastPackInvite[]> {
 }
 
 export interface ClubFasting {
+  // 0262: a public club you haven't joined shows only the counts.
+  member: boolean;
   canFast: boolean;
   under: boolean;
+  nowCount: number;
+  fasters: number;
   now: (FastingPerson & { fast: OpenFast; me: boolean })[];
-  board: (FastingPerson & { me: boolean; numbers: FastingNumbers })[];
+  // The top 25, plus your own row (with its rank) if you're further down.
+  board: (FastingPerson & { me: boolean; rank: number; numbers: FastingNumbers })[];
+  myRank: number | null;
 }
 
 export async function getClubFasting(clubId: string, now = new Date()): Promise<ClubFasting> {
   const d = await rpc<any>('club_fasting', { p_club_id: clubId, p_local_date: localDayKey(now) });
   return {
+    // Before 0262 every caller was a member.
+    member: d?.member !== false,
     canFast: !!d?.can_fast,
     under: !!d?.under,
+    nowCount: num(d?.now_count ?? (d?.now ?? []).length),
+    fasters: num(d?.fasters ?? (d?.board ?? []).length),
     now: (d?.now ?? []).map((x: any) => ({ ...person(x), fast: openFast(x.fast)!, me: !!x.me })),
-    board: (d?.board ?? []).map((x: any) => ({ ...person(x), me: !!x.me, numbers: numbers(x.numbers) })),
+    board: (d?.board ?? []).map((x: any, i: number) => ({ ...person(x), me: !!x.me, rank: num(x.rank) || i + 1, numbers: numbers(x.numbers) })),
+    myRank: d?.my_rank == null ? null : num(d.my_rank),
   };
 }
 
