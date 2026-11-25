@@ -589,7 +589,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Open the Goals tile on Today and tap Try intermittent fasting. Once you’ve started a fast, Fasting gets its own tile on Today.',
         'It’s for people 16 and older. Talk to your doctor first if you’re pregnant or breastfeeding, take insulin or diabetes medicine, or have had an eating disorder.',
         'Pick a plan (12:12 up to one meal a day) and tap Start fast. Stopped eating a while ago? Tap “I stopped eating” and set the time, up to 12 hours back. Started by mistake? Cancel in the first 15 minutes.',
-        'The ring fills to your goal and the strip shows the stages (Settling, Fat burning, Ketosis). What can I drink? lists what keeps a fast: water, black coffee, plain tea.',
+        'The dial fills to your goal through the stages, each in its own colour, with a badge where each begins (Settling at 4 h, Fat burning at 12, Ketosis at 16) and Next up under it. What to drink lists what keeps a fast: water, black coffee, plain tea.',
         'Tap End fast when you eat. Forgot? Set when you ate, up to 12 hours back. Ending early still counts as a fast, just not on plan.',
         `${currency} once a day for the first fast that ends that day: 5 at 12 hours, up to 25 at 20 hours, and nothing more after that. Streak bonuses at 3, 7, 14, 30 and 100 days on plan in a row.`,
         'Rest days you pick (up to 3 a week) don’t break your streak, and neither does one missed day a week.',
@@ -599,7 +599,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Any club’s page shows who in it is fasting now and the week’s board. Start your own Fasting club from Clubs → Start a club.',
         'Don’t want friends to see? Turn off “Friends and clubmates see when I’m fasting” on the Fasting screen.',
       ],
-      tip: 'Hound reminds you when your fast reaches its goal, and checks in if you’re still going at 36 hours. If you feel dizzy, faint or unwell, eat.',
+      tip: 'Hound tells you as each stage begins (settling, fat burning, ketosis) and when your fast reaches its goal, and checks in if you’re still going at 36 hours. If you feel dizzy, faint or unwell, eat.',
     },
     {
       id: 'daily-bonus',

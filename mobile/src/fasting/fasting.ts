@@ -96,6 +96,21 @@ export const STAGES: FastingStage[] = [
   },
 ];
 
+// Each stage's colour on the dial.
+export const STAGE_COLOR: Record<string, string> = {
+  fed: '#8a8fa3',
+  settling: '#4f9fe0',
+  fatburn: '#f08a24',
+  ketosis: '#9b7cf0',
+  deep: '#e0b84f',
+  prolonged: '#e06c6c',
+};
+
+// What comes next after `hours`: the next stage and when it starts.
+export function nextStage(hours: number): FastingStage | null {
+  return STAGES.find((s) => s.from > hours) ?? null;
+}
+
 export const EVIDENCE_WORD: Record<Evidence, string> = {
   known: 'Well known',
   measured: 'Measured in people',
