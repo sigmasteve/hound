@@ -69,6 +69,8 @@ function routeFor(data: Record<string, unknown> | undefined): (() => [keyof Root
   if (data.type === 'bones_given') return () => ['Locker', undefined];
   if (data.type === 'club_post' && typeof data.clubId === 'string') return () => ['Club', { clubId: data.clubId }];
   if (data.type === 'club_invite') return () => ['Main', { tab: 'clubs' }];
+  // A club you were in was deleted by its owner (0268).
+  if (data.type === 'club_closed') return () => ['Main', { tab: 'clubs' }];
   if ((data.type === 'hoops' || data.type === 'horse' || data.type === 'golf' || data.type === 'derby' || data.type === 'shootout' || data.type === 'bout' || data.type === 'titlebout') && typeof data.challengeId === 'string') {
     return () => ['ChallengeDetail', { challengeId: data.challengeId }];
   }

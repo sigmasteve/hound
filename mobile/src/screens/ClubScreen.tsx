@@ -21,6 +21,7 @@ import {
   joinClub,
   joinClubChallenge,
   leaveClub,
+  deleteClub,
   newClubCode,
   removeClubMember,
   removeClubPost,
@@ -198,7 +199,7 @@ export function ClubScreen({
         Alert.alert(
           `Leave ${club.name}?`,
           club.role === 'owner'
-            ? 'The club passes to the longest-standing organizer (or member). If you’re the last one in, it closes.'
+            ? 'The club passes to the longest-standing organizer (or member). If you’re the last one in, it closes. To close it for everyone, use Delete the club.'
             : 'You can join again later.',
           [
             { text: 'Stay', style: 'cancel' },
@@ -206,6 +207,30 @@ export function ClubScreen({
           ],
         ),
     });
+    // The owner can close the club for everyone (0268).
+    if (club.role === 'owner') {
+      const others = Math.max(0, club.members - 1);
+      buttons.push({
+        text: 'Delete the club',
+        style: 'destructive',
+        onPress: () =>
+          Alert.alert(
+            `Delete ${club.name}?`,
+            `It closes for everyone${others ? ` (${others} other ${others === 1 ? 'member' : 'members'} will be told)` : ''}: it leaves the Clubs tab and search, and its code stops working. Challenges already posted to it carry on. This can’t be undone.`,
+            [
+              { text: 'Keep it', style: 'cancel' },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: () =>
+                  deleteClub(clubId)
+                    .then(onBack)
+                    .catch((e) => Alert.alert('Couldn’t delete the club', e instanceof Error ? e.message : 'Try again.')),
+              },
+            ],
+          ),
+      });
+    }
     buttons.push({ text: 'Cancel', style: 'cancel' });
     Alert.alert(club.name, undefined, buttons);
   };
