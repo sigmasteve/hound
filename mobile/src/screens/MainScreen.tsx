@@ -118,6 +118,7 @@ export function MainScreen({ route, navigation }: Props) {
             onPickJourney={() => navigation.navigate('JourneyPicker')}
             onOpenPackFun={() => navigation.navigate('PackFunHub')}
             onOpenHealthData={() => navigation.navigate('HealthData')}
+            onOpenMove={() => navigation.navigate('Move')}
             onOpenSettings={() => navigation.navigate('Settings')}
             onOpenHelp={() => navigation.navigate('Help')}
           />
