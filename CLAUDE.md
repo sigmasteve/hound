@@ -296,7 +296,9 @@ What each sheet holds:
   swaps the card for the four-week grid (GoalHistoryCard). All of it is
   scored on the phone from Health data (`src/home/GoalsSheet.tsx`). Under
   the card, today's workouts and "Log a workout" (0204, for people without
-  a watch; logged ones marked "Logged by hand", with Undo for 15 minutes).
+  a watch; logged ones marked "Logged by hand", with Undo for 15 minutes,
+  Hound's timed ones "✓ Timed in Hound"). Since 0270 "Log a workout" opens
+  Move (log an activity, start a routine, log strength).
 - Your hound: no sheet; the tile opens the Kennel straight away.
 - Needs you: Pack Activities first, only when one is waiting on you (on
   now or coming up, with Join; Steve's ask, Nov 2026). No "Start a Pack
