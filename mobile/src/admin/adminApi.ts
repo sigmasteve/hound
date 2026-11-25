@@ -82,7 +82,8 @@ export async function searchUsers(query: string, offset = 0, limit = USER_PAGE):
     .select(
       'id, name, initials, username, use_username, email, is_admin, last_active_at, created_at, organization_id, equipped_frame_id, equipped_background_id, equipped_icon_id',
     )
-    .order('is_admin', { ascending: false })
+    // Most recently active first (0266).
+    .order('last_active_at', { ascending: false, nullsFirst: false })
     .order('name', { ascending: true })
     .limit(25);
   if (trimmed) q = q.or(`name.ilike.%${trimmed}%,username.ilike.%${trimmed}%,email.ilike.%${trimmed}%`);
