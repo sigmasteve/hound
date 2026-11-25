@@ -312,6 +312,8 @@ export function CreateScreen({
   const [stepRivals, setStepRivals] = useState(true);
   const [stepBounties, setStepBounties] = useState(true);
   const [stepBlackout, setStepBlackout] = useState(false);
+  // 0270: count Move points (steps plus every workout) instead of steps.
+  const [stepCountsMove, setStepCountsMove] = useState(false);
   // H-O-R-S-E (0209): call your own shots, turn by turn, and what the
   // loser bakes the winner's hound.
   const [horseHandsOn, setHorseHandsOn] = useState(true);
@@ -1345,6 +1347,7 @@ export function CreateScreen({
         stepRivals: draftType === 'steps' ? stepRivals : undefined,
         stepBounties: draftType === 'steps' ? stepBounties : undefined,
         blackoutLastDay: draftType === 'steps' ? stepBlackout : undefined,
+        countsMove: draftType === 'steps' ? stepCountsMove : undefined,
         distanceSource: draftType === 'distance' && distanceGoalUnit === 'miles' ? distanceSource : undefined,
         bingoCardType: draftType === 'bingo' ? bingoCardType : undefined,
         bingoSize: draftType === 'bingo' ? bingoSize : undefined,
@@ -2304,6 +2307,17 @@ export function CreateScreen({
 
           {draftType === 'steps' && (
             <View style={styles.huntBlock}>
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.friendName}>Count Move points</Text>
+                  <Text style={styles.footNote}>
+                    {stepCountsMove
+                      ? 'Steps plus every workout: strength, yoga, classes, sports, by how hard they are. Good for friends without a watch or who lift. By hand, up to 2 hours a day.'
+                      : 'Off: steps only, from a phone or watch.'}
+                  </Text>
+                </View>
+                <Switch value={stepCountsMove} onValueChange={setStepCountsMove} trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.2) }} />
+              </View>
               <View style={styles.switchRow}>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={styles.friendName}>A rival every day</Text>

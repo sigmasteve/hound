@@ -193,6 +193,22 @@ square under them. The server holds the rules (`chess_legal`, a PL/pgSQL
 engine checked against the standard perft counts in test 128) and sends
 the moves you may make; the app never decides what's legal.
 
+## Move points
+
+Move points (0270, `src/move/`) count every kind of movement: 1 point =
+1 step's worth, a workout earns its minutes × its activity's rate
+(`move_rates`, Admin → Bones → Move points; walking, running and hiking
+are 0, their steps count). Everything comes from `workout_history`: a
+watch's workouts in full, Log a workout's ('manual') up to
+`move_config.hand_cap_min` a day, and Hound's own timed sessions ('hound':
+guided routines and strength logs, timed by `move_session_start` /
+`_finish`) in full unless a watch workout covers the same time. Each
+workout keeps the activity and rate it was recorded with, so rate changes
+apply forward. A Most steps challenge with `counts = 'move'` gets the
+day's points added server-side (`progress_snapshots.raw_steps` +
+`move_pts` = `steps`), so its board, results and prizes need nothing
+special. Strength goals (1 to 5 a week) are each person's own.
+
 ## Actions are on screen without scrolling
 
 Steve's rule (Nov 2026): every action a user can take is seen when the

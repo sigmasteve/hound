@@ -582,6 +582,22 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       ],
     },
     {
+      id: 'move',
+      section: 'basics',
+      title: 'Move points',
+      summary: 'Steps plus every workout, by how hard it is. No watch needed.',
+      steps: [
+        'Open the Goals tile on Today and tap Move. It shows today’s Move points: your steps, plus what each workout earned.',
+        'One Move point is one step’s worth. Walks and runs earn their steps. Other workouts earn points a minute by how hard they are: about 70 for yoga, 100 for strength, 145 for dance, 195 for cycling, 230 for HIIT.',
+        'Start a routine: a guided 5 to 18 minutes (bodyweight, a chair or dumbbells), each move on a timer. Hound times it, so it counts in full.',
+        'Log strength: pick a template (Full body, Push, Pull, Legs, Core, or start empty) and tick sets as you go. Weights are optional. A set past your best for that exercise is a new best.',
+        'Log an activity for anything else (classes, sports, housework). By hand, up to 2 hours a day count. Workouts from a watch or Health count in full.',
+        'Set your strength goal, 1 to 5 sessions a week. A week counts toward your week streak when you reach it. One session a day counts.',
+        'Most steps challenges can count Move points instead: turn on Count Move points when you create one.',
+      ],
+      tip: 'Timed in Hound and a watch over the same time? The watch’s workout counts, so nothing is counted twice.',
+    },
+    {
       id: 'fasting',
       section: 'basics',
       title: 'Intermittent fasting',

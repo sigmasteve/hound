@@ -31,6 +31,9 @@ import { PackFunScreen } from '../packFun/PackFunScreen';
 import { FastingScreen } from '../fasting/FastingScreen';
 import { FastingGameScreen } from '../fasting/FastingGameScreen';
 import { FastingBoardScreen } from '../fasting/FastingBoardScreen';
+import { MoveScreen } from '../move/MoveScreen';
+import { MoveRoutineScreen } from '../move/MoveRoutineScreen';
+import { MoveStrengthScreen } from '../move/MoveStrengthScreen';
 import { FastingPackScreen } from '../fasting/FastingPackScreen';
 import { GolfPlayScreen } from '../screens/GolfPlayScreen';
 import { HoopsShootScreen } from '../screens/HoopsShootScreen';
@@ -565,6 +568,34 @@ export function RootNavigator() {
             <Stack.Screen name="FastingBoard" options={{ animation: 'slide_from_right' }}>
               {({ navigation }) => (
                 <FastingBoardScreen onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Fasting'))} />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="Move" options={{ animation: 'slide_from_right' }}>
+              {/* Move points (0270), from the Goals sheet. */}
+              {({ navigation }) => (
+                <MoveScreen
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { tab: 'home' }))}
+                  onStartRoutine={(routineId) => navigation.navigate('MoveRoutine', { routineId })}
+                  onStartStrength={(templateId) => navigation.navigate('MoveStrength', { templateId })}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="MoveRoutine" options={{ animation: 'slide_from_right', gestureEnabled: false }}>
+              {({ navigation, route }) => (
+                <MoveRoutineScreen
+                  key={route.params.routineId}
+                  routineId={route.params.routineId}
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Move'))}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="MoveStrength" options={{ animation: 'slide_from_right', gestureEnabled: false }}>
+              {({ navigation, route }) => (
+                <MoveStrengthScreen
+                  key={route.params.templateId}
+                  templateId={route.params.templateId}
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Move'))}
+                />
               )}
             </Stack.Screen>
             <Stack.Screen name="FastingPack" options={{ animation: 'slide_from_right' }}>

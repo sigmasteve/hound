@@ -60,6 +60,7 @@ import { GoalsAdminCard } from '../components/GoalsAdminCard';
 import { WaterAdminCard } from '../components/WaterAdminCard';
 import { FastingAdminCard, FastingBonesCard, fastingSummary } from '../components/FastingAdminCard';
 import { FastingGamesAdminCard, fastingGamesSummary } from '../components/FastingGamesAdminCard';
+import { MoveAdminCard, MoveRatesCard, moveSummary } from '../components/MoveAdminCard';
 import { HoundClubsAdminCard, houndClubsSummary } from '../components/HoundClubsAdminCard';
 import { MoonAdminCard, moonSummary } from '../components/MoonAdminCard';
 import { getMoonOverview } from '../kennel/moonApi';
@@ -286,6 +287,7 @@ export function AdminScreen({
   const [workoutLogLine, setWorkoutLogLine] = useState<string | null>(null);
   const [fastingLine, setFastingLine] = useState<string | null>(null);
   const [fastingGamesLine, setFastingGamesLine] = useState<string | null>(null);
+  const [moveLine, setMoveLine] = useState<string | null>(null);
   const [houndClubsLine, setHoundClubsLine] = useState<string | null>(null);
   const [moonLine, setMoonLine] = useState<string | null>(null);
   // The Not seeing steps fold's line (0205).
@@ -1153,6 +1155,9 @@ export function AdminScreen({
                   <AdminFold title="Fasting games" summary={fastingGamesLine ?? 'The phase games and Fast Points'}>
                     <FastingGamesAdminCard onLoaded={(d) => setFastingGamesLine(fastingGamesSummary(d))} />
                   </AdminFold>
+                  <AdminFold title="Move points" summary={moveLine ?? 'Routines, strength logs and every kind of movement'}>
+                    <MoveAdminCard onLoaded={(d) => setMoveLine(moveSummary(d))} />
+                  </AdminFold>
                   <AdminFold title="Logged workouts" summary={workoutLogLine ?? 'Workouts logged by hand, for people without a watch'}>
                     <LoggedWorkoutsAdminCard onChanged={(o) => setWorkoutLogLine(workoutLogSummary(o))} />
                   </AdminFold>
@@ -1563,6 +1568,9 @@ export function AdminScreen({
 
                 <AdminFold title="Fasting" summary="What a fast, a streak, a pack fast and a phase game pay">
                   <FastingBonesCard />
+                </AdminFold>
+                <AdminFold title="Move points" summary="Points a minute for each activity, and the cap by hand">
+                  <MoveRatesCard />
                 </AdminFold>
                 <AdminFold title="Rewarded ads" summary="Ads for Bones, with a daily limit">
                   <AdsAdminCard />

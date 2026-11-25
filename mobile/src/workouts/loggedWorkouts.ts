@@ -22,6 +22,15 @@ export type LoggedType =
   | 'golf'
   | 'tennis'
   | 'swim'
+  // Move points (0270) brought these in.
+  | 'pilates'
+  | 'stretching'
+  | 'dance'
+  | 'elliptical'
+  | 'rowing'
+  | 'pickleball'
+  | 'housework'
+  | 'spin'
   | 'other';
 
 // The chips, in the sheet's order, and the name the server writes for each
@@ -38,6 +47,14 @@ export const LOGGED_TYPES: { id: LoggedType; label: string; name: string }[] = [
   { id: 'golf', label: 'Golf', name: 'Golf' },
   { id: 'tennis', label: 'Tennis', name: 'Tennis' },
   { id: 'swim', label: 'Swim', name: 'Swimming' },
+  { id: 'pilates', label: 'Pilates', name: 'Pilates' },
+  { id: 'stretching', label: 'Stretching', name: 'Flexibility' },
+  { id: 'dance', label: 'Dance', name: 'Dance' },
+  { id: 'elliptical', label: 'Elliptical', name: 'Elliptical' },
+  { id: 'rowing', label: 'Rowing', name: 'Rowing' },
+  { id: 'pickleball', label: 'Pickleball', name: 'Pickleball' },
+  { id: 'spin', label: 'Spin class', name: 'Spin Class' },
+  { id: 'housework', label: 'Housework', name: 'Housework' },
   { id: 'other', label: 'Other', name: 'Other' },
 ];
 
@@ -204,8 +221,9 @@ async function readLoggedSamples(): Promise<WorkoutSample[]> {
   if (!sess.session) return [];
   const { data, error } = await supabase
     .from('workout_history')
-    .select('source_id, name, occurred_at, logged_min, duration_min')
-    .eq('source', MANUAL_SOURCE)
+    .select('source_id, name, occurred_at, logged_min, duration_min, source')
+    // Timed in Hound (0270) too: guided routines and strength logs.
+    .in('source', [MANUAL_SOURCE, 'hound'])
     .order('occurred_at', { ascending: false })
     .limit(300);
   if (error || !data) return [];
@@ -213,7 +231,7 @@ async function readLoggedSamples(): Promise<WorkoutSample[]> {
     id: String(r.source_id),
     name: String(r.name ?? 'Workout'),
     when: new Date(r.occurred_at),
-    source: MANUAL_SOURCE,
+    source: r.source === 'hound' ? 'hound' : MANUAL_SOURCE,
     durationMin: num(r.logged_min ?? r.duration_min) || undefined,
   }));
 }
