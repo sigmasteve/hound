@@ -4,18 +4,12 @@ import { Text } from '../components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  BarbellIcon,
   BellRingingIcon,
-  CalendarCheckIcon,
   CheckCircleIcon,
   CheckIcon,
   CircleIcon,
-  DotsThreeIcon,
-  FootprintsIcon,
   HeartbeatIcon,
-  PersonSimpleRunIcon,
   TrophyIcon,
-  UsersThreeIcon,
 } from 'phosphor-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -43,13 +37,17 @@ import { claimOnboardingReward, getOnboardingStatus } from './onboardingApi';
 import { markAskedForUsername, useUsernameForm, UsernameFields } from '../profiles/UsernameForm';
 import { setMyName } from '../profiles/supabaseProfile';
 import { askForPush, dismissPushOffer, getPushPermission } from '../notifications/pushPermission';
+import { UsesPicker, USE_CHOICES, type UseId } from './UsesStep';
+import { saveMyUses } from './myUses';
+import { setStrengthTarget } from '../move/moveApi';
+import { useWater } from '../water/WaterContext';
+import { DEFAULT_WATER_GOAL } from '../water/water';
+import { DEFAULT_STEPS_GOAL } from '../goals/GoalsContext';
+import type { GoalDraft } from '../goals/goals';
 import {
   CONNECT_PROMPT_SEEN_KEY,
-  extraGoalsFor,
   finishWelcome,
   getWelcome,
-  HOUND_USES,
-  saveHoundUses,
   type HoundUse,
 } from './welcomeApi';
 
@@ -60,17 +58,9 @@ import {
 // alone): only while the phone hasn't been asked, after Jump in, so it
 // follows joining something. Skipping it leaves Today's card to ask again
 // in a few days.
-type StepId = 'health' | 'about' | 'jump' | 'push' | 'hound';
-
-const USE_ICONS: Record<HoundUse, typeof FootprintsIcon> = {
-  steps: FootprintsIcon,
-  workouts: CalendarCheckIcon,
-  strength: BarbellIcon,
-  cardio: PersonSimpleRunIcon,
-  friends: UsersThreeIcon,
-  habits: CheckCircleIcon,
-  other: DotsThreeIcon,
-};
+// "What will you use Hound for?" (0272) came after About you: one
+// checkbox per part of Hound, each set up as it's ticked.
+type StepId = 'health' | 'about' | 'uses' | 'jump' | 'push' | 'hound';
 
 // The welcome wizard (0109_welcome_wizard.sql): one thing at a time
 // instead of a Today full of setup cards. Right after sign-up, and once
@@ -114,9 +104,11 @@ export function SetupWizardScreen({
       setOpenGlobals(joinable);
       const steps: StepId[] = [];
       if (auth !== 'authorized') steps.push('health');
-      // A name, a username, and what they're here for, on one page.
-      // Finishing setup, only when something there is still missing.
-      if (!resume || !user?.username || user?.needsName || saved.length === 0) steps.push('about');
+      // A name and a username, when either is missing.
+      if (!user?.username || user?.needsName) steps.push('about');
+      // What they'll use Hound for: always for a new account, and when
+      // finishing setup if it was never answered.
+      if (!resume || saved.length === 0) steps.push('uses');
       // Join a challenge open to everyone, when any are taking players.
       if (joinable.length > 0) steps.push('jump');
       // Notifications, while the phone hasn't been asked (not on web).
@@ -193,8 +185,9 @@ export function SetupWizardScreen({
       </View>
 
       {step === 'health' && <HealthStep styles={styles} onNext={next} />}
-      {step === 'about' && (
-        <AboutStep
+      {step === 'about' && <AboutStep styles={styles} onNext={next} />}
+      {step === 'uses' && (
+        <UsesStep
           styles={styles}
           initialUses={uses}
           onNext={(u) => {
@@ -203,7 +196,7 @@ export function SetupWizardScreen({
           }}
         />
       )}
-      {step === 'jump' && <JumpInStep styles={styles} initialGlobals={openGlobals} onNext={next} />}
+      {step === 'jump' && <JumpInStep styles={styles} initialGlobals={sortForUses(openGlobals, uses)} onNext={next} />}
       {step === 'push' && <PushStep styles={styles} onNext={next} />}
       {step === 'hound' && <HoundStep styles={styles} last={last} onNext={next} />}
     </SafeAreaView>
@@ -345,34 +338,18 @@ function PushStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
   );
 }
 
-// Page 2: what to call you, and what you're into. A name when sign-up
-// didn't bring one (Sign in with Apple only shares it the first time), an
-// optional username for leaderboards (0030_username.sql; friends still see
-// the name), and their interests (hound_uses, 0109; 'other' from 0175).
-// The interests also add the daily goals that fit, which Today's goal
-// setup card then asks them to set. (What they're working toward, K-08,
-// is in Settings.)
-function AboutStep({
-  styles,
-  initialUses,
-  onNext,
-}: {
-  styles: Styles;
-  initialUses: HoundUse[];
-  onNext: (uses: HoundUse[]) => void;
-}) {
-  const { colors } = useTheme();
+// Page 2: what to call you. A name when sign-up didn't bring one (Sign in
+// with Apple only shares it the first time) and an optional username for
+// leaderboards (0030_username.sql; friends still see the name).
+function AboutStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
   const { user, updateUser } = useAuth();
-  const { goals, addGoal } = useGoals();
   const askName = !!user?.needsName;
   const [name, setName] = useState('');
-  const [uses, setUses] = useState<HoundUse[]>(initialUses);
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const form = useUsernameForm(askName ? name : undefined);
   const hasUsername = !!user?.username;
-  const toggleUse = (id: HoundUse) => setUses((cur) => (cur.includes(id) ? cur.filter((u) => u !== id) : [...cur, id]));
-  const ready = (!askName || name.trim().length > 0) && uses.length > 0 && (!form.trimmed || form.valid);
+  const ready = (!askName || name.trim().length > 0) && (!form.trimmed || form.valid);
 
   const save = async () => {
     setSaving(true);
@@ -390,15 +367,7 @@ function AboutStep({
           form.keepName();
         }
       }
-      saveHoundUses(uses).catch(() => {});
-      let room = MAX_GOALS - goals.length;
-      for (const draft of extraGoalsFor(uses)) {
-        const have = goals.some((g) => g.metric === draft.metric && g.period === draft.period && g.activity === draft.activity);
-        if (have || room <= 0) continue;
-        room -= 1;
-        addGoal(draft).catch(() => {});
-      }
-      onNext(uses);
+      onNext();
     } catch (e) {
       setProblem(e instanceof Error ? e.message : 'Could not save that. Try again.');
     } finally {
@@ -410,7 +379,7 @@ function AboutStep({
     <StepPage
       styles={styles}
       title="About you"
-      body="What to call you, and what you’re into. Hound suggests goals and challenges to match."
+      body="What to call you on Hound."
       footer={
         <>
           {(problem ?? form.problem) && <Text style={styles.problem}>{problem ?? form.problem}</Text>}
@@ -443,33 +412,97 @@ function AboutStep({
         )}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>WHAT ARE YOUR INTERESTS?</Text>
-        <View style={styles.chips}>
-          {HOUND_USES.map((u) => {
-            const on = uses.includes(u.id);
-            const Icon = USE_ICONS[u.id];
-            return (
-              <Pressable
-                key={u.id}
-                onPress={() => toggleUse(u.id)}
-                style={on ? [styles.chip, styles.chipOn] : styles.chip}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: on }}
-              >
-                <Icon size={16} color={on ? colors.accentActive : withAlpha(colors.text, 0.6)} weight={on ? 'fill' : 'regular'} />
-                <Text style={on ? [styles.chipText, styles.chipTextOn] : styles.chipText}>{u.name}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-
     </StepPage>
   );
 }
 
-// Page 3: the challenges open to everyone, each with its own Join, as many
+// Page 3: "What will you use Hound for?" (0272). One checkbox per part of
+// Hound; "Set up" saves them (profiles.hound_uses) and sets each one up:
+// a step goal if there isn't one, a workout goal (3 a week), Move's
+// strength goal (the days picked here), a water goal. Fasting needs
+// nothing here: ticking it puts the Fasting tile on Today (Start), and
+// Fasting asks the age question on the first open. Activities is where to
+// log them (Goals → Log a workout / activity); Games with friends puts
+// the challenges in Jump in, next.
+function UsesStep({
+  styles,
+  initialUses,
+  onNext,
+}: {
+  styles: Styles;
+  initialUses: HoundUse[];
+  onNext: (uses: HoundUse[]) => void;
+}) {
+  const { goals, addGoal } = useGoals();
+  const water = useWater();
+  const [picked, setPicked] = useState<UseId[]>(initialUses.filter((u): u is UseId => USE_CHOICES.some((c) => c.id === u)));
+  const [days, setDays] = useState(2);
+  const [saving, setSaving] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const toggle = (id: UseId) => setPicked((cur) => (cur.includes(id) ? cur.filter((u) => u !== id) : [...cur, id]));
+
+  const save = async () => {
+    setSaving(true);
+    setProblem(null);
+    try {
+      // Anything from before 0272 (other, habits) stays.
+      const keep = initialUses.filter((u) => !USE_CHOICES.some((c) => c.id === u));
+      const uses: HoundUse[] = [...picked, ...keep];
+      await saveMyUses(uses);
+      let room = MAX_GOALS - goals.length;
+      const want: GoalDraft[] = [];
+      if (picked.includes('steps') && !goals.some((g) => g.metric === 'steps' && g.period === 'day'))
+        want.push({ metric: 'steps', period: 'day', target: DEFAULT_STEPS_GOAL, activity: null, label: null });
+      if (picked.includes('workouts') && !goals.some((g) => g.metric === 'workouts' && g.period === 'week' && !g.activity))
+        want.push({ metric: 'workouts', period: 'week', target: 3, activity: null, label: 'Workouts a week' });
+      for (const draft of want) {
+        if (room <= 0) break;
+        room -= 1;
+        addGoal(draft).catch(() => {});
+      }
+      if (picked.includes('strength')) setStrengthTarget(days).catch(() => {});
+      if (picked.includes('water') && !water.goal) water.setGoal(DEFAULT_WATER_GOAL).catch(() => {});
+      onNext(uses);
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : 'Could not save that. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <StepPage
+      styles={styles}
+      title="What will you use Hound for?"
+      body="Tick all that fit. Hound sets each one up for you, and you can change them any time in Settings."
+      footer={
+        <>
+          {problem && <Text style={styles.problem}>{problem}</Text>}
+          <Button
+            label={saving ? 'Setting up…' : picked.length ? `Set up ${picked.length}` : 'Tick at least one'}
+            variant="primary"
+            block
+            disabled={saving || picked.length === 0}
+            onPress={save}
+          />
+        </>
+      }
+    >
+      <UsesPicker picked={picked} onToggle={toggle} strengthDays={days} onStrengthDays={setDays} />
+    </StepPage>
+  );
+}
+
+// Jump in's challenges, the ones that fit what they ticked first.
+function sortForUses(list: GlobalChallenge[], uses: HoundUse[]): GlobalChallenge[] {
+  const fit = (c: GlobalChallenge) =>
+    (uses.includes('steps') && (c.kind === 'steps' || c.kind === 'distance') ? 2 : 0) +
+    ((uses.includes('workouts') || uses.includes('strength') || uses.includes('activities')) && (c.kind === 'bingo' || c.kind === 'seventyfive') ? 1 : 0) +
+    ((uses.includes('fasting') || uses.includes('water')) && (c.kind === 'checklist' || c.kind === 'streak') ? 1 : 0);
+  return list.map((c, i) => ({ c, i, f: fit(c) })).sort((a, b) => b.f - a.f || a.i - b.i).map((x) => x.c);
+}
+
+// Page 4: the challenges open to everyone, each with its own Join, as many
 // as they like. Or none: they're on Today too, and starting their own is
 // one tap from there.
 function JumpInStep({

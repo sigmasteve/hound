@@ -19,13 +19,15 @@ import { font, radius, withAlpha, type Palette } from '../theme/tokens';
 // of Hound, each saying what it sets up. Strength asks its days a week
 // right there (Move's goal, 1 to 5).
 
-export type UseId = 'steps' | 'fasting' | 'workouts' | 'activities' | 'strength' | 'water' | 'friends';
+import type { HoundUse } from './welcomeApi';
+
+export type UseId = Extract<HoundUse, 'steps' | 'fasting' | 'workouts' | 'activities' | 'strength' | 'water' | 'friends'>;
 
 export const USE_CHOICES: { id: UseId; name: string; detail: string; sets: string }[] = [
   { id: 'steps', name: 'Steps', detail: 'A step goal, and races and chases', sets: 'Step goal on Today' },
-  { id: 'fasting', name: 'Intermittent fasting', detail: 'A live clock, stages and streaks', sets: 'Fasting card on Today' },
-  { id: 'workouts', name: 'Workouts', detail: 'From your watch, toward your goals', sets: 'Workout goal' },
-  { id: 'activities', name: 'Activities, no watch needed', detail: 'Log a class, yoga or a game: Move points', sets: 'Move points' },
+  { id: 'fasting', name: 'Intermittent fasting', detail: 'A live clock, stages and streaks', sets: 'Fasting tile on Today' },
+  { id: 'workouts', name: 'Workouts', detail: 'From your watch, toward your goals', sets: 'Workout goal: 3 a week' },
+  { id: 'activities', name: 'Activities, no watch needed', detail: 'Log a class, yoga or a game: Move points', sets: 'Log it from Goals for Move points' },
   { id: 'strength', name: 'Strength training', detail: 'Routines, a lifting log and your bests', sets: 'Weekly strength goal' },
   { id: 'water', name: 'Water', detail: 'A glass at a time toward a daily goal', sets: 'Water goal' },
   { id: 'friends', name: 'Games with friends', detail: 'Challenges, games, Pack Activities, clubs', sets: 'Challenges to join next' },
@@ -49,8 +51,9 @@ export function UsesPicker({
 }: {
   picked: UseId[];
   onToggle: (id: UseId) => void;
-  strengthDays: number;
-  onStrengthDays: (n: number) => void;
+  // Left out (Settings): no days row; the goal's on Move.
+  strengthDays?: number;
+  onStrengthDays?: (n: number) => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -82,7 +85,7 @@ export function UsesPicker({
                 <SquareIcon size={24} color={withAlpha(colors.text, 0.3)} />
               )}
             </Pressable>
-            {on && u.id === 'strength' && (
+            {on && u.id === 'strength' && onStrengthDays && (
               <View style={styles.days}>
                 <Text style={styles.daysLabel}>Days a week</Text>
                 {[1, 2, 3, 4, 5].map((n) => (

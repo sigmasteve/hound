@@ -16,8 +16,8 @@ import { CelebrationSettings } from '../celebrate/CelebrationSettings';
 import { TodaySettings } from '../home/TodaySettings';
 import { AdPrivacyCard } from '../ads/AdPrivacyCard';
 import { TextField } from '../components/TextField';
-import { getMyInterests, saveMyInterests, type Interest } from '../onboarding/interests';
-import { InterestsPicker } from '../onboarding/InterestsPicker';
+import { saveMyUses, useMyUses } from '../onboarding/myUses';
+import { UsesPicker, USE_CHOICES, type UseId } from '../onboarding/UsesStep';
 import { useTheme } from '../theme/ThemeContext';
 import { TEXT_SIZES, useTextSize } from '../theme/textSize';
 import { color, font, withAlpha, type Palette } from '../theme/tokens';
@@ -90,28 +90,19 @@ export function SettingsScreen({ onOpenLocker }: { onOpenLocker?: () => void } =
   // supabaseAuth.ts's userFromSession), so there's nothing else to load.
   const [usernameInput, setUsernameInput] = useState(user?.username ?? '');
   const [usernameError, setUsernameError] = useState<string | null>(null);
-  // K-08's interests (0151). Null until read, and if they can't be (before
-  // 0151 has run) the card doesn't show.
-  const [interests, setInterests] = useState<Interest[] | null>(null);
-  const [interestsSaving, setInterestsSaving] = useState(false);
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    getMyInterests()
-      .then(setInterests)
-      .catch(() => setInterests(null));
-  }, []);
-  const toggleInterest = async (id: Interest) => {
-    if (!interests) return;
-    const next = interests.includes(id) ? interests.filter((i) => i !== id) : [...interests, id];
-    setInterests(next);
-    setInterestsSaving(true);
+  // What you use Hound for: the wizard's checkboxes (0272), which K-08's
+  // interests folded into. Null until read.
+  const myUses = useMyUses();
+  const [usesSaving, setUsesSaving] = useState(false);
+  const toggleUse = async (id: UseId) => {
+    if (!myUses) return;
+    setUsesSaving(true);
     try {
-      setInterests(await saveMyInterests(next));
+      await saveMyUses(myUses.includes(id) ? myUses.filter((u) => u !== id) : [...myUses, id]);
     } catch (e) {
-      setInterests(interests);
       Alert.alert("Couldn't save that", e instanceof Error ? e.message : 'Try again.');
     } finally {
-      setInterestsSaving(false);
+      setUsesSaving(false);
     }
   };
   const [savingUsername, setSavingUsername] = useState(false);
@@ -667,11 +658,15 @@ export function SettingsScreen({ onOpenLocker }: { onOpenLocker?: () => void } =
         </Card>
       )}
 
-      {interests !== null && (
+      {isSupabaseConfigured && myUses !== null && (
         <Card style={{ gap: 12 }} elevated={false}>
-          <Text style={text.h4}>Your interests</Text>
-          <Text style={styles.footNote}>What you're working toward. Only you see this; Hound uses it to suggest challenges that fit you.</Text>
-          <InterestsPicker picked={interests} onToggle={toggleInterest} disabled={interestsSaving} />
+          <Text style={text.h4}>What you use Hound for</Text>
+          <Text style={styles.footNote}>
+            Only you see this. Hound suggests challenges to match, and Intermittent fasting puts the Fasting tile on Today.
+          </Text>
+          <View pointerEvents={usesSaving ? 'none' : 'auto'}>
+            <UsesPicker picked={myUses.filter((u): u is UseId => USE_CHOICES.some((c) => c.id === u))} onToggle={toggleUse} />
+          </View>
         </Card>
       )}
 

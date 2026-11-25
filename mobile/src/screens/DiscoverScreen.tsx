@@ -14,7 +14,8 @@ import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { CHALLENGE_KIND_ICON } from '../data/challengeIcons';
 import { canJoin, globalTimingLine, joinGlobalChallenge, listGlobalChallenges, type GlobalChallenge } from '../challenges/globalChallenges';
 import { SlotsJoinSheet } from '../components/SlotsJoinSheet';
-import { getMyInterests, type Interest } from '../onboarding/interests';
+import { type Interest } from '../onboarding/interests';
+import { interestsFromUses, loadMyUses } from '../onboarding/myUses';
 import {
   COUNTS_NAMES,
   FORMAT_NAMES,
@@ -110,8 +111,9 @@ export function DiscoverContent({
           onOpenCount?.(open.length);
         })
         .catch(() => setGlobals([]));
-      getMyInterests()
-        .then((i) => setInterests(i ?? []))
+      // What you use Hound for (0272; K-08's interests folded into it).
+      loadMyUses(true)
+        .then((u) => setInterests(interestsFromUses(u)))
         .catch(() => {});
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),

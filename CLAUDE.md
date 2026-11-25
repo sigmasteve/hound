@@ -209,6 +209,23 @@ day's points added server-side (`progress_snapshots.raw_steps` +
 `move_pts` = `steps`), so its board, results and prizes need nothing
 special. Strength goals (1 to 5 a week) are each person's own.
 
+## Welcome wizard: what you'll use Hound for
+
+The welcome wizard (`src/onboarding/SetupWizardScreen.tsx`) is Connect
+Health, About you (name and username, only when missing), "What will you
+use Hound for?" (0272), Jump in, notifications and Meet your hound. The
+checkboxes (`src/onboarding/UsesStep.tsx`: Steps, Intermittent fasting,
+Workouts, Activities with no watch, Strength training with its days a
+week, Water, Games with friends) save in `profiles.hound_uses` and set
+each part up on "Set up": a step goal if missing, a workout goal (3 a
+week), Move's strength goal, a water goal; Intermittent fasting puts the
+Fasting tile on Today (Fasting asks the age question on the first open).
+Settings has the same checkboxes, and Discover ranks by them
+(`interestsFromUses` in `myUses.ts`; K-08's interests folded in). When a
+new part of Hound ships, add it here: a checkbox, what ticking it sets up,
+and its tried / now numbers in `admin_uses_overview` (Admin → Overview →
+Status → What people use Hound for).
+
 ## Offline mode
 
 Offline mode (0271, `src/offline/`, Admin → Overview → Status → Offline
@@ -301,9 +318,10 @@ Inside the scroll, in order:
      strip (its number with its lines beside it, not a half tile's
      height stretched across; Steve, Nov 2026): your hound
      (when the Kennel has loaded), Needs you (only when caught up or muted), Your
-     challenges, Fasting (only once you've started a fast, 0261: the live
-     clock while fasting, else Start; left out while the Fasting card is
-     showing across the top), and either Week in review (Monday
+     challenges, Fasting (once you've started a fast, 0261, or before a
+     first fast if you ticked Intermittent fasting in the welcome wizard,
+     0272: the live clock while fasting, else Start; left out while the
+     Fasting card is showing across the top), and either Week in review (Monday
      until Tuesday noon, local) or today's Step rank (the rest of the week).
    - Journey, full width, when you're on one.
 4. The notifications ask (PushAskCard), once you have a friend or a

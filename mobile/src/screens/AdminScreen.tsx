@@ -62,6 +62,7 @@ import { FastingAdminCard, FastingBonesCard, fastingSummary } from '../component
 import { FastingGamesAdminCard, fastingGamesSummary } from '../components/FastingGamesAdminCard';
 import { MoveAdminCard, MoveRatesCard, moveSummary } from '../components/MoveAdminCard';
 import { OfflineAdminCard, offlineSummary } from '../components/OfflineAdminCard';
+import { UsesAdminCard, usesSummary } from '../components/UsesAdminCard';
 import { HoundClubsAdminCard, houndClubsSummary } from '../components/HoundClubsAdminCard';
 import { MoonAdminCard, moonSummary } from '../components/MoonAdminCard';
 import { getMoonOverview } from '../kennel/moonApi';
@@ -290,6 +291,7 @@ export function AdminScreen({
   const [fastingGamesLine, setFastingGamesLine] = useState<string | null>(null);
   const [moveLine, setMoveLine] = useState<string | null>(null);
   const [offlineLine, setOfflineLine] = useState<string | null>(null);
+  const [usesLine, setUsesLine] = useState<string | null>(null);
   const [houndClubsLine, setHoundClubsLine] = useState<string | null>(null);
   const [moonLine, setMoonLine] = useState<string | null>(null);
   // The Not seeing steps fold's line (0205).
@@ -1050,6 +1052,9 @@ export function AdminScreen({
                     <AppVersionsCard />
                   </AdminFold>
                   </View>
+                  <AdminFold title="What people use Hound for" summary={usesLine ?? 'The welcome wizard’s checkboxes'}>
+                    <UsesAdminCard onChanged={(o) => setUsesLine(usesSummary(o))} />
+                  </AdminFold>
                   <AdminFold title="Needs you" summary={needsYouLine ?? 'Who mutes it, and for how long'}>
                     <NeedsYouAdminCard onChanged={(o) => setNeedsYouLine(needsYouSummary(o))} />
                   </AdminFold>
