@@ -238,8 +238,10 @@ Inside the scroll, in order:
    - Goals, full width across the top (rings or hound trails). Once
      you've started a fast it swipes sideways to the Fasting card (Steve,
      Nov 2026; `src/home/TodayFastingCard.tsx`): the ring with the clock,
-     the stage, what's left to your goal and the next stage, or between
-     fasts your plan, the week and your last fast. Dots under it; the
+     the stage, what's left to your goal and the next stage (or the phase
+     game that's open, 0269), or between fasts your plan, the week and
+     your last fast; under it the fast's game slots and the numbers at a
+     glance (streak, this week, Fast Points, longest). Dots under it; the
      phone remembers which was showing (`useTodayTopCard` in
      `home/todayPrefs.ts`), and tapping it opens Fasting.
    - Needs you, full width, while anything is waiting (Steve's pick,

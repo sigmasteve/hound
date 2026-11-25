@@ -6,8 +6,10 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { Tile } from './TodayTiles';
 import { FastRing, StageIcon } from '../fasting/FastingParts';
-import { STAGE_COLOR, clockText, leftText, nextStage, planLabel, stageAt } from '../fasting/fasting';
-import { hoursSince, type MyFasting } from '../fasting/fastingApi';
+import { STAGE_COLOR, clockText, leftText, longestShort, nextStage, planLabel, stageAt } from '../fasting/fasting';
+import { getFastingGames, hoursSince, type FastingGamesState, type MyFasting } from '../fasting/fastingApi';
+import { GAME_INFO } from '../fasting/fastingGames';
+import { slotColor } from '../fasting/FastingGameScreen';
 
 // The Fasting card across the top of Today (Steve, Nov 2026: "for folks
 // who care more about Fasting and not steps"): swipe the Goals tile
@@ -24,6 +26,19 @@ export function TodayFastingCard({ fasting, now, onOpen }: { fasting: MyFasting;
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const o = fasting.open;
   const h = o ? hoursSince(o.startedAt, now) : 0;
+  // A phase game that's open (0269) takes the card's last line.
+  const [games, setGames] = useState<FastingGamesState | null>(null);
+  const fastKey = `${o?.id ?? '-'}:${fasting.days.length}`;
+  useEffect(() => {
+    getFastingGames()
+      .then(setGames)
+      .catch(() => {});
+  }, [fastKey, Math.floor(now / 600000)]);
+  const gf = games?.on ? games.fast : null;
+  const gh = gf ? ((gf.endedAt ? new Date(gf.endedAt).getTime() : now) - new Date(gf.startedAt).getTime()) / 3600000 : 0;
+  const openGame = gf
+    ? games!.slots.find((s) => s.status === 'open' || (s.status === 'locked' && gh >= s.at))
+    : undefined;
   const streak = fasting.numbers.streak;
   const rows: { color: string; icon?: string; value: string; sub: string; subColor?: string }[] = [];
 
@@ -59,6 +74,34 @@ export function TodayFastingCard({ fasting, now, onOpen }: { fasting: MyFasting;
       });
     }
   }
+
+  if (openGame) {
+    const row = {
+      color: slotColor(openGame.slot, colors.green),
+      value: `${GAME_INFO[openGame.game].name} is open`,
+      sub: 'Play it in Fasting ›',
+      subColor: slotColor(openGame.slot, colors.green),
+    };
+    if (rows.length >= 3) rows[2] = row;
+    else rows.push(row);
+  } else if (o && rows.length < 3) {
+    // Nothing next before the goal and no cheers: when it started.
+    rows.push({
+      color: withAlpha(colors.text, 0.35),
+      value: `Started ${new Date(o.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
+      sub: `${planLabel(o.goalHours)} plan`,
+    });
+  }
+
+  // Under the ring: the fast's games (0269) and the numbers at a glance,
+  // so the card fills the Goals tile's height (Steve, Nov 2026).
+  const slots = gf ? games!.slots : [];
+  const stats: [string, string][] = [
+    [`🔥 ${streak}`, 'day streak'],
+    [`${fasting.numbers.weekDays}`, 'this week'],
+    [games?.on ? games.points.toLocaleString() : `${fasting.numbers.days30}`, games?.on ? 'Fast Points' : 'days in 30'],
+    [longestShort(fasting.numbers.longest), 'longest'],
+  ];
 
   return (
     <Tile
@@ -104,6 +147,36 @@ export function TodayFastingCard({ fasting, now, onOpen }: { fasting: MyFasting;
             </View>
           ))}
         </View>
+      </View>
+      {slots.length > 0 && (
+        <View style={styles.slots}>
+          {slots.map((sl) => {
+            const st = sl.status === 'locked' && gh >= sl.at ? 'open' : sl.status;
+            const col = slotColor(sl.slot, colors.green);
+            return (
+              <View key={sl.slot} style={[styles.slot, (st === 'open' || st === 'played') && { borderColor: withAlpha(col, 0.6) }]}>
+                <Text style={[styles.slotValue, st === 'open' && { color: col }]}>
+                  {st === 'played' ? sl.score : st === 'left' ? '0' : st === 'open' ? 'Play' : `${sl.at} h`}
+                </Text>
+                <Text style={styles.slotLabel} numberOfLines={1}>
+                  {GAME_INFO[sl.game].name}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+      <View style={styles.stats}>
+        {stats.map(([v, l]) => (
+          <View key={l} style={styles.stat}>
+            <Text style={styles.statValue} numberOfLines={1}>
+              {v}
+            </Text>
+            <Text style={styles.statLabel} numberOfLines={2}>
+              {l}
+            </Text>
+          </View>
+        ))}
       </View>
     </Tile>
   );
@@ -191,6 +264,23 @@ function makeStyles(colors: Palette) {
     dot: { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
     value: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text },
     sub: { fontSize: 12, color: withAlpha(colors.text, 0.6), marginTop: 1 },
+    slots: { flexDirection: 'row', gap: 6, marginTop: 12 },
+    slot: {
+      flex: 1,
+      borderRadius: 10,
+      borderWidth: 1.5,
+      borderColor: 'transparent',
+      backgroundColor: withAlpha(colors.text, 0.05),
+      paddingVertical: 6,
+      paddingHorizontal: 2,
+      alignItems: 'center',
+    },
+    slotValue: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text },
+    slotLabel: { fontSize: 10.5, color: withAlpha(colors.text, 0.55) },
+    stats: { flexDirection: 'row', marginTop: 10, borderRadius: 12, backgroundColor: withAlpha(colors.accent, 0.08), paddingVertical: 10 },
+    stat: { flex: 1, alignItems: 'center', paddingHorizontal: 2 },
+    statValue: { fontFamily: font.headingSemibold, fontSize: 16, color: colors.text },
+    statLabel: { fontSize: 11, lineHeight: 14, color: withAlpha(colors.text, 0.6), textAlign: 'center' },
     dots: { flexDirection: 'row', justifyContent: 'center', gap: 5 },
     pageDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: withAlpha(colors.text, 0.2) },
   });
