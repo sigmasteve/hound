@@ -127,17 +127,21 @@ export function TodayTopPager({
   const [shown, setShown] = useState(page);
   const ref = useRef<ScrollView>(null);
   const placed = useRef(false);
+  // The same gap as between the other tiles, so the cards don't touch
+  // while they slide.
+  const GAP = 10;
+  const step = w + GAP;
 
   useEffect(() => {
     if (w > 0 && !placed.current) {
       placed.current = true;
-      ref.current?.scrollTo({ x: page * w, animated: false });
+      ref.current?.scrollTo({ x: page * step, animated: false });
     }
-  }, [w, page]);
+  }, [w, page, step]);
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!w) return;
-    const i = Math.max(0, Math.min(pages.length - 1, Math.round(e.nativeEvent.contentOffset.x / w)));
+    const i = Math.max(0, Math.min(pages.length - 1, Math.round(e.nativeEvent.contentOffset.x / step)));
     if (i !== shown) {
       setShown(i);
       onPage(i);
@@ -150,15 +154,17 @@ export function TodayTopPager({
         <ScrollView
           ref={ref}
           horizontal
-          pagingEnabled
+          snapToInterval={step}
+          decelerationRate="fast"
+          disableIntervalMomentum
           showsHorizontalScrollIndicator={false}
-          contentOffset={{ x: page * w, y: 0 }}
+          contentOffset={{ x: page * step, y: 0 }}
           onScroll={onScroll}
           scrollEventThrottle={32}
           accessibilityHint="Swipe left or right for Goals and Fasting"
         >
           {pages.map((p, i) => (
-            <View key={i} style={{ width: w, flexDirection: 'column' }}>
+            <View key={i} style={{ width: w, marginRight: i < pages.length - 1 ? GAP : 0, flexDirection: 'column' }}>
               {p}
             </View>
           ))}
