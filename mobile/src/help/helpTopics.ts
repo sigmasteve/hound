@@ -596,7 +596,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Friends see when you’re fasting and can cheer you on. Start together invites them to a pack fast: when everyone who joins ends on plan, you all get a bonus.',
         'The board ranks you and your friends by days on plan this week. Longest fasts of 24 hours or more show as “24 h+”; tap to see the time. Tap a friend to compare.',
         'Everyone on Hound can join the Intermittent Fasting club (Clubs tab, under Hound clubs): it opens with who’s fasting now, the week’s board of everyone there who fasts, and Start a fast. Your numbers show there once you’ve fasted (unless you’ve turned off sharing).',
-        'Any club’s page shows who in it is fasting now and the week’s board. Start your own Fasting club from Clubs → Start a club.',
+        'Fasting clubs show who in them is fasting now and the week’s board. Start your own from Clubs → Start a club and pick Fasting.',
         'Don’t want friends to see? Turn off “Friends and clubmates see when I’m fasting” on the Fasting screen.',
       ],
       tip: 'Hound tells you as each stage begins (settling, fat burning, ketosis) and when your fast reaches its goal, and checks in if you’re still going at 36 hours. If you feel dizzy, faint or unwell, eat.',
