@@ -169,6 +169,10 @@ import { notifyBonesChanged } from '../bones/bonesChanged';
 import { DailyBonusModal } from '../components/DailyBonusModal';
 import { AchievementUnlockedModal } from '../components/AchievementUnlockedModal';
 import { LevelUpModal } from '../components/LevelUpModal';
+import { MoonSequence, lookFromKennel } from '../kennel/MoonScene';
+import { MOON_FORMS, type MoonForm } from '../kennel/moonForms';
+import { getMoonState, moonCatchupSeen } from '../kennel/moonApi';
+import { MoonCatchupModal } from '../kennel/MoonCatchupModal';
 import { getMyHoundScore } from '../challenges/scoreApi';
 import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
@@ -1210,6 +1214,10 @@ export function HomeScreen({
   const [unlocked, setUnlocked] = useState<NewlyEarnedAchievement[]>([]);
   // Set when this open finds you a level up since last time (LevelUpModal).
   const [levelUp, setLevelUp] = useState<{ from: number; to: number; unlockedNames: string[] } | null>(null);
+  // Moon forms (0264): a new rank's cut scene before the level-up card,
+  // and the one-time catch-up for ranks reached before they shipped.
+  const [moonPlay, setMoonPlay] = useState<{ forms: MoonForm[]; how: 'rankup' | 'catchup' } | null>(null);
+  const [moonCatchup, setMoonCatchup] = useState<MoonForm[] | null>(null);
   // New-user "Get started" checklist (0074_onboarding_checklist.sql).
   // null = not loaded (or failed) — the card just doesn't render. Hidden
   // for good once the reward's claimed, or locally if dismissed.
@@ -1513,6 +1521,8 @@ export function HomeScreen({
             .filter((i) => i.unlockXp != null && i.unlockXp > seenXp && i.unlockXp <= xpTotal)
             .map((i) => i.name);
           if (takePopup()) {
+            const newForms = MOON_FORMS.filter((f) => f.level > from && f.level <= to);
+            if (newForms.length > 0) setMoonPlay({ forms: newForms, how: 'rankup' });
             setLevelUp({ from, to, unlockedNames });
           } else {
             pushToast({
@@ -1521,6 +1531,15 @@ export function HomeScreen({
               Icon: TrophyIcon,
             });
           }
+        })
+        .catch(() => {})
+        // Moon forms (0264): ranks reached before the scenes shipped get a
+        // one-time "watch your hound's moon forms", if this open has room.
+        .then(async () => {
+          const ms = await getMoonState();
+          if (!ms.catchupDue) return;
+          const forms = MOON_FORMS.filter((f) => (ms.reached as string[]).includes(f.rank));
+          if (forms.length > 0 && takePopup()) setMoonCatchup(forms);
         })
         .catch(() => {})
         .then(() => getOnboardingStatus())
@@ -3680,7 +3699,24 @@ export function HomeScreen({
         }}
       />
     )}
-    {levelUp && !dailyBonus && unlocked.length === 0 && (
+    {moonPlay && kennel && !dailyBonus && unlocked.length === 0 && (
+      <MoonSequence forms={moonPlay.forms} look={lookFromKennel(kennel)} how={moonPlay.how} onDone={() => setMoonPlay(null)} />
+    )}
+    {moonCatchup && !moonPlay && !dailyBonus && unlocked.length === 0 && (
+      <MoonCatchupModal
+        forms={moonCatchup}
+        kennel={kennel}
+        onWatch={() => {
+          setMoonPlay({ forms: moonCatchup, how: 'catchup' });
+          setMoonCatchup(null);
+        }}
+        onLater={() => {
+          setMoonCatchup(null);
+          moonCatchupSeen().catch(() => {});
+        }}
+      />
+    )}
+    {levelUp && !(moonPlay && kennel) && !dailyBonus && unlocked.length === 0 && (
       <LevelUpModal
         fromLevel={levelUp.from}
         toLevel={levelUp.to}

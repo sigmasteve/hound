@@ -70,6 +70,7 @@ export function HoundArt({
   mud = false,
   fresh = false,
   hairdo = null,
+  moon,
 }: {
   rank: Rank['id'];
   mood: HoundMood;
@@ -99,6 +100,11 @@ export function HoundArt({
   mud?: boolean;
   fresh?: boolean;
   hairdo?: Hairdo | null;
+  // Its moon form (the rank transformations, 0264): a crescent mark from
+  // Tracker, a spiky mane from Hunter, glowing eyes from Alpha and a
+  // silver moonlight aura as a Legend, each adding to the last. Left out,
+  // its rank's; null, the plain hound (its owner switched it off).
+  moon?: Rank['id'] | null;
 }) {
   const asAvatar = variant === 'avatar';
   const motion = useRef(new Animated.Value(0)).current;
@@ -249,6 +255,8 @@ export function HoundArt({
   // Lying down (the Yard's bed and hammock): the body squashed flat from
   // the ground up, and the head lowered onto it.
   const lying = pose === 'lie' && !asAvatar;
+  const moonRank = moon === undefined ? rank : moon;
+  const moonStep = moonRank ? MOON_ORDER.indexOf(moonRank) : 0;
   const bodyTop = bodyCy - g.bodyRy;
   const headDrop = lying ? (200 - (200 - bodyTop) * LIE_SY - bodyTop) * 0.82 : 0;
 
@@ -257,12 +265,17 @@ export function HoundArt({
       <Svg width={size} height={asAvatar ? size : size * 1.2} viewBox={asAvatar ? `38 ${headCy - (hairdo && !head ? 62 : 52)} 124 124` : '0 -30 200 240'}>
         <Defs>
           <RadialGradient id="aura" cx="50%" cy="50%" r="50%">
-            <Stop offset="0" stopColor="#e0b84f" stopOpacity="0.55" />
-            <Stop offset="1" stopColor="#e0b84f" stopOpacity="0" />
+            <Stop offset="0" stopColor={moonStep >= 4 ? MOONLIGHT : '#e0b84f'} stopOpacity="0.55" />
+            <Stop offset="1" stopColor={moonStep >= 4 ? MOONLIGHT : '#e0b84f'} stopOpacity="0" />
+          </RadialGradient>
+          <RadialGradient id="moonEye" cx="50%" cy="50%" r="50%">
+            <Stop offset="0" stopColor={MOON_EYE} stopOpacity="0.9" />
+            <Stop offset="1" stopColor={MOON_EYE} stopOpacity="0" />
           </RadialGradient>
         </Defs>
 
-        {!asAvatar && rank === 'legend' && <Circle cx={100} cy={115} r={100} fill="url(#aura)" />}
+        {!asAvatar && (rank === 'legend' || moonStep >= 4) && <Circle cx={100} cy={115} r={100} fill="url(#aura)" />}
+        {!asAvatar && moonStep >= 4 && <MoonStars />}
         {!asAvatar && <Ellipse cx={100} cy={204} rx={(g.bodyRx + 12) * s.scale} ry={6} fill="#000" opacity={0.15} />}
         <G transform={`translate(${100 * (1 - s.scale)} ${200 * (1 - s.scale)}) scale(${s.scale})`}>
           {lying ? (
@@ -292,10 +305,13 @@ export function HoundArt({
           )}
           {mud && !asAvatar && <Mud bodyCy={bodyCy} bodyRx={s.bodyRx} bodyRy={s.bodyRy} lying={lying} />}
           <G transform={headDrop ? `translate(0 ${headDrop})` : undefined}>
+            {moonStep >= 2 && <MoonRuff headCy={headCy} headR={headR} dark={COAT_DARK} light={LIGHT} big={moonStep >= 3} />}
             {headPart}
             {neck && <NeckItem item={neck} y={neckY} width={headR * 1.25} />}
 
             <Face mood={mood} headCy={headCy + g.faceDy} eyeY={eyeY} />
+            {moonStep >= 3 && mood !== 'sleepy' && <MoonEyes eyeY={eyeY} />}
+            {moonStep >= 1 && !head && <MoonMark headCy={headCy} headR={headR} />}
             {face && <FaceItem item={face} eyeY={eyeY} />}
             {hairdo && !head && <HairdoArt kind={hairdo} headCy={headCy} headR={headR} coat={COAT} dark={COAT_DARK} light={LIGHT} />}
             {head && <HeadItem item={head} headCy={headCy} headR={headR} />}
@@ -315,6 +331,98 @@ export function HoundArt({
 }
 
 const MUD = '#6b4a2b';
+
+// Moon forms (the rank transformations, kennel/moonForms.ts).
+const MOON_ORDER: Rank['id'][] = ['pup', 'tracker', 'hunter', 'alpha', 'legend'];
+const MOONLIGHT = '#bcd4ff';
+const MOON_EYE = '#ffd25e';
+
+// A crescent on the forehead, from Tracker.
+function MoonMark({ headCy, headR }: { headCy: number; headR: number }) {
+  const cx = 100;
+  const cy = headCy - headR * 0.6;
+  const r = 10;
+  // Outer arc round the left, inner arc back: a crescent opening right.
+  return (
+    <Path
+      d={`M ${cx + 2} ${cy - r} A ${r} ${r} 0 1 0 ${cx + 2} ${cy + r} A ${r * 0.72} ${r * 0.8} 0 1 1 ${cx + 2} ${cy - r} Z`}
+      fill="#ffd25e"
+      stroke="#8a5a12"
+      strokeWidth={1}
+    />
+  );
+}
+
+// A spiky mane round the face, behind the head: cheeks and chin from
+// Hunter, all the way round and longer from Alpha.
+function MoonRuff({ headCy, headR, dark, light, big }: { headCy: number; headR: number; dark: string; light: string; big: boolean }) {
+  const from = big ? -35 : 5;
+  const to = big ? 215 : 175;
+  const n = big ? 15 : 10;
+  const tip = headR * (big ? 1.42 : 1.24);
+  const base = headR * 0.92;
+  const step = (to - from) / n;
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const pt = (a: number, r: number) => `${100 + Math.cos(rad(a)) * r} ${headCy + Math.sin(rad(a)) * r}`;
+  let d = '';
+  for (let i = 0; i < n; i++) {
+    const a = from + i * step;
+    const lean = i < n / 2 ? -step * 0.25 : step * 0.25;
+    d += `M ${pt(a, base)} L ${pt(a + step / 2 + lean, tip * (i % 2 ? 0.94 : 1))} L ${pt(a + step, base)} Z `;
+  }
+  return (
+    <G>
+      <Path d={d} fill={dark} strokeLinejoin="round" />
+      <Path
+        d={Array.from({ length: n }, (_, i) => `M ${pt(from + (i + 0.5) * step, base * 1.02)} L ${pt(from + (i + 0.5) * step, tip * 0.88)}`).join(' ')}
+        stroke={light}
+        strokeWidth={1.6}
+        opacity={0.35}
+        strokeLinecap="round"
+      />
+    </G>
+  );
+}
+
+// Glowing eyes, from Alpha: a warm glow behind gold irises.
+function MoonEyes({ eyeY }: { eyeY: number }) {
+  return (
+    <G>
+      {[83, 117].map((x) => (
+        <G key={x}>
+          <Circle cx={x} cy={eyeY} r={13} fill="url(#moonEye)" opacity={0.7} />
+          <Circle cx={x} cy={eyeY} r={4.2} fill={MOON_EYE} />
+          <Circle cx={x} cy={eyeY} r={1.8} fill={INK} />
+          <Circle cx={x + 1.6} cy={eyeY - 1.8} r={1.2} fill="#fff" />
+        </G>
+      ))}
+    </G>
+  );
+}
+
+// A Legend's moonlight: a few stars drifting in the aura.
+function MoonStars() {
+  const stars = [
+    [30, 40, 3],
+    [168, 28, 2.4],
+    [178, 110, 3.2],
+    [22, 128, 2.2],
+    [150, 70, 1.8],
+    [52, 86, 1.6],
+  ];
+  return (
+    <G>
+      {stars.map(([x, y, r], i) => (
+        <Path
+          key={i}
+          d={`M ${x} ${y - r * 2} L ${x + r * 0.5} ${y - r * 0.5} L ${x + r * 2} ${y} L ${x + r * 0.5} ${y + r * 0.5} L ${x} ${y + r * 2} L ${x - r * 0.5} ${y + r * 0.5} L ${x - r * 2} ${y} L ${x - r * 0.5} ${y - r * 0.5} Z`}
+          fill="#eef3ff"
+          opacity={0.85}
+        />
+      ))}
+    </G>
+  );
+}
 
 // Muddy paws, splashes up the legs and a smear on the side.
 function Mud({ bodyCy, bodyRx, bodyRy, lying }: { bodyCy: number; bodyRx: number; bodyRy: number; lying: boolean }) {

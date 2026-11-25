@@ -292,4 +292,9 @@ What each sheet holds:
 
 Pop-ups (a stop reached on a Journey, a level up, the daily bonus, an
 achievement, a new record, the username ask) are gated to one per
-open; the rest become toasts, at most four queued.
+open; the rest become toasts, at most four queued. A level up that
+reaches a new rank plays its moon form's cut scene first (0264,
+`kennel/MoonScene.tsx`), then the level-up card, as one pop-up; ranks
+reached before the scenes shipped get a one-time "Your hound has changed
+under the moon" (MoonCatchupModal), also one pop-up. Every scene can be
+watched again from the Kennel's Moon forms.

@@ -34,6 +34,8 @@ import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
 import { HoundArt } from '../kennel/HoundArt';
 import { HoundLadderSheet } from '../kennel/HoundLadderSheet';
+import { MoonFormsCard } from '../kennel/MoonFormsCard';
+import { useMyMoonLook } from '../kennel/moonApi';
 import { stepLabel, stepsAfter } from '../challenges/ladder';
 import {
   EAR_OPTIONS,
@@ -182,6 +184,8 @@ export function KennelScreen({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [ladderOpen, setLadderOpen] = useState(false);
+  // Moon forms (0264): your switch for the hound's moon look.
+  const myMoon = useMyMoonLook();
   // Bath time (0177): the bath you play, full screen.
   const [bathOpen, setBathOpen] = useState(false);
   // The Yard (0148_yard.sql). Null until it loads, and if it can't (before
@@ -557,6 +561,8 @@ export function KennelScreen({
     markings: kennel.markings,
     // The 'do from bath time (0178), until the next long walk.
     hairdo: care.care?.bath.hairdo ?? null,
+    // Its rank's moon look, unless switched off (0264).
+    moon: myMoon,
   };
   const shownYard =
     yard && trying?.kind === 'yard' && trying.spot ? { ...yard, spots: { ...yard.spots, [trying.spot]: trying.item.id } } : yard;
@@ -1696,6 +1702,7 @@ export function KennelScreen({
               </View>
             </Card>
             )}
+            <MoonFormsCard kennel={kennel} level={level} />
             {nextStep && (
               <Card style={{ gap: 6, alignItems: 'center' }} elevated={false}>
               {nextStep && (

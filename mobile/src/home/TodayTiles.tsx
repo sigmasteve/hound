@@ -5,6 +5,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { BarbellIcon, CaretRightIcon, CheckCircleIcon, FireIcon, FootprintsIcon, PathIcon, TimerIcon, XIcon } from 'phosphor-react-native';
 import { GoalTrail, type TrailAvatar } from '../components/GoalTrail';
 import { HoundArt } from '../kennel/HoundArt';
+import { useMyMoonLook } from '../kennel/moonApi';
 import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
 import { useTheme } from '../theme/ThemeContext';
@@ -145,6 +146,7 @@ export function HoundTile({ kennel, onPress }: { kennel: Kennel; onPress: () => 
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const rank = rankForLevel(levelProgressForXp(kennel.xpTotal).level);
+  const moon = useMyMoonLook();
   return (
     <Tile label={kennel.name} onPress={onPress} accessibilityLabel={`${kennel.name}, ${MOOD_WORD[kennel.mood]}. Open the Kennel`}>
       <TileValue value={MOOD_WORD[kennel.mood]} lines={[kennel.treatedToday ? 'Treated today' : 'Treat ready', 'Kennel ›']} />
@@ -162,6 +164,7 @@ export function HoundTile({ kennel, onPress }: { kennel: Kennel; onPress: () => 
           breedId={kennel.breedId}
           bodyId={kennel.bodyId}
           feetId={kennel.feetId}
+          moon={moon}
           size={84}
         />
       </View>
