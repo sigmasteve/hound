@@ -150,7 +150,20 @@ export function StageIcon({ stageKey, size = 16, color }: { stageKey: string; si
 // I'm at"). What's done is drawn thick and bright over a thin, pale track
 // for what's to go, with a stronger track and glow in light mode, where
 // the pale colours washed out.
-export function FastDial({ size, hours, goal, children }: { size: number; hours: number; goal: number; children?: React.ReactNode }) {
+export function FastDial({
+  size,
+  hours,
+  goal,
+  onGoalPress,
+  children,
+}: {
+  size: number;
+  hours: number;
+  goal: number;
+  // Tapping "Goal 23 h" (0273: change the goal).
+  onGoalPress?: () => void;
+  children?: React.ReactNode;
+}) {
   const { colors, mode } = useTheme();
   const light = mode === 'light';
   // Fed's grey reads as "off" on a light page; a deeper slate there.
@@ -332,8 +345,12 @@ export function FastDial({ size, hours, goal, children }: { size: number; hours:
           color: done ? colors.green : withAlpha(colors.text, 0.6),
         }}
         numberOfLines={1}
+        onPress={onGoalPress}
+        suppressHighlighting
+        accessibilityRole={onGoalPress ? 'button' : undefined}
+        accessibilityLabel={onGoalPress ? `Goal ${goal} hours. Change it` : undefined}
       >
-        Goal {goal} h
+        Goal {goal} h{onGoalPress ? ' ›' : ''}
       </Text>
       {/* You are here, over the badges so one never hides it. */}
       {!done && (
