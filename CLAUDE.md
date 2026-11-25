@@ -223,7 +223,11 @@ client id once and answers a rule's refusal as `{error}` (shown on the
 strip, kept for Admin). Reads that matter offline go through
 `cachedRead` in `cache.ts` (last-known copy, "last updated" on the
 strip). A new action that should work offline joins `offline_apply`'s
-ops and uses `runOrQueue`.
+ops and uses `runOrQueue`. With offline mode on, the "Hound can't reach its
+server" screen (MaintenanceGate) lets people in instead of blocking
+(planned maintenance still blocks), and sign-in uses the profile kept on
+the phone (`auth/userCache.ts`) when it can't read it or refresh the
+session; signing out forgets it.
 
 ## Actions are on screen without scrolling
 
