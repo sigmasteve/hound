@@ -54,6 +54,8 @@ import {
   type MyFasting,
 } from './fastingApi';
 import { FastDial, FastRing, LongestText, PersonAvatar, StageIcon } from './FastingParts';
+import { FastingGamesStrip } from './FastingGamesStrip';
+import type { GameSlot } from './fastingGames';
 import { scheduleFastingReminders } from './fastingReminders';
 import { getHoundClubs, type HoundClub } from '../clubs/clubsApi';
 import { ClubBadge } from '../clubs/clubLook';
@@ -87,9 +89,14 @@ export function FastingScreen({
   onBack,
   onOpenPack,
   onOpenClub,
+  onPlayGame,
+  onOpenGamesBoard,
 }: {
   onBack: () => void;
   onOpenPack: (packId: string) => void;
+  // Phase games (0269).
+  onPlayGame?: (fastId: string, slot: GameSlot) => void;
+  onOpenGamesBoard?: () => void;
   // A Hound Fasting club you're not in yet (0262).
   onOpenClub?: (clubId: string) => void;
 }) {
@@ -229,6 +236,11 @@ export function FastingScreen({
   );
 
   // ── The result after ending ──
+  // The fast's phase games (0269), under the dial and on the done card.
+  const games = onPlayGame && onOpenGamesBoard && me?.age === 'ok' && (
+    <FastingGamesStrip refreshKey={`${open?.id ?? '-'}:${result?.fastId ?? '-'}`} onPlay={onPlayGame} onOpenBoard={onOpenGamesBoard} />
+  );
+
   const resultCard = result && (
     <View style={{ gap: 12 }}>
       <View style={{ alignItems: 'center' }}>
@@ -239,6 +251,7 @@ export function FastingScreen({
           </Text>
         </FastRing>
       </View>
+      {games}
       <View style={styles.statRow}>
         <Stat value={result.bones > 0 ? `+${result.bones}` : '0'} label="Bones" color={colors.amber} />
         <Stat value={`🔥 ${result.streak}`} label="Day streak" />
@@ -298,6 +311,7 @@ export function FastingScreen({
   // ── Starting ──
   const startView = me && me.age === 'ok' && !open && !result && (
     <View style={{ gap: 12 }}>
+      {games}
       {invites.map((inv) => (
         <View key={inv.packId} style={[styles.card, { borderWidth: 1.5, borderColor: colors.accent }]}>
           <View style={styles.row}>
@@ -397,6 +411,7 @@ export function FastingScreen({
           </Text>
         </FastDial>
       </View>
+      {games}
       {hours >= 36 && (
         <View style={[styles.card, { borderWidth: 1.5, borderColor: colors.amber }]}>
           <Text style={styles.strong}>Still fasting? How do you feel?</Text>

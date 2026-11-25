@@ -196,6 +196,9 @@ export interface FastingConfig {
   streak30: number;
   streak100: number;
   packBonus: number;
+  // Phase games (0269): Bones per game, and the switch.
+  gameBones?: number;
+  gamesOn?: boolean;
 }
 
 export const DEFAULT_CONFIG: FastingConfig = {

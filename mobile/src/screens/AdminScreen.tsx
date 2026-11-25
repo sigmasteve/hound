@@ -59,6 +59,7 @@ import { DeveloperToolsCard } from '../components/DeveloperToolsCard';
 import { GoalsAdminCard } from '../components/GoalsAdminCard';
 import { WaterAdminCard } from '../components/WaterAdminCard';
 import { FastingAdminCard, FastingBonesCard, fastingSummary } from '../components/FastingAdminCard';
+import { FastingGamesAdminCard, fastingGamesSummary } from '../components/FastingGamesAdminCard';
 import { HoundClubsAdminCard, houndClubsSummary } from '../components/HoundClubsAdminCard';
 import { MoonAdminCard, moonSummary } from '../components/MoonAdminCard';
 import { getMoonOverview } from '../kennel/moonApi';
@@ -284,6 +285,7 @@ export function AdminScreen({
   // The Logged workouts fold's line (0204).
   const [workoutLogLine, setWorkoutLogLine] = useState<string | null>(null);
   const [fastingLine, setFastingLine] = useState<string | null>(null);
+  const [fastingGamesLine, setFastingGamesLine] = useState<string | null>(null);
   const [houndClubsLine, setHoundClubsLine] = useState<string | null>(null);
   const [moonLine, setMoonLine] = useState<string | null>(null);
   // The Not seeing steps fold's line (0205).
@@ -1148,6 +1150,9 @@ export function AdminScreen({
                   <AdminFold title="Fasting" summary={fastingLine ?? 'Who fasts, how long, and together'}>
                     <FastingAdminCard onLoaded={(d) => setFastingLine(fastingSummary(d))} />
                   </AdminFold>
+                  <AdminFold title="Fasting games" summary={fastingGamesLine ?? 'The phase games and Fast Points'}>
+                    <FastingGamesAdminCard onLoaded={(d) => setFastingGamesLine(fastingGamesSummary(d))} />
+                  </AdminFold>
                   <AdminFold title="Logged workouts" summary={workoutLogLine ?? 'Workouts logged by hand, for people without a watch'}>
                     <LoggedWorkoutsAdminCard onChanged={(o) => setWorkoutLogLine(workoutLogSummary(o))} />
                   </AdminFold>
@@ -1556,7 +1561,7 @@ export function AdminScreen({
                   />
                 </Card>
 
-                <AdminFold title="Fasting" summary="What a fast, a streak and a pack fast pay">
+                <AdminFold title="Fasting" summary="What a fast, a streak, a pack fast and a phase game pay">
                   <FastingBonesCard />
                 </AdminFold>
                 <AdminFold title="Rewarded ads" summary="Ads for Bones, with a daily limit">
