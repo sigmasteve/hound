@@ -1224,7 +1224,10 @@ export function AdminScreen({
                               {u.displayName}
                               {u.isAdmin ? ' · Admin' : ''}
                             </Text>
-                            <Text style={styles.footNote}>{u.email}</Text>
+                            <Text style={styles.footNote} numberOfLines={1}>
+                              {u.email}
+                            </Text>
+                            <Text style={styles.footNote}>{activeAgo(u.lastActiveAt)}</Text>
                           </View>
                           <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
                         </Pressable>
@@ -1608,4 +1611,17 @@ function sponsorClicksLine(c: SponsorClicks | undefined): string {
   if (!c || c.clicks === 0) return 'No link taps yet';
   const taps = `${c.clicks.toLocaleString()} link ${c.clicks === 1 ? 'tap' : 'taps'} by ${c.people.toLocaleString()} ${c.people === 1 ? 'person' : 'people'}`;
   return c.clicksDuring === c.clicks ? taps : `${taps} · ${c.clicksDuring.toLocaleString()} while it ran`;
+}
+
+// The directory's "active 2 h ago" (most recently active first, 0266).
+function activeAgo(at: string | null): string {
+  if (!at) return 'Never opened the app';
+  const min = Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 60000));
+  if (min < 2) return 'Active just now';
+  if (min < 60) return `Active ${min} min ago`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `Active ${h} h ago`;
+  const d = Math.round(h / 24);
+  if (d < 30) return `Active ${d} ${d === 1 ? 'day' : 'days'} ago`;
+  return `Active ${new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }
