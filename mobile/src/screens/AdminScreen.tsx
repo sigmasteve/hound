@@ -41,7 +41,16 @@ import { chessSummary, getChessOverview } from '../challenges/chessApi';
 import { getRouletteOverview, rouletteSummary } from '../challenges/rouletteApi';
 import { cricketSummary, getCricketOverview } from '../challenges/cricketApi';
 import { getStepStoryOverview, stepStorySummary } from '../challenges/stepStoryApi';
-import { getTotalUserCount, searchUsers, USER_PAGE, type AdminUserSummary } from '../admin/adminApi';
+import {
+  getTotalUserCount,
+  getUserActivityCounts,
+  searchUsers,
+  USER_PAGE,
+  type ActiveFilter,
+  type AdminUserSummary,
+  type UserActivityCounts,
+} from '../admin/adminApi';
+import { UserActivityTiles } from '../admin/UserActivityTiles';
 import { getAppBanner, setAppBanner, type AppBanner } from '../banner/supabaseBanner';
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
 import { huntKindName } from '../challenges/present';
@@ -471,17 +480,27 @@ export function AdminScreen({
   const [results, setResults] = useState<AdminUserSummary[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  // Activity filters (0267): who's opened the app lately, with counts that
+  // follow the search. Tap a tile to filter, tap it again for everyone.
+  const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all');
+  const [activityCounts, setActivityCounts] = useState<UserActivityCounts | null>(null);
+  const activeRef = useRef<ActiveFilter>('all');
+  const loadCounts = useCallback((q: string) => {
+    getUserActivityCounts(q)
+      .then(setActivityCounts)
+      .catch(() => {});
+  }, []);
 
   // More pages to load (0232): the last page came back full.
   const [moreUsers, setMoreUsers] = useState(false);
   const loadingMore = useRef(false);
   const searchSeq = useRef(0);
 
-  const runSearch = useCallback((q: string) => {
+  const runSearch = useCallback((q: string, f: ActiveFilter = activeRef.current) => {
     const seq = ++searchSeq.current;
     setSearching(true);
     setSearchError(null);
-    searchUsers(q)
+    searchUsers(q, 0, USER_PAGE, f)
       .then((rows) => {
         if (seq !== searchSeq.current) return;
         setResults(rows);
@@ -496,7 +515,7 @@ export function AdminScreen({
     if (!moreUsers || loadingMore.current) return;
     loadingMore.current = true;
     const seq = searchSeq.current;
-    searchUsers(query, results.length)
+    searchUsers(query, results.length, USER_PAGE, activeFilter)
       .then((rows) => {
         if (seq !== searchSeq.current) return;
         setResults((r) => {
@@ -509,13 +528,25 @@ export function AdminScreen({
       .finally(() => {
         loadingMore.current = false;
       });
-  }, [moreUsers, query, results.length]);
+  }, [moreUsers, query, results.length, activeFilter]);
+
+  const pickActive = useCallback(
+    (f: ActiveFilter) => {
+      const next = activeRef.current === f ? 'all' : f;
+      activeRef.current = next;
+      setActiveFilter(next);
+      setResults([]);
+      runSearch(query, next);
+    },
+    [query, runSearch],
+  );
 
   useFocusEffect(
     useCallback(() => {
       if (!user?.isAdmin) return;
       getTotalUserCount().then(setTotalUsers).catch(() => {});
       runSearch(query);
+      loadCounts(query);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.isAdmin]),
   );
@@ -525,7 +556,10 @@ export function AdminScreen({
   // often while someone's still typing a name.
   useEffect(() => {
     if (!user?.isAdmin) return;
-    const t = setTimeout(() => runSearch(query), 300);
+    const t = setTimeout(() => {
+      runSearch(query);
+      loadCounts(query);
+    }, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
@@ -1189,11 +1223,14 @@ export function AdminScreen({
                     icon={<MagnifyingGlassIcon size={16} color={withAlpha(colors.text, 0.5)} />}
                     autoCapitalize="none"
                   />
+                  <UserActivityTiles counts={activityCounts} active={activeFilter} onPick={pickActive} searching={!!query.trim()} />
                   {searchError && <Text style={styles.loadError}>{searchError}</Text>}
                   {searching && results.length === 0 ? (
                     <ActivityIndicator color={colors.accent} />
                   ) : results.length === 0 ? (
-                    <Text style={styles.footNote}>No users match that search.</Text>
+                    <Text style={styles.footNote}>
+                      {activeFilter === 'all' ? 'No users match that search.' : 'Nobody here right now.'}
+                    </Text>
                   ) : (
                     // Fixed to roughly 10 rows tall so a long directory doesn't
                     // push the rest of this screen's cards further and
