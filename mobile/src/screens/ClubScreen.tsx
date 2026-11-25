@@ -3,7 +3,9 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Vie
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import QRCode from 'react-native-qrcode-svg';
-import { ArrowLeftIcon, BellIcon, BellSlashIcon, DotsThreeIcon, LockSimpleIcon, MapPinIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BellIcon, BellSlashIcon, DotsThreeIcon, LockSimpleIcon, MapPinIcon, PawPrintIcon } from 'phosphor-react-native';
+import { useAuth } from '../auth/AuthContext';
+import type { ClubFasting } from '../fasting/fastingApi';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
@@ -23,6 +25,7 @@ import {
   removeClubMember,
   removeClubPost,
   setClubMuted,
+  setHoundClub,
   setClubRole,
   type ClubChallenge,
   type ClubMember,
@@ -75,6 +78,10 @@ export function ClubScreen({
   const [busy, setBusy] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const askUsername = useUsernameAsk();
+  const { user } = useAuth();
+  // A Fasting club (0262): what its Fasting card loaded, for the pinned
+  // Start a fast / Your fast.
+  const [fasting, setFasting] = useState<ClubFasting | null>(null);
 
   // This club's Pack Activities, on now or coming up.
   const [packActivities, setPackActivities] = useState<MyPackFun[]>([]);
@@ -158,6 +165,22 @@ export function ClubScreen({
   const more = () => {
     if (!club) return;
     const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
+    // Admins (0262): a Hound club is open to everyone, has no member cap
+    // and is featured on the Clubs tab.
+    if (user?.isAdmin && (club.isPublic || club.hound)) {
+      buttons.push({
+        text: club.hound ? 'Stop being a Hound club' : 'Make it a Hound club',
+        onPress: () =>
+          setHoundClub(clubId, !club.hound)
+            .then(load)
+            .catch((e) => Alert.alert('Couldn’t change it', e instanceof Error ? e.message : 'Try again.')),
+      });
+    }
+    if (!member) {
+      buttons.push({ text: 'Cancel', style: 'cancel' });
+      Alert.alert(club.name, undefined, buttons);
+      return;
+    }
     if (organizer) {
       buttons.push({ text: 'Edit the club', onPress: onEdit });
       buttons.push({
@@ -226,7 +249,7 @@ export function ClubScreen({
             {club?.muted ? <BellSlashIcon size={20} color={withAlpha(colors.text, 0.6)} /> : <BellIcon size={20} color={colors.text} />}
           </Pressable>
         )}
-        {member && (
+        {(member || (user?.isAdmin && club?.isPublic)) && (
           <Pressable onPress={more} hitSlop={8} style={styles.barIcon} accessibilityRole="button" accessibilityLabel="More">
             <DotsThreeIcon size={22} color={colors.text} weight="bold" />
           </Pressable>
@@ -258,9 +281,27 @@ export function ClubScreen({
                   <Text style={styles.meta}>Private: joined with its code</Text>
                 </View>
               )}
+              {club.hound && (
+                <View style={styles.metaRow}>
+                  <PawPrintIcon size={12} color={colors.accentActive} weight="fill" />
+                  <Text style={[styles.meta, { color: colors.accentActive }]}>Hound club: open to everyone</Text>
+                </View>
+              )}
             </View>
           </View>
           {club.description ? <Text style={styles.desc}>{club.description}</Text> : null}
+
+          {/* A Fasting club leads with Fasting, joined or not (0262). */}
+          {club.sport === 'fasting' && onOpenFasting && (
+            <FastingClubCard
+              clubId={clubId}
+              fastingClub
+              showButton={false}
+              refreshKey={club.role}
+              onOpenFasting={onOpenFasting}
+              onLoaded={setFasting}
+            />
+          )}
 
           {!member ? (
             <Card style={{ gap: 10 }} elevated={false}>
@@ -296,7 +337,7 @@ export function ClubScreen({
             />
           )}
 
-          {member && onOpenFasting && <FastingClubCard clubId={clubId} fastingClub={club.sport === 'fasting'} onOpenFasting={onOpenFasting} />}
+          {member && onOpenFasting && club.sport !== 'fasting' && <FastingClubCard clubId={clubId} fastingClub={false} onOpenFasting={onOpenFasting} />}
 
           {member && inviteOpen && club.code && (
             <Card style={styles.invite} elevated={false}>
@@ -314,6 +355,8 @@ export function ClubScreen({
           {/* 0187: straight from your friends list, private clubs too. */}
           {member && inviteOpen && <ClubInviteFriends clubId={club.id} clubName={club.name} />}
 
+          {/* Miles together: not for a Fasting club, whose board is above. */}
+          {club.sport !== 'fasting' && (
           <Card style={{ gap: 8 }} elevated={false}>
             <View style={styles.head}>
               <Text style={styles.kicker}>THIS WEEK TOGETHER</Text>
@@ -336,6 +379,7 @@ export function ClubScreen({
               <Text style={styles.meta}>Most this week: {club.top.map((t) => `${t.me ? 'You' : t.name} ${t.mi.toFixed(1)}`).join(' · ')}</Text>
             )}
           </Card>
+          )}
 
           {member && (
             <Card style={{ gap: 0 }} elevated={false}>
@@ -407,12 +451,31 @@ export function ClubScreen({
           )}
         </ScrollView>
       )}
+      {/* A Fasting club's members: Start a fast, always in view. */}
+      {club?.sport === 'fasting' && member && onOpenFasting && fasting && !fasting.under && (
+        <SafeAreaView edges={['bottom']} style={styles.pinned}>
+          <Button
+            label={fasting.now.some((n) => n.me) ? 'Your fast' : 'Start a fast'}
+            variant="primary"
+            block
+            onPress={onOpenFasting}
+          />
+        </SafeAreaView>
+      )}
     </SafeAreaView>
   );
 }
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
+    pinned: {
+      paddingHorizontal: 16,
+      paddingTop: 10,
+      paddingBottom: 10,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: withAlpha(colors.text, 0.12),
+      backgroundColor: colors.bg,
+    },
     bar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 4, gap: 6 },
     barIcon: { padding: 6 },
     container: { padding: 16, gap: 14, paddingBottom: 48 },

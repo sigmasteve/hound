@@ -53,6 +53,8 @@ import {
 } from './fastingApi';
 import { FastRing, LongestText, PersonAvatar, StageStrip } from './FastingParts';
 import { scheduleFastingReminders } from './fastingReminders';
+import { getHoundClubs, type HoundClub } from '../clubs/clubsApi';
+import { ClubBadge } from '../clubs/clubLook';
 
 // Fasting (0261): press Start when you finish eating, End when you eat.
 // One screen: the first-time check, starting (your plan, when you
@@ -82,9 +84,12 @@ function timeAgo(min: number): string {
 export function FastingScreen({
   onBack,
   onOpenPack,
+  onOpenClub,
 }: {
   onBack: () => void;
   onOpenPack: (packId: string) => void;
+  // A Hound Fasting club you're not in yet (0262).
+  onOpenClub?: (clubId: string) => void;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -102,6 +107,8 @@ export function FastingScreen({
   const [allFriends, setAllFriends] = useState<Friend[] | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [compare, setCompare] = useState<FastingCompare | null>(null);
+  // The Hound Fasting club, while you're not in it (0262).
+  const [club, setClub] = useState<HoundClub | null>(null);
   // "I ate at…" in the End sheet, minutes ago.
   const [endMin, setEndMin] = useState(0);
 
@@ -117,6 +124,9 @@ export function FastingScreen({
           .catch(() => {});
         getFastingWaiting()
           .then(setInvites)
+          .catch(() => {});
+        getHoundClubs()
+          .then((l) => setClub(l.find((c) => c.sport === 'fasting' && !c.role) ?? null))
           .catch(() => {});
       }
     } catch (e) {
@@ -345,6 +355,21 @@ export function FastingScreen({
       </Pressable>
       <StreakCard m={me} styles={styles} colors={colors} />
     </View>
+  );
+
+  // The Hound Fasting club, while you're not in it.
+  const clubCard = club && onOpenClub && me?.age === 'ok' && !result && (
+    <Pressable style={[styles.card, styles.row]} onPress={() => onOpenClub(club.id)} accessibilityRole="button">
+      <ClubBadge sport={club.sport} color={club.color} size={38} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.strong}>Join {club.name}</Text>
+        <Text style={styles.small}>
+          {club.members} {club.members === 1 ? 'member' : 'members'}
+          {club.fastingNow > 0 ? ` · ${club.fastingNow} fasting now` : ''}. Fast with everyone on Hound and see where you rank.
+        </Text>
+      </View>
+      <CaretRightIcon size={14} color={withAlpha(colors.text, 0.4)} />
+    </Pressable>
   );
 
   // ── While fasting ──
@@ -644,6 +669,7 @@ export function FastingScreen({
         {startView}
         {liveView}
         {me?.age === 'ok' && !result && nowList}
+        {clubCard}
         {!result && weekView}
         {!result && board}
         {!result && !open && settings}

@@ -186,7 +186,8 @@ select is(jsonb_array_length(public.club_fasting('00000000-0000-0000-0000-000000
 reset role;
 select tests.sign_in(:'bob');
 set local role authenticated;
-select throws_ok($$select public.club_fasting('00000000-0000-0000-0000-000000261c01', (now() at time zone 'utc')::date)$$, 'You''re not in that club.', 'Members only');
+-- 0262: a public club's counts show to anyone; the board is members only.
+select is(jsonb_array_length(public.club_fasting('00000000-0000-0000-0000-000000261c01', (now() at time zone 'utc')::date) -> 'board'), 0, 'The board is members only');
 reset role;
 
 -- ── Admin ──

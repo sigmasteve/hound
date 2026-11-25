@@ -542,6 +542,7 @@ export function RootNavigator() {
                 <FastingScreen
                   onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { tab: 'home' }))}
                   onOpenPack={(packId) => navigation.navigate('FastingPack', { packId })}
+                  onOpenClub={(clubId) => navigation.navigate('Club', { clubId })}
                 />
               )}
             </Stack.Screen>

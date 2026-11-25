@@ -13,6 +13,8 @@ import { isSupabaseConfigured } from '../lib/supabase';
 import {
   getClubStatus,
   getMyClubs,
+  getHoundClubs,
+  type HoundClub,
   getMyClubInvites,
   acceptClubInvite,
   declineClubInvite,
@@ -66,6 +68,8 @@ export function ClubsScreen({
   const [found, setFound] = useState<Club[] | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [community, setCommunity] = useState<{ featured: CommunityListing[]; popular: CommunityListing[] } | null>(null);
+  // Hound clubs (0262): open to everyone, featured here until you join.
+  const [houndClubs, setHoundClubs] = useState<HoundClub[]>([]);
   const askUsername = useUsernameAsk();
 
   // Pack Activities on now or coming up: yours, and ones your clubs opened.
@@ -88,6 +92,9 @@ export function ClubsScreen({
     getMyClubInvites()
       .then(setInvites)
       .catch(() => setInvites([]));
+    getHoundClubs()
+      .then(setHoundClubs)
+      .catch(() => setHoundClubs([]));
     listCommunityChallenges()
       .then(setCommunity)
       .catch(() => setCommunity({ featured: [], popular: [] }));
@@ -248,6 +255,27 @@ export function ClubsScreen({
                   </View>
                 </View>
               ))}
+            </Card>
+          )}
+          {houndClubs.some((c) => !c.role) && (
+            <Card style={[{ gap: 0 }, styles.featured]} elevated={false}>
+              <Text style={[styles.kicker, { color: colors.accentActive }]}>HOUND CLUBS · OPEN TO EVERYONE</Text>
+              {houndClubs
+                .filter((c) => !c.role)
+                .map((c) => (
+                  <Pressable key={c.id} onPress={() => onOpenClub(c.id)} style={({ pressed }) => [styles.row, pressed && { opacity: 0.75 }]} accessibilityRole="button">
+                    <ClubBadge sport={c.sport} color={c.color} size={40} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.rowName}>{c.name}</Text>
+                      <Text style={styles.rowMeta} numberOfLines={2}>
+                        {c.members} {c.members === 1 ? 'member' : 'members'}
+                        {c.sport === 'fasting' && c.fastingNow > 0 ? ` · ${c.fastingNow} fasting now` : ''}
+                        {c.description ? ` · ${c.description}` : ''}
+                      </Text>
+                    </View>
+                    {joinButton('Join', () => join(c), joiningId === c.id)}
+                  </Pressable>
+                ))}
             </Card>
           )}
           {error ? (
