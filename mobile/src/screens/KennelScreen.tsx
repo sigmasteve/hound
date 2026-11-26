@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { OfflineStrip } from '../offline/OfflineStrip';
 import {
   ActivityIndicator,
   Alert,
@@ -813,6 +814,8 @@ export function KennelScreen({
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+      {/* Offline (0271): your hound as last loaded. */}
+      <OfflineStrip cacheKeys={['kennel:my']} />
       {/* One page: the header and the scene scroll away, the tabs stay at
           the top. Tap something to try it on and the page goes back up to
           the scene, where the bar under it buys it, puts it on, or puts it

@@ -1,4 +1,5 @@
 import { supabase, signedInUserId } from '../lib/supabase';
+import { cachedRead } from '../offline/cache';
 import { levelForXp } from '../challenges/ranks';
 import { isMissingFunction } from '../lib/rpcFallback';
 import { extractFriendCode, KUDOS_COOLDOWN_MS, type Friend, type FriendsProvider, type KudosCounts } from './types';
@@ -99,12 +100,16 @@ export const supabaseFriendsProvider: FriendsProvider = {
   async listFriends(): Promise<Friend[]> {
     const client = requireClient();
     const userId = await requireUserId();
-    const { data, error } = await client
-      .from('friendships')
-      .select(FRIENDSHIP_COLUMNS)
-      .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`);
-    if (error) throw new Error(error.message);
-    return ((data ?? []) as unknown as FriendshipRow[]).map((row) => rowToFriend(row, userId));
+    // A kept copy when offline (0271).
+    const data = await cachedRead(`friends:${userId}`, async () => {
+      const { data: d, error } = await client
+        .from('friendships')
+        .select(FRIENDSHIP_COLUMNS)
+        .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`);
+      if (error) throw new Error(error.message);
+      return d ?? [];
+    });
+    return (data as unknown as FriendshipRow[]).map((row) => rowToFriend(row, userId));
   },
 
   async inviteByEmail(email: string): Promise<void> {

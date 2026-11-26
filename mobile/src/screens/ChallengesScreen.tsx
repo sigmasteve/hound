@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { OfflineStrip } from '../offline/OfflineStrip';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import { useFocusEffect } from '@react-navigation/native';
@@ -493,6 +494,8 @@ export function ChallengesScreen({
           styles={styles}
         />
       </View>
+      {/* Offline (0271): your challenges as last loaded. */}
+      <OfflineStrip cacheKeys={[`ch:mine:${user?.id ?? ''}`]} />
 
       {tab === 'active' && (
         <ScrollView contentContainerStyle={styles.container}>

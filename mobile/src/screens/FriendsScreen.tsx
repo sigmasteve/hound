@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { OfflineStrip } from '../offline/OfflineStrip';
 import { Platform, Pressable, Share, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import * as Clipboard from 'expo-clipboard';
@@ -309,6 +310,8 @@ export function FriendsScreen({ onOpenFriend }: { onOpenFriend: (friend: Friend)
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {/* Offline (0271): your friends as last loaded. */}
+      <OfflineStrip cacheKeys={[`friends:${user?.id ?? ''}`]} />
       <View style={styles.titleRow}>
         <Text style={text.h2}>Friends</Text>
         {accepted.length > 0 && (

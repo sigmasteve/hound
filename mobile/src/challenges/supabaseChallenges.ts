@@ -1,4 +1,7 @@
 import { supabase, signedInUserId } from '../lib/supabase';
+import { cachedRead } from '../offline/cache';
+import { isNetworkError } from '../offline/network';
+import { offlineEnabled } from '../offline/offlineConfig';
 import { levelForXp } from './ranks';
 import { displayInitials, displayName, type DisplayableProfile } from '../profiles/displayName';
 import { fetchAll } from '../lib/fetchAll';
@@ -57,9 +60,14 @@ function isCommunityChallenge(challengeId: string): Promise<boolean> {
   if (!known) {
     known = (async () => {
       const client = requireClient();
-      const { data, error } = await client.from('challenges').select('community').eq('id', challengeId).maybeSingle();
-      // Before 0152 the column isn't there: never a community challenge.
-      return !error && !!(data as { community?: boolean } | null)?.community;
+      // Kept for offline (0271), so a community board keeps showing
+      // usernames with no connection.
+      return cachedRead(`ch:${challengeId}:community`, async () => {
+        const { data, error } = await client.from('challenges').select('community').eq('id', challengeId).maybeSingle();
+        if (error && isNetworkError(new Error(error.message))) throw new Error(error.message);
+        // Before 0152 the column isn't there: never a community challenge.
+        return !error && !!(data as { community?: boolean } | null)?.community;
+      });
     })().catch(() => false);
     communityById.set(challengeId, known);
   }
@@ -194,29 +202,33 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     // ever returns rows where the caller has a real
     // challenge_participants row: every creator gets one immediately
     // (see createChallenge below), and so does anyone who's accepted.
-    const { data, error } = await client
-      .from('challenges')
-      .select(`${CHALLENGE_COLUMNS}, challenge_participants!inner(user_id)`)
-      .eq('challenge_participants.user_id', userId)
-      .order('created_at', { ascending: false });
-    if (error) throw new Error(error.message);
-    return (data ?? []).map(rowToChallenge);
+    // A kept copy when offline (0271).
+    const data = await cachedRead(`ch:mine:${userId}`, async () => {
+      const { data: d, error } = await client
+        .from('challenges')
+        .select(`${CHALLENGE_COLUMNS}, challenge_participants!inner(user_id)`)
+        .eq('challenge_participants.user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return d ?? [];
+    });
+    return (data as any[]).map(rowToChallenge);
   },
 
   async getChallenge(challengeId: string): Promise<Challenge> {
     const client = requireClient();
-    const { data, error } = await client
-      .from('challenges')
-      .select(CHALLENGE_COLUMNS)
-      .eq('id', challengeId)
-      .single();
-    if (error) throw new Error(error.message);
-    return rowToChallenge(data);
+    const data = await cachedRead(`ch:${challengeId}`, async () => {
+      const { data: d, error } = await client.from('challenges').select(CHALLENGE_COLUMNS).eq('id', challengeId).single();
+      if (error) throw new Error(error.message);
+      return d;
+    });
+    return rowToChallenge(data as any);
   },
 
   async listParticipants(challengeId: string): Promise<Participant[]> {
     const client = requireClient();
-    const { data, error } = await client
+    const data = await cachedRead(`ch:${challengeId}:people`, async () => {
+    const { data: d, error } = await client
       .from('challenge_participants')
       // profiles!user_id, not a bare profiles(...) embed — 0045 gave
       // challenge_participants a second FK to profiles (last_tagged_by),
@@ -228,8 +240,10 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       )
       .eq('challenge_id', challengeId);
     if (error) throw new Error(error.message);
+    return d ?? [];
+    });
     const community = await isCommunityChallenge(challengeId);
-    return (data ?? []).map((row) => {
+    return (data as any[]).map((row) => {
       const profile = row.profiles as unknown as ParticipantProfileRow | null;
       return {
         userId: row.user_id,
@@ -247,12 +261,15 @@ export const supabaseChallengesProvider: ChallengesProvider = {
 
   async listBots(challengeId: string): Promise<ChallengeBot[]> {
     const client = requireClient();
-    const { data, error } = await client
-      .from('challenge_bots')
-      .select('id, challenge_id, name, fitness_level, role')
-      .eq('challenge_id', challengeId);
-    if (error) throw new Error(error.message);
-    return (data ?? []).map((row) => ({
+    const data = await cachedRead(`ch:${challengeId}:bots`, async () => {
+      const { data: d, error } = await client
+        .from('challenge_bots')
+        .select('id, challenge_id, name, fitness_level, role')
+        .eq('challenge_id', challengeId);
+      if (error) throw new Error(error.message);
+      return d ?? [];
+    });
+    return (data as any[]).map((row) => ({
       id: row.id,
       challengeId: row.challenge_id,
       name: row.name,
@@ -268,6 +285,9 @@ export const supabaseChallengesProvider: ChallengesProvider = {
     // challenge goes past the 1000-row cap on a single read. Keeping the
     // aggregation in JS means the schema stays plain tables, nothing to
     // keep in sync on top of it.
+    // A kept copy when offline (0271): the totals, which is all the board
+    // shows (the day-by-day rows could be big for the phone to keep).
+    return cachedRead(`ch:${challengeId}:board:${asOfDay ?? 'all'}`, async () => {
     const data = await fetchAll((from, to) => {
       let query = client
         .from('progress_snapshots')
@@ -296,6 +316,7 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       }
     }
     return Array.from(totals.values()).sort((a, b) => b.totalSteps - a.totalSteps);
+    });
   },
 
   async createChallenge({
@@ -466,13 +487,16 @@ export const supabaseChallengesProvider: ChallengesProvider = {
   async getHighlightedChallenge(): Promise<Challenge | null> {
     const client = requireClient();
     const userId = await requireUserId();
-    const { data, error } = await client
-      .from('challenge_participants')
-      .select(`challenges!inner(${CHALLENGE_COLUMNS})`)
-      .eq('user_id', userId)
-      .eq('highlighted', true)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
+    const data = await cachedRead(`ch:highlighted:${userId}`, async () => {
+      const { data: d, error } = await client
+        .from('challenge_participants')
+        .select(`challenges!inner(${CHALLENGE_COLUMNS})`)
+        .eq('user_id', userId)
+        .eq('highlighted', true)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return d;
+    });
     if (!data) return null;
     return rowToChallenge(data.challenges as unknown as ChallengeRow);
   },
@@ -583,6 +607,8 @@ export const supabaseChallengesProvider: ChallengesProvider = {
       .select('invitee_id')
       .eq('challenge_id', challengeId)
       .eq('inviter_id', userId);
+    // Offline (0271): no one invited as far as this screen can tell.
+    if (error && offlineEnabled() && isNetworkError(new Error(error.message))) return [];
     if (error) throw new Error(error.message);
     return (data ?? []).map((row) => row.invitee_id);
   },
@@ -748,11 +774,16 @@ function needsHeadStart(c: Challenge): boolean {
 // 0110 has run); a challenge the caller isn't in is left out.
 async function fetchChallengeBoards(challenges: Challenge[]): Promise<Map<string, BoardInputs> | null> {
   const client = requireClient();
-  const { data, error } = await client.rpc('challenge_boards', {
-    p_challenge_ids: challenges.map((c) => c.id),
-    p_as_of_days: challenges.map((c) => (needsHeadStart(c) ? headStartBaselineDayKey(c) : null)),
-  });
-  if (error) return null;
+  // A kept copy when offline (0271), for this exact set of challenges.
+  const data = await cachedRead(`ch:boards:${challenges.map((c) => c.id).join(',')}`, async () => {
+    const { data: d, error } = await client.rpc('challenge_boards', {
+      p_challenge_ids: challenges.map((c) => c.id),
+      p_as_of_days: challenges.map((c) => (needsHeadStart(c) ? headStartBaselineDayKey(c) : null)),
+    });
+    if (error) throw new Error(error.message);
+    return d;
+  }).catch(() => undefined);
+  if (data === undefined) return null;
   const boards = new Map<string, BoardInputs>();
   const rows = (data ?? []) as { challenge_id: string; participants: BoardParticipantRow[]; bots: any[] }[];
   const communityIds = new Set(

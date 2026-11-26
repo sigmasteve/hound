@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { offlineOr } from '../offline/cache';
+import { OfflineStrip } from '../offline/OfflineStrip';
 import { MoveChallengeNote } from '../move/MoveChallengeNote';
 import { PINNED_ACTION_SPACE, PinnedActionBar, PinnedActionProvider, type PinnedAction } from '../components/PinnedAction';
 import { ActivityIndicator, Alert, Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -904,30 +906,30 @@ export function ChallengeDetailScreen({
           ? supabaseChallengesProvider.getLeaderboard(challengeId, headStartBaselineDayKey(c))
           : Promise.resolve<LeaderboardEntry[]>([]),
         supabaseChallengesProvider.listSentChallengeInvites(challengeId),
-        needsTag ? getTagRound(challengeId) : Promise.resolve(null),
-        needsTag ? listTagMembers(challengeId) : Promise.resolve([]),
-        needsTag ? listTagEvents(challengeId) : Promise.resolve([]),
-        needsStreak ? listDailyProgress(challengeId) : Promise.resolve([]),
-        needsStreak ? listParticipantJoinDates(challengeId) : Promise.resolve(new Map<string, Date>()),
-        needsBingo ? listBingoProgress(challengeId) : Promise.resolve<BingoProgressRow[]>([]),
-        needsTicTacGo ? getTicTacGoGame(challengeId) : Promise.resolve(null),
-        needsSeventyFive ? listSeventyFiveCheckins(challengeId) : Promise.resolve<SeventyFiveCheckin[]>([]),
-        needsSeventyFive ? listSeventyFiveJoinDates(challengeId) : Promise.resolve(new Map<string, Date>()),
-        needsChecklist ? listChecklistItems(challengeId) : Promise.resolve<ChecklistItem[]>([]),
-        needsChecklist ? listChecklistCheckins(challengeId) : Promise.resolve<ChecklistCheckin[]>([]),
-        needsChecklist ? listChecklistJoinDates(challengeId) : Promise.resolve(new Map<string, Date>()),
+        needsTag ? offlineOr(getTagRound(challengeId), null) : Promise.resolve(null),
+        needsTag ? offlineOr(listTagMembers(challengeId), []) : Promise.resolve([]),
+        needsTag ? offlineOr(listTagEvents(challengeId), []) : Promise.resolve([]),
+        needsStreak ? offlineOr(listDailyProgress(challengeId), []) : Promise.resolve([]),
+        needsStreak ? offlineOr(listParticipantJoinDates(challengeId), new Map<string, Date>()) : Promise.resolve(new Map<string, Date>()),
+        needsBingo ? offlineOr(listBingoProgress(challengeId), []) : Promise.resolve<BingoProgressRow[]>([]),
+        needsTicTacGo ? offlineOr(getTicTacGoGame(challengeId), null) : Promise.resolve(null),
+        needsSeventyFive ? offlineOr(listSeventyFiveCheckins(challengeId), []) : Promise.resolve<SeventyFiveCheckin[]>([]),
+        needsSeventyFive ? offlineOr(listSeventyFiveJoinDates(challengeId), new Map<string, Date>()) : Promise.resolve(new Map<string, Date>()),
+        needsChecklist ? offlineOr(listChecklistItems(challengeId), []) : Promise.resolve<ChecklistItem[]>([]),
+        needsChecklist ? offlineOr(listChecklistCheckins(challengeId), []) : Promise.resolve<ChecklistCheckin[]>([]),
+        needsChecklist ? offlineOr(listChecklistJoinDates(challengeId), new Map<string, Date>()) : Promise.resolve(new Map<string, Date>()),
         // Best-effort: missing movement arrows never block the screen.
         needsMovement
           ? supabaseChallengesProvider.getLeaderboard(challengeId, yesterdayKey).catch(() => null)
           : Promise.resolve(null),
         // Best-effort too: the map still draws from the board without it.
         needsJourney ? journeyStanding(challengeId).catch(() => null) : Promise.resolve<JourneyStanding | null>(null),
-        needsHoundopoly ? getHoundopolyGame(challengeId, user?.id ?? null) : Promise.resolve<HoundopolyGame | null>(null),
-        needsRally ? getRallyGame(challengeId) : Promise.resolve<RallyGame | null>(null),
-        needsSoccer ? getSoccerGame(challengeId) : Promise.resolve<SoccerGame | null>(null),
+        needsHoundopoly ? offlineOr(getHoundopolyGame(challengeId, user?.id ?? null), null) : Promise.resolve<HoundopolyGame | null>(null),
+        needsRally ? offlineOr(getRallyGame(challengeId), null) : Promise.resolve<RallyGame | null>(null),
+        needsSoccer ? offlineOr(getSoccerGame(challengeId), null) : Promise.resolve<SoccerGame | null>(null),
         needsSoccer ? listSoccerDays(challengeId).catch(() => []) : Promise.resolve<SoccerDay[]>([]),
         needsSoccer ? listSoccerShots(challengeId).catch(() => []) : Promise.resolve<SoccerShot[]>([]),
-        needsCricket ? getCricketGame(challengeId) : Promise.resolve<CricketGame | null>(null),
+        needsCricket ? offlineOr(getCricketGame(challengeId), null) : Promise.resolve<CricketGame | null>(null),
         needsCricket ? listCricketBalls(challengeId).catch(() => []) : Promise.resolve<CricketBall[]>([]),
         needsCricket ? getCricketOnStrike(challengeId).catch(() => null) : Promise.resolve<CricketOnStrike | null>(null),
       ]);
@@ -954,7 +956,7 @@ export function ChallengeDetailScreen({
       setTagEvents(tagEventsResult);
       // The challenge's own calendar days (never throws; falls back to
       // the old per-phone rule).
-      const days = needsStreak || needsSeventyFive || needsChecklist ? await getChallengeDays(c) : null;
+      const days = needsStreak || needsSeventyFive || needsChecklist ? await offlineOr(getChallengeDays(c), null) : null;
       setStreakStatuses(needsStreak && days ? computeStreakStatus(c, joinDates, dailyRows, days) : new Map());
       setBingoRows(bingoRowsResult);
       setBingoCardRows(isHoundCard(c) ? await listBingoCards(challengeId).catch(() => []) : []);
@@ -2403,6 +2405,8 @@ export function ChallengeDetailScreen({
     {/* Talk's message box sits at the bottom of the page: on iOS this
         makes room for the keyboard and scrolls whatever field you're
         typing in back above it, instead of leaving it underneath. */}
+    {/* Offline (0271): this challenge as last loaded. */}
+    <OfflineStrip cacheKeys={[`ch:${challengeId}`, `ch:${challengeId}:people`, `ch:${challengeId}:board:all`]} />
     <PinnedActionProvider value={setPinnedAction}>
     <ScrollView
       ref={pageRef}

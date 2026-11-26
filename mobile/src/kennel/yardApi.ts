@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { cachedRead } from '../offline/cache';
 import { localDayKey } from '../goals/goals';
 import type { HoundEars, HoundMarkings, HoundTail } from './kennelItems';
 import type { TrophyKind, YardSpot } from './yardItems';
@@ -105,8 +106,12 @@ function toYard(r: any): Yard {
 }
 
 export async function getYard(): Promise<Yard> {
-  const { data, error } = await client().rpc('my_yard', { p_local_date: today() });
-  if (error) throw new Error(error.message);
+  // A kept copy when offline (0271), so the yard still shows.
+  const data = await cachedRead('kennel:yard', async () => {
+    const { data: d, error } = await client().rpc('my_yard', { p_local_date: today() });
+    if (error) throw new Error(error.message);
+    return d;
+  });
   return toYard(data);
 }
 

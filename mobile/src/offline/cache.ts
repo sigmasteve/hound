@@ -38,3 +38,13 @@ export function newestSaved(keys: string[]): number | null {
   const ts = keys.map((k) => savedAt.get(k)).filter((x): x is number => typeof x === 'number');
   return ts.length ? Math.max(...ts) : null;
 }
+
+// A read a screen can do without offline: with offline mode on and no
+// connection, the fallback instead of failing the whole screen (a game's
+// extras on a challenge page, say). Online, errors are as before.
+export function offlineOr<T>(read: Promise<T>, fallback: T): Promise<T> {
+  return read.catch((e) => {
+    if (offlineEnabled() && isNetworkError(e)) return fallback;
+    throw e;
+  });
+}
