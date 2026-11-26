@@ -25,7 +25,7 @@ export type UseId = Extract<HoundUse, 'steps' | 'fasting' | 'workouts' | 'activi
 
 export const USE_CHOICES: { id: UseId; name: string; detail: string; sets: string }[] = [
   { id: 'steps', name: 'Steps', detail: 'A step goal, and races and chases', sets: 'Step goal on Today' },
-  { id: 'fasting', name: 'Intermittent fasting', detail: 'A live clock, stages and streaks', sets: 'Fasting tile on Today' },
+  { id: 'fasting', name: 'Intermittent fasting', detail: 'A live clock, stages and streaks', sets: 'Fasting on Today' },
   { id: 'workouts', name: 'Workouts', detail: 'From your watch, toward your goals', sets: 'Workout goal: 3 a week' },
   { id: 'activities', name: 'Activities, no watch needed', detail: 'Log a class, yoga or a game: Move points', sets: 'Log it from Goals for Move points' },
   { id: 'strength', name: 'Strength training', detail: 'Routines, a lifting log and your bests', sets: 'Weekly strength goal' },

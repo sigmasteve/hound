@@ -1,36 +1,21 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, BackHandler, Easing, Pressable, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Text } from '../components/Text';
-import Svg, { Circle } from 'react-native-svg';
-import { BarbellIcon, CaretRightIcon, CheckCircleIcon, FireIcon, FootprintsIcon, PathIcon, TimerIcon, XIcon } from 'phosphor-react-native';
-import { GoalTrail, type TrailAvatar } from '../components/GoalTrail';
+import { CaretRightIcon, XIcon } from 'phosphor-react-native';
 import { HoundArt } from '../kennel/HoundArt';
 import { useMyMoonLook } from '../kennel/moonApi';
 import { levelProgressForXp } from '../challenges/leveling';
 import { rankForLevel } from '../challenges/ranks';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { formatAmount, goalTitle, pacePct, progressLine, type GoalMetric, type GoalProgress } from '../goals/goals';
-import type { GoalStreak } from '../goals/goalStreakApi';
 import type { Kennel } from '../kennel/kennelApi';
-import type { GoalsTileStyle } from './todayPrefs';
 import { HOLIDAY_CORNER, HolidayCorner, HolidayTileCap } from '../holiday/HolidayDecor';
 import { useHoliday } from '../holiday/HolidayContext';
 
-// Today as tiles: a wide goals tile, then small tiles for your hound,
-// what needs you, your challenges and last week. Each tile is a summary;
-// tapping one opens a sheet (TileSheet) with the full cards that used to
-// sit on Today one after another.
-
-const ICONS: Record<GoalMetric, React.ComponentType<any>> = {
-  steps: FootprintsIcon,
-  distance_mi: PathIcon,
-  workouts: BarbellIcon,
-  workout_minutes: TimerIcon,
-};
-
-// The goals tile shows this many goals; the rest are in its sheet.
-const TILE_GOALS = 3;
+// Today as tiles: Your day across the top (YourDayCard.tsx), then small
+// tiles for your hound, what needs you and your challenges. Each tile is a
+// summary; tapping one opens a sheet (TileSheet) with the full cards that
+// used to sit on Today one after another.
 
 export function Tile({
   label,
@@ -44,10 +29,10 @@ export function Tile({
 }: {
   label: string;
   badge?: number;
-  // On the right of the label row (the goals tile's streak).
+  // On the right of the label row.
   accessory?: React.ReactNode;
   wide?: boolean;
-  // The holiday theme's piece in the corner (the Goals tile's).
+  // The holiday theme's piece in the corner.
   corner?: boolean;
   onPress: () => void;
   accessibilityLabel: string;
@@ -169,198 +154,6 @@ export function HoundTile({ kennel, onPress }: { kennel: Kennel; onPress: () => 
         />
       </View>
     </Tile>
-  );
-}
-
-// The wide goals tile, as rings or as trails (Settings → Today).
-export function GoalsTile({
-  progress,
-  streak,
-  tileStyle,
-  avatar,
-  needsSetup,
-  onOpen,
-  onSetGoals,
-  water,
-}: {
-  // The water row (src/water/WaterCards.tsx), under the goals: water
-  // isn't one of them, so it's never a ring or counted in "1 of 3".
-  water?: React.ReactNode;
-  progress: GoalProgress[];
-  streak: GoalStreak | null;
-  tileStyle: GoalsTileStyle;
-  avatar: TrailAvatar;
-  needsSetup: boolean;
-  onOpen: () => void;
-  onSetGoals: () => void;
-}) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  // The count is today's: only daily goals earn the goal day (streak,
-  // Bones, Bone Dig). Weekly goals pay their own bonus once the week's
-  // are all done, so they're marked "This week" and listed after.
-  const daily = progress.filter((p) => p.goal.period === 'day');
-  const weekly = progress.filter((p) => p.goal.period === 'week');
-  const counted = daily.length > 0 ? daily : weekly;
-  const done = counted.filter((p) => p.done).length;
-  const heading = daily.length > 0 ? 'Today' : 'This week';
-  const shown = [...daily, ...weekly].slice(0, TILE_GOALS);
-  const more = progress.length - shown.length;
-  const ringColors = [colors.accent400, colors.green, colors.amber];
-
-  return (
-    <Tile
-      label={`${heading} · ${done} of ${counted.length}`}
-      wide
-      corner
-      onPress={onOpen}
-      accessibilityLabel={`Goals. ${heading}, ${done} of ${counted.length} done. Open`}
-      accessory={
-        streak && streak.streak > 0 ? (
-          <View style={styles.streak}>
-            <FireIcon size={14} color={colors.amber} weight="fill" />
-            <Text style={styles.streakText}>{streak.streak}-day streak</Text>
-          </View>
-        ) : null
-      }
-    >
-
-      {tileStyle === 'rings' ? (
-        <View style={styles.ringsRow}>
-          <Rings progress={shown} colors={ringColors} done={done} total={counted.length} track={withAlpha(colors.text, 0.1)} textColor={colors.text} />
-          <View style={styles.legend}>
-            {shown.map((p, i) => (
-              <View key={p.goal.id} style={styles.legendRow}>
-                <View style={[styles.dot, { backgroundColor: ringColors[i] }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.legendValue} numberOfLines={1}>
-                    {formatAmount(p.goal.metric, p.value)} / {formatAmount(p.goal.metric, p.goal.target)}
-                    {p.goal.metric === 'steps' ? ' steps' : p.goal.metric === 'workouts' ? ' workouts' : ''}
-                  </Text>
-                  <Text style={[styles.legendSub, p.done && { color: colors.green }]} numberOfLines={1}>
-                    {p.goal.period === 'week'
-                      ? p.done
-                        ? '✓ Done this week'
-                        : `This week · ${weekLeft(p)}`
-                      : p.done
-                        ? '✓ Done'
-                        : progressLine(p)}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-      ) : (
-        <View style={{ gap: 10, marginTop: 4 }}>
-          {shown.map((p) => {
-            const Icon = ICONS[p.goal.metric];
-            const pace = pacePct(p.goal);
-            return (
-              <View key={p.goal.id} style={{ gap: 2 }}>
-                <View style={styles.trailTop}>
-                  <Icon size={14} color={colors.accent} />
-                  <Text style={styles.trailName} numberOfLines={1}>
-                    {goalTitle(p.goal)}
-                  </Text>
-                  {p.goal.period === 'week' ? (
-                    <View style={[styles.weekTag, { marginLeft: 'auto' }]}>
-                      <Text style={styles.weekTagText}>{p.done ? 'Done this week' : `This week · ${weekLeft(p)}`}</Text>
-                    </View>
-                  ) : p.done ? (
-                    <View style={{ marginLeft: 'auto' }}>
-                      <CheckCircleIcon size={15} color={colors.green} weight="fill" />
-                    </View>
-                  ) : (
-                    <Text style={styles.trailLeft} numberOfLines={1}>
-                      {progressLine(p)}
-                    </Text>
-                  )}
-                </View>
-                <GoalTrail pct={p.pct} done={p.done} pace={p.done ? null : pace} avatar={avatar} />
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      {water}
-
-      {(more > 0 || needsSetup) && (
-        <View style={styles.goalsFoot}>
-          {more > 0 && <Text style={styles.line}>+{more} more</Text>}
-          {needsSetup && (
-            <Pressable onPress={onSetGoals} hitSlop={8} accessibilityRole="button" style={{ marginLeft: 'auto' }}>
-              <Text style={styles.setGoals}>Starter goals · Set yours ›</Text>
-            </Pressable>
-          )}
-        </View>
-      )}
-    </Tile>
-  );
-}
-
-// "6 days left", or "last day": the rest of a weekly goal's line shows
-// in its numbers and its trail.
-function weekLeft(p: GoalProgress): string {
-  return p.daysLeft === 1 ? 'last day' : `${p.daysLeft} days left`;
-}
-
-// One ring per goal, outermost first, with how many are done in the middle.
-function Rings({
-  progress,
-  colors: ringColors,
-  done,
-  total,
-  track,
-  textColor,
-}: {
-  progress: GoalProgress[];
-  colors: string[];
-  done: number;
-  total: number;
-  track: string;
-  textColor: string;
-}) {
-  const size = 112;
-  const stroke = 11;
-  const gap = 3;
-  return (
-    <View style={{ width: size, height: size }}>
-      <Svg width={size} height={size}>
-        {progress.map((p, i) => {
-          const r = size / 2 - stroke / 2 - i * (stroke + gap);
-          const c = 2 * Math.PI * r;
-          const pct = p.done ? 1 : Math.max(0, Math.min(1, p.pct / 100));
-          return (
-            <React.Fragment key={p.goal.id}>
-              <Circle cx={size / 2} cy={size / 2} r={r} stroke={track} strokeWidth={stroke} fill="none" />
-              {pct > 0 && (
-                <Circle
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={r}
-                  stroke={ringColors[i]}
-                  strokeWidth={stroke}
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeDasharray={`${c} ${c}`}
-                  strokeDashoffset={c * (1 - pct)}
-                  transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                />
-              )}
-            </React.Fragment>
-          );
-        })}
-      </Svg>
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontFamily: font.headingSemibold, fontSize: 17, color: textColor }}>
-            {total > 0 && done === total ? '✓' : `${done}/${total}`}
-          </Text>
-        </View>
-      </View>
-    </View>
   );
 }
 

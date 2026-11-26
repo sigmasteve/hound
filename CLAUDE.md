@@ -238,7 +238,7 @@ Workouts, Activities with no watch, Strength training with its days a
 week, Water, Games with friends) save in `profiles.hound_uses` and set
 each part up on "Set up": a step goal if missing, a workout goal (3 a
 week), Move's strength goal, a water goal; Intermittent fasting puts the
-Fasting tile on Today (Fasting asks the age question on the first open).
+Fasting ring in Today's Your day (Fasting asks the age question on the first open).
 Settings has the same checkboxes, and Discover ranks by them
 (`interestsFromUses` in `myUses.ts`; K-08's interests folded in). When a
 new part of Hound ships, add it here: a checkbox, what ticking it sets up,
@@ -315,20 +315,35 @@ moving anything, and ask before changing a fixed spot. Today is a grid
 of tiles, each opening a sheet with the full cards; testers found the
 old stack of cards too much at once.
 
-Above the scrolling grid, outside it: the offline strip (OfflineStrip,
+Streamlined (Steve, Nov 2026: "too much information is overwhelming"):
+Today opens on the basics, built around Hound's three pillars (steps and
+workouts synced from Health or a watch, intermittent fasting, and what
+you log or time in Hound: Move points). Everything else is an extra in
+Customize Today (`home/CustomizeTodaySheet.tsx`, also Settings → Today),
+off for everyone until they turn it on, saved per account (0278,
+`today_prefs`; `useTodayExtras` in `home/todayExtras.ts`): Week in
+review, Step rank, Journey, the Fasting card, holiday decorations (and
+`hound_top`, kept for later). A new extra joins `TODAY_EXTRAS`,
+`set_today_prefs`'s keys and `admin_today_overview` (Admin → Overview →
+Status → Customize Today, which also counts Your day's taps).
+
+Above the scrolling grid, outside it, one notice at a time
+(`components/NoticeSlot.tsx`: the first of these that wants to show; the
+next takes its place once it goes): the offline strip (OfflineStrip,
 0271, only with offline mode on in Admin: no connection, things waiting
-to sync, or one that couldn't), then "A new version of Hound is
-ready" (UpdateReadyBanner), then the maintenance heads-up while an Admin
-window is near (MaintenanceHeadsUp, 0190), then "Hound can't see your
-steps" when Health has shown 0 steps for three days and today
-(HealthZeroBanner, 0205; Fix it says how, x hides it until tomorrow), then
-the announcement banner.
+to sync, or one that couldn't), the maintenance heads-up while an Admin
+window is near (MaintenanceHeadsUp, 0190), "A new version of Hound is
+ready" (UpdateReadyBanner), "Hound can't see your steps" when Health has
+shown 0 steps for three days and today (HealthZeroBanner, 0205; Fix it
+says how, x hides it until tomorrow), then the announcement banner. A new
+notice takes a `useNoticeTurn` id in that order.
 
 Inside the scroll, in order:
 
 0. A holiday theme's countdown pill and garland, only while one is
-   scheduled (Admin → Holiday themes, 0184). Decoration only: the tiles
-   get a trim (snow, marigolds) and the Goals tile a corner piece, and
+   scheduled (Admin → Holiday themes, 0184) and only for people who
+   turned Holiday decorations on (an extra). Decoration only: the tiles
+   get a trim (snow, marigolds) and Your day a corner piece, and
    snow / leaves / confetti drift over Today (off in Settings → Today,
    still with Reduce Motion).
 1. For a new account, "You're in" (YoureInCard, 0222): the Global
@@ -337,16 +352,26 @@ Inside the scroll, in order:
    Got it. Then Global Hound Challenges you can still join
    (GlobalChallengesCard). **Fixed: above the tiles, so they're seen
    without opening anything.**
-2. Goal setup, while it's open (GoalSetupCard); it takes the goals
-   tile's place.
+2. Goal setup, while it's open (GoalSetupCard); it takes Your day's
+   place.
 3. The tile grid:
-   - Goals, full width across the top (rings or hound trails). Once
-     you've started a fast it swipes sideways to the Fasting card (Steve,
-     Nov 2026; `src/home/TodayFastingCard.tsx`): the ring with the clock,
+   - Your day, full width across the top (Steve: "I love the proposed
+     Your day card"; `src/home/YourDayCard.tsx`): a ring for each pillar
+     side by side. Steps & workouts (the step goal's ring, today's steps
+     and workouts; opens the Goals sheet) always; Fasting (the live clock
+     and what's left, or Start and your plan; opens Fasting) once you've
+     started a fast, or before a first fast if you ticked Intermittent
+     fasting (0272), never for under-16s; Move (today's Move points;
+     opens Move) if you ticked Activities, Strength or Workouts, already
+     have Move points today, or answered before those checkboxes existed.
+     Its header is "N of M goals" and the streak; water is the row under
+     the rings. With the Fasting card extra on, once you've started a fast
+     it swipes sideways to the Fasting card
+     (`src/home/TodayFastingCard.tsx`): the ring with the clock,
      the stage, what's left to your goal and the next stage (or the phase
      game that's open, 0269), or between fasts your plan, the week and
      your last fast; along its bottom the numbers at a glance (streak,
-     this week, Fast Points, longest). It's the Goals tile's height
+     this week, Fast Points, longest). It's Your day's height
      (Steve: 90% of people see this, no white space), so no game slots
      here; they're on the Fasting screen. Dots under it; the
      phone remembers which was showing (`useTodayTopCard` in
@@ -368,16 +393,15 @@ Inside the scroll, in order:
      strip (its number with its lines beside it, not a half tile's
      height stretched across; Steve, Nov 2026): your hound
      (when the Kennel has loaded), Needs you (only when caught up or muted), Your
-     challenges, Fasting (once you've started a fast, 0261, or before a
-     first fast if you ticked Intermittent fasting in the welcome wizard,
-     0272: the live clock while fasting, else Start; left out while the
-     Fasting card is showing across the top), and either Week in review (Monday
-     until Tuesday noon, local) or today's Step rank (the rest of the week).
-   - Journey, full width, when you're on one.
+     challenges, and the extras that are on: Week in review (Monday
+     until Tuesday noon, local), else today's Step rank. (Fasting is in
+     Your day now, not a tile.)
+   - Journey, full width, when you're on one and the extra is on.
 4. The notifications ask (PushAskCard), once you have a friend or a
    challenge.
 5. Finish setting up (GetStartedCard), until the reward is claimed or
    it's dismissed.
+6. "Customize Today ›", which opens Customize Today.
 
 What each sheet holds:
 
@@ -405,9 +429,9 @@ What each sheet holds:
   in HomeScreen), with one button for what you can do now; then one
   line per other active challenge, then "All challenges". The card
   doesn't repeat the headline.
-- Fasting: no sheet; the tile opens the Fasting screen. Before a first
-  fast the way in is "Try intermittent fasting" at the bottom of the Goals
-  sheet (hidden for anyone who said they're under 16).
+- Fasting: no sheet; Your day's Fasting opens the Fasting screen. Without
+  it in Your day, the way in is "Try intermittent fasting" at the bottom
+  of the Goals sheet (hidden for anyone who said they're under 16).
 - Week in review: last week's recap.
 
 Pop-ups (a stop reached on a Journey, a level up, the daily bonus, an

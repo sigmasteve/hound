@@ -229,8 +229,12 @@ import { PostBountyModal } from '../components/PostBountyModal';
 import { useBounties } from '../bounties/useBounties';
 import { cancelBounty, canPostToday, postBounty, type Bounty } from '../bounties/bountiesApi';
 import { GoalSetupCard } from '../components/GoalSetupCard';
-import { GoalsTile, HoundTile, SheetLink, Tile, TileSheet, TileValue, tileGrid, tileRow } from '../home/TodayTiles';
-import { useGoalsTileStyle, useTodayTopCard } from '../home/todayPrefs';
+import { HoundTile, SheetLink, Tile, TileSheet, TileValue, tileGrid, tileRow } from '../home/TodayTiles';
+import { useTodayTopCard } from '../home/todayPrefs';
+import { noteTodayTap, useTodayExtras } from '../home/todayExtras';
+import { YourDayCard } from '../home/YourDayCard';
+import { CustomizeTodaySheet } from '../home/CustomizeTodaySheet';
+import { NoticeSlot, NoticeTurn } from '../components/NoticeSlot';
 import { TodayFastingCard, TodayTopPager } from '../home/TodayFastingCard';
 import { useGoals } from '../goals/GoalsContext';
 import { advanceHoops, getHoops, type HoopsGame } from '../challenges/hoopsApi';
@@ -242,11 +246,10 @@ import { GolfHole } from '../components/GolfHole';
 import { HoopsCourt } from '../components/HoopsCourt';
 import { PackActivitiesCard } from '../packFun/PackActivitiesCard';
 import { currentPackFuns, isLive, myPackFuns, type MyPackFun } from '../packFun/packFunApi';
-import { declineMovePack, getMovePackWaiting, type MovePackInvite } from '../move/moveApi';
+import { declineMovePack, getMovePackWaiting, getMyMove, type MovePackInvite } from '../move/moveApi';
 import { refreshSnackNudges } from '../move/snackNudges';
 import { useMyUses } from '../onboarding/myUses';
-import { declineFastPack, getFastingWaiting, getMyFasting, hoursSince, type FastPackInvite, type MyFasting } from '../fasting/fastingApi';
-import { clockText as fastClock, leftText as fastLeft, planLabel as fastPlanLabel } from '../fasting/fasting';
+import { declineFastPack, getFastingWaiting, getMyFasting, type FastPackInvite, type MyFasting } from '../fasting/fastingApi';
 import { scheduleFastingReminders } from '../fasting/fastingReminders';
 import { DEFAULT_HUNT_LABELS, type HuntLabels } from '../labels/types';
 
@@ -910,7 +913,7 @@ function takePopup(): boolean {
 
 // Where Today's links go: a tab, or a screen that used to be a tab and
 // now opens from You.
-export type HomeDestination = MainTab | 'stats' | 'healthData' | 'goals' | 'kennel' | 'setup' | 'journey';
+export type HomeDestination = MainTab | 'stats' | 'healthData' | 'goals' | 'kennel' | 'setup' | 'journey' | 'settings';
 
 export function HomeScreen({
   onOpenChallenge,
@@ -1010,7 +1013,10 @@ export function HomeScreen({
   const [fasting, setFasting] = useState<MyFasting | null>(null);
   // Ticked Intermittent fasting in the wizard (0272): the tile shows
   // before a first fast too.
-  const fastingPicked = !!useMyUses()?.includes('fasting');
+  const myUses = useMyUses();
+  const fastingPicked = !!myUses?.includes('fasting');
+  // Customize Today's extras (0278): all off until turned on.
+  const extras = useTodayExtras();
   const [fastInvites, setFastInvites] = useState<FastPackInvite[]>([]);
   const [fastNow, setFastNow] = useState(Date.now());
   const loadFasting = useCallback(() => {
@@ -1044,9 +1050,14 @@ export function HomeScreen({
   // Move together invites (0275), and keeping Movement snacks' nudges
   // filled in for the next days.
   const [moveInvites, setMoveInvites] = useState<MovePackInvite[]>([]);
+  // Today's Move points, for Your day.
+  const [movePts, setMovePts] = useState<number | null>(null);
   const loadMoveInvites = useCallback(() => {
     if (!isSupabaseConfigured) return;
     getMovePackWaiting().then(setMoveInvites).catch(() => {});
+    getMyMove()
+      .then((m) => setMovePts(m ? m.pts : null))
+      .catch(() => {});
   }, []);
   useFocusEffect(
     useCallback(() => {
@@ -1309,10 +1320,8 @@ export function HomeScreen({
   const NUDGES_DISMISSED_KEY = 'homeNudgesDismissedAt';
   const [nudges, setNudges] = useState<ReceivedNudge[]>([]);
   const [nudgesDismissedAt, setNudgesDismissedAt] = useState<string | null>(null);
-  // Which tile's sheet is open (TodayTiles.tsx), and how the goals tile
-  // looks (Settings → Today).
-  const [openTile, setOpenTile] = useState<'goals' | 'water' | 'needs' | 'challenges' | 'week' | null>(null);
-  const goalsTileStyle = useGoalsTileStyle();
+  // Which tile's sheet is open (TodayTiles.tsx).
+  const [openTile, setOpenTile] = useState<'goals' | 'water' | 'needs' | 'challenges' | 'week' | 'customize' | null>(null);
   // Goals or Fasting across the top, for people who fast (remembered on
   // this phone; swipe between them).
   const [topCard, setTopCard] = useTodayTopCard();
@@ -2801,12 +2810,6 @@ export function HomeScreen({
     setOpenTile(null);
     openPrimary();
   };
-  const trailAvatar = {
-    initials: user?.initials ?? '',
-    frameId: myLook?.frameId,
-    backgroundId: myLook?.backgroundId,
-    iconId: myLook?.iconId,
-  };
 
   // The Needs you tile: everything waiting on you, newest kinds last.
   const digReady =
@@ -2969,54 +2972,9 @@ export function HomeScreen({
         </Tile>
       ),
     },
-    // Fasting (0261), once you've started a fast: the live clock while you
-    // fast, else when you usually start. Before a first fast, for anyone
-    // who ticked Intermittent fasting in the wizard (0272): Start, and
-    // Fasting asks the age question on the way in.
-    // Left out while the Fasting card is showing across the top.
-    ...(fasting &&
-    fasting.age !== 'under' &&
-    (fasting.startedAny ? fasting.age === 'ok' : fastingPicked) &&
-    !(topFasting && topCard === 'fasting')
-      ? [
-          {
-            key: 'fasting',
-            render: (wide: boolean) => {
-              const o = fasting.open;
-              const h = o ? hoursSince(o.startedAt, fastNow) : 0;
-              return (
-                <Tile
-                  label="Fasting"
-                  wide={wide}
-                  onPress={() => onOpenAction(['Fasting', undefined])}
-                  accessibilityLabel={o ? `Fasting, ${fastClock(h)} of ${o.goalHours} hours. Open` : 'Fasting. Open'}
-                >
-                  <TileValue
-                    inline={wide}
-                    value={o ? fastClock(h) : 'Start'}
-                    lines={
-                      o
-                        ? [
-                            h >= o.goalHours ? { text: `${fastPlanLabel(o.goalHours)} done ✓`, color: colors.green } : `${fastLeft(o.goalHours - h)} to go`,
-                            `🔥 ${fasting.numbers.streak}${fasting.cheers.length ? ` · ${fasting.cheers.length} cheered` : ''}`,
-                          ]
-                        : !fasting.startedAny
-                          ? ['Your first fast', 'Tap when you finish eating']
-                          : [
-                              `${fastPlanLabel(fasting.planHours)} · 🔥 ${fasting.numbers.streak}`,
-                              fasting.paidToday ? 'Today’s Bones earned' : 'Tap when you finish eating',
-                            ]
-                    }
-                  />
-                </Tile>
-              );
-            },
-          },
-        ]
-      : []),
-    // Monday until Tuesday noon last week's recap, the rest of the week today's
-    // step rank, so the tiles stay two by two.
-    ...(!weeklyRecap
+    // Extras, only when turned on in Customize Today (0278): Monday until
+    // Tuesday noon last week's recap, else today's step rank.
+    ...(extras.rank && !(weeklyRecap && extras.week)
       ? [
           {
             key: 'rank',
@@ -3052,7 +3010,7 @@ export function HomeScreen({
           },
         ]
       : []),
-    ...(weeklyRecap
+    ...(weeklyRecap && extras.week
       ? [
           {
             key: 'week',
@@ -3088,11 +3046,14 @@ export function HomeScreen({
   );
 
   return (
-    <HolidayProvider>
+    <HolidayProvider enabled={extras.holiday}>
     <View style={{ flex: 1 }}>
       {sharing && <ShareSheet content={sharing} onClose={() => setSharing(null)} />}
       {kennel && <WidgetHound kennel={kennel} />}
       {/* Offline mode (0271): no connection, or things waiting to sync. */}
+      {/* One notice at a time (the streamlining): the most important
+          that wants to show, then the next once it goes. */}
+      <NoticeSlot>
       <OfflineStrip cacheKeys={['fasting:my', 'logged:mine', 'move:my']} />
       <UpdateReadyBanner />
       {/* Admin's maintenance window (0190), from a few hours before:
@@ -3101,7 +3062,10 @@ export function HomeScreen({
       {/* Health has shown no steps for days: Hound probably can't read
           them (Steps off for Hound in Health). Says how to fix it. */}
       <HealthZeroBanner />
-      {announcementBar}
+      <NoticeTurn id="announcement" show={!!announcementBar}>
+        {announcementBar}
+      </NoticeTurn>
+      </NoticeSlot>
       <ScrollView contentContainerStyle={styles.container}>
       {/* A holiday theme (0184), when one's on: its countdown and garland
           across the top. Decoration only; nothing moves. */}
@@ -3161,20 +3125,52 @@ export function HomeScreen({
       <View style={tileGrid}>
         {!setupOpen &&
           goalProgress &&
-          goalsTileStyle &&
           (() => {
-            const goalsTile = (
-              <GoalsTile
+            // Your day (the streamlining): Steps & workouts, Fasting and
+            // Move side by side, in place of the Goals tile and the Fasting
+            // tile. Fasting shows for people who fast or ticked it; Move for
+            // people who said they log activities, strength or workouts, who
+            // already have Move points, or who answered before those
+            // checkboxes existed.
+            const fastingOn = !!fasting && fasting.age !== 'under' && (fasting.startedAny ? fasting.age === 'ok' : fastingPicked);
+            const moveUses = ['activities', 'strength', 'workouts'];
+            const moveOn =
+              (movePts ?? 0) > 0 ||
+              !myUses ||
+              myUses.some((u) => moveUses.includes(u)) ||
+              !myUses.some((u) => ['steps', 'fasting', 'water', 'friends', ...moveUses].includes(u));
+            const dayKey = new Date().toDateString();
+            const workoutsToday = workouts.filter((w) => w.when.toDateString() === dayKey).length;
+            const yourDay = (
+              <YourDayCard
                 progress={goalProgress}
                 streak={goalStreak}
-                tileStyle={goalsTileStyle}
-                avatar={trailAvatar}
+                steps={snap ? snap.stepsToday : null}
+                workouts={workoutsToday}
+                fasting={fasting}
+                now={fastNow}
+                movePts={movePts}
+                pillars={{ fasting: fastingOn, move: moveOn }}
                 needsSetup={!goalsSet}
-                onOpen={() => setOpenTile('goals')}
+                onOpenSteps={() => {
+                  noteTodayTap('steps');
+                  setOpenTile('goals');
+                }}
+                onOpenFasting={() => {
+                  noteTodayTap('fasting');
+                  onOpenAction(['Fasting', undefined]);
+                }}
+                onOpenMove={() => {
+                  noteTodayTap('move');
+                  onOpenAction(['Move', undefined]);
+                }}
                 onSetGoals={() => setSetupOpen(true)}
                 water={
                   <WaterRow
-                    onOpen={() => setOpenTile('water')}
+                    onOpen={() => {
+                      noteTodayTap('water');
+                      setOpenTile('water');
+                    }}
                     onAdded={waterAdded}
                     onOfferDismissed={() =>
                       pushToast({
@@ -3188,13 +3184,13 @@ export function HomeScreen({
                 }
               />
             );
-            // People who fast can swipe the Goals tile to the Fasting card.
-            if (!topFasting || !fasting || topCard === null) return goalsTile;
+            // The Fasting card to swipe to, an extra (Customize Today).
+            if (!extras.fasting_card || !topFasting || !fasting || topCard === null) return yourDay;
             return (
               <TodayTopPager
                 page={topCard === 'fasting' ? 1 : 0}
                 onPage={(i) => setTopCard(i === 1 ? 'fasting' : 'goals')}
-                pages={[goalsTile, <TodayFastingCard key="fasting" fasting={fasting} now={fastNow} onOpen={() => onOpenAction(['Fasting', undefined])} />]}
+                pages={[yourDay, <TodayFastingCard key="fasting" fasting={fasting} now={fastNow} onOpen={() => onOpenAction(['Fasting', undefined])} />]}
               />
             );
           })()}
@@ -3224,7 +3220,7 @@ export function HomeScreen({
               </View>
             );
           })}
-        {journey && <JourneyTile journey={journey} onOpen={() => onGoTab('journey')} />}
+        {extras.journey && journey && <JourneyTile journey={journey} onOpen={() => onGoTab('journey')} />}
       </View>
 
       {offerPush && user?.id && onboarding && (onboarding.hasFriend || onboarding.joinedChallenge) && (
@@ -3243,6 +3239,19 @@ export function HomeScreen({
           onDismiss={dismissGetStarted}
         />
       )}
+
+      {/* Customize Today (0278): the extras, off until turned on. */}
+      <Pressable
+        onPress={() => {
+          noteTodayTap('customize');
+          setOpenTile('customize');
+        }}
+        style={styles.customizeLink}
+        accessibilityRole="button"
+        hitSlop={6}
+      >
+        <Text style={styles.customizeText}>Customize Today ›</Text>
+      </Pressable>
 
     </ScrollView>
     {/* The theme's snow, leaves or confetti, over Today but under the
@@ -3295,6 +3304,11 @@ export function HomeScreen({
             }}
           />
         )}
+      </TileSheet>
+    )}
+    {openTile === 'customize' && (
+      <TileSheet title="Customize Today" onClose={closeTile}>
+        <CustomizeTodaySheet onOpenUses={() => sheetGoTab('settings')} />
       </TileSheet>
     )}
     {openTile === 'water' && water.goal && (
@@ -4914,6 +4928,8 @@ function makeStyles(colors: Palette) {
     mutedBtnText: { fontFamily: font.headingSemibold, fontSize: 14, color: '#1b1d29' },
     challengesLoading: { paddingVertical: 18 },
     featuredLoading: { gap: 4 },
+    customizeLink: { alignSelf: 'center', paddingVertical: 10 },
+    customizeText: { fontSize: 13.5, fontFamily: font.headingSemibold, color: colors.accentActive },
     announcementBar: {
       flexDirection: 'row',
       // flex-start, not center — now that the message can wrap to as

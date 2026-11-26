@@ -4,7 +4,7 @@ import type { Interest } from './interests';
 
 // What someone said they'll use Hound for (the wizard's checkboxes, 0272),
 // kept in memory so Today, Settings and Discover share one read. Ticking
-// Intermittent fasting puts the Fasting tile on Today before a first fast.
+// Intermittent fasting puts Fasting in Your day before a first fast.
 
 let cache: HoundUse[] | null = null;
 let loading: Promise<HoundUse[]> | null = null;

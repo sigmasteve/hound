@@ -46,7 +46,7 @@ function glassCount(goal: WaterGoal): number {
   return Math.min(12, Math.max(1, Math.round(goal.targetMl / goal.glassMl)));
 }
 
-// The water row on Today's Goals tile: a small glass, "5 of 8 cups" over a
+// The water row under Your day on Today: a small glass, "5 of 8 cups" over a
 // drop per glass, and a + that logs one. Tapping the row opens the sheet;
 // holding + does too, for another size.
 //

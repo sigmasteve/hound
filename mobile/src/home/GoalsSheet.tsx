@@ -9,7 +9,7 @@ import { HISTORY_WEEKS, useGoalDayHistory } from '../goals/useGoalDayHistory';
 
 type CardProps = Omit<React.ComponentProps<typeof GoalsCard>, 'history'>;
 
-// What the Goals tile opens: the goals card with the week strip under its
+// What Your day's Steps & workouts opens: the goals card with the week strip under its
 // streak line, a past day's numbers when one is tapped, and "Earlier",
 // the four-week grid (GoalHistoryCard). Keeps the history and which view
 // is up; both reset when the sheet closes, since it unmounts. Under the

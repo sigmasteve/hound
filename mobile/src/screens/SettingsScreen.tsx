@@ -662,7 +662,7 @@ export function SettingsScreen({ onOpenLocker }: { onOpenLocker?: () => void } =
         <Card style={{ gap: 12 }} elevated={false}>
           <Text style={text.h4}>What you use Hound for</Text>
           <Text style={styles.footNote}>
-            Only you see this. Hound suggests challenges to match, and Intermittent fasting puts the Fasting tile on Today.
+            Only you see this. Hound suggests challenges to match, and Intermittent fasting puts Fasting in Your day on Today.
           </Text>
           <View pointerEvents={usesSaving ? 'none' : 'auto'}>
             <UsesPicker picked={myUses.filter((u): u is UseId => USE_CHOICES.some((c) => c.id === u))} onToggle={toggleUse} />

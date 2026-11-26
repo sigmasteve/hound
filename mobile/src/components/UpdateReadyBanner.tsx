@@ -5,6 +5,7 @@ import { ArrowClockwiseIcon, XIcon } from 'phosphor-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useUpdateReady } from '../updates/updateReady';
+import { useNoticeTurn } from './NoticeSlot';
 
 // Across the top of Today when a new version has downloaded in the
 // background (src/updates/updateReady.ts): Restart runs it now, about a
@@ -13,7 +14,8 @@ export function UpdateReadyBanner() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { ready, restarting, restart, dismiss } = useUpdateReady();
-  if (!ready) return null;
+  const turn = useNoticeTurn('update', ready);
+  if (!ready || !turn) return null;
 
   return (
     <View style={styles.bar}>

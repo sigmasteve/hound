@@ -45,7 +45,7 @@ export interface WaterState {
   pours: number;
   // The day just counted as a water day, for Home to check badges.
   claimedDay: string | null;
-  // The "Track your water?" offer on Today's Goals tile: true once it's
+  // The "Track your water?" offer under Your day on Today: true once it's
   // been turned down (×, or setup saved without water) on this phone.
   offerDismissed: boolean;
   dismissOffer(): void;
