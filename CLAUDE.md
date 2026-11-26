@@ -204,7 +204,10 @@ watch's workouts in full, Log a workout's ('manual') up to
 guided routines and strength logs, timed by `move_session_start` /
 `_finish`) in full unless a watch workout covers the same time. Each
 workout keeps the activity and rate it was recorded with, so rate changes
-apply forward. A Most steps challenge with `counts = 'move'` gets the
+apply forward. A workout's own steps come off its points, never below 0
+(0277, Steve: they're already in the day's steps): `steps_during`, sent
+by the phone from Health for the last 3 days' workouts when Today syncs
+them, or a hand log's `phone_steps`. A Most steps challenge with `counts = 'move'` gets the
 day's points added server-side (`progress_snapshots.raw_steps` +
 `move_pts` = `steps`), so its board, results and prizes need nothing
 special. Strength goals (1 to 5 a week) are each person's own.

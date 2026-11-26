@@ -284,6 +284,7 @@ export function MoveScreen({
                     <Text style={styles.small} numberOfLines={1}>
                       {i.minutes} min · {itemTag(i)}
                       {i.prs > 0 ? ` · ${i.prs} new best` : ''}
+                      {i.steps > 0 ? ` · ${fmtPts(i.steps)} steps already counted` : ''}
                     </Text>
                   </View>
                   <Text style={styles.pts}>{fmtPts(i.pts)}</Text>
