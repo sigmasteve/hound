@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { errorText } from '../offline/cache';
 import { ActivityIndicator, Pressable, Share, StyleSheet, View } from 'react-native';
 import { ArrowSquareOutIcon } from 'phosphor-react-native';
 import { Text } from './Text';
@@ -93,7 +94,7 @@ export function ShootoutBoard({
       onPrizes?.(b.prizes);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load the leaderboard.');
+      setError(errorText(e, 'Could not load the leaderboard.'));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challengeId, tab]);

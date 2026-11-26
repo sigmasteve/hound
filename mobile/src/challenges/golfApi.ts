@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { cachedRead } from '../offline/cache';
 import type { GolfClubId, GolfCourseId, GolfFormat } from './golf';
 
 // The client-facing half of Golf — see 0200_golf.sql. The server keeps
@@ -445,7 +446,8 @@ export interface OpenBoard {
 }
 
 export async function getOpenBoard(challengeId: string, tab: OpenTab = 'top'): Promise<OpenBoard> {
-  const d = await rpc<any>('golf_open_board', { p_challenge_id: challengeId, p_tab: tab });
+  // A kept copy when offline (0271).
+  const d = await cachedRead(`open:${challengeId}:${tab}`, () => rpc<any>('golf_open_board', { p_challenge_id: challengeId, p_tab: tab }));
   const m = d?.me;
   return {
     field: num(d?.field),

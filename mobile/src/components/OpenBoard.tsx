@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { errorText } from '../offline/cache';
 import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, View } from 'react-native';
 import type { ChallengeShare } from '../share/ShareCard';
 import { ArrowSquareOutIcon } from 'phosphor-react-native';
@@ -75,7 +76,7 @@ export function OpenBoard({
       setBoard(await getOpenBoard(challengeId, tab));
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load the leaderboard.');
+      setError(errorText(e, 'Could not load the leaderboard.'));
     }
   }, [challengeId, tab]);
   // Again when your game moves (back from a hole).

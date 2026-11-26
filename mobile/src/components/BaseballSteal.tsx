@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { errorText } from '../offline/cache';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Ellipse, Line, Path, Rect } from 'react-native-svg';
 import { Text } from './Text';
@@ -51,7 +52,7 @@ export function BaseballStealMode({ challengeId, onBusy }: { challengeId: string
       setLive(await getBaseballLive(challengeId));
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load the game.');
+      setError(errorText(e, 'Could not load the game.'));
     }
   }, [challengeId]);
   useEffect(() => {

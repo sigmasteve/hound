@@ -1,3 +1,4 @@
+import { cachedRead } from '../offline/cache';
 import { supabase } from '../lib/supabase';
 
 // The Hound Shootout (0220_shootout_kind.sql, 0221_shootout.sql): a Global
@@ -379,7 +380,8 @@ export function toShootoutBoard(d: any): ShootoutBoard {
 }
 
 export async function getShootoutBoard(challengeId: string, tab: ShootoutTab = 'top'): Promise<ShootoutBoard> {
-  return toShootoutBoard(await rpc<any>('shootout_board', { p_challenge_id: challengeId, p_tab: tab }));
+  // A kept copy when offline (0271).
+  return toShootoutBoard(await cachedRead(`shootout:${challengeId}:${tab}`, () => rpc<any>('shootout_board', { p_challenge_id: challengeId, p_tab: tab })));
 }
 
 // "T4", "1", or "–" for someone who hasn't kicked yet.

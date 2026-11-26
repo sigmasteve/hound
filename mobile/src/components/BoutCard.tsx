@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { errorText } from '../offline/cache';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { BoxingGloveIcon, PlayIcon } from 'phosphor-react-native';
 import { Text } from './Text';
@@ -265,7 +266,7 @@ export function BoutReplayView({
     setRep(null);
     (load ? load() : getBoutReplay(challengeId, round))
       .then(setRep)
-      .catch((e) => setError(e instanceof Error ? e.message : 'Could not load the replay.'));
+      .catch((e) => setError(errorText(e, 'Could not load the replay.')));
     // load is a new function each render; the round (or fight) is what changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challengeId, round, label]);

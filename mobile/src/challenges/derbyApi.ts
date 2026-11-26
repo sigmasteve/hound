@@ -1,3 +1,4 @@
+import { cachedRead } from '../offline/cache';
 import { supabase } from '../lib/supabase';
 
 // The Hound Home Run Derby (0210_derby_kind.sql, 0211_derby.sql): a
@@ -332,7 +333,8 @@ export interface DerbyBoard {
 const nameFt = (x: any) => (x ? { name: x.name ?? 'Someone', ft: num(x.ft) } : null);
 
 export async function getDerbyBoard(challengeId: string, tab: DerbyTab = 'top'): Promise<DerbyBoard> {
-  return toDerbyBoard(await rpc<any>('derby_board', { p_challenge_id: challengeId, p_tab: tab }));
+  // A kept copy when offline (0271).
+  return toDerbyBoard(await cachedRead(`derby:${challengeId}:${tab}`, () => rpc<any>('derby_board', { p_challenge_id: challengeId, p_tab: tab })));
 }
 
 export function toDerbyBoard(d: any): DerbyBoard {
