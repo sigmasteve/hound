@@ -3,6 +3,7 @@ import {
   Gauge,
   HStack,
   Image,
+  Link,
   ProgressView,
   Spacer,
   Text,
@@ -93,6 +94,13 @@ export function HoundGoalsLayout(props: WidgetData | undefined, env: WidgetEnvir
             <Text modifiers={[font({ size: 12 }), foregroundStyle(secondary)]}>Set goals in Hound and they'll show here.</Text>
           )}
           <Spacer />
+          {/* 1.3.0: straight to logging an activity (Move). */}
+          <Link destination="hound://move/log?from=widget">
+            <HStack spacing={4}>
+              <Image systemName="plus.circle.fill" size={13} color={accent} />
+              <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(accent)]}>Log activity</Text>
+            </HStack>
+          </Link>
         </VStack>
       </HStack>
     );

@@ -51,10 +51,13 @@ export function MoveScreen({
   onBack,
   onStartRoutine,
   onStartStrength,
+  openLog = false,
 }: {
   onBack: () => void;
   onStartRoutine: (routineId: string) => void;
   onStartStrength: (templateId: string) => void;
+  // Opened from a widget's "Log activity" (1.3.0): the log sheet first.
+  openLog?: boolean;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -65,7 +68,10 @@ export function MoveScreen({
   // Offline, with no copy of today's numbers kept yet.
   const [noCopy, setNoCopy] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
-  const [logOpen, setLogOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(openLog);
+  useEffect(() => {
+    if (openLog) setLogOpen(true);
+  }, [openLog]);
   const [goalPick, setGoalPick] = useState(2);
   const [saving, setSaving] = useState(false);
 

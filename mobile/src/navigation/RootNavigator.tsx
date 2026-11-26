@@ -572,8 +572,9 @@ export function RootNavigator() {
             </Stack.Screen>
             <Stack.Screen name="Move" options={{ animation: 'slide_from_right' }}>
               {/* Move points (0270), from the Goals sheet. */}
-              {({ navigation }) => (
+              {({ navigation, route }) => (
                 <MoveScreen
+                  openLog={!!route.params?.log}
                   onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { tab: 'home' }))}
                   onStartRoutine={(routineId) => navigation.navigate('MoveRoutine', { routineId })}
                   onStartStrength={(templateId) => navigation.navigate('MoveStrength', { templateId })}

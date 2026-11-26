@@ -74,7 +74,8 @@ export type RootStackParamList = {
   FastingGame: { fastId: string; slot: 'settling' | 'fatburn' | 'ketosis' | 'goal' };
   FastingBoard: undefined;
   // Move points (0270): the hub, a guided routine, a strength log.
-  Move: undefined;
+  // log: open Log an activity straight away (a widget's link, 1.3.0).
+  Move: { log?: boolean } | undefined;
   MoveRoutine: { routineId: string };
   MoveStrength: { templateId: string };
   // Golf (0200): playing your ball on a golf challenge.

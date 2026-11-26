@@ -8,7 +8,8 @@ import { font, withAlpha, type Palette } from '../theme/tokens';
 import { supabase } from '../lib/supabase';
 
 // Admin → Apple Watch (0189): who's linked a watch, who uses it, and the
-// water added from the wrist.
+// water added from the wrist; since 0274 fasts and activities from the
+// wrist, and taps on the phone's widgets (Fasting, Log activity).
 export interface WatchOverview {
   linked: number;
   people: number;
@@ -17,6 +18,13 @@ export interface WatchOverview {
   opens7d: number;
   waterTaps7d: number;
   waterPeople7d: number;
+  fastStarts7d: number;
+  fastEnds7d: number;
+  fastPeople7d: number;
+  activities7d: number;
+  activityPeople7d: number;
+  widgetTaps7d: Record<string, number>;
+  widgetPeople7d: number;
 }
 
 export async function getWatchOverview(): Promise<WatchOverview> {
@@ -33,6 +41,13 @@ export async function getWatchOverview(): Promise<WatchOverview> {
     opens7d: n(d.opens_7d),
     waterTaps7d: n(d.water_taps_7d),
     waterPeople7d: n(d.water_people_7d),
+    fastStarts7d: n(d.fast_starts_7d),
+    fastEnds7d: n(d.fast_ends_7d),
+    fastPeople7d: n(d.fast_people_7d),
+    activities7d: n(d.activities_7d),
+    activityPeople7d: n(d.activity_people_7d),
+    widgetTaps7d: d.widget_taps_7d ?? {},
+    widgetPeople7d: n(d.widget_people_7d),
   };
 }
 
@@ -64,6 +79,15 @@ export function WatchAdminCard() {
         ['Watches linked', `${data.linked} by ${data.people} ${data.people === 1 ? 'person' : 'people'}`],
         ['Used', `${data.seen24h} in the last day · ${data.seen7d} this week · ${data.opens7d} opens this week`],
         ['Water from the wrist (7 days)', `${data.waterTaps7d} glasses by ${data.waterPeople7d} ${data.waterPeople7d === 1 ? 'person' : 'people'}`],
+        [
+          'Fasting from the wrist (7 days)',
+          `${data.fastStarts7d} started · ${data.fastEnds7d} ended, by ${data.fastPeople7d} ${data.fastPeople7d === 1 ? 'person' : 'people'}`,
+        ],
+        ['Activities logged from the wrist (7 days)', `${data.activities7d} by ${data.activityPeople7d} ${data.activityPeople7d === 1 ? 'person' : 'people'}`],
+        [
+          'Phone widget taps (7 days)',
+          `Fasting ${data.widgetTaps7d.fasting ?? 0} · Log activity ${data.widgetTaps7d.activity ?? 0}, by ${data.widgetPeople7d} ${data.widgetPeople7d === 1 ? 'person' : 'people'}`,
+        ],
       ]
     : [];
 

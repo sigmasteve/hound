@@ -226,6 +226,28 @@ new part of Hound ships, add it here: a checkbox, what ticking it sets up,
 and its tried / now numbers in `admin_uses_overview` (Admin → Overview →
 Status → What people use Hound for).
 
+## Widgets and the Watch
+
+Phone widgets (`src/widgets/`, iPhone layouts in `ios/layouts.tsx`
+through expo-widgets, Android in `android/`): Hound (your hound and
+goals; the medium iPhone one and the wide Android one have "Log activity",
+`hound://move/log`, which opens Move's Log an activity) and Hound steps
+(Lock Screen). A widget's layout changes over the air; a new widget, or
+anything in `targets/` (the Apple Watch app, 0189, and its complications),
+needs a new native build. The app hands widgets everything
+(`updateWidgets`). Widget links go through `useChallengeCodeLinks`
+(`codeLinks.ts`), which notes each tap (`note_widget_tap`, 0274). Each
+watch call is `watch_*` acting as its person (`watch_act_as`). Admin →
+Overview → Status → Apple Watch & widgets has the numbers.
+
+Waiting for the next native build (Steve, Nov 2026: not yet), on the
+branch `next-build-watch-fasting`: the Hound fasting widget (iPhone home
+and Lock Screen, Android), the watch's Fasting and Log activity pages and
+its Hound fasting complication, and the version bump. Their server side
+(`watch_fasting_start` / `_end`, `watch_log_activity`, fasting in
+`watch_today`, 0274) is already in. Rebase that branch onto master and
+bring it in with the next build.
+
 ## Offline mode
 
 Offline mode (0271, `src/offline/`, Admin → Overview → Status → Offline
