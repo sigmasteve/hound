@@ -22,7 +22,9 @@ $$;
 
 -- ── The settings ──
 select is((select array[per_day, min_min, max_min, back_days, value_pct, new_account_days, undo_minutes] from public.workout_log_config),
-  array[2, 5, 90, 1, 50, 7, 15], 'Two a day, 5 to 90 minutes, back to yesterday, half value, a week''s wait, 15 minutes to undo');
+  array[0, 5, 90, 1, 50, 7, 15], 'No count limit (0276: the 2-hour cap instead), 5 to 90 minutes, back to yesterday, half value, a week''s wait, 15 minutes to undo');
+-- The count limit still works when Admin sets one (0276 made 0 "none").
+update public.workout_log_config set per_day = 2 where id;
 
 -- ── The refusals ──
 select tests.sign_in(:'bob');

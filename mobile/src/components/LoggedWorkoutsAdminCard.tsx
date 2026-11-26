@@ -20,7 +20,7 @@ import {
 // steps), turning logging off for one person, and the rules.
 type NumKey = Exclude<keyof WorkoutLogConfig, 'enabled' | 'value_pct'>;
 const FIELDS: { key: NumKey; label: string; note: string; min: number; max: number }[] = [
-  { key: 'per_day', label: 'A day', note: 'Workouts someone can log in a day', min: 0, max: 5 },
+  { key: 'per_day', label: 'A day', note: 'Workouts a day: 0 = no count limit (0276: the day’s time by hand, Bones → Move points, is the limit)', min: 0, max: 5 },
   { key: 'min_min', label: 'Shortest', note: 'Minutes', min: 1, max: 60 },
   { key: 'max_min', label: 'Longest', note: 'Minutes', min: 10, max: 240 },
   { key: 'back_days', label: 'How far back', note: '1 = today or yesterday, 0 = today only', min: 0, max: 1 },

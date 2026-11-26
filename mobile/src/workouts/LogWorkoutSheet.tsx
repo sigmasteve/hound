@@ -14,6 +14,7 @@ import {
   LOGGED_TYPES,
   getMyLoggedWorkouts,
   offlineLoggingDefaults,
+  hoursMinutes,
   isLoggedWorkout,
   logWorkout,
   loggedTypeLabel,
@@ -25,7 +26,8 @@ import {
   type MyLoggedWorkouts,
 } from './loggedWorkouts';
 
-// Log a workout (0204): for people without a watch. Up to 2 a day, 5 to 90
+// Log a workout (0204): for people without a watch. Up to 2 hours a day
+// by hand (0276; it was 2 a day), 5 to 90
 // minutes, today or yesterday. The server checks every rule and says no in
 // a sentence; this just collects the type, the minutes and when it ended.
 
@@ -101,7 +103,17 @@ export function LogWorkoutSheet({
   const valuePct = mine?.valuePct ?? 50;
   const canYesterday = (mine?.backDays ?? 1) >= 1;
   const left = day === 'today' ? (mine?.leftToday ?? perDay) : (mine?.leftYesterday ?? perDay);
-  const full = !!mine && left <= 0;
+  // 0276: the day's time by hand is the limit (a count only if Admin sets one).
+  const capMin = mine?.capMin ?? 120;
+  const minLeft = Math.max(0, capMin - (day === 'today' ? (mine?.minutesToday ?? 0) : (mine?.minutesYesterday ?? 0)));
+  const countFull = !!mine && perDay > 0 && left <= 0;
+  const timeFull = !!mine && minLeft < (mine?.minMin ?? 5);
+  const full = countFull || timeFull;
+  // The most this one can be: a workout's longest, or what's left of the day.
+  const maxNow = Math.max(mine?.minMin ?? 5, Math.min(maxMin, minLeft));
+  useEffect(() => {
+    if (mine && minutes > maxNow) setMinutes(maxNow);
+  }, [mine, minutes, maxNow]);
 
   // The day picked, at the time picked (never later than now).
   const endedAt = useMemo(() => {
@@ -173,6 +185,7 @@ export function LogWorkoutSheet({
               endedAt,
               localDay: '',
               leftToday: Math.max(0, (mine?.leftToday ?? 1) - 1),
+              minutesLeftToday: Math.max(0, minLeft - minutes),
               undoUntil: null,
               queued: true,
             }
@@ -211,7 +224,9 @@ export function LogWorkoutSheet({
           <Text style={styles.title}>Log a workout</Text>
           {mine && !blockedText && (
             <Text style={[styles.leftPill, full ? styles.leftPillFull : null]}>
-              {full ? 'None left ' + (day === 'today' ? 'today' : 'for yesterday') : `${left} of ${perDay} left ${day === 'today' ? 'today' : 'for yesterday'}`}
+              {full
+                ? 'None left ' + (day === 'today' ? 'today' : 'for yesterday')
+                : `${hoursMinutes(minLeft)} left ${day === 'today' ? 'today' : 'for yesterday'}`}
             </Text>
           )}
           <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
@@ -219,7 +234,9 @@ export function LogWorkoutSheet({
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <Text style={styles.lede}>No watch? Log it here. {perDay} a day, up to {maxMin} minutes each.</Text>
+          <Text style={styles.lede}>
+            No watch? Log it here. Up to {hoursMinutes(capMin)} a day, {maxMin} minutes at a time.
+          </Text>
 
           {loadError ? (
             <Text style={styles.error}>{loadError}</Text>
@@ -241,7 +258,7 @@ export function LogWorkoutSheet({
                 {done.queued
                   ? 'Saved on your phone. It’ll sync when you’re back online.'
                   : `${sameDay(done.endedAt, new Date()) ? 'Today' : 'Yesterday'}, ended ${timeText(done.endedAt)} · ${
-                      done.leftToday <= 0 ? 'that was your last one today' : `${done.leftToday} more you can log today`
+                      lastToday(done) ? 'that’s today’s time by hand used up' : `${hoursMinutes(done.minutesLeftToday ?? 0)} more you can log today`
                     }`}
               </Text>
               <View style={styles.doneRow}>
@@ -251,11 +268,11 @@ export function LogWorkoutSheet({
                   </Pressable>
                 )}
                 <Pressable
-                  onPress={() => (done.leftToday <= 0 ? onClose() : setDone(null))}
+                  onPress={() => (lastToday(done) ? onClose() : setDone(null))}
                   style={styles.goBtn}
                   accessibilityRole="button"
                 >
-                  <Text style={styles.goText}>{done.leftToday <= 0 ? 'Done' : 'Log another'}</Text>
+                  <Text style={styles.goText}>{lastToday(done) ? 'Done' : 'Log another'}</Text>
                 </Pressable>
               </View>
               {error && <Text style={styles.error}>{error}</Text>}
@@ -292,7 +309,7 @@ export function LogWorkoutSheet({
                   <Text style={styles.minutesUnit}> min</Text>
                 </Text>
                 <Pressable
-                  onPress={() => setMinutes((m) => Math.min(maxMin, m + STEP_MIN))}
+                  onPress={() => setMinutes((m) => Math.min(maxNow, m + STEP_MIN))}
                   style={styles.stepBtn}
                   accessibilityRole="button"
                   accessibilityLabel="5 minutes more"
@@ -301,7 +318,7 @@ export function LogWorkoutSheet({
                 </Pressable>
               </View>
               <View style={styles.presets}>
-                {PRESETS.filter((m) => m >= minMin && m <= maxMin).map((m) => (
+                {PRESETS.filter((m) => m >= minMin && m <= maxNow).map((m) => (
                   <Pressable
                     key={m}
                     onPress={() => setMinutes(m)}
@@ -361,9 +378,11 @@ export function LogWorkoutSheet({
               >
                 <Text style={[styles.logText, (saving || full) && styles.logTextOff]}>
                   {full
-                    ? day === 'today'
-                      ? `That’s ${perDay} logged today. More tomorrow.`
-                      : `That’s ${perDay} logged for yesterday.`
+                    ? timeFull
+                      ? `That’s ${hoursMinutes(capMin)} by hand ${day === 'today' ? 'today. More tomorrow.' : 'for yesterday.'}`
+                      : day === 'today'
+                        ? `That’s ${perDay} logged today. More tomorrow.`
+                        : `That’s ${perDay} logged for yesterday.`
                     : saving
                       ? 'Logging…'
                       : `Log ${minutes} min of ${label}`}
@@ -411,9 +430,8 @@ export function TodaysWorkoutsCard({
   const today = new Date();
   const todays = workouts.filter((w) => sameDay(w.when, today)).sort((a, b) => a.when.getTime() - b.when.getTime());
   const byId = new Map<string, LoggedWorkout>((mine?.logs ?? []).filter((l) => !l.undone && !l.replaced).map((l) => [l.sourceId, l]));
-  const perDay = mine?.perDay ?? 2;
-  // Undone ones still use up the day, so this comes from what's left.
-  const loggedToday = mine ? Math.max(0, perDay - mine.leftToday) : 0;
+  // The day's time by hand (0276).
+  const capMin = mine?.capMin ?? 120;
 
   const changed = () => {
     load();
@@ -435,7 +453,7 @@ export function TodaysWorkoutsCard({
         <Text style={styles.cardTitle}>TODAY’S WORKOUTS</Text>
         {mine && (
           <Text style={styles.cardMeta}>
-            {loggedToday} of {perDay} logged
+            {mine.minutesToday} of {capMin} min by hand
           </Text>
         )}
       </View>
@@ -476,7 +494,7 @@ export function TodaysWorkoutsCard({
         <Text style={styles.logLinkText}>{onOpenMove ? 'Log a workout / activity' : 'Log a workout'}</Text>
       </Pressable>
       <Text style={styles.logHint}>
-        {onOpenMove ? 'Strength, yoga, a class, a game, housework: it all counts.' : `No watch? Log up to ${perDay} a day.`}
+        {onOpenMove ? 'Strength, yoga, a class, a game, housework: it all counts.' : `No watch? Log up to ${hoursMinutes(capMin)} a day.`}
       </Text>
       <LogWorkoutSheet visible={open} onClose={() => setOpen(false)} onChanged={changed} />
     </View>
@@ -621,4 +639,10 @@ function makeStyles(colors: Palette) {
     logLinkText: { fontFamily: font.headingSemibold, fontSize: 14.5, color: colors.green },
     logHint: { fontSize: 11.5, color: withAlpha(colors.text, 0.55), textAlign: 'center' },
   });
+}
+
+// That was the day's last: its time by hand is used up (or, with a count
+// limit set in Admin, its last one).
+function lastToday(d: { leftToday: number; minutesLeftToday: number | null }): boolean {
+  return d.minutesLeftToday !== null ? d.minutesLeftToday < 5 || d.leftToday <= 0 : d.leftToday <= 0;
 }

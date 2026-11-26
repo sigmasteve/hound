@@ -200,7 +200,9 @@ Move points (0270, `src/move/`) count every kind of movement: 1 point =
 (`move_rates`, Admin → Bones → Move points; walking, running and hiking
 are 0, their steps count). Everything comes from `workout_history`: a
 watch's workouts in full, Log a workout's ('manual') up to
-`move_config.hand_cap_min` a day, and Hound's own timed sessions ('hound':
+`move_config.hand_cap_min` a day (since 0276 that's also the limit on
+logging: `log_workout` refuses what would go past it, and there's no count
+limit unless Admin sets `workout_log_config.per_day`; Steve, Nov 2026), and Hound's own timed sessions ('hound':
 guided routines and strength logs, timed by `move_session_start` /
 `_finish`) in full unless a watch workout covers the same time. Each
 workout keeps the activity and rate it was recorded with, so rate changes
