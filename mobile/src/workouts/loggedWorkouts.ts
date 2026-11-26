@@ -3,7 +3,8 @@ import type { HealthProvider, WorkoutSample } from '../health/types';
 import { cachedRead } from '../offline/cache';
 
 // Workouts logged by hand (0204_logged_workouts.sql), for people without a
-// watch: up to 2 a day, 5 to 90 minutes, today or yesterday. On the server
+// watch: up to 2 hours a day by hand (0276; it was 2 a day), 5 to 90
+// minutes each, today or yesterday. On the server
 // a logged workout is a workout_history row with source 'manual' whose
 // duration_min is worth half (so the sports games, Golf power and prize
 // Globals count half) and whose logged_min is what was entered. On the
@@ -107,8 +108,13 @@ export interface MyLoggedWorkouts {
   valuePct: number;
   // How long a log can be undone, in minutes.
   undoMinutes: number;
+  // 0 means no count limit (0276); the day's time by hand is the limit.
   leftToday: number;
   leftYesterday: number;
+  // The day's time by hand (0276, Move points' cap) and what's used.
+  capMin: number;
+  minutesToday: number;
+  minutesYesterday: number;
   logs: LoggedWorkout[];
 }
 
@@ -134,14 +140,17 @@ export function offlineLoggingDefaults(): MyLoggedWorkouts {
     enabled: true,
     blocked: false,
     opensInDays: 0,
-    perDay: 2,
+    perDay: 0,
     minMin: 5,
     maxMin: 90,
     backDays: 1,
     valuePct: 50,
     undoMinutes: 15,
-    leftToday: 2,
-    leftYesterday: 2,
+    leftToday: 99,
+    leftYesterday: 99,
+    capMin: 120,
+    minutesToday: 0,
+    minutesYesterday: 0,
     logs: [],
   };
 }
@@ -158,7 +167,7 @@ export async function getMyLoggedWorkouts(): Promise<MyLoggedWorkouts> {
     enabled: d.enabled !== false,
     blocked: !!d.blocked,
     opensInDays: num(d.opens_in_days),
-    perDay: num(d.per_day) || 2,
+    perDay: d.per_day == null ? 2 : num(d.per_day),
     minMin: num(d.min_min) || 5,
     maxMin: num(d.max_min) || 90,
     backDays: d.back_days == null ? 1 : num(d.back_days),
@@ -166,6 +175,9 @@ export async function getMyLoggedWorkouts(): Promise<MyLoggedWorkouts> {
     undoMinutes: d.undo_minutes == null ? 15 : num(d.undo_minutes),
     leftToday: num(d.left_today),
     leftYesterday: num(d.left_yesterday),
+    capMin: d.cap_min == null ? 120 : num(d.cap_min),
+    minutesToday: num(d.minutes_today),
+    minutesYesterday: num(d.minutes_yesterday),
     logs: ((d.logs ?? []) as any[]).map(toLogged),
   };
 }
@@ -180,6 +192,8 @@ export interface LogResult {
   endedAt: Date;
   localDay: string;
   leftToday: number;
+  // Time by hand still open today (0276); null from an older server.
+  minutesLeftToday: number | null;
   undoUntil: Date | null;
 }
 
@@ -204,6 +218,7 @@ export async function logWorkout(input: { type: LoggedType; minutes: number; end
     endedAt: new Date(r.ended_at),
     localDay: String(r.local_day ?? ''),
     leftToday: num(r.left_today),
+    minutesLeftToday: r.minutes_left_today == null ? null : num(r.minutes_left_today),
     undoUntil: r.undo_until ? new Date(r.undo_until) : null,
   };
 }
@@ -362,4 +377,11 @@ export function workoutLogSummary(o: WorkoutLogOverview): string {
   if (!o.config.enabled) return 'Logging is paused';
   if (o.logs7d === 0) return 'No one has logged one this week';
   return `${o.people7d} logging · ${Math.round(o.share7d * 100)}% of workouts this week`;
+}
+
+// "2 hours", "90 min", "1 h 30 min".
+export function hoursMinutes(m: number): string {
+  if (m < 60) return `${m} min`;
+  if (m % 60 === 0) return m === 60 ? '1 hour' : `${m / 60} hours`;
+  return `${Math.floor(m / 60)} h ${m % 60} min`;
 }

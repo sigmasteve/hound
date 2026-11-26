@@ -95,7 +95,7 @@ export function MoveAdminCard({ onLoaded }: { onLoaded?: (d: MoveOverview) => vo
             .join(' · ') || 'None yet (2 to start)',
         ],
         ['Move points challenges', `${data.moveChallengesLive} live · ${data.moveChallenges} ever`],
-        ['By hand, per day', `${data.handCapMin} min (Bones → Move points)`],
+        ['By hand, per day', `${data.handCapMin} min: the limit for Log a workout, and what counts for Move points (Bones → Move points)`],
         ...(social
           ? ([
               [
@@ -260,7 +260,7 @@ export function MoveRatesCard() {
             />
           ))}
           <TextField
-            label="By hand: minutes a day that count"
+            label="By hand: minutes a day (the limit for Log a workout)"
             value={cap}
             onChangeText={(v) => {
               setCap(v);
