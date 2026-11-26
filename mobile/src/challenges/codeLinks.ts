@@ -20,21 +20,34 @@ export function useChallengeCodeLinks(
   signedIn: boolean,
   navReady: boolean,
 ) {
-  const [url, setUrl] = useState<string | null>(null);
-  const handled = useRef<string | null>(null);
+  // Each link that arrives, numbered: a widget sends the same link every
+  // tap, and each tap counts.
+  const [link, setLink] = useState<{ url: string; n: number } | null>(null);
+  const handled = useRef(0);
 
   useEffect(() => {
     Linking.getInitialURL()
-      .then((u) => u && setUrl(u))
+      .then((u) => u && setLink((l) => ({ url: u, n: (l?.n ?? 0) + 1 })))
       .catch(() => {});
-    const sub = Linking.addEventListener('url', (e) => setUrl(e.url));
+    const sub = Linking.addEventListener('url', (e) => setLink((l) => ({ url: e.url, n: (l?.n ?? 0) + 1 })));
     return () => sub.remove();
   }, []);
 
   useEffect(() => {
-    if (!url || !signedIn || !navReady || !navigationRef.isReady()) return;
-    if (handled.current === url) return;
-    handled.current = url;
+    if (!link || !signedIn || !navReady || !navigationRef.isReady()) return;
+    if (handled.current >= link.n) return;
+    handled.current = link.n;
+    const url = link.url;
+    // The widgets (1.3.0): the Fasting widget, and "Log activity" on the
+    // Hound widget. Each tap is noted for Admin → Apple Watch.
+    const widget = /^hound(-staging)?:\/\/(fasting|move\/log)/i.exec(url);
+    if (widget) {
+      const fasting = widget[2].toLowerCase() === 'fasting';
+      if (/[?&]from=widget/.test(url)) noteWidgetTap(fasting ? 'fasting' : 'activity');
+      if (fasting) navigationRef.navigate('Fasting');
+      else navigationRef.navigate('Move', { log: true });
+      return;
+    }
     if (/(^hound(-staging)?:\/\/f\/|houndchallenge\.net\/f\/)/i.test(url)) {
       const code = friendCodeFrom(url);
       if (code) void askToAddFriend(code);
@@ -44,7 +57,7 @@ export function useChallengeCodeLinks(
     // A club's code is 6 characters (0185), a challenge's 7.
     const code = codeFrom(url) ?? clubCodeFrom(url);
     if (code) navigationRef.navigate('JoinCode', { code });
-  }, [url, signedIn, navReady, navigationRef]);
+  }, [link, signedIn, navReady, navigationRef]);
 }
 
 // The code in a friend link: the last part of the path, without any
@@ -78,4 +91,10 @@ async function askToAddFriend(code: string) {
       },
     },
   ]);
+}
+
+// A widget tap, for Admin (0274). Never in the way: no answer needed.
+function noteWidgetTap(kind: 'fasting' | 'activity') {
+  if (!supabase) return;
+  Promise.resolve(supabase.rpc('note_widget_tap', { p_kind: kind })).catch(() => {});
 }

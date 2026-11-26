@@ -21,6 +21,8 @@ struct HoundWatchApp: App {
 
 let houndPurple = Color(red: 0.57, green: 0.52, blue: 0.85)
 let waterBlue = Color(red: 0.31, green: 0.70, blue: 0.94)
+let fastAmber = Color(red: 0.88, green: 0.66, blue: 0.31)
+let doneGreen = Color(red: 0.50, green: 0.83, blue: 0.61)
 
 struct ContentView: View {
   @EnvironmentObject var model: WatchModel
@@ -34,6 +36,12 @@ struct ContentView: View {
     case .linked:
       TabView {
         TodayView()
+        // 0274: fasting (once it's set up on the phone, 16 or older) and
+        // logging an activity.
+        if model.fasting?.age != "under" {
+          FastingView()
+        }
+        ActivityView()
         WaterView()
       }
       .tabViewStyle(.verticalPage)
@@ -203,5 +211,167 @@ struct GlassShape: Shape {
     p.addLine(to: CGPoint(x: rect.minX + rect.width * 0.14, y: rect.maxY))
     p.closeSubpath()
     return p
+  }
+}
+
+// ── Fasting (0274) ──
+
+// The plans Hound offers (src/fasting/fasting.ts PLANS).
+let fastPlans: [(hours: Int, label: String)] = [(12, "12:12"), (13, "13:11"), (14, "14:10"), (16, "16:8"), (18, "18:6"), (20, "20:4"), (23, "One meal")]
+
+func fastPlanLabel(_ hours: Int) -> String {
+  fastPlans.first(where: { $0.hours == hours })?.label ?? "\(hours) h"
+}
+
+// The fast's clock and ring while fasting (both run from the start time,
+// so they stay right with the app closed), End fast; between fasts the
+// plan, the streak and Start.
+struct FastingView: View {
+  @EnvironmentObject var model: WatchModel
+  @State private var plan: Int? = nil
+  @State private var confirmEnd = false
+
+  var body: some View {
+    ScrollView {
+      VStack(spacing: 6) {
+        if let f = model.fasting, f.age == "ok" {
+          if let start = model.fastStart, let goal = f.open?.goal_hours {
+            let end = start.addingTimeInterval(Double(goal) * 3600)
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+              let fraction = min(1, max(0, context.date.timeIntervalSince(start) / (Double(goal) * 3600)))
+              let done = context.date >= end
+              ZStack {
+                Circle().stroke(fastAmber.opacity(0.25), lineWidth: 8)
+                Circle()
+                  .trim(from: 0, to: fraction)
+                  .stroke(done ? doneGreen : fastAmber, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                  .rotationEffect(.degrees(-90))
+                VStack(spacing: 0) {
+                  Text(done ? "GOAL ✓" : "FASTING").font(.system(size: 10, weight: .bold)).foregroundStyle(done ? doneGreen : fastAmber)
+                  Text(start, style: .timer).font(.system(size: 20, weight: .semibold, design: .rounded)).monospacedDigit()
+                }
+              }
+              .frame(width: 96, height: 96)
+            }
+            Text("Goal \(goal) h · ends \(end.formatted(date: .omitted, time: .shortened))")
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+            Button(role: .destructive) {
+              confirmEnd = true
+            } label: {
+              Text("End fast").bold()
+            }
+            .disabled(model.busy)
+            .confirmationDialog("End your fast now?", isPresented: $confirmEnd) {
+              Button("End fast", role: .destructive) { Task { await model.endFast() } }
+              Button("Keep going", role: .cancel) {}
+            }
+          } else {
+            let hours = plan ?? f.plan_hours
+            Image(systemName: "fork.knife.circle.fill").font(.title2).foregroundStyle(fastAmber)
+            if let note = model.fastNote {
+              Text(note).font(.footnote).multilineTextAlignment(.center)
+            }
+            HStack {
+              Button {
+                if let i = fastPlans.firstIndex(where: { $0.hours == hours }), i > 0 { plan = fastPlans[i - 1].hours }
+              } label: { Image(systemName: "minus") }
+              .frame(width: 36)
+              VStack(spacing: 0) {
+                Text(fastPlanLabel(hours)).font(.headline)
+                Text("\(hours) h").font(.caption2).foregroundStyle(.secondary)
+              }
+              .frame(maxWidth: .infinity)
+              Button {
+                if let i = fastPlans.firstIndex(where: { $0.hours == hours }), i < fastPlans.count - 1 { plan = fastPlans[i + 1].hours }
+              } label: { Image(systemName: "plus") }
+              .frame(width: 36)
+            }
+            Button {
+              Task { await model.startFast(hours: hours) }
+            } label: {
+              Text("Start \(hours) h fast").bold()
+            }
+            .tint(fastAmber)
+            .disabled(model.busy)
+            if let streak = f.streak, streak > 0 {
+              Text("🔥 \(streak)-day streak").font(.caption2.bold())
+            }
+          }
+        } else {
+          Image(systemName: "fork.knife.circle.fill").font(.title2).foregroundStyle(fastAmber)
+          Text("Open Fasting in Hound on your iPhone once to start fasting from here.")
+            .font(.footnote)
+            .multilineTextAlignment(.center)
+            .foregroundStyle(.secondary)
+        }
+        if let problem = model.problem {
+          Text(problem).font(.caption2).foregroundStyle(.orange).multilineTextAlignment(.center)
+        }
+      }
+    }
+  }
+}
+
+// ── Log an activity (0274) ──
+
+// The kinds Log a workout offers (src/workouts/loggedWorkouts.ts), the
+// ones people log most first.
+struct ActivityType: Identifiable {
+  let id: String
+  let label: String
+}
+
+let activityTypes: [ActivityType] = [
+  ("strength", "Strength"), ("yoga", "Yoga"), ("hiit", "HIIT"), ("pilates", "Pilates"), ("spin", "Spin class"),
+  ("dance", "Dance"), ("elliptical", "Elliptical"), ("stretching", "Stretching"), ("pickleball", "Pickleball"),
+  ("tennis", "Tennis"), ("basketball", "Basketball"), ("soccer", "Soccer"), ("golf", "Golf"), ("swim", "Swim"),
+  ("rowing", "Rowing"), ("cycle", "Cycling"), ("run", "Run"), ("walk", "Walk"), ("housework", "Housework"), ("other", "Other"),
+].map { ActivityType(id: $0.0, label: $0.1) }
+
+// What, how long, Log: it ends now and counts like Log a workout on the
+// phone (Move points, goals, challenges). Undo for 15 minutes.
+struct ActivityView: View {
+  @EnvironmentObject var model: WatchModel
+  @State private var type = "strength"
+  @State private var minutes = 30
+
+  var body: some View {
+    ScrollView {
+      VStack(spacing: 6) {
+        Label("Log activity", systemImage: "plus.circle.fill").font(.footnote.bold()).foregroundStyle(houndPurple)
+        Picker("Activity", selection: $type) {
+          ForEach(activityTypes) { t in
+            Text(t.label).tag(t.id)
+          }
+        }
+        .pickerStyle(.wheel)
+        .frame(height: 54)
+        Stepper(value: $minutes, in: 5...90, step: 5) {
+          Text("\(minutes) min").font(.headline)
+        }
+        Button {
+          let label = activityTypes.first(where: { $0.id == type })?.label ?? "Activity"
+          Task { await model.logActivity(type: type, label: label, minutes: minutes) }
+        } label: {
+          Text("Log it").bold()
+        }
+        .tint(houndPurple)
+        .disabled(model.busy)
+        if let last = model.lastActivity, Date().timeIntervalSince(last.at) < 15 * 60 {
+          HStack {
+            Text("✓ \(last.text)").font(.caption2).lineLimit(2)
+            Spacer()
+            Button("Undo") { Task { await model.undoActivity() } }
+              .font(.caption2)
+              .frame(width: 56)
+              .disabled(model.busy)
+          }
+        }
+        if let problem = model.problem {
+          Text(problem).font(.caption2).foregroundStyle(.orange).multilineTextAlignment(.center)
+        }
+      }
+    }
   }
 }

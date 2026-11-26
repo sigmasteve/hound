@@ -1070,7 +1070,7 @@ export function AdminScreen({
                   <AdminFold title="Send a push" summary={broadcastLine ?? 'One push to everyone, or an invite to a Global challenge'}>
                     <BroadcastAdminCard onChanged={(o) => setBroadcastLine(broadcastSummary(o))} />
                   </AdminFold>
-                  <AdminFold title="Apple Watch" summary={watchSummaryLine ?? 'Hound on the wrist'}>
+                  <AdminFold title="Apple Watch & widgets" summary={watchSummaryLine ?? 'Hound on the wrist and the home screen'}>
                     <WatchAdminCard />
                   </AdminFold>
                   <AdminFold title="Holiday themes" summary={holidaySummaryLine ?? 'Decorations on Today'}>

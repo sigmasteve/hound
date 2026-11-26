@@ -6,12 +6,17 @@ import WidgetKit
 //   Hound steps   circular ring, corner gauge, inline text
 //   Hound water   circular ring with a drop
 //   Hound goals   rectangular: goals done, the streak, steps and water bars
+//   Hound fasting circular ring, corner, rectangular, inline (1.3.0): the
+//                 fast's clock (it runs from the start, between updates)
+//                 and the ring to the goal
 // They read the watch app's last snapshot (Snapshot.swift); steps are read
 // from Health here too, so they stay current between app opens. Tapping
 // any of them opens the watch app.
 
 let houndPurple = Color(red: 0.57, green: 0.52, blue: 0.85)
 let waterBlue = Color(red: 0.31, green: 0.70, blue: 0.94)
+let fastAmber = Color(red: 0.88, green: 0.66, blue: 0.31)
+let doneGreen = Color(red: 0.50, green: 0.83, blue: 0.61)
 
 struct HoundEntry: TimelineEntry {
   let date: Date
@@ -196,11 +201,114 @@ struct GoalsComplication: Widget {
   }
 }
 
+// ── Fasting (1.3.0) ──
+
+// An entry every 15 minutes while fasting, and one at the goal, so the
+// ring fills and turns green on time; the clock text runs by itself.
+struct FastingProvider: TimelineProvider {
+  func placeholder(in context: Context) -> HoundEntry {
+    var snap = HoundSnapshot()
+    snap.linked = true
+    snap.fastOk = true
+    snap.fastStart = Date().addingTimeInterval(-13.5 * 3600)
+    snap.fastGoalHours = 16
+    return HoundEntry(date: Date(), snap: snap)
+  }
+
+  func getSnapshot(in context: Context, completion: @escaping (HoundEntry) -> Void) {
+    completion(context.isPreview ? placeholder(in: context) : HoundEntry(date: Date(), snap: HoundSnapshot.load()))
+  }
+
+  func getTimeline(in context: Context, completion: @escaping (Timeline<HoundEntry>) -> Void) {
+    let snap = HoundSnapshot.load()
+    let now = Date()
+    var dates = [now]
+    if let end = snap.fastEnd {
+      for i in 1...16 {
+        let d = now.addingTimeInterval(Double(i) * 900)
+        if d < end { dates.append(d) }
+      }
+      if end > now { dates.append(end) }
+    }
+    let entries = dates.sorted().map { HoundEntry(date: $0, snap: snap) }
+    let next = now.addingTimeInterval(4 * 3600)
+    completion(Timeline(entries: entries, policy: .after(next)))
+  }
+}
+
+struct FastingComplicationView: View {
+  @Environment(\.widgetFamily) var family
+  let entry: HoundEntry
+
+  var body: some View {
+    let snap = entry.snap
+    let fraction = snap.fastFraction(at: entry.date)
+    let done = snap.fastEnd.map { entry.date >= $0 } ?? false
+    let color = done ? doneGreen : fastAmber
+    if let start = snap.fastStart, let goal = snap.fastGoalHours {
+      switch family {
+      case .accessoryInline:
+        Text(done ? "🍽 \(goal) h fast done ✓" : "🍽 Fasting \(start, style: .timer)")
+      case .accessoryCorner:
+        Image(systemName: "fork.knife")
+          .widgetLabel {
+            Gauge(value: fraction) { Text("Fast") }.tint(color)
+          }
+      case .accessoryRectangular:
+        VStack(alignment: .leading, spacing: 2) {
+          Text(done ? "🍽 GOAL REACHED ✓" : "🍽 FASTING · GOAL \(goal) H")
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(color)
+          Text(start, style: .timer).font(.system(size: 18, weight: .semibold, design: .rounded)).monospacedDigit()
+          ProgressView(value: fraction).tint(color)
+        }
+      default:
+        Gauge(value: fraction) {
+          Image(systemName: "fork.knife")
+        } currentValueLabel: {
+          Image(systemName: done ? "checkmark" : "fork.knife").font(.caption)
+        }
+        .gaugeStyle(.accessoryCircularCapacity)
+        .tint(color)
+      }
+    } else {
+      switch family {
+      case .accessoryInline:
+        Text(snap.fastOk == true ? "🍽 Not fasting" : "🍽 Hound fasting")
+      case .accessoryRectangular:
+        VStack(alignment: .leading, spacing: 2) {
+          Text("🍽 FASTING").font(.system(size: 12, weight: .bold)).foregroundStyle(fastAmber)
+          Text(snap.fastOk == true ? "Tap to start a \(snap.fastPlanHours ?? 16) h fast" : "Open Hound to set up fasting")
+            .font(.system(size: 13))
+        }
+      default:
+        ZStack {
+          AccessoryWidgetBackground()
+          Image(systemName: "fork.knife")
+        }
+      }
+    }
+  }
+}
+
+struct FastingComplication: Widget {
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: "HoundFasting", provider: FastingProvider()) { entry in
+      FastingComplicationView(entry: entry)
+        .containerBackground(for: .widget) { Color.clear }
+    }
+    .configurationDisplayName("Hound fasting")
+    .description("Your fast's clock and the ring to your goal.")
+    .supportedFamilies([.accessoryCircular, .accessoryCorner, .accessoryRectangular, .accessoryInline])
+  }
+}
+
 @main
 struct HoundComplications: WidgetBundle {
   var body: some Widget {
     StepsComplication()
     WaterComplication()
     GoalsComplication()
+    FastingComplication()
   }
 }

@@ -1,8 +1,9 @@
 import Foundation
 
 // Hound's server, called straight from the watch (0189_apple_watch.sql):
-// the pairing code, today's goals and water, and adding water. Every call
-// after pairing carries the watch's id and secret.
+// the pairing code, today's goals and water, and adding water; since 0274
+// fasting (start and end) and logging an activity. Every call after
+// pairing carries the watch's id and secret.
 
 struct WatchToday: Decodable {
   struct Goal: Decodable {
@@ -25,10 +26,42 @@ struct WatchToday: Decodable {
     let hit_today: Bool?
   }
 
+  // 0274. age: "ok" (16 or older), "under", or nil (not asked yet: the
+  // phone asks on Fasting's first open).
+  struct Fasting: Decodable {
+    struct Open: Decodable {
+      let started_at: String
+      let goal_hours: Int
+    }
+    let age: String?
+    let plan_hours: Int
+    let open: Open?
+    let streak: Int?
+
+    var startedAt: Date? { open.flatMap { parseServerDate($0.started_at) } }
+  }
+
   let name: String?
   let goals: [Goal]
   let water: Water?
   let streak: Streak?
+  let fasting: Fasting?
+}
+
+// fasting_end's answer.
+struct FastEnd: Decodable {
+  let hours: Double
+  let goal_hours: Int
+  let on_plan: Bool
+  let bones: Int?
+  let streak: Int?
+}
+
+// log_workout's answer.
+struct LoggedActivity: Decodable {
+  let source_id: String
+  let minutes: Int
+  let name: String?
 }
 
 struct PairStart: Decodable {
@@ -105,4 +138,20 @@ func localDayKey(_ date: Date = Date()) -> String {
   f.timeZone = TimeZone.current
   f.dateFormat = "yyyy-MM-dd"
   return f.string(from: date)
+}
+
+// A Postgres timestamp ("2026-11-25T18:32:00.123456+00:00"): ISO 8601,
+// with the fraction cut to milliseconds, which the formatter reads.
+func parseServerDate(_ s: String) -> Date? {
+  var text = s.replacingOccurrences(of: " ", with: "T")
+  if let dot = text.firstIndex(of: "."),
+     let end = text[dot...].firstIndex(where: { $0 == "+" || $0 == "-" || $0 == "Z" }) {
+    let fraction = text[text.index(after: dot)..<end]
+    text.replaceSubrange(text.index(after: dot)..<end, with: String(fraction.prefix(3)).padding(toLength: 3, withPad: "0", startingAt: 0))
+  }
+  let f = ISO8601DateFormatter()
+  f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+  if let d = f.date(from: text) { return d }
+  f.formatOptions = [.withInternetDateTime]
+  return f.date(from: text)
 }

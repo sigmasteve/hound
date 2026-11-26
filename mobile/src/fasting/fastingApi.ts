@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase';
-import { DEFAULT_CONFIG, localDayKey, type FastingConfig } from './fasting';
+import { updateWidgets } from '../widgets/widgetData';
+import { fastingAt, type WidgetFasting } from '../widgets/widgetModel';
+import { DEFAULT_CONFIG, localDayKey, planLabel, type FastingConfig } from './fasting';
 import { cachedRead } from '../offline/cache';
 import { pendingItems, runOrQueue } from '../offline/outbox';
 
@@ -124,7 +126,7 @@ export interface MyFasting {
 export async function getMyFasting(now = new Date()): Promise<MyFasting> {
   // A kept copy when offline, with what's waiting to sync on top (0271).
   const d = await cachedRead('fasting:my', () => rpc<any>('my_fasting', { p_local_date: localDayKey(now) }));
-  return withPending({
+  const me = withPending({
     age: d?.age === 'ok' || d?.age === 'under' ? d.age : null,
     planHours: num(d?.plan_hours) || 16,
     restDays: Array.isArray(d?.rest_days) ? d.rest_days.map(num) : [],
@@ -138,6 +140,32 @@ export async function getMyFasting(now = new Date()): Promise<MyFasting> {
     recentStarts: Array.isArray(d?.recent_starts) ? d.recent_starts.map(String) : [],
     config: config(d?.config),
   });
+  // The Fasting widget (1.3.0) shows the same.
+  updateWidgets({ fasting: widgetFasting(me) }).catch(() => {});
+  return me;
+}
+
+function widgetFasting(m: MyFasting): WidgetFasting {
+  const o = m.open;
+  return fastingAt(
+    {
+      ok: m.age === 'ok',
+      planHours: m.planHours,
+      planLabel: planLabel(m.planHours),
+      streak: m.numbers.streak,
+      open: o
+        ? {
+            startedAt: o.startedAt,
+            goalHours: o.goalHours,
+            endsText: `ends ${new Date(new Date(o.startedAt).getTime() + o.goalHours * 3600000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
+          }
+        : null,
+      reached: false,
+      hoursText: '',
+      pct: 0,
+    },
+    new Date(),
+  )!;
 }
 
 // A start or end saved on the phone while offline (0271) shows as if it

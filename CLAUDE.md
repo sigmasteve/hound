@@ -226,6 +226,25 @@ new part of Hound ships, add it here: a checkbox, what ticking it sets up,
 and its tried / now numbers in `admin_uses_overview` (Admin → Overview →
 Status → What people use Hound for).
 
+## Widgets and the Watch
+
+Phone widgets (`src/widgets/`, iPhone layouts in `ios/layouts.tsx`
+through expo-widgets, Android in `android/`): Hound (your hound and
+goals; the medium iPhone one and the wide Android one have "Log activity",
+`hound://move/log`, which opens Move's Log an activity), Hound steps (Lock
+Screen) and, from 1.3.0, Hound fasting (`hound://fasting`: the clock and
+bar run from the start time on iPhone; Android shows the hours as of its
+last draw, every 30 minutes). The app hands them everything
+(`updateWidgets`; fasting from `getMyFasting`). Widget links go through
+`useChallengeCodeLinks` (`codeLinks.ts`), which notes each tap
+(`note_widget_tap`, 0274). The Apple Watch (`targets/watch`, 0189) has
+Today, Fasting (start on your plan or pick one, the clock, End fast),
+Log activity (`log_workout`'s limits, Undo for 15 minutes) and Water;
+`targets/watch-widget` has the complications, Hound fasting among them.
+Each watch call is `watch_*` acting as its person (`watch_act_as`). Admin
+→ Overview → Status → Apple Watch & widgets has the numbers. Anything
+native here needs a new build (a version bump; see "New app builds").
+
 ## Offline mode
 
 Offline mode (0271, `src/offline/`, Admin → Overview → Status → Offline

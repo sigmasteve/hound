@@ -107,6 +107,14 @@ function Layout({ data, width, p }: { data: WidgetData; width: number; p: Palett
           {data.goals.length === 0 && (
             <TextWidget text="Set goals in Hound and they'll show here." style={{ fontSize: 12, color: p.muted }} />
           )}
+          {/* 1.3.0: straight to logging an activity (Move). */}
+          <FlexWidget
+            clickAction="OPEN_URI"
+            clickActionData={{ uri: 'hound://move/log?from=widget' }}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, backgroundColor: p.track }}
+          >
+            <TextWidget text="+ Log activity" style={{ fontSize: 12, fontWeight: '600', color: p.accent }} />
+          </FlexWidget>
         </FlexWidget>
       </FlexWidget>
     );
