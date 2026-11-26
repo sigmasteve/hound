@@ -1603,7 +1603,7 @@ export function HomeScreen({
     health.getRecentWorkouts(50).then((w) => {
       setWorkouts(w);
       if (isSupabaseConfigured && user?.id) {
-        recordWorkoutHistory(user.id, w).catch(() => {
+        recordWorkoutHistory(user.id, w, health).catch(() => {
           // Same "never break the screen" convention as the rest of
           // Home's own fetches.
         });

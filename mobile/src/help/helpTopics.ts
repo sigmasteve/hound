@@ -597,7 +597,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Movement snacks: on Move, tap Take one (250 steps in 10 minutes, counted by your phone) for a few Bones, up to 3 a day. Turn on nudges and pick when (morning, midday, afternoon, evening) to get one in each.',
         'Move together: in Start a routine, choose With friends, pick a routine and who. They get a notification and an hour to join. Each of you does it on your own phone and sees the others’ progress; when everyone who joined finishes, you each get 10 Bones.',
       ],
-      tip: 'Timed in Hound and a watch over the same time? The watch’s workout counts, so nothing is counted twice.',
+      tip: 'Nothing is counted twice: the steps you take during a workout already count as steps, so they come off that workout’s points, and if Hound timed a session while a watch recorded the same time, the watch’s counts.',
     },
     {
       id: 'fasting',

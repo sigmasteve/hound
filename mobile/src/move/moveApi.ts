@@ -35,6 +35,9 @@ export interface MoveItem {
   pts: number;
   prs: number;
   ref: string | null;
+  // Steps taken during it, taken off its points (0277): they're already
+  // in the day's steps.
+  steps: number;
 }
 
 export interface StrengthWeek {
@@ -95,6 +98,7 @@ export async function getMyMove(now = new Date()): Promise<MyMove | null> {
         pts: num(i.pts),
         prs: num(i.prs),
         ref: i.ref ?? null,
+        steps: num(i.steps),
       })),
       strength: strength(d?.strength),
     };
