@@ -3,9 +3,13 @@ select plan(13);
 
 select tests.new_user('Ann') as ann \gset
 select tests.new_user('Boss', true) as boss \gset
-update public.profiles set time_zone = 'UTC', created_at = now() - interval '30 days' where id in (:'ann', :'boss');
+-- A time zone where it's about noon now, so "35 minutes ago" and "3 hours
+-- ago" are today whenever the tests run (they failed just after midnight UTC).
+select 'Etc/GMT' || case when k >= 0 then '-' || k else '+' || -k end as tz
+  from (select 12 - extract(hour from now() at time zone 'UTC')::int as k) x \gset
+update public.profiles set time_zone = :'tz', created_at = now() - interval '30 days' where id in (:'ann', :'boss');
 insert into public.fasting_profiles (user_id, age) values (:'ann', 'ok');
-select (now() at time zone 'UTC')::date as today \gset
+select (now() at time zone :'tz')::date as today \gset
 
 select is((select enabled from public.offline_config), false, 'Offline mode starts off');
 
