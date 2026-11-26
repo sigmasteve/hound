@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { errorText } from '../offline/cache';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, Line, LinearGradient, Path, Polygon, Rect, Stop } from 'react-native-svg';
 import { Text } from './Text';
@@ -357,7 +358,7 @@ export function RallyCard({
       await armRallySmash(game.challengeId);
       await onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not arm the smash.');
+      setError(errorText(e, 'Could not arm the smash.'));
     } finally {
       setArming(false);
     }

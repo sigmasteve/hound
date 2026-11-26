@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { errorText } from '../offline/cache';
 import { ActivityIndicator, Pressable, Share, StyleSheet, View } from 'react-native';
 import type { ChallengeShare } from '../share/ShareCard';
 import { ArrowSquareOutIcon } from 'phosphor-react-native';
@@ -74,7 +75,7 @@ export function DerbyBoard({
       onPrizes?.(b.prizes);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load the leaderboard.');
+      setError(errorText(e, 'Could not load the leaderboard.'));
     }
   }, [challengeId, tab]);
   // Again when your day moves (back from the plate).

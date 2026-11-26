@@ -856,18 +856,18 @@ export function ChallengeDetailScreen({
       // stalled turn (15 real minutes with no catch) has already moved
       // on by the time this same load() reads who's IT, rather than
       // showing a round that's about to change out from under it.
-      if (needsTag) await settleTagTimeout(challengeId).catch(() => {});
+      if (needsTag) await offlineOr(settleTagTimeout(challengeId) as Promise<unknown>, undefined).catch(() => {});
       // Same idea for Tic-Tac-Go: pass a turn that's run past 24 hours
       // (or end a game whose time is up) before reading the board.
-      if (needsTicTacGo) await settleTicTacGo(challengeId).catch(() => {});
+      if (needsTicTacGo) await offlineOr(settleTicTacGo(challengeId) as Promise<unknown>, undefined).catch(() => {});
       // Hound'opoly: roll any day that's over before reading the board.
-      if (needsHoundopoly) await advanceHoundopoly(challengeId).catch(() => {});
+      if (needsHoundopoly) await offlineOr(advanceHoundopoly(challengeId) as Promise<unknown>, undefined).catch(() => {});
       // Rally: score a missed return (or end a match on time) before reading the score.
-      if (needsRally) await settleRally(challengeId).catch(() => {});
+      if (needsRally) await offlineOr(settleRally(challengeId) as Promise<unknown>, undefined).catch(() => {});
       // Soccer: play any day that's over everywhere before reading the score.
-      if (needsSoccer) await advanceSoccer(challengeId).catch(() => {});
+      if (needsSoccer) await offlineOr(advanceSoccer(challengeId) as Promise<unknown>, undefined).catch(() => {});
       // Cricket: play any over that's due before reading the scoreboard.
-      if (needsCricket) await advanceCricket(challengeId).catch(() => {});
+      if (needsCricket) await offlineOr(advanceCricket(challengeId) as Promise<unknown>, undefined).catch(() => {});
       const [
         p,
         l,
@@ -989,7 +989,7 @@ export function ChallengeDetailScreen({
   // score, the plays and today's picks.
   const loadBaseball = useCallback(async () => {
     if (challenge?.kind !== 'baseball') return;
-    await advanceBaseball(challengeId).catch(() => {});
+    await offlineOr(advanceBaseball(challengeId) as Promise<unknown>, undefined).catch(() => {});
     const [game, innings, plays, picks] = await Promise.all([
       getBaseballGame(challengeId).catch(() => null),
       listBaseballInnings(challengeId).catch(() => []),
@@ -1017,10 +1017,10 @@ export function ChallengeDetailScreen({
   // Hoops / H-O-R-S-E: play any day that's due, then read the game.
   const loadHoops = useCallback(async () => {
     if (challenge?.kind === 'hoops') {
-      await advanceHoops(challengeId).catch(() => {});
+      await offlineOr(advanceHoops(challengeId) as Promise<unknown>, undefined).catch(() => {});
       setHoopsGame(await getHoops(challengeId).catch(() => null));
     } else if (challenge?.kind === 'horse') {
-      await advanceHorse(challengeId).catch(() => {});
+      await offlineOr(advanceHorse(challengeId) as Promise<unknown>, undefined).catch(() => {});
       setHorseGame(await getHorse(challengeId).catch(() => null));
     } else if (challenge?.kind === 'golf') {
       setGolfGame(await getGolfGame(challengeId).catch(() => null));

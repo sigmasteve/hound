@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { errorText } from '../offline/cache';
 import {
   ActivityIndicator,
   Alert,
@@ -117,7 +118,7 @@ export function TrashTalkCard({
       await refresh();
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not post that — try again.');
+      setError(errorText(e, 'Could not post that — try again.'));
       // The switch may have just been turned off.
       refresh();
     } finally {
@@ -184,7 +185,7 @@ export function TrashTalkCard({
       await setTrashTalkChallengeMuted(challengeId, next);
     } catch (e) {
       setStatus((cur) => (cur ? { ...cur, pushesMuted: !next } : cur));
-      setError(e instanceof Error ? e.message : 'Could not change that — try again.');
+      setError(errorText(e, 'Could not change that — try again.'));
     } finally {
       setSavingMute(false);
     }

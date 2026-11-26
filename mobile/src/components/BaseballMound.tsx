@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { errorText } from '../offline/cache';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { Text } from './Text';
@@ -74,7 +75,7 @@ export function BaseballMoundMode({ challengeId, onBusy }: { challengeId: string
       if (d.open) setCount({ balls: d.open.balls, strikes: d.open.strikes });
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load the mound.');
+      setError(errorText(e, 'Could not load the mound.'));
     }
   }, [challengeId]);
   useEffect(() => {

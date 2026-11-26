@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { offlineOr } from '../offline/cache';
+import { getNetState } from '../offline/network';
+import { offlineEnabled } from '../offline/offlineConfig';
 import { OfflineStrip } from '../offline/OfflineStrip';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
@@ -175,7 +178,7 @@ export function ChallengesScreen({
       supabaseChallengesProvider.getHighlightedChallenge(),
       // Only used to tell which of your challenges are global; a failure
       // just files them under Personal.
-      listGlobalChallenges().catch(() => []),
+      offlineOr(listGlobalChallenges(), []).catch(() => []),
       getFeatureNewest(),
     ]);
     const globalIds = new Set(globals.map((g) => g.id));
@@ -184,7 +187,7 @@ export function ChallengesScreen({
       challenges.map((c) => [c.id, globalIds.has(c.id) ? 'global' : c.organizationId ? 'org' : 'personal']),
     );
     const orgId = challenges.find((c) => !globalIds.has(c.id) && c.organizationId)?.organizationId ?? null;
-    const org = orgId ? await getOrganization(orgId).catch(() => null) : null;
+    const org = orgId ? await offlineOr(getOrganization(orgId), null).catch(() => null) : null;
     const primaryId = pickPrimaryChallenge(challenges, highlighted, featureNewest)?.id ?? null;
     setPrimaryChallengeId(primaryId);
     // Only a challenge whose schedule hasn't ended yet needs the full
@@ -219,7 +222,9 @@ export function ChallengesScreen({
         );
         // A Daily Streak shows whether you're still in, from its own
         // daily progress, rather than a rank by total steps.
-        if (c.kind === 'streak' && user?.id) {
+        // Skipped when already offline (0271): it can't load, and waiting
+        // on it held the whole list up.
+        if (c.kind === 'streak' && user?.id && !(offlineEnabled() && getNetState() === 'offline')) {
           try {
             const [dailyRows, joinDates, days] = await Promise.all([
               listDailyProgress(c.id),

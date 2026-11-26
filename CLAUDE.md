@@ -284,7 +284,12 @@ strip). Since the second batch the Challenges tab, a challenge's page,
 Friends and the Kennel read through it too (your challenges, a
 challenge's details, people, board and bots, friends, your hound and its
 yard); a challenge's game extras fall back to empty offline (`offlineOr`
-in `cache.ts`) instead of failing the page. A new action that should work offline joins `offline_apply`'s
+in `cache.ts`) instead of failing the page. Once the phone is known to
+be offline, `cachedRead` and `offlineOr` don't try the network at all
+(each try waited on the sign-in refresh's retries: 10 seconds a screen).
+A game card's own read that has a board (the Shootout, the Derby, the
+Open) keeps a copy too, and a card's load error says "No connection" in
+plain words (`errorText`). A new action that should work offline joins `offline_apply`'s
 ops and uses `runOrQueue`. With offline mode on, the "Hound can't reach its
 server" screen (MaintenanceGate) lets people in instead of blocking
 (planned maintenance still blocks), and sign-in uses the profile kept on
