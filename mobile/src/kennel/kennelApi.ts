@@ -1,4 +1,5 @@
 import type { Hairdo } from './HoundArt';
+import { cachedRead } from '../offline/cache';
 import { supabase } from '../lib/supabase';
 import { localDayKey } from '../goals/goals';
 import type { HoundMood } from './HoundArt';
@@ -43,9 +44,12 @@ function client() {
 const today = () => localDayKey(new Date());
 
 export async function getKennel(): Promise<Kennel> {
-  const { data, error } = await client().rpc('my_kennel', { p_local_date: today() }).single();
-  if (error) throw new Error(error.message);
-  const r = data as any;
+  // A kept copy when offline (0271).
+  const r = (await cachedRead('kennel:my', async () => {
+    const { data, error } = await client().rpc('my_kennel', { p_local_date: today() }).single();
+    if (error) throw new Error(error.message);
+    return data;
+  })) as any;
   return {
     name: r.name,
     careMode: r.care_mode,

@@ -280,7 +280,11 @@ phone in order and sent through `offline_apply`, which applies each
 client id once and answers a rule's refusal as `{error}` (shown on the
 strip, kept for Admin). Reads that matter offline go through
 `cachedRead` in `cache.ts` (last-known copy, "last updated" on the
-strip). A new action that should work offline joins `offline_apply`'s
+strip). Since the second batch the Challenges tab, a challenge's page,
+Friends and the Kennel read through it too (your challenges, a
+challenge's details, people, board and bots, friends, your hound and its
+yard); a challenge's game extras fall back to empty offline (`offlineOr`
+in `cache.ts`) instead of failing the page. A new action that should work offline joins `offline_apply`'s
 ops and uses `runOrQueue`. With offline mode on, the "Hound can't reach its
 server" screen (MaintenanceGate) lets people in instead of blocking
 (planned maintenance still blocks), and sign-in uses the profile kept on
