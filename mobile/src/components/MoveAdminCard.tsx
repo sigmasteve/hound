@@ -8,7 +8,17 @@ import { TextField } from './TextField';
 import { AdminNote } from './AdminParts';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { getMoveOverview, getMoveRates, setMoveConfig, type MoveOverview, type MoveRate } from '../move/moveApi';
+import {
+  getMoveOverview,
+  getMoveRates,
+  getMoveSocialOverview,
+  setMoveConfig,
+  setMoveSocialConfig,
+  SNACK_WINDOWS,
+  type MoveOverview,
+  type MoveRate,
+  type MoveSocialOverview,
+} from '../move/moveApi';
 import { ACTIVITY_LABEL, ROUTINES } from '../move/move';
 
 // Admin → Overview → Fitness → Move points (0270): who times sessions in
@@ -24,6 +34,8 @@ export function MoveAdminCard({ onLoaded }: { onLoaded?: (d: MoveOverview) => vo
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [data, setData] = useState<MoveOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Movement snacks and Move together (0275); null before it's run.
+  const [social, setSocial] = useState<MoveSocialOverview | null>(null);
   const loaded = useRef(onLoaded);
   loaded.current = onLoaded;
 
@@ -44,6 +56,9 @@ export function MoveAdminCard({ onLoaded }: { onLoaded?: (d: MoveOverview) => vo
                 : 'Could not load the Move numbers.',
           ),
         );
+      getMoveSocialOverview()
+        .then(setSocial)
+        .catch(() => setSocial(null));
     }, []),
   );
 
@@ -81,6 +96,33 @@ export function MoveAdminCard({ onLoaded }: { onLoaded?: (d: MoveOverview) => vo
         ],
         ['Move points challenges', `${data.moveChallengesLive} live · ${data.moveChallenges} ever`],
         ['By hand, per day', `${data.handCapMin} min (Bones → Move points)`],
+        ...(social
+          ? ([
+              [
+                'Movement snacks: nudges on',
+                `${social.snacksOn}${
+                  Object.keys(social.snackWindows).length
+                    ? ` · ${SNACK_WINDOWS.map((w) => `${w.label} ${social.snackWindows[w.id] ?? 0}`).join(' · ')}`
+                    : ''
+                }`,
+              ],
+              [
+                'Movement snacks, 7 days',
+                `${social.snacks7d} started (${social.snacksNudge7d} from a nudge) · ${social.snacksDone7d} done by ${social.snackPeople7d} · ${social.snackBones7d} Bones · ${social.snacksTried} ever tried`,
+              ],
+              [
+                'Move together, 7 days',
+                `${social.packs7d} started · ${social.packsPaid7d} where everyone finished · ${social.packPeople7d} took part · ${social.packBones7d} Bones · ${social.packTried} ever`,
+              ],
+              [
+                'Move together routines, 7 days',
+                Object.entries(social.packRoutines7d)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([k, n]) => `${k} ${n}`)
+                  .join(' · ') || '—',
+              ],
+            ] as [string, string][])
+          : []),
       ]
     : [];
 
@@ -115,6 +157,8 @@ export function MoveRatesCard() {
   const [rates, setRates] = useState<MoveRate[] | null>(null);
   const [input, setInput] = useState<Record<string, string>>({});
   const [cap, setCap] = useState('120');
+  // Movement snacks and Move together (0275): null before it's run.
+  const [social, setSocial] = useState<Record<string, string> | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +173,17 @@ export function MoveRatesCard() {
           setError(null);
         })
         .catch((e) => setError(e instanceof Error && /move_rates/.test(e.message) ? 'Run 0270_move_points.sql to set these.' : 'Could not load the rates.'));
+      getMoveSocialOverview()
+        .then((o) =>
+          setSocial({
+            snack_steps: String(o.config.snackSteps),
+            snack_minutes: String(o.config.snackMinutes),
+            snack_bones: String(o.config.snackBones),
+            snack_max_day: String(o.config.snackMaxDay),
+            together_bones: String(o.config.togetherBones),
+          }),
+        )
+        .catch(() => setSocial(null));
     }, []),
   );
 
@@ -148,10 +203,29 @@ export function MoveRatesCard() {
       setError('Enter whole minutes by hand, 0 to 1,440.');
       return;
     }
+    const socialOut: Record<string, number> = {};
+    if (social) {
+      const limits: Record<string, [number, number, string]> = {
+        snack_steps: [50, 5000, 'Snack steps'],
+        snack_minutes: [3, 60, 'Snack minutes'],
+        snack_bones: [0, 100, 'Bones a snack'],
+        snack_max_day: [0, 10, 'Paid snacks a day'],
+        together_bones: [0, 200, 'Move together Bones'],
+      };
+      for (const [k, [lo, hi, name]] of Object.entries(limits)) {
+        const n = Number(social[k]);
+        if (!Number.isInteger(n) || n < lo || n > hi) {
+          setError(`${name}: a whole number, ${lo} to ${hi}.`);
+          return;
+        }
+        socialOut[k] = n;
+      }
+    }
     setSaving(true);
     setError(null);
     try {
       await setMoveConfig({ rates: out, handCapMin: c });
+      if (social) await setMoveSocialConfig(socialOut);
       setRates(rates.map((r) => (out[r.activity] !== undefined ? { ...r, perMin: out[r.activity] } : r)));
       setSaved(true);
     } catch (e) {
@@ -194,6 +268,40 @@ export function MoveRatesCard() {
             }}
             keyboardType="number-pad"
           />
+          {social && (
+            <>
+              <Text style={[text.h4, { marginTop: 6 }]}>Movement snacks</Text>
+              {(
+                [
+                  ['snack_steps', 'Steps in a snack'],
+                  ['snack_minutes', 'Minutes to do them'],
+                  ['snack_bones', 'Bones a snack'],
+                  ['snack_max_day', 'Snacks a day that pay'],
+                ] as const
+              ).map(([k, label]) => (
+                <TextField
+                  key={k}
+                  label={label}
+                  value={social[k]}
+                  onChangeText={(v) => {
+                    setSocial({ ...social, [k]: v });
+                    setSaved(false);
+                  }}
+                  keyboardType="number-pad"
+                />
+              ))}
+              <Text style={[text.h4, { marginTop: 6 }]}>Move together</Text>
+              <TextField
+                label="Bones each when everyone finishes"
+                value={social.together_bones}
+                onChangeText={(v) => {
+                  setSocial({ ...social, together_bones: v });
+                  setSaved(false);
+                }}
+                keyboardType="number-pad"
+              />
+            </>
+          )}
           {saved && !error && <Text style={styles.success}>Saved.</Text>}
           <Button label={saving ? 'Saving…' : 'Save'} variant="primary" disabled={saving} onPress={save} />
         </>

@@ -32,6 +32,8 @@ import { FastingScreen } from '../fasting/FastingScreen';
 import { FastingGameScreen } from '../fasting/FastingGameScreen';
 import { FastingBoardScreen } from '../fasting/FastingBoardScreen';
 import { MoveScreen } from '../move/MoveScreen';
+import { MoveSnackScreen } from '../move/MoveSnackScreen';
+import { MoveTogetherScreen } from '../move/MoveTogetherScreen';
 import { MoveRoutineScreen } from '../move/MoveRoutineScreen';
 import { MoveStrengthScreen } from '../move/MoveStrengthScreen';
 import { FastingPackScreen } from '../fasting/FastingPackScreen';
@@ -578,15 +580,38 @@ export function RootNavigator() {
                   onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { tab: 'home' }))}
                   onStartRoutine={(routineId) => navigation.navigate('MoveRoutine', { routineId })}
                   onStartStrength={(templateId) => navigation.navigate('MoveStrength', { templateId })}
+                  onSnack={() => navigation.navigate('MoveSnack', { source: 'self' })}
+                  onOpenTogether={(packId) => navigation.navigate('MoveTogether', { packId })}
                 />
               )}
             </Stack.Screen>
             <Stack.Screen name="MoveRoutine" options={{ animation: 'slide_from_right', gestureEnabled: false }}>
               {({ navigation, route }) => (
                 <MoveRoutineScreen
-                  key={route.params.routineId}
+                  key={`${route.params.routineId}-${route.params.packId ?? ''}`}
                   routineId={route.params.routineId}
+                  packId={route.params.packId}
                   onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Move'))}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="MoveSnack" options={{ animation: 'slide_from_bottom', gestureEnabled: false }}>
+              {/* Movement snacks (0275), from a nudge or Move. */}
+              {({ navigation, route }) => (
+                <MoveSnackScreen
+                  source={route.params?.source ?? 'self'}
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Move'))}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="MoveTogether" options={{ animation: 'slide_from_right' }}>
+              {/* Move together (0275): the lobby. */}
+              {({ navigation, route }) => (
+                <MoveTogetherScreen
+                  key={route.params.packId}
+                  packId={route.params.packId}
+                  onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Move'))}
+                  onStart={(routineId, packId) => navigation.navigate('MoveRoutine', { routineId, packId })}
                 />
               )}
             </Stack.Screen>

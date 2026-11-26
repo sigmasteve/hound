@@ -8,7 +8,19 @@ import { Button } from '../components/Button';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { clockMS, routineById, routineMinutes, routineSeconds, routineSteps } from './move';
-import { cancelMoveSession, finishMoveSession, saveSessionOffline, startMoveSession, type MoveFinish } from './moveApi';
+import {
+  cancelMoveSession,
+  finishMoveSession,
+  getMovePack,
+  movePackBegan,
+  movePackDone,
+  saveSessionOffline,
+  startMoveSession,
+  type MoveFinish,
+  type MovePack,
+} from './moveApi';
+import { notifyBonesChanged } from '../bones/bonesChanged';
+import { PersonAvatar } from '../fasting/FastingParts';
 import { offlineEnabled } from '../offline/offlineConfig';
 import { isNetworkError, reportNetworkFailure } from '../offline/network';
 import { MoveFinishView, MoveSavedOffline } from './MoveParts';
@@ -17,7 +29,16 @@ import { MoveFinishView, MoveSavedOffline } from './MoveParts';
 // round. The server times it (move_session_start / _finish), so finishing
 // is a ✓ Timed session. The clock runs from real time, so it stays right
 // if the phone sleeps or the app goes to the background.
-export function MoveRoutineScreen({ routineId, onBack }: { routineId: string; onBack: () => void }) {
+export function MoveRoutineScreen({
+  routineId,
+  packId,
+  onBack,
+}: {
+  routineId: string;
+  // Move together (0275): this routine is part of a pack.
+  packId?: string;
+  onBack: () => void;
+}) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const routine = routineById(routineId);
@@ -38,6 +59,21 @@ export function MoveRoutineScreen({ routineId, onBack }: { routineId: string; on
   const [result, setResult] = useState<MoveFinish | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Move together: the others, and your bonus once everyone's done.
+  const [pack, setPack] = useState<MovePack | null>(null);
+  const [packBones, setPackBones] = useState<number | null>(null);
+  const [clock, setClock] = useState(Date.now());
+
+  useEffect(() => {
+    if (!packId) return;
+    const load = () => {
+      getMovePack(packId).then(setPack).catch(() => {});
+      setClock(Date.now());
+    };
+    load();
+    const t = setInterval(load, 10000);
+    return () => clearInterval(t);
+  }, [packId]);
 
   const now = () => banked.current + (resumedAt.current ? (Date.now() - resumedAt.current) / 1000 : 0);
 
@@ -82,7 +118,15 @@ export function MoveRoutineScreen({ routineId, onBack }: { routineId: string; on
     };
     try {
       if (session === 'offline') await saveOffline();
-      else setResult(await finishMoveSession(session, mins, false, null));
+      else {
+        setResult(await finishMoveSession(session, mins, false, null));
+        if (packId) {
+          const b = await movePackDone(packId).catch(() => 0);
+          setPackBones(b);
+          if (b > 0) notifyBonesChanged();
+          getMovePack(packId).then(setPack).catch(() => {});
+        }
+      }
     } catch (e) {
       if (offlineEnabled() && isNetworkError(e)) {
         reportNetworkFailure();
@@ -113,6 +157,7 @@ export function MoveRoutineScreen({ routineId, onBack }: { routineId: string; on
         try {
           const s = await startMoveSession('routine', routine.id);
           setSession(s.id);
+          if (packId) movePackBegan(packId, s.id).catch(() => {});
         } catch (e) {
           // No connection: the phone times it and it syncs later (0271).
           if (!(offlineEnabled() && isNetworkError(e))) throw e;
@@ -178,9 +223,20 @@ export function MoveRoutineScreen({ routineId, onBack }: { routineId: string; on
       ) : result ? (
         <View style={styles.body}>
           <MoveFinishView title={routine.short} result={result} timed />
+          {pack && (
+            <View style={{ gap: 8, marginTop: 10 }}>
+              <Text style={[styles.small, { textAlign: 'center', color: packBones ? colors.green : styles.small.color }]}>
+                {packBones
+                  ? `Everyone finished together: +${packBones} Bones 🐾`
+                  : `The +${pack.bonus} Bones together bonus comes when everyone who joined finishes.`}
+              </Text>
+              <PackStrip pack={pack} now={clock} styles={styles} colors={colors} />
+            </View>
+          )}
         </View>
       ) : (
         <View style={styles.body}>
+          {pack && <PackStrip pack={pack} now={clock} styles={styles} colors={colors} />}
           <View style={styles.segs}>
             {Array.from({ length: works }).map((_, i) => (
               <View
@@ -269,5 +325,48 @@ function makeStyles(colors: Palette) {
     small: { fontSize: 12.5, color: withAlpha(colors.text, 0.6) },
     error: { fontSize: 13, color: colors.amber, textAlign: 'center' },
     pinned: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8 },
+    pack: { borderRadius: 14, backgroundColor: colors.surface, padding: 10, gap: 6 },
+    packRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    packTrack: { flex: 1, height: 5, borderRadius: 3, backgroundColor: withAlpha(colors.text, 0.08), overflow: 'hidden' },
+    packFill: { height: 5, borderRadius: 3 },
   });
+}
+
+// The others in a Move together pack, each with how far along they are.
+function PackStrip({
+  pack,
+  now,
+  styles,
+  colors,
+}: {
+  pack: MovePack;
+  now: number;
+  styles: ReturnType<typeof makeStyles>;
+  colors: Palette;
+}) {
+  const others = pack.members.filter((m) => !m.me && m.state !== 'invited');
+  if (others.length === 0) return <Text style={styles.small}>Move together: waiting for friends to join.</Text>;
+  return (
+    <View style={styles.pack}>
+      {others.map((m) => {
+        const pct =
+          m.state === 'done' ? 1 : m.state === 'going' && m.startedAt ? Math.min(0.99, (now - new Date(m.startedAt).getTime()) / (pack.minutes * 60000)) : 0;
+        const col = m.state === 'done' ? colors.green : colors.accent;
+        return (
+          <View key={m.person.id} style={styles.packRow}>
+            <PersonAvatar p={m.person} size={24} />
+            <Text style={[styles.small, { width: 64 }]} numberOfLines={1}>
+              {m.person.name}
+            </Text>
+            <View style={styles.packTrack}>
+              <View style={[styles.packFill, { width: `${Math.round(pct * 100)}%`, backgroundColor: col }]} />
+            </View>
+            <Text style={[styles.small, { width: 40, textAlign: 'right', color: m.state === 'done' ? colors.green : styles.small.color }]}>
+              {m.state === 'done' ? '✓' : m.state === 'going' ? `${Math.round(pct * 100)}%` : m.state === 'waiting' ? 'soon' : '–'}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
 }

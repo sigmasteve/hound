@@ -594,6 +594,8 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Log an activity for anything else (classes, sports, housework). By hand, up to 2 hours a day count. Workouts from a watch or Health count in full.',
         'Set your strength goal, 1 to 5 sessions a week. A week counts toward your week streak when you reach it. One session a day counts.',
         'Most steps challenges can count Move points instead: turn on Count Move points when you create one.',
+        'Movement snacks: on Move, tap Take one (250 steps in 10 minutes, counted by your phone) for a few Bones, up to 3 a day. Turn on nudges and pick when (morning, midday, afternoon, evening) to get one in each.',
+        'Move together: in Start a routine, choose With friends, pick a routine and who. They get a notification and an hour to join. Each of you does it on your own phone and sees the others’ progress; when everyone who joined finishes, you each get 10 Bones.',
       ],
       tip: 'Timed in Hound and a watch over the same time? The watch’s workout counts, so nothing is counted twice.',
     },
