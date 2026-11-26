@@ -15,22 +15,6 @@ struct HoundSnapshot: Codable {
   var streak: Int? = nil
   var linked: Bool = false
   var updated: Date = Date()
-  // Fasting (0274): the open fast's start and goal, or none; whether
-  // fasting's set up (16 or older) and the plan to start on.
-  var fastStart: Date? = nil
-  var fastGoalHours: Int? = nil
-  var fastOk: Bool? = nil
-  var fastPlanHours: Int? = nil
-
-  var fastEnd: Date? {
-    guard let start = fastStart, let goal = fastGoalHours else { return nil }
-    return start.addingTimeInterval(Double(goal) * 3600)
-  }
-
-  func fastFraction(at date: Date) -> Double {
-    guard let start = fastStart, let goal = fastGoalHours, goal > 0 else { return 0 }
-    return min(1, max(0, date.timeIntervalSince(start) / (Double(goal) * 3600)))
-  }
 
   // group.<the phone app's bundle id>.watch, worked out from this
   // target's own id (app.hound.mobile.watchkitapp[.complications]), so

@@ -18,28 +18,6 @@ export interface WidgetGoal {
   daily: boolean;
 }
 
-// Fasting (0261) for the Fasting widget (from 1.3.0): the clock runs on
-// its own on iPhone (a timer from startedAt); Android redraws it.
-export interface WidgetFasting {
-  // Said they're 16 or older; otherwise the widget points to Hound.
-  ok: boolean;
-  planHours: number;
-  // "16:8", "One meal".
-  planLabel: string;
-  streak: number;
-  open: {
-    startedAt: string;
-    goalHours: number;
-    // "ends 10:36 PM", worked out on the phone.
-    endsText: string;
-  } | null;
-  // Per timeline entry (forNow): the goal's reached by then, and the
-  // hours so far (Android shows these; iPhone's timer runs itself).
-  reached: boolean;
-  hoursText: string;
-  pct: number;
-}
-
 export interface WidgetData {
   // False until the app has saved anything: the widget says to open Hound.
   ready: boolean;
@@ -63,7 +41,6 @@ export interface WidgetData {
   // showing yesterday's resets at midnight (forNow).
   dayKey: string;
   weekKey: string;
-  fasting: WidgetFasting | null;
 }
 
 export const EMPTY_WIDGET_DATA: WidgetData = {
@@ -82,7 +59,6 @@ export const EMPTY_WIDGET_DATA: WidgetData = {
   streak: 0,
   dayKey: '',
   weekKey: '',
-  fasting: null,
 };
 
 const MOOD_WORD: Record<Kennel['mood'], string> = {
@@ -134,7 +110,6 @@ export function houndFields(kennel: Kennel) {
 // steps) start again from zero, and on a new week, weekly goals too.
 export function forNow(data: WidgetData, now: Date = new Date()): WidgetData {
   if (!data.ready) return data;
-  data = { ...data, fasting: fastingAt(data.fasting, now) };
   const newDay = data.dayKey !== localDayKey(now);
   const newWeek = data.weekKey !== localDayKey(weekStart(now));
   if (!newDay && !newWeek) return data;
@@ -148,19 +123,5 @@ export function forNow(data: WidgetData, now: Date = new Date()): WidgetData {
     stepsPct: newDay ? 0 : data.stepsPct,
     goals,
     done: goals.filter((g) => g.done).length,
-  };
-}
-
-// The fast as of `now`: reached or not, and the hours so far.
-export function fastingAt(f: WidgetFasting | null, now: Date): WidgetFasting | null {
-  if (!f || !f.open) return f ? { ...f, reached: false, hoursText: '', pct: 0 } : f;
-  const h = Math.max(0, (now.getTime() - new Date(f.open.startedAt).getTime()) / 3600000);
-  const whole = Math.floor(h);
-  const mins = Math.floor((h - whole) * 60);
-  return {
-    ...f,
-    reached: h >= f.open.goalHours,
-    hoursText: `${whole} h ${String(mins).padStart(2, '0')} m`,
-    pct: Math.min(100, Math.round((h / f.open.goalHours) * 100)),
   };
 }

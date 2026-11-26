@@ -15,11 +15,6 @@ final class WatchModel: ObservableObject {
   @Published var health = TodayHealth()
   @Published var problem: String? = nil
   @Published var busy = false
-  // 0274: fasting from the wrist, and the last activity logged here (for
-  // Undo, in the server's 15 minutes).
-  @Published var fasting: WatchToday.Fasting? = nil
-  @Published var fastNote: String? = nil
-  @Published var lastActivity: (id: String, text: String, at: Date)? = nil
 
   private var polling: Task<Void, Never>? = nil
 
@@ -78,7 +73,6 @@ final class WatchModel: ObservableObject {
     health = await HealthReader.shared.today()
     do {
       today = try await HoundAPI.rpc("watch_today", ["p_device": device, "p_secret": WatchIdentity.secret, "p_day": localDayKey()], as: WatchToday.self)
-      fasting = today?.fasting
       problem = nil
     } catch {
       // Unlinked on the phone: start over with a new code.
@@ -120,78 +114,6 @@ final class WatchModel: ObservableObject {
       }
       problem = nil
       saveSnapshot(linked: true)
-    } catch {
-      problem = error.localizedDescription
-    }
-  }
-
-  // ── Fasting (0274) ──
-
-  var fastStart: Date? { fasting?.startedAt }
-
-  func startFast(hours: Int) async {
-    guard let device = WatchIdentity.deviceId, !busy else { return }
-    busy = true
-    defer { busy = false }
-    do {
-      fasting = try await HoundAPI.rpc(
-        "watch_fasting_start",
-        ["p_device": device, "p_secret": WatchIdentity.secret, "p_day": localDayKey(), "p_plan_hours": hours],
-        as: WatchToday.Fasting.self
-      )
-      fastNote = nil
-      problem = nil
-      saveSnapshot(linked: true)
-    } catch {
-      problem = error.localizedDescription
-    }
-  }
-
-  func endFast() async {
-    guard let device = WatchIdentity.deviceId, !busy else { return }
-    busy = true
-    defer { busy = false }
-    do {
-      let r = try await HoundAPI.rpc("watch_fasting_end", ["p_device": device, "p_secret": WatchIdentity.secret, "p_day": localDayKey()], as: FastEnd.self)
-      let h = Int(r.hours)
-      let m = Int((r.hours - Double(h)) * 60)
-      let bones = r.bones ?? 0
-      let bonesText = bones > 0 ? " +\(bones) Bones" : ""
-      fastNote = r.on_plan ? "\(h) h \(m) m. Goal done ✓\(bonesText)" : "\(h) h \(m) m. It still counts as a fast."
-      problem = nil
-      await refresh()
-    } catch {
-      problem = error.localizedDescription
-    }
-  }
-
-  // ── Log an activity (0274, log_workout's limits) ──
-
-  func logActivity(type: String, label: String, minutes: Int) async {
-    guard let device = WatchIdentity.deviceId, !busy else { return }
-    busy = true
-    defer { busy = false }
-    do {
-      let r = try await HoundAPI.rpc(
-        "watch_log_activity",
-        ["p_device": device, "p_secret": WatchIdentity.secret, "p_day": localDayKey(), "p_type": type, "p_minutes": minutes],
-        as: LoggedActivity.self
-      )
-      lastActivity = (r.source_id, "\(label), \(r.minutes) min", Date())
-      problem = nil
-    } catch {
-      problem = error.localizedDescription
-    }
-  }
-
-  func undoActivity() async {
-    guard let device = WatchIdentity.deviceId, let last = lastActivity, !busy else { return }
-    busy = true
-    defer { busy = false }
-    do {
-      _ = try await HoundAPI.rpc("watch_undo_activity", ["p_device": device, "p_secret": WatchIdentity.secret, "p_source_id": last.id], as: Bool.self)
-      lastActivity = nil
-      problem = nil
     } catch {
       problem = error.localizedDescription
     }
@@ -261,10 +183,6 @@ final class WatchModel: ObservableObject {
     snap.streak = today?.streak?.streak
     snap.linked = linked
     snap.updated = Date()
-    snap.fastStart = fasting?.startedAt
-    snap.fastGoalHours = fasting?.open?.goal_hours
-    snap.fastOk = fasting?.age == "ok"
-    snap.fastPlanHours = fasting?.plan_hours
     snap.save()
     WidgetCenter.shared.reloadAllTimelines()
   }

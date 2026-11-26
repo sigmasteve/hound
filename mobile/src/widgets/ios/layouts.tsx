@@ -19,12 +19,10 @@ import {
   gaugeStyle,
   lineLimit,
   minimumScaleFactor,
-  monospacedDigit,
   padding,
   progressViewStyle,
   resizable,
   tint,
-  widgetURL,
 } from '@expo/ui/swift-ui/modifiers';
 import type { WidgetEnvironment } from 'expo-widgets';
 import type { WidgetData } from '../widgetModel';
@@ -169,110 +167,6 @@ export function HoundStepsLayout(props: WidgetData | undefined, env: WidgetEnvir
         {goal ? `${steps} / ${goal}` : `${steps} steps`}
       </Text>
       {goal && <ProgressView value={pct / 100} modifiers={[progressViewStyle('linear')]} />}
-    </VStack>
-  );
-}
-
-// The Fasting widget (1.3.0): home screen small, and the Lock Screen. The
-// clock and the bar run on their own from when the fast started (SwiftUI
-// timers), so they stay right between updates; tapping opens Fasting.
-export function HoundFastingLayout(props: WidgetData | undefined, env: WidgetEnvironment) {
-  'widget';
-  const dark = env.colorScheme === 'dark';
-  const accent = dark ? '#b5abfc' : '#5d5294';
-  const green = dark ? '#7fd39b' : '#2e8b57';
-  const amber = '#e0a94f';
-  const bg = dark ? '#161826' : '#f5f4ff';
-  const primary = { type: 'hierarchical', style: 'primary' } as const;
-  const secondary = { type: 'hierarchical', style: 'secondary' } as const;
-  const url = widgetURL('hound://fasting?from=widget');
-  const f = props && props.ready ? props.fasting : null;
-  const o = f && f.ok ? f.open : null;
-  const start = o ? new Date(o.startedAt) : null;
-  // Counting up from the start; the upper end only has to be far off.
-  const clock = start ? { lower: start, upper: new Date(start.getTime() + 72 * 3600000) } : null;
-  const toGoal = start && o ? { lower: start, upper: new Date(start.getTime() + o.goalHours * 3600000) } : null;
-  const lock = env.widgetFamily !== 'systemSmall' && env.widgetFamily !== 'systemMedium';
-
-  if (lock) {
-    if (env.widgetFamily === 'accessoryInline') {
-      return <Text modifiers={[url]}>{o ? (f!.reached ? `🍽 ${o.goalHours} h fast done ✓` : `🍽 Fasting · ${o.endsText}`) : '🍽 Not fasting'}</Text>;
-    }
-    if (env.widgetFamily === 'accessoryCircular') {
-      return (
-        <ZStack modifiers={[url]}>
-          <AccessoryWidgetBackground />
-          {toGoal ? (
-            <ProgressView timerInterval={toGoal} countsDown={false} modifiers={[progressViewStyle('circular')]}>
-              <Image systemName="fork.knife" />
-            </ProgressView>
-          ) : (
-            <VStack spacing={1}>
-              <Image systemName="fork.knife" />
-              <Text modifiers={[font({ size: 11, weight: 'semibold' })]}>Fast</Text>
-            </VStack>
-          )}
-        </ZStack>
-      );
-    }
-    // accessoryRectangular
-    return (
-      <VStack spacing={2} alignment="leading" modifiers={[url]}>
-        <HStack spacing={4}>
-          <Image systemName="fork.knife" size={12} />
-          <Text modifiers={[font({ size: 13, weight: 'semibold' })]}>{o ? (f!.reached ? 'Goal reached ✓' : 'Fasting') : 'Not fasting'}</Text>
-        </HStack>
-        {clock ? (
-          <Text timerInterval={clock} countsDown={false} modifiers={[font({ size: 17, weight: 'semibold', design: 'rounded' }), monospacedDigit()]} />
-        ) : (
-          <Text modifiers={[font({ size: 15, weight: 'semibold' })]}>{f && f.ok ? `${f.planLabel} · 🔥 ${f.streak}` : 'Open Hound'}</Text>
-        )}
-        {toGoal && <ProgressView timerInterval={toGoal} countsDown={false} modifiers={[progressViewStyle('linear')]} />}
-      </VStack>
-    );
-  }
-
-  // Home screen.
-  if (!f || !f.ok) {
-    return (
-      <VStack spacing={6} modifiers={[containerBackground(bg, 'widget'), url]}>
-        <Image systemName="fork.knife.circle.fill" size={30} color={accent} />
-        <Text modifiers={[font({ size: 13, weight: 'semibold' }), foregroundStyle(primary), lineLimit(2)]}>Open Hound to start fasting</Text>
-      </VStack>
-    );
-  }
-  if (!o || !clock || !toGoal) {
-    return (
-      <VStack spacing={3} alignment="leading" modifiers={[containerBackground(bg, 'widget'), url]}>
-        <HStack spacing={4}>
-          <Image systemName="fork.knife" size={12} color={accent} />
-          <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(accent)]}>FASTING</Text>
-        </HStack>
-        <Spacer />
-        <Text modifiers={[font({ size: 22, weight: 'semibold', design: 'rounded' }), foregroundStyle(primary), lineLimit(1), minimumScaleFactor(0.7)]}>Start a fast</Text>
-        <Text modifiers={[font({ size: 12 }), foregroundStyle(secondary), lineLimit(1)]}>{`${f.planLabel} · ${f.planHours} h`}</Text>
-        {f.streak > 0 && <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(amber)]}>{`🔥 ${f.streak}-day streak`}</Text>}
-      </VStack>
-    );
-  }
-  return (
-    <VStack spacing={3} alignment="leading" modifiers={[containerBackground(bg, 'widget'), url]}>
-      <HStack spacing={4}>
-        <Image systemName="fork.knife" size={12} color={f.reached ? green : accent} />
-        <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(f.reached ? green : accent)]}>{f.reached ? 'GOAL REACHED' : 'FASTING'}</Text>
-        <Spacer />
-        {f.streak > 0 && <Text modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle(amber)]}>{`🔥 ${f.streak}`}</Text>}
-      </HStack>
-      <Spacer />
-      <Text
-        timerInterval={clock}
-        countsDown={false}
-        modifiers={[font({ size: 28, weight: 'semibold', design: 'rounded' }), foregroundStyle(primary), monospacedDigit(), lineLimit(1), minimumScaleFactor(0.6)]}
-      />
-      <ProgressView timerInterval={toGoal} countsDown={false} modifiers={[progressViewStyle('linear'), tint(f.reached ? green : accent)]} />
-      <Text modifiers={[font({ size: 11 }), foregroundStyle(secondary), lineLimit(1), minimumScaleFactor(0.8)]}>
-        {f.reached ? `${o.goalHours} h done · end when you eat` : `Goal ${o.goalHours} h · ${o.endsText}`}
-      </Text>
     </VStack>
   );
 }
