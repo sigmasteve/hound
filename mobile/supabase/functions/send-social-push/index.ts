@@ -33,6 +33,7 @@
 //                 invite, a scent trail opening, a flash challenge, "wait
 //                 up!" — to the pack members in to_users, titled with the
 //                 Pack Activities' name; {name} is the sender's name
+//   'move'        Move together (0275): an invite, a join, everyone done.
 //   'fasting'     Fasting (0261_fasting.sql): a cheer, a pack fast invite,
 //                 a join, a pack note, "everyone made it" — to to_users,
 //                 titled Fasting; {name} is the sender's name (no sender
@@ -65,7 +66,8 @@ type Kind =
   | 'club_invite'
   | 'club_closed'
   | 'pack_fun'
-  | 'fasting';
+  | 'fasting'
+  | 'move';
 
 interface RequestBody {
   kind: Kind;
@@ -134,6 +136,7 @@ Deno.serve(async (req) => {
   if (body?.kind === 'club_closed') return clubClosed(supabase, body);
   if (body?.kind === 'pack_fun') return packFun(supabase, body);
   if (body?.kind === 'fasting') return fasting(supabase, body);
+  if (body?.kind === 'move') return move(supabase, body);
   if (
     !body?.from_user ||
     !body?.to_user ||
@@ -362,6 +365,40 @@ async function fasting(supabase: SupabaseClient, body: RequestBody): Promise<Res
   const messages = ((tokenRows ?? []) as { user_id: string; expo_push_token: string }[])
     .filter((t) => allowed.has(t.user_id))
     .map((t) => ({ to: t.expo_push_token, title: 'Fasting', body: text, sound: 'default', data }));
+  for (let i = 0; i < messages.length; i += 100) {
+    await fetch(EXPO_PUSH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(messages.slice(i, i + 100)),
+    }).catch(() => {});
+  }
+  return new Response(JSON.stringify({ sent: messages.length > 0, recipients: messages.length }));
+}
+
+// Move together (0275): an invite, someone joining, or "you all
+// finished" (no sender). Opens the pack's lobby.
+async function move(supabase: SupabaseClient, body: RequestBody): Promise<Response> {
+  const text = (body.message ?? '').trim();
+  const toUsers = (body.to_users ?? []).filter((id) => typeof id === 'string');
+  if (!text || toUsers.length === 0 || !body.pack_id) {
+    return new Response(JSON.stringify({ error: 'Missing or invalid fields' }), { status: 400 });
+  }
+  const data = { type: 'move', packId: body.pack_id };
+  if (body.from_user) {
+    return toFriends(supabase, body, (name) => text.replaceAll('{name}', name), { title: 'Move together', data, username: true });
+  }
+  const [{ data: recipients }, { data: tokenRows }] = await Promise.all([
+    supabase.from('profiles').select('id, alert_social_push_enabled').in('id', toUsers),
+    supabase.from('device_push_tokens').select('user_id, expo_push_token').in('user_id', toUsers),
+  ]);
+  const allowed = new Set(
+    ((recipients ?? []) as { id: string; alert_social_push_enabled: boolean }[])
+      .filter((r) => r.alert_social_push_enabled)
+      .map((r) => r.id),
+  );
+  const messages = ((tokenRows ?? []) as { user_id: string; expo_push_token: string }[])
+    .filter((t) => allowed.has(t.user_id))
+    .map((t) => ({ to: t.expo_push_token, title: 'Move together', body: text, sound: 'default', data }));
   for (let i = 0; i < messages.length; i += 100) {
     await fetch(EXPO_PUSH_URL, {
       method: 'POST',

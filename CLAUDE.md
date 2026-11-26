@@ -209,6 +209,20 @@ day's points added server-side (`progress_snapshots.raw_steps` +
 `move_pts` = `steps`), so its board, results and prizes need nothing
 special. Strength goals (1 to 5 a week) are each person's own.
 
+Movement snacks and Move together (0275, the second batch). A snack is
+"250 steps in 10 minutes" (`MoveSnackScreen.tsx`), counted by the phone's
+own step counter (`packFunSensors.ts`); the server times it and pays
+Bones up to the day's paid snacks (`move_snack_start` / `_finish`). The
+nudges are the phone's own notifications, off by default, one in each
+window you pick (`snackNudges.ts`, topped up from Today with no server
+call). Move together is a guided routine with friends (Start a routine →
+With friends): a pack like a pack fast (`move_pack_*`), each member's
+timed session linked to it so the lobby (`MoveTogetherScreen.tsx`) and the
+strip on the routine show everyone's progress; when two or more have
+finished and no one who joined is still going, each who finished gets the
+bonus. Invites are in Needs you; pushes are `send-social-push`'s 'move'
+kind. All the numbers are Admin's (Bones → Move points).
+
 ## Welcome wizard: what you'll use Hound for
 
 The welcome wizard (`src/onboarding/SetupWizardScreen.tsx`) is Connect

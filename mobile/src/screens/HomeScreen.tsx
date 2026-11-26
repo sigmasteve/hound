@@ -25,6 +25,7 @@ import {
   DropIcon,
   GiftIcon,
   HourglassMediumIcon,
+  UsersThreeIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { LoadingView } from '../components/LoadingView';
@@ -241,6 +242,8 @@ import { GolfHole } from '../components/GolfHole';
 import { HoopsCourt } from '../components/HoopsCourt';
 import { PackActivitiesCard } from '../packFun/PackActivitiesCard';
 import { currentPackFuns, isLive, myPackFuns, type MyPackFun } from '../packFun/packFunApi';
+import { declineMovePack, getMovePackWaiting, type MovePackInvite } from '../move/moveApi';
+import { refreshSnackNudges } from '../move/snackNudges';
 import { useMyUses } from '../onboarding/myUses';
 import { declineFastPack, getFastingWaiting, getMyFasting, hoursSince, type FastPackInvite, type MyFasting } from '../fasting/fastingApi';
 import { clockText as fastClock, leftText as fastLeft, planLabel as fastPlanLabel } from '../fasting/fasting';
@@ -1038,6 +1041,19 @@ export function HomeScreen({
     return () => clearInterval(t);
   }, [fasting?.open]);
   const [respondingFastId, setRespondingFastId] = useState<string | null>(null);
+  // Move together invites (0275), and keeping Movement snacks' nudges
+  // filled in for the next days.
+  const [moveInvites, setMoveInvites] = useState<MovePackInvite[]>([]);
+  const loadMoveInvites = useCallback(() => {
+    if (!isSupabaseConfigured) return;
+    getMovePackWaiting().then(setMoveInvites).catch(() => {});
+  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadMoveInvites();
+      refreshSnackNudges().catch(() => {});
+    }, [loadMoveInvites]),
+  );
 
   // Club games you can still join (0252), for Needs you: posted to one of
   // your clubs, until you join, say Not now, or joining closes.
@@ -2746,7 +2762,8 @@ export function HomeScreen({
     | { key: string; type: 'invite'; invite: ChallengeInvite }
     | { key: string; type: 'friend'; friend: Friend }
     | { key: string; type: 'club'; club: ClubWaiting }
-    | { key: string; type: 'fast'; fast: FastPackInvite };
+    | { key: string; type: 'fast'; fast: FastPackInvite }
+    | { key: string; type: 'move'; move: MovePackInvite };
   const needsYou: NeedsYouItem[] = [
     ...pendingActions.map((action) => ({ key: `action-${action.challengeId}-${action.kind}`, type: 'action' as const, action })),
     ...(liveInvites ?? []).map((invite) => ({ key: `invite-${invite.id}`, type: 'invite' as const, invite })),
@@ -2756,6 +2773,7 @@ export function HomeScreen({
       .filter((w) => !(liveInvites ?? []).some((i) => i.challengeId === w.challengeId))
       .map((club) => ({ key: `club-${club.challengeId}`, type: 'club' as const, club })),
     ...fastInvites.map((fast) => ({ key: `fast-${fast.packId}`, type: 'fast' as const, fast })),
+    ...moveInvites.map((move) => ({ key: `move-${move.packId}`, type: 'move' as const, move })),
   ];
   const shownNeedsYou = needsYouExpanded ? needsYou : needsYou.slice(0, NEEDS_YOU_LIMIT);
   // Global challenges, split for the Your challenges card: ones you've
@@ -2813,7 +2831,9 @@ export function HomeScreen({
             ? `${item.club.clubName}: join ${item.club.challengeName}`
             : item.type === 'fast'
               ? `${item.fast.from.name}: fast together`
-              : `${item.friend.name} wants to be friends`,
+              : item.type === 'move'
+                ? `${item.move.from.name}: move together`
+                : `${item.friend.name} wants to be friends`,
     ),
     ...(digReady ? ['Bone Dig is ready'] : []),
     ...visibleNudges.map((n) => `${n.name} nudged you`),
@@ -2846,6 +2866,8 @@ export function HomeScreen({
     if (clubsLeft > 0) parts.push(clubsLeft === 1 ? 'a club game' : `${clubsLeft} club games`);
     const fastsLeft = take(needsYou.filter((x) => x.type === 'fast').length);
     if (fastsLeft > 0) parts.push(fastsLeft === 1 ? 'a pack fast' : `${fastsLeft} pack fasts`);
+    const movesLeft = take(needsYou.filter((x) => x.type === 'move').length);
+    if (movesLeft > 0) parts.push(movesLeft === 1 ? 'a Move together' : `${movesLeft} Move togethers`);
     if (take(digReady ? 1 : 0) > 0) parts.push('Bone Dig');
     const nudgesLeft = take(visibleNudges.length);
     if (nudgesLeft > 0) parts.push(nudgesLeft === 1 ? 'a nudge' : `${nudgesLeft} nudges`);
@@ -3382,6 +3404,44 @@ export function HomeScreen({
                           setRespondingFastId(item.fast.packId);
                           declineFastPack(item.fast.packId)
                             .then(loadFasting)
+                            .catch(() => {})
+                            .finally(() => setRespondingFastId(null));
+                        }}
+                      />
+                    </View>
+                  </>
+                ) : item.type === 'move' ? (
+                  <>
+                    <View style={styles.needsRowMain}>
+                      <UsersThreeIcon size={16} color={color.accent300} weight="fill" />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.inviteTitle}>
+                          {item.move.from.name} is doing the {item.move.routineName}. Do it together?
+                        </Text>
+                        <Text style={styles.inviteSub}>
+                          {item.move.joined} in · join until{' '}
+                          {new Date(item.move.joinUntil).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.needsButtons}>
+                      <Button
+                        label="See it"
+                        variant="primary"
+                        small
+                        onPress={() => {
+                          setOpenTile(null);
+                          onOpenAction(['MoveTogether', { packId: item.move.packId }]);
+                        }}
+                      />
+                      <Button
+                        label="Not now"
+                        small
+                        disabled={respondingFastId === item.move.packId}
+                        onPress={() => {
+                          setRespondingFastId(item.move.packId);
+                          declineMovePack(item.move.packId)
+                            .then(loadMoveInvites)
                             .catch(() => {})
                             .finally(() => setRespondingFastId(null));
                         }}

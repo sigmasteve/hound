@@ -1,8 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ArrowLeftIcon, BarbellIcon, PlayIcon, PlusIcon } from 'phosphor-react-native';
+import { ArrowLeftIcon, BarbellIcon, CheckSquareIcon, FootprintsIcon, PlayIcon, PlusIcon, SquareIcon, UsersThreeIcon } from 'phosphor-react-native';
+import { Avatar } from '../components/Avatar';
+import { FriendPickList } from '../components/FriendPickList';
+import { supabaseFriendsProvider } from '../friends/supabaseFriends';
+import type { Friend } from '../friends/types';
+import { SNACK_WINDOWS, getMySnacks, setSnackSettings, startMovePack, type MySnacks, type SnackWindow } from './moveApi';
+import { saveSnackNudges } from './snackNudges';
+import { useAuth } from '../auth/AuthContext';
+import { askForPush, getPushPermission } from '../notifications/pushPermission';
 import { Text } from '../components/Text';
 import { Button } from '../components/Button';
 import { TileSheet } from '../home/TodayTiles';
@@ -24,7 +32,9 @@ import { onSynced } from '../offline/outbox';
 // left of the 2 hours by hand, your strength goal, and the three ways in,
 // pinned: Start a routine, Log strength, Log an activity.
 
-type Sheet = null | 'routine' | 'strength' | 'goal';
+// 'friends': picking who to move with (Move together, 0275); 'snacks':
+// Movement snacks' settings.
+type Sheet = null | 'routine' | 'strength' | 'goal' | 'friends' | 'snacks';
 
 const GOAL_NOTES: Record<number, string> = {
   1: 'One strength session a week. Every bit counts.',
@@ -51,17 +61,23 @@ export function MoveScreen({
   onBack,
   onStartRoutine,
   onStartStrength,
+  onSnack,
+  onOpenTogether,
   openLog = false,
 }: {
   onBack: () => void;
   onStartRoutine: (routineId: string) => void;
   onStartStrength: (templateId: string) => void;
+  // Movement snacks and Move together (0275).
+  onSnack: () => void;
+  onOpenTogether: (packId: string) => void;
   // Opened from a widget's "Log activity" (1.3.0): the log sheet first.
   openLog?: boolean;
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const health = useHealthProvider();
+  const { user } = useAuth();
   const [me, setMe] = useState<MyMove | null | undefined>(undefined);
   const [steps, setSteps] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +90,53 @@ export function MoveScreen({
   }, [openLog]);
   const [goalPick, setGoalPick] = useState(2);
   const [saving, setSaving] = useState(false);
+  // Movement snacks (0275): null before 0275 is run.
+  const [snacks, setSnacks] = useState<MySnacks | null>(null);
+  // Move together (0275): routines start with friends; which routine, and who.
+  const [together, setTogether] = useState(false);
+  const [togetherRoutine, setTogetherRoutine] = useState<string | null>(null);
+  const [friends, setFriends] = useState<Friend[] | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (sheet === 'friends' && friends === null) {
+      supabaseFriendsProvider
+        .listFriends()
+        .then((f) => setFriends(f.filter((x) => x.status === 'accepted')))
+        .catch(() => setFriends([]));
+    }
+  }, [sheet, friends]);
+
+  const saveSnacks = async (enabled: boolean, windows: SnackWindow[]) => {
+    if (!snacks) return;
+    const next = { ...snacks, enabled, windows };
+    setSnacks(next);
+    try {
+      await setSnackSettings(enabled, windows);
+      // Nudges are the phone's own notifications: ask once, when turning on.
+      if (enabled && user?.id && (await getPushPermission().catch(() => null)) === 'undetermined') await askForPush(user.id).catch(() => {});
+      await saveSnackNudges(next);
+    } catch (e) {
+      setSnacks(snacks);
+      Alert.alert('Movement snacks', e instanceof Error ? e.message : 'Could not save that.');
+    }
+  };
+
+  const startTogether = async () => {
+    const r = togetherRoutine ? routineById(togetherRoutine) : undefined;
+    if (!r || picked.length === 0) return;
+    setSaving(true);
+    try {
+      const packId = await startMovePack(r.id, r.name, routineMinutes(r), picked);
+      setSheet(null);
+      setPicked([]);
+      onOpenTogether(packId);
+    } catch (e) {
+      Alert.alert('Move together', e instanceof Error ? e.message : 'Could not start it.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const load = useCallback(() => {
     getMyMove()
@@ -95,6 +158,12 @@ export function MoveScreen({
       .getSnapshot()
       .then((s) => setSteps(Math.round(s.stepsToday)))
       .catch(() => setSteps(null));
+    getMySnacks()
+      .then((m) => {
+        setSnacks(m);
+        if (m) saveSnackNudges(m).catch(() => {});
+      })
+      .catch(() => {});
   }, [health]);
 
   useFocusEffect(
@@ -179,6 +248,23 @@ export function MoveScreen({
               )}
             </View>
 
+            {snacks && (
+              <View style={[styles.card, styles.snack]}>
+                <Pressable style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }} onPress={() => setSheet('snacks')} accessibilityRole="button">
+                  <FootprintsIcon size={22} color={colors.accentActive} weight="fill" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.strong}>Movement snacks</Text>
+                    <Text style={styles.small} numberOfLines={1}>
+                      {snacks.enabled && snacks.windows.length > 0
+                        ? `${snacks.windows.map((w) => SNACK_WINDOWS.find((x) => x.id === w)?.label).join(', ')} · ${snacks.today.paid} of ${snacks.maxDay} today`
+                        : `${snacks.steps} steps in ${snacks.minutes} min, +${snacks.bones} Bones · nudges off`}
+                    </Text>
+                  </View>
+                </Pressable>
+                <Button label="Take one" small variant="primary" onPress={onSnack} />
+              </View>
+            )}
+
             <View style={[styles.card, { paddingVertical: 4 }]}>
               <View style={styles.row}>
                 <ActivityIcon activity="steps" />
@@ -260,11 +346,36 @@ export function MoveScreen({
 
       {sheet === 'routine' && (
         <TileSheet title="Start a routine" onClose={() => setSheet(null)}>
+          {/* Move together (0275): the same routine with friends. */}
+          <View style={styles.tseg}>
+            {[false, true].map((t) => (
+              <Pressable
+                key={String(t)}
+                style={[styles.tsegBtn, together === t && styles.tsegOn]}
+                onPress={() => setTogether(t)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: together === t }}
+              >
+                {t && <UsersThreeIcon size={15} color={together ? '#fff' : colors.accentActive} weight="fill" />}
+                <Text style={[styles.tsegText, together === t && { color: '#fff' }]}>{t ? 'With friends' : 'Just me'}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {together && (
+            <Text style={styles.small}>
+              Pick a routine, then who. Each of you does it on your own phone; when everyone who joins finishes, you each get Bones.
+            </Text>
+          )}
           {ROUTINES.map((r) => (
             <Pressable
               key={r.id}
               style={styles.pick}
               onPress={() => {
+                if (together) {
+                  setTogetherRoutine(r.id);
+                  setSheet('friends');
+                  return;
+                }
                 setSheet(null);
                 onStartRoutine(r.id);
               }}
@@ -281,6 +392,98 @@ export function MoveScreen({
             </Pressable>
           ))}
           <Text style={styles.small}>Hound times it, so it counts in full: ✓ Timed.</Text>
+        </TileSheet>
+      )}
+      {sheet === 'friends' && (
+        <TileSheet title={`Move together: ${routineById(togetherRoutine ?? '')?.short ?? 'routine'}`} onClose={() => setSheet(null)}>
+          <Text style={styles.small}>Friends get a notification and an hour to join. You can start as soon as you like.</Text>
+          {friends === null ? (
+            <ActivityIndicator color={colors.accent} />
+          ) : friends.length === 0 ? (
+            <Text style={styles.small}>Add friends to move together.</Text>
+          ) : (
+            <FriendPickList
+              items={friends}
+              pickedIds={picked}
+              onUnpick={(id) => setPicked((p) => p.filter((x) => x !== id))}
+              renderItem={(f) => {
+                const on = picked.includes(f.userId);
+                return (
+                  <Pressable
+                    style={styles.friend}
+                    onPress={() => setPicked((p) => (on ? p.filter((x) => x !== f.userId) : p.length >= 10 ? p : [...p, f.userId]))}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                  >
+                    {on ? <CheckSquareIcon size={22} color={colors.accentActive} weight="fill" /> : <SquareIcon size={22} color={withAlpha(colors.text, 0.4)} />}
+                    <Avatar initials={f.initials} tint={colors.accent800} size={32} fontSize={12} frameId={f.frameId} backgroundId={f.backgroundId} iconId={f.iconId} />
+                    <Text style={[styles.strong, { flex: 1 }]} numberOfLines={1}>
+                      {f.name}
+                    </Text>
+                  </Pressable>
+                );
+              }}
+            />
+          )}
+          <Button
+            label={saving ? 'Inviting…' : picked.length ? `Invite ${picked.length} and open the lobby` : 'Pick friends to invite'}
+            variant="primary"
+            block
+            disabled={saving || picked.length === 0}
+            onPress={startTogether}
+          />
+        </TileSheet>
+      )}
+      {sheet === 'snacks' && snacks && (
+        <TileSheet title="Movement snacks" onClose={() => setSheet(null)}>
+          <Text style={styles.small}>
+            A nudge now and then: {snacks.steps} steps in the next {snacks.minutes} minutes, counted by your phone. +{snacks.bones} Bones each, up to{' '}
+            {snacks.maxDay} a day.
+          </Text>
+          <View style={styles.between}>
+            <Text style={styles.strong}>Nudge me</Text>
+            <Switch
+              value={snacks.enabled}
+              onValueChange={(v) => saveSnacks(v, v && snacks.windows.length === 0 ? ['midday', 'afternoon'] : snacks.windows)}
+              trackColor={{ true: colors.accent }}
+            />
+          </View>
+          {snacks.enabled && (
+            <>
+              <Text style={styles.label}>WHEN (ONE NUDGE IN EACH)</Text>
+              <View style={styles.chips}>
+                {SNACK_WINDOWS.map((w) => {
+                  const on = snacks.windows.includes(w.id);
+                  return (
+                    <Pressable
+                      key={w.id}
+                      style={[styles.chip, on && styles.chipOn]}
+                      onPress={() => saveSnacks(true, on ? snacks.windows.filter((x) => x !== w.id) : [...snacks.windows, w.id])}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: on }}
+                    >
+                      <Text style={[styles.chipText, on && { color: '#fff' }]}>{w.label}</Text>
+                      <Text style={[styles.chipSub, on && { color: 'rgba(255,255,255,0.8)' }]}>
+                        {w.from > 12 ? w.from - 12 : w.from}–{w.to > 12 ? w.to - 12 : w.to}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
+          <Text style={styles.small}>
+            Today: {snacks.today.done} done · {snacks.today.paid} of {snacks.maxDay} with Bones.
+          </Text>
+          <Button
+            label="Take one now"
+            variant="primary"
+            block
+            onPress={() => {
+              setSheet(null);
+              onSnack();
+            }}
+          />
         </TileSheet>
       )}
       {sheet === 'strength' && (
@@ -396,6 +599,17 @@ function makeStyles(colors: Palette) {
     },
     act: { flex: 1, minHeight: 64, borderRadius: 14, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6 },
     actText: { fontSize: 12.5, fontFamily: font.headingSemibold, color: colors.text, textAlign: 'center' },
+    snack: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+    tseg: { flexDirection: 'row', borderRadius: 12, backgroundColor: withAlpha(colors.text, 0.06), padding: 3, gap: 3 },
+    tsegBtn: { flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', borderRadius: 10, paddingVertical: 8 },
+    tsegOn: { backgroundColor: colors.accent },
+    tsegText: { fontSize: 13.5, fontFamily: font.headingSemibold, color: colors.accentActive },
+    friend: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 50 },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chip: { borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: withAlpha(colors.text, 0.06), alignItems: 'center' },
+    chipOn: { backgroundColor: colors.accent },
+    chipText: { fontSize: 13.5, fontFamily: font.headingSemibold, color: colors.text },
+    chipSub: { fontSize: 11, color: withAlpha(colors.text, 0.55) },
     pick: {
       flexDirection: 'row',
       alignItems: 'center',

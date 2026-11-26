@@ -81,6 +81,12 @@ function routeFor(data: Record<string, unknown> | undefined): (() => [keyof Root
   if (data.type === 'pack_fun' && typeof data.packId === 'string') return () => ['PackFun', { packId: data.packId }];
   // Fasting (0261): a pack fast's push opens it; the rest (a cheer, the
   // phone's own goal and check-in reminders) open Fasting.
+  // Movement snacks' own nudge, and Move together's pushes (0275).
+  if (data.type === 'move_snack') return () => ['MoveSnack', { source: 'nudge' }];
+  if (data.type === 'move') {
+    if (typeof data.packId === 'string') return () => ['MoveTogether', { packId: data.packId }];
+    return () => ['Move', undefined];
+  }
   if (data.type === 'fasting') {
     if (typeof data.packId === 'string') return () => ['FastingPack', { packId: data.packId }];
     return () => ['Fasting', undefined];

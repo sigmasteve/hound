@@ -294,3 +294,247 @@ export function saveSessionOffline(s: {
     s.label,
   );
 }
+
+// ── Movement snacks (0275) ──
+
+export type SnackWindow = 'morning' | 'midday' | 'afternoon' | 'evening';
+
+export const SNACK_WINDOWS: { id: SnackWindow; label: string; from: number; to: number }[] = [
+  { id: 'morning', label: 'Morning', from: 9, to: 11 },
+  { id: 'midday', label: 'Midday', from: 12, to: 14 },
+  { id: 'afternoon', label: 'Afternoon', from: 15, to: 17 },
+  { id: 'evening', label: 'Evening', from: 18, to: 20 },
+];
+
+export interface Snack {
+  id: string;
+  startedAt: string;
+  expiresAt: string;
+  steps: number;
+  minutes: number;
+}
+
+export interface SnackToday {
+  done: number;
+  paid: number;
+  bones: number;
+  open: Snack | null;
+}
+
+export interface MySnacks {
+  enabled: boolean;
+  windows: SnackWindow[];
+  steps: number;
+  minutes: number;
+  bones: number;
+  maxDay: number;
+  today: SnackToday;
+}
+
+function snack(d: any): Snack | null {
+  if (!d?.id) return null;
+  return { id: String(d.id), startedAt: String(d.started_at), expiresAt: String(d.expires_at), steps: num(d.steps), minutes: num(d.minutes) };
+}
+
+function snackToday(d: any): SnackToday {
+  return { done: num(d?.done), paid: num(d?.paid), bones: num(d?.bones), open: snack(d?.open) };
+}
+
+// Null before 0275 is run.
+export async function getMySnacks(now = new Date()): Promise<MySnacks | null> {
+  try {
+    const d = await rpc<any>('my_move_snacks', { p_local_date: localDayKey(now) });
+    return {
+      enabled: !!d?.enabled,
+      windows: (d?.windows ?? []) as SnackWindow[],
+      steps: num(d?.steps) || 250,
+      minutes: num(d?.minutes) || 10,
+      bones: num(d?.bones),
+      maxDay: num(d?.max_day),
+      today: snackToday(d?.today),
+    };
+  } catch (e) {
+    if (e instanceof Error && /my_move_snacks/.test(e.message)) return null;
+    throw e;
+  }
+}
+
+export async function setSnackSettings(enabled: boolean, windows: SnackWindow[]): Promise<void> {
+  await rpc('move_snack_settings', { p_enabled: enabled, p_windows: windows });
+}
+
+export async function startSnack(source: 'nudge' | 'self', now = new Date()): Promise<{ snack: Snack; today: SnackToday }> {
+  const d = await rpc<any>('move_snack_start', { p_local_date: localDayKey(now), p_source: source });
+  return { snack: snack(d)!, today: snackToday(d?.today) };
+}
+
+export async function finishSnack(id: string, steps: number): Promise<{ bones: number; today: SnackToday }> {
+  const d = await rpc<any>('move_snack_finish', { p_id: id, p_steps: Math.round(steps) });
+  return { bones: num(d?.bones), today: snackToday(d?.today) };
+}
+
+// ── Move together (0275) ──
+
+export interface PackPerson {
+  id: string;
+  name: string;
+  initials: string;
+  iconId: string | null;
+  frameId: string | null;
+  backgroundId: string | null;
+}
+
+function person(p: any): PackPerson {
+  return {
+    id: String(p?.id ?? ''),
+    name: String(p?.name ?? 'Someone'),
+    initials: String(p?.initials ?? '?'),
+    iconId: p?.icon_id ?? null,
+    frameId: p?.frame_id ?? null,
+    backgroundId: p?.background_id ?? null,
+  };
+}
+
+// invited: not in yet; waiting: in, not started; going: doing it; done;
+// out: joined but didn't start in the hour, or stopped part way.
+export type PackState = 'invited' | 'waiting' | 'going' | 'done' | 'out';
+
+export interface MovePackMember {
+  person: PackPerson;
+  me: boolean;
+  state: PackState;
+  startedAt: string | null;
+  finishedAt: string | null;
+  bones: number;
+}
+
+export interface MovePack {
+  id: string;
+  routineRef: string;
+  routineName: string;
+  minutes: number;
+  createdBy: string;
+  joinUntil: string;
+  bonus: number;
+  members: MovePackMember[];
+}
+
+export async function startMovePack(routineRef: string, routineName: string, minutes: number, invite: string[]): Promise<string> {
+  return String(await rpc('move_pack_start', { p_routine: routineRef, p_name: routineName, p_minutes: minutes, p_invite: invite }));
+}
+
+export async function joinMovePack(packId: string): Promise<void> {
+  await rpc('move_pack_join', { p_pack: packId });
+}
+
+export async function declineMovePack(packId: string): Promise<void> {
+  await rpc('move_pack_decline', { p_pack: packId });
+}
+
+export async function movePackBegan(packId: string, sessionId: string): Promise<void> {
+  await rpc('move_pack_began', { p_pack: packId, p_session: sessionId });
+}
+
+export async function movePackDone(packId: string): Promise<number> {
+  const d = await rpc<any>('move_pack_done', { p_pack: packId });
+  return num(d?.bones);
+}
+
+export async function getMovePack(packId: string): Promise<MovePack> {
+  const d = await rpc<any>('move_pack', { p_pack: packId });
+  return {
+    id: String(d.id),
+    routineRef: String(d.routine_ref),
+    routineName: String(d.routine_name),
+    minutes: num(d.minutes),
+    createdBy: String(d.created_by),
+    joinUntil: String(d.join_until),
+    bonus: num(d.bonus),
+    members: (d.members ?? []).map((m: any) => ({
+      person: person(m.person),
+      me: !!m.me,
+      state: m.state as PackState,
+      startedAt: m.started_at ?? null,
+      finishedAt: m.finished_at ?? null,
+      bones: num(m.bones),
+    })),
+  };
+}
+
+export interface MovePackInvite {
+  packId: string;
+  routineName: string;
+  routineRef: string;
+  from: PackPerson;
+  joinUntil: string;
+  joined: number;
+}
+
+// Empty before 0275 is run.
+export async function getMovePackWaiting(): Promise<MovePackInvite[]> {
+  try {
+    const d = await rpc<any>('move_pack_waiting');
+    return (d ?? []).map((x: any) => ({
+      packId: String(x.pack_id),
+      routineName: String(x.routine_name),
+      routineRef: String(x.routine_ref),
+      from: person(x.from),
+      joinUntil: String(x.join_until),
+      joined: num(x.joined),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// ── Admin (0275) ──
+
+export interface MoveSocialOverview {
+  config: { snackSteps: number; snackMinutes: number; snackBones: number; snackMaxDay: number; togetherBones: number };
+  snacksOn: number;
+  snackWindows: Record<string, number>;
+  snacksTried: number;
+  snacks7d: number;
+  snacksDone7d: number;
+  snacksNudge7d: number;
+  snackPeople7d: number;
+  snackBones7d: number;
+  packs7d: number;
+  packsPaid7d: number;
+  packPeople7d: number;
+  packTried: number;
+  packBones7d: number;
+  packRoutines7d: Record<string, number>;
+}
+
+export async function getMoveSocialOverview(): Promise<MoveSocialOverview> {
+  const d = await rpc<any>('admin_move_social_overview');
+  const c = d?.config ?? {};
+  return {
+    config: {
+      snackSteps: num(c.snack_steps),
+      snackMinutes: num(c.snack_minutes),
+      snackBones: num(c.snack_bones),
+      snackMaxDay: num(c.snack_max_day),
+      togetherBones: num(c.together_bones),
+    },
+    snacksOn: num(d?.snacks_on),
+    snackWindows: d?.snack_windows ?? {},
+    snacksTried: num(d?.snacks_tried),
+    snacks7d: num(d?.snacks_7d),
+    snacksDone7d: num(d?.snacks_done_7d),
+    snacksNudge7d: num(d?.snacks_nudge_7d),
+    snackPeople7d: num(d?.snack_people_7d),
+    snackBones7d: num(d?.snack_bones_7d),
+    packs7d: num(d?.packs_7d),
+    packsPaid7d: num(d?.packs_paid_7d),
+    packPeople7d: num(d?.pack_people_7d),
+    packTried: num(d?.pack_tried),
+    packBones7d: num(d?.pack_bones_7d),
+    packRoutines7d: d?.pack_routines_7d ?? {},
+  };
+}
+
+export async function setMoveSocialConfig(p: Partial<Record<'snack_steps' | 'snack_minutes' | 'snack_bones' | 'snack_max_day' | 'together_bones', number>>): Promise<void> {
+  await rpc('admin_set_move_social_config', { p });
+}
