@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { HealthProvider, WorkoutSample } from '../health/types';
 import { phoneStepsBetween } from './loggedWorkouts';
+import { wantsEffort, workoutEffort, type WorkoutEffort } from './workoutEffort';
 
 // Persists WorkoutSample rows (read live from HealthKit/Health Connect
 // via getRecentWorkouts()) so there's a real history to analyze later —
@@ -35,24 +36,52 @@ export async function recordWorkoutHistory(userId: string, workouts: WorkoutSamp
   });
   // The steps taken during each recent workout (0277): they're already in
   // the day's steps, so Move points takes them off the workout's points.
-  // Only the last few days (a Health read each), and only where Health
-  // could say, so an older workout keeps what it was sent before.
-  const steps = new Map<string, number>();
+  // And for a workout with no type, how hard it was, minute by minute
+  // from heart rate (0280). Only the last few days (a few Health reads
+  // each), and only where Health could say, so an older workout keeps
+  // what it was sent before.
+  const extra = new Map<string, { steps_during?: number; effort?: WorkoutEffort }>();
   if (health) {
     const since = Date.now() - STEPS_DAYS * 86400000;
-    for (const w of workouts) {
-      if (w.when.getTime() < since || !w.durationMin) continue;
-      const n = await phoneStepsBetween(health, w.when, new Date(w.when.getTime() + w.durationMin * 60000));
-      if (n !== null) steps.set(w.id, n);
+    const recent = workouts.filter((w) => w.when.getTime() >= since && !!w.durationMin);
+    const rest = recent.some(wantsEffort) && health.getRestingHeartRate ? await health.getRestingHeartRate().catch(() => null) : null;
+    const walkSpm = rest ? await walkStepsPerMinute(client) : 60;
+    for (const w of recent) {
+      const e: { steps_during?: number; effort?: WorkoutEffort } = {};
+      const n = await phoneStepsBetween(health, w.when, new Date(w.when.getTime() + w.durationMin! * 60000));
+      if (n !== null) e.steps_during = n;
+      if (rest && wantsEffort(w)) {
+        const effort = await workoutEffort(health, w, rest, walkSpm).catch(() => null);
+        if (effort) e.effort = effort;
+      }
+      if (e.steps_during !== undefined || e.effort) extra.set(w.id, e);
     }
   }
-  const withSteps = workouts.filter((w) => steps.has(w.id)).map((w) => ({ ...row(w), steps_during: steps.get(w.id)! }));
-  const without = workouts.filter((w) => !steps.has(w.id)).map(row);
-  for (const batch of [withSteps, without]) {
-    if (batch.length === 0) continue;
-    const { error } = await client.from('workout_history').upsert(batch, { onConflict: 'user_id,source_id' });
+  // One upsert per set of columns, so a row never clears what it doesn't
+  // send.
+  const batches = new Map<string, Record<string, unknown>[]>();
+  for (const w of workouts) {
+    const r = { ...row(w), ...(extra.get(w.id) ?? {}) };
+    const key = Object.keys(r).sort().join(',');
+    batches.set(key, [...(batches.get(key) ?? []), r]);
+  }
+  for (const batch of batches.values()) {
+    let { error } = await client.from('workout_history').upsert(batch, { onConflict: 'user_id,source_id' });
+    // Before 0280 is run there's no effort column: send the rest.
+    if (error && /effort/.test(error.message)) {
+      ({ error } = await client
+        .from('workout_history')
+        .upsert(batch.map(({ effort: _e, ...rest }) => rest), { onConflict: 'user_id,source_id' }));
+    }
     if (error) throw new Error(error.message);
   }
+}
+
+// What counts as a walking minute (Admin → Bones → Move points; 0280).
+async function walkStepsPerMinute(client: ReturnType<typeof requireClient>): Promise<number> {
+  const { data, error } = await client.from('move_config').select('hr_walk_spm').eq('id', true).maybeSingle();
+  const n = Number((data as { hr_walk_spm?: number } | null)?.hr_walk_spm);
+  return !error && Number.isFinite(n) && n > 0 ? n : 60;
 }
 
 const STEPS_DAYS = 3;

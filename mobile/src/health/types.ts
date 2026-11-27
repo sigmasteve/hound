@@ -94,9 +94,16 @@ export interface HealthProvider {
   // Total steps from an exact moment (not a day boundary) until now —
   // Tic-Tac-Go's step goals count only steps taken since your turn began.
   getStepsSince(since: Date): Promise<number>;
-  // Steps in 15-minute buckets from `start` to `end`, oldest first, for
-  // spotting walks (0161_hound_walks.sql). Empty buckets may be left out.
-  getStepBuckets?(start: Date, end: Date): Promise<StepBucket[]>;
+  // Steps in 15-minute buckets (or `minutes`) from `start` to `end`,
+  // oldest first, for spotting walks (0161_hound_walks.sql) and, a minute
+  // at a time, scoring a workout (0280). Empty buckets may be left out.
+  getStepBuckets?(start: Date, end: Date, minutes?: number): Promise<StepBucket[]>;
+  // Heart rate readings between two moments, oldest first (0280: a
+  // workout with no type is scored by heart rate). Only where Hound can
+  // read heart rate (iPhone; Health Connect needs a new build).
+  getHeartRateSamples?(start: Date, end: Date): Promise<{ at: number; bpm: number }[]>;
+  // The latest resting heart rate Health has, or null.
+  getRestingHeartRate?(): Promise<number | null>;
   // Whether health data can be read right now. Every read above returns
   // nothing instead of failing, which looks like 0 steps, so background
   // sync asks first: a locked iPhone can't read Apple Health, and Android
