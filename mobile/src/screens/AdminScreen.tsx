@@ -64,6 +64,7 @@ import { MoveAdminCard, MoveRatesCard, moveSummary } from '../components/MoveAdm
 import { OfflineAdminCard, offlineSummary } from '../components/OfflineAdminCard';
 import { UsesAdminCard, usesSummary } from '../components/UsesAdminCard';
 import { TodayAdminCard, todaySummary } from '../components/TodayAdminCard';
+import { UpNextAdminCard, upNextSummary } from '../components/UpNextAdminCard';
 import { HoundClubsAdminCard, houndClubsSummary } from '../components/HoundClubsAdminCard';
 import { MoonAdminCard, moonSummary } from '../components/MoonAdminCard';
 import { getMoonOverview } from '../kennel/moonApi';
@@ -294,6 +295,7 @@ export function AdminScreen({
   const [offlineLine, setOfflineLine] = useState<string | null>(null);
   const [usesLine, setUsesLine] = useState<string | null>(null);
   const [todayLine, setTodayLine] = useState<string | null>(null);
+  const [upNextLine, setUpNextLine] = useState<string | null>(null);
   const [houndClubsLine, setHoundClubsLine] = useState<string | null>(null);
   const [moonLine, setMoonLine] = useState<string | null>(null);
   // The Not seeing steps fold's line (0205).
@@ -1060,7 +1062,10 @@ export function AdminScreen({
                   <AdminFold title="Customize Today" summary={todayLine ?? 'Your day and the extras on Today'}>
                     <TodayAdminCard onChanged={(o) => setTodayLine(todaySummary(o))} />
                   </AdminFold>
-                  <AdminFold title="Needs you" summary={needsYouLine ?? 'Who mutes it, and for how long'}>
+                  <AdminFold title="Up next" summary={upNextLine ?? 'Play your turns and Quiet this one'}>
+                    <UpNextAdminCard onChanged={(o) => setUpNextLine(upNextSummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Up next: muting" summary={needsYouLine ?? 'Who mutes it, and for how long'}>
                     <NeedsYouAdminCard onChanged={(o) => setNeedsYouLine(needsYouSummary(o))} />
                   </AdminFold>
                   <AdminFold title="Maintenance" summary={maintenanceLine ?? 'Before changing the server'}>

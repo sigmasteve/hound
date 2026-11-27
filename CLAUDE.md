@@ -376,15 +376,24 @@ Inside the scroll, in order:
      here; they're on the Fasting screen. Dots under it; the
      phone remembers which was showing (`useTodayTopCard` in
      `home/todayPrefs.ts`), and tapping it opens Fasting.
-   - Needs you, full width, while anything is waiting (Steve's pick,
-     Nov 2026; `src/home/NeedsYouTile.tsx`): the top two game actions,
-     each with its own button that opens the game's own screen (the
-     ring, the court, the plate; `src/home/needsYouActions.ts`), ranked
-     what goes away tonight first, then turns someone's waiting on, the
-     pinned challenge first among equals; then "+N more: ..." for the
-     rest (invites, friend requests, Bone Dig...), which opens the sheet.
-     With nothing waiting it's a small "All caught up" tile in the pairs
-     below. Its bell-off button mutes it for 2 hours, 4 hours, half a day
+   - Up next (it was Needs you), full width, while anything is waiting
+     (`UpNextTile` in `src/home/NeedsYouTile.tsx`, the streamlining's
+     second part, 0279): the one most urgent turn, with its button that
+     opens the game's own screen (the ring, the court, the plate;
+     `src/home/needsYouActions.ts`). Ranked live-clock games first (Steve:
+     "with higher priority": your Chess move, a H-O-R-S-E turn, a Rally
+     shot, a Roulette duel, Tic-Tac-Go, punches to slip; marked "On the
+     clock"), then what goes away tonight, then the rest, the pinned
+     challenge first among equals. With two or more games waiting, "Play
+     your turns (N)" opens each game's screen one after another
+     (`home/playTurns.ts`): back on Today, `PlayTurnsBar` names the next
+     and opens it after a 3-second count (Go now, Stop), and after the
+     last says so. Everything that isn't a game's turn (invites, friend
+     requests, Bone Dig...) is "+N more", which opens the sheet. "Quiet
+     this one" (in the sheet, per account, `challenge_quiet`) leaves a
+     challenge out of Up next and Play your turns; it stays on the
+     Challenges tab and its pushes still come. With nothing waiting it's
+     a small "All caught up" tile in the pairs below. Its bell-off button mutes it for 2 hours, 4 hours, half a day
      or till morning (Steve, Nov 2026; this phone only, `home/needsYouMute.ts`,
      logged for Admin by 0240): while muted it's the small tile ("Muted",
      how many are waiting, when it's back) and the sheet has Unmute.
@@ -392,7 +401,7 @@ Inside the scroll, in order:
    - Then two to a row, an odd last one spanning the row as a slim
      strip (its number with its lines beside it, not a half tile's
      height stretched across; Steve, Nov 2026): your hound
-     (when the Kennel has loaded), Needs you (only when caught up or muted), Your
+     (when the Kennel has loaded), Up next (only when caught up or muted), Your
      challenges, and the extras that are on: Week in review (Monday
      until Tuesday noon, local), else today's Step rank. (Fasting is in
      Your day now, not a tile.)
@@ -415,14 +424,20 @@ What each sheet holds:
   workout / activity" and opens Move (log an activity, start a routine,
   log strength).
 - Your hound: no sheet; the tile opens the Kennel straight away.
-- Needs you: Pack Activities first, only when one is waiting on you (on
+- Up next: Your turns first, one row per challenge (all its turns on
+  one line, ⏱ for a live clock), each with its button and Quiet this
+  one; quieted ones after them, dimmed, with Unquiet; "Play your turns"
+  at the top. Then Pack Activities, only when one is waiting on you (on
   now or coming up, with Join; Steve's ask, Nov 2026). No "Start a Pack
   Activity" here: that's on the Clubs tab and a club's page. Then
   invites and friend requests, pack fast invites (0261), then club games you can still join (posted
   to one of your clubs; Join or Not now, 0252), then Bone Dig, nudges and
   bounties. The tile's "N
-  waiting" counts all of them (a Pack Activity when you're invited, it's
-  your club's, or it's live).
+  waiting" counts all of them but the quieted turns (a Pack Activity when
+  you're invited, it's your club's, or it's live). Admin → Overview →
+  Status → Up next has the numbers (turns tapped, Play your turns
+  started, games opened from it, played to the end or stopped, and what's
+  quieted).
 - Your challenges: the pinned (highlighted) challenge's headline and
   its game's own view (every kind has one: the court, the track, the
   map, the doors...; `src/home/PinnedViews.tsx` and the *Preview cards

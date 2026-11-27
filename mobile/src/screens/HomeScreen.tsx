@@ -4,7 +4,6 @@ import { Text } from '../components/Text';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  BellRingingIcon,
   BoneIcon,
   CaretRightIcon,
   PushPinIcon,
@@ -97,11 +96,14 @@ import { boardSortFor } from '../challenges/scoring';
 import { huntKindName, ordinal } from '../challenges/present';
 import { getTagRound } from '../challenges/tagApi';
 import { computePendingActions, needsManualEntry, type PendingAction } from '../challenges/pendingActions';
-import { NeedsYouWideTile } from '../home/NeedsYouTile';
+import { UpNextTile } from '../home/NeedsYouTile';
+import { PlayTurnsBar } from '../home/PlayTurnsBar';
+import { startPlayTurns } from '../home/playTurns';
+import { setChallengeQuiet, useQuietChallenges } from '../home/quietChallenges';
 import { dismissClubWaiting, getClubWaiting, joinClubChallenge, type ClubWaiting } from '../clubs/clubsApi';
 import { ClubBadge } from '../clubs/clubLook';
 import { MUTE_CHOICES, getMutedUntil, muteNeedsYou, unmuteNeedsYou, untilLabel } from '../home/needsYouMute';
-import { actionRoute, rankActions, type ActionRoute } from '../home/needsYouActions';
+import { ACTION_VERB, actionLine, actionRoute, groupByChallenge, rankActions, type ActionRoute } from '../home/needsYouActions';
 import { isMySeventyFiveTodayComplete } from '../challenges/seventyFiveApi';
 import { isMyChecklistTodayComplete } from '../challenges/checklistApi';
 import { advanceHoundopoly, getHoundopolyGame, listMyHoundopolyPending } from '../challenges/houndopolyApi';
@@ -2767,14 +2769,12 @@ export function HomeScreen({
   // it were this user's own chase.
   // Everything waiting on you, for the Needs you card.
   type NeedsYouItem =
-    | { key: string; type: 'action'; action: PendingAction }
     | { key: string; type: 'invite'; invite: ChallengeInvite }
     | { key: string; type: 'friend'; friend: Friend }
     | { key: string; type: 'club'; club: ClubWaiting }
     | { key: string; type: 'fast'; fast: FastPackInvite }
     | { key: string; type: 'move'; move: MovePackInvite };
   const needsYou: NeedsYouItem[] = [
-    ...pendingActions.map((action) => ({ key: `action-${action.challengeId}-${action.kind}`, type: 'action' as const, action })),
     ...(liveInvites ?? []).map((invite) => ({ key: `invite-${invite.id}`, type: 'invite' as const, invite })),
     ...(friendRequests ?? []).map((friend) => ({ key: `friend-${friend.friendshipId}`, type: 'friend' as const, friend })),
     // Invited directly wins: the invite row covers it.
@@ -2826,33 +2826,38 @@ export function HomeScreen({
   const needsLines = [
     ...packLines,
     ...needsYou.map((item) =>
-      item.type === 'action'
-        ? item.action.label
-        : item.type === 'invite'
-          ? `${item.invite.inviterName} invited you`
-          : item.type === 'club'
-            ? `${item.club.clubName}: join ${item.club.challengeName}`
-            : item.type === 'fast'
-              ? `${item.fast.from.name}: fast together`
-              : item.type === 'move'
-                ? `${item.move.from.name}: move together`
-                : `${item.friend.name} wants to be friends`,
+      item.type === 'invite'
+        ? `${item.invite.inviterName} invited you`
+        : item.type === 'club'
+          ? `${item.club.clubName}: join ${item.club.challengeName}`
+          : item.type === 'fast'
+            ? `${item.fast.from.name}: fast together`
+            : item.type === 'move'
+              ? `${item.move.from.name}: move together`
+              : `${item.friend.name} wants to be friends`,
     ),
     ...(digReady ? ['Bone Dig is ready'] : []),
     ...visibleNudges.map((n) => `${n.name} nudged you`),
     ...(bounties ?? []).filter((b) => !b.mine && b.status === 'open').map((b) => `${b.posterName}'s bounty`),
   ];
-  // Needs you, full width while anything's waiting (Nov 2026): the top two
-  // game actions with their own buttons, then "+N more: ..." for the rest.
-  const tileActions = rankActions(pendingActions, primary?.challenge.id ?? null).slice(0, 2);
-  const otherLines = needsLines.filter((l) => !pendingActions.some((a) => a.label === l));
-  const tileLines = otherLines.slice(0, Math.max(0, 2 - tileActions.length));
-  const restCount = needsLines.length - tileActions.length - tileLines.length;
+  // Up next (the streamlining, Steve Nov 2026; it was Needs you): the one
+  // most urgent turn, live-clock games first, then Play your turns for the
+  // rest; "Quiet this one" leaves a challenge out (0279). Everything that
+  // isn't a game folds into "+N more".
+  const quietIds = useQuietChallenges();
+  const rankedActions = rankActions(pendingActions, primary?.challenge.id ?? null);
+  const upActions = rankedActions.filter((a) => !quietIds.includes(a.challengeId));
+  const turnGroups = groupByChallenge(upActions);
+  const quietGroups = groupByChallenge(rankedActions.filter((a) => quietIds.includes(a.challengeId)));
+  const upNext = upActions[0] ?? null;
+  // Everything waiting that isn't a game's turn (those are in Your turns).
+  const otherLines = needsLines;
+  const upCount = upActions.length + otherLines.length;
+  const tileLines = upNext ? [] : otherLines.slice(0, 2);
+  const restCount = otherLines.length - tileLines.length;
   const restParts = (() => {
     if (restCount <= 0) return [];
     const parts: string[] = [];
-    const moreActions = pendingActions.length - tileActions.length;
-    if (moreActions > 0) parts.push(moreActions === 1 ? 'another turn' : `${moreActions} more turns`);
     let skip = tileLines.length;
     const take = (n: number) => {
       const used = Math.min(skip, n);
@@ -2879,14 +2884,22 @@ export function HomeScreen({
     return parts;
   })();
   const tileMore = restCount > 0 ? `+${restCount} more${restParts.length > 0 ? `: ${restParts.join(', ')}` : ''}` : null;
-  const needsMuted = !!needsMutedUntil && needsLines.length > 0;
-  const needsWide = needsLines.length > 0 && !needsMuted;
+  const needsMuted = !!needsMutedUntil && upCount > 0;
+  const needsWide = upCount > 0 && !needsMuted;
+  const playTurns = () => {
+    noteTodayTap('upnext');
+    const first = startPlayTurns(turnGroups.map((g) => g.actions[0]));
+    if (first) onOpenAction(actionRoute(first));
+  };
+  const quietOne = (challengeId: string, quiet: boolean) => {
+    setChallengeQuiet(challengeId, quiet).catch((e) => Alert.alert('Up next', e instanceof Error ? e.message : 'Couldn’t save that.'));
+  };
   const muteNeeds = () =>
     Alert.alert('Mute Needs you?', 'It shrinks to a small tile until then. Everything’s still there when you open it, and notifications still come.', [
       ...MUTE_CHOICES.map((c) => ({
         text: c.label,
         onPress: () => {
-          muteNeedsYou(c.length, needsLines.length).then(setNeedsMutedUntil);
+          muteNeedsYou(c.length, upCount).then(setNeedsMutedUntil);
         },
       })),
       { text: 'Cancel', style: 'cancel' as const },
@@ -2923,19 +2936,19 @@ export function HomeScreen({
       key: 'needs',
       render: (wide: boolean) => (
         <Tile
-          label="Needs you"
-          badge={needsLines.length}
+          label="Up next"
+          badge={upCount}
           wide={wide}
           onPress={() => setOpenTile('needs')}
-          accessibilityLabel={needsMuted ? `Needs you, muted, ${needsLines.length} waiting. Open` : `Needs you, ${needsLines.length} waiting. Open`}
+          accessibilityLabel={needsMuted ? `Up next, muted, ${upCount} waiting. Open` : `Up next, ${upCount} waiting. Open`}
         >
           <TileValue
-            value={needsMuted ? 'Muted' : needsLines.length > 0 ? `${needsLines.length} waiting` : 'All caught up'}
+            value={needsMuted ? 'Muted' : upCount > 0 ? `${upCount} waiting` : 'All caught up'}
             lines={
               needsMuted && needsMutedUntil
-                ? [`${needsLines.length} waiting`, `Back ${untilLabel(needsMutedUntil)}`]
-                : needsLines.length > 0
-                  ? needsLines.slice(0, 3)
+                ? [`${upCount} waiting`, `Back ${untilLabel(needsMutedUntil)}`]
+                : quietGroups.length > 0
+                  ? [`${quietGroups.length} quieted`]
                   : ['Nothing waiting on you']
             }
           />
@@ -3195,12 +3208,17 @@ export function HomeScreen({
             );
           })()}
         {needsWide && (
-          <NeedsYouWideTile
-            count={needsLines.length}
-            actions={tileActions}
+          <UpNextTile
+            count={upCount}
+            next={upNext}
+            turns={turnGroups.length}
             lines={tileLines}
             more={tileMore}
-            onAct={(a) => onOpenAction(actionRoute(a))}
+            onAct={(a) => {
+              noteTodayTap('upnext');
+              onOpenAction(actionRoute(a));
+            }}
+            onPlay={playTurns}
             onOpen={() => setOpenTile('needs')}
             onMute={muteNeeds}
           />
@@ -3257,6 +3275,8 @@ export function HomeScreen({
     {/* The theme's snow, leaves or confetti, over Today but under the
         sheets, letting every tap through. */}
     <HolidayParticles />
+    {/* Play your turns (0279): back from one game, the next. */}
+    <PlayTurnsBar onOpen={(a) => onOpenAction(actionRoute(a))} />
     {openTile === 'goals' && goalProgress && (
       <TileSheet title="Goals" onClose={closeTile}>
         <GoalsSheet
@@ -3317,8 +3337,8 @@ export function HomeScreen({
       </TileSheet>
     )}
     {openTile === 'needs' && (
-      <TileSheet title="Needs you" onClose={closeTile}>
-        {needsLines.length === 0 && <Text style={styles.caughtUp}>All caught up. Nothing is waiting on you.</Text>}
+      <TileSheet title="Up next" onClose={closeTile}>
+        {upCount === 0 && <Text style={styles.caughtUp}>All caught up. Nothing is waiting on you.</Text>}
         {needsMuted && needsMutedUntil && (
           <View style={styles.mutedRow}>
             <Text style={styles.mutedText}>Muted on Today until {untilLabel(needsMutedUntil)}.</Text>
@@ -3326,6 +3346,62 @@ export function HomeScreen({
               <Text style={styles.mutedBtnText}>Unmute</Text>
             </Pressable>
           </View>
+        )}
+        {/* Your turns (0279): one row per challenge, live-clock games
+            first, each with its button and Quiet this one. */}
+        {(turnGroups.length > 0 || quietGroups.length > 0) && (
+          <Card style={styles.needsCard} elevated={false}>
+            <View style={[styles.needsHeader, { justifyContent: 'space-between' }]}>
+              <Text style={styles.needsTitle}>Your turns</Text>
+              {turnGroups.length > 1 && (
+                <Pressable
+                  onPress={() => {
+                    setOpenTile(null);
+                    playTurns();
+                  }}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.playAll}>▶ Play your turns ({turnGroups.length})</Text>
+                </Pressable>
+              )}
+            </View>
+            {[...turnGroups, ...quietGroups].map((g, i) => {
+              const quiet = quietIds.includes(g.challengeId);
+              const first = g.actions[0];
+              return (
+                <View key={g.challengeId} style={[styles.needsRow, i > 0 && styles.needsRowDivider, quiet && { opacity: 0.6 }]}>
+                  <Pressable style={styles.needsRowMain} onPress={() => sheetOpenChallenge(g.challengeId)}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.inviteTitle}>
+                        {g.challengeName}
+                        {g.live && !quiet ? '  ⏱' : ''}
+                      </Text>
+                      <Text style={styles.inviteSub}>{g.actions.map(actionLine).join(' · ')}</Text>
+                    </View>
+                  </Pressable>
+                  <View style={styles.needsButtons}>
+                    {!quiet && (
+                      <Button
+                        label={ACTION_VERB[first.kind]}
+                        variant="primary"
+                        small
+                        onPress={() => {
+                          setOpenTile(null);
+                          noteTodayTap('upnext');
+                          onOpenAction(actionRoute(first));
+                        }}
+                      />
+                    )}
+                    <Button label={quiet ? 'Unquiet' : 'Quiet this one'} small onPress={() => quietOne(g.challengeId, !quiet)} />
+                  </View>
+                </View>
+              );
+            })}
+            {quietGroups.length > 0 && (
+              <Text style={styles.inviteSub}>Quieted challenges stay out of Up next. They’re still on the Challenges tab, and their notifications still come.</Text>
+            )}
+          </Card>
         )}
         {/* Only Pack Activities waiting on you (invited, your club's, or on
             now). Starting one lives on the Clubs tab, not here. */}
@@ -3349,13 +3425,7 @@ export function HomeScreen({
             </View>
             {shownNeedsYou.map((item, i) => (
               <View key={item.key} style={[styles.needsRow, i > 0 && styles.needsRowDivider]}>
-                {item.type === 'action' ? (
-                  <Pressable style={styles.needsRowMain} onPress={() => sheetOpenChallenge(item.action.challengeId)}>
-                    <BellRingingIcon size={16} color={color.accent300} weight="fill" />
-                    <Text style={[styles.inviteTitle, { flex: 1 }]}>{item.action.label}</Text>
-                    <CaretRightIcon size={16} color={withAlpha(colors.text, 0.5)} />
-                  </Pressable>
-                ) : item.type === 'invite' ? (
+                {item.type === 'invite' ? (
                   <>
                     <View style={styles.needsRowMain}>
                       <EnvelopeOpenIcon size={16} color={color.accent300} weight="fill" />
@@ -4975,6 +5045,7 @@ function makeStyles(colors: Palette) {
     },
     needsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 8, paddingBottom: 4 },
     needsTitle: { fontFamily: font.headingSemibold, fontSize: 15, color: colors.text },
+    playAll: { fontFamily: font.headingSemibold, fontSize: 13.5, color: '#f08a24' },
     needsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
     needsRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: withAlpha(colors.accent, 0.35) },
     needsRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },

@@ -101,8 +101,11 @@ export function useTodayExtras(): TodayExtras {
   return e;
 }
 
-// Your day's taps and opening Customize Today, for Admin's numbers.
-export function noteTodayTap(what: 'steps' | 'fasting' | 'move' | 'water' | 'customize'): void {
+// Your day's taps, opening Customize Today, Up next's button and Play
+// your turns (0279), for Admin's numbers.
+export type TodayTap = 'steps' | 'fasting' | 'move' | 'water' | 'customize' | 'upnext' | 'play_start' | 'play_turn' | 'play_done' | 'play_stop';
+
+export function noteTodayTap(what: TodayTap): void {
   if (!supabase) return;
   Promise.resolve(supabase.rpc('note_today_tap', { p_what: what })).catch(() => {});
 }
