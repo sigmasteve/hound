@@ -2902,6 +2902,8 @@ export function HomeScreen({
       .catch((e) => Alert.alert('Your first week', e instanceof Error ? e.message : 'Try again in a moment.'))
       .finally(() => setClaimingStarter(false));
   };
+  // A new account's first week (0282), done or not: until its end.
+  const inFirstWeek = !!starter?.show || (!!starter?.endsAt && Date.now() < new Date(starter.endsAt).getTime());
   const starterGlobalNext = !!starter?.show && starterLeft(starter)[0]?.id === 'global';
 
   // Your hound's strip (0281).
@@ -3232,9 +3234,10 @@ export function HomeScreen({
       <HolidayHeader />
       {/* The day in one sentence (version A), above everything. */}
       {/* Not for a new account (Steve, Nov 2026: "totally confusing for
-          someone's first time"): You're in and Your first week guide them,
-          so the line waits until both are done. */}
-      {extras.one_line && starterChecked && !starter?.show && !youreIn?.show && (
+          someone's first time"): the line waits until the first week's
+          seven days are over, even if its steps were done on day 1, and
+          while You're in shows. */}
+      {extras.one_line && starterChecked && !inFirstWeek && !youreIn?.show && (
         <TodayLine input={lineInput} lead={houndLead} onLink={onLineLink} />
       )}
       {/* A new account's Global challenges (0222): "You're in", with

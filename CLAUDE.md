@@ -362,9 +362,10 @@ Inside the scroll, in order:
   or "N games"); with none, the streak or the hound. No filler ("nothing's
   waiting" is left out). Each fact is a link to where it's done (Goals,
   Fasting, the game or Up next, the Kennel). Not for a new account (Steve,
-  Nov 2026: "totally confusing for someone's first time"): hidden while
-  Your first week or You're in is on Today, and until Today knows which
-  (no flash). Once a day, at a random
+  Nov 2026: "totally confusing for someone's first time"): hidden until a
+  new account's first week is over (its seven days, `starter_paths.ends_at`,
+  even if every step was done on day 1) and while You're in shows, and
+  until Today knows which (no flash). Once a day, at a random
   moment, the hound says it ("Biscuit's ready: ..."): the first time Today
   comes into view after a time picked at random between 7 AM and 9 PM
   (`useHoundSaysIt`, kept on the phone), so it's a surprise tied to when
