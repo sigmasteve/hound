@@ -6,6 +6,7 @@ import * as mockAuth from './mockAuth';
 import * as supabaseAuth from './supabaseAuth';
 import type { AuthStatus, AuthUser, SignUpInput } from './types';
 import { forgetUser, lastUser } from './userCache';
+import { forgetQuietChallenges } from '../home/quietChallenges';
 import { isNetworkError } from '../offline/network';
 import { refreshOfflineEnabled } from '../offline/offlineConfig';
 
@@ -126,6 +127,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     // Signing out forgets the profile kept for offline use (0271).
     forgetUser();
+    // And the challenges quieted on Up next (0279).
+    forgetQuietChallenges();
     await backend.signOut();
     // Redundant with the onAuthStateChange listener when Supabase is
     // configured, but that's the only backend that has one — mock auth
