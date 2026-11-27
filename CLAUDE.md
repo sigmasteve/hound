@@ -359,9 +359,12 @@ Inside the scroll, in order:
   worked out on the phone from what Today already has. Up to three facts
   in order: the step goal (left, or done; nothing pushing steps after
   10 PM), the fast (when it ends, or done), the games waiting (one by name,
-  or "N games"), else your first week's steps left; with none, the streak
-  or the hound. Each fact is a link to where it's done (Goals, Fasting, the
-  game or Up next, the starter step, the Kennel). Once a day, at a random
+  or "N games"); with none, the streak or the hound. No filler ("nothing's
+  waiting" is left out). Each fact is a link to where it's done (Goals,
+  Fasting, the game or Up next, the Kennel). Not for a new account (Steve,
+  Nov 2026: "totally confusing for someone's first time"): hidden while
+  Your first week or You're in is on Today, and until Today knows which
+  (no flash). Once a day, at a random
   moment, the hound says it ("Biscuit's ready: ..."): the first time Today
   comes into view after a time picked at random between 7 AM and 9 PM
   (`useHoundSaysIt`, kept on the phone), so it's a surprise tied to when

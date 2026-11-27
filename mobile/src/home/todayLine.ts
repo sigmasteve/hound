@@ -6,8 +6,8 @@ import { useFocusEffect } from '@react-navigation/native';
 // claude.ai/artifact/GJqj1VqeT3YxacL57rznFR, version A): the whole day in
 // one sentence at the top of Today, each fact a link to where it's done.
 // At most three facts, in this order: your step goal, your fast, the games
-// waiting (or your first week's steps); with none of those, your streak or
-// your hound. Never guilt: nothing pushes steps after 10 PM. No filler
+// waiting; with none of those, your streak or your hound. Not shown to a
+// new account while its first week (or You're in) is on Today. Never guilt: nothing pushes steps after 10 PM. No filler
 // (Steve, Nov 2026: "nothing's waiting" took space from Your day).
 //
 // Once a day, at a random moment, your hound says it instead ("Biscuit's
@@ -15,7 +15,7 @@ import { useFocusEffect } from '@react-navigation/native';
 // random for the day, between 7 AM and 9 PM, so when it happens depends on
 // when you open Hound.
 
-export type LineLink = 'steps' | 'fast' | 'games' | 'starter' | 'streak' | 'hound';
+export type LineLink = 'steps' | 'fast' | 'games' | 'streak' | 'hound';
 export interface LinePart {
   text: string;
   link?: LineLink;
@@ -30,7 +30,6 @@ export interface LineInput {
   fastDoneToday: boolean;
   games: number;
   topGame: string | null;
-  starterLeft: number;
   streak: number;
   houndName: string | null;
   houndMood: string | null;
@@ -67,14 +66,6 @@ export function lineFacts(i: LineInput): LinePart[][] {
 
   if (i.games > 1) facts.push([{ text: `${i.games} games`, link: 'games' }, { text: ' are waiting' }]);
   else if (i.games === 1 && i.topGame) facts.push([{ text: 'it’s ' }, { text: i.topGame, link: 'games' }]);
-
-  if (i.starterLeft > 0 && facts.length < 3) {
-    facts.push(
-      i.starterLeft === 1
-        ? [{ text: '1 step', link: 'starter' }, { text: ' is left in your first week' }]
-        : [{ text: 'your first week has ' }, { text: `${i.starterLeft} easy steps`, link: 'starter' }],
-    );
-  }
 
   if (facts.length === 0) {
     if (i.streak > 1) facts.push([{ text: `a ${i.streak}-day streak`, link: 'streak' }, { text: ' going' }]);
