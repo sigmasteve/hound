@@ -193,6 +193,8 @@ import { checkAchievements, listAchievements, type NewlyEarnedAchievement } from
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
 import { TryThisCard } from '../home/TryThisCard';
+import { StarterCard } from '../home/StarterCard';
+import { claimStarter, getStarterPath, skipStarterStep, STARTER_TEXT, starterLeft, type StarterPath, type StarterStepId } from '../home/starterPath';
 import { getTryThis, tryThisNotNow, tryThisOrder, type TryThisState } from '../home/tryThis';
 import { HoundStrip, houndStripOnTop } from '../home/HoundStrip';
 import { fastingPillar, movePillar } from '../home/pillars';
@@ -1048,6 +1050,21 @@ export function HomeScreen({
       setFastNow(Date.now());
     }, [loadFasting]),
   );
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSupabaseConfigured) return;
+      getStarterPath()
+        .then((p) => {
+          setStarter(p);
+          for (const id of p?.justDone ?? []) {
+            const step = p?.steps.find((x) => x.id === id);
+            pushStarterToast(`✓ ${STARTER_TEXT[id].title} · +${step?.bones ?? 0} Bones`, id);
+          }
+        })
+        .catch(() => {});
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
   useEffect(() => {
     if (!fasting?.open) return;
     const t = setInterval(() => setFastNow(Date.now()), 60000);
@@ -1164,6 +1181,7 @@ export function HomeScreen({
     setToasts((cur) => (cur.length >= 4 ? cur : [...cur, t]));
     notifyBonesChanged();
   }, []);
+  const pushStarterToast = (text: string, id: string) => pushToast({ id: `starter-${id}`, text, Icon: BoneIcon });
   // A challenge from the Your challenges sheet becomes the one pinned on
   // Today (the old one is unpinned), and the sheet shows it at once.
   const pinning = useRef(false);
@@ -1263,6 +1281,10 @@ export function HomeScreen({
   // for good once the reward's claimed, or locally if dismissed.
   const GET_STARTED_DISMISSED_KEY = 'homeGetStartedDismissed';
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
+  // Your first week (0282): new accounts' starter path, in place of Finish
+  // setting up. Each step ticks (and pays) when Today next asks.
+  const [starter, setStarter] = useState<StarterPath | null>(null);
+  const [claimingStarter, setClaimingStarter] = useState(false);
   const [getStartedDismissed, setGetStartedDismissed] = useState(true);
   const [claimingOnboarding, setClaimingOnboarding] = useState(false);
   useEffect(() => {
@@ -2832,6 +2854,45 @@ export function HomeScreen({
       .then((t) => setTryThis((x) => ({ playedKinds: x?.playedKinds ?? [], hiddenUntil: t.hiddenUntil })))
       .catch(() => {});
   };
+  // Your first week (0282): each step's button opens where it's done.
+  const openStarterStep = (id: StarterStepId) => {
+    if (id === 'goal') setOpenTile('goals');
+    else if (id === 'fast') onOpenAction(['Fasting', undefined]);
+    else if (id === 'move') onOpenAction(['Move', { log: true }]);
+    else onOpenAction(['Discover', undefined]);
+  };
+  const skipStarter = (id: StarterStepId) => {
+    const step = starter?.steps.find((x) => x.id === id);
+    Alert.alert('Not for you?', `“${STARTER_TEXT[id].title}” leaves your first week, and its ${step?.bones ?? 0} Bones with it.`, [
+      { text: 'Keep it', style: 'cancel' },
+      {
+        text: 'Not for me',
+        style: 'destructive',
+        onPress: () => {
+          skipStarterStep(id)
+            .then(setStarter)
+            .catch((e) => Alert.alert('Your first week', e instanceof Error ? e.message : 'Couldn’t save that.'));
+        },
+      },
+    ]);
+  };
+  const claimStarterPath = () => {
+    setClaimingStarter(true);
+    claimStarter()
+      .then(({ path, bones }) => {
+        setStarter(path);
+        pushToast({
+          id: 'starter-done',
+          text: `Your first week, done! +${bones} Bones, and the Starter Bandana is in your Kennel`,
+          Icon: BoneIcon,
+          onPress: () => navRef.current.onGoTab('kennel'),
+        });
+      })
+      .catch((e) => Alert.alert('Your first week', e instanceof Error ? e.message : 'Try again in a moment.'))
+      .finally(() => setClaimingStarter(false));
+  };
+  const starterGlobalNext = !!starter?.show && starterLeft(starter)[0]?.id === 'global';
+
   // Your hound's strip (0281).
   const houndOnTop = houndStripOnTop(extras.hound_top, houndProfile);
   const houndStrip = kennel ? (
@@ -3151,6 +3212,11 @@ export function HomeScreen({
           list is on Challenges → Join. */}
       {showTryThis && (
         <TryThisCard
+          starterStep={
+            starterGlobalNext && starter
+              ? { n: starter.steps.filter((x) => !x.skipped).findIndex((x) => x.id === 'global') + 1, of: starter.steps.filter((x) => !x.skipped).length }
+              : null
+          }
           challenges={tryList}
           joiningId={joiningGlobalId}
           onJoin={(c) => {
@@ -3268,6 +3334,16 @@ export function HomeScreen({
               />
             );
           })()}
+        {starter?.show && (
+          <StarterCard
+            path={starter}
+            houndName={kennel?.name ?? null}
+            claiming={claimingStarter}
+            onStep={openStarterStep}
+            onSkip={skipStarter}
+            onClaim={claimStarterPath}
+          />
+        )}
         {houndOnTop && houndStrip}
         {needsWide && (
           <UpNextTile
@@ -3307,7 +3383,7 @@ export function HomeScreen({
         <PushAskCard userId={user.id} onDone={() => setOfferPush(false)} />
       )}
 
-      {onboarding && !onboarding.rewardClaimed && !getStartedDismissed && (
+      {onboarding && !onboarding.rewardClaimed && !getStartedDismissed && !(starter && starter.steps.length > 0) && (
         <GetStartedCard
           status={onboarding}
           currencyName={currencyName}

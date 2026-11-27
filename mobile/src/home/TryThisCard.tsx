@@ -19,6 +19,7 @@ export function TryThisCard({
   onOpen,
   onNotNow,
   onSeen,
+  starterStep = null,
 }: {
   // Already in Try this's order.
   challenges: GlobalChallenge[];
@@ -27,6 +28,8 @@ export function TryThisCard({
   onOpen: (c: GlobalChallenge) => void;
   onNotNow: () => void;
   onSeen: (c: GlobalChallenge) => void;
+  // Your first week's Global step (0282): the card is ringed and says so.
+  starterStep?: { n: number; of: number } | null;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -54,10 +57,11 @@ export function TryThisCard({
   };
 
   return (
-    <View style={styles.card} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+    <View style={[styles.card, starterStep && styles.ringed]} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
       <View style={styles.head}>
         <Text style={styles.kicker}>
-          TRY THIS{challenges.length > 1 ? ` · ${page + 1} OF ${challenges.length}` : ''}
+          TRY THIS
+          {starterStep ? ` · STEP ${starterStep.n} OF ${starterStep.of}` : challenges.length > 1 ? ` · ${page + 1} OF ${challenges.length}` : ''}
         </Text>
         <Pressable onPress={onNotNow} hitSlop={8} accessibilityRole="button">
           <Text style={styles.notNow}>Not now</Text>
@@ -134,6 +138,7 @@ export function TryThisCard({
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     card: { borderRadius: 20, backgroundColor: colors.surface, paddingVertical: 12, gap: 8, overflow: 'hidden' },
+    ringed: { borderWidth: 2, borderColor: '#f0c24a' },
     head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14 },
     kicker: { fontSize: 11.5, letterSpacing: 0.8, fontFamily: font.headingSemibold, color: withAlpha(colors.text, 0.6) },
     notNow: { fontSize: 13, fontFamily: font.headingSemibold, color: withAlpha(colors.text, 0.55) },

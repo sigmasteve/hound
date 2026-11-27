@@ -63,6 +63,8 @@ export const KENNEL_ITEMS: KennelItem[] = [
   { id: 'collar_gold', slot: 'neck', name: 'Gold Collar', costBones: 150, kind: 'collar', color: '#e0b84f' },
   // Hound Roulette's prize (0236): never sold, only won by most banked.
   { id: 'bandana_lucky', slot: 'neck', name: 'Lucky Bandana', costBones: 0, kind: 'bandana', color: '#2f9e5a', accent: '#f0c24a', season: 'Hound Roulette', availableUntil: '2000-01-01' },
+  // Your first week's prize (0282): never sold, only earned by finishing the starter path.
+  { id: 'bandana_starter', slot: 'neck', name: 'Starter Bandana', costBones: 0, kind: 'bandana', color: '#6b5bd6', accent: '#f0c24a', season: 'Your first week', availableUntil: '2000-01-01' },
   // The Prize Counter's (0243): bought only with Paw Coins, never Bones.
   { id: 'neck_lucky7', slot: 'neck', name: 'Lucky 7 Tag', costBones: 300, kind: 'luckytag', color: '#d94a4a', accent: '#f0c24a', season: 'Prize Counter', availableUntil: '2000-01-01' },
   { id: 'collar_goldhound', slot: 'neck', name: 'Golden Hound Collar', costBones: 600, kind: 'goldhound', color: '#2c4f9e', accent: '#f0c24a', season: 'Prize Counter', availableUntil: '2000-01-01' },

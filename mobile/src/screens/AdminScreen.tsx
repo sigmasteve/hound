@@ -66,6 +66,7 @@ import { UsesAdminCard, usesSummary } from '../components/UsesAdminCard';
 import { TodayAdminCard, todaySummary } from '../components/TodayAdminCard';
 import { UpNextAdminCard, upNextSummary } from '../components/UpNextAdminCard';
 import { TryThisAdminCard, tryThisSummary } from '../components/TryThisAdminCard';
+import { StarterAdminCard, starterSummary } from '../components/StarterAdminCard';
 import { HoundClubsAdminCard, houndClubsSummary } from '../components/HoundClubsAdminCard';
 import { MoonAdminCard, moonSummary } from '../components/MoonAdminCard';
 import { getMoonOverview } from '../kennel/moonApi';
@@ -298,6 +299,7 @@ export function AdminScreen({
   const [todayLine, setTodayLine] = useState<string | null>(null);
   const [upNextLine, setUpNextLine] = useState<string | null>(null);
   const [tryThisLine, setTryThisLine] = useState<string | null>(null);
+  const [starterLine, setStarterLine] = useState<string | null>(null);
   const [houndClubsLine, setHoundClubsLine] = useState<string | null>(null);
   const [moonLine, setMoonLine] = useState<string | null>(null);
   // The Not seeing steps fold's line (0205).
@@ -1058,6 +1060,9 @@ export function AdminScreen({
                     <AppVersionsCard />
                   </AdminFold>
                   </View>
+                  <AdminFold title="Your first week" summary={starterLine ?? 'The starter path for new accounts'}>
+                    <StarterAdminCard onChanged={(o) => setStarterLine(starterSummary(o))} />
+                  </AdminFold>
                   <AdminFold title="What people use Hound for" summary={usesLine ?? 'The welcome wizard’s checkboxes'}>
                     <UsesAdminCard onChanged={(o) => setUsesLine(usesSummary(o))} />
                   </AdminFold>
