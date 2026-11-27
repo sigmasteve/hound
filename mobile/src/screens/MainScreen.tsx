@@ -47,6 +47,7 @@ export function MainScreen({ route, navigation }: Props) {
     else if (dest === 'kennel') navigation.navigate('Kennel');
     else if (dest === 'setup') navigation.navigate('Setup', { resume: true });
     else if (dest === 'journey') navigation.navigate('Journey');
+    else if (dest === 'settings') navigation.navigate('Settings');
     else setTab(dest);
   };
 

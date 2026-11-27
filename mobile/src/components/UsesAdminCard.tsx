@@ -69,7 +69,7 @@ export function UsesAdminCard({ onChanged }: { onChanged?: (d: UsesOverview) => 
       <Text style={text.h4}>What people use Hound for</Text>
       <Text style={styles.footNote}>
         The welcome wizard’s checkboxes (also in Settings). Tried: has ever done it. Now: did it in the last 7 days. Ticking Intermittent fasting
-        puts the Fasting tile on Today before a first fast.
+        puts Fasting in Your day on Today before a first fast.
       </Text>
       {error ? (
         <Text style={styles.loadError}>{error}</Text>
@@ -95,7 +95,7 @@ export function UsesAdminCard({ onChanged }: { onChanged?: (d: UsesOverview) => 
             );
           })}
           <View style={styles.row}>
-            <Text style={styles.label}>Fasting tile waiting on a first fast</Text>
+            <Text style={styles.label}>Fasting in Your day, waiting on a first fast</Text>
             <Text style={styles.value}>{data.fastingTileWaiting}</Text>
           </View>
         </>

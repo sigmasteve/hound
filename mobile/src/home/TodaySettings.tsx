@@ -1,17 +1,16 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Text } from '../components/Text';
 import { Card } from '../components/Card';
 import { ToggleRow } from '../components/Selectable';
-import { SegmentedControl } from '../components/SegmentedControl';
 import { useTheme } from '../theme/ThemeContext';
 import { withAlpha, type Palette } from '../theme/tokens';
-import { setGoalsTileStyle, useGoalsTileStyle, type GoalsTileStyle } from './todayPrefs';
+import { TODAY_EXTRAS, setTodayExtra, useTodayExtras } from './todayExtras';
 import { useHolidayEffectsPref } from '../holiday/HolidayContext';
 
-// Settings → Today: how the goals tile shows your goals, and whether
-// your newest challenge is featured when none is pinned (the toggle's
-// state lives with Settings, which loads it).
+// Settings → Today: whether your newest challenge is featured when none
+// is pinned (the toggle's state lives with Settings, which loads it), and
+// the same extras as Customize Today (0278), saved for the account.
 export function TodaySettings({
   featureNewest,
   onToggleFeatureNewest,
@@ -21,9 +20,8 @@ export function TodaySettings({
 }) {
   const { colors, text } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const tileStyle = useGoalsTileStyle();
+  const extras = useTodayExtras();
   const [holidayEffects, setHolidayEffects] = useHolidayEffectsPref();
-  if (!tileStyle && featureNewest === null) return null;
 
   return (
     <Card style={{ gap: 12 }} elevated={false}>
@@ -36,39 +34,34 @@ export function TodaySettings({
           onChange={onToggleFeatureNewest}
         />
       )}
-      {tileStyle && (
-      <View style={{ gap: 8 }}>
-        <Text style={styles.label}>Goals tile</Text>
-        <SegmentedControl<GoalsTileStyle>
-          options={[
-            { value: 'rings', label: 'Rings' },
-            { value: 'trails', label: 'Hound trails' },
-          ]}
-          value={tileStyle}
-          onChange={setGoalsTileStyle}
+      <Text style={styles.note}>Extras on Today, off until you turn them on:</Text>
+      {TODAY_EXTRAS.map((x) => (
+        <ToggleRow
+          key={x.id}
+          label={x.label}
+          note={x.detail}
+          value={extras[x.id]}
+          onChange={(v) => {
+            setTodayExtra(x.id, v).catch(() => {});
+          }}
         />
-        <Text style={styles.note}>
-          {tileStyle === 'rings'
-            ? 'One ring per goal, with your numbers beside them.'
-            : 'You run each goal’s trail to the bone, with the Hound pacing behind.'}
-        </Text>
-      </View>
-      )}
+      ))}
       {/* 0184: a holiday theme's falling snow, leaves or confetti. The
           rest of the decorations stay. */}
+      {extras.holiday && (
       <ToggleRow
         label="Holiday snow and confetti"
         note={holidayEffects ? 'Falling on Today during a holiday' : 'Off: just the decorations'}
         value={holidayEffects}
         onChange={setHolidayEffects}
       />
+      )}
     </Card>
   );
 }
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
-    label: { fontSize: 14, color: colors.text },
     note: { fontSize: 13, lineHeight: 18, color: withAlpha(colors.text, 0.65) },
   });
 }

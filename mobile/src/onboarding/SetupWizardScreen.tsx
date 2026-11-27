@@ -420,7 +420,7 @@ function AboutStep({ styles, onNext }: { styles: Styles; onNext: () => void }) {
 // Hound; "Set up" saves them (profiles.hound_uses) and sets each one up:
 // a step goal if there isn't one, a workout goal (3 a week), Move's
 // strength goal (the days picked here), a water goal. Fasting needs
-// nothing here: ticking it puts the Fasting tile on Today (Start), and
+// nothing here: ticking it puts Fasting in Your day on Today (Start), and
 // Fasting asks the age question on the first open. Activities is where to
 // log them (Goals → Log a workout / activity); Games with friends puts
 // the challenges in Jump in, next.

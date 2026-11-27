@@ -7,6 +7,7 @@ import { Text } from '../components/Text';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { getMaintenanceWindow, headsUpActive, markMaintenanceSeen, minutesBetween, whenLabel, type MaintenanceWindow } from './maintenance';
+import { useNoticeTurn } from '../components/NoticeSlot';
 
 // Across the top of Today, above the announcement banner, from a few
 // hours before an Admin maintenance window until it ends (0190). "x"
@@ -61,7 +62,8 @@ export function MaintenanceHeadsUp() {
     };
   }, [key, active, window?.startsAt]);
 
-  if (!active || hidden || !window?.startsAt || !window.endsAt) return null;
+  const turn = useNoticeTurn('maintenance', !!(active && !hidden && window?.startsAt && window.endsAt));
+  if (!active || hidden || !window?.startsAt || !window.endsAt || !turn) return null;
   const started = Date.now() >= window.startsAt.getTime();
   const minutes = minutesBetween(window.startsAt, window.endsAt);
   const length = minutes >= 60 ? `About ${Math.round(minutes / 6) / 10} hours` : `About ${minutes} minutes`;

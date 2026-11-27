@@ -9,7 +9,7 @@ import { useHoliday } from './HolidayContext';
 
 // The drawings for each holiday theme on Today (0184): a garland across
 // the top with the countdown pill, a trim along the top of each tile, a
-// little something in the Goals tile's corner, and things drifting down
+// little something in Your day's corner, and things drifting down
 // the screen. Fixed colours, the same in both themes, except the snow,
 // which turns pale blue on a light page so it still shows.
 
@@ -270,7 +270,7 @@ function MarigoldCap({ w }: { w: number }) {
   );
 }
 
-// ---- The Goals tile's corner ----
+// ---- Your day's corner ----
 
 export const HOLIDAY_CORNER = 30;
 

@@ -8,6 +8,7 @@ import { useNetState } from './network';
 import { useOfflineEnabled } from './offlineConfig';
 import { dismissFailures, useOutbox } from './outbox';
 import { newestSaved } from './cache';
+import { useNoticeTurn } from '../components/NoticeSlot';
 
 // Offline mode's strip (0271), on Today, Move and Fasting:
 //   offline          "Offline · last updated 9:41 AM · 2 waiting to sync"
@@ -29,10 +30,11 @@ export function OfflineStrip({ cacheKeys = [] }: { cacheKeys?: string[] }) {
     return () => clearInterval(t);
   }, [pending.length]);
 
-  if (!on) return null;
   const oldestWait = pending.length ? now - new Date(pending[0].doneAt).getTime() : 0;
-  const saved = newestSaved(cacheKeys);
   const n = pending.length;
+  const turn = useNoticeTurn('offline', on && (net === 'offline' || failed.length > 0 || (n > 0 && oldestWait > 5000)));
+  if (!on || !turn) return null;
+  const saved = newestSaved(cacheKeys);
 
   if (net === 'offline') {
     return (

@@ -70,7 +70,9 @@ export function useHolidayEffectsPref(): [boolean, (on: boolean) => void] {
 
 const SEEN_KEY = 'hound:holiday-seen';
 
-export function HolidayProvider({ children }: { children: React.ReactNode }) {
+// `enabled` false (Customize Today → Holiday decorations off, the default
+// since the streamlining) shows no theme at all and asks for none.
+export function HolidayProvider({ children, enabled = true }: { children: React.ReactNode; enabled?: boolean }) {
   const [run, setRun] = useState<HolidayRun | null>(null);
   const [day, setDay] = useState(localDayKey());
   const [prefOn] = useHolidayEffectsPref();
@@ -83,7 +85,10 @@ export function HolidayProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const load = useCallback(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !enabled) {
+      setRun(null);
+      return;
+    }
     const today = localDayKey();
     setDay(today);
     getHolidayTheme(today)
@@ -91,7 +96,7 @@ export function HolidayProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {
         // Never break Today: no theme, no decorations.
       });
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     load();

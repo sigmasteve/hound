@@ -82,13 +82,14 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'The Today screen',
       summary: 'Your home base — check it once a day.',
       steps: [
-        'Your goals come first: the Hound’s on you card shows each goal, where you are on it, and what’s left. Tap Edit to change them.',
+        'Your day comes first: your steps and workouts, your fast (if you fast) and your Move points side by side, with water under them. Tap one to open it; Steps & workouts shows each goal, where you are on it, and what’s left.',
         `New here? A short setup walks you through it one step at a time: connect your health app, say how you’ll use Hound, set goals, turn on notifications, add a friend, join a challenge and meet your hound. Connect health, add a friend and join a challenge for a ${currency} reward. Skipped something? Today’s “Finish setting up” picks up where you left off.`,
         'Below your challenges list is one featured challenge: the one you’ve pinned with Pin to Today, or otherwise your newest active one. To only feature one you pin, turn off Newest challenge on Today in Settings.',
         'Needs you lists anything waiting on you: challenge invites, friend requests, your move in Tic-Tac-Go, picking a target when you’re It in an older game of Tag, today’s 75 Day checklist, or progress to log.',
         'Need a break? Tap the bell on Needs you to mute it for 2 hours, 4 hours, half a day or until tomorrow morning. It shrinks to a small tile until then, with everything still inside; tap it and Unmute to bring it back. Notifications still come.',
         `Your Hound Score, level and ${currency} balance are on the You tab.`,
-        `Early in each week (Monday until Tuesday at noon), a recap card shows last week’s steps, challenges finished, Hound Score, and ${currency} earned. Tap the X to hide it until next week.`,
+        `Want more on Today? Tap Customize Today at the bottom (or Settings → Today) to turn on extras: Week in review (Monday until Tuesday at noon: last week’s steps, challenges finished, Hound Score and ${currency} earned), today’s Step rank, your Journey, the Fasting card you swipe to, and holiday decorations. They’re off until you turn them on, and they follow your account to a new phone.`,
+        'Only one notice shows at a time above Today (no connection, planned maintenance, a new version, Hound can’t see your steps, or an announcement); when you deal with it, the next one shows.',
       ],
     },
     {
@@ -560,7 +561,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       summary: 'Log glasses of water with one tap.',
       steps: [
         'Add a water goal under You → Goals → Water: 8 cups a day to start, from 4 to 16. You can show it in cups and ounces or in millilitres.',
-        'Tap the blue + on the Goals tile on Today to log a glass. Tap the water row to see the big glass, change the glass size (a cup, a bottle or a big bottle), and see today’s log and this week.',
+        'Tap the blue + under Your day on Today to log a glass. Tap the water row to see the big glass, change the glass size (a cup, a bottle or a big bottle), and see today’s log and this week.',
         'Logged one by mistake? Tap Undo on the message that pops up, or Remove it in the water sheet.',
         'Water other apps put in Apple Health counts too.',
         'Water sits beside your goals: it doesn’t change your goal day, streak or Bones. Water days earn their own badges and fill your hound’s bowl in the Yard.',
@@ -573,7 +574,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'Log a workout',
       summary: 'No watch? Log a workout by hand, up to 2 hours a day.',
       steps: [
-        'Open the Goals tile on Today and tap Log a workout under today’s workouts, or find it on You under Health data.',
+        'Tap Steps & workouts in Your day on Today and tap Log a workout under today’s workouts, or find it on You under Health data.',
         'Pick what you did, how many minutes (5 to 90) and when it ended: today or yesterday, never later than now.',
         'Up to 2 hours a day by hand, as many workouts as that fits. Undo is there for 15 minutes (it gives the time back); after that it stands.',
         'It counts in full for your goals, Daily Doors, streaks, Bingo and 75 Day. In the sports games, Golf power and Global prizes it’s worth half: 30 minutes of strength counts as 15.',
@@ -587,7 +588,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'Move points',
       summary: 'Steps plus every workout, by how hard it is. No watch needed.',
       steps: [
-        'Open the Goals tile on Today and tap Move. It shows today’s Move points: your steps, plus what each workout earned.',
+        'Tap Move in Your day on Today (or open Steps & workouts and tap Move). It shows today’s Move points: your steps, plus what each workout earned.',
         'One Move point is one step’s worth. Walks and runs earn their steps. Other workouts earn points a minute by how hard they are: about 70 for yoga, 100 for strength, 145 for dance, 195 for cycling, 230 for HIIT.',
         'Start a routine: a guided 5 to 18 minutes (bodyweight, a chair or dumbbells), each move on a timer. Hound times it, so it counts in full.',
         'Log strength: pick a template (Full body, Push, Pull, Legs, Core, or start empty) and tick sets as you go. Weights are optional. A set past your best for that exercise is a new best.',
@@ -605,7 +606,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'Intermittent fasting',
       summary: 'Press Start when you finish eating, End when you eat. Alone or with friends.',
       steps: [
-        'Open the Goals tile on Today and tap Try intermittent fasting. Once you’ve started a fast, Fasting gets its own tile on Today.',
+        'Tap Steps & workouts in Your day on Today and tap Try intermittent fasting, or tick Intermittent fasting in Settings → What you use Hound for. Fasting then shows in Your day, with the live clock while you fast.',
         'It’s for people 16 and older. Talk to your doctor first if you’re pregnant or breastfeeding, take insulin or diabetes medicine, or have had an eating disorder.',
         'Pick a plan (12:12 up to one meal a day) and tap Start fast. Stopped eating a while ago? Tap “I stopped eating” and set the time, up to 12 hours back. Started by mistake? Cancel in the first 15 minutes.',
         'The dial fills to your goal through the stages, each in its own colour, with a badge where each begins (Settling at 4 h, Fat burning at 12, Ketosis at 16) and Next up under it. What to drink lists what keeps a fast: water, black coffee, plain tea.',

@@ -12,7 +12,7 @@ import { GAME_INFO } from '../fasting/fastingGames';
 import { slotColor } from '../fasting/FastingGameScreen';
 
 // The Fasting card across the top of Today (Steve, Nov 2026: "for folks
-// who care more about Fasting and not steps"): swipe the Goals tile
+// who care more about Fasting and not steps"): swipe Your day
 // sideways to it. While fasting: the ring with the clock, the stage
 // you're in, what's left to your goal and the next stage (never one past
 // the goal). Between fasts: your plan, the week and your last fast. Tap

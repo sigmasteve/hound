@@ -6,6 +6,7 @@ import { Text } from '../components/Text';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { useHealthProvider } from './HealthContext';
+import { useNoticeTurn } from '../components/NoticeSlot';
 
 // "Hound can't see your steps", across the top of Today. When Hound isn't
 // allowed to read steps (on iPhone, Steps turned off for Hound in
@@ -64,7 +65,8 @@ export function HealthZeroBanner() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const health = useHealthProvider();
   const { show, dismiss } = useHealthZero();
-  if (!show) return null;
+  const turn = useNoticeTurn('health', show);
+  if (!show || !turn) return null;
 
   const ios = Platform.OS === 'ios';
   const fix = () => {
