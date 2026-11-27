@@ -10,12 +10,14 @@ import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import {
   getMoveOverview,
+  getMoveHrConfig,
   getMoveRates,
   getMoveSocialOverview,
   setMoveConfig,
   setMoveSocialConfig,
   SNACK_WINDOWS,
   type MoveOverview,
+  type HrBand,
   type MoveRate,
   type MoveSocialOverview,
 } from '../move/moveApi';
@@ -159,6 +161,8 @@ export function MoveRatesCard() {
   const [cap, setCap] = useState('120');
   // Movement snacks and Move together (0275): null before it's run.
   const [social, setSocial] = useState<Record<string, string> | null>(null);
+  // A workout with no type, by heart rate (0280): null before it's run.
+  const [hr, setHr] = useState<{ walk: string; bands: { from: string; perMin: string }[] } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,6 +177,9 @@ export function MoveRatesCard() {
           setError(null);
         })
         .catch((e) => setError(e instanceof Error && /move_rates/.test(e.message) ? 'Run 0270_move_points.sql to set these.' : 'Could not load the rates.'));
+      getMoveHrConfig()
+        .then((c) => setHr(c ? { walk: String(c.walkSpm), bands: c.bands.map((b) => ({ from: String(b.from), perMin: String(b.perMin) })) } : null))
+        .catch(() => setHr(null));
       getMoveSocialOverview()
         .then((o) =>
           setSocial({
@@ -221,10 +228,33 @@ export function MoveRatesCard() {
         socialOut[k] = n;
       }
     }
+    let hrOut: { hrWalkSpm: number; hrBands: HrBand[] } | null = null;
+    if (hr) {
+      const w = Number(hr.walk);
+      if (!Number.isInteger(w) || w < 20 || w > 200) {
+        setError('Steps a minute for walking: a whole number, 20 to 200.');
+        return;
+      }
+      const bands: HrBand[] = [];
+      for (const b of hr.bands) {
+        const from = Number(b.from);
+        const perMin = Number(b.perMin);
+        if (!Number.isInteger(from) || from < 0 || from > 150 || !Number.isInteger(perMin) || perMin < 0 || perMin > 1000) {
+          setError('Each heart-rate level: whole bpm above resting (0 to 150) and points a minute (0 to 1,000).');
+          return;
+        }
+        if (bands.length > 0 && from <= bands[bands.length - 1].from) {
+          setError('Heart-rate levels go up: each starts above the one before.');
+          return;
+        }
+        bands.push({ from, perMin });
+      }
+      hrOut = { hrWalkSpm: w, hrBands: bands };
+    }
     setSaving(true);
     setError(null);
     try {
-      await setMoveConfig({ rates: out, handCapMin: c });
+      await setMoveConfig({ rates: out, handCapMin: c, ...(hrOut ?? {}) });
       if (social) await setMoveSocialConfig(socialOut);
       setRates(rates.map((r) => (out[r.activity] !== undefined ? { ...r, perMin: out[r.activity] } : r)));
       setSaved(true);
@@ -268,6 +298,50 @@ export function MoveRatesCard() {
             }}
             keyboardType="number-pad"
           />
+          {hr && (
+            <>
+              <Text style={[text.h4, { marginTop: 6 }]}>Workouts with no type, by heart rate</Text>
+              <AdminNote
+                short="An “Other” workout from a watch, minute by minute: walking minutes earn nothing more, the rest by heart rate above resting."
+                more="iPhone only for now (Android needs a new build for heart rate). A minute with at least the steps below is walking: its steps already count. Any other minute earns the points of the highest level its heart rate reaches above the person's resting heart rate; under the first level, nothing. A minute with no heart rate earns “Anything else”'s rate. Changes apply to recent workouts when the phone next syncs."
+              />
+              <TextField
+                label="Steps a minute that make a minute walking"
+                value={hr.walk}
+                onChangeText={(v) => {
+                  setHr({ ...hr, walk: v });
+                  setSaved(false);
+                }}
+                keyboardType="number-pad"
+              />
+              {hr.bands.map((b, i) => (
+                <View key={i} style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <TextField
+                      label={`Level ${i + 1}: bpm above resting`}
+                      value={b.from}
+                      onChangeText={(v) => {
+                        setHr({ ...hr, bands: hr.bands.map((x, j) => (j === i ? { ...x, from: v } : x)) });
+                        setSaved(false);
+                      }}
+                      keyboardType="number-pad"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <TextField
+                      label="Points a minute"
+                      value={b.perMin}
+                      onChangeText={(v) => {
+                        setHr({ ...hr, bands: hr.bands.map((x, j) => (j === i ? { ...x, perMin: v } : x)) });
+                        setSaved(false);
+                      }}
+                      keyboardType="number-pad"
+                    />
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
           {social && (
             <>
               <Text style={[text.h4, { marginTop: 6 }]}>Movement snacks</Text>

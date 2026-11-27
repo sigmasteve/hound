@@ -36,7 +36,8 @@ do $$ declare i int; s jsonb; begin
     perform public.move_snack_finish((s ->> 'id')::uuid, 260);
   end loop;
 end $$;
-select is((select array_agg(bones order by done_at) from public.move_snacks where user_id = :'ann'), '{3,3,3,0}'::int[], 'The fourth snack pays nothing');
+-- (They all finish at the same now() inside the test, so sort by Bones.)
+select is((select array_agg(bones order by bones desc) from public.move_snacks where user_id = :'ann'), '{3,3,3,0}'::int[], 'The fourth snack pays nothing');
 
 -- Too late.
 set local role authenticated;

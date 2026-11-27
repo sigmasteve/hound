@@ -369,12 +369,12 @@ export const iosHealthProvider: HealthProvider = {
     return Math.round(sum);
   },
 
-  async getStepBuckets(start: Date, end: Date): Promise<StepBucket[]> {
+  async getStepBuckets(start: Date, end: Date, minutes = 15): Promise<StepBucket[]> {
     // The same statistics query as the day totals, in 15-minute buckets
-    // anchored at `start`, so a watch and a phone counting the same steps
-    // are counted once.
+    // (or `minutes`) anchored at `start`, so a watch and a phone counting
+    // the same steps are counted once.
     const buckets = await orDefault(
-      queryStatisticsCollectionForQuantity('HKQuantityTypeIdentifierStepCount', ['cumulativeSum'], start, { minute: 15 }, {
+      queryStatisticsCollectionForQuantity('HKQuantityTypeIdentifierStepCount', ['cumulativeSum'], start, { minute: minutes }, {
         filter: { date: { startDate: start, endDate: end } },
         unit: 'count',
       }),
@@ -385,9 +385,27 @@ export const iosHealthProvider: HealthProvider = {
       if (!b.startDate || b.startDate.getTime() < start.getTime()) continue;
       const steps = Math.round(b.sumQuantity?.quantity ?? 0);
       if (steps <= 0) continue;
-      out.push({ start: b.startDate, end: b.endDate ?? new Date(b.startDate.getTime() + 15 * 60_000), steps });
+      out.push({ start: b.startDate, end: b.endDate ?? new Date(b.startDate.getTime() + minutes * 60_000), steps });
     }
     return out.sort((a, b) => a.start.getTime() - b.start.getTime());
+  },
+
+  async getHeartRateSamples(start: Date, end: Date): Promise<{ at: number; bpm: number }[]> {
+    const samples = await orDefault(
+      queryQuantitySamples('HKQuantityTypeIdentifierHeartRate', {
+        limit: 0,
+        ascending: true,
+        unit: 'count/min',
+        filter: { date: { startDate: start, endDate: end } },
+      }),
+      [],
+    );
+    return samples.map((s) => ({ at: s.startDate.getTime(), bpm: s.quantity }));
+  },
+
+  async getRestingHeartRate(): Promise<number | null> {
+    const s = await orDefault(getMostRecentQuantitySample('HKQuantityTypeIdentifierRestingHeartRate', 'count/min'), undefined);
+    return s ? Math.round(s.quantity) : null;
   },
 };
 

@@ -281,10 +281,14 @@ export function MoveScreen({
                     <Text style={styles.strong} numberOfLines={1}>
                       {i.ref ? (routineById(i.ref)?.name ?? TEMPLATES.find((t) => t.id === i.ref)?.name ?? ACTIVITY_LABEL[i.activity]) : (ACTIVITY_LABEL[i.activity] ?? i.name)}
                     </Text>
-                    <Text style={styles.small} numberOfLines={1}>
+                    <Text style={styles.small} numberOfLines={i.effort ? 2 : 1}>
                       {i.minutes} min · {itemTag(i)}
                       {i.prs > 0 ? ` · ${i.prs} new best` : ''}
-                      {i.steps > 0 ? ` · ${fmtPts(i.steps)} steps already counted` : ''}
+                      {i.effort
+                        ? ` · ${i.effort.walk} min walking (steps count), ${i.effort.hr} by heart rate`
+                        : i.steps > 0
+                          ? ` · ${fmtPts(i.steps)} steps already counted`
+                          : ''}
                     </Text>
                   </View>
                   <Text style={styles.pts}>{fmtPts(i.pts)}</Text>

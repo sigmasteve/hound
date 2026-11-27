@@ -515,7 +515,7 @@ export const androidHealthProvider: HealthProvider = {
     return Math.round(total);
   },
 
-  async getStepBuckets(start: Date, end: Date): Promise<StepBucket[]> {
+  async getStepBuckets(start: Date, end: Date, minutes = 15): Promise<StepBucket[]> {
     await ensureInitialized();
     const timeRangeFilter = { operator: 'between' as const, startTime: start.toISOString(), endTime: end.toISOString() };
     const read = async (dataOriginFilter?: string[]): Promise<StepBucket[]> => {
@@ -523,7 +523,7 @@ export const androidHealthProvider: HealthProvider = {
         const groups = await aggregateGroupByDuration({
           recordType: 'Steps',
           timeRangeFilter,
-          timeRangeSlicer: { duration: 'MINUTES', length: 15 },
+          timeRangeSlicer: { duration: 'MINUTES', length: minutes },
           dataOriginFilter,
         });
         return groups

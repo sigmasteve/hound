@@ -38,6 +38,9 @@ export interface MoveItem {
   // Steps taken during it, taken off its points (0277): they're already
   // in the day's steps.
   steps: number;
+  // A workout with no type scored by heart rate (0280): its walking
+  // minutes (their steps count) and the minutes scored by heart rate.
+  effort: { walk: number; hr: number } | null;
 }
 
 export interface StrengthWeek {
@@ -99,6 +102,7 @@ export async function getMyMove(now = new Date()): Promise<MyMove | null> {
         prs: num(i.prs),
         ref: i.ref ?? null,
         steps: num(i.steps),
+        effort: i.effort ? { walk: num(i.effort.walk), hr: num(i.effort.hr) } : null,
       })),
       strength: strength(d?.strength),
     };
@@ -215,10 +219,35 @@ export async function getMoveRates(): Promise<{ rates: MoveRate[]; handCapMin: n
   });
 }
 
-export async function setMoveConfig(p: { rates?: Record<string, number>; handCapMin?: number }): Promise<void> {
+export async function setMoveConfig(p: {
+  rates?: Record<string, number>;
+  handCapMin?: number;
+  hrWalkSpm?: number;
+  hrBands?: HrBand[];
+}): Promise<void> {
   await rpc('admin_set_move_config', {
-    p: { ...(p.rates ? { rates: p.rates } : {}), ...(p.handCapMin !== undefined ? { hand_cap_min: p.handCapMin } : {}) },
+    p: {
+      ...(p.rates ? { rates: p.rates } : {}),
+      ...(p.handCapMin !== undefined ? { hand_cap_min: p.handCapMin } : {}),
+      ...(p.hrWalkSpm !== undefined ? { hr_walk_spm: p.hrWalkSpm } : {}),
+      ...(p.hrBands ? { hr_bands: p.hrBands.map((b) => ({ from: b.from, per_min: b.perMin })) } : {}),
+    },
   });
+}
+
+// A workout with no type, by heart rate (0280): points a minute from this
+// many bpm above resting, and the steps a minute that make a minute
+// walking. Null before 0280 is run.
+export interface HrBand {
+  from: number;
+  perMin: number;
+}
+
+export async function getMoveHrConfig(): Promise<{ walkSpm: number; bands: HrBand[] } | null> {
+  const { data, error } = await client().from('move_config').select('hr_walk_spm, hr_bands').eq('id', true).maybeSingle();
+  if (error || !data) return null;
+  const d = data as { hr_walk_spm: number; hr_bands: { from: number; per_min: number }[] };
+  return { walkSpm: num(d.hr_walk_spm) || 60, bands: (d.hr_bands ?? []).map((b) => ({ from: num(b.from), perMin: num(b.per_min) })) };
 }
 
 export interface MoveOverview {

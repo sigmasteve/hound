@@ -206,7 +206,16 @@ limit unless Admin sets `workout_log_config.per_day`; Steve, Nov 2026), and Houn
 guided routines and strength logs, timed by `move_session_start` /
 `_finish`) in full unless a watch workout covers the same time. Each
 workout keeps the activity and rate it was recorded with, so rate changes
-apply forward. A workout's own steps come off its points, never below 0
+apply forward. A watch or Health workout with no type ('other', "Workout"; 0280,
+Steve, Nov 2026: a 3-hour Manual labor earned 9,106 at the flat 100 a
+minute, and the watch and Whoop disagreed on its calories 2×) is scored by
+heart rate instead: the phone reads Health a minute at a time
+(`workouts/workoutEffort.ts`, iPhone only until a build adds Health
+Connect's heart rate) and sends `workout_history.effort`; a minute with
+`move_config.hr_walk_spm` steps is walking (nothing more, its steps
+count), any other earns `hr_bands` by bpm above resting (Admin → Bones →
+Move points), a minute with no heart rate the 'other' rate. Unlike rates,
+the levels apply to every recent workout when the phone next syncs. A workout's own steps come off its points, never below 0
 (0277, Steve: they're already in the day's steps): `steps_during`, sent
 by the phone from Health for the last 3 days' workouts when Today syncs
 them, or a hand log's `phone_steps`. A Most steps challenge with `counts = 'move'` gets the
@@ -262,7 +271,10 @@ Overview → Status → Apple Watch & widgets has the numbers.
 Waiting for the next native build (Steve, Nov 2026: not yet), on the
 branch `next-build-watch-fasting`: the Hound fasting widget (iPhone home
 and Lock Screen, Android), the watch's Fasting and Log activity pages and
-its Hound fasting complication, and the version bump. Their server side
+its Hound fasting complication, and the version bump. Also for that
+build: Health Connect's heart rate and resting heart rate permissions, so
+Android scores "Other" workouts by heart rate too (0280; `getHeartRateSamples`
+and `getRestingHeartRate` in `androidProvider.ts`). Their server side
 (`watch_fasting_start` / `_end`, `watch_log_activity`, fasting in
 `watch_today`, 0274) is already in. Rebase that branch onto master and
 bring it in with the next build.

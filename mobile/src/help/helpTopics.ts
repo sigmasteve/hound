@@ -592,6 +592,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       steps: [
         'Tap Move in Your day on Today (or open Steps & workouts and tap Move). It shows today’s Move points: your steps, plus what each workout earned.',
         'One Move point is one step’s worth. Walks and runs earn their steps. Other workouts earn points a minute by how hard they are: about 70 for yoga, 100 for strength, 145 for dance, 195 for cycling, 230 for HIIT.',
+        'A workout your watch saves with no type (“Other”, shown as Workout) is scored by your heart rate, minute by minute (iPhone): minutes you were walking earn their steps only, and the rest earn more the higher your heart rate was above your resting heart rate. Light work, like a few hours of yard work, earns a little; a hard session earns a lot.',
         'Start a routine: a guided 5 to 18 minutes (bodyweight, a chair or dumbbells), each move on a timer. Hound times it, so it counts in full.',
         'Log strength: pick a template (Full body, Push, Pull, Legs, Core, or start empty) and tick sets as you go. Weights are optional. A set past your best for that exercise is a new best.',
         'Log an activity for anything else (classes, sports, housework). By hand, up to 2 hours a day count. Workouts from a watch or Health count in full.',
