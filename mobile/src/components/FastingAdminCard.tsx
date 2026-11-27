@@ -8,7 +8,7 @@ import { TextField } from './TextField';
 import { AdminNote } from './AdminParts';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { getFastingConfig, getFastingOverview, setFastingConfig, type FastingOverview } from '../fasting/fastingApi';
+import { getFastingConfig, getFastingFixOverview, getFastingOverview, setFastingConfig, type FastingFixOverview, type FastingOverview } from '../fasting/fastingApi';
 import { planLabel, type FastingConfig } from '../fasting/fasting';
 
 // Admin → Overview → Fitness → Fasting (0261): who's tried it, who's at
@@ -22,12 +22,17 @@ export function FastingAdminCard({ onLoaded }: { onLoaded?: (d: FastingOverview)
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [data, setData] = useState<FastingOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Fixed times (0286): null until it's run.
+  const [fixes, setFixes] = useState<FastingFixOverview | null>(null);
   // A ref, so a new callback each render doesn't refetch.
   const loaded = useRef(onLoaded);
   loaded.current = onLoaded;
 
   useFocusEffect(
     useCallback(() => {
+      getFastingFixOverview()
+        .then(setFixes)
+        .catch(() => setFixes(null));
       getFastingOverview()
         .then((d) => {
           setData(d);
@@ -76,6 +81,15 @@ export function FastingAdminCard({ onLoaded }: { onLoaded?: (d: FastingOverview)
         ['Said under 16', `${data.under16}`],
         ['Not sharing with friends', `${data.notSharing}`],
         ['Bones paid, 7 days', data.bones7d.toLocaleString()],
+        ...(fixes
+          ? ([
+              ['Fixed their times', `${fixes.peopleEver} ever · ${fixes.people7d} in 7 days`],
+              ['Fixes, 7 days', `${fixes.fixes7d} (${fixes.starts7d} starts, ${fixes.ends7d} ends)`],
+              ['Forgot to end it, fixed, 7 days', `${fixes.forgot7d}`, fixes.forgot7d > 0],
+              ['Fixed by an admin, 7 days', `${fixes.admin7d}`],
+              ['Bones changed by fixes, 7 days', `${fixes.bones7d > 0 ? '+' : ''}${fixes.bones7d}`],
+            ] as [string, string, boolean?][])
+          : []),
       ]
     : [];
 

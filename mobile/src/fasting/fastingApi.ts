@@ -282,6 +282,102 @@ export async function getFastingHistory(limit = 30): Promise<PastFast[]> {
   }));
 }
 
+// Fix a fast's times (0286): the start of the fast you're on (end null),
+// or the start and end of one that ended in the last 7 days. The server
+// works out its hours, Bones and your streak again.
+export interface FixResult {
+  hours: number | null;
+  onPlan: boolean | null;
+  bonesChange: number;
+  streak: number | null;
+}
+
+function fixResult(d: any): FixResult {
+  return {
+    hours: d?.hours == null ? null : num(d.hours),
+    onPlan: d?.on_plan == null ? null : !!d.on_plan,
+    bonesChange: num(d?.bones_change),
+    streak: d?.streak == null ? null : num(d.streak),
+  };
+}
+
+export async function fixFast(fastId: string, startedAt: Date, endedAt: Date | null): Promise<FixResult> {
+  const d = await rpc<any>('fasting_fix', {
+    p_fast_id: fastId,
+    p_started_at: startedAt.toISOString(),
+    p_ended_at: endedAt ? endedAt.toISOString() : null,
+    p_local_date: endedAt ? localDayKey(endedAt) : null,
+  });
+  return fixResult(d);
+}
+
+// Admin (0286): a member's fasts, and fixing any of them (an end on an
+// open fast ends it).
+export interface AdminFast {
+  id: string;
+  goalHours: number;
+  startedAt: string;
+  endedAt: string | null;
+  hours: number;
+  onPlan: boolean | null;
+  localDay: string | null;
+  bones: number;
+  fixes: number;
+}
+
+export async function getUserFasts(userId: string): Promise<{ timeZone: string | null; streak: number; fasts: AdminFast[] }> {
+  const d = await rpc<any>('admin_user_fasts', { p_user: userId });
+  return {
+    timeZone: d?.time_zone ?? null,
+    streak: num(d?.streak),
+    fasts: (d?.fasts ?? []).map((x: any) => ({
+      id: String(x.id),
+      goalHours: num(x.goal_hours),
+      startedAt: String(x.started_at),
+      endedAt: x.ended_at ?? null,
+      hours: num(x.hours),
+      onPlan: x.on_plan == null ? null : !!x.on_plan,
+      localDay: x.local_day ?? null,
+      bones: num(x.bones),
+      fixes: num(x.fixes),
+    })),
+  };
+}
+
+export async function adminFixFast(fastId: string, startedAt: Date, endedAt: Date | null): Promise<FixResult> {
+  const d = await rpc<any>('admin_fasting_fix', {
+    p_fast_id: fastId,
+    p_started_at: startedAt.toISOString(),
+    p_ended_at: endedAt ? endedAt.toISOString() : null,
+  });
+  return fixResult(d);
+}
+
+export interface FastingFixOverview {
+  peopleEver: number;
+  people7d: number;
+  fixes7d: number;
+  starts7d: number;
+  ends7d: number;
+  forgot7d: number;
+  admin7d: number;
+  bones7d: number;
+}
+
+export async function getFastingFixOverview(): Promise<FastingFixOverview> {
+  const d = await rpc<any>('admin_fasting_fix_overview');
+  return {
+    peopleEver: num(d?.people_ever),
+    people7d: num(d?.people_7d),
+    fixes7d: num(d?.fixes_7d),
+    starts7d: num(d?.starts_7d),
+    ends7d: num(d?.ends_7d),
+    forgot7d: num(d?.forgot_7d),
+    admin7d: num(d?.admin_7d),
+    bones7d: num(d?.bones_7d),
+  };
+}
+
 export interface FriendFasting extends FastingPerson {
   fast: OpenFast;
   cheered: boolean;

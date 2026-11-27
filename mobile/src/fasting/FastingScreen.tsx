@@ -40,7 +40,9 @@ import {
   compareFasting,
   declineFastPack,
   endFast,
+  fixFast,
   getFastingFriends,
+  getFastingHistory,
   getFastingWaiting,
   getMyFasting,
   hoursSince,
@@ -55,7 +57,9 @@ import {
   type FastingCompare,
   type FriendFasting,
   type MyFasting,
+  type PastFast,
 } from './fastingApi';
+import { FastTimePicker, atText, whenText } from './FastTimePicker';
 import { FastDial, FastRing, LongestText, PersonAvatar, StageIcon } from './FastingParts';
 import { FastingGamesStrip } from './FastingGamesStrip';
 import type { GameSlot } from './fastingGames';
@@ -69,7 +73,17 @@ import { ClubBadge } from '../clubs/clubLook';
 // result when you end, then your week, the friends board and settings.
 // The main action (Start fast / End fast) is pinned at the bottom.
 
-type Sheet = 'drinks' | 'stages' | 'together' | 'end' | 'start-when' | 'plan' | { compare: string } | null;
+type Sheet = 'drinks' | 'stages' | 'together' | 'end' | 'start-when' | 'plan' | 'fix' | { compare: string } | null;
+
+// A fast whose times are being fixed (0286): the one you're on (start
+// only) or one that ended in the last 7 days.
+interface Fixing {
+  id: string;
+  goalHours: number;
+  wasStart: Date;
+  start: Date;
+  end: Date | null;
+}
 
 // How far back a fast can start ("I stopped eating at…"), as the server
 // allows (fasting_begin), and the quick picks under the time.
@@ -122,8 +136,12 @@ export function FastingScreen({
   const [compare, setCompare] = useState<FastingCompare | null>(null);
   // The Hound Fasting club, while you're not in it (0262).
   const [club, setClub] = useState<HoundClub | null>(null);
-  // "I ate at…" in the End sheet, minutes ago.
-  const [endMin, setEndMin] = useState(0);
+  // "I ate at…" in the End sheet (null: now). Any time back to the
+  // start (0286), for a fast you forgot to end.
+  const [endAt, setEndAt] = useState<Date | null>(null);
+  // Your fasts that ended in the last 7 days, to fix their times (0286).
+  const [recent, setRecent] = useState<PastFast[]>([]);
+  const [fixing, setFixing] = useState<Fixing | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -137,6 +155,9 @@ export function FastingScreen({
           .catch(() => {});
         getFastingWaiting()
           .then(setInvites)
+          .catch(() => {});
+        getFastingHistory(10)
+          .then((l) => setRecent(l.filter((f) => Date.now() - new Date(f.endedAt).getTime() < 7 * 86400000)))
           .catch(() => {});
         getHoundClubs()
           .then((l) => setClub(l.find((c) => c.sport === 'fasting' && !c.role) ?? null))
@@ -210,13 +231,41 @@ export function FastingScreen({
       if (r.packId) onOpenPack(r.packId);
     });
 
-  const finish = (minAgo: number) =>
+  const finish = (at: Date | null) =>
     run(async () => {
-      const r = await endFast(minAgo > 0 ? new Date(Date.now() - minAgo * 60000) : null, new Date(), me);
+      const r = await endFast(at && Date.now() - at.getTime() > 60000 ? at : null, new Date(), me);
       setSheet(null);
       setFeel(null);
       setResult(r);
       await load();
+    });
+
+  const openFix = (f: { id: string; goalHours: number; startedAt: string; endedAt: string | null }) => {
+    const start = new Date(f.startedAt);
+    setFixing({ id: f.id, goalHours: f.goalHours, wasStart: start, start, end: f.endedAt ? new Date(f.endedAt) : null });
+    setSheet('fix');
+  };
+
+  const saveFix = () =>
+    run(async () => {
+      if (!fixing) return;
+      const r = await fixFast(fixing.id, fixing.start, fixing.end);
+      setSheet(null);
+      setFixing(null);
+      setResult(null);
+      await load();
+      const bones =
+        r.bonesChange > 0
+          ? ` +${r.bonesChange} Bones.`
+          : r.bonesChange < 0
+            ? ` ${-r.bonesChange} Bones came off: they follow the hours.`
+            : '';
+      Alert.alert(
+        'Times fixed',
+        r.hours == null
+          ? 'Your fast counts from the new start.'
+          : `It’s ${clockText(r.hours)}${r.onPlan ? ', on plan' : ''}.${bones}${r.streak != null ? ` Streak ${r.streak}.` : ''}`,
+      );
     });
 
   // ── Not answered yet: the one-time check ──
@@ -272,6 +321,16 @@ export function FastingScreen({
       {!result.onPlan && (
         <Text style={styles.small}>Ended before your {result.goalHours} h goal. It still counts as a fast, just not on plan. No guilt.</Text>
       )}
+      {(() => {
+        const f = recent.find((x) => x.id === result.fastId);
+        return (
+          f && (
+            <Pressable onPress={() => openFix(f)} accessibilityRole="button" hitSlop={6}>
+              <Text style={styles.link}>Wrong times? Fix them ›</Text>
+            </Pressable>
+          )
+        );
+      })()}
       {result.milestoneBones > 0 && (
         <View style={[styles.card, { borderWidth: 1.5, borderColor: colors.amber }]}>
           <View style={styles.rowBetween}>
@@ -420,12 +479,24 @@ export function FastingScreen({
           </Text>
         </FastDial>
       </View>
+      <Pressable
+        style={[styles.card, styles.rowBetween]}
+        onPress={() => openFix({ id: open.id, goalHours: open.goalHours, startedAt: open.startedAt, endedAt: null })}
+        accessibilityRole="button"
+        accessibilityLabel="Fix when this fast started"
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>STARTED</Text>
+          <Text style={styles.strong}>{whenText(new Date(open.startedAt))}</Text>
+        </View>
+        <Text style={styles.link}>Fix</Text>
+      </Pressable>
       {games}
       {hours >= 36 && (
         <View style={[styles.card, { borderWidth: 1.5, borderColor: colors.amber }]}>
           <Text style={styles.strong}>Still fasting? How do you feel?</Text>
           <Text style={styles.body}>
-            You’re {Math.floor(hours)} hours in. If you’ve eaten, end it with “I ate at…”. If you feel dizzy, faint or unwell, eat. Fasts this long
+            You’re {Math.floor(hours)} hours in. If you’ve eaten, tap End fast and pick when you ate (as far back as you need). If you feel dizzy, faint or unwell, eat. Fasts this long
             are for a doctor’s care.
           </Text>
         </View>
@@ -573,6 +644,30 @@ export function FastingScreen({
     </View>
   );
 
+  // ── Your last 7 days' fasts, to fix their times (0286) ──
+  const recentView = recent.length > 0 && (
+    <View style={styles.card}>
+      <View style={styles.rowBetween}>
+        <Text style={styles.label}>YOUR RECENT FASTS</Text>
+        <Text style={styles.small}>Forgot to end one? Fix it</Text>
+      </View>
+      {recent.slice(0, 5).map((f) => (
+        <Pressable key={f.id} style={styles.rowBetween} onPress={() => openFix(f)} accessibilityRole="button" accessibilityLabel={`Fix the fast that ended ${whenText(new Date(f.endedAt))}`}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.body} numberOfLines={1}>
+              {whenText(new Date(f.startedAt))} → {new Date(f.endedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            </Text>
+            <Text style={styles.small}>
+              {clockText(f.hours)}
+              {f.onPlan ? ' · on plan ✓' : ` · goal ${f.goalHours} h`}
+            </Text>
+          </View>
+          <Text style={styles.link}>Fix</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
   // ── The board ──
   const board = friends && friends.board.length > 1 && (
     <View style={styles.card}>
@@ -695,7 +790,7 @@ export function FastingScreen({
             style={{ flex: 1 }}
             disabled={busy}
             onPress={() => {
-              setEndMin(0);
+              setEndAt(null);
               setSheet('end');
             }}
           />
@@ -743,6 +838,7 @@ export function FastingScreen({
         {me?.age === 'ok' && !result && nowList}
         {clubCard}
         {!result && weekView}
+        {!result && me?.age === 'ok' && recentView}
         {!result && board}
         {!result && !open && settings}
         {me?.age === 'ok' && !result && (
@@ -838,19 +934,60 @@ export function FastingScreen({
           <Text style={styles.body}>
             {clockText(hours)} so far{hours < open.goalHours ? `, ${leftText(open.goalHours - hours)} short of your goal` : ''}. When did you eat?
           </Text>
-          <TimeBack
-            minutes={endMin}
-            max={Math.max(0, Math.min(MAX_BACK_MIN, Math.floor((Date.now() - new Date(open.startedAt).getTime()) / 60000) - 1))}
-            onChange={setEndMin}
-            nowLabel="Eating now"
+          {hours >= 24 && <Text style={styles.small}>Forgot to end it? Pick when you really ate. It counts up to then.</Text>}
+          <FastTimePicker
+            value={endAt ?? new Date(now)}
+            min={new Date(new Date(open.startedAt).getTime() + 60000)}
+            max={new Date()}
+            onChange={setEndAt}
+            picks={[
+              { label: 'Eating now', at: new Date() },
+              ...(hours > open.goalHours
+                ? [{ label: `At my goal, ${new Date(new Date(open.startedAt).getTime() + open.goalHours * 3600000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`, at: new Date(new Date(open.startedAt).getTime() + open.goalHours * 3600000) }]
+                : []),
+            ]}
           />
           <Button
-            label={busy ? 'Ending…' : endMin === 0 ? 'End fast now' : `End fast at ${timeAgo(endMin)}`}
+            label={busy ? 'Ending…' : !endAt || Date.now() - endAt.getTime() <= 60000 ? 'End fast now' : `End fast at ${atText(endAt)}`}
             variant="primary"
             block
             disabled={busy}
-            onPress={() => finish(endMin)}
+            onPress={() => finish(endAt)}
           />
+        </TileSheet>
+      )}
+      {sheet === 'fix' && fixing && (
+        <TileSheet title={fixing.end ? 'Fix this fast’s times' : 'When did you stop eating?'} onClose={() => setSheet(null)}>
+          <Text style={styles.label}>STARTED</Text>
+          <FastTimePicker
+            value={fixing.start}
+            min={new Date(fixing.wasStart.getTime() - 12 * 3600000)}
+            max={fixing.end ? new Date(fixing.end.getTime() - 60000) : new Date()}
+            onChange={(d) => setFixing({ ...fixing, start: d })}
+          />
+          {fixing.end && (
+            <>
+              <Text style={styles.label}>ENDED (WHEN YOU ATE)</Text>
+              <FastTimePicker
+                value={fixing.end}
+                min={new Date(fixing.start.getTime() + 60000)}
+                max={new Date()}
+                onChange={(d) => setFixing({ ...fixing, end: d })}
+                picks={[{ label: `At the ${fixing.goalHours} h goal`, at: new Date(fixing.start.getTime() + fixing.goalHours * 3600000) }]}
+              />
+            </>
+          )}
+          {(() => {
+            const h = ((fixing.end ?? new Date(now)).getTime() - fixing.start.getTime()) / 3600000;
+            return (
+              <Text style={styles.small}>
+                {fixing.end ? `That’s ${clockText(h)}` : `${clockText(h)} so far`}
+                {h >= fixing.goalHours ? `, past your ${fixing.goalHours} h goal.` : `, ${leftText(fixing.goalHours - h)} short of your ${fixing.goalHours} h goal.`}
+                {fixing.end ? ' Bones and your streak follow the new times.' : ' The start can go back up to 12 hours before you pressed Start.'}
+              </Text>
+            );
+          })()}
+          <Button label={busy ? 'Saving…' : 'Save'} variant="primary" block disabled={busy} onPress={saveFix} />
         </TileSheet>
       )}
       {sheet === 'together' && (
