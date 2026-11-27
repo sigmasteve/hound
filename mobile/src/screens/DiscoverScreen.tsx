@@ -8,6 +8,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { TextField } from '../components/TextField';
 import { GlobalChallengesCard } from '../components/GlobalChallengesCard';
+import { GLOBAL_GROUPS, globalGroup } from '../home/tryThis';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { CHALLENGE_TYPES, type ChallengeKind } from '../data/sampleData';
@@ -201,13 +202,22 @@ export function DiscoverContent({
         {openGlobals.length > 0 && (
           <View style={{ gap: 8 }}>
             <Text style={text.h4}>Open to join</Text>
-            <GlobalChallengesCard
-              challenges={openGlobals}
-              joiningId={joiningId}
-              onJoin={(c) => (c.kind === 'slots' ? setSlotsPreview(c) : join(c))}
-              onOpen={(c) => onOpenChallenge(c.id)}
-              where="challenges"
-            />
+            {/* Grouped (0281): Today shows one at a time as Try this; the
+                whole list is here. */}
+            {GLOBAL_GROUPS.map((g) => {
+              const list = openGlobals.filter((c) => globalGroup(c.kind) === g.id);
+              return list.length === 0 ? null : (
+                <GlobalChallengesCard
+                  key={g.id}
+                  title={g.title}
+                  challenges={list}
+                  joiningId={joiningId}
+                  onJoin={(c) => (c.kind === 'slots' ? setSlotsPreview(c) : join(c))}
+                  onOpen={(c) => onOpenChallenge(c.id)}
+                  where="challenges"
+                />
+              );
+            })}
             {slotsPreview && (
               <SlotsJoinSheet
                 challengeId={slotsPreview.id}

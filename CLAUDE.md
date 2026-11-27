@@ -334,8 +334,8 @@ you log or time in Hound: Move points). Everything else is an extra in
 Customize Today (`home/CustomizeTodaySheet.tsx`, also Settings → Today),
 off for everyone until they turn it on, saved per account (0278,
 `today_prefs`; `useTodayExtras` in `home/todayExtras.ts`): Week in
-review, Step rank, Journey, the Fasting card, holiday decorations (and
-`hound_top`, kept for later). A new extra joins `TODAY_EXTRAS`,
+review, Step rank, Journey, the Fasting card, holiday decorations, and
+your hound at the top (`hound_top`). A new extra joins `TODAY_EXTRAS`,
 `set_today_prefs`'s keys and `admin_today_overview` (Admin → Overview →
 Status → Customize Today, which also counts Your day's taps).
 
@@ -361,9 +361,16 @@ Inside the scroll, in order:
 1. For a new account, "You're in" (YoureInCard, 0222): the Global
    challenges it was put in (up to 3, once, on the first open after the
    welcome wizard), each with what to do now and Leave / Undo, until
-   Got it. Then Global Hound Challenges you can still join
-   (GlobalChallengesCard). **Fixed: above the tiles, so they're seen
-   without opening anything.**
+   Got it. After that, in the same spot, Try this (`home/TryThisCard.tsx`,
+   0281, the streamlining's third part): the Global challenges you can
+   still join one at a time (swipe; See it, Join), kinds you've never
+   played first and a different one first each day (`tryThisOrder` in
+   `home/tryThis.ts`). Not now hides it for the day on the phone and three
+   of them step it aside for a week (`try_this_not_now`); it also steps
+   aside while you're in two running Globals. The full list is Challenges
+   → Join, grouped (`GLOBAL_GROUPS`: Step races, Sports, Board & casino
+   games, Fitness habits; a new kind joins `GROUP_OF`). **Fixed: above the
+   tiles, so it's seen without opening anything.**
 2. Goal setup, while it's open (GoalSetupCard); it takes Your day's
    place.
 3. The tile grid:
@@ -412,17 +419,24 @@ Inside the scroll, in order:
      Pushes aren't muted.
    - Then two to a row, an odd last one spanning the row as a slim
      strip (its number with its lines beside it, not a half tile's
-     height stretched across; Steve, Nov 2026): your hound
-     (when the Kennel has loaded), Up next (only when caught up or muted), Your
+     height stretched across; Steve, Nov 2026): Up next (only when caught up or muted), Your
      challenges, and the extras that are on: Week in review (Monday
      until Tuesday noon, local), else today's Step rank. (Fasting is in
      Your day now, not a tile.)
    - Journey, full width, when you're on one and the extra is on.
+   - (Your hound's strip goes right under Your day instead of at the
+     bottom on its birthday, or every day with the "Your hound at the top"
+     extra.)
 4. The notifications ask (PushAskCard), once you have a friend or a
    challenge.
 5. Finish setting up (GetStartedCard), until the reward is claimed or
    it's dismissed.
-6. "Customize Today ›", which opens Customize Today.
+6. Your hound's strip (`home/HoundStrip.tsx`, 0281: it was a small
+   tile): the hound drawn large, its mood and what would cheer it up
+   (`moodReason`), "Meet <name>" for its first three days (from
+   `useHoundProfile`'s `bornOn`), a party border on its birthday. Opens
+   the Kennel.
+7. "Customize Today ›", which opens Customize Today.
 
 What each sheet holds:
 
@@ -435,7 +449,13 @@ What each sheet holds:
   Hound's timed ones "✓ Timed in Hound"). Since 0270 the button reads "Log a
   workout / activity" and opens Move (log an activity, start a routine,
   log strength).
-- Your hound: no sheet; the tile opens the Kennel straight away.
+- Your hound: no sheet; the strip opens the Kennel straight away.
+
+The You tab (`screens/YouScreen.tsx`) mirrors Today's pillars: Steps &
+workouts (Goals, Stats & records, Journeys, Health data), Fasting (Your
+fast, Fasting games board) and Move (Move points, Log an activity,
+Movement snack) by the same rule as Your day (`home/pillars.ts`), then Fun
+& friends (Kennel, Your look, Achievements, Pack Activities) and App.
 - Up next: Your turns first, one row per challenge (all its turns on
   one line, ⏱ for a live clock), each with its button and Quiet this
   one; quieted ones after them, dimmed, with Unquiet; "Play your turns"

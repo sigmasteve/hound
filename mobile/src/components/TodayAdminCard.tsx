@@ -56,7 +56,7 @@ export function TodayAdminCard({ onChanged }: { onChanged?: (d: TodayOverview) =
           saved: Number(raw.saved ?? 0),
           customized7d: Number(raw.customized_7d ?? 0),
           extras: Object.fromEntries(
-            [...TODAY_EXTRAS.map((x) => x.id), 'hound_top'].map((k) => [k, Number(raw.extras?.[k] ?? 0)]),
+            TODAY_EXTRAS.map((x) => x.id).map((k) => [k, Number(raw.extras?.[k] ?? 0)]),
           ) as Record<TodayExtra, number>,
           taps7d: Object.fromEntries(
             Object.entries<any>(raw.taps_7d ?? {}).map(([k, v]) => [k, { people: Number(v.people), taps: Number(v.taps) }]),

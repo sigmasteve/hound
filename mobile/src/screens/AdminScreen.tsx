@@ -65,6 +65,7 @@ import { OfflineAdminCard, offlineSummary } from '../components/OfflineAdminCard
 import { UsesAdminCard, usesSummary } from '../components/UsesAdminCard';
 import { TodayAdminCard, todaySummary } from '../components/TodayAdminCard';
 import { UpNextAdminCard, upNextSummary } from '../components/UpNextAdminCard';
+import { TryThisAdminCard, tryThisSummary } from '../components/TryThisAdminCard';
 import { HoundClubsAdminCard, houndClubsSummary } from '../components/HoundClubsAdminCard';
 import { MoonAdminCard, moonSummary } from '../components/MoonAdminCard';
 import { getMoonOverview } from '../kennel/moonApi';
@@ -296,6 +297,7 @@ export function AdminScreen({
   const [usesLine, setUsesLine] = useState<string | null>(null);
   const [todayLine, setTodayLine] = useState<string | null>(null);
   const [upNextLine, setUpNextLine] = useState<string | null>(null);
+  const [tryThisLine, setTryThisLine] = useState<string | null>(null);
   const [houndClubsLine, setHoundClubsLine] = useState<string | null>(null);
   const [moonLine, setMoonLine] = useState<string | null>(null);
   // The Not seeing steps fold's line (0205).
@@ -1061,6 +1063,9 @@ export function AdminScreen({
                   </AdminFold>
                   <AdminFold title="Customize Today" summary={todayLine ?? 'Your day and the extras on Today'}>
                     <TodayAdminCard onChanged={(o) => setTodayLine(todaySummary(o))} />
+                  </AdminFold>
+                  <AdminFold title="Try this & your hound" summary={tryThisLine ?? 'Global challenges one at a time, and the hound strip'}>
+                    <TryThisAdminCard onChanged={(o) => setTryThisLine(tryThisSummary(o))} />
                   </AdminFold>
                   <AdminFold title="Up next" summary={upNextLine ?? 'Play your turns and Quiet this one'}>
                     <UpNextAdminCard onChanged={(o) => setUpNextLine(upNextSummary(o))} />

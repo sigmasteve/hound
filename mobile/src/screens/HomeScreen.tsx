@@ -192,7 +192,11 @@ import { claimOnboardingReward, getOnboardingStatus, markHealthConnected, type O
 import { checkAchievements, listAchievements, type NewlyEarnedAchievement } from '../achievements/achievementsApi';
 import { useCurrencyName } from '../organizations/useCurrencyName';
 import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
-import { GlobalChallengesCard } from '../components/GlobalChallengesCard';
+import { TryThisCard } from '../home/TryThisCard';
+import { getTryThis, tryThisNotNow, tryThisOrder, type TryThisState } from '../home/tryThis';
+import { HoundStrip, houndStripOnTop } from '../home/HoundStrip';
+import { fastingPillar, movePillar } from '../home/pillars';
+import { useHoundProfile } from '../growth/useHoundProfile';
 import { SlotsJoinSheet } from '../components/SlotsJoinSheet';
 import { YoureInCard } from '../home/YoureInCard';
 import { autoJoinOpenGlobals, dismissAutoJoinCard, leaveAutoJoined, rejoinAutoJoined, type AutoJoinCard } from '../challenges/autoJoinApi';
@@ -231,7 +235,7 @@ import { PostBountyModal } from '../components/PostBountyModal';
 import { useBounties } from '../bounties/useBounties';
 import { cancelBounty, canPostToday, postBounty, type Bounty } from '../bounties/bountiesApi';
 import { GoalSetupCard } from '../components/GoalSetupCard';
-import { HoundTile, SheetLink, Tile, TileSheet, TileValue, tileGrid, tileRow } from '../home/TodayTiles';
+import { SheetLink, Tile, TileSheet, TileValue, tileGrid, tileRow } from '../home/TodayTiles';
 import { useTodayTopCard } from '../home/todayPrefs';
 import { noteTodayTap, useTodayExtras } from '../home/todayExtras';
 import { YourDayCard } from '../home/YourDayCard';
@@ -895,6 +899,7 @@ function timeLeftLabel(endsAt: string, now: number = Date.now()): string {
   return days <= 1 ? 'Ends today' : `${days} days left`;
 }
 const NEEDS_YOU_LIMIT = 3;
+const TRY_NOT_NOW_KEY = 'today:try-not-now';
 
 // A club game's second line in Needs you (0252): the game, how long,
 // who's in, and when joining closes.
@@ -1481,8 +1486,21 @@ export function HomeScreen({
   const [joiningGlobalId, setJoiningGlobalId] = useState<string | null>(null);
   // Paw Slots: what you're about to do, before Join (0242).
   const [slotsPreview, setSlotsPreview] = useState<GlobalChallenge | null>(null);
+  // Try this (0281): when it's stepped aside until, and the kinds you've
+  // played (null before 0281 or when it can't tell: shown, in plain order).
+  const [tryThis, setTryThis] = useState<TryThisState | null>(null);
+  // Not now hides it for the rest of the day on this phone (and counts
+  // toward stepping aside for a week).
+  const [tryNotNowDay, setTryNotNowDay] = useState<string | null>(null);
+  useEffect(() => {
+    AsyncStorage.getItem(TRY_NOT_NOW_KEY).then(setTryNotNowDay).catch(() => {});
+  }, []);
+  const trySeen = useRef<string | null>(null);
   const loadGlobalChallenges = useCallback(() => {
     if (!isSupabaseConfigured || !user?.id) return;
+    getTryThis()
+      .then(setTryThis)
+      .catch(() => {});
     listGlobalChallenges()
       .then((list) => setGlobalChallenges(list.filter((c) => c.joined || canJoin(c))))
       .catch(() => {
@@ -1763,6 +1781,9 @@ export function HomeScreen({
   // Your hound (0104_kennel.sql), re-read when the goal day lands so its
   // mood updates straight away.
   const [kennel, setKennel] = useState<Kennel | null>(null);
+  // Its age and birthday, for the strip (0281: "Meet <name>" the first
+  // three days, up top on its birthday).
+  const houndProfile = useHoundProfile().profile;
 
   // Water: each glass logged gets a toast with Undo, replacing the last
   // one rather than queueing behind it. Built once the new total shows.
@@ -2794,6 +2815,35 @@ export function HomeScreen({
   const joinableGlobals = globalChallenges.filter((c) => !c.joined && nowMs >= new Date(c.startsAt).getTime());
   const upcomingGlobals = globalChallenges.filter((c) => !c.joined && nowMs < new Date(c.startsAt).getTime());
   const openPrimary = primary ? () => onOpenChallenge(primary.challenge.id) : () => onGoTab('challenges');
+  const inGlobals = globalChallenges.filter((c) => c.joined && nowMs < new Date(c.endsAt).getTime()).length;
+  const tryList = tryThisOrder([...upcomingGlobals, ...joinableGlobals], tryThis?.playedKinds ?? []);
+  const showTryThis =
+    tryList.length > 0 &&
+    !(youreIn?.show && youreIn.challenges.length > 0) &&
+    inGlobals < 2 &&
+    !(tryThis?.hiddenUntil && new Date(tryThis.hiddenUntil).getTime() > nowMs) &&
+    tryNotNowDay !== localDayKey(new Date());
+  const tryNotNow = () => {
+    const day = localDayKey(new Date());
+    setTryNotNowDay(day);
+    AsyncStorage.setItem(TRY_NOT_NOW_KEY, day).catch(() => {});
+    noteTodayTap('try_dismiss');
+    tryThisNotNow()
+      .then((t) => setTryThis((x) => ({ playedKinds: x?.playedKinds ?? [], hiddenUntil: t.hiddenUntil })))
+      .catch(() => {});
+  };
+  // Your hound's strip (0281).
+  const houndOnTop = houndStripOnTop(extras.hound_top, houndProfile);
+  const houndStrip = kennel ? (
+    <HoundStrip
+      kennel={kennel}
+      profile={houndProfile}
+      onPress={() => {
+        noteTodayTap('hound_strip');
+        onGoTab('kennel');
+      }}
+    />
+  ) : null;
 
   // Leaving Today from inside a sheet closes the sheet first, so it isn't
   // still open on the way back.
@@ -2924,9 +2974,8 @@ export function HomeScreen({
 
   // The small tiles, two to a row; an odd last one spans the row.
   const smallTiles: { key: string; render: (wide: boolean) => React.ReactNode }[] = [
-    // Straight to the Kennel: the sheet in between only held a card that
-    // linked there.
-    ...(kennel ? [{ key: 'hound', render: () => <HoundTile kennel={kennel} onPress={() => onGoTab('kennel')} /> }] : []),
+    // (Your hound is a strip of its own now, 0281: at the bottom, or up
+    // top on its birthday or with Customize Today's "Your hound at the top".)
     // Small only when nothing's waiting ("All caught up"); otherwise it's
     // the full-width tile above these.
     ...(needsWide
@@ -3095,14 +3144,31 @@ export function HomeScreen({
           onOpen={(c) => onOpenChallenge(c.id)}
         />
       )}
-      {/* Global challenges you can still join stand apart, above the
-          tiles, so they're seen without opening anything. */}
-      {(upcomingGlobals.length > 0 || joinableGlobals.length > 0) && (
-        <GlobalChallengesCard
-          challenges={[...upcomingGlobals, ...joinableGlobals]}
+      {/* Try this (0281): Global challenges one at a time, as an
+          invitation, kinds you haven't played first. In You're in's
+          place once that's done; steps aside while you're in two Globals,
+          for the day after Not now, and for a week after three. The full
+          list is on Challenges → Join. */}
+      {showTryThis && (
+        <TryThisCard
+          challenges={tryList}
           joiningId={joiningGlobalId}
-          onJoin={(c) => (c.kind === 'slots' ? setSlotsPreview(c) : joinGlobal(c))}
-          onOpen={(c) => onOpenChallenge(c.id)}
+          onJoin={(c) => {
+            noteTodayTap('try_join');
+            if (c.kind === 'slots') setSlotsPreview(c);
+            else joinGlobal(c);
+          }}
+          onOpen={(c) => {
+            noteTodayTap('try_open');
+            onOpenChallenge(c.id);
+          }}
+          onNotNow={tryNotNow}
+          onSeen={() => {
+            const day = localDayKey(new Date());
+            if (trySeen.current === day) return;
+            trySeen.current = day;
+            noteTodayTap('try_seen');
+          }}
         />
       )}
       {slotsPreview && (
@@ -3145,13 +3211,8 @@ export function HomeScreen({
             // people who said they log activities, strength or workouts, who
             // already have Move points, or who answered before those
             // checkboxes existed.
-            const fastingOn = !!fasting && fasting.age !== 'under' && (fasting.startedAny ? fasting.age === 'ok' : fastingPicked);
-            const moveUses = ['activities', 'strength', 'workouts'];
-            const moveOn =
-              (movePts ?? 0) > 0 ||
-              !myUses ||
-              myUses.some((u) => moveUses.includes(u)) ||
-              !myUses.some((u) => ['steps', 'fasting', 'water', 'friends', ...moveUses].includes(u));
+            const fastingOn = fastingPillar(fasting, myUses);
+            const moveOn = movePillar(myUses, movePts);
             const dayKey = new Date().toDateString();
             const workoutsToday = workouts.filter((w) => w.when.toDateString() === dayKey).length;
             const yourDay = (
@@ -3207,6 +3268,7 @@ export function HomeScreen({
               />
             );
           })()}
+        {houndOnTop && houndStrip}
         {needsWide && (
           <UpNextTile
             count={upCount}
@@ -3257,6 +3319,8 @@ export function HomeScreen({
           onDismiss={dismissGetStarted}
         />
       )}
+
+      {!houndOnTop && houndStrip}
 
       {/* Customize Today (0278): the extras, off until turned on. */}
       <Pressable
