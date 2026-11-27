@@ -3231,7 +3231,7 @@ export function HomeScreen({
           across the top. Decoration only; nothing moves. */}
       <HolidayHeader />
       {/* The day in one sentence (version A), above everything. */}
-      <TodayLine input={lineInput} lead={houndLead} onLink={onLineLink} />
+      {extras.one_line && <TodayLine input={lineInput} lead={houndLead} onLink={onLineLink} />}
       {/* A new account's Global challenges (0222): "You're in", with
           Leave and Undo, until Got it. Where the Global challenges sit. */}
       {youreIn?.show && youreIn.challenges.length > 0 && (

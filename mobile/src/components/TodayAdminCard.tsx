@@ -17,6 +17,8 @@ export interface TodayOverview {
   saved: number;
   customized7d: number;
   extras: Record<TodayExtra, number>;
+  // The one line is on unless turned off (0283): how many turned it off.
+  lineOff: number;
   taps7d: Record<string, { people: number; taps: number }>;
   tappedEver: number;
 }
@@ -66,6 +68,7 @@ export function TodayAdminCard({ onChanged }: { onChanged?: (d: TodayOverview) =
           extras: Object.fromEntries(
             TODAY_EXTRAS.map((x) => x.id).map((k) => [k, Number(raw.extras?.[k] ?? 0)]),
           ) as Record<TodayExtra, number>,
+          lineOff: Number(raw.line_off ?? 0),
           taps7d: Object.fromEntries(
             Object.entries<any>(raw.taps_7d ?? {}).map(([k, v]) => [k, { people: Number(v.people), taps: Number(v.taps) }]),
           ),
@@ -100,7 +103,7 @@ export function TodayAdminCard({ onChanged }: { onChanged?: (d: TodayOverview) =
           {TODAY_EXTRAS.map((x) => (
             <View key={x.id} style={styles.row}>
               <Text style={styles.label}>{x.label}</Text>
-              <Text style={styles.value}>{data.extras[x.id]} on</Text>
+              <Text style={styles.value}>{x.id === 'one_line' ? `${data.lineOff} turned it off` : `${data.extras[x.id]} on`}</Text>
             </View>
           ))}
           <Text style={[styles.label, { marginTop: 4 }]}>Your day and the one line, last 7 days ({data.tappedEver} have ever tapped)</Text>

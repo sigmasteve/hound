@@ -335,7 +335,8 @@ Customize Today (`home/CustomizeTodaySheet.tsx`, also Settings → Today),
 off for everyone until they turn it on, saved per account (0278,
 `today_prefs`; `useTodayExtras` in `home/todayExtras.ts`): Week in
 review, Step rank, Journey, the Fasting card, holiday decorations, and
-your hound at the top (`hound_top`). A new extra joins `TODAY_EXTRAS`,
+your hound at the top (`hound_top`); the one line (`one_line`) is a
+switch there too, but on until turned off. A new extra joins `TODAY_EXTRAS`,
 `set_today_prefs`'s keys and `admin_today_overview` (Admin → Overview →
 Status → Customize Today, which also counts Your day's taps).
 
@@ -365,7 +366,9 @@ Inside the scroll, in order:
   comes into view after a time picked at random between 7 AM and 9 PM
   (`useHoundSaysIt`, kept on the phone), so it's a surprise tied to when
   someone opens Hound. Taps and the hound's days count for Admin (0283,
-  Customize Today's card).
+  Customize Today's card). It's Customize Today's one switch that starts
+  on (`one_line`, Steve: "make it a switch"): on until someone turns it
+  off, and Admin counts who did (`line_off`).
 0. A holiday theme's countdown pill and garland, only while one is
    scheduled (Admin → Holiday themes, 0184) and only for people who
    turned Holiday decorations on (an extra). Decoration only: the tiles
