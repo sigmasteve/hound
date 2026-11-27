@@ -3328,7 +3328,10 @@ export function HomeScreen({
                 workouts={workoutsToday}
                 fasting={fasting}
                 now={fastNow}
-                movePts={movePts}
+                // The same total as the Move screen: today's steps plus what
+                // activities earned (Steve, Nov 2026: 7,890 here and 28,355
+                // there read as two different numbers).
+                movePts={movePts === null ? null : movePts + (snap?.stepsToday ?? 0)}
                 pillars={{ fasting: fastingOn, move: moveOn }}
                 needsSetup={!goalsSet}
                 onOpenSteps={() => {
@@ -3346,6 +3349,7 @@ export function HomeScreen({
                 onSetGoals={() => setSetupOpen(true)}
                 water={
                   <WaterRow
+                    compact
                     onOpen={() => {
                       noteTodayTap('water');
                       setOpenTile('water');
