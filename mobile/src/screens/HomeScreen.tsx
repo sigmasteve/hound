@@ -1063,7 +1063,8 @@ export function HomeScreen({
             pushStarterToast(`✓ ${STARTER_TEXT[id].title} · +${step?.bones ?? 0} Bones`, id);
           }
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setStarterChecked(true));
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []),
   );
@@ -1286,6 +1287,9 @@ export function HomeScreen({
   // Your first week (0282): new accounts' starter path, in place of Finish
   // setting up. Each step ticks (and pays) when Today next asks.
   const [starter, setStarter] = useState<StarterPath | null>(null);
+  // Whether we've asked yet: until then Today doesn't know if this is a
+  // new account, so the one line waits rather than flash in and out.
+  const [starterChecked, setStarterChecked] = useState(!isSupabaseConfigured);
   const [claimingStarter, setClaimingStarter] = useState(false);
   const [getStartedDismissed, setGetStartedDismissed] = useState(true);
   const [claimingOnboarding, setClaimingOnboarding] = useState(false);
@@ -3024,7 +3028,6 @@ export function HomeScreen({
     fastDoneToday: !fasting?.open && !!fasting?.days.some((d) => d.day === todayKey && d.hours > 0),
     games: turnGroups.length,
     topGame: upNext ? `your turn in ${upNext.challengeName}` : null,
-    starterLeft: starter?.show ? starterLeft(starter).length : 0,
     streak: goalStreak?.streak ?? 0,
     houndName: kennel?.name ?? null,
     houndMood: kennel ? { happy: 'happy', okay: 'doing okay', hungry: 'hungry', sleepy: 'sleepy' }[kennel.mood] : null,
@@ -3036,9 +3039,6 @@ export function HomeScreen({
     else if (l === 'games') {
       if (turnGroups.length === 1 && upNext) onOpenAction(actionRoute(upNext));
       else setOpenTile('needs');
-    } else if (l === 'starter') {
-      const next = starter ? starterLeft(starter)[0] : null;
-      if (next) openStarterStep(next.id);
     } else onGoTab('kennel');
   };
 
@@ -3231,7 +3231,12 @@ export function HomeScreen({
           across the top. Decoration only; nothing moves. */}
       <HolidayHeader />
       {/* The day in one sentence (version A), above everything. */}
-      {extras.one_line && <TodayLine input={lineInput} lead={houndLead} onLink={onLineLink} />}
+      {/* Not for a new account (Steve, Nov 2026: "totally confusing for
+          someone's first time"): You're in and Your first week guide them,
+          so the line waits until both are done. */}
+      {extras.one_line && starterChecked && !starter?.show && !youreIn?.show && (
+        <TodayLine input={lineInput} lead={houndLead} onLink={onLineLink} />
+      )}
       {/* A new account's Global challenges (0222): "You're in", with
           Leave and Undo, until Got it. Where the Global challenges sit. */}
       {youreIn?.show && youreIn.challenges.length > 0 && (
