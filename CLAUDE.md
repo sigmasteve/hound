@@ -424,13 +424,30 @@ Inside the scroll, in order:
      until Tuesday noon, local), else today's Step rank. (Fasting is in
      Your day now, not a tile.)
    - Journey, full width, when you're on one and the extra is on.
+   - Your first week (`home/StarterCard.tsx`, 0282, Steve's mock-up
+     claude.ai/artifact/KdjJsJ8YK3tvsFXHyn8MMf), right under Your day, for
+     new accounts (made after `starter_config.start_after`): a step for each
+     part they ticked in the welcome wizard (goal: hit the step goal for a
+     day, always; fast: start a fast, ticked Intermittent fasting and not
+     under 16; move: log an activity / time a routine / a watch workout,
+     ticked Workouts, Activities or Strength or nothing), then global: join
+     a Global themselves (an auto-joined one doesn't count). Each step's
+     button opens where it's done; `my_starter_path` ticks and pays them
+     whenever Today asks (a toast each), "Not for me" drops one, and once
+     every step left is done the card's claim pays the finish and the
+     Starter Bandana (`bandana_starter`) and closes Finish setting up too.
+     Seven days (`starter_config.days`), then unfinished steps drop off and
+     the card goes. While the next step is the Global, Try this is ringed
+     and says "Step N of N". Amounts and on/off are Admin → Overview →
+     Status → Your first week.
    - (Your hound's strip goes right under Your day instead of at the
      bottom on its birthday, or every day with the "Your hound at the top"
      extra.)
 4. The notifications ask (PushAskCard), once you have a friend or a
    challenge.
 5. Finish setting up (GetStartedCard), until the reward is claimed or
-   it's dismissed.
+   it's dismissed; only for accounts made before the starter path (and
+   never alongside it).
 6. Your hound's strip (`home/HoundStrip.tsx`, 0281: it was a small
    tile): the hound drawn large, its mood and what would cheer it up
    (`moodReason`), "Meet <name>" for its first three days (from
