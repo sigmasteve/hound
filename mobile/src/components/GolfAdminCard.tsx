@@ -6,12 +6,27 @@ import { Card } from './Card';
 import { Button } from './Button';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
-import { getGolfOverview, getGolfPuttingOverview, setGolfConfig, type GolfConfig, type GolfOverview, type GolfPuttingOverview } from '../challenges/golfApi';
+import { getGolfOverview, getGolfPuttingOverview, setGolfConfig, type GolfConfig, type GolfOverview, type GolfPushMin, type GolfPuttingOverview } from '../challenges/golfApi';
+import { SegmentedControl } from './SegmentedControl';
+
+// Which scores send the others in a game a push (0284), for every golf game.
+const PUSH_OPTIONS: { value: GolfPushMin; label: string }[] = [
+  { value: 'birdie', label: 'Birdie+' },
+  { value: 'eagle', label: 'Eagle+' },
+  { value: 'ace', label: 'Ace' },
+  { value: 'none', label: 'None' },
+];
+const PUSH_NOTE: Record<GolfPushMin, string> = {
+  birdie: 'A birdie or better tells everyone else in the game (in the Hound Open, the player’s friends in it).',
+  eagle: 'An eagle or better (a hole in one always counts) tells everyone else in the game; birdies stay quiet.',
+  ace: 'Only a hole in one sends a push.',
+  none: 'No score pushes. The board still shows every score.',
+};
 import { golfCourseName } from '../challenges/golf';
 
 // Admin → Golf (0200): how it's played, and the numbers behind the
 // banks and the Bones, live for the next shot or settle.
-const FIELDS: { key: Exclude<keyof GolfConfig, 'enabled'>; label: string; note: string; min: number; max: number }[] = [
+const FIELDS: { key: Exclude<keyof GolfConfig, 'enabled' | 'push_min'>; label: string; note: string; min: number; max: number }[] = [
   { key: 'steps_per_yard', label: 'Steps a yard', note: 'Steps that bank one yard (10: a 250-yard drive is 2,500 steps)', min: 1, max: 100 },
   { key: 'strength_mult', label: 'Strength', note: 'Power for each minute of strength training', min: 0, max: 10 },
   { key: 'golf_mult', label: 'Golf', note: 'Power for each minute of a golf workout', min: 0, max: 10 },
@@ -161,6 +176,19 @@ export function GolfAdminCard({ onChanged }: { onChanged?: (o: GolfOverview) => 
               <Text style={styles.value}>{value}</Text>
             </View>
           ))}
+          {data.config.push_min && (
+            <View style={{ gap: 6, paddingTop: 6 }}>
+              <Text style={styles.value}>Score pushes, every golf game</Text>
+              <SegmentedControl<GolfPushMin>
+                options={PUSH_OPTIONS}
+                value={data.config.push_min}
+                onChange={(v) => {
+                  if (!saving && v !== data.config.push_min) save({ push_min: v });
+                }}
+              />
+              <Text style={styles.label}>{PUSH_NOTE[data.config.push_min]}</Text>
+            </View>
+          )}
           <Text style={[styles.value, { paddingTop: 6 }]}>Banks and Bones</Text>
           {FIELDS.map((f) => (
             <View key={f.key} style={styles.field}>
