@@ -58,7 +58,7 @@ export async function scheduleFastingReminders(f: MyFasting | null): Promise<voi
         'fasting-36',
         new Date(start + 36 * 3600000),
         'Still fasting?',
-        'You’re 36 hours in. How do you feel? If you’ve eaten, end your fast. If you feel unwell, eat.',
+        'You’re 36 hours in. How do you feel? Forgot to end it? Tap End fast and pick when you ate. If you feel unwell, eat.',
       );
       return;
     }
