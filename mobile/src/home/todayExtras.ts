@@ -4,12 +4,14 @@ import { supabase } from '../lib/supabase';
 
 // Customize Today (0278, the streamlining, Steve Nov 2026): Today opens
 // on the basics, and the extras are switches here, off for everyone until
-// they turn one on. Saved per account on the server, with a copy on the
+// they turn one on. The one line at the top (0283) is the one switch
+// that's on until it's turned off. Saved per account on the server, with a copy on the
 // phone so Today doesn't wait for it (and works offline).
-export type TodayExtra = 'week' | 'rank' | 'journey' | 'fasting_card' | 'holiday' | 'hound_top';
+export type TodayExtra = 'one_line' | 'week' | 'rank' | 'journey' | 'fasting_card' | 'holiday' | 'hound_top';
 export type TodayExtras = Record<TodayExtra, boolean>;
 
 export const TODAY_EXTRAS: { id: TodayExtra; label: string; detail: string }[] = [
+  { id: 'one_line', label: 'Your day in one line', detail: 'The sentence at the top, with links. On until you turn it off.' },
   { id: 'week', label: 'Week in review', detail: 'Last week’s recap, Monday until Tuesday noon.' },
   { id: 'rank', label: 'Step rank', detail: 'Where today’s steps put you among your friends.' },
   { id: 'journey', label: 'Journey', detail: 'Your Journey’s next stop, when you’re on one.' },
@@ -18,7 +20,8 @@ export const TODAY_EXTRAS: { id: TodayExtra; label: string; detail: string }[] =
   { id: 'hound_top', label: 'Your hound at the top', detail: 'Its strip above Up next instead of at the bottom.' },
 ];
 
-export const NO_EXTRAS: TodayExtras = { week: false, rank: false, journey: false, fasting_card: false, holiday: false, hound_top: false };
+// Before anything's saved: the one line on, every extra off.
+export const NO_EXTRAS: TodayExtras = { one_line: true, week: false, rank: false, journey: false, fasting_card: false, holiday: false, hound_top: false };
 
 const KEY = 'today:extras';
 let cache: TodayExtras | null = null;
@@ -29,7 +32,8 @@ function clean(raw: unknown): TodayExtras {
   const out = { ...NO_EXTRAS };
   if (raw && typeof raw === 'object') {
     for (const k of Object.keys(out) as TodayExtra[]) {
-      if ((raw as Record<string, unknown>)[k] === true) out[k] = true;
+      const v = (raw as Record<string, unknown>)[k];
+      if (typeof v === 'boolean') out[k] = v;
     }
   }
   return out;
@@ -120,7 +124,15 @@ export type TodayTap =
   | 'try_open'
   | 'try_join'
   | 'try_dismiss'
-  | 'hound_strip';
+  | 'hound_strip'
+  // 0283: Today's one line: its links, and the hound saying it.
+  | 'line_steps'
+  | 'line_fast'
+  | 'line_games'
+  | 'line_starter'
+  | 'line_streak'
+  | 'line_hound'
+  | 'line_spoken';
 
 export function noteTodayTap(what: TodayTap): void {
   if (!supabase) return;

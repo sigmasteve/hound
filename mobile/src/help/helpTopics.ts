@@ -82,6 +82,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
       title: 'The Today screen',
       summary: 'Your home base — check it once a day.',
       steps: [
+        'The line at the top sums up your day: steps to go, when your fast ends, and the games waiting. Tap any underlined part to go straight there. Once a day, at a random moment, your hound says it for you. Don’t want it? Turn off “Your day in one line” in Customize Today.',
         'Your day comes first: your steps and workouts, your fast (if you fast) and your Move points side by side, with water under them. Tap one to open it; Steps & workouts shows each goal, where you are on it, and what’s left.',
         'Your first week (new accounts): under Your day, a step for each part of Hound you ticked when you joined (hit your step goal, start a fast, log an activity), then joining a Global challenge. Each pays Bones when it’s done, “Not for me” drops one, and finishing them all within the week earns more Bones and the Starter Bandana for your hound.',
         `New here? A short setup walks you through it one step at a time: connect your health app, say how you’ll use Hound, set goals, turn on notifications, add a friend, join a challenge and meet your hound. Connect health, add a friend and join a challenge for a ${currency} reward. Skipped something? Today’s “Finish setting up” picks up where you left off.`,
