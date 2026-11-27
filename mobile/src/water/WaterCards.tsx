@@ -56,7 +56,11 @@ export function WaterRow({
   onOpen,
   onAdded,
   onOfferDismissed,
+  compact = false,
 }: {
+  // Under Your day (Steve, Nov 2026: "too large compared to Your day"): one
+  // slim line, the count and the drops side by side, a smaller +.
+  compact?: boolean;
   onOpen: () => void;
   onAdded: (entry: WaterEntry) => void;
   // After × on the offer, to say where water lives now.
@@ -120,14 +124,21 @@ export function WaterRow({
   return (
     <Pressable
       onPress={onOpen}
-      style={({ pressed }) => [styles.row, { backgroundColor: c.wash }, pressed && { opacity: 0.85 }]}
+      style={({ pressed }) => [styles.row, compact && styles.rowCompact, { backgroundColor: c.wash }, pressed && { opacity: 0.85 }]}
       accessibilityRole="button"
       accessibilityLabel={`Water. ${amountNumber(water.todayMl, goal.units)} of ${amountText(goal.targetMl, goal.units)}. Open`}
     >
-      <View style={{ marginTop: -18, marginBottom: -2 }}>
-        <WaterGlass width={34} height={46} fraction={water.todayMl / goal.targetMl} pours={water.pours} met={water.met} haptics />
+      <View style={compact ? undefined : { marginTop: -18, marginBottom: -2 }}>
+        <WaterGlass
+          width={compact ? 18 : 34}
+          height={compact ? 24 : 46}
+          fraction={water.todayMl / goal.targetMl}
+          pours={water.pours}
+          met={water.met}
+          haptics
+        />
       </View>
-      <View style={{ flex: 1, gap: 6 }}>
+      <View style={compact ? styles.compactBody : { flex: 1, gap: 6 }}>
         <Text style={[styles.count, water.met && { color: c.water }]} numberOfLines={1}>
           {water.met ? (
             `✓ ${amountText(water.todayMl, goal.units)} · goal met`
@@ -149,13 +160,18 @@ export function WaterRow({
           water.add().then((e) => e && onAdded(e));
         }}
         onLongPress={onOpen}
-        style={({ pressed }) => [styles.plus, { backgroundColor: c.water, shadowColor: c.water }, pressed && { transform: [{ scale: 0.9 }] }]}
+        style={({ pressed }) => [
+          styles.plus,
+          compact && styles.plusCompact,
+          { backgroundColor: c.water, shadowColor: c.water },
+          pressed && { transform: [{ scale: 0.9 }] },
+        ]}
         hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel={`Add a ${name} of water`}
         accessibilityHint="Hold to pick another size"
       >
-        <PlusIcon size={22} color={c.on} weight="bold" />
+        <PlusIcon size={compact ? 18 : 22} color={c.on} weight="bold" />
       </Pressable>
     </Pressable>
   );
@@ -505,6 +521,9 @@ function makeStyles(colors: Palette) {
     count: { fontFamily: font.headingSemibold, fontSize: 14, color: colors.text },
     countOf: { fontFamily: font.heading, color: withAlpha(colors.text, 0.6) },
     pips: { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
+    rowCompact: { gap: 10, paddingVertical: 5, paddingLeft: 10, paddingRight: 6, borderRadius: 12 },
+    compactBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+    plusCompact: { width: 34, height: 34, borderRadius: 17, shadowRadius: 4, elevation: 2 },
     offerNote: { fontSize: 12, lineHeight: 16, color: withAlpha(colors.text, 0.6) },
     offerAdd: { paddingHorizontal: 14, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
     offerAddText: { fontFamily: font.headingSemibold, fontSize: 14 },

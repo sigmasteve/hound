@@ -7,7 +7,8 @@ import { useFocusEffect } from '@react-navigation/native';
 // one sentence at the top of Today, each fact a link to where it's done.
 // At most three facts, in this order: your step goal, your fast, the games
 // waiting (or your first week's steps); with none of those, your streak or
-// your hound. Never guilt: nothing pushes steps after 10 PM.
+// your hound. Never guilt: nothing pushes steps after 10 PM. No filler
+// (Steve, Nov 2026: "nothing's waiting" took space from Your day).
 //
 // Once a day, at a random moment, your hound says it instead ("Biscuit's
 // ready: 1,200 steps to go, ..."): the first open after a time picked at
@@ -78,8 +79,6 @@ export function lineFacts(i: LineInput): LinePart[][] {
   if (facts.length === 0) {
     if (i.streak > 1) facts.push([{ text: `a ${i.streak}-day streak`, link: 'streak' }, { text: ' going' }]);
     else if (i.houndName) facts.push([{ text: `${i.houndName} is ${i.houndMood ?? 'here'}`, link: 'hound' }]);
-  } else if (facts.length < 3 && i.games === 0 && i.starterLeft === 0) {
-    facts.push([{ text: 'nothing’s waiting' }]);
   }
   return facts.slice(0, 3);
 }

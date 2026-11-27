@@ -231,7 +231,7 @@ export function YouScreen({
               {
                 label: 'Move points',
                 Icon: LightningIcon,
-                detail: movePts !== null ? `${fmtPts(movePts)} today · routines & strength` : 'Routines & strength',
+                detail: movePts ? `${fmtPts(movePts)} from activities today · routines & strength` : 'Routines & strength',
                 onPress: onOpenMove,
               },
               { label: 'Log an activity', Icon: PlusCircleIcon, detail: 'Anything you did without a watch', onPress: onOpenMoveLog },
