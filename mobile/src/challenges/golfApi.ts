@@ -283,7 +283,13 @@ export interface GolfConfig {
   skin_bones: number;
   win_bones: number;
   play_bones: number;
+  // Which scores send the others in the game a push (0284): a birdie or
+  // better, an eagle or better, only a hole in one, or none. Undefined
+  // before 0284 is run.
+  push_min?: GolfPushMin;
 }
+
+export type GolfPushMin = 'birdie' | 'eagle' | 'ace' | 'none';
 
 export interface GolfOverview {
   config: GolfConfig;
