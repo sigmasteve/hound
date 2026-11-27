@@ -352,6 +352,20 @@ notice takes a `useNoticeTurn` id in that order.
 
 Inside the scroll, in order:
 
+- First, above everything: Today's one line (`home/TodayLine.tsx`,
+  `home/todayLine.ts`; Steve picked version A of the mock-up
+  claude.ai/artifact/GJqj1VqeT3YxacL57rznFR): the day in one sentence,
+  worked out on the phone from what Today already has. Up to three facts
+  in order: the step goal (left, or done; nothing pushing steps after
+  10 PM), the fast (when it ends, or done), the games waiting (one by name,
+  or "N games"), else your first week's steps left; with none, the streak
+  or the hound. Each fact is a link to where it's done (Goals, Fasting, the
+  game or Up next, the starter step, the Kennel). Once a day, at a random
+  moment, the hound says it ("Biscuit's ready: ..."): the first time Today
+  comes into view after a time picked at random between 7 AM and 9 PM
+  (`useHoundSaysIt`, kept on the phone), so it's a surprise tied to when
+  someone opens Hound. Taps and the hound's days count for Admin (0283,
+  Customize Today's card).
 0. A holiday theme's countdown pill and garland, only while one is
    scheduled (Admin → Holiday themes, 0184) and only for people who
    turned Holiday decorations on (an extra). Decoration only: the tiles

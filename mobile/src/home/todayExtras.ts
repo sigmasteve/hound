@@ -120,7 +120,15 @@ export type TodayTap =
   | 'try_open'
   | 'try_join'
   | 'try_dismiss'
-  | 'hound_strip';
+  | 'hound_strip'
+  // 0283: Today's one line: its links, and the hound saying it.
+  | 'line_steps'
+  | 'line_fast'
+  | 'line_games'
+  | 'line_starter'
+  | 'line_streak'
+  | 'line_hound'
+  | 'line_spoken';
 
 export function noteTodayTap(what: TodayTap): void {
   if (!supabase) return;

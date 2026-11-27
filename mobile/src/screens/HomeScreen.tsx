@@ -194,6 +194,8 @@ import { useCurrencyName } from '../organizations/useCurrencyName';
 import { WeeklyRecapCard } from '../components/WeeklyRecapCard';
 import { TryThisCard } from '../home/TryThisCard';
 import { StarterCard } from '../home/StarterCard';
+import { TodayLine } from '../home/TodayLine';
+import { useHoundSaysIt, type LineInput, type LineLink } from '../home/todayLine';
 import { claimStarter, getStarterPath, skipStarterStep, STARTER_TEXT, starterLeft, type StarterPath, type StarterStepId } from '../home/starterPath';
 import { getTryThis, tryThisNotNow, tryThisOrder, type TryThisState } from '../home/tryThis';
 import { HoundStrip, houndStripOnTop } from '../home/HoundStrip';
@@ -1806,6 +1808,11 @@ export function HomeScreen({
   // Its age and birthday, for the strip (0281: "Meet <name>" the first
   // three days, up top on its birthday).
   const houndProfile = useHoundProfile().profile;
+  // Today's one line: once a day, at a random moment, the hound says it.
+  const houndLead = useHoundSaysIt(kennel?.name ?? null);
+  useEffect(() => {
+    if (houndLead) noteTodayTap('line_spoken');
+  }, [houndLead]);
 
   // Water: each glass logged gets a toast with Undo, replacing the last
   // one rather than queueing behind it. Built once the new total shows.
@@ -3005,6 +3012,36 @@ export function HomeScreen({
   const quietOne = (challengeId: string, quiet: boolean) => {
     setChallengeQuiet(challengeId, quiet).catch((e) => Alert.alert('Up next', e instanceof Error ? e.message : 'Couldn’t save that.'));
   };
+  // Today's one line (version A, Steve Nov 2026): the day in a sentence,
+  // each fact a link to where it's done.
+  const todayKey = localDayKey(new Date());
+  const lineInput: LineInput = {
+    now: new Date(),
+    stepGoal: goalProgress?.find((g) => g.goal.metric === 'steps' && g.goal.period === 'day')?.goal.target ?? null,
+    steps: snap ? snap.stepsToday : null,
+    fastOn: fastingPillar(fasting, myUses),
+    fastOpen: fasting?.open ?? null,
+    fastDoneToday: !fasting?.open && !!fasting?.days.some((d) => d.day === todayKey && d.hours > 0),
+    games: turnGroups.length,
+    topGame: upNext ? `your turn in ${upNext.challengeName}` : null,
+    starterLeft: starter?.show ? starterLeft(starter).length : 0,
+    streak: goalStreak?.streak ?? 0,
+    houndName: kennel?.name ?? null,
+    houndMood: kennel ? { happy: 'happy', okay: 'doing okay', hungry: 'hungry', sleepy: 'sleepy' }[kennel.mood] : null,
+  };
+  const onLineLink = (l: LineLink) => {
+    noteTodayTap(`line_${l}`);
+    if (l === 'steps' || l === 'streak') setOpenTile('goals');
+    else if (l === 'fast') onOpenAction(['Fasting', undefined]);
+    else if (l === 'games') {
+      if (turnGroups.length === 1 && upNext) onOpenAction(actionRoute(upNext));
+      else setOpenTile('needs');
+    } else if (l === 'starter') {
+      const next = starter ? starterLeft(starter)[0] : null;
+      if (next) openStarterStep(next.id);
+    } else onGoTab('kennel');
+  };
+
   const muteNeeds = () =>
     Alert.alert('Mute Needs you?', 'It shrinks to a small tile until then. Everything’s still there when you open it, and notifications still come.', [
       ...MUTE_CHOICES.map((c) => ({
@@ -3193,6 +3230,8 @@ export function HomeScreen({
       {/* A holiday theme (0184), when one's on: its countdown and garland
           across the top. Decoration only; nothing moves. */}
       <HolidayHeader />
+      {/* The day in one sentence (version A), above everything. */}
+      <TodayLine input={lineInput} lead={houndLead} onLink={onLineLink} />
       {/* A new account's Global challenges (0222): "You're in", with
           Leave and Undo, until Got it. Where the Global challenges sit. */}
       {youreIn?.show && youreIn.challenges.length > 0 && (

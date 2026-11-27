@@ -32,6 +32,14 @@ const TAPS: { id: string; label: string }[] = [
   { id: 'move', label: 'Move' },
   { id: 'water', label: 'Water' },
   { id: 'customize', label: 'Opened Customize Today' },
+  // Today's one line (0283): its links, and the days the hound said it.
+  { id: 'line_steps', label: 'One line: steps link' },
+  { id: 'line_fast', label: 'One line: fast link' },
+  { id: 'line_games', label: 'One line: games link' },
+  { id: 'line_starter', label: 'One line: first week link' },
+  { id: 'line_streak', label: 'One line: streak link' },
+  { id: 'line_hound', label: 'One line: hound link' },
+  { id: 'line_spoken', label: 'One line: the hound said it' },
 ];
 
 export function TodayAdminCard({ onChanged }: { onChanged?: (d: TodayOverview) => void }) {
@@ -95,7 +103,7 @@ export function TodayAdminCard({ onChanged }: { onChanged?: (d: TodayOverview) =
               <Text style={styles.value}>{data.extras[x.id]} on</Text>
             </View>
           ))}
-          <Text style={[styles.label, { marginTop: 4 }]}>Your day, last 7 days ({data.tappedEver} have ever tapped a ring)</Text>
+          <Text style={[styles.label, { marginTop: 4 }]}>Your day and the one line, last 7 days ({data.tappedEver} have ever tapped)</Text>
           {TAPS.map((t) => {
             const v = data.taps7d[t.id] ?? { people: 0, taps: 0 };
             return (
