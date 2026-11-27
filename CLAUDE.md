@@ -450,8 +450,9 @@ Inside the scroll, in order:
      part they ticked in the welcome wizard (goal: hit the step goal for a
      day, always; fast: start a fast, ticked Intermittent fasting and not
      under 16; move: log an activity / time a routine / a watch workout,
-     ticked Workouts, Activities or Strength or nothing), then global: join
-     a Global themselves (an auto-joined one doesn't count). Each step's
+     ticked Workouts, Activities or Strength or nothing), then global: be
+     in a Global (since 0285 the one Hound joined them to on the first open
+     counts too, unless they left it). Each step's
      button opens where it's done; `my_starter_path` ticks and pays them
      whenever Today asks (a toast each), "Not for me" drops one, and once
      every step left is done the card's claim pays the finish and the
