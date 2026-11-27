@@ -15,6 +15,7 @@ export const TODAY_EXTRAS: { id: TodayExtra; label: string; detail: string }[] =
   { id: 'journey', label: 'Journey', detail: 'Your Journey’s next stop, when you’re on one.' },
   { id: 'fasting_card', label: 'Fasting card', detail: 'Swipe Your day sideways to the full fasting card.' },
   { id: 'holiday', label: 'Holiday decorations', detail: 'The countdown, the trims and the falling snow.' },
+  { id: 'hound_top', label: 'Your hound at the top', detail: 'Its strip above Up next instead of at the bottom.' },
 ];
 
 export const NO_EXTRAS: TodayExtras = { week: false, rank: false, journey: false, fasting_card: false, holiday: false, hound_top: false };
@@ -103,7 +104,23 @@ export function useTodayExtras(): TodayExtras {
 
 // Your day's taps, opening Customize Today, Up next's button and Play
 // your turns (0279), for Admin's numbers.
-export type TodayTap = 'steps' | 'fasting' | 'move' | 'water' | 'customize' | 'upnext' | 'play_start' | 'play_turn' | 'play_done' | 'play_stop';
+export type TodayTap =
+  | 'steps'
+  | 'fasting'
+  | 'move'
+  | 'water'
+  | 'customize'
+  | 'upnext'
+  | 'play_start'
+  | 'play_turn'
+  | 'play_done'
+  | 'play_stop'
+  // 0281: Try this and the hound strip.
+  | 'try_seen'
+  | 'try_open'
+  | 'try_join'
+  | 'try_dismiss'
+  | 'hound_strip';
 
 export function noteTodayTap(what: TodayTap): void {
   if (!supabase) return;

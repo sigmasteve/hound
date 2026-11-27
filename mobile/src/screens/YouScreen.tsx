@@ -15,6 +15,11 @@ import {
   UsersThreeIcon,
   TrophyIcon,
   MapTrifoldIcon,
+  ForkKnifeIcon,
+  RankingIcon,
+  LightningIcon,
+  PlusCircleIcon,
+  FootprintsIcon,
 } from 'phosphor-react-native';
 import { Avatar } from '../components/Avatar';
 import { Card } from '../components/Card';
@@ -38,10 +43,18 @@ import { BonesSheet } from '../components/BonesSheet';
 import type { HealthAuthStatus } from '../health/types';
 import { getMyJourney, type MyJourney } from '../journeys/journeyApi';
 import { isLive, myPackFuns } from '../packFun/packFunApi';
+import { getMyFasting, type MyFasting } from '../fasting/fastingApi';
+import { planLabel } from '../fasting/fasting';
+import { getMyMove } from '../move/moveApi';
+import { fmtPts } from '../move/move';
+import { useMyUses } from '../onboarding/myUses';
+import { fastingPillar, movePillar } from '../home/pillars';
 
 // The You tab: who you are and how you're doing (level, Hound Score,
-// Bones), then the places that are about you, in three groups: your
-// progress, where Bones go, and the app itself. Everything here used to
+// Bones), then the places that are about you, by Hound's pillars like
+// Today (the streamlining, Steve Nov 2026): Steps & workouts, Fasting and
+// Move (for the people who use them, the same rule as Your day), then Fun
+// & friends and the app itself. Everything here used to
 // be spread across Settings, the Data and Connect tabs, and icons in the
 // top bar. Tapping Bones explains how to earn and spend them. Journeys
 // are a row in Your progress, not a card (Steve, Nov 2026: the big card
@@ -57,6 +70,10 @@ export function YouScreen({
   onOpenPackFun,
   onOpenHealthData,
   onOpenMove,
+  onOpenMoveLog,
+  onOpenSnack,
+  onOpenFasting,
+  onOpenFastingBoard,
   onOpenSettings,
   onOpenHelp,
 }: {
@@ -71,6 +88,10 @@ export function YouScreen({
   onOpenHealthData: () => void;
   // Move (0270): log an activity, start a routine, log strength.
   onOpenMove: () => void;
+  onOpenMoveLog: () => void;
+  onOpenSnack: () => void;
+  onOpenFasting: () => void;
+  onOpenFastingBoard: () => void;
   onOpenSettings: () => void;
   onOpenHelp: () => void;
 }) {
@@ -94,6 +115,10 @@ export function YouScreen({
   const [journey, setJourney] = useState<MyJourney | null | undefined>(undefined);
   // Pack Activities' row says when one is live or coming up.
   const [packFunDetail, setPackFunDetail] = useState<string | null>(null);
+  // Which pillars to show, and their one-line details.
+  const uses = useMyUses();
+  const [fasting, setFasting] = useState<MyFasting | null>(null);
+  const [movePts, setMovePts] = useState<number | null>(null);
   useFocusEffect(
     useCallback(() => {
       health
@@ -122,6 +147,12 @@ export function YouScreen({
           setPackFunDetail(live ? `${live} live now` : soon ? `${soon} coming up` : 'Walk, run or hike together');
         })
         .catch(() => setPackFunDetail(null));
+      getMyFasting()
+        .then(setFasting)
+        .catch(() => setFasting(null));
+      getMyMove()
+        .then((m) => setMovePts(m ? m.pts : null))
+        .catch(() => setMovePts(null));
     }, [user?.id, health]),
   );
 
@@ -154,9 +185,16 @@ export function YouScreen({
     journey && !journey.finishedAt
       ? `${journey.courseName} · ${Math.min(100, Math.floor((journey.miles / Math.max(0.1, journey.courseMiles)) * 100))}%`
       : 'Walk a famous course';
+  const fastingOn = isSupabaseConfigured && fastingPillar(fasting, uses);
+  const moveOn = isSupabaseConfigured && movePillar(uses, movePts);
+  const fastDetail = fasting?.open
+    ? `Fasting now · ${planLabel(fasting.open.goalHours)}`
+    : fasting?.startedAny
+      ? `${planLabel(fasting.planHours)}${fasting.numbers.streak > 0 ? ` · 🔥 ${fasting.numbers.streak}` : ''}`
+      : 'Start your first fast';
   const groups: { title: string; rows: Row[] }[] = [
     {
-      title: 'Your progress',
+      title: 'Steps & workouts',
       rows: [
         {
           label: 'Goals',
@@ -166,16 +204,52 @@ export function YouScreen({
         },
         { label: 'Stats & records', Icon: ChartLineUpIcon, detail: 'Steps, miles, bests', onPress: onOpenStats },
         {
-          label: 'Achievements',
-          Icon: TrophyIcon,
-          detail: achievementCounts ? `${achievementCounts.earned} of ${achievementCounts.total}` : null,
-          onPress: onOpenAchievements,
-        },
-        {
           label: 'Journeys',
           Icon: MapTrifoldIcon,
           detail: journeyDetail,
           onPress: journey && !journey.finishedAt ? onOpenJourney : onPickJourney,
+        },
+        { label: 'Health data', Icon: HeartbeatIcon, detail: healthDetail.text, tone: healthDetail.tone, onPress: onOpenHealthData },
+      ],
+    },
+    ...(fastingOn
+      ? [
+          {
+            title: 'Fasting',
+            rows: [
+              { label: 'Your fast', Icon: ForkKnifeIcon, detail: fastDetail, onPress: onOpenFasting },
+              { label: 'Fasting games board', Icon: RankingIcon, detail: 'Fast Points with friends', onPress: onOpenFastingBoard },
+            ],
+          },
+        ]
+      : []),
+    ...(moveOn
+      ? [
+          {
+            title: 'Move',
+            rows: [
+              {
+                label: 'Move points',
+                Icon: LightningIcon,
+                detail: movePts !== null ? `${fmtPts(movePts)} today · routines & strength` : 'Routines & strength',
+                onPress: onOpenMove,
+              },
+              { label: 'Log an activity', Icon: PlusCircleIcon, detail: 'Anything you did without a watch', onPress: onOpenMoveLog },
+              { label: 'Movement snack', Icon: FootprintsIcon, detail: 'A few minutes of steps, for Bones', onPress: onOpenSnack },
+            ],
+          },
+        ]
+      : []),
+    {
+      title: 'Fun & friends',
+      rows: [
+        { label: 'Kennel', Icon: DogIcon, detail: 'Your hound, its yard and treats', onPress: onOpenKennel },
+        { label: 'Your look', Icon: CoatHangerIcon, detail: 'Avatar frames & icons', onPress: onOpenLocker },
+        {
+          label: 'Achievements',
+          Icon: TrophyIcon,
+          detail: achievementCounts ? `${achievementCounts.earned} of ${achievementCounts.total}` : null,
+          onPress: onOpenAchievements,
         },
         {
           label: 'Pack Activities',
@@ -187,17 +261,10 @@ export function YouScreen({
       ],
     },
     {
-      title: `Spend your ${currencyName}`,
-      rows: [
-        { label: 'Your look', Icon: CoatHangerIcon, detail: 'Avatar frames & icons', onPress: onOpenLocker },
-        { label: 'Kennel', Icon: DogIcon, detail: 'Your hound’s outfits & treats', onPress: onOpenKennel },
-      ],
-    },
-    {
       title: 'App',
       rows: [
-        { label: 'Health data', Icon: HeartbeatIcon, detail: healthDetail.text, tone: healthDetail.tone, onPress: onOpenHealthData },
-        ...(isSupabaseConfigured
+        // Without Move in the list above, the way to log something.
+        ...(isSupabaseConfigured && !moveOn
           ? [{ label: 'Log a workout / activity', Icon: PencilSimpleIcon, detail: 'Routines, strength, anything', onPress: onOpenMove }]
           : []),
         { label: 'Settings', Icon: GearSixIcon, detail: 'Profile, notifications, look', onPress: onOpenSettings },

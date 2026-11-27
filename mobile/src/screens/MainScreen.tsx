@@ -120,6 +120,10 @@ export function MainScreen({ route, navigation }: Props) {
             onOpenPackFun={() => navigation.navigate('PackFunHub')}
             onOpenHealthData={() => navigation.navigate('HealthData')}
             onOpenMove={() => navigation.navigate('Move')}
+            onOpenMoveLog={() => navigation.navigate('Move', { log: true })}
+            onOpenSnack={() => navigation.navigate('MoveSnack', { source: 'self' })}
+            onOpenFasting={() => navigation.navigate('Fasting')}
+            onOpenFastingBoard={() => navigation.navigate('FastingBoard')}
             onOpenSettings={() => navigation.navigate('Settings')}
             onOpenHelp={() => navigation.navigate('Help')}
           />

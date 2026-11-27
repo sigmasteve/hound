@@ -36,12 +36,15 @@ export function GlobalChallengesCard({
   onJoin,
   onOpen,
   where = 'today',
+  title,
 }: {
   challenges: GlobalChallenge[];
   joiningId: string | null;
   onJoin: (c: GlobalChallenge) => void;
   onOpen: (c: GlobalChallenge) => void;
   where?: 'today' | 'challenges';
+  // Challenges → Join's groups (0281): "Step races", "Sports"...
+  title?: string;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -76,7 +79,8 @@ export function GlobalChallengesCard({
 
   if (hidden === null) return null;
   const onToday = where === 'today';
-  const hiddenCount = challenges.filter((c) => hidden.has(c.id)).length;
+  // Today shows Try this now (0281), so nothing is hidden from it any more.
+  const hiddenCount = onToday ? challenges.filter((c) => hidden.has(c.id)).length : 0;
   const visible = onToday ? challenges.filter((c) => !hidden.has(c.id)) : challenges;
   const shown = expanded || !onToday ? visible : visible.slice(0, MAX_SHOWN);
   const folded = visible.length - shown.length;
@@ -108,7 +112,7 @@ export function GlobalChallengesCard({
     <View style={styles.card}>
       <View style={styles.header}>
         <GlobeHemisphereWestIcon size={14} color={colors.accentActive} />
-        <Text style={styles.title}>{challenges.length === 1 ? 'GLOBAL HOUND CHALLENGE' : 'GLOBAL HOUND CHALLENGES'}</Text>
+        <Text style={styles.title}>{title ? title.toUpperCase() : challenges.length === 1 ? 'GLOBAL HOUND CHALLENGE' : 'GLOBAL HOUND CHALLENGES'}</Text>
         <Text style={styles.titleNote}>Everyone on Hound can join</Text>
       </View>
       {started.map((c) => (
