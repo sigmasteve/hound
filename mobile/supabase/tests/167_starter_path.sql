@@ -39,16 +39,16 @@ select bones_balance as before from public.profiles where id = :'ann' \gset
 select tests.sign_in(:'ann');
 set local role authenticated;
 select public.my_starter_path() as p \gset
-select is((select jsonb_agg(x order by x) from jsonb_array_elements_text(:'p'::jsonb -> 'just_done') x), '["fast", "goal"]'::jsonb, 'The fast and the step goal tick');
-select is((select bones_balance from public.profiles where id = :'ann') - :before, 20, '10 Bones each');
+select is((select jsonb_agg(x order by x) from jsonb_array_elements_text(:'p'::jsonb -> 'just_done') x), '["fast", "global", "goal"]'::jsonb, 'The fast, the step goal and the Global she was joined to tick');
+select is((select bones_balance from public.profiles where id = :'ann') - :before, 35, '10 Bones each, 15 for the Global');
 select is(public.my_starter_path() -> 'just_done', '[]'::jsonb, 'Paid once');
-select is((select s -> 'done_at' from jsonb_array_elements(public.my_starter_path() -> 'steps') s where s ->> 'id' = 'global'), 'null'::jsonb,
-  'An auto-joined Global doesn''t count');
+select isnt((select s -> 'done_at' from jsonb_array_elements(public.my_starter_path() -> 'steps') s where s ->> 'id' = 'global'), 'null'::jsonb,
+  'The Global Hound joined her to counts (0285)');
 select throws_ok($$select public.starter_skip('fast')$$, 'That one''s done already.', 'A done step can''t be skipped');
 select is((public.starter_skip('move') -> 'steps' -> 2 ->> 'skipped')::boolean, true, 'Not for me');
 reset role;
 
--- Joining one herself finishes it.
+-- (Joining another herself changes nothing.)
 insert into public.challenge_participants (challenge_id, user_id) values ('00000000-0000-0000-0000-0000000000c2', :'ann');
 select tests.sign_in(:'ann');
 set local role authenticated;
