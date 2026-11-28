@@ -94,7 +94,7 @@ export function buildHelpTopics({ currency, labels }: { currency: string; labels
         'Open Up next to see one row per challenge. Quiet this one leaves a challenge out of Up next and Play your turns; it’s still on the Challenges tab, and its notifications still come. Unquiet brings it back.',
         'Need a break? Tap the bell on Up next to mute it for 2 hours, 4 hours, half a day or until tomorrow morning. It shrinks to a small tile until then, with everything still inside; tap it and Unmute to bring it back. Notifications still come.',
         `Your Hound Score, level and ${currency} balance are on the You tab.`,
-        `Want more on Today? Tap Customize Today at the bottom (or Settings → Today) to turn on extras: Week in review (Monday until Tuesday at noon: last week’s steps, challenges finished, Hound Score and ${currency} earned), today’s Step rank, your Journey, the Fasting card you swipe to, and holiday decorations. They’re off until you turn them on, and they follow your account to a new phone.`,
+        `Want more on Today? Tap Customize Today at the bottom (or Settings → Today) to turn on extras: Week in review (Monday until Tuesday at noon: last week’s steps, challenges finished, Hound Score and ${currency} earned), today’s Step rank, your Journey, the Goals card and the Fasting card (swipe Your day sideways to them; the Goals card shows your goals as rings or hound trails, picked under its switch), and holiday decorations. They’re off until you turn them on, and they follow your account to a new phone.`,
         'Only one notice shows at a time above Today (no connection, planned maintenance, a new version, Hound can’t see your steps, or an announcement); when you deal with it, the next one shows.',
       ],
     },

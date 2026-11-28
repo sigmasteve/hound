@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase';
 // they turn one on. The one line at the top (0283) is the one switch
 // that's on until it's turned off. Saved per account on the server, with a copy on the
 // phone so Today doesn't wait for it (and works offline).
-export type TodayExtra = 'one_line' | 'week' | 'rank' | 'journey' | 'fasting_card' | 'holiday' | 'hound_top';
+export type TodayExtra = 'one_line' | 'week' | 'rank' | 'journey' | 'goals_card' | 'fasting_card' | 'holiday' | 'hound_top';
 export type TodayExtras = Record<TodayExtra, boolean>;
 
 export const TODAY_EXTRAS: { id: TodayExtra; label: string; detail: string }[] = [
@@ -15,13 +15,14 @@ export const TODAY_EXTRAS: { id: TodayExtra; label: string; detail: string }[] =
   { id: 'week', label: 'Week in review', detail: 'Last week’s recap, Monday until Tuesday noon.' },
   { id: 'rank', label: 'Step rank', detail: 'Where today’s steps put you among your friends.' },
   { id: 'journey', label: 'Journey', detail: 'Your Journey’s next stop, when you’re on one.' },
+  { id: 'goals_card', label: 'Goals card', detail: 'Swipe Your day sideways to the Goals card: your goals as rings or hound trails.' },
   { id: 'fasting_card', label: 'Fasting card', detail: 'Swipe Your day sideways to the full fasting card.' },
   { id: 'holiday', label: 'Holiday decorations', detail: 'The countdown, the trims and the falling snow.' },
   { id: 'hound_top', label: 'Your hound at the top', detail: 'Its strip above Up next instead of at the bottom.' },
 ];
 
 // Before anything's saved: the one line on, every extra off.
-export const NO_EXTRAS: TodayExtras = { one_line: true, week: false, rank: false, journey: false, fasting_card: false, holiday: false, hound_top: false };
+export const NO_EXTRAS: TodayExtras = { one_line: true, week: false, rank: false, journey: false, goals_card: false, fasting_card: false, holiday: false, hound_top: false };
 
 const KEY = 'today:extras';
 let cache: TodayExtras | null = null;
@@ -132,7 +133,10 @@ export type TodayTap =
   | 'line_starter'
   | 'line_streak'
   | 'line_hound'
-  | 'line_spoken';
+  | 'line_spoken'
+  // 0287: the Goals card, showing (once a day) and tapped.
+  | 'goals_card_seen'
+  | 'goals_card';
 
 export function noteTodayTap(what: TodayTap): void {
   if (!supabase) return;

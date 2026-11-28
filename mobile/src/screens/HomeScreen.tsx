@@ -239,8 +239,8 @@ import { PostBountyModal } from '../components/PostBountyModal';
 import { useBounties } from '../bounties/useBounties';
 import { cancelBounty, canPostToday, postBounty, type Bounty } from '../bounties/bountiesApi';
 import { GoalSetupCard } from '../components/GoalSetupCard';
-import { SheetLink, Tile, TileSheet, TileValue, tileGrid, tileRow } from '../home/TodayTiles';
-import { useTodayTopCard } from '../home/todayPrefs';
+import { GoalsTile, SheetLink, Tile, TileSheet, TileValue, tileGrid, tileRow } from '../home/TodayTiles';
+import { useGoalsTileStyle, useTodayTopCard, type TodayTopCard } from '../home/todayPrefs';
 import { noteTodayTap, useTodayExtras } from '../home/todayExtras';
 import { YourDayCard } from '../home/YourDayCard';
 import { CustomizeTodaySheet } from '../home/CustomizeTodaySheet';
@@ -926,6 +926,9 @@ function takePopup(): boolean {
 // now opens from You.
 export type HomeDestination = MainTab | 'stats' | 'healthData' | 'goals' | 'kennel' | 'setup' | 'journey' | 'settings';
 
+// The last day the Goals card was counted as showing (0287).
+let goalsCardSeenDay: string | null = null;
+
 export function HomeScreen({
   onOpenChallenge,
   onGoTab,
@@ -1360,6 +1363,16 @@ export function HomeScreen({
   // Goals or Fasting across the top, for people who fast (remembered on
   // this phone; swipe between them).
   const [topCard, setTopCard] = useTodayTopCard();
+  // The Goals card's look (0287), rings or hound trails.
+  const goalsTileStyle = useGoalsTileStyle();
+  // The days the Goals card (0287) was the one showing, once a day.
+  useEffect(() => {
+    if (!extras.goals_card || topCard !== 'classic') return;
+    const day = new Date().toDateString();
+    if (goalsCardSeenDay === day) return;
+    goalsCardSeenDay = day;
+    noteTodayTap('goals_card_seen');
+  }, [extras.goals_card, topCard]);
   const topFasting = fasting?.age === 'ok' && !!fasting.startedAny;
   // Your rank among everyone on Hound today (0027_daily_step_totals.sql),
   // in Week in review's spot Thursday to Sunday.
@@ -3375,13 +3388,46 @@ export function HomeScreen({
                 }
               />
             );
-            // The Fasting card to swipe to, an extra (Customize Today).
-            if (!extras.fasting_card || !topFasting || !fasting || topCard === null) return yourDay;
+            // The cards to swipe to, extras (Customize Today): the Goals
+            // card (0287, the Goals tile from before Your day) and the
+            // Fasting card.
+            const pages: { id: TodayTopCard; node: React.ReactNode }[] = [{ id: 'goals', node: yourDay }];
+            if (extras.goals_card && goalsTileStyle && goalProgress) {
+              pages.push({
+                id: 'classic',
+                node: (
+                  <GoalsTile
+                    key="classic"
+                    progress={goalProgress}
+                    streak={goalStreak}
+                    tileStyle={goalsTileStyle}
+                    avatar={{ initials: user?.initials ?? '', frameId: myLook?.frameId, backgroundId: myLook?.backgroundId, iconId: myLook?.iconId }}
+                    needsSetup={!goalsSet}
+                    onOpen={() => {
+                      noteTodayTap('goals_card');
+                      setOpenTile('goals');
+                    }}
+                    onSetGoals={() => setSetupOpen(true)}
+                    water={<WaterRow onOpen={() => setOpenTile('water')} onAdded={waterAdded} />}
+                  />
+                ),
+              });
+            }
+            if (extras.fasting_card && topFasting && fasting) {
+              pages.push({
+                id: 'fasting',
+                node: <TodayFastingCard key="fasting" fasting={fasting} now={fastNow} onOpen={() => onOpenAction(['Fasting', undefined])} />,
+              });
+            }
+            if (pages.length === 1 || topCard === null) return yourDay;
+            const at = Math.max(0, pages.findIndex((p) => p.id === topCard));
             return (
               <TodayTopPager
-                page={topCard === 'fasting' ? 1 : 0}
-                onPage={(i) => setTopCard(i === 1 ? 'fasting' : 'goals')}
-                pages={[yourDay, <TodayFastingCard key="fasting" fasting={fasting} now={fastNow} onOpen={() => onOpenAction(['Fasting', undefined])} />]}
+                // A new set of cards starts over in the right place.
+                key={pages.map((p) => p.id).join(',')}
+                page={at}
+                onPage={(i) => setTopCard(pages[i].id)}
+                pages={pages.map((p) => p.node)}
               />
             );
           })()}

@@ -42,6 +42,8 @@ const TAPS: { id: string; label: string }[] = [
   { id: 'line_streak', label: 'One line: streak link' },
   { id: 'line_hound', label: 'One line: hound link' },
   { id: 'line_spoken', label: 'One line: the hound said it' },
+  { id: 'goals_card_seen', label: 'Goals card showing (days)' },
+  { id: 'goals_card', label: 'Goals card tapped' },
 ];
 
 export function TodayAdminCard({ onChanged }: { onChanged?: (d: TodayOverview) => void }) {

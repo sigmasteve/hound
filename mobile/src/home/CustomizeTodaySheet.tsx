@@ -4,7 +4,9 @@ import { Text } from '../components/Text';
 import { useTheme } from '../theme/ThemeContext';
 import { font, withAlpha, type Palette } from '../theme/tokens';
 import { SheetLink } from './TodayTiles';
+import { SegmentedControl } from '../components/SegmentedControl';
 import { TODAY_EXTRAS, setTodayExtra, useTodayExtras, type TodayExtra } from './todayExtras';
+import { setGoalsTileStyle, useGoalsTileStyle, type GoalsTileStyle } from './todayPrefs';
 
 // Customize Today (0278): the extras Today can show, each off until it's
 // turned on, saved for the account. The three parts of Your day follow
@@ -14,6 +16,7 @@ export function CustomizeTodaySheet({ onOpenUses }: { onOpenUses: () => void }) 
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const extras = useTodayExtras();
   const [saving, setSaving] = useState<TodayExtra | null>(null);
+  const tileStyle = useGoalsTileStyle();
 
   const flip = (id: TodayExtra, on: boolean) => {
     setSaving(id);
@@ -27,8 +30,8 @@ export function CustomizeTodaySheet({ onOpenUses }: { onOpenUses: () => void }) 
       <Text style={styles.lead}>Today shows the basics. Turn on any extras you’d like to see too.</Text>
       <View style={styles.card}>
         {TODAY_EXTRAS.map((x, i) => (
+          <React.Fragment key={x.id}>
           <Pressable
-            key={x.id}
             onPress={() => flip(x.id, !extras[x.id])}
             disabled={saving === x.id}
             style={[styles.row, i > 0 && styles.rowLine]}
@@ -47,6 +50,20 @@ export function CustomizeTodaySheet({ onOpenUses }: { onOpenUses: () => void }) 
               trackColor={{ true: colors.accent, false: withAlpha(colors.text, 0.15) }}
             />
           </Pressable>
+          {/* The Goals card's look (0287), once it's on. */}
+          {x.id === 'goals_card' && extras.goals_card && tileStyle && (
+            <View style={{ paddingBottom: 12, gap: 6 }}>
+              <SegmentedControl<GoalsTileStyle>
+                options={[
+                  { value: 'rings', label: 'Rings' },
+                  { value: 'trails', label: 'Hound trails' },
+                ]}
+                value={tileStyle}
+                onChange={setGoalsTileStyle}
+              />
+            </View>
+          )}
+          </React.Fragment>
         ))}
       </View>
       <Text style={styles.detail}>Fasting and Move show in Your day when you use them.</Text>
