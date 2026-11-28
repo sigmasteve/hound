@@ -39,7 +39,7 @@ export const GAME_INFO: Record<
   burn: {
     name: "Burn Zone",
     secs: "30 s",
-    how: "Tap to push the needle up; it drifts down, faster at times. Hold it in the zone for 30 s.",
+    how: "Hold anywhere to push the needle up; let go and it drifts down, faster at times. Keep it in the zone for 30 s.",
     teaser: "Hold the needle in the zone for 30 seconds.",
   },
   clarity: {
@@ -126,7 +126,9 @@ export function pourLines(seed: number): number[] {
 // ── Burn Zone ──
 
 export const BURN_SECS = 30;
-export const BURN_ZONE: [number, number] = [58, 74];
+// 0.18 s to answer, 36 a second up, 21 to 33 down: a quick thumb keeps it
+// in 90% of the time or more, a slower one about 60 to 80%.
+export const BURN_ZONE: [number, number] = [57, 75];
 
 // How hard the needle falls, second by second.
 export function burnDrag(seed: number): number[] {
