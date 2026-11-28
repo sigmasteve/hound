@@ -347,61 +347,83 @@ function SteadyPour({ seed, onFinish }: GameProps) {
 }
 
 // ── Burn Zone (Fat burning) ──
+//
+// Hold to burn (Steve, Nov 2026: tapping was too hard, and on a 120 Hz
+// iPhone each tap moved the needle half as far): hold anywhere and the
+// needle rises, let go and it drifts down, faster at times (the day's
+// seeded drag, the same for everyone). The motion runs on elapsed time,
+// not frames, so every phone plays the same; the screen redraws at most
+// 30 times a second so touches stay quick. Score: the share of the 30 s
+// in the zone.
+const BURN_RISE = 36; // a second, held
+const BURN_FALL = [14, 12]; // a second, let go: 14 + 12 × the moment's drag
+const BURN_EASE = 0.18; // seconds for the needle to answer your thumb
 
 function BurnZone({ seed, accent, onFinish }: GameProps) {
   const { colors, styles } = useStyles();
   const drag = useMemo(() => burnDrag(seed), [seed]);
   const [phase, setPhase] = useState<"ready" | "play">("ready");
-  const [view, setView] = useState({ v: 0, left: BURN_SECS, pct: 0 });
-  const s = useRef({ v: 20, vel: 0, inZ: 0, tot: 0, t0: 0, last: 0 });
+  const [view, setView] = useState({ v: 20, left: BURN_SECS, pct: 0 });
+  const [holding, setHolding] = useState(false);
+  const s = useRef({ v: 20, vel: 0, inZ: 0, tot: 0, t0: 0, last: 0, drawn: 0, held: false, done: false });
   const raf = useRef<number | null>(null);
 
   const frame = (t: number) => {
     const g = s.current;
+    if (g.done) return;
     const dt = Math.min(0.05, (t - g.last) / 1000);
     g.last = t;
     const el = (t - g.t0) / 1000;
     const d = drag[Math.min(drag.length - 1, Math.floor(el))];
-    g.vel -= d * 22 * dt;
-    g.v = Math.max(0, Math.min(100, g.v + g.vel * dt * 10));
-    g.vel *= 0.96;
+    const target = g.held ? BURN_RISE : -(BURN_FALL[0] + BURN_FALL[1] * d);
+    g.vel += (target - g.vel) * (1 - Math.exp(-dt / BURN_EASE));
+    g.v = Math.max(0, Math.min(100, g.v + g.vel * dt));
     if (g.v >= BURN_ZONE[0] && g.v <= BURN_ZONE[1]) g.inZ += dt;
     g.tot += dt;
     const pct = (g.inZ / Math.max(g.tot, 0.01)) * 100;
-    setView({ v: g.v, left: Math.max(0, BURN_SECS - el), pct });
     if (el >= BURN_SECS) {
+      g.done = true;
       const p = Math.round(pct * 10) / 10;
+      setView({ v: g.v, left: 0, pct });
       onFinish({ pct: p }, [
         [`${Math.round(p)}%`, "time in the zone"],
         [`${g.inZ.toFixed(1)} s`, "held"],
       ]);
       return;
     }
+    if (t - g.drawn >= 33) {
+      g.drawn = t;
+      setView({ v: g.v, left: Math.max(0, BURN_SECS - el), pct });
+    }
     raf.current = requestAnimationFrame(frame);
   };
   useEffect(
     () => () => {
+      s.current.done = true;
       if (raf.current) cancelAnimationFrame(raf.current);
     },
     [],
   );
-  const push = () => {
-    if (phase === "play") s.current.vel += 3.4;
+  const hold = (on: boolean) => {
+    s.current.held = on && phase === "play";
+    setHolding(on && phase === "play");
   };
   const inZone = view.v >= BURN_ZONE[0] && view.v <= BURN_ZONE[1];
   return (
-    <View style={styles.flex}>
+    <Pressable
+      style={styles.flex}
+      onPressIn={() => hold(true)}
+      onPressOut={() => hold(false)}
+      accessibilityRole="button"
+      accessibilityLabel="Hold to push the needle up, let go to let it drift down"
+    >
       <Hud
         items={[
           ["Time", view.left.toFixed(1)],
           ["In zone", `${Math.round(view.pct)}%`],
         ]}
       />
-      <Pressable
-        style={styles.arena}
-        onPressIn={push}
-        accessibilityLabel="Tap to push the needle up"
-      >
+      <View style={styles.arena}>
         <View style={styles.zread}>
           <Text style={[styles.zbig, inZone && { color: accent }]}>
             {Math.round(view.v)}
@@ -437,7 +459,16 @@ function BurnZone({ seed, accent, onFinish }: GameProps) {
             </Text>
           ))}
         </View>
-      </Pressable>
+        <Text style={[styles.small, { textAlign: "center", marginTop: 14 }]}>
+          {phase === "ready"
+            ? "Hold anywhere to push the needle up. Let go and it drifts down, faster at times. Keep it in the zone."
+            : inZone
+              ? "In the zone. Keep it there."
+              : view.v < BURN_ZONE[0]
+                ? "Hold to push it up"
+                : "Let go to bring it down"}
+        </Text>
+      </View>
       <View style={styles.controls}>
         {phase === "ready" ? (
           <Button
@@ -446,22 +477,21 @@ function BurnZone({ seed, accent, onFinish }: GameProps) {
             block
             onPress={() => {
               const now = performance.now();
-              s.current = { v: 20, vel: 0, inZ: 0, tot: 0, t0: now, last: now };
+              s.current = { v: 20, vel: 0, inZ: 0, tot: 0, t0: now, last: now, drawn: 0, held: false, done: false };
               setPhase("play");
               raf.current = requestAnimationFrame(frame);
             }}
           />
         ) : (
-          <Pressable
-            onPressIn={push}
-            style={[styles.holdBtn, { backgroundColor: colors.accent }]}
-            accessibilityRole="button"
+          <View
+            pointerEvents="none"
+            style={[styles.holdBtn, { backgroundColor: holding ? colors.accentActive : colors.accent }]}
           >
-            <Text style={styles.holdText}>Tap</Text>
-          </Pressable>
+            <Text style={styles.holdText}>{holding ? "Burning…" : "Hold anywhere"}</Text>
+          </View>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
