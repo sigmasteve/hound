@@ -334,7 +334,9 @@ you log or time in Hound: Move points). Everything else is an extra in
 Customize Today (`home/CustomizeTodaySheet.tsx`, also Settings → Today),
 off for everyone until they turn it on, saved per account (0278,
 `today_prefs`; `useTodayExtras` in `home/todayExtras.ts`): Week in
-review, Step rank, Journey, the Fasting card, holiday decorations, and
+review, Step rank, Journey, the Goals card (0287: the Goals tile from
+before Your day, rings or hound trails, `GoalsTile` in
+`home/TodayTiles.tsx`; Steve, Nov 2026: some users liked it), the Fasting card, holiday decorations, and
 your hound at the top (`hound_top`); the one line (`one_line`) is a
 switch there too, but on until turned off. A new extra joins `TODAY_EXTRAS`,
 `set_today_prefs`'s keys and `admin_today_overview` (Admin → Overview →
@@ -405,7 +407,9 @@ Inside the scroll, in order:
      opens Move) if you ticked Activities, Strength or Workouts, already
      have Move points today, or answered before those checkboxes existed.
      Its header is "N of M goals" and the streak; water is the row under
-     the rings. With the Fasting card extra on, once you've started a fast
+     the rings. With the Goals card extra on it swipes sideways to the
+     Goals card (0287), then to the Fasting card if that's on too. With the
+     Fasting card extra on, once you've started a fast
      it swipes sideways to the Fasting card
      (`src/home/TodayFastingCard.tsx`): the ring with the clock,
      the stage, what's left to your goal and the next stage (or the phase
